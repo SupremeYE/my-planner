@@ -74,3 +74,7 @@ Four design themes (A, B, C, D) defined in `src/styles/theme.css` as CSS custom 
 - 답변은 항상 한국어로
 - 컴포넌트 단위로 작업
 - 기존 컬러/디자인 시스템 유지
+
+## 단축 명령어
+- "깃허브 저장해줘" = 변경사항 `git add .` → `git commit` → `git push`
+- 커밋 메시지는 변경한 기능 내용으로 자동 작성
