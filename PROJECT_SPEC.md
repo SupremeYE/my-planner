@@ -1,6 +1,6 @@
 # PROJECT_SPEC.md — My Planner PWA 기능 명세서
 
-> 최종 업데이트: 2026-03-16
+> 최종 업데이트: 2026-03-21
 
 ---
 
@@ -49,7 +49,10 @@
 #### `/weekly` — 주간 뷰
 - 브레인덤프 아이템 목록
 - 요일 배정 팝오버 (아이디어 → 특정 날 할일 변환)
-- 일별 칼럼 (요일별 할일 + 완료율 표시)
+- 일별 칸반 칼럼 (요일별 할일 + 완료율 표시)
+- 할일 카드 드래그앤드롭으로 날짜 이동 (@dnd-kit)
+  - 드래그 중 카드 반투명 + 드롭 영역 강조 + "여기에 놓기" 표시
+  - 드롭 시 `updateTodo` → Supabase 즉시 저장
 - 주간 목표 CRUD
 
 #### `/monthly` — 월간 뷰
@@ -286,6 +289,7 @@ store.tsx (PlannerContext)
 - 미루기 (snoozed) 기능
 - 백로그 → 날짜 배정
 - 브레인덤프 → 할일/일정 변환
+- **주간 칸반 드래그앤드롭** — 할일 카드를 다른 날짜 컬럼으로 드래그해 날짜 이동, Supabase 즉시 저장 (@dnd-kit/core)
 - PWA 지원 (서비스워커, manifest)
 - 일일 긍정 메시지 (AffirmationCard)
 
@@ -297,8 +301,8 @@ store.tsx (PlannerContext)
 
 | 위치 | 문제 | 증상 |
 |------|------|------|
-| `DailyView.tsx` L838-843 | `timelineLogs` 로컬 state에 mock 데이터 하드코딩 | 전역 store와 무관하게 동작, 새로고침 시 목 데이터로 초기화 |
-| `DailyView.tsx` L936-942 | `addTimelineLog` / `deleteTimelineLog`가 로컬 state만 업데이트 | Supabase에 저장 안 됨 |
+| `DailyView.tsx` L856-861 | `timelineLogs` 로컬 state에 mock 데이터 하드코딩 | 전역 store와 무관하게 동작, 새로고침 시 목 데이터로 초기화 |
+| `DailyView.tsx` L952-958 | `addTimelineLog` / `deleteTimelineLog`가 로컬 state만 업데이트 | Supabase에 저장 안 됨 (store의 전역 함수 미사용) |
 
 ### ⚠️ 새로고침 시 데이터 소실 (Supabase 미연동)
 
@@ -323,7 +327,6 @@ store.tsx (PlannerContext)
 | 브레인덤프 Supabase 저장 | `brainstorm_items` 테이블 없음 |
 | 태그 Supabase 저장 | `tags` 테이블 없음 |
 | 자기관리 기록 수정(Update) | 삭제 후 재등록만 가능 |
-| 할일 날짜 이동 (드래그 등) | 미구현 |
 | 알림/알람 | `alarm_time` 컬럼 존재하나 알림 발송 없음 |
 | 습관 반복 설정 기반 자동 표시 | `repeat_days` 저장되나 필터링 로직 미구현 |
 | PWA 오프라인 모드 | 서비스워커 등록됐으나 캐싱 전략 없음 |
@@ -380,7 +383,9 @@ App.tsx
 ├── WeeklyView
 │   ├── BrainDumpItem (브레인덤프 카드)
 │   ├── AssignDayPopover (요일 배정)
-│   └── DayColumn (요일별 할일 칼럼)
+│   ├── DayColumn (요일별 할일 칼럼 — useDroppable)
+│   ├── DraggableTodoCard (드래그 가능한 할일 카드 — useDraggable)
+│   └── OverlayCard (드래그 중 표시되는 고스트 카드 — DragOverlay)
 │
 ├── MonthlyView
 │   ├── MonthlyGoalCard
@@ -439,3 +444,4 @@ App.tsx
 | DB/백엔드 | Supabase (PostgreSQL) |
 | 배포 | Vercel (PWA) |
 | 날짜 처리 | date-fns |
+| 드래그앤드롭 | @dnd-kit/core + @dnd-kit/utilities |
