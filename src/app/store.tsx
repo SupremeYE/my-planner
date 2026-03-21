@@ -324,7 +324,7 @@ export function PlannerProvider({ children }: { children: React.ReactNode }) {
   const [reviewRecords, setReviewRecords] = useState<ReviewRecord[]>([]);
   const [timelineLogs, setTimelineLogs] = useState<TimelineLog[]>([]);
 
-  // ── in-memory 상태 (비연동) ──
+  // ── Supabase 연동 상태 (추가분) ──
   const [events, setEvents] = useState<Event[]>([]);
   const [weeklyGoals, setWeeklyGoals] = useState<WeeklyGoal[]>([]);
   const [monthlyGoals, setMonthlyGoals] = useState<MonthlyGoal[]>([]);
@@ -344,6 +344,9 @@ export function PlannerProvider({ children }: { children: React.ReactNode }) {
       const [
         todosData, habitsData, projectsData, milestonesData,
         selfCareData, reviewData, timelineData, settingsData,
+        eventsData, weeklyGoalsData, monthlyGoalsData, brainstormItemsData,
+        brainstormMemosData, tagsData, routinesData, weeklyReviewsData,
+        monthlyReviewsData, dailyAffirmationsData,
       ] = await Promise.all([
         db.todos.fetchAll(),
         db.habits.fetchAll(),
@@ -353,6 +356,16 @@ export function PlannerProvider({ children }: { children: React.ReactNode }) {
         db.reviewRecords.fetchAll(),
         db.timelineLogs.fetchAll(),
         db.settings.fetch(),
+        db.events.fetchAll(),
+        db.weeklyGoals.fetchAll(),
+        db.monthlyGoals.fetchAll(),
+        db.brainstormItems.fetchAll(),
+        db.brainstormMemos.fetchAll(),
+        db.tags.fetchAll(),
+        db.routines.fetchAll(),
+        db.weeklyReviews.fetchAll(),
+        db.monthlyReviews.fetchAll(),
+        db.dailyAffirmations.fetchAll(),
       ]);
       setTodos(todosData);
       setHabits(habitsData);
@@ -363,6 +376,21 @@ export function PlannerProvider({ children }: { children: React.ReactNode }) {
       setTimelineLogs(timelineData);
       setDayStartHour(settingsData.dayStartHour);
       setDayEndHour(settingsData.dayEndHour);
+      setEvents(eventsData);
+      setWeeklyGoals(weeklyGoalsData);
+      setMonthlyGoals(monthlyGoalsData);
+      setBrainstormItems(brainstormItemsData);
+      setBrainstormMemos(brainstormMemosData);
+      if (tagsData.length === 0) {
+        await db.tags.seed(initialTags);
+        setTags(initialTags);
+      } else {
+        setTags(tagsData);
+      }
+      setRoutines(routinesData);
+      setWeeklyReviews(weeklyReviewsData);
+      setMonthlyReviews(monthlyReviewsData);
+      setDailyAffirmations(dailyAffirmationsData);
       setIsLoading(false);
     };
     load();
@@ -404,17 +432,25 @@ export function PlannerProvider({ children }: { children: React.ReactNode }) {
     });
   }, []);
 
-  // ── Event actions (in-memory) ──
+  // ── Event actions ──
   const addEvent = useCallback((event: Omit<Event, 'id'>) => {
-    setEvents(prev => [...prev, { ...event, id: newId(), tags: event.tags ?? [] }]);
+    const newEvent: Event = { ...event, id: newId(), tags: event.tags ?? [] };
+    setEvents(prev => [...prev, newEvent]);
+    db.events.upsert(newEvent);
   }, []);
 
   const updateEvent = useCallback((id: string, changes: Partial<Event>) => {
-    setEvents(prev => prev.map(e => e.id === id ? { ...e, ...changes } : e));
+    setEvents(prev => {
+      const updated = prev.map(e => e.id === id ? { ...e, ...changes } : e);
+      const event = updated.find(e => e.id === id);
+      if (event) db.events.upsert(event);
+      return updated;
+    });
   }, []);
 
   const deleteEvent = useCallback((id: string) => {
     setEvents(prev => prev.filter(e => e.id !== id));
+    db.events.delete(id);
   }, []);
 
   // ── Habit actions ──
@@ -457,17 +493,25 @@ export function PlannerProvider({ children }: { children: React.ReactNode }) {
     });
   }, []);
 
-  // ── Routine actions (in-memory) ──
+  // ── Routine actions ──
   const addRoutine = useCallback((routine: Omit<Routine, 'id'>) => {
-    setRoutines(prev => [...prev, { ...routine, id: newId() }]);
+    const newRoutine: Routine = { ...routine, id: newId() };
+    setRoutines(prev => [...prev, newRoutine]);
+    db.routines.upsert(newRoutine);
   }, []);
 
   const updateRoutine = useCallback((id: string, changes: Partial<Routine>) => {
-    setRoutines(prev => prev.map(r => r.id === id ? { ...r, ...changes } : r));
+    setRoutines(prev => {
+      const updated = prev.map(r => r.id === id ? { ...r, ...changes } : r);
+      const routine = updated.find(r => r.id === id);
+      if (routine) db.routines.upsert(routine);
+      return updated;
+    });
   }, []);
 
   const deleteRoutine = useCallback((id: string) => {
     setRoutines(prev => prev.filter(r => r.id !== id));
+    db.routines.delete(id);
   }, []);
 
   // ── Self-care actions ──
@@ -504,50 +548,78 @@ export function PlannerProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const addWeeklyReview = useCallback((review: Omit<WeeklyReview, 'id'>) => {
-    setWeeklyReviews(prev => [...prev, { ...review, id: newId() }]);
+    const newReview: WeeklyReview = { ...review, id: newId() };
+    setWeeklyReviews(prev => [...prev, newReview]);
+    db.weeklyReviews.upsert(newReview);
   }, []);
 
   const updateWeeklyReview = useCallback((id: string, changes: Partial<WeeklyReview>) => {
-    setWeeklyReviews(prev => prev.map(r => r.id === id ? { ...r, ...changes } : r));
+    setWeeklyReviews(prev => {
+      const updated = prev.map(r => r.id === id ? { ...r, ...changes } : r);
+      const review = updated.find(r => r.id === id);
+      if (review) db.weeklyReviews.upsert(review);
+      return updated;
+    });
   }, []);
 
   const addMonthlyReview = useCallback((review: Omit<MonthlyReview, 'id'>) => {
-    setMonthlyReviews(prev => [...prev, { ...review, id: newId() }]);
+    const newReview: MonthlyReview = { ...review, id: newId() };
+    setMonthlyReviews(prev => [...prev, newReview]);
+    db.monthlyReviews.upsert(newReview);
   }, []);
 
   const updateMonthlyReview = useCallback((id: string, changes: Partial<MonthlyReview>) => {
-    setMonthlyReviews(prev => prev.map(r => r.id === id ? { ...r, ...changes } : r));
+    setMonthlyReviews(prev => {
+      const updated = prev.map(r => r.id === id ? { ...r, ...changes } : r);
+      const review = updated.find(r => r.id === id);
+      if (review) db.monthlyReviews.upsert(review);
+      return updated;
+    });
   }, []);
 
-  // ── Weekly goal actions (in-memory) ──
+  // ── Weekly goal actions ──
   const addWeeklyGoal = useCallback((text: string, monthlyGoalId: string | undefined, weekKey: string) => {
-    setWeeklyGoals(prev => [...prev, { id: newId(), text, done: false, monthlyGoalId, weekKey }]);
+    const newGoal: WeeklyGoal = { id: newId(), text, done: false, monthlyGoalId, weekKey };
+    setWeeklyGoals(prev => [...prev, newGoal]);
+    db.weeklyGoals.upsert(newGoal);
   }, []);
 
   const toggleWeeklyGoal = useCallback((id: string) => {
-    setWeeklyGoals(prev => prev.map(g => g.id === id ? { ...g, done: !g.done } : g));
+    setWeeklyGoals(prev => {
+      const updated = prev.map(g => g.id === id ? { ...g, done: !g.done } : g);
+      const goal = updated.find(g => g.id === id);
+      if (goal) db.weeklyGoals.upsert(goal);
+      return updated;
+    });
   }, []);
 
   const deleteWeeklyGoal = useCallback((id: string) => {
     setWeeklyGoals(prev => prev.filter(g => g.id !== id));
+    db.weeklyGoals.delete(id);
   }, []);
 
-  // ── Monthly goal actions (in-memory) ──
+  // ── Monthly goal actions ──
   const addMonthlyGoal = useCallback((text: string, projectId?: string) => {
-    setMonthlyGoals(prev => [...prev, { id: newId(), text, month: currentMonth, projectId }]);
+    const newGoal: MonthlyGoal = { id: newId(), text, month: currentMonth, projectId };
+    setMonthlyGoals(prev => [...prev, newGoal]);
+    db.monthlyGoals.upsert(newGoal);
   }, []);
 
   const deleteMonthlyGoal = useCallback((id: string) => {
     setMonthlyGoals(prev => prev.filter(g => g.id !== id));
+    db.monthlyGoals.delete(id);
   }, []);
 
-  // ── Brainstorm actions (in-memory) ──
+  // ── Brainstorm actions ──
   const addBrainstormItem = useCallback((text: string, date: string) => {
-    setBrainstormItems(prev => [...prev, { id: newId(), text, date }]);
+    const newItem: BrainstormItem = { id: newId(), text, date };
+    setBrainstormItems(prev => [...prev, newItem]);
+    db.brainstormItems.upsert(newItem);
   }, []);
 
   const deleteBrainstormItem = useCallback((id: string) => {
     setBrainstormItems(prev => prev.filter(b => b.id !== id));
+    db.brainstormItems.delete(id);
   }, []);
 
   const brainstormToTodo = useCallback((id: string, date?: string) => {
@@ -559,6 +631,7 @@ export function PlannerProvider({ children }: { children: React.ReactNode }) {
         db.todos.upsert(newTodo);
         return [...t, newTodo];
       });
+      db.brainstormItems.delete(id);
       return prev.filter(b => b.id !== id);
     });
   }, []);
@@ -567,17 +640,25 @@ export function PlannerProvider({ children }: { children: React.ReactNode }) {
     setBrainstormItems(prev => {
       const item = prev.find(b => b.id === id);
       if (!item) return prev;
-      setEvents(e => [...e, { id: newId(), title: item.text, ...eventData }]);
+      const newEvent: Event = { id: newId(), title: item.text, ...eventData };
+      setEvents(e => {
+        db.events.upsert(newEvent);
+        return [...e, newEvent];
+      });
+      db.brainstormItems.delete(id);
       return prev.filter(b => b.id !== id);
     });
   }, []);
 
   const setBrainstormMemo = useCallback((date: string, text: string) => {
     setBrainstormMemos(prev => ({ ...prev, [date]: text }));
+    db.brainstormMemos.upsert(date, text);
   }, []);
 
   const addWeeklyBrainstorm = useCallback((text: string, weekKey: string) => {
-    setBrainstormItems(prev => [...prev, { id: newId(), text, date: today, weekKey }]);
+    const newItem: BrainstormItem = { id: newId(), text, date: today, weekKey };
+    setBrainstormItems(prev => [...prev, newItem]);
+    db.brainstormItems.upsert(newItem);
   }, []);
 
   const weeklyBrainstormAssign = useCallback((id: string, date: string) => {
@@ -589,6 +670,7 @@ export function PlannerProvider({ children }: { children: React.ReactNode }) {
         db.todos.upsert(newTodo);
         return [...t, newTodo];
       });
+      db.brainstormItems.delete(id);
       return prev.filter(b => b.id !== id);
     });
   }, []);
@@ -657,18 +739,26 @@ export function PlannerProvider({ children }: { children: React.ReactNode }) {
     db.milestones.delete(id);
   }, []);
 
-  // ── Tag actions (in-memory) ──
+  // ── Tag actions ──
   const addTag = useCallback((name: string, color: string) => {
-    setTags(prev => [...prev, { id: newId(), name, color }]);
+    const newTag: Tag = { id: newId(), name, color };
+    setTags(prev => [...prev, newTag]);
+    db.tags.upsert(newTag);
   }, []);
 
   const updateTag = useCallback((id: string, changes: Partial<Tag>) => {
-    setTags(prev => prev.map(tg => tg.id === id ? { ...tg, ...changes } : tg));
+    setTags(prev => {
+      const updated = prev.map(tg => tg.id === id ? { ...tg, ...changes } : tg);
+      const tag = updated.find(tg => tg.id === id);
+      if (tag) db.tags.upsert(tag);
+      return updated;
+    });
   }, []);
 
   const deleteTag = useCallback((id: string) => {
     setTags(prev => prev.filter(tg => tg.id !== id));
     setTodos(prev => prev.map(t => ({ ...t, tags: (t.tags || []).filter(tid => tid !== id) })));
+    db.tags.delete(id);
   }, []);
 
   // ── Settings actions ──
@@ -692,6 +782,7 @@ export function PlannerProvider({ children }: { children: React.ReactNode }) {
 
   const setDailyAffirmation = useCallback((date: string, text: string) => {
     setDailyAffirmations(prev => ({ ...prev, [date]: text }));
+    db.dailyAffirmations.upsert(date, text);
   }, []);
 
   return (
