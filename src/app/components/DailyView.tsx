@@ -577,7 +577,7 @@ function TodoModal({ date, todo, onClose }: { date: string; todo?: Todo; onClose
 
 // ─── Timeline Log Modal (생각/감정 로그) ───
 function TimelineLogModal({ date, logs, onAdd, onDelete, onClose }: {
-  date: string; logs: TimelineLog[]; onAdd: (log: TimelineLog) => void; onDelete: (id: string) => void; onClose: () => void;
+  date: string; logs: TimelineLog[]; onAdd: (log: Omit<TimelineLog, 'id'>) => void; onDelete: (id: string) => void; onClose: () => void;
 }) {
   const { t } = useTheme();
   const [mode, setMode] = useState<'list' | 'add'>('list');
@@ -589,7 +589,6 @@ function TimelineLogModal({ date, logs, onAdd, onDelete, onClose }: {
   const handleSave = () => {
     if (!text.trim()) return;
     onAdd({
-      id: Math.random().toString(36).slice(2, 9),
       date, time,
       text: text.trim(),
       color: selectedColor,
@@ -846,6 +845,7 @@ export function DailyView() {
     selectedDate, setSelectedDate, todos, events, updateTodo, habits, toggleHabit,
     activeTimer, startTimer, stopTimer, tags, projects,
     dayStartHour: tlStartHour, dayEndHour: tlEndHour, setDayHours,
+    timelineLogs: allTimelineLogs, addTimelineLog: storeAddTimelineLog, deleteTimelineLog: storeDeleteTimelineLog,
   } = usePlanner();
   const { t } = useTheme();
   const [showAddModal, setShowAddModal] = useState(false);
@@ -853,12 +853,7 @@ export function DailyView() {
   const [snoozingTodo, setSnoozingTodo] = useState<Todo | null>(null);
   const [contextMenu, setContextMenu] = useState<{ todo: Todo; pos: { x: number; y: number } } | null>(null);
   const [dailyMemo, setDailyMemo] = useState<Record<string, string>>({});
-  const [timelineLogs, setTimelineLogs] = useState<TimelineLog[]>([
-    { id: 'log1', date: selectedDate, time: '09:00', text: '하루 시작!', color: '#6BAA7A', icon: '🌅' },
-    { id: 'log2', date: selectedDate, time: '12:30', text: '점심 식사', color: '#F4A261', icon: '🍽️' },
-    { id: 'log3', date: selectedDate, time: '15:00', text: '집중 모드 ON', color: '#7B9ED9', icon: '🎯' },
-    { id: 'log4', date: selectedDate, time: '19:00', text: '저녁 산책', color: '#A07BE0', icon: '🚶' },
-  ]);
+  const timelineLogs = allTimelineLogs.filter(l => l.date === selectedDate);
   const [showLogModal, setShowLogModal] = useState(false);
   const [showTimelineSettings, setShowTimelineSettings] = useState(false);
 
@@ -949,13 +944,13 @@ export function DailyView() {
     return `D+${Math.abs(diff)}`;
   };
 
-  const addTimelineLog = useCallback((log: TimelineLog) => {
-    setTimelineLogs(prev => [...prev, log]);
-  }, []);
+  const addTimelineLog = useCallback((log: Omit<TimelineLog, 'id'>) => {
+    storeAddTimelineLog(log);
+  }, [storeAddTimelineLog]);
 
   const deleteTimelineLog = useCallback((id: string) => {
-    setTimelineLogs(prev => prev.filter(l => l.id !== id));
-  }, []);
+    storeDeleteTimelineLog(id);
+  }, [storeDeleteTimelineLog]);
 
   // Status cycle on click
   const cycleStatus = (todo: Todo) => {
