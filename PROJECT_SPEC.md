@@ -1,6 +1,6 @@
 # PROJECT_SPEC.md — My Planner PWA 기능 명세서
 
-> 최종 업데이트: 2026-03-21
+> 최종 업데이트: 2026-03-21 (이번 세션 반영)
 
 ---
 
@@ -94,16 +94,28 @@
 
 ### 2-1. 연동된 테이블 목록
 
-| 테이블명 | 설명 | 정렬 기준 |
-|---------|------|---------|
-| `todos` | 할일 | `created_at` ASC |
-| `habits` | 습관 | `created_at` ASC |
-| `projects` | 프로젝트 | `created_at` ASC |
-| `milestones` | 프로젝트 마일스톤 | `date` ASC |
-| `self_care_records` | 자기관리 기록 | `date` DESC |
-| `review_records` | 리뷰 기록 | `date` DESC |
-| `timeline_logs` | 타임라인 로그 | `date` ASC, `time` ASC |
-| `user_settings` | 앱 설정 (타임라인 시간대) | — (싱글톤) |
+> ⚠️ `*` 표시 테이블은 코드 연동 완료, **Supabase SQL 미실행 상태** — 실행 전까지 동작 안 함
+
+| 테이블명 | 설명 | 정렬 기준 | 상태 |
+|---------|------|---------|------|
+| `todos` | 할일 | `created_at` ASC | ✅ 운영중 |
+| `habits` | 습관 | `created_at` ASC | ✅ 운영중 |
+| `projects` | 프로젝트 | `created_at` ASC | ✅ 운영중 |
+| `milestones` | 프로젝트 마일스톤 | `date` ASC | ✅ 운영중 |
+| `self_care_records` | 자기관리 기록 | `date` DESC | ✅ 운영중 |
+| `review_records` | 리뷰 기록 | `date` DESC | ✅ 운영중 |
+| `timeline_logs` | 타임라인 로그 | `date` ASC, `time` ASC | ✅ 운영중 |
+| `user_settings` | 앱 설정 (타임라인 시간대) | — (싱글톤) | ✅ 운영중 |
+| `events` * | 일정 | `date` ASC | ⚠️ SQL 미실행 |
+| `weekly_goals` * | 주간 목표 | — | ⚠️ SQL 미실행 |
+| `monthly_goals` * | 월간 목표 | `month` ASC | ⚠️ SQL 미실행 |
+| `brainstorm_items` * | 브레인스토밍 항목 | `date` ASC | ⚠️ SQL 미실행 |
+| `brainstorm_memos` * | 브레인스토밍 메모 (date PK) | — | ⚠️ SQL 미실행 |
+| `tags` * | 태그 | `created_at` ASC | ⚠️ SQL 미실행 |
+| `routines` * | 루틴 | `created_at` ASC | ⚠️ SQL 미실행 |
+| `weekly_reviews` * | 주간 리뷰 | — | ⚠️ SQL 미실행 |
+| `monthly_reviews` * | 월간 리뷰 | — | ⚠️ SQL 미실행 |
+| `daily_affirmations` * | 일일 확언 (date PK) | — | ⚠️ SQL 미실행 |
 
 ### 2-2. 테이블별 컬럼 상세
 
@@ -201,6 +213,98 @@ day_start_hour  int         타임라인 시작 시간 (기본값: 4)
 day_end_hour    int         타임라인 종료 시간 (기본값: 26 = 다음날 2시)
 ```
 
+#### `events` ⚠️ SQL 미실행
+```
+id              text        PK
+title           text        일정 제목
+date            text        날짜 (yyyy-MM-dd)
+start_time      text|null   시작 시간 (HH:mm)
+end_time        text|null   종료 시간 (HH:mm)
+location        text|null   장소
+memo            text|null   메모
+tags            text[]      태그 ID 배열
+created_at      timestamptz
+```
+
+#### `weekly_goals` ⚠️ SQL 미실행
+```
+id              text        PK
+text            text        목표 내용
+done            boolean     완료 여부
+monthly_goal_id text|null   연결된 월간 목표 ID
+week_key        text        주 키 (예: 2026-W12)
+created_at      timestamptz
+```
+
+#### `monthly_goals` ⚠️ SQL 미실행
+```
+id              text        PK
+text            text        목표 내용
+month           text        월 (yyyy-MM)
+project_id      text|null   연결된 프로젝트 ID
+created_at      timestamptz
+```
+
+#### `brainstorm_items` ⚠️ SQL 미실행
+```
+id              text        PK
+text            text        아이디어 내용
+date            text        날짜 (yyyy-MM-dd)
+week_key        text|null   주간 브레인스토밍용 주 키
+created_at      timestamptz
+```
+
+#### `brainstorm_memos` ⚠️ SQL 미실행
+```
+date            text        PK (yyyy-MM-dd 또는 주 키)
+text            text        메모 내용
+```
+
+#### `tags` ⚠️ SQL 미실행
+```
+id              text        PK
+name            text        태그 이름
+color           text        색상 hex
+created_at      timestamptz
+```
+> 최초 앱 실행 시 기본 태그 5개 자동 seed: 일(#E0795B), 자기계발(#5B8FE0), 자기관리(#5BC8AF), 일상(#A07BE0), 건강(#5BC86E)
+
+#### `routines` ⚠️ SQL 미실행
+```
+id              text        PK
+name            text        루틴 이름
+icon            text        이모지 아이콘
+start_time      text        시작 시간 (HH:mm)
+duration        int         소요 시간 (분)
+steps           text[]      단계 목록
+created_at      timestamptz
+```
+
+#### `weekly_reviews` ⚠️ SQL 미실행
+```
+id              text        PK
+week_key        text        주 키 (예: 2026-W12)
+good            text        좋았던 점
+hard            text        힘들었던 점
+next_week       text        다음 주 다짐
+created_at      timestamptz
+```
+
+#### `monthly_reviews` ⚠️ SQL 미실행
+```
+id              text        PK
+month           text        월 (yyyy-MM)
+achievement     text        이달 성취
+next_focus      text        다음 달 집중
+created_at      timestamptz
+```
+
+#### `daily_affirmations` ⚠️ SQL 미실행
+```
+date            text        PK (yyyy-MM-dd)
+text            text        오늘의 확언 내용
+```
+
 ---
 
 ## 3. 페이지간 데이터 연동 관계
@@ -228,25 +332,44 @@ store.tsx (PlannerContext)
 │
 ├── reviewRecords ──────────── ReviewsView (CRUD)
 │
-├── timelineLogs (전역) ────── DailyView ← 🔴 로컬 state 사용 중 (버그)
+├── timelineLogs ───────────── DailyView (CRUD) ✅ 전역 store 연동 완료
 │
 ├── dayStartHour/dayEndHour ── DailyView (타임라인 범위)
 │                              CalendarView (주별/일별 뷰 범위)
 │
-├── events (메모리) ─────────── DailyView (조회), CalendarView (조회)
-│                              BrainstormView (변환 시 생성)
+├── events ⚠️ ───────────────── DailyView (조회), CalendarView (조회)
+│   (코드 연동 완료,           BrainstormView (변환 시 생성)
+│    SQL 미실행)
 │
-├── weeklyGoals (메모리) ────── WeeklyView (CRUD)
-│                              MonthlyView (조회)
-│                              DashboardView (조회)
+├── weeklyGoals ⚠️ ──────────── WeeklyView (CRUD)
+│   (코드 연동 완료,           MonthlyView (조회)
+│    SQL 미실행)               DashboardView (조회)
 │
-├── monthlyGoals (메모리) ───── MonthlyView (CRUD)
-│                              DashboardView (조회)
+├── monthlyGoals ⚠️ ─────────── MonthlyView (CRUD)
+│   (코드 연동 완료,           DashboardView (조회)
+│    SQL 미실행)
 │
-├── brainstormItems (메모리) ── BrainstormView (CRUD)
-│                              WeeklyView (CRUD + 변환)
+├── brainstormItems ⚠️ ──────── BrainstormView (CRUD)
+│   (코드 연동 완료,           WeeklyView (CRUD + 변환)
+│    SQL 미실행)
 │
-├── tags (메모리, 초기값) ────── TodoModal (태그 선택)
+├── tags ⚠️ ─────────────────── TodoModal (태그 선택)
+│   (코드 연동 완료,           빈 경우 initialTags 5개 자동 seed
+│    SQL 미실행)
+│
+├── routines ⚠️ ─────────────── (UI 미구현, 코드 연동만 완료)
+│
+├── weeklyReviews ⚠️ ────────── ReviewsView (CRUD)
+│   (코드 연동 완료, SQL 미실행)
+│
+├── monthlyReviews ⚠️ ───────── ReviewsView (CRUD)
+│   (코드 연동 완료, SQL 미실행)
+│
+├── brainstormMemos ⚠️ ──────── BrainstormView (date별 메모)
+│   (코드 연동 완료, SQL 미실행)
+│
+├── dailyAffirmations ⚠️ ────── DashboardView (AffirmationCard)
+│   (코드 연동 완료, SQL 미실행)
 │
 └── selectedDate ────────────── 모든 날짜 의존 컴포넌트
 ```
@@ -265,14 +388,17 @@ store.tsx (PlannerContext)
 | 마일스톤 | ✅ | ✅ | ✅ | ✅ | ✅ |
 | 자기관리 기록 | ✅ | ✅ | — | ✅ | ✅ |
 | 리뷰 기록 | ✅ | ✅ | ✅ | ✅ | ✅ |
+| 타임라인 로그 | ✅ | ✅ | — | ✅ | ✅ |
 | 타임라인 설정 | ✅ | ✅ | ✅ | — | ✅ |
-| 일정 (Event) | ✅ | ✅ | ✅ | ✅ | ❌ 메모리 |
-| 주간 목표 | ✅ | ✅ | ✅ | ✅ | ❌ 메모리 |
-| 월간 목표 | ✅ | ✅ | — | ✅ | ❌ 메모리 |
-| 주간 리뷰 | ✅ | ✅ | ✅ | — | ❌ 메모리 |
-| 월간 리뷰 | ✅ | ✅ | ✅ | — | ❌ 메모리 |
-| 브레인덤프 | ✅ | ✅ | — | ✅ | ❌ 메모리 |
-| 태그 | ✅ | ✅ | ✅ | ✅ | ❌ 메모리 |
+| 일정 (Event) | ✅ | ✅ | ✅ | ✅ | ⚠️ SQL 미실행 |
+| 주간 목표 | ✅ | ✅ | ✅ | ✅ | ⚠️ SQL 미실행 |
+| 월간 목표 | ✅ | ✅ | — | ✅ | ⚠️ SQL 미실행 |
+| 주간 리뷰 | ✅ | ✅ | ✅ | — | ⚠️ SQL 미실행 |
+| 월간 리뷰 | ✅ | ✅ | ✅ | — | ⚠️ SQL 미실행 |
+| 브레인덤프 | ✅ | ✅ | — | ✅ | ⚠️ SQL 미실행 |
+| 태그 | ✅ | ✅ | ✅ | ✅ | ⚠️ SQL 미실행 |
+| 일일 확언 | ✅ | ✅ | ✅ | — | ⚠️ SQL 미실행 |
+| 루틴 | ✅ | ✅ | ✅ | ✅ | ⚠️ SQL 미실행 |
 
 ### ✅ UI/UX 기능
 
@@ -299,39 +425,29 @@ store.tsx (PlannerContext)
 
 ### 🔴 버그 (즉시 수정 권장)
 
-| 위치 | 문제 | 증상 |
-|------|------|------|
-| `DailyView.tsx` L856-861 | `timelineLogs` 로컬 state에 mock 데이터 하드코딩 | 전역 store와 무관하게 동작, 새로고침 시 목 데이터로 초기화 |
-| `DailyView.tsx` L952-958 | `addTimelineLog` / `deleteTimelineLog`가 로컬 state만 업데이트 | Supabase에 저장 안 됨 (store의 전역 함수 미사용) |
+현재 알려진 즉시 수정 필요 버그 없음 ✅
 
-### ⚠️ 새로고침 시 데이터 소실 (Supabase 미연동)
+> ~~`DailyView.tsx` — `timelineLogs` 로컬 state 하드코딩 버그~~ → **2026-03-21 수정 완료**
 
-| 데이터 | 영향 페이지 |
-|--------|-----------|
-| 일정 (Event) | 일간, 캘린더, 브레인스토밍 |
-| 주간 목표 | 주간, 월간, 대시보드 |
-| 월간 목표 | 월간, 대시보드 |
-| 주간 리뷰 | 리뷰 |
-| 월간 리뷰 | 리뷰 |
-| 브레인덤프 아이템 | 브레인스토밍, 주간 |
-| 태그 | 할일 모달 (매번 기본값 5개로 초기화) |
-| 루틴 | 미사용 (UI 없음) |
+### ⚠️ 코드 완료, 외부 작업 대기
+
+| 항목 | 상태 | 필요 작업 |
+|------|------|---------|
+| 10개 Supabase 테이블 | 코드 연동 완료 | Supabase SQL Editor에서 SQL 실행 필요 |
+
+SQL은 PROGRESS_LOG.md `⚠️ 다음 세션 전 필수 작업` 섹션 참고
 
 ### ❌ 미구현 기능
 
 | 기능 | 설명 |
 |------|------|
-| 일정(Event) Supabase 저장 | `events` 테이블 없음 |
-| 목표(Goals) Supabase 저장 | `weekly_goals`, `monthly_goals` 테이블 없음 |
-| 리뷰(Weekly/Monthly Review) Supabase 저장 | 별도 저장 없음 |
-| 브레인덤프 Supabase 저장 | `brainstorm_items` 테이블 없음 |
-| 태그 Supabase 저장 | `tags` 테이블 없음 |
 | 자기관리 기록 수정(Update) | 삭제 후 재등록만 가능 |
 | 알림/알람 | `alarm_time` 컬럼 존재하나 알림 발송 없음 |
 | 습관 반복 설정 기반 자동 표시 | `repeat_days` 저장되나 필터링 로직 미구현 |
 | PWA 오프라인 모드 | 서비스워커 등록됐으나 캐싱 전략 없음 |
 | 데이터 내보내기/가져오기 | 미구현 |
 | 사용자 인증 (멀티유저) | 현재 단일 사용자 구조 |
+| 루틴(Routine) UI | Supabase 연동 코드는 완성, 화면 UI 없음 |
 
 ---
 

@@ -10,7 +10,7 @@
 
 ### 📋 TODO
 - [ ] 스마트 알림 시스템 구현 (습관 알림 + 할일 사전 알림)
-- [ ] Supabase에 아래 10개 테이블 SQL 직접 실행 필요 (아래 섹션 참고)
+- [ ] **[수동 작업 필요]** Supabase SQL Editor에서 10개 테이블 생성 SQL 실행 (아래 `⚠️ 다음 세션 전 필수 작업` 섹션 참고) — 실행 전까지 events/goals/brainstorm 등 저장 안 됨
 
 ### ✅ 완료
 - [x] 주간 칸반 보드 드래그앤드롭 구현 (@dnd-kit/core)
@@ -184,6 +184,30 @@ CREATE TABLE daily_affirmations (
 ```
 
 > 테이블 생성 후 앱을 처음 열면 tags 테이블에 기본 태그(일, 자기계발, 자기관리, 일상, 건강)가 자동 seed됩니다.
+
+---
+
+### 🔜 다음 세션 인수인계
+
+#### 1순위 — 수동 작업 (코드 없이 Supabase 콘솔에서)
+- [ ] Supabase 대시보드 → SQL Editor → 아래 섹션의 SQL 10개 테이블 생성 실행
+  - 실행 후 앱을 열면 tags 기본 5개 자동 seed됨
+  - 완료 후 PROGRESS_LOG.md TODO에서 체크 처리
+
+#### 2순위 — 다음 개발 작업 후보
+| 우선순위 | 기능 | 비고 |
+|---------|------|------|
+| 높음 | SQL 실행 후 전체 페이지 동작 확인 | events, goals, brainstorm, tags, reviews, affirmations |
+| 중간 | 자기관리 기록 수정(Update) 기능 | 현재 삭제 후 재등록만 가능 |
+| 중간 | 스마트 알림 시스템 | 습관 알림 + 할일 사전 알림 (alarm_time 컬럼 이미 존재) |
+| 낮음 | 루틴(Routine) UI 구현 | Supabase 연동 코드는 완성, UI만 없음 |
+| 낮음 | 습관 반복 설정 필터링 로직 | repeat_days 저장되나 표시 필터링 미구현 |
+
+#### 현재 코드 상태 요약
+- `src/lib/db.ts`: 총 18개 테이블 CRUD 함수 구현 완료
+- `src/app/store.tsx`: 전체 18개 항목 Supabase 연동 완료 (초기화 load + 액션 함수)
+- `src/app/components/DailyView.tsx`: 타임라인 로그 전역 store 연동 완료
+- **빌드 상태**: ✅ 정상 (vite build 성공 확인)
 
 ---
 
