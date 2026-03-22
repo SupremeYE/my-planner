@@ -1,6 +1,6 @@
 # PROJECT_SPEC.md — My Planner PWA 기능 명세서
 
-> 최종 업데이트: 2026-03-21
+> 최종 업데이트: 2026-03-22
 
 ---
 
@@ -94,16 +94,23 @@
 
 ### 2-1. 연동된 테이블 목록
 
-| 테이블명 | 설명 | 정렬 기준 |
-|---------|------|---------|
-| `todos` | 할일 | `created_at` ASC |
-| `habits` | 습관 | `created_at` ASC |
-| `projects` | 프로젝트 | `created_at` ASC |
-| `milestones` | 프로젝트 마일스톤 | `date` ASC |
-| `self_care_records` | 자기관리 기록 | `date` DESC |
-| `review_records` | 리뷰 기록 | `date` DESC |
-| `timeline_logs` | 타임라인 로그 | `date` ASC, `time` ASC |
-| `user_settings` | 앱 설정 (타임라인 시간대) | — (싱글톤) |
+| 테이블명 | 설명 | 정렬 기준 | 코드 연동 |
+|---------|------|---------|:--------:|
+| `todos` | 할일 | `created_at` ASC | ✅ |
+| `habits` | 습관 | `created_at` ASC | ✅ |
+| `projects` | 프로젝트 | `created_at` ASC | ✅ |
+| `milestones` | 프로젝트 마일스톤 | `date` ASC | ✅ |
+| `self_care_records` | 자기관리 기록 | `date` DESC | ✅ |
+| `review_records` | 리뷰 기록 | `date` DESC | ✅ |
+| `timeline_logs` | 타임라인 로그 | `date` ASC, `time` ASC | ✅ |
+| `user_settings` | 앱 설정 (타임라인 시간대) | — (싱글톤) | ✅ |
+| `events` | 일정 | `date` ASC | ⚠️ 연동 전 |
+| `weekly_goals` | 주간 목표 | `created_at` ASC | ⚠️ 연동 전 |
+| `monthly_goals` | 월간 목표 | `created_at` ASC | ⚠️ 연동 전 |
+| `brainstorm_items` | 브레인스톰 항목 | `date` ASC | ⚠️ 연동 전 |
+| `brainstorm_memos` | 브레인스톰 날짜별 메모 | — (date PK) | ⚠️ 연동 전 |
+| `tags` | 태그 | `created_at` ASC | ⚠️ 연동 전 |
+| `routines` | 루틴 | `created_at` ASC | ⚠️ 연동 전 |
 
 ### 2-2. 테이블별 컬럼 상세
 
@@ -201,6 +208,69 @@ day_start_hour  int         타임라인 시작 시간 (기본값: 4)
 day_end_hour    int         타임라인 종료 시간 (기본값: 26 = 다음날 2시)
 ```
 
+#### `events` ⚠️ 테이블 생성됨 / 코드 연동 전
+```
+id              text        PK
+title           text        일정 제목
+date            text        날짜 (yyyy-MM-dd)
+start_time      text|null   시작 시간 (HH:mm)
+end_time        text|null   종료 시간 (HH:mm)
+location        text|null   장소
+memo            text|null   메모
+tags            text[]      태그 ID 배열 (기본값: {})
+created_at      timestamptz 생성일시
+```
+
+#### `weekly_goals` ⚠️ 테이블 생성됨 / 코드 연동 전
+```
+id              text        PK
+text            text        목표 내용
+done            boolean     완료 여부 (기본값: false)
+monthly_goal_id text|null   연결된 월간 목표 ID
+week_key        text        주차 키 (예: 2026-W12)
+created_at      timestamptz 생성일시
+```
+
+#### `monthly_goals` ⚠️ 테이블 생성됨 / 코드 연동 전
+```
+id              text        PK
+text            text        목표 내용
+month           text        월 (예: 2026-03)
+project_id      text|null   연결된 프로젝트 ID
+created_at      timestamptz 생성일시
+```
+
+#### `brainstorm_items` ⚠️ 테이블 생성됨 / 코드 연동 전
+```
+id              text        PK
+text            text        아이디어 내용
+date            text        날짜 (yyyy-MM-dd)
+week_key        text|null   주차 키 (예: 2026-W12)
+created_at      timestamptz 생성일시
+```
+
+#### `brainstorm_memos` ⚠️ 테이블 생성됨 / 코드 연동 전
+```
+date            text        PK (날짜 yyyy-MM-dd)
+text            text        메모 내용
+```
+
+#### `tags` ⚠️ 테이블 생성됨 / 코드 연동 전
+```
+id              text        PK
+name            text        태그 이름
+color           text        색상 hex
+created_at      timestamptz 생성일시
+```
+
+#### `routines` ⚠️ 테이블 생성됨 / 코드 연동 전
+```
+id              text        PK
+name            text        루틴 이름
+icon            text        이모지 아이콘
+-- (추가 컬럼 미확인)
+```
+
 ---
 
 ## 3. 페이지간 데이터 연동 관계
@@ -233,20 +303,20 @@ store.tsx (PlannerContext)
 ├── dayStartHour/dayEndHour ── DailyView (타임라인 범위)
 │                              CalendarView (주별/일별 뷰 범위)
 │
-├── events (메모리) ─────────── DailyView (조회), CalendarView (조회)
+├── events (메모리→⚠️연동전) ── DailyView (조회), CalendarView (조회)
 │                              BrainstormView (변환 시 생성)
 │
-├── weeklyGoals (메모리) ────── WeeklyView (CRUD)
+├── weeklyGoals (메모리→⚠️연동전) WeeklyView (CRUD)
 │                              MonthlyView (조회)
 │                              DashboardView (조회)
 │
-├── monthlyGoals (메모리) ───── MonthlyView (CRUD)
+├── monthlyGoals (메모리→⚠️연동전) MonthlyView (CRUD)
 │                              DashboardView (조회)
 │
-├── brainstormItems (메모리) ── BrainstormView (CRUD)
+├── brainstormItems (메모리→⚠️연동전) BrainstormView (CRUD)
 │                              WeeklyView (CRUD + 변환)
 │
-├── tags (메모리, 초기값) ────── TodoModal (태그 선택)
+├── tags (메모리→⚠️연동전) ──── TodoModal (태그 선택)
 │
 └── selectedDate ────────────── 모든 날짜 의존 컴포넌트
 ```
@@ -259,20 +329,22 @@ store.tsx (PlannerContext)
 
 | 기능 | Create | Read | Update | Delete | Supabase |
 |------|:------:|:----:|:------:|:------:|:--------:|
-| 할일 (Todo) | ✅ | ✅ | ✅ | ✅ | ✅ |
-| 습관 (Habit) | ✅ | ✅ | ✅ | ✅ | ✅ |
-| 프로젝트 | ✅ | ✅ | ✅ | ✅ | ✅ |
-| 마일스톤 | ✅ | ✅ | ✅ | ✅ | ✅ |
-| 자기관리 기록 | ✅ | ✅ | — | ✅ | ✅ |
-| 리뷰 기록 | ✅ | ✅ | ✅ | ✅ | ✅ |
-| 타임라인 설정 | ✅ | ✅ | ✅ | — | ✅ |
-| 일정 (Event) | ✅ | ✅ | ✅ | ✅ | ❌ 메모리 |
-| 주간 목표 | ✅ | ✅ | ✅ | ✅ | ❌ 메모리 |
-| 월간 목표 | ✅ | ✅ | — | ✅ | ❌ 메모리 |
-| 주간 리뷰 | ✅ | ✅ | ✅ | — | ❌ 메모리 |
-| 월간 리뷰 | ✅ | ✅ | ✅ | — | ❌ 메모리 |
-| 브레인덤프 | ✅ | ✅ | — | ✅ | ❌ 메모리 |
-| 태그 | ✅ | ✅ | ✅ | ✅ | ❌ 메모리 |
+| 할일 (Todo) | ✅ | ✅ | ✅ | ✅ | ✅ 연동 |
+| 습관 (Habit) | ✅ | ✅ | ✅ | ✅ | ✅ 연동 |
+| 프로젝트 | ✅ | ✅ | ✅ | ✅ | ✅ 연동 |
+| 마일스톤 | ✅ | ✅ | ✅ | ✅ | ✅ 연동 |
+| 자기관리 기록 | ✅ | ✅ | — | ✅ | ✅ 연동 |
+| 리뷰 기록 | ✅ | ✅ | ✅ | ✅ | ✅ 연동 |
+| 타임라인 설정 | ✅ | ✅ | ✅ | — | ✅ 연동 |
+| 일정 (Event) | ✅ | ✅ | ✅ | ✅ | ⚠️ 테이블 생성됨 / 연동 전 |
+| 주간 목표 | ✅ | ✅ | ✅ | ✅ | ⚠️ 테이블 생성됨 / 연동 전 |
+| 월간 목표 | ✅ | ✅ | — | ✅ | ⚠️ 테이블 생성됨 / 연동 전 |
+| 브레인덤프 아이템 | ✅ | ✅ | — | ✅ | ⚠️ 테이블 생성됨 / 연동 전 |
+| 브레인덤프 메모 | ✅ | ✅ | ✅ | — | ⚠️ 테이블 생성됨 / 연동 전 |
+| 태그 | ✅ | ✅ | ✅ | ✅ | ⚠️ 테이블 생성됨 / 연동 전 |
+| 루틴 | — | — | — | — | ⚠️ 테이블 생성됨 / UI 없음 |
+| 주간 리뷰 | ✅ | ✅ | ✅ | — | ❌ 메모리 (테이블 없음) |
+| 월간 리뷰 | ✅ | ✅ | ✅ | — | ❌ 메모리 (테이블 없음) |
 
 ### ✅ UI/UX 기능
 
@@ -306,29 +378,30 @@ store.tsx (PlannerContext)
 
 ### ⚠️ 새로고침 시 데이터 소실 (Supabase 미연동)
 
-| 데이터 | 영향 페이지 |
-|--------|-----------|
-| 일정 (Event) | 일간, 캘린더, 브레인스토밍 |
-| 주간 목표 | 주간, 월간, 대시보드 |
-| 월간 목표 | 월간, 대시보드 |
-| 주간 리뷰 | 리뷰 |
-| 월간 리뷰 | 리뷰 |
-| 브레인덤프 아이템 | 브레인스토밍, 주간 |
-| 태그 | 할일 모달 (매번 기본값 5개로 초기화) |
-| 루틴 | 미사용 (UI 없음) |
+| 데이터 | 영향 페이지 | 테이블 상태 |
+|--------|-----------|:----------:|
+| 일정 (Event) | 일간, 캘린더, 브레인스토밍 | ⚠️ 테이블 생성됨 / 연동 전 |
+| 주간 목표 | 주간, 월간, 대시보드 | ⚠️ 테이블 생성됨 / 연동 전 |
+| 월간 목표 | 월간, 대시보드 | ⚠️ 테이블 생성됨 / 연동 전 |
+| 브레인덤프 아이템 | 브레인스토밍, 주간 | ⚠️ 테이블 생성됨 / 연동 전 |
+| 태그 | 할일 모달 (매번 기본값 5개로 초기화) | ⚠️ 테이블 생성됨 / 연동 전 |
+| 주간 리뷰 | 리뷰 | ❌ 테이블 없음 |
+| 월간 리뷰 | 리뷰 | ❌ 테이블 없음 |
+| 루틴 | 미사용 (UI 없음) | ⚠️ 테이블 생성됨 / UI 없음 |
 
 ### ❌ 미구현 기능
 
 | 기능 | 설명 |
 |------|------|
-| 일정(Event) Supabase 저장 | `events` 테이블 없음 |
-| 목표(Goals) Supabase 저장 | `weekly_goals`, `monthly_goals` 테이블 없음 |
-| 리뷰(Weekly/Monthly Review) Supabase 저장 | 별도 저장 없음 |
-| 브레인덤프 Supabase 저장 | `brainstorm_items` 테이블 없음 |
-| 태그 Supabase 저장 | `tags` 테이블 없음 |
+| 일정(Event) Supabase 연동 | 테이블 생성 완료, store.tsx 연동 작업 필요 |
+| 목표(Goals) Supabase 연동 | 테이블 생성 완료, store.tsx 연동 작업 필요 |
+| 브레인덤프 Supabase 연동 | 테이블 생성 완료, store.tsx 연동 작업 필요 |
+| 태그 Supabase 연동 | 테이블 생성 완료, store.tsx 연동 작업 필요 |
+| 리뷰(Weekly/Monthly Review) Supabase 저장 | 테이블 없음, 설계 및 생성 필요 |
 | 자기관리 기록 수정(Update) | 삭제 후 재등록만 가능 |
 | 알림/알람 | `alarm_time` 컬럼 존재하나 알림 발송 없음 |
 | 습관 반복 설정 기반 자동 표시 | `repeat_days` 저장되나 필터링 로직 미구현 |
+| 루틴 UI | 테이블 생성됨, UI 및 연동 미구현 |
 | PWA 오프라인 모드 | 서비스워커 등록됐으나 캐싱 전략 없음 |
 | 데이터 내보내기/가져오기 | 미구현 |
 | 사용자 인증 (멀티유저) | 현재 단일 사용자 구조 |
