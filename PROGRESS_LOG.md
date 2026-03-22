@@ -6,6 +6,25 @@
 
 ---
 
+## 2026-03-22
+
+### 📋 TODO
+
+### ✅ 완료
+- [x] Supabase 테이블 생성 SQL 실행 완료
+
+### 🛠 오늘 작업 내용
+- Supabase 대시보드에서 아래 테이블 수동 생성:
+  - `events`: 일정 (id, title, date, start_time, end_time, location, memo, tags, created_at)
+  - `weekly_goals`: 주간 목표 (id, text, done, monthly_goal_id, week_key, created_at)
+  - `monthly_goals`: 월간 목표 (id, text, month, project_id, created_at)
+  - `brainstorm_items`: 브레인스톰 항목 (id, text, date, week_key, created_at)
+  - `brainstorm_memos`: 브레인스톰 메모 (date PK, text)
+  - `tags`: 태그 (id, name, color, created_at)
+  - `routines`: 루틴 (id, name, icon, ...)
+
+---
+
 ## 2026-03-21
 
 ### 📋 TODO
