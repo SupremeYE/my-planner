@@ -2,6 +2,7 @@ import { supabase } from './supabase';
 import type {
   Todo, Habit, Project, Milestone,
   SelfCareRecord, ReviewRecord, TimelineLog,
+  Event, WeeklyGoal, MonthlyGoal, BrainstormItem, Tag,
 } from '../app/store';
 
 // ── Row types (Supabase snake_case) ──────────────────────────────────────────
@@ -43,6 +44,33 @@ type ReviewRow = {
 type TimelineLogRow = {
   id: string; date: string; time: string; text: string;
   color: string | null; icon: string | null;
+};
+
+type EventRow = {
+  id: string; title: string; date: string;
+  start_time: string | null; end_time: string | null;
+  location: string | null; memo: string | null; tags: string[];
+};
+
+type WeeklyGoalRow = {
+  id: string; text: string; done: boolean;
+  monthly_goal_id: string | null; week_key: string;
+};
+
+type MonthlyGoalRow = {
+  id: string; text: string; month: string; project_id: string | null;
+};
+
+type BrainstormItemRow = {
+  id: string; text: string; date: string; week_key: string | null;
+};
+
+type BrainstormMemoRow = {
+  date: string; text: string;
+};
+
+type TagRow = {
+  id: string; name: string; color: string;
 };
 
 // ── 변환 함수 ────────────────────────────────────────────────────────────────
@@ -143,6 +171,59 @@ const fromTimelineLog = (t: TimelineLog): TimelineLogRow => ({
   id: t.id, date: t.date, time: t.time, text: t.text,
   color: t.color ?? null, icon: t.icon ?? null,
 });
+
+const toEvent = (r: EventRow): Event => ({
+  id: r.id, title: r.title, date: r.date,
+  startTime: r.start_time ?? undefined,
+  endTime: r.end_time ?? undefined,
+  location: r.location ?? undefined,
+  memo: r.memo ?? undefined,
+  tags: r.tags ?? [],
+});
+
+const fromEvent = (e: Event): EventRow => ({
+  id: e.id, title: e.title, date: e.date,
+  start_time: e.startTime ?? null,
+  end_time: e.endTime ?? null,
+  location: e.location ?? null,
+  memo: e.memo ?? null,
+  tags: e.tags ?? [],
+});
+
+const toWeeklyGoal = (r: WeeklyGoalRow): WeeklyGoal => ({
+  id: r.id, text: r.text, done: r.done,
+  monthlyGoalId: r.monthly_goal_id ?? undefined,
+  weekKey: r.week_key,
+});
+
+const fromWeeklyGoal = (g: WeeklyGoal): WeeklyGoalRow => ({
+  id: g.id, text: g.text, done: g.done,
+  monthly_goal_id: g.monthlyGoalId ?? null,
+  week_key: g.weekKey,
+});
+
+const toMonthlyGoal = (r: MonthlyGoalRow): MonthlyGoal => ({
+  id: r.id, text: r.text, month: r.month,
+  projectId: r.project_id ?? undefined,
+});
+
+const fromMonthlyGoal = (g: MonthlyGoal): MonthlyGoalRow => ({
+  id: g.id, text: g.text, month: g.month,
+  project_id: g.projectId ?? null,
+});
+
+const toBrainstormItem = (r: BrainstormItemRow): BrainstormItem => ({
+  id: r.id, text: r.text, date: r.date,
+  weekKey: r.week_key ?? undefined,
+});
+
+const fromBrainstormItem = (b: BrainstormItem): BrainstormItemRow => ({
+  id: b.id, text: b.text, date: b.date,
+  week_key: b.weekKey ?? null,
+});
+
+const toTag = (r: TagRow): Tag => ({ id: r.id, name: r.name, color: r.color });
+const fromTag = (t: Tag): TagRow => ({ id: t.id, name: t.name, color: t.color });
 
 // ── DB 객체 ──────────────────────────────────────────────────────────────────
 
@@ -263,6 +344,98 @@ export const db = {
     delete: async (id: string) => {
       const { error } = await supabase.from('timeline_logs').delete().eq('id', id);
       if (error) console.error('[db] timeline_logs delete:', error.message);
+    },
+  },
+
+  events: {
+    fetchAll: async (): Promise<Event[]> => {
+      const { data, error } = await supabase.from('events').select('*').order('date');
+      if (error) console.error('[db] events fetch:', error.message);
+      return (data ?? []).map(toEvent);
+    },
+    upsert: async (event: Event) => {
+      const { error } = await supabase.from('events').upsert(fromEvent(event));
+      if (error) console.error('[db] events upsert:', error.message);
+    },
+    delete: async (id: string) => {
+      const { error } = await supabase.from('events').delete().eq('id', id);
+      if (error) console.error('[db] events delete:', error.message);
+    },
+  },
+
+  weeklyGoals: {
+    fetchAll: async (): Promise<WeeklyGoal[]> => {
+      const { data, error } = await supabase.from('weekly_goals').select('*').order('created_at');
+      if (error) console.error('[db] weekly_goals fetch:', error.message);
+      return (data ?? []).map(toWeeklyGoal);
+    },
+    upsert: async (goal: WeeklyGoal) => {
+      const { error } = await supabase.from('weekly_goals').upsert(fromWeeklyGoal(goal));
+      if (error) console.error('[db] weekly_goals upsert:', error.message);
+    },
+    delete: async (id: string) => {
+      const { error } = await supabase.from('weekly_goals').delete().eq('id', id);
+      if (error) console.error('[db] weekly_goals delete:', error.message);
+    },
+  },
+
+  monthlyGoals: {
+    fetchAll: async (): Promise<MonthlyGoal[]> => {
+      const { data, error } = await supabase.from('monthly_goals').select('*').order('created_at');
+      if (error) console.error('[db] monthly_goals fetch:', error.message);
+      return (data ?? []).map(toMonthlyGoal);
+    },
+    upsert: async (goal: MonthlyGoal) => {
+      const { error } = await supabase.from('monthly_goals').upsert(fromMonthlyGoal(goal));
+      if (error) console.error('[db] monthly_goals upsert:', error.message);
+    },
+    delete: async (id: string) => {
+      const { error } = await supabase.from('monthly_goals').delete().eq('id', id);
+      if (error) console.error('[db] monthly_goals delete:', error.message);
+    },
+  },
+
+  brainstormItems: {
+    fetchAll: async (): Promise<BrainstormItem[]> => {
+      const { data, error } = await supabase.from('brainstorm_items').select('*').order('created_at');
+      if (error) console.error('[db] brainstorm_items fetch:', error.message);
+      return (data ?? []).map(toBrainstormItem);
+    },
+    upsert: async (item: BrainstormItem) => {
+      const { error } = await supabase.from('brainstorm_items').upsert(fromBrainstormItem(item));
+      if (error) console.error('[db] brainstorm_items upsert:', error.message);
+    },
+    delete: async (id: string) => {
+      const { error } = await supabase.from('brainstorm_items').delete().eq('id', id);
+      if (error) console.error('[db] brainstorm_items delete:', error.message);
+    },
+  },
+
+  brainstormMemos: {
+    fetchAll: async (): Promise<Record<string, string>> => {
+      const { data, error } = await supabase.from('brainstorm_memos').select('*');
+      if (error) console.error('[db] brainstorm_memos fetch:', error.message);
+      return Object.fromEntries((data ?? []).map((r: BrainstormMemoRow) => [r.date, r.text]));
+    },
+    upsert: async (date: string, text: string) => {
+      const { error } = await supabase.from('brainstorm_memos').upsert({ date, text });
+      if (error) console.error('[db] brainstorm_memos upsert:', error.message);
+    },
+  },
+
+  tags: {
+    fetchAll: async (): Promise<Tag[]> => {
+      const { data, error } = await supabase.from('tags').select('*').order('created_at');
+      if (error) console.error('[db] tags fetch:', error.message);
+      return (data ?? []).map(toTag);
+    },
+    upsert: async (tag: Tag) => {
+      const { error } = await supabase.from('tags').upsert(fromTag(tag));
+      if (error) console.error('[db] tags upsert:', error.message);
+    },
+    delete: async (id: string) => {
+      const { error } = await supabase.from('tags').delete().eq('id', id);
+      if (error) console.error('[db] tags delete:', error.message);
     },
   },
 

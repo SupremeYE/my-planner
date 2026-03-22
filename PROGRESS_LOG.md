@@ -12,6 +12,8 @@
 
 ### ✅ 완료
 - [x] Supabase 테이블 생성 SQL 실행 완료
+- [x] Supabase 전면 연동 — events, weeklyGoals, monthlyGoals, brainstormItems, brainstormMemos, tags
+- [x] 타임라인 로그 버그 수정 (DailyView mock 데이터 제거, store 연동)
 
 ### 🛠 오늘 작업 내용
 - Supabase 대시보드에서 아래 테이블 수동 생성:
@@ -22,6 +24,27 @@
   - `brainstorm_memos`: 브레인스톰 메모 (date PK, text)
   - `tags`: 태그 (id, name, color, created_at)
   - `routines`: 루틴 (id, name, icon, ...)
+
+- `src/lib/db.ts`: events, weeklyGoals, monthlyGoals, brainstormItems, brainstormMemos, tags CRUD 추가
+  - Row 타입 6개 추가 (EventRow, WeeklyGoalRow, MonthlyGoalRow, BrainstormItemRow, BrainstormMemoRow, TagRow)
+  - to/from 변환 함수 추가
+  - db.events / db.weeklyGoals / db.monthlyGoals / db.brainstormItems / db.brainstormMemos / db.tags 객체 추가
+
+- `src/app/store.tsx`: in-memory → Supabase 연동으로 전환
+  - 앱 초기 로드 시 6개 테이블 데이터 fetch 추가
+  - tags: DB가 비어있으면 기본 5개 태그 자동 시드
+  - addEvent / updateEvent / deleteEvent → db.events 연동
+  - addWeeklyGoal / toggleWeeklyGoal / deleteWeeklyGoal → db.weeklyGoals 연동
+  - addMonthlyGoal / deleteMonthlyGoal → db.monthlyGoals 연동
+  - addBrainstormItem / deleteBrainstormItem / brainstormToTodo / brainstormToEvent / setBrainstormMemo / addWeeklyBrainstorm / weeklyBrainstormAssign → db.brainstormItems + db.events 연동
+  - addTag / updateTag / deleteTag → db.tags 연동
+
+- `src/app/components/DailyView.tsx`: 타임라인 로그 버그 수정
+  - 로컬 `timelineLogs` state 및 mock 데이터 4개 제거
+  - store의 `timelineLogs`, `addTimelineLog`, `deleteTimelineLog` 사용
+  - `addTimelineLog` 래퍼: modal이 넘긴 id를 제거하고 store 함수 호출 (store가 id 생성)
+
+- `PROJECT_SPEC.md`: 연동 현황 전면 업데이트 (4번, 5번 항목)
 
 ---
 

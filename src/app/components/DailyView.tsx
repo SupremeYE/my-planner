@@ -846,6 +846,9 @@ export function DailyView() {
     selectedDate, setSelectedDate, todos, events, updateTodo, habits, toggleHabit,
     activeTimer, startTimer, stopTimer, tags, projects,
     dayStartHour: tlStartHour, dayEndHour: tlEndHour, setDayHours,
+    timelineLogs,
+    addTimelineLog: storeAddTimelineLog,
+    deleteTimelineLog: storeDeleteTimelineLog,
   } = usePlanner();
   const { t } = useTheme();
   const [showAddModal, setShowAddModal] = useState(false);
@@ -853,12 +856,6 @@ export function DailyView() {
   const [snoozingTodo, setSnoozingTodo] = useState<Todo | null>(null);
   const [contextMenu, setContextMenu] = useState<{ todo: Todo; pos: { x: number; y: number } } | null>(null);
   const [dailyMemo, setDailyMemo] = useState<Record<string, string>>({});
-  const [timelineLogs, setTimelineLogs] = useState<TimelineLog[]>([
-    { id: 'log1', date: selectedDate, time: '09:00', text: '하루 시작!', color: '#6BAA7A', icon: '🌅' },
-    { id: 'log2', date: selectedDate, time: '12:30', text: '점심 식사', color: '#F4A261', icon: '🍽️' },
-    { id: 'log3', date: selectedDate, time: '15:00', text: '집중 모드 ON', color: '#7B9ED9', icon: '🎯' },
-    { id: 'log4', date: selectedDate, time: '19:00', text: '저녁 산책', color: '#A07BE0', icon: '🚶' },
-  ]);
   const [showLogModal, setShowLogModal] = useState(false);
   const [showTimelineSettings, setShowTimelineSettings] = useState(false);
 
@@ -950,12 +947,13 @@ export function DailyView() {
   };
 
   const addTimelineLog = useCallback((log: TimelineLog) => {
-    setTimelineLogs(prev => [...prev, log]);
-  }, []);
+    const { id: _id, ...logWithoutId } = log;
+    storeAddTimelineLog(logWithoutId);
+  }, [storeAddTimelineLog]);
 
   const deleteTimelineLog = useCallback((id: string) => {
-    setTimelineLogs(prev => prev.filter(l => l.id !== id));
-  }, []);
+    storeDeleteTimelineLog(id);
+  }, [storeDeleteTimelineLog]);
 
   // Status cycle on click
   const cycleStatus = (todo: Todo) => {
