@@ -11,6 +11,7 @@ import { BrainstormView } from './components/BrainstormView';
 import { HabitsView } from './components/HabitsView';
 import { SelfCareView } from './components/SelfCareView';
 import { ReviewsView } from './components/ReviewsView';
+import { RoutinesView } from './components/RoutinesView';
 
 export const router = createBrowserRouter([
   {
@@ -28,6 +29,7 @@ export const router = createBrowserRouter([
       { path: 'projects/:id', Component: ProjectDetailView },
       { path: 'brainstorm',   Component: BrainstormView },
       { path: 'habits',       Component: HabitsView },
+      { path: 'routines',     Component: RoutinesView },
       { path: 'selfcare',     Component: SelfCareView },
       { path: 'reviews',      Component: ReviewsView },
     ],

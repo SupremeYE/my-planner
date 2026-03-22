@@ -22,6 +22,7 @@ const mainNavItems = [
 
 const lifestyleNavItems = [
   { to: '/habits', icon: Repeat, label: '습관 & 루틴' },
+  { to: '/routines', icon: Target, label: '루틴 실행' },
   { to: '/selfcare', icon: Heart, label: '자기관리' },
   { to: '/reviews', icon: BookOpen, label: '리뷰 & 기록' },
 ];

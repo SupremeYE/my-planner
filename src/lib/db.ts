@@ -2,7 +2,7 @@ import { supabase } from './supabase';
 import type {
   Todo, Habit, Project, Milestone,
   SelfCareRecord, ReviewRecord, TimelineLog,
-  Event, WeeklyGoal, MonthlyGoal, BrainstormItem, Tag,
+  Event, WeeklyGoal, MonthlyGoal, BrainstormItem, Tag, Routine,
 } from '../app/store';
 
 // ── Row types (Supabase snake_case) ──────────────────────────────────────────
@@ -71,6 +71,12 @@ type BrainstormMemoRow = {
 
 type TagRow = {
   id: string; name: string; color: string;
+};
+
+type RoutineRow = {
+  id: string; name: string; icon: string;
+  start_time: string; duration: number;
+  steps: string[]; checked_dates: string[];
 };
 
 // ── 변환 함수 ────────────────────────────────────────────────────────────────
@@ -224,6 +230,18 @@ const fromBrainstormItem = (b: BrainstormItem): BrainstormItemRow => ({
 
 const toTag = (r: TagRow): Tag => ({ id: r.id, name: r.name, color: r.color });
 const fromTag = (t: Tag): TagRow => ({ id: t.id, name: t.name, color: t.color });
+
+const toRoutine = (r: RoutineRow): Routine => ({
+  id: r.id, name: r.name, icon: r.icon,
+  startTime: r.start_time, duration: r.duration,
+  steps: r.steps ?? [], checkedDates: r.checked_dates ?? [],
+});
+
+const fromRoutine = (r: Routine): RoutineRow => ({
+  id: r.id, name: r.name, icon: r.icon,
+  start_time: r.startTime, duration: r.duration,
+  steps: r.steps ?? [], checked_dates: r.checkedDates ?? [],
+});
 
 // ── DB 객체 ──────────────────────────────────────────────────────────────────
 
@@ -436,6 +454,22 @@ export const db = {
     delete: async (id: string) => {
       const { error } = await supabase.from('tags').delete().eq('id', id);
       if (error) console.error('[db] tags delete:', error.message);
+    },
+  },
+
+  routines: {
+    fetchAll: async (): Promise<Routine[]> => {
+      const { data, error } = await supabase.from('routines').select('*').order('created_at');
+      if (error) console.error('[db] routines fetch:', error.message);
+      return (data ?? []).map(toRoutine);
+    },
+    upsert: async (routine: Routine) => {
+      const { error } = await supabase.from('routines').upsert(fromRoutine(routine));
+      if (error) console.error('[db] routines upsert:', error.message);
+    },
+    delete: async (id: string) => {
+      const { error } = await supabase.from('routines').delete().eq('id', id);
+      if (error) console.error('[db] routines delete:', error.message);
     },
   },
 

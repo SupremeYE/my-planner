@@ -58,6 +58,7 @@ export interface Routine {
   startTime: string;
   duration: number;
   steps: string[];
+  checkedDates: string[];
 }
 
 export interface SelfCareRecord {
@@ -243,6 +244,7 @@ interface PlannerContextType {
   addRoutine: (routine: Omit<Routine, 'id'>) => void;
   updateRoutine: (id: string, changes: Partial<Routine>) => void;
   deleteRoutine: (id: string) => void;
+  toggleRoutineDate: (id: string, date: string) => void;
 
   // Self-care actions
   addSelfCareRecord: (record: Omit<SelfCareRecord, 'id'>) => void;
@@ -332,7 +334,7 @@ export function PlannerProvider({ children }: { children: React.ReactNode }) {
 
   // ── in-memory 상태 ──
   const [activeTimer, setActiveTimer] = useState<ActiveTimer | null>(null);
-  const [routines, setRoutines] = useState<Routine[]>([]);
+  const [routines, setRoutines] = useState<Routine[]>([]); // Supabase 연동은 db.routines 통해 진행
   const [weeklyReviews, setWeeklyReviews] = useState<WeeklyReview[]>([]);
   const [monthlyReviews, setMonthlyReviews] = useState<MonthlyReview[]>([]);
   const [dailyAffirmations, setDailyAffirmations] = useState<Record<string, string>>({});
@@ -345,7 +347,7 @@ export function PlannerProvider({ children }: { children: React.ReactNode }) {
         todosData, habitsData, projectsData, milestonesData,
         selfCareData, reviewData, timelineData, settingsData,
         eventsData, weeklyGoalsData, monthlyGoalsData,
-        brainstormItemsData, brainstormMemosData, tagsData,
+        brainstormItemsData, brainstormMemosData, tagsData, routinesData,
       ] = await Promise.all([
         db.todos.fetchAll(),
         db.habits.fetchAll(),
@@ -361,6 +363,7 @@ export function PlannerProvider({ children }: { children: React.ReactNode }) {
         db.brainstormItems.fetchAll(),
         db.brainstormMemos.fetchAll(),
         db.tags.fetchAll(),
+        db.routines.fetchAll(),
       ]);
       setTodos(todosData);
       setHabits(habitsData);
@@ -376,6 +379,7 @@ export function PlannerProvider({ children }: { children: React.ReactNode }) {
       setMonthlyGoals(monthlyGoalsData);
       setBrainstormItems(brainstormItemsData);
       setBrainstormMemos(brainstormMemosData);
+      setRoutines(routinesData);
       // 태그가 없으면 기본 태그 시드
       if (tagsData.length === 0) {
         setTags(initialTags);
@@ -485,17 +489,38 @@ export function PlannerProvider({ children }: { children: React.ReactNode }) {
     });
   }, []);
 
-  // ── Routine actions (in-memory) ──
+  // ── Routine actions ──
   const addRoutine = useCallback((routine: Omit<Routine, 'id'>) => {
-    setRoutines(prev => [...prev, { ...routine, id: newId() }]);
+    const newRoutine: Routine = { ...routine, id: newId(), checkedDates: routine.checkedDates ?? [] };
+    setRoutines(prev => [...prev, newRoutine]);
+    db.routines.upsert(newRoutine);
   }, []);
 
   const updateRoutine = useCallback((id: string, changes: Partial<Routine>) => {
-    setRoutines(prev => prev.map(r => r.id === id ? { ...r, ...changes } : r));
+    setRoutines(prev => {
+      const updated = prev.map(r => r.id === id ? { ...r, ...changes } : r);
+      const routine = updated.find(r => r.id === id);
+      if (routine) db.routines.upsert(routine);
+      return updated;
+    });
   }, []);
 
   const deleteRoutine = useCallback((id: string) => {
     setRoutines(prev => prev.filter(r => r.id !== id));
+    db.routines.delete(id);
+  }, []);
+
+  const toggleRoutineDate = useCallback((id: string, date: string) => {
+    setRoutines(prev => {
+      const updated = prev.map(r => {
+        if (r.id !== id) return r;
+        const checked = r.checkedDates.includes(date);
+        return { ...r, checkedDates: checked ? r.checkedDates.filter(d => d !== date) : [...r.checkedDates, date] };
+      });
+      const routine = updated.find(r => r.id === id);
+      if (routine) db.routines.upsert(routine);
+      return updated;
+    });
   }, []);
 
   // ── Self-care actions ──
@@ -764,7 +789,7 @@ export function PlannerProvider({ children }: { children: React.ReactNode }) {
       addTodo, updateTodo, deleteTodo, toggleTop3,
       addEvent, updateEvent, deleteEvent,
       addHabit, addHabitFull, updateHabit, deleteHabit, toggleHabit,
-      addRoutine, updateRoutine, deleteRoutine,
+      addRoutine, updateRoutine, deleteRoutine, toggleRoutineDate,
       addSelfCareRecord, deleteSelfCareRecord,
       addReviewRecord, updateReviewRecord, deleteReviewRecord,
       addWeeklyReview, updateWeeklyReview,
