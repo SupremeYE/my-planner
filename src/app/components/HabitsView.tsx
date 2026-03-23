@@ -3,6 +3,7 @@ import {
   Plus, Edit3, Trash2, X, Flame, Check, ChevronLeft, ChevronRight,
   Timer, Hash, TrendingUp, MessageSquare, Minus,
 } from 'lucide-react';
+import { TimePicker } from './TimePicker';
 import { usePlanner, Habit, Routine } from '../store';
 import { useTheme } from '../ThemeContext';
 import { format, subDays, startOfMonth, getDaysInMonth, getDay, addMonths, subMonths } from 'date-fns';
@@ -212,9 +213,9 @@ function HabitModal({ habit, onClose }: { habit?: Habit; onClose: () => void }) 
           {/* Alarm */}
           <div>
             <label style={{ fontSize: 11, color: t.textSub, fontWeight: 600 }}>알림 시간</label>
-            <input type="time" value={alarmTime} onChange={e => setAlarmTime(e.target.value)}
-              className="w-full mt-1 rounded-lg px-3 py-2 border outline-none"
-              style={{ borderColor: t.border, backgroundColor: t.bgSub, color: t.text, fontSize: 13 }} />
+            <div className="mt-1">
+              <TimePicker value={alarmTime} onChange={setAlarmTime} placeholder="알림 없음" minuteStep={1} />
+            </div>
           </div>
 
           {/* Category + Color */}
@@ -502,9 +503,9 @@ function RoutineModal({ routine, onClose }: { routine?: Routine; onClose: () => 
           <div className="flex gap-3">
             <div className="flex-1">
               <label style={{ fontSize: 11, color: t.textSub, fontWeight: 600 }}>시작 시간</label>
-              <input type="time" value={startTime} onChange={e => setStartTime(e.target.value)}
-                className="w-full mt-1 rounded-lg px-3 py-2 border outline-none"
-                style={{ borderColor: t.border, backgroundColor: t.bgSub, color: t.text, fontSize: 13 }} />
+              <div className="mt-1">
+                <TimePicker value={startTime} onChange={setStartTime} placeholder="시작 시간" />
+              </div>
             </div>
             <div className="flex-1">
               <label style={{ fontSize: 11, color: t.textSub, fontWeight: 600 }}>소요 시간 (분)</label>

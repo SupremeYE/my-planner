@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useTheme } from '../ThemeContext';
 import { usePlanner, today } from '../store';
 import { Plus, Trash2, ArrowRight, Calendar, Clock, MapPin } from 'lucide-react';
+import { TimePicker } from './TimePicker';
 
 export function BrainstormView() {
   const { t } = useTheme();
@@ -300,40 +301,14 @@ export function BrainstormView() {
                       <Clock size={14} style={{ display: 'inline', marginRight: '4px' }} />
                       시작 시간
                     </label>
-                    <input
-                      type="time"
-                      value={convertStartTime}
-                      onChange={(e) => setConvertStartTime(e.target.value)}
-                      style={{
-                        width: '100%',
-                        padding: '12px',
-                        borderRadius: '6px',
-                        border: `1px solid ${t.border}`,
-                        background: t.bg,
-                        color: t.text,
-                        fontSize: '14px',
-                      }}
-                    />
+                    <TimePicker value={convertStartTime} onChange={setConvertStartTime} placeholder="시작 시간" />
                   </div>
                   <div>
                     <label style={{ fontSize: '13px', color: t.textSub, display: 'block', marginBottom: '6px' }}>
                       <Clock size={14} style={{ display: 'inline', marginRight: '4px' }} />
                       종료 시간
                     </label>
-                    <input
-                      type="time"
-                      value={convertEndTime}
-                      onChange={(e) => setConvertEndTime(e.target.value)}
-                      style={{
-                        width: '100%',
-                        padding: '12px',
-                        borderRadius: '6px',
-                        border: `1px solid ${t.border}`,
-                        background: t.bg,
-                        color: t.text,
-                        fontSize: '14px',
-                      }}
-                    />
+                    <TimePicker value={convertEndTime} onChange={setConvertEndTime} placeholder="종료 시간" />
                   </div>
                 </div>
 

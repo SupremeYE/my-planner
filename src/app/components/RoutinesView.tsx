@@ -5,6 +5,7 @@ import {
 } from 'lucide-react';
 import { usePlanner, Routine } from '../store';
 import { useTheme } from '../ThemeContext';
+import { TimePicker } from './TimePicker';
 import { format } from 'date-fns';
 
 const EMOJI_PALETTE = ['🌅','🧘','🏋️','📖','🚿','☕','🌙','💊','🧹','🍎','🎯','✍️','🎵','💪','🧠','🧴','🌿','🏃','🎨','📝'];
@@ -102,9 +103,7 @@ function RoutineModal({ routine, onClose }: { routine?: Routine; onClose: () => 
               <div className="flex gap-2 mt-3">
                 <div className="flex-1">
                   <label style={{ fontSize: 12, color: t.textSub, display: 'block', marginBottom: 4 }}>시작 시간</label>
-                  <input type="time" value={startTime} onChange={e => setStartTime(e.target.value)}
-                    className="w-full rounded-xl px-3 py-2 border outline-none"
-                    style={{ borderColor: t.border, fontSize: 13, backgroundColor: t.bgSub, color: t.text }} />
+                  <TimePicker value={startTime} onChange={setStartTime} placeholder="시작 시간" />
                 </div>
                 <div className="flex-1">
                   <label style={{ fontSize: 12, color: t.textSub, display: 'block', marginBottom: 4 }}>소요 시간 (분)</label>

@@ -11,6 +11,7 @@ import { ko } from 'date-fns/locale';
 import { usePlanner, Todo, Event, Tag as TagType, TimelineLog } from '../store';
 import { useTheme } from '../ThemeContext';
 import { useNotification } from '../hooks/useNotification';
+import { TimePicker } from './TimePicker';
 
 // ─── Color Palette for tag creation ───
 const TAG_COLORS = [
@@ -257,13 +258,9 @@ function SnoozeModal({ todo, onClose }: { todo: Todo; onClose: () => void }) {
           <label style={{ fontSize: 10, color: t.textMuted, fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase' }}>
             미룰 시간
           </label>
-          <input
-            type="time"
-            value={snoozeTime}
-            onChange={e => setSnoozeTime(e.target.value)}
-            className="mt-1 w-full rounded-lg px-3 py-2 outline-none"
-            style={{ border: `1px solid ${t.border}`, backgroundColor: t.bgSub, color: t.text, fontSize: 13 }}
-          />
+          <div className="mt-1">
+            <TimePicker value={snoozeTime} onChange={setSnoozeTime} placeholder="시간 선택 (선택)" />
+          </div>
         </div>
 
         {/* Selected date summary */}
@@ -462,15 +459,11 @@ function TodoModal({ date, todo, onClose }: { date: string; todo?: Todo; onClose
           <div className="flex gap-3">
             <div className="flex-1">
               <label style={{ fontSize: 11, color: t.textSub, fontWeight: 600 }}>시작</label>
-              <input type="time" value={planStart} onChange={e => setPlanStart(e.target.value)}
-                className="w-full mt-1 rounded-lg px-3 py-2 outline-none"
-                style={{ border: `1px solid ${t.border}`, backgroundColor: t.bgSub, color: t.text, fontSize: 13 }} />
+              <div className="mt-1"><TimePicker value={planStart} onChange={setPlanStart} placeholder="시작 시간" /></div>
             </div>
             <div className="flex-1">
               <label style={{ fontSize: 11, color: t.textSub, fontWeight: 600 }}>종료</label>
-              <input type="time" value={planEnd} onChange={e => setPlanEnd(e.target.value)}
-                className="w-full mt-1 rounded-lg px-3 py-2 outline-none"
-                style={{ border: `1px solid ${t.border}`, backgroundColor: t.bgSub, color: t.text, fontSize: 13 }} />
+              <div className="mt-1"><TimePicker value={planEnd} onChange={setPlanEnd} placeholder="종료 시간" /></div>
             </div>
           </div>
 
@@ -638,13 +631,7 @@ function TimelineLogModal({ date, logs, onAdd, onDelete, onClose }: {
             {/* Time */}
             <div>
               <label style={{ fontSize: 13, color: t.textSub, fontWeight: 500, marginBottom: 8, display: 'block' }}>시간</label>
-              <div className="relative">
-                <input type="time" value={time} onChange={e => setTime(e.target.value)}
-                  className="w-full rounded-xl px-4 py-3 outline-none"
-                  style={{ border: `1px solid ${t.border}`, fontSize: 15, backgroundColor: t.bgSub, color: t.text }} />
-                <Clock size={16} className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none"
-                  style={{ color: t.textMuted }} />
-              </div>
+              <TimePicker value={time} onChange={setTime} placeholder="시간 선택" size="md" />
             </div>
 
             {/* Color + Icon */}
@@ -813,15 +800,11 @@ function TimelineSettingsModal({ startHour, endHour, onSave, onClose }: {
           </div>
           <div>
             <label style={{ fontSize: 13, color: t.textSub, fontWeight: 500, marginBottom: 6, display: 'block' }}>시작 시간</label>
-            <input type="time" value={startVal} onChange={ev => setStartVal(ev.target.value)}
-              className="w-full rounded-xl px-4 py-3 outline-none"
-              style={{ border: `1px solid ${t.border}`, fontSize: 15, fontWeight: 500, backgroundColor: t.bgSub, color: t.text }} />
+            <TimePicker value={startVal} onChange={setStartVal} placeholder="시작 시간" size="md" minuteStep={1} />
           </div>
           <div>
             <label style={{ fontSize: 13, color: t.textSub, fontWeight: 500, marginBottom: 6, display: 'block' }}>종료 시간</label>
-            <input type="time" value={endVal} onChange={ev => setEndVal(ev.target.value)}
-              className="w-full rounded-xl px-4 py-3 outline-none"
-              style={{ border: `1px solid ${t.border}`, fontSize: 15, fontWeight: 500, backgroundColor: t.bgSub, color: t.text }} />
+            <TimePicker value={endVal} onChange={setEndVal} placeholder="종료 시간" size="md" minuteStep={1} />
             {isNextDay && (
               <span style={{ fontSize: 11, color: t.accent, marginTop: 4, display: 'block' }}>다음날 새벽으로 설정됩니다</span>
             )}
