@@ -6,6 +6,43 @@
 
 ---
 
+## 2026-03-23
+
+### 📋 TODO
+- [ ] 습관 alarmTime → useNotification 연결 (현재 DB 저장만 되고 알림 발송 미연결)
+- [ ] 리뷰(Weekly/Monthly) Supabase 테이블 생성 및 연동
+- [ ] 습관 반복 설정 기반 자동 표시 필터링 구현
+
+### ✅ 완료
+- [x] 스마트 알림 시스템 구현 (할일 planStart 기준 로컬 알림)
+- [x] 공통 TimePicker 컴포넌트 생성 및 11곳 교체
+- [x] TimePicker UX 3단계 개선 (스크롤+직접입력 → 드롭다운 패널 → 분 1분단위 휠+패널직접입력)
+- [x] vercel.json SPA 라우팅 404 수정
+- [x] 주간 칸반 드래그앤드롭 커밋 (미커밋 상태였던 WeeklyView.tsx + @dnd-kit 패키지)
+
+### 🛠 오늘 작업 내용
+
+**알림 시스템 (`useNotification.ts`, `NotificationPermissionBanner.tsx`)**
+- `src/app/hooks/useNotification.ts` 신규: 권한 관리, 알림 스케줄링, 배너 표시 여부
+- `src/app/components/NotificationPermissionBanner.tsx` 신규: 권한 배너 (알림 허용 버튼 + 5/10/30분/1시간 선택 + iOS 안내)
+- `DailyView.tsx`: 오늘 todos의 `planStart` 기준 알림 자동 등록, URL params(`?date=&todoId=`) 로 해당 할일 하이라이트+스크롤
+- `public/sw.js` + `usePWA.ts`: `notificationclick` 개선 — 열린 창 있으면 `client.navigate()`, 없으면 `openWindow()`
+- `Layout.tsx`: 데스크탑/모바일 main 영역 상단에 배너 마운트
+- ⚠️ **미연결**: HabitModal의 `alarmTime`은 DB 저장만 됨, 알림 발송 로직 별도 구현 필요
+
+**공통 TimePicker (`src/app/components/TimePicker.tsx`)**
+- 신규 파일: ▲▼ 버튼 + 휠 스크롤 + 드롭다운 패널 + 패널 직접 입력 통합 컴포넌트
+- props: `value`, `onChange`, `placeholder`, `minuteStep`(기본 5, 버튼용), `size`(sm/md)
+- 교체된 11곳: DailyView 6곳(SnoozeModal/TodoModal planStart+End/TimelineLogModal/TimelineSettings), HabitsView 2곳(alarmTime/startTime), RoutinesView 1곳, BrainstormView 2곳
+- 분 휠: `minuteStep` 무시하고 항상 1분 단위
+- 패널: 시(0-23)/분(0-59) 전체 리스트, 열리면 현재값 선택+스크롤+input 자동포커스
+- 패널 input: 타이핑 → 리스트 스크롤, Enter 확정, Escape 취소
+
+**배포**
+- `vercel.json` 추가: `{ "rewrites": [{ "source": "/(.*)", "destination": "/index.html" }] }` — SPA 새로고침 404 해결
+
+---
+
 ## 2026-03-22
 
 ### 📋 TODO

@@ -1,6 +1,6 @@
 # PROJECT_SPEC.md — My Planner PWA 기능 명세서
 
-> 최종 업데이트: 2026-03-22 (루틴 실행 UI + 습관 5종 목표 유형 구현)
+> 최종 업데이트: 2026-03-23 (스마트 알림 시스템 + 공통 TimePicker + SPA 라우팅 수정)
 
 ---
 
@@ -392,6 +392,8 @@ store.tsx (PlannerContext)
 - **주간 칸반 드래그앤드롭** — 할일 카드를 다른 날짜 컬럼으로 드래그해 날짜 이동, Supabase 즉시 저장 (@dnd-kit/core)
 - **루틴 실행** — 단계 체크 + SVG 원형 카운트다운 타이머, 완료 기록 → Supabase
 - **습관 5종 목표 유형** — check/count/time/value/memo 각각 전용 위젯
+- **스마트 알림 시스템** — 할일 `planStart` 기준 로컬 알림, 알림 권한 배너, iOS 16.4+ 안내, 클릭 시 DailyView 해당 할일로 이동 (`useNotification.ts`, `NotificationPermissionBanner.tsx`)
+- **공통 TimePicker 컴포넌트** — ▲▼ 버튼 + 마우스 휠(분 1분단위) + 드롭다운 선택 패널 + 패널 직접 입력, 앱 전체 11곳 적용 (`TimePicker.tsx`)
 - PWA 지원 (서비스워커, manifest)
 - 일일 긍정 메시지 (AffirmationCard)
 
@@ -426,7 +428,7 @@ store.tsx (PlannerContext)
 |------|------|
 | 리뷰(Weekly/Monthly Review) Supabase 저장 | 테이블 없음, 설계 및 생성 필요 |
 | 자기관리 기록 수정(Update) | 삭제 후 재등록만 가능 |
-| 알림/알람 | `alarm_time` 컬럼 존재하나 알림 발송 없음 |
+| 습관 alarmTime → 알림 연결 | `useNotification` 알림 시스템 구현됨, 하지만 HabitModal의 `alarmTime`은 DB 저장만 됨 — 습관 알림 스케줄링 별도 구현 필요 |
 | 습관 반복 설정 기반 자동 표시 | `repeat_days` 저장되나 필터링 로직 미구현 |
 | 루틴 반복 설정 | 현재 매일 표시 — weekly/custom 반복 필터 미구현 |
 | PWA 오프라인 모드 | 서비스워커 등록됐으나 캐싱 전략 없음 |
@@ -467,7 +469,7 @@ App.tsx
 페이지 컴포넌트
 │
 ├── DailyView
-│   ├── TodoRow (할일 행)
+│   ├── TodoRow (할일 행 — ?todoId 파라미터로 하이라이트+스크롤)
 │   ├── TodoModal (추가/편집)
 │   ├── SnoozeModal (미루기)
 │   ├── ContextMenu (우클릭 메뉴)
@@ -526,11 +528,17 @@ App.tsx
 │   ├── ConvertToTodoModal
 │   └── ConvertToEventModal
 │
-└── DashboardView
-    ├── StatCard (통계 카드)
-    ├── AffirmationCard (긍정 메시지)
-    ├── HabitChips (오늘 습관)
-    └── TodoSummary (Top3 + 기한 초과)
+├── DashboardView
+│   ├── StatCard (통계 카드)
+│   ├── AffirmationCard (긍정 메시지)
+│   ├── HabitChips (오늘 습관)
+│   └── TodoSummary (Top3 + 기한 초과)
+│
+└── 공통 컴포넌트
+    ├── TimePicker — ▲▼ 버튼 + 휠(분 1분단위) + 드롭다운 패널 + 패널 직접 입력
+    │   └── 적용: DailyView 6곳, HabitsView 2곳, RoutinesView 1곳, BrainstormView 2곳
+    └── NotificationPermissionBanner — 알림 권한 요청 배너 (Layout.tsx에 마운트)
+        └── useNotification — 알림 권한 관리, 할일 planStart 기준 알림 스케줄링
 ```
 
 ---
@@ -547,6 +555,6 @@ App.tsx
 | UI 컴포넌트 | shadcn/ui + Radix UI |
 | 아이콘 | Lucide React |
 | DB/백엔드 | Supabase (PostgreSQL) |
-| 배포 | Vercel (PWA) |
+| 배포 | Vercel (PWA) — `vercel.json` SPA 라우팅 rewrite 설정 포함 |
 | 날짜 처리 | date-fns |
 | 드래그앤드롭 | @dnd-kit/core + @dnd-kit/utilities |
