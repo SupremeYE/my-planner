@@ -49,6 +49,11 @@ export interface Habit {
   alarmTime?: string;
   category?: 'health' | 'selfdev' | 'routine' | 'other';
   color?: string;
+  habitType: 'check' | 'count' | 'time' | 'value' | 'memo';
+  targetValue?: number;
+  valueUnit?: string;
+  dailyProgress: Record<string, number>;
+  dailyMemos: Record<string, string>;
 }
 
 export interface Routine {
@@ -239,6 +244,8 @@ interface PlannerContextType {
   updateHabit: (id: string, changes: Partial<Habit>) => void;
   deleteHabit: (id: string) => void;
   toggleHabit: (id: string, date: string) => void;
+  updateHabitProgress: (id: string, date: string, value: number) => void;
+  updateHabitMemo: (id: string, date: string, memo: string) => void;
 
   // Routine actions
   addRoutine: (routine: Omit<Routine, 'id'>) => void;
@@ -451,13 +458,18 @@ export function PlannerProvider({ children }: { children: React.ReactNode }) {
 
   // ── Habit actions ──
   const addHabit = useCallback((name: string) => {
-    const newHabit: Habit = { id: newId(), name, checkedDates: [] };
+    const newHabit: Habit = { id: newId(), name, checkedDates: [], habitType: 'check', dailyProgress: {}, dailyMemos: {} };
     setHabits(prev => [...prev, newHabit]);
     db.habits.upsert(newHabit);
   }, []);
 
   const addHabitFull = useCallback((habit: Omit<Habit, 'id'>) => {
-    const newHabit: Habit = { ...habit, id: newId() };
+    const newHabit: Habit = {
+      ...habit, id: newId(),
+      habitType: habit.habitType ?? 'check',
+      dailyProgress: habit.dailyProgress ?? {},
+      dailyMemos: habit.dailyMemos ?? {},
+    };
     setHabits(prev => [...prev, newHabit]);
     db.habits.upsert(newHabit);
   }, []);
@@ -482,6 +494,40 @@ export function PlannerProvider({ children }: { children: React.ReactNode }) {
         if (h.id !== id) return h;
         const checked = h.checkedDates.includes(date);
         return { ...h, checkedDates: checked ? h.checkedDates.filter(d => d !== date) : [...h.checkedDates, date] };
+      });
+      const habit = updated.find(h => h.id === id);
+      if (habit) db.habits.upsert(habit);
+      return updated;
+    });
+  }, []);
+
+  const updateHabitProgress = useCallback((id: string, date: string, value: number) => {
+    setHabits(prev => {
+      const updated = prev.map(h => {
+        if (h.id !== id) return h;
+        const newProgress = { ...h.dailyProgress, [date]: value };
+        const target = h.targetValue ?? 0;
+        const targetSec = h.habitType === 'time' ? target * 60 : target;
+        const targetMet = target > 0 && value >= targetSec;
+        const wasChecked = h.checkedDates.includes(date);
+        const newCheckedDates = targetMet && !wasChecked
+          ? [...h.checkedDates, date]
+          : !targetMet && wasChecked && h.habitType !== 'check' && h.habitType !== 'memo'
+            ? h.checkedDates.filter(d => d !== date)
+            : h.checkedDates;
+        return { ...h, dailyProgress: newProgress, checkedDates: newCheckedDates };
+      });
+      const habit = updated.find(h => h.id === id);
+      if (habit) db.habits.upsert(habit);
+      return updated;
+    });
+  }, []);
+
+  const updateHabitMemo = useCallback((id: string, date: string, memo: string) => {
+    setHabits(prev => {
+      const updated = prev.map(h => {
+        if (h.id !== id) return h;
+        return { ...h, dailyMemos: { ...h.dailyMemos, [date]: memo } };
       });
       const habit = updated.find(h => h.id === id);
       if (habit) db.habits.upsert(habit);
@@ -789,6 +835,7 @@ export function PlannerProvider({ children }: { children: React.ReactNode }) {
       addTodo, updateTodo, deleteTodo, toggleTop3,
       addEvent, updateEvent, deleteEvent,
       addHabit, addHabitFull, updateHabit, deleteHabit, toggleHabit,
+      updateHabitProgress, updateHabitMemo,
       addRoutine, updateRoutine, deleteRoutine, toggleRoutineDate,
       addSelfCareRecord, deleteSelfCareRecord,
       addReviewRecord, updateReviewRecord, deleteReviewRecord,

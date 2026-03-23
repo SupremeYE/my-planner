@@ -18,6 +18,11 @@ type HabitRow = {
   id: string; name: string; checked_dates: string[]; icon: string | null;
   repeat: string | null; repeat_days: number[] | null; goal_text: string | null;
   alarm_time: string | null; category: string | null; color: string | null;
+  habit_type: string;
+  target_value: number | null;
+  value_unit: string | null;
+  daily_progress: Record<string, number> | null;
+  daily_memos: Record<string, string> | null;
 };
 
 type ProjectRow = {
@@ -105,6 +110,11 @@ const toHabit = (r: HabitRow): Habit => ({
   repeatDays: r.repeat_days ?? undefined, goalText: r.goal_text ?? undefined,
   alarmTime: r.alarm_time ?? undefined, category: r.category as Habit['category'],
   color: r.color ?? undefined,
+  habitType: (r.habit_type ?? 'check') as Habit['habitType'],
+  targetValue: r.target_value ?? undefined,
+  valueUnit: r.value_unit ?? undefined,
+  dailyProgress: r.daily_progress ?? {},
+  dailyMemos: r.daily_memos ?? {},
 });
 
 const fromHabit = (h: Habit): HabitRow => ({
@@ -113,6 +123,11 @@ const fromHabit = (h: Habit): HabitRow => ({
   repeat_days: h.repeatDays ?? null, goal_text: h.goalText ?? null,
   alarm_time: h.alarmTime ?? null, category: h.category ?? null,
   color: h.color ?? null,
+  habit_type: h.habitType ?? 'check',
+  target_value: h.targetValue ?? null,
+  value_unit: h.valueUnit ?? null,
+  daily_progress: h.dailyProgress ?? {},
+  daily_memos: h.dailyMemos ?? {},
 });
 
 const toProject = (r: ProjectRow): Project => ({
