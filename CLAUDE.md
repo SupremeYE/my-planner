@@ -75,6 +75,12 @@ Four design themes (A, B, C, D) defined in `src/styles/theme.css` as CSS custom 
 - 컴포넌트 단위로 작업
 - 기존 컬러/디자인 시스템 유지
 
+## 반응형 원칙
+- 모든 UI는 PC(1440px)와 모바일(375px) 동시 지원
+- Tailwind 반응형 클래스 사용 (기본값=모바일, md:=PC)
+- 터치 인터랙션과 마우스 인터랙션 모두 지원
+- 사이드바는 모바일에서 하단 탭 네비게이션으로 표시
+
 ## 단축 명령어
 - "깃허브 저장해줘" = 변경사항 `git add .` → `git commit` → `git push`
 - 커밋 메시지는 변경한 기능 내용으로 자동 작성
