@@ -58,13 +58,24 @@ self.addEventListener('push', (event) => {
       badge: '/icons/icon-72x72.png',
       vibrate: [100, 50, 100],
       data: { url: data.url || '/' },
+      tag: data.tag || undefined,
     })
   );
 });
 
 self.addEventListener('notificationclick', (event) => {
   event.notification.close();
-  event.waitUntil(clients.openWindow(event.notification.data.url || '/'));
+  const url = (event.notification.data && event.notification.data.url) || '/';
+  event.waitUntil(
+    clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clientList) => {
+      for (const client of clientList) {
+        if ('navigate' in client) {
+          return client.navigate(url).then((c) => c && c.focus());
+        }
+      }
+      return clients.openWindow(url);
+    })
+  );
 });
 `;
 

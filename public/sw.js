@@ -84,7 +84,7 @@ self.addEventListener('sync', (event) => {
   }
 });
 
-// ─── Push Notification (기본 구조) ───
+// ─── Push Notification ───
 self.addEventListener('push', (event) => {
   const data = event.data ? event.data.json() : {};
   const title = data.title || 'My Planner';
@@ -94,14 +94,25 @@ self.addEventListener('push', (event) => {
     badge: '/icons/icon-72x72.png',
     vibrate: [100, 50, 100],
     data: { url: data.url || '/' },
+    tag: data.tag || undefined,
   };
-
   event.waitUntil(self.registration.showNotification(title, options));
 });
 
+// ─── Notification Click → Daily 뷰 해당 할일로 이동 ───
 self.addEventListener('notificationclick', (event) => {
   event.notification.close();
+  const url = (event.notification.data && event.notification.data.url) || '/';
   event.waitUntil(
-    clients.openWindow(event.notification.data.url || '/')
+    clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clientList) => {
+      // 이미 열린 창이 있으면 포커스 후 navigate
+      for (const client of clientList) {
+        if ('navigate' in client) {
+          return client.navigate(url).then((c) => c && c.focus());
+        }
+      }
+      // 열린 창 없으면 새 창
+      return clients.openWindow(url);
+    })
   );
 });

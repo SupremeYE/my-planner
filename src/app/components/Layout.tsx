@@ -9,6 +9,7 @@ import { usePlanner, getWeekKey } from '../store';
 import { useTheme } from '../ThemeContext';
 import { format, startOfMonth, getDaysInMonth, getDay, addMonths, subMonths } from 'date-fns';
 import { PROJECT_COLORS } from './ProjectView';
+import { NotificationPermissionBanner } from './NotificationPermissionBanner';
 
 const mainNavItems = [
   { to: '/dashboard', icon: Home, label: '대시보드' },
@@ -479,6 +480,7 @@ export function Layout() {
 
         {/* Main Content */}
         <main className="flex-1 overflow-hidden flex flex-col" style={{ backgroundColor: t.bg }}>
+          <NotificationPermissionBanner />
           <Outlet />
         </main>
 
@@ -535,6 +537,7 @@ export function Layout() {
         </div>
 
         <main className="flex-1 overflow-y-auto pb-16" style={{ backgroundColor: t.bg }}>
+          <NotificationPermissionBanner />
           <Outlet />
         </main>
 

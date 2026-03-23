@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import React from 'react';
+import { useSearchParams } from 'react-router';
 import {
   ChevronLeft, ChevronRight, Plus, Star, Play, Square,
   Check, Clock, Trash2, X, MoreHorizontal,
@@ -9,6 +10,7 @@ import { format, addDays, subDays, addMonths, subMonths, startOfMonth, getDaysIn
 import { ko } from 'date-fns/locale';
 import { usePlanner, Todo, Event, Tag as TagType, TimelineLog } from '../store';
 import { useTheme } from '../ThemeContext';
+import { useNotification } from '../hooks/useNotification';
 
 // ─── Color Palette for tag creation ───
 const TAG_COLORS = [
@@ -851,6 +853,9 @@ export function DailyView() {
     deleteTimelineLog: storeDeleteTimelineLog,
   } = usePlanner();
   const { t } = useTheme();
+  const { scheduleAlerts } = useNotification();
+  const [searchParams] = useSearchParams();
+  const highlightTodoId = searchParams.get('todoId');
   const [showAddModal, setShowAddModal] = useState(false);
   const [editingTodo, setEditingTodo] = useState<Todo | null>(null);
   const [snoozingTodo, setSnoozingTodo] = useState<Todo | null>(null);
@@ -870,6 +875,20 @@ export function DailyView() {
   } | null>(null);
   const [dragPreview, setDragPreview] = useState<{ startMin: number; endMin: number } | null>(null);
   const dragMovedRef = useRef(false);
+
+  // 알림 클릭으로 진입 시 URL params 처리 (date 이동 + todoId 하이라이트 스크롤)
+  useEffect(() => {
+    const dateParam = searchParams.get('date');
+    if (dateParam) setSelectedDate(dateParam);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    if (!highlightTodoId) return;
+    const el = document.getElementById(`todo-row-${highlightTodoId}`);
+    if (el) {
+      setTimeout(() => el.scrollIntoView({ behavior: 'smooth', block: 'center' }), 300);
+    }
+  }, [highlightTodoId]);
 
   // Listen for editTodo events from context menu / timeline
   useEffect(() => {
@@ -926,6 +945,16 @@ export function DailyView() {
 
   const dateTodos = todos.filter(td => td.date === selectedDate && td.status !== 'backlog');
   const importantTodos = dateTodos.filter(td => td.isTop3);
+
+  // 오늘 날짜인 경우에만 알림 스케줄 등록
+  const todayStr2 = format(new Date(), 'yyyy-MM-dd');
+  useEffect(() => {
+    if (selectedDate === todayStr2) {
+      scheduleAlerts(dateTodos, selectedDate);
+    }
+  // dateTodos 직접 비교는 매번 새 배열이라 selectedDate + todos.length로 의존
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedDate, todos.length, scheduleAlerts]);
   const dateEvents = events.filter(e => e.date === selectedDate);
 
   const dateObj = new Date(selectedDate + 'T12:00:00');
@@ -1287,14 +1316,17 @@ export function DailyView() {
     const accentColor = firstTag?.color || t.border;
     const isDone = todo.status === 'done';
 
+    const isHighlighted = highlightTodoId === todo.id;
     return (
       <div
+        id={`todo-row-${todo.id}`}
         className="group flex items-start gap-3 py-2.5 px-3 rounded-xl transition-all"
         style={{
           cursor: 'pointer',
-          backgroundColor: isDone ? t.bgSub + '80' : t.card,
-          border: `1px solid ${accentColor}20`,
-          borderLeft: `3px solid ${accentColor}${isDone ? '40' : ''}`,
+          backgroundColor: isHighlighted ? t.accentLight : (isDone ? t.bgSub + '80' : t.card),
+          border: isHighlighted ? `1.5px solid ${t.accent}` : `1px solid ${accentColor}20`,
+          borderLeft: isHighlighted ? `3px solid ${t.accent}` : `3px solid ${accentColor}${isDone ? '40' : ''}`,
+          boxShadow: isHighlighted ? `0 0 0 2px ${t.accent}30` : undefined,
         }}
       >
         {/* Status checkbox */}
