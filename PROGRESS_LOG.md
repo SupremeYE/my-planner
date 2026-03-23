@@ -14,6 +14,8 @@
 - [x] Supabase 테이블 생성 SQL 실행 완료
 - [x] Supabase 전면 연동 — events, weeklyGoals, monthlyGoals, brainstormItems, brainstormMemos, tags
 - [x] 타임라인 로그 버그 수정 (DailyView mock 데이터 제거, store 연동)
+- [x] 루틴 실행 UI 구현 (단계 체크 + 카운트다운 타이머)
+- [x] 습관 목표 유형 5종 구현 (체크/횟수/시간/수치/메모)
 
 ### 🛠 오늘 작업 내용
 - Supabase 대시보드에서 아래 테이블 수동 생성:
@@ -45,6 +47,28 @@
   - `addTimelineLog` 래퍼: modal이 넘긴 id를 제거하고 store 함수 호출 (store가 id 생성)
 
 - `PROJECT_SPEC.md`: 연동 현황 전면 업데이트 (4번, 5번 항목)
+
+- `src/app/components/RoutinesView.tsx` (신규): 루틴 실행 페이지
+  - `RoutineModal`: 루틴 추가/편집 (이름, 아이콘, 시작시간, 소요시간, 단계 목록)
+  - `ExecutionPanel`: 하단 시트 — SVG 원형 카운트다운 타이머 + 단계 체크박스 + "완료로 기록" 버튼
+  - `RoutineCard`: 아이콘, 이름, 시간, 소요시간, 연속일 배지, 편집/실행 버튼
+  - 연속 달성일 계산 (`getStreak`), 완료 순서 정렬 (미완료 → 완료, startTime 기준)
+  - Supabase `checked_dates` 컬럼 마이그레이션 적용
+
+- `src/app/components/HabitsView.tsx` (전면 재작성): 5종 목표 유형
+  - `HABIT_TYPES` 상수 (check/count/time/value/memo)
+  - `HabitModal`: 5열 세그먼트 선택 UI + 유형별 목표 필드 (횟수·단위·시간·수치+단위·없음)
+  - `HabitChip`: 유형별 왼쪽 위젯
+    - `check`: 기존 원형 체크 버튼
+    - `count`: − 버튼 + 카운터 "진행/목표", 탭으로 +1, 목표 달성 시 자동 체크
+    - `time`: 타이머 (setInterval + useRef 누적), 중지 시 Supabase 저장
+    - `value`: 인라인 숫자 입력, blur/Enter 시 저장
+    - `memo`: 체크 후 인라인 텍스트 영역 표시
+  - `updateHabitProgress`, `updateHabitMemo` store 연동
+  - Supabase `habit_type, target_value, value_unit, daily_progress, daily_memos` 마이그레이션 적용
+
+- `src/app/components/Layout.tsx`: '루틴 실행' 사이드바 메뉴 추가
+- `src/app/routes.tsx`: `/routines` 라우트 추가
 
 ---
 

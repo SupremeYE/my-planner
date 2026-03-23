@@ -1,6 +1,6 @@
 # PROJECT_SPEC.md — My Planner PWA 기능 명세서
 
-> 최종 업데이트: 2026-03-22 (Supabase 전면 연동 완료)
+> 최종 업데이트: 2026-03-22 (루틴 실행 UI + 습관 5종 목표 유형 구현)
 
 ---
 
@@ -18,7 +18,8 @@
 | `/projects` | `ProjectsView` | 프로젝트 목록, 신규 프로젝트 생성 |
 | `/projects/:id` | `ProjectDetailView` | 마일스톤 CRUD, 관련 할일 목록 |
 | `/brainstorm` | `BrainstormView` | 아이디어 입력, 할일·일정으로 변환 |
-| `/habits` | `HabitsView` | 습관 CRUD, 반복 설정, 체크칩, 연속달성일, 월간 통계 |
+| `/habits` | `HabitsView` | 습관 CRUD, 반복 설정, 5종 목표 유형 체크칩, 연속달성일, 월간 통계 |
+| `/routines` | `RoutinesView` | 루틴 CRUD, 단계 체크 + 카운트다운 타이머, 연속달성일 |
 | `/selfcare` | `SelfCareView` | 운동/공부/뷰티 기록, 월간 통계 |
 | `/reviews` | `ReviewsView` | 감정·감사·KPT·데일리리뷰, 주간/월간 리뷰 |
 
@@ -63,9 +64,24 @@
 #### `/habits` — 습관
 - 습관 추가/편집/삭제 모달
 - 반복 설정: 매일 / 평일 / 주말 / 커스텀(요일 선택)
-- 오늘 날짜 체크칩
+- **5종 목표 유형 (HabitChip)**:
+  - `check`: 원형 체크 버튼
+  - `count`: − / + 카운터, 목표 달성 시 자동 체크
+  - `time`: 타이머 (시작/정지, 누적 시간 저장)
+  - `value`: 인라인 숫자 입력 + 단위
+  - `memo`: 체크 후 인라인 메모 입력
 - 연속 달성일(streak) 표시
 - 월간 달성률 그래프/통계
+
+#### `/routines` — 루틴 실행
+- 루틴 추가/편집/삭제 모달 (이름, 아이콘, 시작시간, 소요시간, 단계 목록)
+- `RoutineCard`: 아이콘, 이름, 시간, 소요시간, 연속달성일 배지
+- `ExecutionPanel`: 하단 시트
+  - SVG 원형 카운트다운 타이머
+  - 단계별 체크박스
+  - "완료로 기록" 버튼 → `checked_dates` 토글 → Supabase 저장
+- 연속 달성일(streak) 계산
+- 완료 루틴은 하단으로 정렬 (미완료 → 시작시간 순)
 
 #### `/selfcare` — 자기관리
 - 카테고리: 운동 & 피트니스 / 퇴근 후 공부 / 뷰티 & 케어
@@ -110,7 +126,7 @@
 | `brainstorm_items` | 브레인스톰 항목 | `created_at` ASC | ✅ |
 | `brainstorm_memos` | 브레인스톰 날짜별 메모 | — (date PK) | ✅ |
 | `tags` | 태그 | `created_at` ASC | ✅ |
-| `routines` | 루틴 | `created_at` ASC | ⚠️ UI 없음 |
+| `routines` | 루틴 | `created_at` ASC | ✅ |
 
 ### 2-2. 테이블별 컬럼 상세
 
@@ -139,10 +155,15 @@ checked_dates   text[]      체크된 날짜 배열 (yyyy-MM-dd)
 icon            text|null   이모지 아이콘
 repeat          text|null   daily|weekday|weekend|custom
 repeat_days     int[]|null  반복 요일 (0=일 ~ 6=토)
-goal_text       text|null   목표 텍스트
+goal_text       text|null   목표 텍스트 (check 타입용)
 alarm_time      text|null   알람 시간 (HH:mm)
 category        text|null   health|selfdev|routine|other
 color           text|null   색상 hex
+habit_type      text        check|count|time|value|memo (기본값: 'check')
+target_value    integer|null 목표 수치 (count=횟수, time=분, value=수치)
+value_unit      text|null   수치 단위 (value 타입용)
+daily_progress  jsonb       날짜별 진행 수치 { "yyyy-MM-dd": number }
+daily_memos     jsonb       날짜별 메모 { "yyyy-MM-dd": string }
 ```
 
 #### `projects`
@@ -208,7 +229,7 @@ day_start_hour  int         타임라인 시작 시간 (기본값: 4)
 day_end_hour    int         타임라인 종료 시간 (기본값: 26 = 다음날 2시)
 ```
 
-#### `events` ⚠️ 테이블 생성됨 / 코드 연동 전
+#### `events`
 ```
 id              text        PK
 title           text        일정 제목
@@ -221,7 +242,7 @@ tags            text[]      태그 ID 배열 (기본값: {})
 created_at      timestamptz 생성일시
 ```
 
-#### `weekly_goals` ⚠️ 테이블 생성됨 / 코드 연동 전
+#### `weekly_goals`
 ```
 id              text        PK
 text            text        목표 내용
@@ -231,7 +252,7 @@ week_key        text        주차 키 (예: 2026-W12)
 created_at      timestamptz 생성일시
 ```
 
-#### `monthly_goals` ⚠️ 테이블 생성됨 / 코드 연동 전
+#### `monthly_goals`
 ```
 id              text        PK
 text            text        목표 내용
@@ -240,7 +261,7 @@ project_id      text|null   연결된 프로젝트 ID
 created_at      timestamptz 생성일시
 ```
 
-#### `brainstorm_items` ⚠️ 테이블 생성됨 / 코드 연동 전
+#### `brainstorm_items`
 ```
 id              text        PK
 text            text        아이디어 내용
@@ -249,13 +270,13 @@ week_key        text|null   주차 키 (예: 2026-W12)
 created_at      timestamptz 생성일시
 ```
 
-#### `brainstorm_memos` ⚠️ 테이블 생성됨 / 코드 연동 전
+#### `brainstorm_memos`
 ```
 date            text        PK (날짜 yyyy-MM-dd)
 text            text        메모 내용
 ```
 
-#### `tags` ⚠️ 테이블 생성됨 / 코드 연동 전
+#### `tags`
 ```
 id              text        PK
 name            text        태그 이름
@@ -263,12 +284,16 @@ color           text        색상 hex
 created_at      timestamptz 생성일시
 ```
 
-#### `routines` ⚠️ 테이블 생성됨 / 코드 연동 전
+#### `routines`
 ```
 id              text        PK
 name            text        루틴 이름
 icon            text        이모지 아이콘
--- (추가 컬럼 미확인)
+start_time      text|null   시작 시간 (HH:mm)
+duration        int|null    소요 시간 (분)
+steps           text[]      단계 목록
+checked_dates   text[]      완료 날짜 배열 (yyyy-MM-dd)
+created_at      timestamptz 생성일시
 ```
 
 ---
@@ -298,7 +323,7 @@ store.tsx (PlannerContext)
 │
 ├── reviewRecords ──────────── ReviewsView (CRUD)
 │
-├── timelineLogs (전역) ────── DailyView ← 🔴 로컬 state 사용 중 (버그)
+├── timelineLogs (전역) ────── DailyView ← ✅ store 연동 완료
 │
 ├── dayStartHour/dayEndHour ── DailyView (타임라인 범위)
 │                              CalendarView (주별/일별 뷰 범위)
@@ -317,6 +342,8 @@ store.tsx (PlannerContext)
 │                              WeeklyView (CRUD + 변환) → Supabase ✅
 │
 ├── tags ───────────────────── TodoModal (태그 선택) → Supabase ✅ (최초 기본값 5개 자동 시드)
+│
+├── routines ───────────────── RoutinesView (CRUD + toggleRoutineDate) → Supabase ✅
 │
 └── selectedDate ────────────── 모든 날짜 의존 컴포넌트
 ```
@@ -343,7 +370,7 @@ store.tsx (PlannerContext)
 | 브레인덤프 아이템 | ✅ | ✅ | — | ✅ | ✅ 연동 |
 | 브레인덤프 메모 | ✅ | ✅ | ✅ | — | ✅ 연동 |
 | 태그 | ✅ | ✅ | ✅ | ✅ | ✅ 연동 |
-| 루틴 | — | — | — | — | ⚠️ 테이블 생성됨 / UI 없음 |
+| 루틴 | ✅ | ✅ | ✅ | ✅ | ✅ 연동 |
 | 주간 리뷰 | ✅ | ✅ | ✅ | — | ❌ 메모리 (테이블 없음) |
 | 월간 리뷰 | ✅ | ✅ | ✅ | — | ❌ 메모리 (테이블 없음) |
 
@@ -363,6 +390,8 @@ store.tsx (PlannerContext)
 - 백로그 → 날짜 배정
 - 브레인덤프 → 할일/일정 변환
 - **주간 칸반 드래그앤드롭** — 할일 카드를 다른 날짜 컬럼으로 드래그해 날짜 이동, Supabase 즉시 저장 (@dnd-kit/core)
+- **루틴 실행** — 단계 체크 + SVG 원형 카운트다운 타이머, 완료 기록 → Supabase
+- **습관 5종 목표 유형** — check/count/time/value/memo 각각 전용 위젯
 - PWA 지원 (서비스워커, manifest)
 - 일일 긍정 메시지 (AffirmationCard)
 
@@ -389,7 +418,7 @@ store.tsx (PlannerContext)
 | 태그 | 할일 모달 | ✅ 연동 완료 (최초 실행 시 기본 5개 자동 시드) |
 | 주간 리뷰 | 리뷰 | ❌ 테이블 없음 |
 | 월간 리뷰 | 리뷰 | ❌ 테이블 없음 |
-| 루틴 | 미사용 (UI 없음) | ⚠️ 테이블 생성됨 / UI 없음 |
+| 루틴 | 루틴 실행 페이지 | ✅ 연동 완료 |
 
 ### ❌ 미구현 기능
 
@@ -399,7 +428,7 @@ store.tsx (PlannerContext)
 | 자기관리 기록 수정(Update) | 삭제 후 재등록만 가능 |
 | 알림/알람 | `alarm_time` 컬럼 존재하나 알림 발송 없음 |
 | 습관 반복 설정 기반 자동 표시 | `repeat_days` 저장되나 필터링 로직 미구현 |
-| 루틴 UI | 테이블 생성됨, UI 및 연동 미구현 |
+| 루틴 반복 설정 | 현재 매일 표시 — weekly/custom 반복 필터 미구현 |
 | PWA 오프라인 모드 | 서비스워커 등록됐으나 캐싱 전략 없음 |
 | 데이터 내보내기/가져오기 | 미구현 |
 | 사용자 인증 (멀티유저) | 현재 단일 사용자 구조 |
@@ -463,8 +492,13 @@ App.tsx
 │   └── WeeklyGoalSubList
 │
 ├── HabitsView
-│   ├── HabitModal (추가/편집)
-│   └── HabitChip (체크 칩)
+│   ├── HabitModal (추가/편집 — 5종 목표 유형 선택)
+│   └── HabitChip (유형별 위젯: check/count/time/value/memo)
+│
+├── RoutinesView
+│   ├── RoutineModal (추가/편집 — 단계 목록)
+│   ├── RoutineCard (아이콘/이름/시간/연속일)
+│   └── ExecutionPanel (하단 시트 — 타이머 + 단계 체크)
 │
 ├── ReviewsView
 │   ├── DailyReviewForm (감정/감사/KPT)
