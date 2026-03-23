@@ -9,6 +9,18 @@ import {
   ChevronLeft, ChevronRight, Plus, Trash2, CheckCircle2, Target,
   ArrowRight, Zap, X,
 } from 'lucide-react';
+import {
+  DndContext,
+  DragOverlay,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  useDroppable,
+  useDraggable,
+  DragStartEvent,
+  DragEndEvent,
+} from '@dnd-kit/core';
+import { CSS } from '@dnd-kit/utilities';
 import { usePlanner, getWeekKey, Todo, Tag as TagType } from '../store';
 import { useTheme } from '../ThemeContext';
 import { useNavigate } from 'react-router';
@@ -128,19 +140,141 @@ function BrainDumpItem({
   );
 }
 
-// ── Day Column (week board) ──
-function DayColumn({ day, todos, tags, projects }: {
-  day: Date;
-  todos: Todo[];
+// ── Draggable Todo Card ──
+function DraggableTodoCard({
+  todo, tags, projects, dateStr, isDragging, onClick,
+}: {
+  todo: Todo;
+  tags: TagType[];
+  projects: { id: string; name: string; color: string }[];
+  dateStr: string;
+  isDragging: boolean;
+  onClick: () => void;
+}) {
+  const { t } = useTheme();
+  const { attributes, listeners, setNodeRef, transform } = useDraggable({ id: todo.id });
+  const color = getTodoColor(todo, tags, projects);
+  const proj = todo.projectId ? projects.find(p => p.id === todo.projectId) : null;
+  const todoTags = (todo.tags || [])
+    .map(id => tags.find(tg => tg.id === id))
+    .filter(Boolean) as TagType[];
+
+  const style: React.CSSProperties = {
+    transform: CSS.Translate.toString(transform),
+    opacity: isDragging ? 0.35 : 1,
+    cursor: isDragging ? 'grabbing' : 'grab',
+    backgroundColor: todo.status === 'done' ? t.bgSub : t.card,
+    border: `1px solid ${t.borderLight}`,
+    borderLeft: `3px solid ${color || t.borderLight}`,
+    touchAction: 'none',
+  };
+
+  return (
+    <div
+      ref={setNodeRef}
+      style={style}
+      {...attributes}
+      {...listeners}
+      className="w-full text-left rounded-lg p-2 transition-opacity"
+    >
+      <div className="flex items-start gap-1.5">
+        <div className="flex-shrink-0 mt-0.5">
+          <div
+            className="w-3 h-3 rounded-full border"
+            style={{
+              borderColor: todo.status === 'done' ? t.checkDone : t.border,
+              backgroundColor: todo.status === 'done' ? t.checkDone : 'transparent',
+            }}
+          />
+        </div>
+        <div className="flex-1 min-w-0">
+          <p style={{
+            fontSize: 11,
+            color: todo.status === 'done' ? t.textSub : t.text,
+            textDecoration: todo.status === 'done' ? 'line-through' : 'none',
+            lineHeight: 1.3,
+            overflow: 'hidden',
+            textOverflow: 'ellipsis',
+            whiteSpace: 'nowrap',
+            pointerEvents: 'none',
+          }}>
+            {todo.text}
+          </p>
+          <div className="flex items-center gap-1 flex-wrap mt-0.5">
+            {todoTags.slice(0, 2).map(tag => (
+              <span key={tag.id} style={{
+                fontSize: 8, fontWeight: 700, color: tag.color,
+                backgroundColor: tag.color + '18', padding: '0px 4px',
+                borderRadius: 3, border: `1px solid ${tag.color}30`,
+                pointerEvents: 'none',
+              }}>#{tag.name}</span>
+            ))}
+            {proj && (
+              <span style={{
+                fontSize: 8, fontWeight: 700, color: proj.color,
+                backgroundColor: proj.color + '18', padding: '0px 4px',
+                borderRadius: 3, border: `1px solid ${proj.color}30`,
+                pointerEvents: 'none',
+              }}>● {proj.name}</span>
+            )}
+            {todo.planStart && (
+              <span style={{ fontSize: 8, color: t.textMuted, pointerEvents: 'none' }}>
+                {todo.planStart}~{todo.planEnd}
+              </span>
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── Drag Overlay Card (floating ghost) ──
+function OverlayCard({ todo, tags, projects }: {
+  todo: Todo;
   tags: TagType[];
   projects: { id: string; name: string; color: string }[];
 }) {
   const { t } = useTheme();
-  const { setSelectedDate } = usePlanner();
+  const color = getTodoColor(todo, tags, projects);
+
+  return (
+    <div
+      className="rounded-lg p-2 shadow-xl"
+      style={{
+        backgroundColor: t.card,
+        border: `1px solid ${t.border}`,
+        borderLeft: `3px solid ${color || t.accent}`,
+        opacity: 0.95,
+        minWidth: 140,
+        maxWidth: 180,
+        transform: 'rotate(2deg)',
+      }}
+    >
+      <p style={{ fontSize: 11, color: t.text, lineHeight: 1.3, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+        {todo.text}
+      </p>
+    </div>
+  );
+}
+
+// ── Day Column (droppable) ──
+function DayColumn({ day, todos, tags, projects, activeDragId }: {
+  day: Date;
+  todos: Todo[];
+  tags: TagType[];
+  projects: { id: string; name: string; color: string }[];
+  activeDragId: string | null;
+}) {
+  const { t } = useTheme();
+  const { setSelectedDate, updateTodo } = usePlanner();
   const navigate = useNavigate();
   const dateStr = format(day, 'yyyy-MM-dd');
   const todayStr = format(new Date(), 'yyyy-MM-dd');
   const isToday = dateStr === todayStr;
+
+  const { setNodeRef, isOver } = useDroppable({ id: dateStr });
+
   const dayTodos = todos.filter(
     td => td.date === dateStr && td.status !== 'backlog' && td.status !== 'cancelled',
   );
@@ -151,14 +285,21 @@ function DayColumn({ day, todos, tags, projects }: {
     navigate('/daily');
   };
 
+  const isDraggingOverMe = isOver && activeDragId !== null;
+
   return (
     <div
-      className="flex flex-col rounded-2xl overflow-hidden"
+      className="flex flex-col rounded-2xl overflow-hidden transition-all"
       style={{
         minWidth: 150,
-        border: `1px solid ${isToday ? t.accent : t.borderLight}`,
-        backgroundColor: t.card,
-        boxShadow: isToday ? `0 0 0 2px ${t.accentLight}` : undefined,
+        border: `1px solid ${isDraggingOverMe ? t.accent : isToday ? t.accent : t.borderLight}`,
+        backgroundColor: isDraggingOverMe ? t.accentLight : t.card,
+        boxShadow: isDraggingOverMe
+          ? `0 0 0 2px ${t.accent}60, 0 4px 16px ${t.accent}30`
+          : isToday
+          ? `0 0 0 2px ${t.accentLight}`
+          : undefined,
+        transition: 'all 0.15s ease',
       }}
     >
       {/* Day header */}
@@ -197,74 +338,41 @@ function DayColumn({ day, todos, tags, projects }: {
         </div>
       )}
 
+      {/* Drop zone indicator */}
+      {isDraggingOverMe && (
+        <div
+          className="mx-2 mt-2 rounded-lg flex items-center justify-center"
+          style={{
+            height: 32,
+            border: `2px dashed ${t.accent}`,
+            backgroundColor: t.accentLight,
+            fontSize: 11,
+            color: t.accent,
+            fontWeight: 700,
+          }}
+        >
+          여기에 놓기
+        </div>
+      )}
+
       {/* Todos */}
-      <div className="flex-1 overflow-y-auto p-2 space-y-1.5" style={{ maxHeight: 260 }}>
-        {dayTodos.map(todo => {
-          const color = getTodoColor(todo, tags, projects);
-          const proj = todo.projectId ? projects.find(p => p.id === todo.projectId) : null;
-          const todoTags = (todo.tags || [])
-            .map(id => tags.find(tg => tg.id === id))
-            .filter(Boolean) as TagType[];
-          return (
-            <button
-              key={todo.id}
-              onClick={() => { setSelectedDate(dateStr); navigate('/daily'); }}
-              className="w-full text-left rounded-lg p-2 transition-colors"
-              style={{
-                backgroundColor: todo.status === 'done' ? t.bgSub : t.card,
-                border: `1px solid ${t.borderLight}`,
-                borderLeft: `3px solid ${color || t.borderLight}`,
-              }}
-            >
-              <div className="flex items-start gap-1.5">
-                <div className="flex-shrink-0 mt-0.5">
-                  <div
-                    className="w-3 h-3 rounded-full border"
-                    style={{
-                      borderColor: todo.status === 'done' ? t.checkDone : t.border,
-                      backgroundColor: todo.status === 'done' ? t.checkDone : 'transparent',
-                    }}
-                  />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p style={{
-                    fontSize: 11,
-                    color: todo.status === 'done' ? t.textSub : t.text,
-                    textDecoration: todo.status === 'done' ? 'line-through' : 'none',
-                    lineHeight: 1.3,
-                    overflow: 'hidden',
-                    textOverflow: 'ellipsis',
-                    whiteSpace: 'nowrap',
-                  }}>
-                    {todo.text}
-                  </p>
-                  <div className="flex items-center gap-1 flex-wrap mt-0.5">
-                    {todoTags.slice(0, 2).map(tag => (
-                      <span key={tag.id} style={{
-                        fontSize: 8, fontWeight: 700, color: tag.color,
-                        backgroundColor: tag.color + '18', padding: '0px 4px',
-                        borderRadius: 3, border: `1px solid ${tag.color}30`,
-                      }}>#{tag.name}</span>
-                    ))}
-                    {proj && (
-                      <span style={{
-                        fontSize: 8, fontWeight: 700, color: proj.color,
-                        backgroundColor: proj.color + '18', padding: '0px 4px',
-                        borderRadius: 3, border: `1px solid ${proj.color}30`,
-                      }}>● {proj.name}</span>
-                    )}
-                    {todo.planStart && (
-                      <span style={{ fontSize: 8, color: t.textMuted }}>
-                        {todo.planStart}~{todo.planEnd}
-                      </span>
-                    )}
-                  </div>
-                </div>
-              </div>
-            </button>
-          );
-        })}
-        {dayTodos.length === 0 && (
+      <div
+        ref={setNodeRef}
+        className="flex-1 overflow-y-auto p-2 space-y-1.5"
+        style={{ maxHeight: 260, minHeight: 40 }}
+      >
+        {dayTodos.map(todo => (
+          <DraggableTodoCard
+            key={todo.id}
+            todo={todo}
+            tags={tags}
+            projects={projects}
+            dateStr={dateStr}
+            isDragging={todo.id === activeDragId}
+            onClick={() => { setSelectedDate(dateStr); navigate('/daily'); }}
+          />
+        ))}
+        {dayTodos.length === 0 && !isDraggingOverMe && (
           <div className="flex items-center justify-center h-10">
             <p style={{ fontSize: 11, color: t.textMuted }}>비어 있음</p>
           </div>
@@ -409,12 +517,13 @@ function WeeklyGoalsSection({ weekKey, viewDate }: { weekKey: string; viewDate: 
 export function WeeklyView() {
   const {
     todos, brainstormItems, addWeeklyBrainstorm, weeklyBrainstormAssign,
-    deleteBrainstormItem, setSelectedDate, tags, projects,
+    deleteBrainstormItem, setSelectedDate, tags, projects, updateTodo,
   } = usePlanner();
   const { t } = useTheme();
 
   const [viewDate, setViewDate] = useState(new Date());
   const [brainInput, setBrainInput] = useState('');
+  const [activeDragId, setActiveDragId] = useState<string | null>(null);
 
   const weekStart = startOfWeek(viewDate, { weekStartsOn: 1 });
   const weekEnd = endOfWeek(viewDate, { weekStartsOn: 1 });
@@ -437,6 +546,36 @@ export function WeeklyView() {
   });
   const allDone = allWeekTodos.filter(td => td.status === 'done').length;
   const allTotal = allWeekTodos.filter(td => td.status !== 'cancelled').length;
+
+  const activeTodo = activeDragId ? todos.find(t => t.id === activeDragId) ?? null : null;
+
+  // dnd-kit: 5px threshold to distinguish click vs drag
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
+  );
+
+  const handleDragStart = (event: DragStartEvent) => {
+    setActiveDragId(String(event.active.id));
+  };
+
+  const handleDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event;
+    setActiveDragId(null);
+
+    if (!over) return;
+    const todoId = String(active.id);
+    const newDate = String(over.id); // over.id = 'yyyy-MM-dd'
+
+    // validate: must be a date string from this week
+    const isWeekDate = days.some(d => format(d, 'yyyy-MM-dd') === newDate);
+    if (!isWeekDate) return;
+
+    const todo = todos.find(t => t.id === todoId);
+    if (!todo || todo.date === newDate) return;
+
+    // updateTodo already calls db.todos.upsert → Supabase save
+    updateTodo(todoId, { date: newDate });
+  };
 
   return (
     <div className="flex flex-col h-full overflow-hidden" style={{ backgroundColor: t.bg }}>
@@ -521,16 +660,34 @@ export function WeeklyView() {
           <WeeklyGoalsSection weekKey={weekKey} viewDate={viewDate} />
         </div>
 
-        {/* Right: 7-day kanban */}
-        <div className="flex-1 overflow-x-auto overflow-y-auto p-4">
-          <div className="flex gap-3" style={{ minWidth: 7 * 158, alignItems: 'flex-start' }}>
-            {days.map(day => (
-              <div key={format(day, 'yyyy-MM-dd')} className="flex-1" style={{ minWidth: 150 }}>
-                <DayColumn day={day} todos={todos} tags={tags} projects={projects} />
-              </div>
-            ))}
+        {/* Right: 7-day kanban with DnD */}
+        <DndContext
+          sensors={sensors}
+          onDragStart={handleDragStart}
+          onDragEnd={handleDragEnd}
+        >
+          <div className="flex-1 overflow-x-auto overflow-y-auto p-4">
+            <div className="flex gap-3" style={{ minWidth: 7 * 158, alignItems: 'flex-start' }}>
+              {days.map(day => (
+                <div key={format(day, 'yyyy-MM-dd')} className="flex-1" style={{ minWidth: 150 }}>
+                  <DayColumn
+                    day={day}
+                    todos={todos}
+                    tags={tags}
+                    projects={projects}
+                    activeDragId={activeDragId}
+                  />
+                </div>
+              ))}
+            </div>
           </div>
-        </div>
+
+          <DragOverlay dropAnimation={{ duration: 150, easing: 'ease' }}>
+            {activeTodo ? (
+              <OverlayCard todo={activeTodo} tags={tags} projects={projects} />
+            ) : null}
+          </DragOverlay>
+        </DndContext>
       </div>
     </div>
   );
