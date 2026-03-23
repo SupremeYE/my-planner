@@ -856,6 +856,7 @@ export function DailyView() {
   const timelineLogs = allTimelineLogs.filter(l => l.date === selectedDate);
   const [showLogModal, setShowLogModal] = useState(false);
   const [showTimelineSettings, setShowTimelineSettings] = useState(false);
+  const [mobileTab, setMobileTab] = useState<'todo' | 'timeline'>('todo');
 
   // Drag state for timeline blocks
   const [dragState, setDragState] = useState<{
@@ -886,9 +887,10 @@ export function DailyView() {
   // Drag move/resize handlers for timeline blocks
   useEffect(() => {
     if (!dragState) return;
-    const handleMouseMove = (e: MouseEvent) => {
+
+    const handleMove = (clientY: number) => {
       dragMovedRef.current = true;
-      const dy = e.clientY - dragState.startY;
+      const dy = clientY - dragState.startY;
       const dMin = Math.round(dy / PX_PER_MIN / 5) * 5; // snap to 5 min
       if (dragState.mode === 'move') {
         const newStart = Math.max(tlStartHour * 60, dragState.origStartMin + dMin);
@@ -900,7 +902,8 @@ export function DailyView() {
         setDragPreview({ startMin: dragState.origStartMin, endMin: Math.min(tlEndHour * 60, newEnd) });
       }
     };
-    const handleMouseUp = () => {
+
+    const handleEnd = () => {
       if (dragPreview && dragMovedRef.current) {
         const startField = dragState.type === 'plan' ? 'planStart' : 'doStart';
         const endField = dragState.type === 'plan' ? 'planEnd' : 'doEnd';
@@ -911,14 +914,26 @@ export function DailyView() {
       }
       setDragState(null);
       setDragPreview(null);
-      // Reset dragMoved after a tick so onClick can check it
       setTimeout(() => { dragMovedRef.current = false; }, 50);
     };
+
+    const handleMouseMove = (e: MouseEvent) => handleMove(e.clientY);
+    const handleMouseUp = () => handleEnd();
+    const handleTouchMove = (e: TouchEvent) => {
+      e.preventDefault(); // 드래그 중 페이지 스크롤 방지
+      handleMove(e.touches[0].clientY);
+    };
+    const handleTouchEnd = () => handleEnd();
+
     window.addEventListener('mousemove', handleMouseMove);
     window.addEventListener('mouseup', handleMouseUp);
+    window.addEventListener('touchmove', handleTouchMove, { passive: false });
+    window.addEventListener('touchend', handleTouchEnd);
     return () => {
       window.removeEventListener('mousemove', handleMouseMove);
       window.removeEventListener('mouseup', handleMouseUp);
+      window.removeEventListener('touchmove', handleTouchMove);
+      window.removeEventListener('touchend', handleTouchEnd);
     };
   }, [dragState, dragPreview, tlStartHour, tlEndHour, updateTodo]);
 
@@ -1093,15 +1108,16 @@ export function DailyView() {
       borderClr = isPlan ? t.planBorder : 'transparent';
     }
 
-    const handleDragStart = (e: React.MouseEvent, mode: 'move' | 'resize') => {
+    const handleDragStart = (e: React.MouseEvent | React.TouchEvent, mode: 'move' | 'resize') => {
       e.preventDefault();
       e.stopPropagation();
+      const clientY = 'touches' in e ? e.touches[0].clientY : e.clientY;
       dragMovedRef.current = false;
       setDragState({
         todoId: todo.id,
         type,
         mode,
-        startY: e.clientY,
+        startY: clientY,
         origStartMin: timeToMinutes(start),
         origEndMin: timeToMinutes(end),
       });
@@ -1124,6 +1140,7 @@ export function DailyView() {
           transition: isDragging ? 'none' : 'opacity 0.15s',
         }}
         onMouseDown={(e) => handleDragStart(e, 'move')}
+        onTouchStart={(e) => handleDragStart(e, 'move')}
         onClick={(e) => {
           if (!dragState && !dragMovedRef.current) window.dispatchEvent(new CustomEvent('editTodo', { detail: todo }));
         }}
@@ -1173,6 +1190,7 @@ export function DailyView() {
           className="absolute left-0 right-0 bottom-0 flex justify-center items-center opacity-0 group-hover:opacity-100 transition-opacity"
           style={{ height: 8, cursor: 'ns-resize', backgroundColor: isDragging ? 'transparent' : (isPlan ? (tagColor || t.planBorder) + '40' : '#ffffff30') }}
           onMouseDown={(e) => handleDragStart(e, 'resize')}
+          onTouchStart={(e) => { e.stopPropagation(); handleDragStart(e, 'resize'); }}
         >
           <div style={{ width: 20, height: 2, borderRadius: 1, backgroundColor: isPlan ? (tagColor || textColor) : '#ffffff80' }} />
         </div>
@@ -1374,39 +1392,69 @@ export function DailyView() {
   return (
     <div className="flex-1 flex flex-col overflow-hidden h-full">
       {/* Header */}
-      <div className="flex items-center justify-between px-6 py-4 flex-shrink-0" style={{ borderBottom: `1px solid ${t.border}` }}>
-        <div className="flex items-center gap-3">
+      <div className="flex items-center justify-between px-3 py-3 md:px-6 md:py-4 flex-shrink-0" style={{ borderBottom: `1px solid ${t.border}` }}>
+        <div className="flex items-center gap-2 md:gap-3">
           <button onClick={goPrev} className="p-1.5 rounded-lg" style={{ color: t.textSub }}><ChevronLeft size={18} /></button>
           <div>
-            <h2 style={{ fontSize: 20, fontWeight: 700, color: t.text, fontFamily: "'DM Serif Display', serif" }}>
+            <h2 style={{ fontSize: 18, fontWeight: 700, color: t.text, fontFamily: "'DM Serif Display', serif" }}>
               {format(dateObj, 'M월 d일')}
             </h2>
-            <p style={{ fontSize: 12, color: t.textSub }}>{dayName}</p>
+            <p style={{ fontSize: 11, color: t.textSub }}>{dayName}</p>
           </div>
           <button onClick={goNext} className="p-1.5 rounded-lg" style={{ color: t.textSub }}><ChevronRight size={18} /></button>
           {selectedDate !== nowStr && (
-            <button onClick={goToday} className="px-3 py-1 rounded-lg"
+            <button onClick={goToday} className="px-2.5 py-1 rounded-lg"
               style={{ fontSize: 11, fontWeight: 600, backgroundColor: t.accentLight, color: t.accent }}>
               오늘
             </button>
           )}
         </div>
-        <div className="flex items-center gap-2">
-          <button onClick={() => setShowTimelineSettings(true)} className="px-3 py-1.5 rounded-lg flex items-center gap-1.5"
+        <div className="flex items-center gap-1.5 md:gap-2">
+          {/* 시간대 설정: PC에서는 헤더, 모바일에서는 타임라인 탭 내부에 표시 */}
+          <button onClick={() => setShowTimelineSettings(true)} className="hidden md:flex px-3 py-1.5 rounded-lg items-center gap-1.5"
             style={{ fontSize: 11, color: t.textSub, backgroundColor: t.bgSub, border: `1px solid ${t.border}` }}>
             <Settings size={12} /> 시간대 설정
           </button>
-          <button onClick={() => setShowAddModal(true)} className="px-3 py-1.5 rounded-lg flex items-center gap-1.5"
+          <button onClick={() => setShowAddModal(true)} className="px-2.5 py-1.5 md:px-3 rounded-lg flex items-center gap-1.5"
             style={{ fontSize: 11, fontWeight: 600, backgroundColor: t.accent, color: '#fff' }}>
-            <Plus size={13} /> 할일 추가
+            <Plus size={13} />
+            <span className="hidden md:inline">할일 추가</span>
           </button>
         </div>
       </div>
 
+      {/* 모바일 탭 스위처 */}
+      <div className="flex md:hidden flex-shrink-0" style={{ borderBottom: `1px solid ${t.border}` }}>
+        <button
+          onClick={() => setMobileTab('todo')}
+          className="flex-1 py-2.5 text-center transition-colors"
+          style={{
+            fontSize: 13, fontWeight: 600,
+            color: mobileTab === 'todo' ? t.accent : t.textSub,
+            borderBottom: mobileTab === 'todo' ? `2px solid ${t.accent}` : '2px solid transparent',
+            backgroundColor: 'transparent',
+          }}>
+          할일
+        </button>
+        <button
+          onClick={() => setMobileTab('timeline')}
+          className="flex-1 py-2.5 text-center transition-colors"
+          style={{
+            fontSize: 13, fontWeight: 600,
+            color: mobileTab === 'timeline' ? t.accent : t.textSub,
+            borderBottom: mobileTab === 'timeline' ? `2px solid ${t.accent}` : '2px solid transparent',
+            backgroundColor: 'transparent',
+          }}>
+          ⏰ 타임라인
+        </button>
+      </div>
+
       {/* Content */}
       <div className="flex-1 flex overflow-hidden" style={{ minHeight: 0 }}>
-        {/* Left Column: Todo List */}
-        <div className="flex-1 min-w-0 overflow-y-auto px-6 py-4" style={{ borderRight: `1px solid ${t.border}` }}>
+        {/* Left Column: Todo List — 모바일: todo 탭일 때만 표시 / PC: 항상 표시 */}
+        <div className={`min-w-0 overflow-y-auto px-3 py-3 md:px-6 md:py-4 ${
+          mobileTab === 'todo' ? 'flex-1' : 'hidden md:block md:flex-1'
+        }`} style={{ borderRight: `1px solid ${t.border}` }}>
           {/* Top3 */}
           {importantTodos.length > 0 && (
             <div className="mb-4 rounded-2xl p-4" style={{ backgroundColor: t.bgSub, border: `1px solid ${t.border}` }}>
@@ -1523,36 +1571,44 @@ export function DailyView() {
           </div>
         </div>
 
-        {/* Right Column: Timeline */}
-        <div className="flex-1 min-w-0 flex flex-col overflow-hidden">
+        {/* Right Column: Timeline — 모바일: timeline 탭일 때만 표시 / PC: 항상 표시 */}
+        <div className={`min-w-0 flex flex-col overflow-hidden ${
+          mobileTab === 'timeline' ? 'flex-1' : 'hidden md:flex md:flex-1'
+        }`}>
           {/* Timeline header */}
-          <div className="px-4 py-3 flex-shrink-0" style={{ borderBottom: `1px solid ${t.border}` }}>
+          <div className="px-3 py-2.5 md:px-4 md:py-3 flex-shrink-0" style={{ borderBottom: `1px solid ${t.border}` }}>
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <span style={{ fontSize: 14 }}>⏰</span>
-                <span style={{ fontSize: 14, fontWeight: 700, color: t.text }}>타임라인</span>
+                <span style={{ fontSize: 13, fontWeight: 700, color: t.text }}>타임라인</span>
               </div>
-              <div className="flex items-center gap-2">
-                <button onClick={() => setShowLogModal(true)}
-                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg"
+              <div className="flex items-center gap-1.5 md:gap-2">
+                {/* 모바일에서만 시간대 설정 버튼 표시 */}
+                <button onClick={() => setShowTimelineSettings(true)} className="flex md:hidden items-center gap-1 px-2 py-1.5 rounded-lg"
                   style={{ fontSize: 11, color: t.textSub, backgroundColor: t.bgSub, border: `1px solid ${t.border}` }}>
-                  <span style={{ fontSize: 12 }}>🔮</span> 로그
+                  <Settings size={11} />
+                </button>
+                <button onClick={() => setShowLogModal(true)}
+                  className="flex items-center gap-1.5 px-2.5 py-1.5 md:px-3 rounded-lg"
+                  style={{ fontSize: 11, color: t.textSub, backgroundColor: t.bgSub, border: `1px solid ${t.border}` }}>
+                  <span style={{ fontSize: 12 }}>🔮</span>
+                  <span className="hidden md:inline">로그</span>
                 </button>
                 <div className="flex items-center rounded-lg overflow-hidden" style={{ border: `1px solid ${t.border}` }}>
                   <button
-                    className="px-3 py-1.5"
+                    className="px-2.5 py-1.5 md:px-3"
                     style={{ fontSize: 11, fontWeight: 600, backgroundColor: t.planBlock, color: t.planText, borderRight: `1px solid ${t.border}` }}>
                     PLAN
                   </button>
                   <button
-                    className="px-3 py-1.5"
+                    className="px-2.5 py-1.5 md:px-3"
                     style={{ fontSize: 11, fontWeight: 600, backgroundColor: t.doBlock, color: t.doText }}>
                     DO
                   </button>
                 </div>
               </div>
             </div>
-            <p style={{ fontSize: 11, color: t.textMuted, marginTop: 4 }}>
+            <p className="hidden md:block" style={{ fontSize: 11, color: t.textMuted, marginTop: 4 }}>
               드래그로 이동 · 하단 끝 드래그로 크기 조절 · 클릭으로 편집
             </p>
           </div>
