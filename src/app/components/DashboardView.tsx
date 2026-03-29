@@ -551,10 +551,10 @@ export function DashboardView() {
 
   return (
     <div
+      className="px-4 pt-7 pb-10 lg:px-8 lg:py-7"
       style={{
         flex: 1,
         overflowY: 'auto',
-        padding: '28px 32px',
         background: t.bg,
       }}
     >
@@ -564,7 +564,7 @@ export function DashboardView() {
       </div>
 
       {/* ── 4 Stat Cards ── */}
-      <div style={{ display: 'flex', gap: 14, marginBottom: 24, flexWrap: 'wrap' }}>
+      <div className="grid grid-cols-2 gap-3.5 mb-6 lg:flex lg:flex-nowrap">
         <StatCard
           label="오늘 집중 시간"
           value={focusDisplay}
@@ -596,7 +596,7 @@ export function DashboardView() {
       </div>
 
       {/* ── Goals Row (2 columns) ── */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 24 }}>
+      <div className="grid grid-cols-1 gap-4 mb-6 lg:grid-cols-2">
         {/* 이달의 목표 */}
         <div
           style={{
@@ -746,7 +746,7 @@ export function DashboardView() {
       </div>
 
       {/* ── Habits & Reminders Row (2 columns) ── */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 24 }}>
+      <div className="grid grid-cols-1 gap-4 mb-6 lg:grid-cols-2">
         {/* 오늘 습관 */}
         <div
           style={{
