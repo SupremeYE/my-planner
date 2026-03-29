@@ -15,6 +15,9 @@
 - [x] 모바일 일간 헤더 한 줄 표시 (날짜 + 버튼 줄바꿈 수정)
 - [x] 캘린더 주별/일별 뷰 스크롤 구조 개선 (이중 스크롤 → 단일 스크롤)
 - [x] CLAUDE.md 모바일 작업 원칙 및 주요 기능 항목 업데이트
+- [x] window.confirm() → 커스텀 ConfirmModal 교체 (ProjectView.tsx 프로젝트 삭제)
+- [x] 모바일 하단 네비 바 개선 (4탭 + 메뉴 바텀 시트 오버레이)
+- [x] CLAUDE.md, PROGRESS_LOG.md, PROJECT_SPEC.md 업데이트 + GitHub push
 
 ### 🛠 오늘 작업 내용
 
@@ -40,9 +43,25 @@
   - 월별: 기존 페이지 스크롤 유지
   - 주별/일별: 헤더 고정 + 카드가 남은 높이 채움 + 타임라인 내부 단일 스크롤
 
-**④ CLAUDE.md 업데이트**
-- 작업 원칙에 "PC 레이아웃 유지 / 모바일 `lg:` prefix 사용" 규칙 추가
-- 주요 기능에 모바일 탭 UI, 캘린더 스크롤 구조 반영
+**④ window.confirm → ConfirmModal (`ConfirmModal.tsx`, `ProjectView.tsx`)**
+- `src/app/components/ConfirmModal.tsx` 신규 생성 — 재사용 가능한 확인 모달
+  - props: `message`, `description?`, `confirmText?`, `cancelText?`, `confirmDanger?`, `onConfirm`, `onCancel`
+  - 배경 클릭 + ESC 키로 닫기, `confirmDanger` 시 빨간 버튼, 일반은 골드 버튼
+- `ProjectView.tsx`: 프로젝트 삭제 `window.confirm()` → `ConfirmModal` 교체
+  - `showDeleteConfirm` state 추가, 삭제 버튼 → `setShowDeleteConfirm(true)`
+
+**⑤ 모바일 하단 네비 바 개선 (`Layout.tsx`)**
+- 기존 8개 탭 → **4개 탭 + 메뉴 버튼** (홈, 일간, 캘린더, 주간, 메뉴)
+- 활성 탭: 아이콘 주위 골드 `accentLight` 배경 pill 강조
+- `MobileMenuOverlay` 컴포넌트 추가 — 바텀 시트 오버레이
+  - 모든 페이지(mainNavItems + 프로젝트 + lifestyleNavItems) 4열 그리드
+  - 현재 활성 페이지 골드 배경 강조, 배경 클릭 시 닫힘
+  - 상단 모바일 topbar에도 햄버거 버튼 추가
+- `mobileMenuOpen` state 추가
+
+**⑥ 문서 업데이트**
+- `CLAUDE.md`: 주요 기능에 모바일 하단 네비·ConfirmModal 추가, `/진행현황 저장해줘` 명령어 → PROGRESS_LOG.md + PROJECT_SPEC.md 동시 업데이트 규칙으로 확장
+- `PROJECT_SPEC.md`: 최종 업데이트 날짜, UI/UX 기능 목록, 컴포넌트 구조도 업데이트
 
 ---
 

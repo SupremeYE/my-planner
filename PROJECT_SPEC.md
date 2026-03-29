@@ -1,6 +1,6 @@
 # PROJECT_SPEC.md — My Planner PWA 기능 명세서
 
-> 최종 업데이트: 2026-03-23 (스마트 알림 시스템 + 공통 TimePicker + SPA 라우팅 수정)
+> 최종 업데이트: 2026-03-29 (모바일 하단 네비 개선 + ConfirmModal + 모바일 반응형 개선)
 
 ---
 
@@ -394,6 +394,14 @@ store.tsx (PlannerContext)
 - **습관 5종 목표 유형** — check/count/time/value/memo 각각 전용 위젯
 - **스마트 알림 시스템** — 할일 `planStart` 기준 로컬 알림, 알림 권한 배너, iOS 16.4+ 안내, 클릭 시 DailyView 해당 할일로 이동 (`useNotification.ts`, `NotificationPermissionBanner.tsx`)
 - **공통 TimePicker 컴포넌트** — ▲▼ 버튼 + 마우스 휠(분 1분단위) + 드롭다운 선택 패널 + 패널 직접 입력, 앱 전체 11곳 적용 (`TimePicker.tsx`)
+- **모바일 일간 탭 UI** — 모바일에서 할일 목록 / 타임라인 탭 전환 (`mobileTab` state, `lg:hidden` 탭 바), 데스크탑 좌우 분할 유지
+- **모바일 캘린더 스크롤 구조** — 주별/일별 헤더 고정 + 타임라인 내부 단일 스크롤, 7열 자동 축소
+- **공통 ConfirmModal** — `window.confirm()` 대체, `confirmDanger` prop으로 삭제(빨간)/일반(골드) 버튼 구분, 배경 클릭·ESC 닫기 (`ConfirmModal.tsx`)
+- **모바일 하단 네비 개선** (`Layout.tsx`)
+  - 8개 탭 → 4탭(홈·일간·캘린더·주간) + 메뉴 버튼으로 축소
+  - 활성 탭: 골드 `accentLight` 배경 pill 강조
+  - `MobileMenuOverlay` 바텀 시트: 전체 페이지 4열 그리드, 활성 항목 골드 강조, 배경 클릭 닫힘
+  - 모바일 상단 topbar에 햄버거 버튼 추가
 - PWA 지원 (서비스워커, manifest)
 - 일일 긍정 메시지 (AffirmationCard)
 
@@ -537,8 +545,11 @@ App.tsx
 └── 공통 컴포넌트
     ├── TimePicker — ▲▼ 버튼 + 휠(분 1분단위) + 드롭다운 패널 + 패널 직접 입력
     │   └── 적용: DailyView 6곳, HabitsView 2곳, RoutinesView 1곳, BrainstormView 2곳
-    └── NotificationPermissionBanner — 알림 권한 요청 배너 (Layout.tsx에 마운트)
-        └── useNotification — 알림 권한 관리, 할일 planStart 기준 알림 스케줄링
+    ├── ConfirmModal — window.confirm() 대체 커스텀 확인 모달
+    │   └── 적용: ProjectDetailView (프로젝트 삭제)
+    ├── NotificationPermissionBanner — 알림 권한 요청 배너 (Layout.tsx에 마운트)
+    │   └── useNotification — 알림 권한 관리, 할일 planStart 기준 알림 스케줄링
+    └── MobileMenuOverlay (Layout.tsx 내부) — 모바일 전체 메뉴 바텀 시트 오버레이
 ```
 
 ---

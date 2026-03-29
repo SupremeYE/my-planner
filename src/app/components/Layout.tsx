@@ -248,6 +248,61 @@ function RightPanel() {
   );
 }
 
+// ── Mobile Menu Overlay ──
+function MobileMenuOverlay({ onClose }: { onClose: () => void }) {
+  const { t } = useTheme();
+  const location = useLocation();
+
+  const allItems = [
+    ...mainNavItems,
+    { to: '/projects', icon: FolderKanban, label: '프로젝트' },
+    ...lifestyleNavItems,
+  ];
+
+  return (
+    <div
+      className="fixed inset-0 z-50"
+      style={{ backgroundColor: 'rgba(0,0,0,0.35)' }}
+      onClick={onClose}
+    >
+      <div
+        className="absolute bottom-14 left-0 right-0 rounded-t-2xl"
+        style={{ backgroundColor: t.sidebar, borderTop: `1px solid ${t.border}` }}
+        onClick={e => e.stopPropagation()}
+      >
+        {/* 핸들 바 */}
+        <div className="flex justify-center pt-3 pb-1">
+          <div className="w-10 h-1 rounded-full" style={{ backgroundColor: t.border }} />
+        </div>
+        <p className="px-5 pb-3 pt-1" style={{ fontSize: 11, color: t.textMuted, fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase' as const }}>
+          메뉴
+        </p>
+        <div className="grid grid-cols-4 gap-1 px-3 pb-5">
+          {allItems.map(({ to, icon: Icon, label }) => {
+            const isActive = location.pathname === to || (to !== '/projects' && location.pathname.startsWith(to + '/'));
+            return (
+              <NavLink
+                key={to}
+                to={to}
+                onClick={onClose}
+                className="flex flex-col items-center gap-1.5 py-3 rounded-2xl transition-all"
+                style={{
+                  backgroundColor: isActive ? t.accentLight : 'transparent',
+                }}
+              >
+                <Icon size={20} color={isActive ? t.accent : t.textMuted} />
+                <span style={{ fontSize: 10, color: isActive ? t.accent : t.textSub, fontWeight: isActive ? 700 : 400, textAlign: 'center' as const }}>
+                  {label}
+                </span>
+              </NavLink>
+            );
+          })}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ── Main Layout ──
 export function Layout() {
   const { projects } = usePlanner();
@@ -255,6 +310,7 @@ export function Layout() {
   const [showNewProject, setShowNewProject] = useState(false);
   const [leftSidebarOpen, setLeftSidebarOpen] = useState(true);
   const [rightPanelOpen, setRightPanelOpen] = useState(true);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const location = useLocation();
 
   // 대시보드 메뉴 선택시 우측 패널 숨김
@@ -534,6 +590,13 @@ export function Layout() {
         <div className="flex items-center justify-between px-4 py-3 border-b flex-shrink-0"
           style={{ backgroundColor: t.sidebar, borderColor: t.border }}>
           <span style={{ fontSize: 16, fontWeight: 700, color: t.text }}>My Planner</span>
+          <button
+            onClick={() => setMobileMenuOpen(true)}
+            className="p-2 rounded-xl transition-colors"
+            style={{ backgroundColor: t.accentLight, color: t.accent }}
+          >
+            <Menu size={16} />
+          </button>
         </div>
 
         <main className="flex-1 overflow-y-auto overflow-x-hidden pb-16" style={{ backgroundColor: t.bg }}>
@@ -541,21 +604,33 @@ export function Layout() {
           <Outlet />
         </main>
 
-        {/* Bottom Nav */}
+        {/* Bottom Nav - 5 main tabs */}
         <nav
-          className="fixed bottom-0 left-0 right-0 flex border-t z-50"
+          className="fixed bottom-0 left-0 right-0 flex border-t z-40"
           style={{ backgroundColor: t.sidebar, borderColor: t.border, height: 56 }}
         >
-          {[...mainNavItems, { to: '/projects', icon: FolderKanban, label: '프로젝트' }].map(({ to, icon: Icon, label }) => (
+          {[
+            { to: '/dashboard', icon: Home, label: '홈' },
+            { to: '/daily', icon: Sun, label: '일간' },
+            { to: '/calendar', icon: CalendarDays, label: '캘린더' },
+            { to: '/weekly', icon: LayoutList, label: '주간' },
+          ].map(({ to, icon: Icon, label }) => (
             <NavLink
               key={to}
               to={to}
-              end={to === '/projects'}
-              className="flex-1 flex flex-col items-center justify-center gap-0.5 transition-colors min-w-[48px]"
+              className="flex-1 flex flex-col items-center justify-center gap-0.5 transition-colors"
             >
               {({ isActive }) => (
                 <>
-                  <Icon size={18} color={isActive ? t.accent : t.textMuted} />
+                  <div
+                    className="flex items-center justify-center rounded-xl transition-all"
+                    style={{
+                      backgroundColor: isActive ? t.accentLight : 'transparent',
+                      padding: '4px 12px',
+                    }}
+                  >
+                    <Icon size={18} color={isActive ? t.accent : t.textMuted} />
+                  </div>
                   <span style={{ fontSize: 9, color: isActive ? t.accent : t.textMuted, fontWeight: isActive ? 700 : 400 }}>
                     {label}
                   </span>
@@ -563,7 +638,28 @@ export function Layout() {
               )}
             </NavLink>
           ))}
+          {/* 더보기 버튼 */}
+          <button
+            onClick={() => setMobileMenuOpen(true)}
+            className="flex-1 flex flex-col items-center justify-center gap-0.5 transition-colors"
+          >
+            <div
+              className="flex items-center justify-center rounded-xl"
+              style={{
+                backgroundColor: mobileMenuOpen ? t.accentLight : 'transparent',
+                padding: '4px 12px',
+              }}
+            >
+              <Menu size={18} color={mobileMenuOpen ? t.accent : t.textMuted} />
+            </div>
+            <span style={{ fontSize: 9, color: mobileMenuOpen ? t.accent : t.textMuted, fontWeight: mobileMenuOpen ? 700 : 400 }}>
+              메뉴
+            </span>
+          </button>
         </nav>
+
+        {/* Mobile Menu Overlay */}
+        {mobileMenuOpen && <MobileMenuOverlay onClose={() => setMobileMenuOpen(false)} />}
       </div>
     </div>
   );
