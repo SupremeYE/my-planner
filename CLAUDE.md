@@ -64,7 +64,8 @@ Four design themes (A, B, C, D) defined in `src/styles/theme.css` as CSS custom 
 | 그린 | `#6BAA7A` |
 
 ## 주요 기능
-- **일간 페이지:** 타임라인 PLAN/DO 블록, 스톱워치
+- **일간 페이지:** 타임라인 PLAN/DO 블록, 스톱워치 / 모바일에서는 📋할일·⏰타임라인 탭 전환
+- **캘린더:** 월별/주별/일별 탭 / 주별·일별은 헤더 고정 + 타임라인 단일 스크롤
 - **할일:** 상태관리, 중요표시, 태그
 - **습관 트래커:** 칩 형태, 연속달성일
 - **리뷰&기록:** 감정/감사/KPT/데일리리뷰
@@ -74,6 +75,8 @@ Four design themes (A, B, C, D) defined in `src/styles/theme.css` as CSS custom 
 - 답변은 항상 한국어로
 - 컴포넌트 단위로 작업
 - 기존 컬러/디자인 시스템 유지
+- **PC 레이아웃은 절대 건드리지 말 것** — 모바일 전용 수정은 Tailwind `lg:` prefix 사용 (e.g. `hidden lg:flex`, `px-3 lg:px-6`)
+- 모바일 기준: 375px (iPhone), 하단 네비바 56px(`pb-16` 이미 적용됨)
 
 ## 단축 명령어
 - "깃허브 저장해줘" = 변경사항 `git add .` → `git commit` → `git push`

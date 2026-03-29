@@ -12,17 +12,37 @@
 
 ### ✅ 완료
 - [x] 모바일 반응형 개선 - 일간 페이지 탭 UI + 전역 가로 스크롤 제거
+- [x] 모바일 일간 헤더 한 줄 표시 (날짜 + 버튼 줄바꿈 수정)
+- [x] 캘린더 주별/일별 뷰 스크롤 구조 개선 (이중 스크롤 → 단일 스크롤)
+- [x] CLAUDE.md 모바일 작업 원칙 및 주요 기능 항목 업데이트
 
 ### 🛠 오늘 작업 내용
 
-**모바일 반응형 UX 개선 (`DailyView.tsx`, `Layout.tsx`)**
-- `DailyView.tsx`: 모바일에서 할일 목록 + 타임라인 좌우 분할 → 탭 전환 방식으로 변경
-  - `mobileTab` state 추가 (`'todos' | 'timeline'`)
-  - 모바일 전용 탭 바 추가 (📋 할일 / ⏰ 타임라인, `lg:hidden`)
-  - 탭 선택에 따라 해당 패널만 표시 (`hidden lg:block` / `hidden lg:flex`)
-  - 데스크탑(`lg+`)은 기존 좌우 분할 레이아웃 완전 유지
-  - 모바일 컬럼 패딩 `px-4` (데스크탑은 기존 `px-6` 유지)
-- `Layout.tsx`: 모바일 `<main>`에 `overflow-x-hidden` 추가 → 전 페이지 가로 스크롤 차단
+**① 모바일 반응형 - 일간 탭 UI (`DailyView.tsx`, `Layout.tsx`)**
+- `DailyView.tsx`: 할일 목록 + 타임라인 좌우 분할 → 모바일 탭 전환 방식으로 변경
+  - `mobileTab` state (`'todos' | 'timeline'`), 탭 바 추가 (`lg:hidden`)
+  - 탭 선택에 따라 패널 표시/숨김 (`hidden lg:block` / `hidden lg:flex`)
+  - 데스크탑(`lg+`) 기존 좌우 분할 레이아웃 완전 유지
+- `Layout.tsx`: 모바일 `<main>`에 `overflow-x-hidden` → 전 페이지 가로 스크롤 차단
+
+**② 모바일 일간 헤더 한 줄 수정 (`DailyView.tsx`)**
+- 헤더 패딩: `px-3 py-3` (모바일) / `px-6 py-4` (데스크탑 `lg:`)
+- 좌측 gap: `gap-1.5` (모바일) / `gap-3` (데스크탑)
+- "시간대 설정" 버튼: 모바일에서 아이콘만 (`<span className="hidden lg:inline">`)
+- "할일 추가" 버튼: `whitespace-nowrap` 적용
+- 날짜 폰트: 18px (모바일) / 20px (데스크탑)
+
+**③ 캘린더 스크롤 구조 개선 (`CalendarView.tsx`)**
+- `WeekView`: `overflow-x-auto` + `minWidth: 560` 제거 → 7열이 화면 너비에 맞게 자동 축소
+  - 요일 헤더 `flex-shrink-0` 고정 / 타임라인은 `overflow-y-auto` 단일 스크롤
+- `DayViewPanel`: `maxHeight: 60vh` 제거 → `flex-1`로 남은 높이 채움
+- `CalendarView` 탭별 레이아웃 분리
+  - 월별: 기존 페이지 스크롤 유지
+  - 주별/일별: 헤더 고정 + 카드가 남은 높이 채움 + 타임라인 내부 단일 스크롤
+
+**④ CLAUDE.md 업데이트**
+- 작업 원칙에 "PC 레이아웃 유지 / 모바일 `lg:` prefix 사용" 규칙 추가
+- 주요 기능에 모바일 탭 UI, 캘린더 스크롤 구조 반영
 
 ---
 
