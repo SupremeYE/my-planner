@@ -11,6 +11,11 @@
 ### 📋 TODO
 
 ### ✅ 완료
+- [x] 메뉴 구조 개편 (브레인스토밍·보관함 삭제, 월간→목표관리(/goals), 모바일 탭바 5개 고정)
+- [x] 할일 페이지(/todos) 신규 개발 (전체 할일 날짜별 그룹 + 미지정 할일 탭)
+- [x] TodoModal 공통 컴포넌트 분리 (DailyView/TodosView 공용)
+- [x] TodoRow 프로젝트 배지 표시
+- [x] 목표관리(/goals) 페이지 주간/월간 탭 구성으로 전면 개편
 - [x] 모바일 반응형 개선 - 일간 페이지 탭 UI + 전역 가로 스크롤 제거
 - [x] 모바일 일간 헤더 한 줄 표시 (날짜 + 버튼 줄바꿈 수정)
 - [x] 캘린더 주별/일별 뷰 스크롤 구조 개선 (이중 스크롤 → 단일 스크롤)
@@ -21,7 +26,33 @@
 
 ### 🛠 오늘 작업 내용
 
-**① 모바일 반응형 - 일간 탭 UI (`DailyView.tsx`, `Layout.tsx`)**
+**① 메뉴 구조 개편 (`routes.tsx`, `Layout.tsx`, `LayoutC.tsx`)**
+- 삭제: `/backlog`(보관함), `/brainstorm`(브레인스토밍) 페이지 및 라우트
+- 리네임: 월간 → 목표관리, `/monthly` → `/goals`
+- 사이드바 재구성: 대시보드→일간→캘린더→할일→주간→목표관리 순
+- 모바일 탭바: 기존 4탭+더보기 → 5개 고정 (대시보드·일간·캘린더·할일·습관&루틴)
+
+**② 할일 페이지(`/todos`) 신규 개발 (`TodosView.tsx`)**
+- 탭1 "전체 할일": 날짜별 그룹, 완료 접기/펼치기, 상태 순환 (active→inProgress→done)
+- 탭2 "미지정 할일": 날짜 없는 할일, 날짜 배정 패널
+- `TodoRow`: 상태 토글, Top3 별표, 편집/삭제, 태그 칩, 프로젝트 배지
+
+**③ TodoModal 공통화 (`TodoModal.tsx`, `DailyView.tsx`)**
+- `TodoModal.tsx` 신규 생성: `date` prop optional
+  - `date` 있으면 날짜 고정 (DailyView 기존 동작)
+  - `date` 없으면 모달 내 `← M월 d일 (요일) → [오늘]` 날짜 네비게이션 표시
+- `DailyView.tsx`: 내부 TodoModal 함수 제거 → 공통 컴포넌트 import
+- `TodosView.tsx`: 공통 TodoModal 적용
+
+**④ 목표관리 페이지 개편 (`MonthlyView.tsx`, `WeeklyView.tsx`)**
+- `MonthlyView.tsx` 전면 재작성: 탭 구조 도입
+  - 상단 탭: **주간 목표** / **월간 목표**
+  - 탭별 독립 날짜 네비 (주간: 주차+날짜범위, 월간: yyyy년 M월)
+  - 주간 탭: `WeeklyGoalsSection` 재사용 (목표 CRUD + 달성률 바 + 월간 목표 연결 select)
+  - 월간 탭: 통계 카드(완료 할일 수/달성률) + 이달의 목표 + 습관 달성률 (기존 내용 유지)
+- `WeeklyView.tsx`: `WeeklyGoalsSection` export 추가 → MonthlyView에서 중복 없이 재사용
+
+**⑤ 모바일 반응형 - 일간 탭 UI (`DailyView.tsx`, `Layout.tsx`)**
 - `DailyView.tsx`: 할일 목록 + 타임라인 좌우 분할 → 모바일 탭 전환 방식으로 변경
   - `mobileTab` state (`'todos' | 'timeline'`), 탭 바 추가 (`lg:hidden`)
   - 탭 선택에 따라 패널 표시/숨김 (`hidden lg:block` / `hidden lg:flex`)

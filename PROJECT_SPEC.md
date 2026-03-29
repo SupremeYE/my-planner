@@ -1,6 +1,6 @@
 # PROJECT_SPEC.md — My Planner PWA 기능 명세서
 
-> 최종 업데이트: 2026-03-29 (모바일 하단 네비 개선 + ConfirmModal + 모바일 반응형 개선)
+> 최종 업데이트: 2026-03-29 (메뉴 구조 개편 + 할일 페이지 + TodoModal 공통화 + 목표관리 탭 개편)
 
 ---
 
@@ -12,12 +12,11 @@
 | `/dashboard` | `DashboardView` | 통계 카드, 오늘 습관 체크, Top3 할일, 주간 진행률 |
 | `/daily` | `DailyView` | PLAN/DO 타임라인, 스톱워치, 할일 CRUD, 타임라인 로그 |
 | `/calendar` | `CalendarView` | 월/주/일 뷰, 필터 탭(할일·일정·습관·자기관리), 날짜 이동 |
+| `/todos` | `TodosView` | 전체 할일 날짜별 그룹 / 미지정 할일 탭 |
 | `/weekly` | `WeeklyView` | 브레인덤프, 일별 칼럼, 주간 목표, 요일 배정 |
-| `/monthly` | `MonthlyView` | 월간 목표, 주간 목표 서브리스트, 월간 통계 |
-| `/backlog` | `BacklogView` | 날짜 미지정 할일 목록, 카테고리 필터, 날짜 배정 |
+| `/goals` | `MonthlyView` | 주간 목표 탭 / 월간 목표 탭 (통계+목표+습관 달성률) |
 | `/projects` | `ProjectsView` | 프로젝트 목록, 신규 프로젝트 생성 |
 | `/projects/:id` | `ProjectDetailView` | 마일스톤 CRUD, 관련 할일 목록 |
-| `/brainstorm` | `BrainstormView` | 아이디어 입력, 할일·일정으로 변환 |
 | `/habits` | `HabitsView` | 습관 CRUD, 반복 설정, 5종 목표 유형 체크칩, 연속달성일, 월간 통계 |
 | `/routines` | `RoutinesView` | 루틴 CRUD, 단계 체크 + 카운트다운 타이머, 연속달성일 |
 | `/selfcare` | `SelfCareView` | 운동/공부/뷰티 기록, 월간 통계 |
@@ -56,10 +55,16 @@
   - 드롭 시 `updateTodo` → Supabase 즉시 저장
 - 주간 목표 CRUD
 
-#### `/monthly` — 월간 뷰
-- 월간 목표 카드 (진행률 바)
-- 주간 목표 서브리스트 (접기/펼치기)
-- 월간 완료 할일 수 / 달성률 통계
+#### `/todos` — 할일 페이지
+- 탭1 "전체 할일": 날짜별 그룹 (오늘/내일/요일 레이블), 완료 항목 접기/펼치기
+- 탭2 "미지정 할일": 날짜 없는 할일, 날짜 배정 패널
+- TodoRow: 상태 순환 (active→inProgress→done), Top3 별표, 태그 칩, 프로젝트 배지, 편집/삭제
+- 공통 TodoModal 사용 (날짜 네비게이션 포함)
+
+#### `/goals` — 목표관리
+- 상단 탭: **주간 목표** / **월간 목표**
+- 주간 목표 탭: 주차 네비, 목표 CRUD, 달성률 바, 월간 목표 연결 select
+- 월간 목표 탭: 월 네비, 통계 카드(완료 할일 수/달성률), 이달의 목표 카드(진행률 바+서브리스트), 이달 습관 달성률
 
 #### `/habits` — 습관
 - 습관 추가/편집/삭제 모달
@@ -397,6 +402,10 @@ store.tsx (PlannerContext)
 - **모바일 일간 탭 UI** — 모바일에서 할일 목록 / 타임라인 탭 전환 (`mobileTab` state, `lg:hidden` 탭 바), 데스크탑 좌우 분할 유지
 - **모바일 캘린더 스크롤 구조** — 주별/일별 헤더 고정 + 타임라인 내부 단일 스크롤, 7열 자동 축소
 - **공통 ConfirmModal** — `window.confirm()` 대체, `confirmDanger` prop으로 삭제(빨간)/일반(골드) 버튼 구분, 배경 클릭·ESC 닫기 (`ConfirmModal.tsx`)
+- **할일 페이지(`/todos`)** — 전체 할일 날짜별 그룹 + 미지정 할일 탭, 공통 TodoModal 날짜 네비, 프로젝트 배지
+- **공통 TodoModal** — `date` prop optional: 있으면 날짜 고정, 없으면 `← M월 d일 (요일) →` 날짜 네비게이션 (`TodoModal.tsx`)
+- **목표관리 페이지(`/goals`) 탭 개편** — 주간 목표 / 월간 목표 탭, 탭별 독립 날짜 네비, `WeeklyGoalsSection` 재사용
+- **메뉴 구조 개편** — 보관함·브레인스토밍 삭제, 월간→목표관리(`/goals`), 할일 메뉴 추가, 모바일 탭바 5개 고정
 - **모바일 하단 네비 개선** (`Layout.tsx`)
   - 8개 탭 → 4탭(홈·일간·캘린더·주간) + 메뉴 버튼으로 축소
   - 활성 탭: 골드 `accentLight` 배경 pill 강조
@@ -497,9 +506,14 @@ App.tsx
 │   ├── DraggableTodoCard (드래그 가능한 할일 카드 — useDraggable)
 │   └── OverlayCard (드래그 중 표시되는 고스트 카드 — DragOverlay)
 │
-├── MonthlyView
-│   ├── MonthlyGoalCard
-│   └── WeeklyGoalSubList
+├── TodosView
+│   ├── TodoRow (상태토글·Top3·태그칩·프로젝트배지·편집/삭제)
+│   ├── AllTodosTab (날짜별 그룹, 완료 접기/펼치기)
+│   └── UnassignedTab (미지정 할일, 날짜 배정 패널)
+│
+├── MonthlyView (목표관리 /goals)
+│   ├── WeeklyGoalsSection (WeeklyView에서 export, 재사용)
+│   └── MonthlyGoalsContent (이달 목표+통계+습관 달성률)
 │
 ├── HabitsView
 │   ├── HabitModal (추가/편집 — 5종 목표 유형 선택)
@@ -543,8 +557,10 @@ App.tsx
 │   └── TodoSummary (Top3 + 기한 초과)
 │
 └── 공통 컴포넌트
+    ├── TodoModal — 할일 추가/편집 모달 (date prop optional: 고정/날짜 네비)
+    │   └── 적용: DailyView (date 고정), TodosView (날짜 네비)
     ├── TimePicker — ▲▼ 버튼 + 휠(분 1분단위) + 드롭다운 패널 + 패널 직접 입력
-    │   └── 적용: DailyView 6곳, HabitsView 2곳, RoutinesView 1곳, BrainstormView 2곳
+    │   └── 적용: DailyView 6곳, HabitsView 2곳, RoutinesView 1곳
     ├── ConfirmModal — window.confirm() 대체 커스텀 확인 모달
     │   └── 적용: ProjectDetailView (프로젝트 삭제)
     ├── NotificationPermissionBanner — 알림 권한 요청 배너 (Layout.tsx에 마운트)
