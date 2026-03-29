@@ -83,7 +83,7 @@ function RoutineModal({ routine, onClose }: { routine?: Routine; onClose: () => 
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center" style={{ backgroundColor: 'rgba(0,0,0,0.35)' }}>
-      <div className="rounded-2xl w-[460px] max-h-[85vh] flex flex-col"
+      <div className="rounded-2xl w-full max-w-[460px] max-h-[85vh] flex flex-col mx-4"
         style={{ backgroundColor: t.card, boxShadow: '0 25px 50px -12px rgba(0,0,0,0.18)' }}>
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-5" style={{ borderBottom: `1px solid ${t.border}` }}>
