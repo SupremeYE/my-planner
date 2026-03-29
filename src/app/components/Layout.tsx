@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
 import { Outlet, NavLink, useLocation } from 'react-router';
 import {
-  Sun, CalendarDays, LayoutList, BarChart2, Archive,
-  ChevronLeft, ChevronRight, Target, FolderKanban, Plus, Home, Lightbulb,
+  Sun, CalendarDays, LayoutList, BarChart2, ListTodo,
+  ChevronLeft, ChevronRight, Target, FolderKanban, Plus, Home,
   Menu, Heart, Repeat, BookOpen,
 } from 'lucide-react';
 import { usePlanner, getWeekKey } from '../store';
@@ -15,10 +15,9 @@ const mainNavItems = [
   { to: '/dashboard', icon: Home, label: '대시보드' },
   { to: '/daily', icon: Sun, label: '일간' },
   { to: '/calendar', icon: CalendarDays, label: '캘린더' },
+  { to: '/todos', icon: ListTodo, label: '할일' },
   { to: '/weekly', icon: LayoutList, label: '주간' },
-  { to: '/monthly', icon: BarChart2, label: '월간' },
-  { to: '/backlog', icon: Archive, label: '보관함' },
-  { to: '/brainstorm', icon: Lightbulb, label: '브레인스토밍' },
+  { to: '/goals', icon: BarChart2, label: '목표관리' },
 ];
 
 const lifestyleNavItems = [
@@ -604,16 +603,17 @@ export function Layout() {
           <Outlet />
         </main>
 
-        {/* Bottom Nav - 5 main tabs */}
+        {/* Bottom Nav - 5 fixed tabs */}
         <nav
           className="fixed bottom-0 left-0 right-0 flex border-t z-40"
           style={{ backgroundColor: t.sidebar, borderColor: t.border, height: 56 }}
         >
           {[
-            { to: '/dashboard', icon: Home, label: '홈' },
+            { to: '/dashboard', icon: Home, label: '대시보드' },
             { to: '/daily', icon: Sun, label: '일간' },
             { to: '/calendar', icon: CalendarDays, label: '캘린더' },
-            { to: '/weekly', icon: LayoutList, label: '주간' },
+            { to: '/todos', icon: ListTodo, label: '할일' },
+            { to: '/habits', icon: Repeat, label: '습관&루틴' },
           ].map(({ to, icon: Icon, label }) => (
             <NavLink
               key={to}
@@ -638,24 +638,6 @@ export function Layout() {
               )}
             </NavLink>
           ))}
-          {/* 더보기 버튼 */}
-          <button
-            onClick={() => setMobileMenuOpen(true)}
-            className="flex-1 flex flex-col items-center justify-center gap-0.5 transition-colors"
-          >
-            <div
-              className="flex items-center justify-center rounded-xl"
-              style={{
-                backgroundColor: mobileMenuOpen ? t.accentLight : 'transparent',
-                padding: '4px 12px',
-              }}
-            >
-              <Menu size={18} color={mobileMenuOpen ? t.accent : t.textMuted} />
-            </div>
-            <span style={{ fontSize: 9, color: mobileMenuOpen ? t.accent : t.textMuted, fontWeight: mobileMenuOpen ? 700 : 400 }}>
-              메뉴
-            </span>
-          </button>
         </nav>
 
         {/* Mobile Menu Overlay */}

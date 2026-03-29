@@ -1,9 +1,9 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Outlet, NavLink, useNavigate } from 'react-router';
 import {
-  Sun, CalendarDays, LayoutList, BarChart2, Archive, FolderKanban,
+  Sun, CalendarDays, LayoutList, BarChart2, FolderKanban, ListTodo,
   ChevronLeft, ChevronRight, Calendar, Plus, Target, CheckCircle2,
-  ChevronDown, X, Home, Lightbulb, Menu,
+  ChevronDown, X, Home, Menu,
 } from 'lucide-react';
 import { usePlanner, getWeekKey } from '../store';
 import { useTheme } from '../ThemeContext';
@@ -15,13 +15,12 @@ import { PROJECT_COLORS } from './ProjectView';
 
 const NAV_ITEMS = [
   { to: '/dashboard', icon: Home,         label: '대시보드' },
-  { to: '/daily',    icon: Sun,         label: '일간' },
-  { to: '/calendar', icon: CalendarDays, label: '캘린더' },
-  { to: '/weekly',   icon: LayoutList,   label: '주간' },
-  { to: '/monthly',  icon: BarChart2,    label: '월간' },
-  { to: '/projects', icon: FolderKanban, label: '프로젝트' },
-  { to: '/backlog',  icon: Archive,      label: '보관함' },
-  { to: '/brainstorm', icon: Lightbulb,  label: '브레인스토밍' },
+  { to: '/daily',     icon: Sun,          label: '일간' },
+  { to: '/calendar',  icon: CalendarDays, label: '캘린더' },
+  { to: '/todos',     icon: ListTodo,     label: '할일' },
+  { to: '/weekly',    icon: LayoutList,   label: '주간' },
+  { to: '/goals',     icon: BarChart2,    label: '목표관리' },
+  { to: '/projects',  icon: FolderKanban, label: '프로젝트' },
 ];
 
 // ── Mini Calendar Dropdown ──
