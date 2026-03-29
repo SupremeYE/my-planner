@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
   Plus, Play, Pause, RotateCcw, Check, Trash2, Edit3, X,
-  ChevronDown, ChevronUp, Clock, Flame, Timer,
+  ChevronDown, ChevronUp, Clock, Flame, Timer, Youtube,
 } from 'lucide-react';
 import { usePlanner, Routine } from '../store';
 import { useTheme } from '../ThemeContext';
@@ -25,6 +25,11 @@ function getStreak(checkedDates: string[]): number {
   return streak;
 }
 
+function isValidYoutubeUrl(url: string): boolean {
+  if (!url.trim()) return true; // 비어있으면 유효(선택사항)
+  return /^https?:\/\/(www\.)?(youtube\.com\/watch\?v=|youtu\.be\/)[\w\-]+/.test(url);
+}
+
 function formatTime(sec: number): string {
   const m = Math.floor(sec / 60).toString().padStart(2, '0');
   const s = (sec % 60).toString().padStart(2, '0');
@@ -40,12 +45,16 @@ function RoutineModal({ routine, onClose }: { routine?: Routine; onClose: () => 
   const [startTime, setStartTime] = useState(routine?.startTime ?? '07:00');
   const [duration, setDuration] = useState(routine?.duration ?? 15);
   const [steps, setSteps] = useState<string[]>(routine?.steps ?? ['']);
+  const [stepUrls, setStepUrls] = useState<string[]>(routine?.stepYoutubeUrls ?? ['']);
 
   const handleSave = () => {
     if (!name.trim()) return;
+    const filteredSteps = steps.map((s, i) => ({ s, u: stepUrls[i] ?? '' })).filter(x => x.s.trim());
     const data = {
       name: name.trim(), icon, startTime,
-      duration, steps: steps.filter(s => s.trim()),
+      duration,
+      steps: filteredSteps.map(x => x.s),
+      stepYoutubeUrls: filteredSteps.map(x => x.u),
       checkedDates: routine?.checkedDates ?? [],
     };
     if (routine) updateRoutine(routine.id, data);
@@ -56,8 +65,21 @@ function RoutineModal({ routine, onClose }: { routine?: Routine; onClose: () => 
   const handleStepChange = (i: number, val: string) => {
     setSteps(prev => prev.map((s, idx) => idx === i ? val : s));
   };
-  const addStep = () => setSteps(prev => [...prev, '']);
-  const removeStep = (i: number) => setSteps(prev => prev.filter((_, idx) => idx !== i));
+  const handleUrlChange = (i: number, val: string) => {
+    setStepUrls(prev => {
+      const next = [...prev];
+      next[i] = val;
+      return next;
+    });
+  };
+  const addStep = () => {
+    setSteps(prev => [...prev, '']);
+    setStepUrls(prev => [...prev, '']);
+  };
+  const removeStep = (i: number) => {
+    setSteps(prev => prev.filter((_, idx) => idx !== i));
+    setStepUrls(prev => prev.filter((_, idx) => idx !== i));
+  };
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center" style={{ backgroundColor: 'rgba(0,0,0,0.35)' }}>
@@ -118,21 +140,40 @@ function RoutineModal({ routine, onClose }: { routine?: Routine; onClose: () => 
           {/* Steps */}
           <div>
             <label style={{ fontSize: 12, color: t.textSub, display: 'block', marginBottom: 8 }}>단계 (선택)</label>
-            <div className="space-y-2">
-              {steps.map((step, i) => (
-                <div key={i} className="flex gap-2 items-center">
-                  <span style={{ fontSize: 12, color: t.textMuted, minWidth: 18, textAlign: 'right' }}>{i + 1}.</span>
-                  <input value={step} onChange={e => handleStepChange(i, e.target.value)}
-                    placeholder={`단계 ${i + 1}`}
-                    className="flex-1 rounded-lg px-3 py-2 border outline-none"
-                    style={{ borderColor: t.border, fontSize: 13, backgroundColor: t.bgSub, color: t.text }} />
-                  {steps.length > 1 && (
-                    <button onClick={() => removeStep(i)} style={{ color: t.textMuted }}>
-                      <X size={14} />
-                    </button>
-                  )}
-                </div>
-              ))}
+            <div className="space-y-3">
+              {steps.map((step, i) => {
+                const url = stepUrls[i] ?? '';
+                const urlInvalid = url.trim() !== '' && !isValidYoutubeUrl(url);
+                return (
+                  <div key={i} className="rounded-xl p-3 space-y-2" style={{ backgroundColor: t.bgSub, border: `1px solid ${t.border}` }}>
+                    <div className="flex gap-2 items-center">
+                      <span style={{ fontSize: 12, color: t.textMuted, minWidth: 18, textAlign: 'right' }}>{i + 1}.</span>
+                      <input value={step} onChange={e => handleStepChange(i, e.target.value)}
+                        placeholder={`단계 ${i + 1}`}
+                        className="flex-1 rounded-lg px-3 py-2 border outline-none"
+                        style={{ borderColor: t.border, fontSize: 13, backgroundColor: t.card, color: t.text }} />
+                      {steps.length > 1 && (
+                        <button onClick={() => removeStep(i)} style={{ color: t.textMuted }}>
+                          <X size={14} />
+                        </button>
+                      )}
+                    </div>
+                    <div className="flex gap-2 items-center pl-6">
+                      <Youtube size={13} style={{ color: urlInvalid ? '#ef4444' : t.textMuted, flexShrink: 0 }} />
+                      <input value={url} onChange={e => handleUrlChange(i, e.target.value)}
+                        placeholder="YouTube URL (선택)"
+                        className="flex-1 rounded-lg px-3 py-1.5 border outline-none"
+                        style={{
+                          borderColor: urlInvalid ? '#ef4444' : t.border,
+                          fontSize: 12, backgroundColor: t.card, color: t.text,
+                        }} />
+                    </div>
+                    {urlInvalid && (
+                      <p className="pl-6" style={{ fontSize: 11, color: '#ef4444' }}>유효한 YouTube URL을 입력해주세요</p>
+                    )}
+                  </div>
+                );
+              })}
             </div>
             <button onClick={addStep}
               className="mt-2 flex items-center gap-1.5 px-3 py-1.5 rounded-lg"
@@ -275,21 +316,31 @@ function ExecutionPanel({ routine, onClose }: { routine: Routine; onClose: () =>
               <div className="space-y-2">
                 {routine.steps.map((step, i) => {
                   const done = checkedSteps.has(i);
+                  const youtubeUrl = routine.stepYoutubeUrls?.[i];
                   return (
-                    <button key={i} onClick={() => handleToggleStep(i)}
-                      className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-left transition-all"
-                      style={{
-                        backgroundColor: done ? t.accent + '15' : t.bgSub,
-                        border: `1px solid ${done ? t.accent + '40' : t.border}`,
-                      }}>
-                      <div className="w-5 h-5 rounded-full flex items-center justify-center flex-shrink-0"
-                        style={{ backgroundColor: done ? t.accent : 'transparent', border: `2px solid ${done ? t.accent : t.border}` }}>
-                        {done && <Check size={11} color="#fff" strokeWidth={3} />}
-                      </div>
-                      <span style={{ fontSize: 13, color: done ? t.accent : t.text, textDecoration: done ? 'line-through' : 'none' }}>
-                        {step}
-                      </span>
-                    </button>
+                    <div key={i} className="rounded-xl overflow-hidden"
+                      style={{ border: `1px solid ${done ? t.accent + '40' : t.border}` }}>
+                      <button onClick={() => handleToggleStep(i)}
+                        className="w-full flex items-center gap-3 px-4 py-3 text-left transition-all"
+                        style={{ backgroundColor: done ? t.accent + '15' : t.bgSub }}>
+                        <div className="w-5 h-5 rounded-full flex items-center justify-center flex-shrink-0"
+                          style={{ backgroundColor: done ? t.accent : 'transparent', border: `2px solid ${done ? t.accent : t.border}` }}>
+                          {done && <Check size={11} color="#fff" strokeWidth={3} />}
+                        </div>
+                        <span style={{ fontSize: 13, color: done ? t.accent : t.text, textDecoration: done ? 'line-through' : 'none', flex: 1 }}>
+                          {step}
+                        </span>
+                        {youtubeUrl && (
+                          <a href={youtubeUrl} target="_blank" rel="noopener noreferrer"
+                            onClick={e => e.stopPropagation()}
+                            className="flex items-center gap-1 px-2.5 py-1 rounded-lg flex-shrink-0"
+                            style={{ fontSize: 11, fontWeight: 600, backgroundColor: '#FF000018', color: '#CC0000' }}>
+                            <Youtube size={12} />
+                            영상 보기
+                          </a>
+                        )}
+                      </button>
+                    </div>
                   );
                 })}
               </div>

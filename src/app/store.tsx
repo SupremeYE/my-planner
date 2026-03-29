@@ -63,6 +63,7 @@ export interface Routine {
   startTime: string;
   duration: number;
   steps: string[];
+  stepYoutubeUrls?: string[];
   checkedDates: string[];
 }
 

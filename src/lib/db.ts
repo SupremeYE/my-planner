@@ -81,7 +81,7 @@ type TagRow = {
 type RoutineRow = {
   id: string; name: string; icon: string;
   start_time: string; duration: number;
-  steps: string[]; checked_dates: string[];
+  steps: string[]; step_youtube_urls: string[]; checked_dates: string[];
 };
 
 // ── 변환 함수 ────────────────────────────────────────────────────────────────
@@ -249,13 +249,15 @@ const fromTag = (t: Tag): TagRow => ({ id: t.id, name: t.name, color: t.color })
 const toRoutine = (r: RoutineRow): Routine => ({
   id: r.id, name: r.name, icon: r.icon,
   startTime: r.start_time, duration: r.duration,
-  steps: r.steps ?? [], checkedDates: r.checked_dates ?? [],
+  steps: r.steps ?? [], stepYoutubeUrls: r.step_youtube_urls ?? [],
+  checkedDates: r.checked_dates ?? [],
 });
 
 const fromRoutine = (r: Routine): RoutineRow => ({
   id: r.id, name: r.name, icon: r.icon,
   start_time: r.startTime, duration: r.duration,
-  steps: r.steps ?? [], checked_dates: r.checkedDates ?? [],
+  steps: r.steps ?? [], step_youtube_urls: r.stepYoutubeUrls ?? [],
+  checked_dates: r.checkedDates ?? [],
 });
 
 // ── DB 객체 ──────────────────────────────────────────────────────────────────
