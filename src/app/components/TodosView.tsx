@@ -2,11 +2,12 @@ import { useState, useMemo } from 'react';
 import { format, isToday, isTomorrow, isPast, parseISO } from 'date-fns';
 import {
   Plus, Trash2, CalendarClock, ChevronDown, ChevronUp,
-  Check, Star, X, Pencil, ListTodo, Play,
+  Check, Star, Pencil, ListTodo, Play,
 } from 'lucide-react';
 import { usePlanner, Todo, TodoStatus } from '../store';
 import { useTheme } from '../ThemeContext';
 import ConfirmModal from './ConfirmModal';
+import { TodoModal } from './TodoModal';
 
 // ─── Constants ───────────────────────────────────────────────
 const STATUS_CONFIG: Record<string, { label: string; color: string; bgColor: string }> = {
@@ -27,8 +28,6 @@ const STATUS_NEXT: Record<string, TodoStatus> = {
   cancelled:  'active',
 };
 
-const CATEGORIES = ['업무', '건강', '자기계발', '생활', '기타'];
-
 const DAYS = ['일', '월', '화', '수', '목', '금', '토'];
 
 function getDateLabel(dateStr: string): string {
@@ -38,181 +37,11 @@ function getDateLabel(dateStr: string): string {
     const formatted = `${format(d, 'M월 d일')} (${dayName})`;
     if (isToday(d)) return `오늘 · ${format(d, 'M/d')} (${dayName})`;
     if (isTomorrow(d)) return `내일 · ${format(d, 'M/d')} (${dayName})`;
-    if (isPast(d)) return `${formatted} ·  지남`;
+    if (isPast(d)) return `${formatted} · 지남`;
     return formatted;
   } catch {
     return dateStr;
   }
-}
-
-// ─── Edit Modal ───────────────────────────────────────────────
-interface EditModalProps {
-  todo: Todo;
-  onClose: () => void;
-  onSave: (changes: Partial<Todo>) => void;
-}
-
-function TodoEditModal({ todo, onClose, onSave }: EditModalProps) {
-  const { t } = useTheme();
-  const [text, setText] = useState(todo.text);
-  const [date, setDate] = useState(todo.date ?? '');
-  const [category, setCategory] = useState(todo.category ?? '');
-  const [dueDate, setDueDate] = useState(todo.dueDate ?? '');
-
-  const handleSave = () => {
-    if (!text.trim()) return;
-    onSave({
-      text: text.trim(),
-      date: date || null,
-      category: category || undefined,
-      dueDate: dueDate || undefined,
-    });
-    onClose();
-  };
-
-  return (
-    <div
-      className="fixed inset-0 z-50 flex items-end justify-center lg:items-center"
-      style={{ backgroundColor: 'rgba(0,0,0,0.35)' }}
-      onClick={onClose}
-    >
-      <div
-        className="w-full max-w-lg rounded-t-3xl lg:rounded-2xl p-5 space-y-4"
-        style={{ backgroundColor: t.card, border: `1px solid ${t.border}` }}
-        onClick={e => e.stopPropagation()}
-      >
-        {/* 핸들 */}
-        <div className="flex justify-center -mt-1 mb-1 lg:hidden">
-          <div className="w-10 h-1 rounded-full" style={{ backgroundColor: t.border }} />
-        </div>
-
-        <div className="flex items-center justify-between">
-          <span style={{ fontSize: 15, fontWeight: 700, color: t.text }}>할일 편집</span>
-          <button onClick={onClose} className="p-1.5 rounded-lg hover:opacity-70">
-            <X size={16} color={t.textMuted} />
-          </button>
-        </div>
-
-        <div className="space-y-3">
-          <input
-            autoFocus
-            value={text}
-            onChange={e => setText(e.target.value)}
-            onKeyDown={e => e.key === 'Enter' && handleSave()}
-            placeholder="할일 내용"
-            className="w-full px-3 py-2.5 rounded-xl outline-none"
-            style={{ fontSize: 14, backgroundColor: t.bgSub, border: `1px solid ${t.border}`, color: t.text }}
-          />
-          <div className="grid grid-cols-2 gap-2">
-            <div>
-              <label style={{ fontSize: 11, color: t.textSub, display: 'block', marginBottom: 4 }}>날짜</label>
-              <input
-                type="date"
-                value={date}
-                onChange={e => setDate(e.target.value)}
-                className="w-full px-3 py-2 rounded-xl outline-none"
-                style={{ fontSize: 13, backgroundColor: t.bgSub, border: `1px solid ${t.border}`, color: t.text }}
-              />
-            </div>
-            <div>
-              <label style={{ fontSize: 11, color: t.textSub, display: 'block', marginBottom: 4 }}>마감일</label>
-              <input
-                type="date"
-                value={dueDate}
-                onChange={e => setDueDate(e.target.value)}
-                className="w-full px-3 py-2 rounded-xl outline-none"
-                style={{ fontSize: 13, backgroundColor: t.bgSub, border: `1px solid ${t.border}`, color: t.text }}
-              />
-            </div>
-          </div>
-          <div>
-            <label style={{ fontSize: 11, color: t.textSub, display: 'block', marginBottom: 4 }}>카테고리</label>
-            <select
-              value={category}
-              onChange={e => setCategory(e.target.value)}
-              className="w-full px-3 py-2 rounded-xl outline-none"
-              style={{ fontSize: 13, backgroundColor: t.bgSub, border: `1px solid ${t.border}`, color: t.text }}
-            >
-              <option value="">없음</option>
-              {CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
-            </select>
-          </div>
-        </div>
-
-        <div className="flex gap-2 pt-1">
-          <button
-            onClick={onClose}
-            className="flex-1 py-2.5 rounded-xl"
-            style={{ backgroundColor: t.bgSub, color: t.textSub, fontSize: 14 }}
-          >
-            취소
-          </button>
-          <button
-            onClick={handleSave}
-            className="flex-1 py-2.5 rounded-xl"
-            style={{ backgroundColor: t.accent, color: '#fff', fontSize: 14, fontWeight: 700 }}
-          >
-            저장
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-// ─── Quick Add Bar ─────────────────────────────────────────────
-interface QuickAddProps {
-  onAdd: (text: string, date?: string) => void;
-  showDatePicker?: boolean;
-  defaultDate?: string;
-  placeholder?: string;
-}
-
-function QuickAddBar({ onAdd, showDatePicker = false, defaultDate = '', placeholder }: QuickAddProps) {
-  const { t } = useTheme();
-  const [text, setText] = useState('');
-  const [date, setDate] = useState(defaultDate);
-
-  const handleAdd = () => {
-    if (!text.trim()) return;
-    onAdd(text.trim(), showDatePicker ? (date || undefined) : undefined);
-    setText('');
-  };
-
-  return (
-    <div className="flex gap-2 items-center">
-      {showDatePicker && (
-        <input
-          type="date"
-          value={date}
-          onChange={e => setDate(e.target.value)}
-          className="px-2 py-2 rounded-xl outline-none flex-shrink-0"
-          style={{
-            fontSize: 12,
-            backgroundColor: t.bgSub,
-            border: `1px solid ${t.border}`,
-            color: t.text,
-            width: 136,
-          }}
-        />
-      )}
-      <input
-        value={text}
-        onChange={e => setText(e.target.value)}
-        onKeyDown={e => e.key === 'Enter' && handleAdd()}
-        placeholder={placeholder ?? (showDatePicker ? '할일 추가...' : '날짜 없는 할일 추가...')}
-        className="flex-1 px-3 py-2 rounded-xl outline-none"
-        style={{ fontSize: 13, backgroundColor: t.bgSub, border: `1px solid ${t.border}`, color: t.text }}
-      />
-      <button
-        onClick={handleAdd}
-        className="p-2.5 rounded-xl flex-shrink-0 transition-opacity hover:opacity-80"
-        style={{ backgroundColor: t.accent, color: '#fff' }}
-      >
-        <Plus size={16} />
-      </button>
-    </div>
-  );
 }
 
 // ─── Todo Row ──────────────────────────────────────────────────
@@ -230,6 +59,7 @@ function TodoRow({
   todo, showDateAssign, onStatusToggle, onEdit, onDelete, onTop3Toggle, onAssignDate,
 }: TodoRowProps) {
   const { t } = useTheme();
+  const { projects } = usePlanner();
   const [assignMode, setAssignMode] = useState(false);
   const [assignDate, setAssignDate] = useState('');
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
@@ -238,6 +68,7 @@ function TodoRow({
   const isCancelled = todo.status === 'cancelled';
   const cfg = STATUS_CONFIG[todo.status] ?? STATUS_CONFIG.active;
   const duePast = todo.dueDate && todo.dueDate < format(new Date(), 'yyyy-MM-dd');
+  const project = todo.projectId ? projects.find(p => p.id === todo.projectId) : null;
 
   return (
     <>
@@ -284,14 +115,19 @@ function TodoRow({
             </div>
 
             {/* Meta badges */}
-            {(todo.category || todo.dueDate || todo.status !== 'active') && (
+            {(project || todo.planStart || todo.dueDate || (todo.status !== 'active' && todo.status !== 'backlog')) && (
               <div className="flex items-center gap-1.5 mt-1 flex-wrap">
-                {todo.category && (
+                {project && (
                   <span
-                    className="px-1.5 py-0.5 rounded-full"
-                    style={{ fontSize: 10, backgroundColor: t.bgSub, color: t.textSub }}
+                    className="inline-flex items-center px-1.5 py-0.5 rounded-full"
+                    style={{ fontSize: 10, backgroundColor: project.color + '18', color: project.color, lineHeight: '14px' }}
                   >
-                    {todo.category}
+                    {project.name}
+                  </span>
+                )}
+                {todo.planStart && (
+                  <span style={{ fontSize: 10, color: t.textMuted }}>
+                    {todo.planStart}{todo.planEnd ? ` - ${todo.planEnd}` : ''}
                   </span>
                 )}
                 {todo.dueDate && (
@@ -338,10 +174,10 @@ function TodoRow({
           </div>
         </div>
 
-        {/* Date assign panel */}
+        {/* Date assign panel (미지정 탭) */}
         {showDateAssign && assignMode && (
           <div
-            className="flex gap-2 px-3 pb-3"
+            className="flex gap-2 px-3 pb-3 pt-1"
             style={{ borderTop: `1px solid ${t.borderLight}` }}
           >
             <div className="flex-1" />
@@ -391,9 +227,11 @@ function TodoRow({
 
 // ─── Tab 1: All Todos ──────────────────────────────────────────
 function AllTodosTab() {
-  const { todos, addTodo, updateTodo, deleteTodo, toggleTop3 } = usePlanner();
+  const { todos, updateTodo, deleteTodo, toggleTop3 } = usePlanner();
   const { t } = useTheme();
   const [editingTodo, setEditingTodo] = useState<Todo | null>(null);
+  const [showAddModal, setShowAddModal] = useState(false);
+  const [addDefaultDate, setAddDefaultDate] = useState<string | undefined>(undefined);
   const [collapsedDone, setCollapsedDone] = useState<Set<string>>(new Set());
 
   const allTodos = todos.filter(td => td.date !== null && td.status !== 'backlog');
@@ -408,15 +246,6 @@ function AllTodosTab() {
     return Object.entries(groups).sort(([a], [b]) => a.localeCompare(b));
   }, [allTodos]);
 
-  const handleAdd = (text: string, date?: string) => {
-    addTodo({
-      text,
-      date: date || format(new Date(), 'yyyy-MM-dd'),
-      status: 'active',
-      isTop3: false,
-    });
-  };
-
   const toggleDoneGroup = (date: string) => {
     setCollapsedDone(prev => {
       const next = new Set(prev);
@@ -425,22 +254,18 @@ function AllTodosTab() {
     });
   };
 
+  const openAdd = (date?: string) => {
+    setAddDefaultDate(date);
+    setShowAddModal(true);
+  };
+
   return (
     <div className="space-y-5">
-      {/* Quick add */}
-      <div className="px-4">
-        <QuickAddBar
-          onAdd={handleAdd}
-          showDatePicker
-          defaultDate={format(new Date(), 'yyyy-MM-dd')}
-        />
-      </div>
-
       {grouped.length === 0 && (
         <div className="text-center py-16">
           <ListTodo size={36} color={t.borderLight} className="mx-auto mb-3" />
           <p style={{ fontSize: 13, color: t.textMuted }}>등록된 할일이 없어요</p>
-          <p style={{ fontSize: 12, color: t.textMuted, marginTop: 4 }}>위에서 날짜와 함께 추가해보세요</p>
+          <p style={{ fontSize: 12, color: t.textMuted, marginTop: 4 }}>상단 버튼으로 추가해보세요</p>
         </div>
       )}
 
@@ -465,6 +290,14 @@ function AllTodosTab() {
                 {getDateLabel(date)}
               </span>
               <div className="flex-1 h-px" style={{ backgroundColor: t.borderLight }} />
+              {/* 해당 날짜로 할일 추가 */}
+              <button
+                onClick={() => openAdd(date)}
+                className="p-1 rounded-lg hover:opacity-70"
+                style={{ color: t.textMuted }}
+              >
+                <Plus size={13} />
+              </button>
               <span style={{ fontSize: 10, color: t.textMuted }}>
                 {activeTodos.length + doneTodos.length}개
               </span>
@@ -492,10 +325,7 @@ function AllTodosTab() {
                   className="flex items-center gap-1.5 py-1 mb-2"
                   style={{ fontSize: 11, color: t.textMuted }}
                 >
-                  {doneHidden
-                    ? <ChevronDown size={12} />
-                    : <ChevronUp size={12} />
-                  }
+                  {doneHidden ? <ChevronDown size={12} /> : <ChevronUp size={12} />}
                   완료 {doneTodos.length}개
                 </button>
                 {!doneHidden && (
@@ -518,11 +348,17 @@ function AllTodosTab() {
         );
       })}
 
+      {/* 할일 추가 모달 (공통 TodoModal, date 없으면 오늘 기본값 + 날짜 네비) */}
+      {showAddModal && (
+        <TodoModal
+          date={addDefaultDate}
+          onClose={() => { setShowAddModal(false); setAddDefaultDate(undefined); }}
+        />
+      )}
       {editingTodo && (
-        <TodoEditModal
+        <TodoModal
           todo={editingTodo}
           onClose={() => setEditingTodo(null)}
-          onSave={changes => updateTodo(editingTodo.id, changes)}
         />
       )}
     </div>
@@ -531,20 +367,15 @@ function AllTodosTab() {
 
 // ─── Tab 2: Unassigned Todos ───────────────────────────────────
 function UnassignedTab() {
-  const { todos, addTodo, updateTodo, deleteTodo, toggleTop3 } = usePlanner();
+  const { todos, updateTodo, deleteTodo, toggleTop3 } = usePlanner();
   const { t } = useTheme();
   const [editingTodo, setEditingTodo] = useState<Todo | null>(null);
+  const [showAddModal, setShowAddModal] = useState(false);
 
   const unassigned = todos.filter(td => td.date === null || td.status === 'backlog');
 
-  const handleAdd = (text: string) => {
-    addTodo({ text, date: null, status: 'backlog', isTop3: false });
-  };
-
   return (
     <div className="px-4 space-y-4">
-      <QuickAddBar onAdd={handleAdd} />
-
       {unassigned.length === 0 && (
         <div className="text-center py-16">
           <ListTodo size={36} color={t.borderLight} className="mx-auto mb-3" />
@@ -568,11 +399,16 @@ function UnassignedTab() {
         ))}
       </div>
 
+      {/* 미지정 할일 추가: 날짜 네비 있는 TodoModal, 추가 후 날짜가 지정되면 전체 탭으로 이동 */}
+      {showAddModal && (
+        <TodoModal
+          onClose={() => setShowAddModal(false)}
+        />
+      )}
       {editingTodo && (
-        <TodoEditModal
+        <TodoModal
           todo={editingTodo}
           onClose={() => setEditingTodo(null)}
-          onSave={changes => updateTodo(editingTodo.id, changes)}
         />
       )}
     </div>
@@ -584,6 +420,7 @@ export function TodosView() {
   const { todos } = usePlanner();
   const { t } = useTheme();
   const [tab, setTab] = useState<'all' | 'unassigned'>('all');
+  const [showAddModal, setShowAddModal] = useState(false);
 
   const allCount        = todos.filter(td => td.date !== null && td.status !== 'backlog').length;
   const unassignedCount = todos.filter(td => td.date === null  || td.status === 'backlog').length;
@@ -600,19 +437,29 @@ export function TodosView() {
         className="flex-shrink-0 sticky top-0 z-10"
         style={{ backgroundColor: t.sidebar, borderBottom: `1px solid ${t.border}` }}
       >
-        <div className="px-4 pt-4 pb-0">
-          <div className="flex items-center gap-2 mb-3">
-            <ListTodo size={18} color={t.accent} />
-            <h1 style={{ fontSize: 18, fontWeight: 700, color: t.text }}>할일</h1>
+        <div className="px-3 py-3 lg:px-6 lg:py-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <ListTodo size={18} color={t.accent} />
+              <h1 style={{ fontSize: 18, fontWeight: 700, color: t.text }}>할일</h1>
+            </div>
+            {/* 할일 추가 버튼 — DailyView 헤더와 동일한 스타일 */}
+            <button
+              onClick={() => setShowAddModal(true)}
+              className="px-2.5 py-1.5 lg:px-3 rounded-lg flex items-center gap-1 lg:gap-1.5"
+              style={{ fontSize: 11, fontWeight: 600, backgroundColor: t.accent, color: '#fff', whiteSpace: 'nowrap' }}
+            >
+              <Plus size={13} /> 할일 추가
+            </button>
           </div>
 
           {/* Tab bar */}
-          <div className="flex gap-0">
+          <div className="flex gap-0 mt-2">
             {tabs.map(({ key, label, count }) => (
               <button
                 key={key}
                 onClick={() => setTab(key)}
-                className="relative px-4 py-2.5 flex items-center gap-1.5 transition-colors"
+                className="relative px-4 py-2 flex items-center gap-1.5 transition-colors"
                 style={{
                   fontSize: 13,
                   fontWeight: tab === key ? 700 : 400,
@@ -649,6 +496,11 @@ export function TodosView() {
       <div className="flex-1 overflow-y-auto py-4">
         {tab === 'all' ? <AllTodosTab /> : <UnassignedTab />}
       </div>
+
+      {/* 상단 헤더 할일 추가 버튼용 모달 (날짜 네비 포함) */}
+      {showAddModal && (
+        <TodoModal onClose={() => setShowAddModal(false)} />
+      )}
     </div>
   );
 }
