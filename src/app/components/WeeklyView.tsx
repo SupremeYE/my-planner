@@ -392,7 +392,7 @@ function DayColumn({ day, todos, tags, projects, activeDragId }: {
 }
 
 // ── Weekly Goals Section ──
-function WeeklyGoalsSection({ weekKey, viewDate }: { weekKey: string; viewDate: Date }) {
+export function WeeklyGoalsSection({ weekKey, viewDate }: { weekKey: string; viewDate: Date }) {
   const { weeklyGoals, monthlyGoals, addWeeklyGoal, toggleWeeklyGoal, deleteWeeklyGoal } = usePlanner();
   const { t } = useTheme();
   const [newGoalText, setNewGoalText] = useState('');
