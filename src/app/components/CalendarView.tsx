@@ -104,11 +104,9 @@ function MonthView({ viewDate, filter, onSelectDate }: {
                 minHeight: 72,
               }}
             >
-              {/* 날짜 숫자 — 기존 스타일 그대로 */}
               <span className="self-center" style={{ fontSize: 13, color: isSelected ? '#fff' : isToday ? '#C8A97E' : '#2D2D2D', fontWeight: isSelected || isToday ? 700 : 400 }}>
                 {day}
               </span>
-              {/* 칩 목록 */}
               <div className="flex flex-col gap-0.5 w-full mt-0.5">
                 {shown.map(item => {
                   const c = CHIP_COLORS[item.type];
@@ -141,6 +139,7 @@ function MonthView({ viewDate, filter, onSelectDate }: {
 }
 
 // ─── Week View ───
+// 헤더(요일)는 고정, 타임라인만 단일 스크롤
 function WeekView({ viewDate, onSelectDate }: { viewDate: Date; onSelectDate: (d: string) => void }) {
   const { todos, dayStartHour: START_HOUR, dayEndHour: END_HOUR } = usePlanner();
 
@@ -150,10 +149,10 @@ function WeekView({ viewDate, onSelectDate }: { viewDate: Date; onSelectDate: (d
   const todayStr = format(new Date(), 'yyyy-MM-dd');
 
   return (
-    <div className="overflow-x-auto">
-      <div style={{ minWidth: 560 }}>
-        {/* Day headers */}
-        <div className="grid" style={{ gridTemplateColumns: '40px repeat(7, 1fr)', marginBottom: 4 }}>
+    <div className="flex flex-col" style={{ flex: 1, minHeight: 0, overflow: 'hidden' }}>
+      {/* Day headers — 고정 */}
+      <div style={{ flexShrink: 0, borderBottom: '1px solid #F0EBE3' }}>
+        <div className="grid" style={{ gridTemplateColumns: '40px repeat(7, 1fr)' }}>
           <div />
           {days.map(d => {
             const dateStr = format(d, 'yyyy-MM-dd');
@@ -163,8 +162,8 @@ function WeekView({ viewDate, onSelectDate }: { viewDate: Date; onSelectDate: (d
                 <span style={{ fontSize: 11, color: '#888' }}>{format(d, 'E', { locale: ko })}</span>
                 <span style={{
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  width: 28, height: 28, borderRadius: '50%', marginTop: 2, flexShrink: 0,
-                  fontSize: 13, fontWeight: 700,
+                  width: 26, height: 26, borderRadius: '50%', marginTop: 2, flexShrink: 0,
+                  fontSize: 12, fontWeight: 700,
                   backgroundColor: isToday ? '#C8A97E' : 'transparent',
                   color: isToday ? '#fff' : '#2D2D2D',
                 }}>
@@ -174,8 +173,10 @@ function WeekView({ viewDate, onSelectDate }: { viewDate: Date; onSelectDate: (d
             );
           })}
         </div>
+      </div>
 
-        {/* Time grid */}
+      {/* Time grid — 단일 스크롤 */}
+      <div style={{ flex: 1, overflowY: 'auto', minHeight: 0 }}>
         <div className="relative" style={{ height: (END_HOUR - START_HOUR) * HOUR_HEIGHT }}>
           {/* Hour lines */}
           {hours.map(h => (
@@ -193,7 +194,6 @@ function WeekView({ viewDate, onSelectDate }: { viewDate: Date; onSelectDate: (d
 
               return (
                 <div key={dateStr} className="relative border-l" style={{ borderColor: '#F0EBE3' }}>
-                  {/* PLAN blocks */}
                   {dayTodos.filter(t => t.planStart && t.planEnd).map(todo => (
                     <div key={`p-${todo.id}`} className="absolute rounded"
                       style={{
@@ -211,8 +211,6 @@ function WeekView({ viewDate, onSelectDate }: { viewDate: Date; onSelectDate: (d
                       {todo.text}
                     </div>
                   ))}
-
-                  {/* DO blocks */}
                   {dayTodos.filter(t => t.doStart && t.doEnd).map(todo => (
                     <div key={`d-${todo.id}`} className="absolute rounded"
                       style={{
@@ -240,13 +238,14 @@ function WeekView({ viewDate, onSelectDate }: { viewDate: Date; onSelectDate: (d
 }
 
 // ─── Day View (mini daily) ───
+// flex-1로 남은 높이를 채우고, 내부에서만 스크롤
 function DayViewPanel({ dateStr }: { dateStr: string }) {
   const { todos, dayStartHour: START_HOUR, dayEndHour: END_HOUR } = usePlanner();
   const dayTodos = todos.filter(t => t.date === dateStr && t.status !== 'backlog');
   const hours = Array.from({ length: END_HOUR - START_HOUR + 1 }, (_, i) => START_HOUR + i);
 
   return (
-    <div className="overflow-y-auto" style={{ maxHeight: '60vh' }}>
+    <div style={{ flex: 1, overflowY: 'auto', minHeight: 0 }}>
       <div className="relative" style={{ height: (END_HOUR - START_HOUR) * HOUR_HEIGHT + 8 }}>
         {hours.map(h => (
           <div key={h} className="absolute left-0 right-0 flex items-start" style={{ top: (h - START_HOUR) * HOUR_HEIGHT }}>
@@ -328,7 +327,7 @@ export function CalendarView() {
 
   return (
     <div style={{ height: '100%', display: 'flex', flexDirection: 'column', backgroundColor: t.bg }}>
-      {/* Header */}
+      {/* Header — 상단 고정 */}
       <div className="px-4 py-4" style={{ flexShrink: 0, backgroundColor: t.sidebar, borderBottom: `1px solid ${t.border}` }}>
         <div className="flex items-center justify-between mb-3">
           <button onClick={handlePrev} className="p-2 rounded-xl hover:bg-[#F0EBE3]">
@@ -340,24 +339,24 @@ export function CalendarView() {
           </button>
         </div>
 
-        {/* Tabs */}
+        {/* 월별/주별/일별 탭 */}
         <div className="flex gap-1 p-1 rounded-xl" style={{ backgroundColor: '#F0EBE3' }}>
-          {(['month', 'week', 'day'] as TabType[]).map(t => (
-            <button key={t} onClick={() => setTab(t)}
+          {(['month', 'week', 'day'] as TabType[]).map(v => (
+            <button key={v} onClick={() => setTab(v)}
               className="flex-1 py-1.5 rounded-lg transition-all"
               style={{
                 fontSize: 13,
-                fontWeight: tab === t ? 600 : 400,
-                backgroundColor: tab === t ? '#fff' : 'transparent',
-                color: tab === t ? '#2D2D2D' : '#888',
-                boxShadow: tab === t ? '0 1px 3px rgba(0,0,0,0.08)' : 'none',
+                fontWeight: tab === v ? 600 : 400,
+                backgroundColor: tab === v ? '#fff' : 'transparent',
+                color: tab === v ? '#2D2D2D' : '#888',
+                boxShadow: tab === v ? '0 1px 3px rgba(0,0,0,0.08)' : 'none',
               }}>
-              {t === 'month' ? '월별' : t === 'week' ? '주별' : '일별'}
+              {v === 'month' ? '월별' : v === 'week' ? '주별' : '일별'}
             </button>
           ))}
         </div>
 
-        {/* 필터 탭 (월별 뷰일 때만 표시) */}
+        {/* 필터 탭 (월별 뷰일 때만) */}
         {tab === 'month' && (
           <div className="flex gap-1.5 mt-2 overflow-x-auto" style={{ scrollbarWidth: 'none' }}>
             {FILTER_TABS.map(f => {
@@ -379,26 +378,42 @@ export function CalendarView() {
         )}
       </div>
 
-      <div style={{ flex: 1, overflowY: 'auto' }}>
-        <div className="p-4">
-          <div className="bg-white rounded-2xl p-4 shadow-sm" style={{ border: '1px solid #F0EBE3' }}>
-            {tab === 'month' && <MonthView viewDate={viewDate} filter={filter} onSelectDate={handleSelectDate} />}
-            {tab === 'week' && <WeekView viewDate={viewDate} onSelectDate={handleSelectDate} />}
-            {tab === 'day' && (
-              <div>
-                <div className="flex items-center justify-between mb-4">
-                  <span style={{ fontSize: 13, color: '#888' }}>선택된 날짜의 타임테이블</span>
-                  <button onClick={() => navigate('/daily')} className="px-3 py-1.5 rounded-xl"
-                    style={{ fontSize: 12, backgroundColor: '#C8A97E', color: '#fff' }}>
-                    일간 뷰로 이동
-                  </button>
-                </div>
-                <DayViewPanel dateStr={selectedDate} />
-              </div>
-            )}
+      {/* ── 월별: 페이지 스크롤 ── */}
+      {tab === 'month' && (
+        <div style={{ flex: 1, overflowY: 'auto' }}>
+          <div className="p-4">
+            <div className="bg-white rounded-2xl p-4 shadow-sm" style={{ border: '1px solid #F0EBE3' }}>
+              <MonthView viewDate={viewDate} filter={filter} onSelectDate={handleSelectDate} />
+            </div>
           </div>
         </div>
-      </div>
+      )}
+
+      {/* ── 주별: 헤더 고정 + 타임라인 단일 스크롤 ── */}
+      {tab === 'week' && (
+        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0, overflow: 'hidden', padding: '12px 16px 16px' }}>
+          <div className="bg-white rounded-2xl shadow-sm" style={{ border: '1px solid #F0EBE3', flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0, overflow: 'hidden' }}>
+            <WeekView viewDate={viewDate} onSelectDate={handleSelectDate} />
+          </div>
+        </div>
+      )}
+
+      {/* ── 일별: 헤더 고정 + 타임라인 단일 스크롤 ── */}
+      {tab === 'day' && (
+        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0, overflow: 'hidden', padding: '12px 16px 16px' }}>
+          <div className="bg-white rounded-2xl shadow-sm" style={{ border: '1px solid #F0EBE3', flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0, overflow: 'hidden' }}>
+            {/* Day view 상단 */}
+            <div className="flex items-center justify-between flex-shrink-0 px-4 py-3" style={{ borderBottom: '1px solid #F0EBE3' }}>
+              <span style={{ fontSize: 13, color: '#888' }}>선택된 날짜의 타임테이블</span>
+              <button onClick={() => navigate('/daily')} className="px-3 py-1.5 rounded-xl"
+                style={{ fontSize: 12, backgroundColor: '#C8A97E', color: '#fff' }}>
+                일간 뷰로 이동
+              </button>
+            </div>
+            <DayViewPanel dateStr={selectedDate} />
+          </div>
+        </div>
+      )}
     </div>
   );
 }
