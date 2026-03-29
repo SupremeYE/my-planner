@@ -8,6 +8,7 @@ import {
 import { usePlanner, Project, Milestone, Todo } from '../store';
 import { format, parseISO, differenceInDays } from 'date-fns';
 import { ko } from 'date-fns/locale';
+import ConfirmModal from './ConfirmModal';
 
 // ── Project color palette ──
 export const PROJECT_COLORS = [
@@ -366,6 +367,7 @@ export function ProjectDetailView() {
   const [newMilestoneTitle, setNewMilestoneTitle] = useState('');
   const [newMilestoneDate, setNewMilestoneDate] = useState('');
   const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'done'>('all');
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
   const project = projects.find(p => p.id === id);
 
@@ -628,11 +630,7 @@ export function ProjectDetailView() {
         {/* Danger zone */}
         <div className="rounded-2xl p-4" style={{ backgroundColor: '#fff', border: '1px solid #F0EBE3' }}>
           <button
-            onClick={() => {
-              if (window.confirm(`'${project.name}' 프로젝트를 삭제하시겠어요?`)) {
-                deleteProject(project.id);
-              }
-            }}
+            onClick={() => setShowDeleteConfirm(true)}
             className="flex items-center gap-2 text-sm"
             style={{ color: '#E05C5C' }}
           >
@@ -641,6 +639,17 @@ export function ProjectDetailView() {
           </button>
         </div>
       </div>
+
+      {showDeleteConfirm && (
+        <ConfirmModal
+          message={`'${project.name}' 프로젝트를 삭제할까요?`}
+          description="삭제하면 복구할 수 없어요."
+          confirmText="삭제"
+          confirmDanger
+          onConfirm={() => { deleteProject(project.id); }}
+          onCancel={() => setShowDeleteConfirm(false)}
+        />
+      )}
     </div>
   );
 }
