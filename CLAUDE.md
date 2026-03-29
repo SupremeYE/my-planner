@@ -81,8 +81,15 @@ Four design themes (A, B, C, D) defined in `src/styles/theme.css` as CSS custom 
 - 모바일 기준: 375px (iPhone), 하단 네비바 56px(`pb-16` 이미 적용됨)
 
 ## 단축 명령어
-- "깃허브 저장해줘" = 변경사항 `git add .` → `git commit` → `git push`
-- 커밋 메시지는 변경한 기능 내용으로 자동 작성
+
+### "깃허브 저장해줘"
+변경사항 `git add` → `git commit` → `git push` 순으로 진행한다.
+- `git status`로 변경된 파일 확인 후 관련 파일만 스테이징
+- 커밋 메시지에 **무엇을(what), 왜(why), 어떻게(how) 수정했는지** 명확히 작성
+  - 형식: `type: 변경 내용 요약 (변경 전 → 변경 후, 이유)`
+  - 예: `feat: 모바일 하단 네비 8탭 → 4탭+메뉴 오버레이로 개선 (UX 혼잡도 감소)`
+  - 예: `fix: window.confirm → ConfirmModal 교체 (브라우저 기본 다이얼로그 → 앱 디자인 통일)`
+  - 예: `refactor: TimePicker 공통 컴포넌트로 분리 (11곳 중복 코드 제거)`
 
 ### `todo로 넣어줘: [내용]`
 PROGRESS_LOG.md에서 오늘 날짜 섹션을 찾아서
