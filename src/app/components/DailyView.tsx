@@ -1393,30 +1393,32 @@ export function DailyView() {
   return (
     <div className="flex-1 flex flex-col overflow-hidden h-full">
       {/* Header */}
-      <div className="flex items-center justify-between px-6 py-4 flex-shrink-0" style={{ borderBottom: `1px solid ${t.border}` }}>
-        <div className="flex items-center gap-3">
+      <div className="flex items-center justify-between px-3 py-3 lg:px-6 lg:py-4 flex-shrink-0" style={{ borderBottom: `1px solid ${t.border}` }}>
+        <div className="flex items-center gap-1.5 lg:gap-3">
           <button onClick={goPrev} className="p-1.5 rounded-lg" style={{ color: t.textSub }}><ChevronLeft size={18} /></button>
           <div>
-            <h2 style={{ fontSize: 20, fontWeight: 700, color: t.text, fontFamily: "'DM Serif Display', serif" }}>
+            <h2 style={{ fontSize: 18, fontWeight: 700, color: t.text, fontFamily: "'DM Serif Display', serif" }}
+              className="lg:text-[20px]">
               {format(dateObj, 'M월 d일')}
             </h2>
             <p style={{ fontSize: 12, color: t.textSub }}>{dayName}</p>
           </div>
           <button onClick={goNext} className="p-1.5 rounded-lg" style={{ color: t.textSub }}><ChevronRight size={18} /></button>
           {selectedDate !== nowStr && (
-            <button onClick={goToday} className="px-3 py-1 rounded-lg"
-              style={{ fontSize: 11, fontWeight: 600, backgroundColor: t.accentLight, color: t.accent }}>
+            <button onClick={goToday} className="px-2 py-1 rounded-lg"
+              style={{ fontSize: 11, fontWeight: 600, backgroundColor: t.accentLight, color: t.accent, whiteSpace: 'nowrap' }}>
               오늘
             </button>
           )}
         </div>
-        <div className="flex items-center gap-2">
-          <button onClick={() => setShowTimelineSettings(true)} className="px-3 py-1.5 rounded-lg flex items-center gap-1.5"
+        <div className="flex items-center gap-1.5 lg:gap-2">
+          <button onClick={() => setShowTimelineSettings(true)} className="p-1.5 lg:px-3 lg:py-1.5 rounded-lg flex items-center gap-1.5"
             style={{ fontSize: 11, color: t.textSub, backgroundColor: t.bgSub, border: `1px solid ${t.border}` }}>
-            <Settings size={12} /> 시간대 설정
+            <Settings size={12} />
+            <span className="hidden lg:inline">시간대 설정</span>
           </button>
-          <button onClick={() => setShowAddModal(true)} className="px-3 py-1.5 rounded-lg flex items-center gap-1.5"
-            style={{ fontSize: 11, fontWeight: 600, backgroundColor: t.accent, color: '#fff' }}>
+          <button onClick={() => setShowAddModal(true)} className="px-2.5 py-1.5 lg:px-3 rounded-lg flex items-center gap-1 lg:gap-1.5"
+            style={{ fontSize: 11, fontWeight: 600, backgroundColor: t.accent, color: '#fff', whiteSpace: 'nowrap' }}>
             <Plus size={13} /> 할일 추가
           </button>
         </div>
