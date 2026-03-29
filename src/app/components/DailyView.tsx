@@ -846,6 +846,7 @@ export function DailyView() {
   const [dailyMemo, setDailyMemo] = useState<Record<string, string>>({});
   const [showLogModal, setShowLogModal] = useState(false);
   const [showTimelineSettings, setShowTimelineSettings] = useState(false);
+  const [mobileTab, setMobileTab] = useState<'todos' | 'timeline'>('todos');
 
   // Drag state for timeline blocks
   const [dragState, setDragState] = useState<{
@@ -1422,9 +1423,37 @@ export function DailyView() {
       </div>
 
       {/* Content */}
-      <div className="flex-1 flex overflow-hidden" style={{ minHeight: 0 }}>
+      <div className="flex-1 overflow-hidden flex flex-col" style={{ minHeight: 0 }}>
+        {/* Mobile Tab Bar */}
+        <div className="flex lg:hidden flex-shrink-0" style={{ borderBottom: `1px solid ${t.border}` }}>
+          <button
+            onClick={() => setMobileTab('todos')}
+            className="flex-1 py-2.5 text-center transition-colors"
+            style={{
+              fontSize: 13, fontWeight: 600, background: 'transparent',
+              color: mobileTab === 'todos' ? t.accent : t.textSub,
+              borderBottom: mobileTab === 'todos' ? `2px solid ${t.accent}` : '2px solid transparent',
+            }}>
+            📋 할일
+          </button>
+          <button
+            onClick={() => setMobileTab('timeline')}
+            className="flex-1 py-2.5 text-center transition-colors"
+            style={{
+              fontSize: 13, fontWeight: 600, background: 'transparent',
+              color: mobileTab === 'timeline' ? t.accent : t.textSub,
+              borderBottom: mobileTab === 'timeline' ? `2px solid ${t.accent}` : '2px solid transparent',
+            }}>
+            ⏰ 타임라인
+          </button>
+        </div>
+
+        {/* Columns Wrapper */}
+        <div className="flex-1 flex overflow-hidden" style={{ minHeight: 0 }}>
         {/* Left Column: Todo List */}
-        <div className="flex-1 min-w-0 overflow-y-auto px-6 py-4" style={{ borderRight: `1px solid ${t.border}` }}>
+        <div
+          className={`flex-1 min-w-0 overflow-y-auto px-4 lg:px-6 py-4${mobileTab === 'timeline' ? ' hidden lg:block' : ''}`}
+          style={{ borderRight: `1px solid ${t.border}` }}>
           {/* Top3 */}
           {importantTodos.length > 0 && (
             <div className="mb-4 rounded-2xl p-4" style={{ backgroundColor: t.bgSub, border: `1px solid ${t.border}` }}>
@@ -1542,7 +1571,7 @@ export function DailyView() {
         </div>
 
         {/* Right Column: Timeline */}
-        <div className="flex-1 min-w-0 flex flex-col overflow-hidden">
+        <div className={`flex-1 min-w-0 flex flex-col overflow-hidden${mobileTab === 'todos' ? ' hidden lg:flex' : ''}`}>
           {/* Timeline header */}
           <div className="px-4 py-3 flex-shrink-0" style={{ borderBottom: `1px solid ${t.border}` }}>
             <div className="flex items-center justify-between">
@@ -1621,6 +1650,7 @@ export function DailyView() {
             </div>
           </div>
         </div>
+        </div>{/* /Columns Wrapper */}
       </div>
 
       {/* Floating Timer */}

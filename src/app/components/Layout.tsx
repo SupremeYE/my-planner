@@ -536,7 +536,7 @@ export function Layout() {
           <span style={{ fontSize: 16, fontWeight: 700, color: t.text }}>My Planner</span>
         </div>
 
-        <main className="flex-1 overflow-y-auto pb-16" style={{ backgroundColor: t.bg }}>
+        <main className="flex-1 overflow-y-auto overflow-x-hidden pb-16" style={{ backgroundColor: t.bg }}>
           <NotificationPermissionBanner />
           <Outlet />
         </main>
