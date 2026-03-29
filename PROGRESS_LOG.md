@@ -6,6 +6,26 @@
 
 ---
 
+## 2026-03-29
+
+### 📋 TODO
+
+### ✅ 완료
+- [x] 모바일 반응형 개선 - 일간 페이지 탭 UI + 전역 가로 스크롤 제거
+
+### 🛠 오늘 작업 내용
+
+**모바일 반응형 UX 개선 (`DailyView.tsx`, `Layout.tsx`)**
+- `DailyView.tsx`: 모바일에서 할일 목록 + 타임라인 좌우 분할 → 탭 전환 방식으로 변경
+  - `mobileTab` state 추가 (`'todos' | 'timeline'`)
+  - 모바일 전용 탭 바 추가 (📋 할일 / ⏰ 타임라인, `lg:hidden`)
+  - 탭 선택에 따라 해당 패널만 표시 (`hidden lg:block` / `hidden lg:flex`)
+  - 데스크탑(`lg+`)은 기존 좌우 분할 레이아웃 완전 유지
+  - 모바일 컬럼 패딩 `px-4` (데스크탑은 기존 `px-6` 유지)
+- `Layout.tsx`: 모바일 `<main>`에 `overflow-x-hidden` 추가 → 전 페이지 가로 스크롤 차단
+
+---
+
 ## 2026-03-23
 
 ### 📋 TODO
