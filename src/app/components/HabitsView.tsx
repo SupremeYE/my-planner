@@ -7,6 +7,7 @@ import { TimePicker } from './TimePicker';
 import { usePlanner, Habit, Routine } from '../store';
 import { useTheme } from '../ThemeContext';
 import { format, subDays, startOfMonth, getDaysInMonth, getDay, addMonths, subMonths } from 'date-fns';
+import { RoutineModal, ExecutionPanel, RoutineCard, today as routineToday, getStreak as getRoutineStreak } from './RoutinesView';
 
 const HABIT_COLORS = ['#C4A882', '#D4735A', '#6BAA7A', '#7B9ED9', '#A07BE0', '#6B7280'];
 const REPEAT_OPTIONS = [
@@ -457,95 +458,6 @@ function HabitChip({ habit, date }: { habit: Habit; date: string }) {
   return null;
 }
 
-// ─── Routine Modal ────────────────────────────────────────────────────────────
-function RoutineModal({ routine, onClose }: { routine?: Routine; onClose: () => void }) {
-  const { addRoutine, updateRoutine, deleteRoutine } = usePlanner();
-  const { t } = useTheme();
-  const [name, setName] = useState(routine?.name || '');
-  const [icon, setIcon] = useState(routine?.icon || '🌅');
-  const [startTime, setStartTime] = useState(routine?.startTime || '07:00');
-  const [duration, setDuration] = useState(routine?.duration || 30);
-  const [steps, setSteps] = useState<string[]>(routine?.steps || ['']);
-
-  const handleSubmit = () => {
-    if (!name.trim()) return;
-    const filteredSteps = steps.filter(s => s.trim());
-    if (routine) updateRoutine(routine.id, { name: name.trim(), icon, startTime, duration, steps: filteredSteps });
-    else addRoutine({ name: name.trim(), icon, startTime, duration, steps: filteredSteps, checkedDates: [] });
-    onClose();
-  };
-
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center" style={{ backgroundColor: 'rgba(0,0,0,0.4)' }}>
-      <div className="rounded-2xl shadow-xl w-[420px] max-h-[80vh] overflow-y-auto" style={{ backgroundColor: t.card, border: `1px solid ${t.border}` }}>
-        <div className="flex items-center justify-between px-5 py-4 border-b" style={{ borderColor: t.border }}>
-          <h3 style={{ fontSize: 15, fontWeight: 700, color: t.text }}>{routine ? '루틴 편집' : '루틴 추가'}</h3>
-          <button onClick={onClose} className="p-1 rounded-lg" style={{ color: t.textMuted }}><X size={18} /></button>
-        </div>
-        <div className="px-5 py-4 space-y-4">
-          <div className="flex gap-3">
-            <div>
-              <label style={{ fontSize: 11, color: t.textSub, fontWeight: 600 }}>아이콘</label>
-              <div className="flex flex-wrap gap-1 mt-1">
-                {['🌅', '🌙', '💪', '🧘', '📖', '🧹', '🎯'].map(em => (
-                  <button key={em} onClick={() => setIcon(em)} className="w-8 h-8 rounded-lg flex items-center justify-center"
-                    style={{ fontSize: 16, backgroundColor: icon === em ? t.accentLight : t.bgSub, border: icon === em ? `2px solid ${t.accent}` : `1px solid ${t.borderLight}` }}>{em}</button>
-                ))}
-              </div>
-            </div>
-            <div className="flex-1">
-              <label style={{ fontSize: 11, color: t.textSub, fontWeight: 600 }}>루틴 이름</label>
-              <input autoFocus value={name} onChange={e => setName(e.target.value)} placeholder="아침 루틴"
-                className="w-full mt-1 rounded-lg px-3 py-2 border outline-none"
-                style={{ borderColor: t.border, backgroundColor: t.bgSub, color: t.text, fontSize: 13 }} />
-            </div>
-          </div>
-          <div className="flex gap-3">
-            <div className="flex-1">
-              <label style={{ fontSize: 11, color: t.textSub, fontWeight: 600 }}>시작 시간</label>
-              <div className="mt-1">
-                <TimePicker value={startTime} onChange={setStartTime} placeholder="시작 시간" />
-              </div>
-            </div>
-            <div className="flex-1">
-              <label style={{ fontSize: 11, color: t.textSub, fontWeight: 600 }}>소요 시간 (분)</label>
-              <input type="number" min={5} max={240} value={duration} onChange={e => setDuration(Number(e.target.value))}
-                className="w-full mt-1 rounded-lg px-3 py-2 border outline-none"
-                style={{ borderColor: t.border, backgroundColor: t.bgSub, color: t.text, fontSize: 13 }} />
-            </div>
-          </div>
-          <div>
-            <label style={{ fontSize: 11, color: t.textSub, fontWeight: 600 }}>단계</label>
-            <div className="space-y-1.5 mt-1.5">
-              {steps.map((step, i) => (
-                <div key={i} className="flex items-center gap-2">
-                  <span style={{ fontSize: 10, color: t.textMuted, width: 16 }}>{i + 1}.</span>
-                  <input value={step} onChange={e => { const ns = [...steps]; ns[i] = e.target.value; setSteps(ns); }}
-                    placeholder="단계 입력" className="flex-1 rounded-lg px-2.5 py-1.5 border outline-none"
-                    style={{ borderColor: t.border, fontSize: 12, backgroundColor: t.bgSub, color: t.text }} />
-                  <button onClick={() => setSteps(steps.filter((_, j) => j !== i))} className="p-1" style={{ color: t.textMuted }}>
-                    <X size={12} /></button>
-                </div>
-              ))}
-              <button onClick={() => setSteps([...steps, ''])} className="px-3 py-1 rounded-lg"
-                style={{ fontSize: 11, color: t.accent, border: `1px dashed ${t.accent}` }}>+ 단계 추가</button>
-            </div>
-          </div>
-        </div>
-        <div className="flex items-center gap-2 px-5 py-4 border-t" style={{ borderColor: t.border }}>
-          {routine && (
-            <button onClick={() => { deleteRoutine(routine.id); onClose(); }} className="px-4 py-2 rounded-xl"
-              style={{ fontSize: 12, color: '#DC2626', backgroundColor: '#FEE2E2' }}>삭제</button>
-          )}
-          <div className="flex-1" />
-          <button onClick={onClose} className="px-4 py-2 rounded-xl" style={{ fontSize: 13, color: t.textSub, backgroundColor: t.bgSub }}>취소</button>
-          <button onClick={handleSubmit} className="px-5 py-2 rounded-xl" style={{ fontSize: 13, fontWeight: 600, backgroundColor: t.accent, color: '#fff' }}>저장</button>
-        </div>
-      </div>
-    </div>
-  );
-}
-
 // ─── Heatmap ──────────────────────────────────────────────────────────────────
 function HabitHeatmap({ habit }: { habit: Habit }) {
   const { t } = useTheme();
@@ -611,8 +523,11 @@ export function HabitsView() {
   const [showAddHabit, setShowAddHabit] = useState(false);
   const [editRoutine, setEditRoutine] = useState<Routine | null>(null);
   const [showAddRoutine, setShowAddRoutine] = useState(false);
+  const [runningRoutine, setRunningRoutine] = useState<Routine | null>(null);
   // memo inline editing per habit id
   const [memoEditing, setMemoEditing] = useState<Record<string, string>>({});
+
+  const completedToday = routines.filter(r => r.checkedDates?.includes(routineToday)).length;
 
   const tabs = [
     { key: 'habits', label: '습관 관리' },
@@ -726,36 +641,54 @@ export function HabitsView() {
 
         {/* Routines Tab */}
         {tab === 'routines' && (
-          <div className="space-y-3">
-            {routines.map(r => (
-              <div key={r.id} className="p-4 rounded-xl cursor-pointer transition-all hover:shadow-md"
-                onClick={() => setEditRoutine(r)}
-                style={{ backgroundColor: t.card, border: `1px solid ${t.borderLight}` }}>
-                <div className="flex items-center gap-3 mb-2">
-                  <span style={{ fontSize: 20 }}>{r.icon}</span>
-                  <div>
-                    <span style={{ fontSize: 14, fontWeight: 600, color: t.text }}>{r.name}</span>
-                    <div className="flex items-center gap-2 mt-0.5">
-                      <span style={{ fontSize: 11, color: t.textMuted }}>{r.startTime}</span>
-                      <span style={{ fontSize: 11, color: t.textMuted }}>{r.duration}분</span>
-                    </div>
-                  </div>
+          <div className="space-y-4">
+            {/* 오늘 진행률 */}
+            {routines.length > 0 && (
+              <div className="rounded-2xl p-4" style={{ backgroundColor: t.card, border: `1px solid ${t.border}` }}>
+                <div className="flex justify-between items-center mb-2">
+                  <span style={{ fontSize: 12, fontWeight: 600, color: t.textSub }}>오늘 진행률</span>
+                  <span style={{ fontSize: 12, color: t.textMuted }}>
+                    {completedToday}/{routines.length} · {Math.round((completedToday / routines.length) * 100)}%
+                  </span>
                 </div>
-                <div className="flex flex-wrap gap-1.5">
-                  {r.steps.map((step, i) => (
-                    <span key={i} className="px-2 py-0.5 rounded-full"
-                      style={{ fontSize: 10, backgroundColor: t.bgSub, color: t.textSub, border: `1px solid ${t.borderLight}` }}>
-                      {step}
-                    </span>
-                  ))}
+                <div className="h-2 rounded-full overflow-hidden" style={{ backgroundColor: t.bgSub }}>
+                  <div className="h-full rounded-full transition-all duration-500"
+                    style={{
+                      width: `${(completedToday / routines.length) * 100}%`,
+                      backgroundColor: completedToday === routines.length ? '#6BAA7A' : t.accent,
+                    }} />
                 </div>
+                {completedToday === routines.length && routines.length > 0 && (
+                  <p className="mt-2 text-center" style={{ fontSize: 13, color: '#6BAA7A', fontWeight: 600 }}>
+                    🎉 오늘 모든 루틴 완료!
+                  </p>
+                )}
               </div>
-            ))}
-            <button onClick={() => setShowAddRoutine(true)}
-              className="w-full flex items-center justify-center gap-2 py-3 rounded-xl transition-colors"
-              style={{ border: `2px dashed ${t.border}`, color: t.accent, fontSize: 13, fontWeight: 600 }}>
-              <Plus size={16} /> 루틴 추가
-            </button>
+            )}
+
+            {/* 루틴 목록 */}
+            <div className="space-y-3">
+              {[...routines]
+                .sort((a, b) => {
+                  const aDone = a.checkedDates?.includes(routineToday) ? 1 : 0;
+                  const bDone = b.checkedDates?.includes(routineToday) ? 1 : 0;
+                  if (aDone !== bDone) return aDone - bDone;
+                  return a.startTime.localeCompare(b.startTime);
+                })
+                .map(r => (
+                  <RoutineCard
+                    key={r.id}
+                    routine={r}
+                    onEdit={() => setEditRoutine(r)}
+                    onRun={() => setRunningRoutine(r)}
+                  />
+                ))}
+              <button onClick={() => setShowAddRoutine(true)}
+                className="w-full flex items-center justify-center gap-2 py-3 rounded-xl transition-colors"
+                style={{ border: `2px dashed ${t.border}`, color: t.accent, fontSize: 13, fontWeight: 600 }}>
+                <Plus size={16} /> 루틴 추가
+              </button>
+            </div>
           </div>
         )}
 
@@ -770,6 +703,7 @@ export function HabitsView() {
       {/* Modals */}
       {(showAddHabit || editHabit) && <HabitModal habit={editHabit || undefined} onClose={() => { setEditHabit(null); setShowAddHabit(false); }} />}
       {(showAddRoutine || editRoutine) && <RoutineModal routine={editRoutine || undefined} onClose={() => { setEditRoutine(null); setShowAddRoutine(false); }} />}
+      {runningRoutine && <ExecutionPanel routine={runningRoutine} onClose={() => setRunningRoutine(null)} />}
     </div>
   );
 }

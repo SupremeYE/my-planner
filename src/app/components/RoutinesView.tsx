@@ -9,9 +9,9 @@ import { TimePicker } from './TimePicker';
 import { format } from 'date-fns';
 
 const EMOJI_PALETTE = ['🌅','🧘','🏋️','📖','🚿','☕','🌙','💊','🧹','🍎','🎯','✍️','🎵','💪','🧠','🧴','🌿','🏃','🎨','📝'];
-const today = format(new Date(), 'yyyy-MM-dd');
+export const today = format(new Date(), 'yyyy-MM-dd');
 
-function getStreak(checkedDates: string[]): number {
+export function getStreak(checkedDates: string[]): number {
   if (!checkedDates?.length) return 0;
   const sorted = [...checkedDates].sort().reverse();
   const yesterday = format(new Date(Date.now() - 86400000), 'yyyy-MM-dd');
@@ -37,7 +37,7 @@ function formatTime(sec: number): string {
 }
 
 // ─── Add/Edit Modal ───────────────────────────────────────────────────────────
-function RoutineModal({ routine, onClose }: { routine?: Routine; onClose: () => void }) {
+export function RoutineModal({ routine, onClose }: { routine?: Routine; onClose: () => void }) {
   const { addRoutine, updateRoutine, deleteRoutine } = usePlanner();
   const { t } = useTheme();
   const [name, setName] = useState(routine?.name ?? '');
@@ -209,7 +209,7 @@ function RoutineModal({ routine, onClose }: { routine?: Routine; onClose: () => 
 }
 
 // ─── Execution Panel ──────────────────────────────────────────────────────────
-function ExecutionPanel({ routine, onClose }: { routine: Routine; onClose: () => void }) {
+export function ExecutionPanel({ routine, onClose }: { routine: Routine; onClose: () => void }) {
   const { toggleRoutineDate } = usePlanner();
   const { t } = useTheme();
 
@@ -367,7 +367,7 @@ function ExecutionPanel({ routine, onClose }: { routine: Routine; onClose: () =>
 }
 
 // ─── Routine Card ─────────────────────────────────────────────────────────────
-function RoutineCard({ routine, onEdit, onRun }: {
+export function RoutineCard({ routine, onEdit, onRun }: {
   routine: Routine;
   onEdit: () => void;
   onRun: () => void;
