@@ -287,11 +287,14 @@ function ContextMenu({ todo, position, onClose }: {
 
   useEffect(() => {
     const handler = (e: MouseEvent) => {
+      // ConfirmModal이 떠 있는 동안에는 컨텍스트 메뉴를 바깥 클릭으로 닫지 않음.
+      // (모달 버튼 클릭 시 mousedown이 먼저 발생하면서 메뉴/모달이 언마운트되어 onClick이 실행되지 않는 이슈 방지)
+      if (showDeleteConfirm) return;
       if (ref.current && !ref.current.contains(e.target as Node)) onClose();
     };
     document.addEventListener('mousedown', handler);
     return () => document.removeEventListener('mousedown', handler);
-  }, [onClose]);
+  }, [onClose, showDeleteConfirm]);
 
   const menuItems = [
     { label: '편집', icon: Edit3, action: 'edit' },

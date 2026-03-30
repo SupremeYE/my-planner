@@ -80,7 +80,9 @@ export default function ConfirmModal({
             {cancelText}
           </button>
           <button
-            onClick={() => { onConfirm(); }}
+            onClick={() => {
+              onConfirm();
+            }}
             className="flex-1 py-2 rounded-xl text-sm font-medium transition-colors"
             style={{
               backgroundColor: confirmDanger ? '#E05C5C' : '#C4A882',

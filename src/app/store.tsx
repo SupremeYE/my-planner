@@ -518,7 +518,9 @@ export function PlannerProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const deleteTodo = useCallback((id: string) => {
-    setTodos(prev => prev.filter(t => t.id !== id));
+    setTodos(prev => {
+      return prev.filter(t => t.id !== id);
+    });
     db.todos.delete(id);
   }, []);
 
@@ -866,7 +868,7 @@ export function PlannerProvider({ children }: { children: React.ReactNode }) {
     setTodos(prev => {
       const updated = prev.map(t =>
         t.id === todoId
-          ? { ...t, status: 'inProgress', doStart: undefined, doEnd: undefined, doElapsedSec: undefined }
+          ? { ...t, status: 'inProgress' as TodoStatus, doStart: undefined, doEnd: undefined, doElapsedSec: undefined }
           : t
       );
       const todo = updated.find(t => t.id === todoId);
@@ -919,7 +921,7 @@ export function PlannerProvider({ children }: { children: React.ReactNode }) {
       setTodos(currentTodos => {
         const updated = currentTodos.map(t =>
           t.id === prev.todoId
-            ? { ...t, status: 'done', doStart: prev.startHHMM, doEnd: endHHMM, doElapsedSec: totalElapsedSec }
+            ? { ...t, status: 'done' as TodoStatus, doStart: prev.startHHMM, doEnd: endHHMM, doElapsedSec: totalElapsedSec }
             : t
         );
         const todo = updated.find(t => t.id === prev.todoId);
