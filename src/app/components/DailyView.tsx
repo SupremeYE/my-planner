@@ -14,6 +14,7 @@ import { useNotification } from '../hooks/useNotification';
 import { TimePicker } from './TimePicker';
 import ConfirmModal from './ConfirmModal';
 import { TodoModal } from './TodoModal';
+import { formatDoElapsedKo, formatTotalDoKo, todoDoDurationSeconds } from '../../lib/todoDoDuration';
 
 // ─── Color Palette for tag creation ───
 const TAG_COLORS = [
@@ -711,6 +712,7 @@ export function DailyView() {
         updateTodo(dragState.todoId, {
           [startField]: minutesToTime(dragPreview.startMin),
           [endField]: minutesToTime(dragPreview.endMin),
+          ...(dragState.type === 'do' ? { doElapsedSec: undefined } : {}),
         });
       }
       setDragState(null);
@@ -741,16 +743,18 @@ export function DailyView() {
   };
 
   const activeTimerTodo = activeTimer ? todos.find(td => td.id === activeTimer.todoId) : null;
-  const activeTimerMinutes = activeTimer && activeTimerTodo?.date === selectedDate
-    ? Math.max(1, Math.ceil(getActiveTimerElapsedSec() / 60))
+  const activeTimerSec = activeTimer && activeTimerTodo?.date === selectedDate
+    ? getActiveTimerElapsedSec()
     : 0;
 
-  // 타임라인 요약 계산
+  // 타임라인 요약 계산 (실제 DO 초: 타이머 기록 우선, 진행 중 타이머는 초 단위 합산)
   const totalPlanMin = dateTodos.filter(td => td.planStart && td.planEnd)
     .reduce((sum, td) => sum + (timeToMinutes(td.planEnd!) - timeToMinutes(td.planStart!)), 0);
-  const totalDoMin = dateTodos.filter(td => td.doStart && td.doEnd)
-    .reduce((sum, td) => sum + (timeToMinutes(td.doEnd!) - timeToMinutes(td.doStart!)), 0) + activeTimerMinutes;
-  const achieveRate = totalPlanMin > 0 ? Math.min(100, Math.round(totalDoMin / totalPlanMin * 100)) : 0;
+  const totalDoSec = dateTodos
+    .filter(td => td.doStart && td.doEnd)
+    .reduce((sum, td) => sum + todoDoDurationSeconds(td), 0) + activeTimerSec;
+  const totalDoMinEquiv = totalDoSec / 60;
+  const achieveRate = totalPlanMin > 0 ? Math.min(100, Math.round((totalDoMinEquiv / totalPlanMin) * 100)) : 0;
 
   // 오늘 날짜인 경우에만 알림 스케줄 등록
   const todayStr2 = format(new Date(), 'yyyy-MM-dd');
@@ -797,7 +801,7 @@ export function DailyView() {
     }
     if (activeTimer && activeTimer.todoId !== todo.id) return;
     if (todo.status === 'done') {
-      updateTodo(todo.id, { status: 'active', doStart: undefined, doEnd: undefined });
+      updateTodo(todo.id, { status: 'active', doStart: undefined, doEnd: undefined, doElapsedSec: undefined });
       return;
     }
     startTimer(todo.id);
@@ -931,12 +935,15 @@ export function DailyView() {
     const laneBounds = getTimelineLaneBounds(isPlan ? 'plan' : 'do');
     if (!laneBounds) return null;
 
-    // DO 초과 감지 (DO 시간 > PLAN 시간)
+    // DO 초과 감지 (DO 시간 > PLAN 시간) — 타이머 실제 초가 있으면 분 단위 막대 대신 사용
     let isOvertime = false;
     if (!isPlan && todo.planStart && todo.planEnd) {
       const planDur = timeToMinutes(todo.planEnd) - timeToMinutes(todo.planStart);
-      const doDur = endMin - startMin;
-      isOvertime = doDur > planDur;
+      const doDurMin =
+        todo.doElapsedSec != null && todo.doElapsedSec >= 0
+          ? todo.doElapsedSec / 60
+          : endMin - startMin;
+      isOvertime = doDurMin > planDur;
     }
 
     let bg: string;
@@ -975,9 +982,14 @@ export function DailyView() {
       });
     };
 
-    const timeLabel = isDragging && dragPreview
+    const baseTimeLabel = isDragging && dragPreview
       ? `${minutesToTime(dragPreview.startMin)}-${minutesToTime(dragPreview.endMin)}`
       : `${start}-${end}`;
+    const actualSuffix =
+      !isPlan && todo.doElapsedSec != null && todo.doElapsedSec >= 0
+        ? ` · 실제 ${formatDoElapsedKo(todo.doElapsedSec)}`
+        : '';
+    const timeLabel = `${baseTimeLabel}${actualSuffix}`;
     const compactLabel = `${todo.text} ${timeLabel}`;
     const isCompact = height < 52;
 
@@ -1511,13 +1523,13 @@ export function DailyView() {
               )}
             </div>
             {/* 요약: 계획 시간/실제 시간/달성률 */}
-            {(totalPlanMin > 0 || totalDoMin > 0) && (
+            {(totalPlanMin > 0 || totalDoSec > 0) && (
               <div className="flex items-center gap-3 mt-1.5">
                 <span style={{ fontSize: 10, color: '#7D6347' }}>
                   계획 시간 {Math.floor(totalPlanMin / 60) > 0 ? `${Math.floor(totalPlanMin / 60)}h ` : ''}{totalPlanMin % 60 > 0 ? `${totalPlanMin % 60}m` : ''}
                 </span>
                 <span style={{ fontSize: 10, color: '#4A8A5A' }}>
-                  실제 시간 {Math.floor(totalDoMin / 60) > 0 ? `${Math.floor(totalDoMin / 60)}h ` : ''}{totalDoMin % 60 > 0 ? `${totalDoMin % 60}m` : ''}
+                  실제 시간 {formatTotalDoKo(totalDoSec)}
                 </span>
                 {totalPlanMin > 0 && (
                   <span style={{ fontSize: 10, fontWeight: 700, color: achieveRate >= 100 ? '#059669' : t.accent }}>

@@ -10,7 +10,8 @@ import type {
 type TodoRow = {
   id: string; text: string; date: string | null; due_date: string | null;
   status: string; is_top3: boolean; plan_start: string | null; plan_end: string | null;
-  do_start: string | null; do_end: string | null; category: string | null;
+  do_start: string | null; do_end: string | null; do_elapsed_sec: number | null;
+  category: string | null;
   project_id: string | null; tags: string[];
 };
 
@@ -92,6 +93,7 @@ const toTodo = (r: TodoRow): Todo => ({
   status: r.status as Todo['status'], isTop3: r.is_top3,
   planStart: r.plan_start ?? undefined, planEnd: r.plan_end ?? undefined,
   doStart: r.do_start ?? undefined, doEnd: r.do_end ?? undefined,
+  doElapsedSec: r.do_elapsed_sec ?? undefined,
   category: r.category ?? undefined, projectId: r.project_id ?? undefined,
   tags: r.tags ?? [],
 });
@@ -101,6 +103,7 @@ const fromTodo = (t: Todo): TodoRow => ({
   status: t.status, is_top3: t.isTop3,
   plan_start: t.planStart ?? null, plan_end: t.planEnd ?? null,
   do_start: t.doStart ?? null, do_end: t.doEnd ?? null,
+  do_elapsed_sec: t.doElapsedSec ?? null,
   category: t.category ?? null, project_id: t.projectId ?? null,
   tags: t.tags ?? [],
 });

@@ -12,6 +12,7 @@ import {
 } from 'date-fns';
 import { ko } from 'date-fns/locale';
 import { AffirmationCard } from './AffirmationCard';
+import { todoDoDurationSeconds, formatTotalDoKo, formatDoElapsedKo } from '../../lib/todoDoDuration';
 
 const SERIF = "'DM Serif Display', serif";
 
@@ -426,39 +427,34 @@ export function DashboardView() {
   const todayDone = todayTodos.filter((t) => t.status === 'done').length;
   const todayActive = todayTodos.filter((t) => t.status === 'active' || t.status === 'done').length;
 
-  // Focus time: sum doStart→doEnd for today's done items
-  const focusMinutes = useMemo(() => {
+  // Focus time: 타이머 실제 초(doElapsedSec) 우선, 없으면 doStart~doEnd 분 차를 초로 환산
+  const focusSeconds = useMemo(() => {
     let total = 0;
     todayTodos.forEach((t) => {
-      if (t.doStart && t.doEnd) {
-        const [sh, sm] = t.doStart.split(':').map(Number);
-        const [eh, em] = t.doEnd.split(':').map(Number);
-        total += eh * 60 + em - (sh * 60 + sm);
-      }
+      if (t.doStart && t.doEnd) total += todoDoDurationSeconds(t);
     });
-    return Math.max(0, total);
+    return total;
   }, [todayTodos]);
 
-  const focusHours = Math.floor(focusMinutes / 60);
-  const focusMins = focusMinutes % 60;
-  const focusDisplay = focusHours > 0 ? `${focusHours}h ${focusMins}m` : `${focusMins}m`;
+  const focusDisplay = useMemo(() => formatTotalDoKo(focusSeconds), [focusSeconds]);
 
   // Yesterday focus time for comparison
   const yesterdayStr = format(subDays(new Date(), 1), 'yyyy-MM-dd');
   const yesterdayTodos = todos.filter((t) => t.date === yesterdayStr);
-  const yesterdayFocusMinutes = useMemo(() => {
+  const yesterdayFocusSeconds = useMemo(() => {
     let total = 0;
     yesterdayTodos.forEach((t) => {
-      if (t.doStart && t.doEnd) {
-        const [sh, sm] = t.doStart.split(':').map(Number);
-        const [eh, em] = t.doEnd.split(':').map(Number);
-        total += eh * 60 + em - (sh * 60 + sm);
-      }
+      if (t.doStart && t.doEnd) total += todoDoDurationSeconds(t);
     });
-    return Math.max(0, total);
+    return total;
   }, [yesterdayTodos]);
-  const focusDiff = focusMinutes - yesterdayFocusMinutes;
-  const focusSub = focusDiff > 0 ? `↑ 어제보다 ${focusDiff}분 더` : focusDiff < 0 ? `↓ 어제보다 ${Math.abs(focusDiff)}분 적음` : '어제와 동일';
+  const focusDiffSec = focusSeconds - yesterdayFocusSeconds;
+  const focusSub =
+    focusDiffSec === 0
+      ? '어제와 동일'
+      : focusDiffSec > 0
+        ? `↑ 어제보다 ${formatDoElapsedKo(focusDiffSec)} 더`
+        : `↓ 어제보다 ${formatDoElapsedKo(-focusDiffSec)} 적음`;
 
   const habitsCheckedToday = habits.filter((h) => h.checkedDates.includes(today)).length;
 

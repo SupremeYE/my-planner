@@ -22,6 +22,8 @@ export interface Todo {
   planEnd?: string;
   doStart?: string;
   doEnd?: string;
+  /** 타이머 완료 시 실제 경과 시간(초). 타임라인 막대는 분 단위 doEnd와 별개로 집계·표시에 사용 */
+  doElapsedSec?: number;
   category?: string;
   projectId?: string;
   tags?: string[];
@@ -773,7 +775,7 @@ export function PlannerProvider({ children }: { children: React.ReactNode }) {
     setTodos(prev => {
       const updated = prev.map(t =>
         t.id === todoId
-          ? { ...t, status: 'inProgress', doStart: undefined, doEnd: undefined }
+          ? { ...t, status: 'inProgress', doStart: undefined, doEnd: undefined, doElapsedSec: undefined }
           : t
       );
       const todo = updated.find(t => t.id === todoId);
@@ -826,7 +828,7 @@ export function PlannerProvider({ children }: { children: React.ReactNode }) {
       setTodos(currentTodos => {
         const updated = currentTodos.map(t =>
           t.id === prev.todoId
-            ? { ...t, status: 'done', doStart: prev.startHHMM, doEnd: endHHMM }
+            ? { ...t, status: 'done', doStart: prev.startHHMM, doEnd: endHHMM, doElapsedSec: totalElapsedSec }
             : t
         );
         const todo = updated.find(t => t.id === prev.todoId);

@@ -6,6 +6,7 @@ import {
 } from 'date-fns';
 import { ko } from 'date-fns/locale';
 import { usePlanner, Todo } from '../store';
+import { isDoOvertimeVsPlan, doElapsedTitleSuffix, doElapsedInlineSuffix } from '../../lib/todoDoDuration';
 import { useNavigate } from 'react-router';
 import { useTheme } from '../ThemeContext';
 
@@ -286,17 +287,15 @@ function WeekView({ viewDate, onSelectDate }: { viewDate: Date; onSelectDate: (d
                   {/* DO 블록 */}
                   {dayTodos.filter(t => t.doStart && t.doEnd).map(todo => {
                     const tagColor = getTodoTagColor(todo);
-                    const isOvertime = todo.planStart && todo.planEnd
-                      ? durationToPx(todo.doStart!, todo.doEnd!) > durationToPx(todo.planStart, todo.planEnd)
-                      : false;
+                    const isOvertime = isDoOvertimeVsPlan(todo);
                     const bgColor = isOvertime ? OVERTIME_BAR_BG : (tagColor || DO_BAR_FALLBACK_BG);
                     const border = isOvertime ? `1px solid ${OVERTIME_BAR_BORDER}` : 'none';
                     return (
                       <div key={`d-${todo.id}`} className="absolute rounded"
-                        title={`${todo.text}\n${todo.doStart}–${todo.doEnd}${isOvertime ? ' (초과)' : ''}`}
+                        title={`${todo.text}\n${todo.doStart}–${todo.doEnd}${doElapsedTitleSuffix(todo)}${isOvertime ? ' (초과)' : ''}`}
                         onClick={() => setSelectedBlock({
                           text: todo.text,
-                          time: `${todo.doStart}–${todo.doEnd}${isOvertime ? ' · 초과' : ''}`,
+                          time: `${todo.doStart}–${todo.doEnd}${doElapsedInlineSuffix(todo)}${isOvertime ? ' · 초과' : ''}`,
                           date: format(d, 'M월 d일 (E)', { locale: ko }),
                           tone: isOvertime ? OVERTIME_BAR_BORDER : (tagColor ? getContrastTextColor(tagColor) : DO_BAR_FALLBACK_TEXT),
                         })}
@@ -395,12 +394,10 @@ function DayViewPanel({ dateStr }: { dateStr: string }) {
           ))}
           {dayTodos.filter(t => t.doStart && t.doEnd).map(todo => {
             const tagColor = getTodoTagColor(todo);
-            const isOvertime = todo.planStart && todo.planEnd
-              ? durationToPx(todo.doStart!, todo.doEnd!) > durationToPx(todo.planStart, todo.planEnd)
-              : false;
+            const isOvertime = isDoOvertimeVsPlan(todo);
             return (
               <div key={`d-${todo.id}`} className="absolute rounded"
-                title={`${todo.text}\n${todo.doStart}–${todo.doEnd}${isOvertime ? ' (초과)' : ''}`}
+                title={`${todo.text}\n${todo.doStart}–${todo.doEnd}${doElapsedTitleSuffix(todo)}${isOvertime ? ' (초과)' : ''}`}
                 style={{
                   top: timeToTop(todo.doStart!, START_HOUR),
                   height: durationToPx(todo.doStart!, todo.doEnd!),
