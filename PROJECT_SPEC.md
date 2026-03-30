@@ -1,6 +1,6 @@
 # PROJECT_SPEC.md — My Planner PWA 기능 명세서
 
-> 최종 업데이트: 2026-03-30 (코드 기준 문서 정합성 보정)
+> 최종 업데이트: 2026-03-30 (생리 기록 기능, 습관 트래커 UI 개편)
 
 ---
 
@@ -70,6 +70,8 @@
 
 #### `/habits` — 습관
 - 습관 추가/편집/삭제 모달
+  - "이 습관을 하려는 이유" 입력 (`reason` 필드)
+  - "이번달 메모" 입력 (편집 모드 전용, `habit_monthly_memos` 테이블 저장)
 - 반복 설정: 매일 / 평일 / 주말 / 커스텀(요일 선택)
 - **5종 목표 유형 (HabitChip)**:
   - `check`: 원형 체크 버튼
@@ -78,7 +80,11 @@
   - `value`: 인라인 숫자 입력 + 단위
   - `memo`: 체크 후 인라인 메모 입력
 - 연속 달성일(streak) 표시
-- 월간 달성률 그래프/통계
+- **습관 트래커** 탭 (FM002 스타일):
+  - 연도 ◀▶ 네비 + Jan~Dec 월 탭
+  - 습관별 행: 이모지+이름+이유 | 날짜 점(PC: grid 균등, 모바일: 가로 스크롤) | 달성/전체
+  - 달성률 진행 바, 이번달 메모 인라인 편집
+  - 월간 회고 섹션 (This month / What worked / What didn't work / Next month)
 
 #### `/habits` 루틴 탭 — 루틴 실행 (구 `/routines`, 통합됨)
 - 루틴 추가/편집/삭제 모달 (이름, 아이콘, 시작시간, 소요시간, 단계 목록)
@@ -96,6 +102,11 @@
 - 카테고리: 운동 & 피트니스 / 퇴근 후 공부 / 뷰티 & 케어
 - 기록 추가/삭제 (날짜, 내용, 소요시간)
 - 월간 통계: 총 시간, 횟수, 평균 시간
+- **수면 기록**: 취침/기상 시간 입력 → 수면 시간 자동 계산, 최근 7일 바차트, 이번주/이번달 평균
+- **생리 기록** (`PeriodSection`): 접기/펼치기 가능한 민감 정보 섹션
+  - 입력: 시작일, 종료일, 흘림양(적음/보통/많음), 증상 다중 선택(8종), 메모
+  - 기록 수정/삭제, 최근 6건 목록 표시
+  - 예측: 과거 기록 기반 평균 주기 자동 계산 + 다음 예상 시작일 표시
 
 #### `/reviews` — 리뷰 & 기록
 - **일간 리뷰**: 감정 레벨(1-5), 감사 항목 3개, KPT, 행복한 일, 데일리 요약
@@ -130,6 +141,8 @@
 | `brainstorm_memos` | 브레인스톰 날짜별 메모 | — (date PK) | ✅ |
 | `tags` | 태그 | `created_at` ASC | ✅ |
 | `routines` | 루틴 | `created_at` ASC | ✅ |
+| `period_records` | 생리 기록 | `start_date` DESC | ✅ |
+| `habit_monthly_memos` | 습관별 월간 메모 + 전체 회고 | `year` ASC, `month` ASC | ✅ |
 
 ### 2-2. 테이블별 컬럼 상세
 
@@ -167,6 +180,7 @@ target_value    integer|null 목표 수치 (count=횟수, time=분, value=수치
 value_unit      text|null   수치 단위 (value 타입용)
 daily_progress  jsonb       날짜별 진행 수치 { "yyyy-MM-dd": number }
 daily_memos     jsonb       날짜별 메모 { "yyyy-MM-dd": string }
+reason          text|null   이 습관을 하려는 이유
 ```
 
 #### `projects`
@@ -193,9 +207,36 @@ done            boolean     완료 여부
 ```
 id              text        PK
 date            text        날짜 (yyyy-MM-dd)
-category        text        exercise|study|beauty
+category        text        exercise|study|beauty|sleep
 content         text        기록 내용
 duration        int         소요 시간 (분)
+sleep_start     text|null   취침 시간 (HH:mm) — sleep 카테고리 전용
+sleep_end       text|null   기상 시간 (HH:mm) — sleep 카테고리 전용
+```
+
+#### `period_records`
+```
+id              text        PK
+start_date      text        시작일 (yyyy-MM-dd)
+end_date        text|null   종료일 (yyyy-MM-dd)
+symptoms        jsonb       증상 배열 ["두통","복통",...]
+flow_level      text|null   흘림양: light|medium|heavy
+memo            text|null   메모
+created_at      timestamptz 생성일시
+```
+
+#### `habit_monthly_memos`
+```
+id              text        PK
+habit_id        text        습관 id (또는 '__review__' for 전체 월간 회고)
+year            int         연도
+month           int         월 (1-12)
+memo            text        이번달 메모 (습관별) / This month (전체 회고)
+what_worked     text        What worked (전체 회고용)
+what_didnt_work text        What didn't work (전체 회고용)
+next_month      text        Next month (전체 회고용)
+created_at      timestamptz 생성일시
+UNIQUE(habit_id, year, month)
 ```
 
 #### `review_records`
@@ -367,6 +408,8 @@ store.tsx (PlannerContext)
 | 프로젝트 | ✅ | ✅ | ✅ | ✅ | ✅ 연동 |
 | 마일스톤 | ✅ | ✅ | ✅ | ✅ | ✅ 연동 |
 | 자기관리 기록 | ✅ | ✅ | — | ✅ | ✅ 연동 |
+| 생리 기록 | ✅ | ✅ | ✅ | ✅ | ✅ 연동 |
+| 습관 월간 메모 | ✅ | ✅ | ✅ | — | ✅ 연동 |
 | 리뷰 기록 | ✅ | ✅ | ✅ | ✅ | ✅ 연동 |
 | 타임라인 설정 | ✅ | ✅ | ✅ | — | ✅ 연동 |
 | 타임라인 로그 | ✅ | ✅ | — | ✅ | ✅ 연동 (버그 수정 완료) |
@@ -403,6 +446,9 @@ store.tsx (PlannerContext)
 - **모바일 일간 탭 UI** — 모바일에서 할일 목록 / 타임라인 탭 전환 (`mobileTab` state, `lg:hidden` 탭 바), 데스크탑 좌우 분할 유지
 - **모바일 캘린더 스크롤 구조** — 주별/일별 헤더 고정 + 타임라인 내부 단일 스크롤, 7열 자동 축소
 - **공통 ConfirmModal** — `window.confirm()` 대체, `confirmDanger` prop으로 삭제(빨간)/일반(골드) 버튼 구분, 배경 클릭·ESC 닫기 (`ConfirmModal.tsx`)
+- **자기관리 생리 기록** — 접기/펼치기 섹션, 시작일/종료일/흘림양/증상/메모 입력, 과거 기록 기반 평균 주기 + 다음 예상 시작일 자동 계산 (`SelfCareView.tsx` `PeriodSection`)
+- **캘린더 생리 기간 핑크 점** — MonthView 날짜 셀에 period_records 기간 해당 날짜 핑크 원 표시 (`CalendarView.tsx`)
+- **습관 트래커 탭 (FM002 스타일)** — 월별 날짜 점 히트맵 (PC: grid 균등, 모바일: 가로 스크롤), 습관 이유 표시, 이번달 메모 인라인 편집, 월간 회고 섹션 (`HabitsView.tsx` `HabitTrackerView`)
 - **할일 페이지(`/todos`)** — 전체 할일 날짜별 그룹 + 미지정 할일 탭, 공통 TodoModal 날짜 네비, 프로젝트 배지
 - **공통 TodoModal** — `date` prop optional: 있으면 날짜 고정, 없으면 `← M월 d일 (요일) →` 날짜 네비게이션 (`TodoModal.tsx`)
 - **목표관리 페이지(`/goals`) 탭 개편** — 주간 목표 / 월간 목표 탭, 탭별 독립 날짜 네비, `WeeklyGoalsSection` 재사용
@@ -520,8 +566,9 @@ App.tsx
 │   └── MonthlyGoalsContent (이달 목표+통계+습관 달성률)
 │
 ├── HabitsView
-│   ├── HabitModal (추가/편집 — 5종 목표 유형 선택)
+│   ├── HabitModal (추가/편집 — 5종 목표 유형, reason, 이번달 메모)
 │   ├── HabitChip (유형별 위젯: check/count/time/value/memo)
+│   ├── HabitTrackerView (FM002 스타일 월별 점 히트맵 + 월간 회고)
 │   ├── RoutineCard (RoutinesView에서 export, 재사용)
 │   ├── RoutineModal (RoutinesView에서 export, 재사용 — 단계 목록 + YouTube URL)
 │   └── ExecutionPanel (RoutinesView에서 export, 재사용 — 타이머 + 단계 체크 + 영상 보기)
@@ -538,7 +585,9 @@ App.tsx
 │   └── MonthlyReviewForm
 │
 ├── SelfCareView
-│   ├── SelfCareForm (기록 추가)
+│   ├── PeriodSection (생리 기록 — 접기/펼치기, 입력폼, 예측, 기록목록)
+│   ├── SleepSection (수면 기록 — 취침/기상, 7일 바차트)
+│   ├── SelfCareForm (기록 추가 모달)
 │   └── SelfCareCard (기록 카드)
 │
 ├── ProjectView

@@ -16,10 +16,46 @@
 - [x] 할일 체크 버튼과 화살표 버튼을 동일한 타이머 시작/완료 흐름으로 통합
 - [x] 전역 플로팅 타이머 추가 (일시정지/재개/완료, 페이지 이동 후 유지)
 - [x] 진행 중 타이머 시간을 일간 요약 및 DO 타임라인에 실시간 반영
+- [x] 자기관리 페이지 — 생리 기록 기능 추가 (PeriodSection, period_records DB)
+- [x] 습관 트래커 탭 UI FM002 스타일로 전면 개편 (월별 점 히트맵, 월간 회고)
+- [x] 습관 편집 모달 — "이유" 및 "이번달 메모" 필드 추가 (reason, habit_monthly_memos DB)
+- [x] 캘린더 MonthView 생리 기간 날짜 핑크 점 표시 연동
 
 ### 🛠 오늘 작업 내용
 
-**① 타임라인 UI 개편 (`DailyView.tsx`, `CalendarView.tsx`)**
+**① 자기관리 — 생리 기록 기능 추가 (`SelfCareView.tsx`, `store.tsx`, `db.ts`)**
+- `PeriodRecord` 인터페이스 신규 추가 (`store.tsx`)
+  - 필드: `id, startDate, endDate, symptoms[], flowLevel(light|medium|heavy), memo`
+- `db.periodRecords` CRUD (`db.ts`) + Supabase 마이그레이션 SQL 작성
+- `SelfCareView.tsx` — `PeriodSection` 컴포넌트 신규 추가
+  - 섹션 접기/펼치기 (Heart 아이콘, 닫힌 상태에서도 다음 예상일 표시)
+  - 입력 폼: 시작일/종료일, 흘림양(3단계 버튼), 증상 8종 다중 체크, 메모
+  - 기록 수정(인라인 편집 재진입) + 삭제
+  - 예측 카드: 최근 기록 기반 평균 주기 자동 계산 + 다음 예상 시작일 표시
+- `CalendarView.tsx` — `MonthView` 날짜 셀에 `isPeriodDate()` 핑크 점(#E07899) 표시
+
+**② 습관 트래커 탭 UI 전면 개편 (`HabitsView.tsx`, `store.tsx`, `db.ts`)**
+- `HabitMonthlyMemo` 인터페이스 신규 추가 (`store.tsx`)
+  - 필드: `id, habitId, year, month, memo, whatWorked, whatDidntWork, nextMonth`
+  - `habitId = '__review__'` → 전체 월간 회고 특수 레코드
+- `db.habitMonthlyMemos` CRUD (`db.ts`) + Supabase 마이그레이션 SQL 작성
+  - `habits` 테이블에 `reason TEXT` 컬럼 추가
+  - `habit_monthly_memos` 신규 테이블 생성 (UNIQUE(habit_id, year, month))
+- `HabitsView.tsx` — `HabitModal` 필드 추가
+  - "이 습관을 하려는 이유" 텍스트 입력 (`reason` → `habits` 테이블 저장)
+  - "이번달 메모" 입력 (편집 모드 전용, `habit_monthly_memos` 테이블 저장)
+- `HabitsView.tsx` — `HabitTrackerView` 컴포넌트 신규 구현 (FM002 스타일)
+  - 연도 ◀ ▶ 네비게이션
+  - Jan~Dec 월 탭 (현재월 강조, 선택월 골드 강조)
+  - 습관별 행: 이모지 + 이름 + 이유 | 날짜 점 히트맵 | score(달성일/전체일)
+    - PC: CSS Grid로 전체 너비 균등 분배 (큰 원)
+    - 모바일: 가로 스크롤 (14px 원, 날짜 숫자 아래 표시)
+  - 달성률 진행 바
+  - 이번달 메모 인라인 편집 (클릭 → input 전환, blur/Enter 저장)
+  - 월간 회고 섹션: This month / What worked / What didn't work / Next month
+- 탭3 이름 "통계 & 히트맵" → **"습관 트래커"** 교체
+
+**③ 타임라인 UI 개편 (`DailyView.tsx`, `CalendarView.tsx`)**
 - 일간 타임라인에 PLAN/DO 레인 배경, 중앙 구분선, 레인 라벨을 추가해 비교 구조를 더 명확하게 정리
 - 캘린더 주간 뷰(`WeekView`)도 동일한 PLAN/DO 시각 규칙으로 맞추고, 모바일에서는 선택 블록 상세 정보를 하단에 표시
 - 하단 요약은 카드형으로 바꾸지 않고 기존 텍스트형 유지, 라벨만 `계획 시간 / 실제 시간 / 달성률`로 수정
