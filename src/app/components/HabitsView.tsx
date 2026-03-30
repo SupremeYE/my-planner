@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import {
   Plus, Edit3, Trash2, X, Flame, Check, ChevronLeft, ChevronRight,
-  Timer, Hash, TrendingUp, MessageSquare, Minus,
+  Timer, Hash, TrendingUp, MessageSquare, Minus, Pencil, BookOpen,
 } from 'lucide-react';
 import { TimePicker } from './TimePicker';
 import { usePlanner, Habit, Routine } from '../store';
@@ -50,7 +50,7 @@ function getStreak(checkedDates: string[]): number {
 
 // ─── Habit Add/Edit Modal ──────────────────────────────────────────────────────
 function HabitModal({ habit, onClose }: { habit?: Habit; onClose: () => void }) {
-  const { addHabitFull, updateHabit, deleteHabit } = usePlanner();
+  const { addHabitFull, updateHabit, deleteHabit, habitMonthlyMemos, setHabitMonthlyMemo } = usePlanner();
   const { t } = useTheme();
   const [name, setName] = useState(habit?.name || '');
   const [icon, setIcon] = useState(habit?.icon || '🎯');
@@ -63,6 +63,15 @@ function HabitModal({ habit, onClose }: { habit?: Habit; onClose: () => void }) 
   const [habitType, setHabitType] = useState<Habit['habitType']>(habit?.habitType || 'check');
   const [targetValue, setTargetValue] = useState<string>(habit?.targetValue?.toString() || '');
   const [valueUnit, setValueUnit] = useState(habit?.valueUnit || '');
+  const [reason, setReason] = useState(habit?.reason || '');
+
+  // 이번달 메모 (편집 모드일 때만)
+  const nowYear = new Date().getFullYear();
+  const nowMonth = new Date().getMonth() + 1;
+  const existingMemo = habit
+    ? habitMonthlyMemos.find(m => m.habitId === habit.id && m.year === nowYear && m.month === nowMonth)
+    : undefined;
+  const [monthlyMemo, setMonthlyMemo] = useState(existingMemo?.memo || '');
 
   const toggleDay = (d: number) => setRepeatDays(prev => prev.includes(d) ? prev.filter(x => x !== d) : [...prev, d]);
 
@@ -77,9 +86,17 @@ function HabitModal({ habit, onClose }: { habit?: Habit; onClose: () => void }) 
       valueUnit: valueUnit.trim() || undefined,
       dailyProgress: habit?.dailyProgress || {},
       dailyMemos: habit?.dailyMemos || {},
+      reason: reason.trim() || undefined,
     };
-    if (habit) updateHabit(habit.id, data);
-    else addHabitFull(data);
+    if (habit) {
+      updateHabit(habit.id, data);
+      // 이번달 메모 저장
+      if (monthlyMemo.trim() !== (existingMemo?.memo || '')) {
+        setHabitMonthlyMemo(habit.id, nowYear, nowMonth, { memo: monthlyMemo.trim() });
+      }
+    } else {
+      addHabitFull(data);
+    }
     onClose();
   };
 
@@ -242,7 +259,27 @@ function HabitModal({ habit, onClose }: { habit?: Habit; onClose: () => void }) 
                 ))}
               </div>
             </div>
+            {/* Reason */}
+          <div>
+            <label style={{ fontSize: 11, color: t.textSub, fontWeight: 600 }}>이 습관을 하려는 이유</label>
+            <input value={reason} onChange={e => setReason(e.target.value)} placeholder="예: 건강을 위해, 집중력 향상"
+              className="w-full mt-1 rounded-lg px-3 py-2 border outline-none"
+              style={{ borderColor: t.border, backgroundColor: t.bgSub, color: t.text, fontSize: 13 }} />
           </div>
+
+          {/* Monthly memo (edit only) */}
+          {habit && (
+            <div>
+              <label style={{ fontSize: 11, color: t.textSub, fontWeight: 600 }}>
+                이번달 메모
+                <span className="ml-1 font-normal" style={{ color: t.textMuted }}>({new Date().getMonth() + 1}월)</span>
+              </label>
+              <input value={monthlyMemo} onChange={e => setMonthlyMemo(e.target.value)} placeholder="이번달 달성 목표나 특이사항"
+                className="w-full mt-1 rounded-lg px-3 py-2 border outline-none"
+                style={{ borderColor: t.border, backgroundColor: t.bgSub, color: t.text, fontSize: 13 }} />
+            </div>
+          )}
+        </div>
         </div>
 
         <div className="flex items-center gap-2 px-5 py-4 border-t" style={{ borderColor: t.border }}>
@@ -514,6 +551,296 @@ function HabitHeatmap({ habit }: { habit: Habit }) {
   );
 }
 
+// ─── Habit Tracker (FM002 스타일) ──────────────────────────────────────────────
+const MONTH_LABELS_SHORT = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+
+function HabitTrackerView() {
+  const { habits, habitMonthlyMemos, setHabitMonthlyMemo } = usePlanner();
+  const { t } = useTheme();
+
+  const nowDate = new Date();
+  const [viewYear, setViewYear] = useState(nowDate.getFullYear());
+  const [viewMonth, setViewMonth] = useState(nowDate.getMonth() + 1); // 1-12
+
+  // 메모 인라인 편집 상태
+  const [editingMemo, setEditingMemo] = useState<Record<string, string>>({});
+  // 월간 회고 상태
+  const [reviewEditing, setReviewEditing] = useState(false);
+  const [reviewDraft, setReviewDraft] = useState({ memo: '', whatWorked: '', whatDidntWork: '', nextMonth: '' });
+
+  const daysInMonth = getDaysInMonth(new Date(viewYear, viewMonth - 1));
+  const days = Array.from({ length: daysInMonth }, (_, i) => i + 1);
+  const dateStr = (day: number) =>
+    `${viewYear}-${String(viewMonth).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+
+  const getHabitMemo = (habitId: string) =>
+    habitMonthlyMemos.find(m => m.habitId === habitId && m.year === viewYear && m.month === viewMonth);
+
+  const monthlyReview = habitMonthlyMemos.find(
+    m => m.habitId === '__review__' && m.year === viewYear && m.month === viewMonth
+  );
+
+  useEffect(() => {
+    setReviewEditing(false);
+    setReviewDraft({
+      memo: monthlyReview?.memo || '',
+      whatWorked: monthlyReview?.whatWorked || '',
+      whatDidntWork: monthlyReview?.whatDidntWork || '',
+      nextMonth: monthlyReview?.nextMonth || '',
+    });
+  }, [viewYear, viewMonth]);
+
+  const saveReview = () => {
+    setHabitMonthlyMemo('__review__', viewYear, viewMonth, reviewDraft);
+    setReviewEditing(false);
+  };
+
+  const saveMemo = (habitId: string, memo: string) => {
+    setHabitMonthlyMemo(habitId, viewYear, viewMonth, { memo });
+    setEditingMemo(prev => { const n = { ...prev }; delete n[habitId]; return n; });
+  };
+
+  const REVIEW_FIELDS: { key: keyof typeof reviewDraft; label: string }[] = [
+    { key: 'memo', label: 'This month' },
+    { key: 'whatWorked', label: 'What worked' },
+    { key: 'whatDidntWork', label: "What didn't work" },
+    { key: 'nextMonth', label: 'Next month' },
+  ];
+
+  return (
+    <div>
+      {/* 연도 네비 */}
+      <div className="flex items-center justify-center gap-3 mb-3">
+        <button onClick={() => setViewYear(y => y - 1)} className="p-1 rounded" style={{ color: t.textSub }}>
+          <ChevronLeft size={15} />
+        </button>
+        <span style={{ fontSize: 13, fontWeight: 600, color: t.text }}>{viewYear}</span>
+        <button onClick={() => setViewYear(y => y + 1)} className="p-1 rounded" style={{ color: t.textSub }}>
+          <ChevronRight size={15} />
+        </button>
+      </div>
+
+      {/* 월 탭 */}
+      <div className="flex gap-1 mb-5 overflow-x-auto pb-1">
+        {MONTH_LABELS_SHORT.map((label, i) => {
+          const isNowMonth = viewYear === nowDate.getFullYear() && i + 1 === nowDate.getMonth() + 1;
+          const isSelected = viewMonth === i + 1;
+          return (
+            <button key={i} onClick={() => setViewMonth(i + 1)}
+              className="px-2.5 py-1.5 rounded-lg flex-shrink-0 transition-all"
+              style={{
+                fontSize: 11, fontWeight: isSelected ? 700 : 400,
+                backgroundColor: isSelected ? t.accent : isNowMonth ? t.accentLight : t.bgSub,
+                color: isSelected ? '#fff' : isNowMonth ? t.accent : t.textSub,
+              }}>
+              {label}
+            </button>
+          );
+        })}
+      </div>
+
+      {/* 습관 없을 때 */}
+      {habits.length === 0 && (
+        <p style={{ fontSize: 13, color: t.textMuted, textAlign: 'center', padding: '32px 0' }}>
+          습관 관리 탭에서 먼저 습관을 추가해주세요
+        </p>
+      )}
+
+      {/* 습관별 행 */}
+      {habits.map(habit => {
+        const color = habit.color || '#C4A882';
+        const score = days.filter(d => habit.checkedDates.includes(dateStr(d))).length;
+        const pct = daysInMonth > 0 ? Math.round((score / daysInMonth) * 100) : 0;
+        const habitMemo = getHabitMemo(habit.id);
+        const isEditingMemo = habit.id in editingMemo;
+        const memoText = isEditingMemo ? editingMemo[habit.id] : (habitMemo?.memo || '');
+
+        // 날짜 점 공통 컴포넌트
+        const Dot = ({ day }: { day: number }) => {
+          const checked = habit.checkedDates.includes(dateStr(day));
+          return (
+            <div style={{
+              borderRadius: '50%',
+              backgroundColor: checked ? color : 'transparent',
+              border: `1.5px solid ${checked ? color : t.borderLight}`,
+              flexShrink: 0,
+            }} />
+          );
+        };
+
+        return (
+          <div key={habit.id} className="rounded-xl mb-3 p-3 lg:p-4"
+            style={{ backgroundColor: t.card, border: `1px solid ${t.borderLight}` }}>
+
+            {/* 헤더: 이모지 + 이름 + 이유 + score */}
+            <div className="flex items-start gap-2 mb-3">
+              <span style={{ fontSize: 20, lineHeight: '1.4', flexShrink: 0 }}>{habit.icon || '🎯'}</span>
+              <div className="flex-1 min-w-0">
+                <span style={{ fontSize: 13, fontWeight: 700, color: t.text, display: 'block' }}>
+                  {habit.name}
+                </span>
+                {habit.reason && (
+                  <span style={{ fontSize: 10, color: t.textMuted, marginTop: 1, display: 'block' }}>
+                    {habit.reason}
+                  </span>
+                )}
+              </div>
+              <div className="flex items-baseline gap-0.5 flex-shrink-0">
+                <span style={{ fontSize: 16, fontWeight: 700, color, fontFamily: "'DM Serif Display', serif" }}>
+                  {score}
+                </span>
+                <span style={{ fontSize: 11, color: t.textMuted }}>/{daysInMonth}</span>
+              </div>
+            </div>
+
+            {/* PC: 그리드 점 — 전체 너비 균등 분배 */}
+            <div className="hidden lg:block mb-2">
+              <div style={{
+                display: 'grid',
+                gridTemplateColumns: `repeat(${daysInMonth}, 1fr)`,
+                gap: 3,
+              }}>
+                {days.map(d => <Dot key={d} day={d} />)}
+              </div>
+              <div style={{
+                display: 'grid',
+                gridTemplateColumns: `repeat(${daysInMonth}, 1fr)`,
+                gap: 3, marginTop: 3,
+              }}>
+                {days.map(d => (
+                  <div key={d} style={{ textAlign: 'center', fontSize: 8, color: t.textMuted }}>{d}</div>
+                ))}
+              </div>
+            </div>
+
+            {/* 모바일: 가로 스크롤 점 */}
+            <div className="lg:hidden overflow-x-auto mb-2" style={{ marginLeft: -12, marginRight: -12, paddingLeft: 12, paddingRight: 12 }}>
+              <div className="flex gap-0.5" style={{ minWidth: 'max-content' }}>
+                {days.map(d => (
+                  <div key={d} className="flex flex-col items-center gap-0.5">
+                    <div style={{
+                      width: 14, height: 14, borderRadius: '50%',
+                      backgroundColor: habit.checkedDates.includes(dateStr(d)) ? color : 'transparent',
+                      border: `1.5px solid ${habit.checkedDates.includes(dateStr(d)) ? color : t.borderLight}`,
+                    }} />
+                    <span style={{ fontSize: 7, color: t.textMuted, width: 14, textAlign: 'center' }}>{d}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* 진행률 바 */}
+            <div className="h-1 rounded-full overflow-hidden mb-2" style={{ backgroundColor: t.bgSub }}>
+              <div className="h-full rounded-full transition-all duration-500"
+                style={{ width: `${pct}%`, backgroundColor: color }} />
+            </div>
+
+            {/* 이번달 메모 */}
+            {isEditingMemo ? (
+              <input
+                autoFocus
+                value={memoText}
+                onChange={e => setEditingMemo(prev => ({ ...prev, [habit.id]: e.target.value }))}
+                onBlur={() => saveMemo(habit.id, memoText)}
+                onKeyDown={e => {
+                  if (e.key === 'Enter') saveMemo(habit.id, memoText);
+                  if (e.key === 'Escape') setEditingMemo(prev => { const n = { ...prev }; delete n[habit.id]; return n; });
+                }}
+                className="w-full rounded-lg px-2.5 py-1.5 border outline-none"
+                style={{ fontSize: 11, borderColor: t.accent, backgroundColor: t.bgSub, color: t.text }}
+                placeholder="이 달 메모를 남겨보세요"
+              />
+            ) : (
+              <button
+                onClick={() => setEditingMemo(prev => ({ ...prev, [habit.id]: habitMemo?.memo || '' }))}
+                className="w-full text-left rounded-lg px-2.5 py-1.5 transition-colors"
+                style={{ fontSize: 11, color: habitMemo?.memo ? t.text : t.textMuted, backgroundColor: t.bgSub }}>
+                {habitMemo?.memo || '+ 이 달 메모 추가...'}
+              </button>
+            )}
+          </div>
+        );
+      })}
+
+      {/* 월간 회고 */}
+      {habits.length > 0 && (
+        <div className="rounded-xl p-4 mt-2" style={{ backgroundColor: t.card, border: `1px solid ${t.borderLight}` }}>
+          <div className="flex items-center justify-between mb-3">
+            <div className="flex items-center gap-2">
+              <BookOpen size={14} color={t.accent} />
+              <span style={{ fontSize: 13, fontWeight: 700, color: t.text }}>월간 회고</span>
+            </div>
+            {!reviewEditing && (
+              <button
+                onClick={() => {
+                  setReviewDraft({
+                    memo: monthlyReview?.memo || '',
+                    whatWorked: monthlyReview?.whatWorked || '',
+                    whatDidntWork: monthlyReview?.whatDidntWork || '',
+                    nextMonth: monthlyReview?.nextMonth || '',
+                  });
+                  setReviewEditing(true);
+                }}
+                className="px-3 py-1 rounded-lg"
+                style={{ fontSize: 11, color: t.accent, backgroundColor: t.accentLight }}>
+                {monthlyReview ? '편집' : '작성하기'}
+              </button>
+            )}
+          </div>
+
+          {reviewEditing ? (
+            <div className="space-y-3">
+              {REVIEW_FIELDS.map(field => (
+                <div key={field.key}>
+                  <label style={{
+                    fontSize: 9, fontWeight: 700, color: t.textMuted,
+                    textTransform: 'uppercase', letterSpacing: '0.08em', display: 'block', marginBottom: 4,
+                  }}>
+                    {field.label}
+                  </label>
+                  <textarea
+                    value={reviewDraft[field.key]}
+                    onChange={e => setReviewDraft(prev => ({ ...prev, [field.key]: e.target.value }))}
+                    rows={2}
+                    className="w-full rounded-lg px-3 py-2 border outline-none resize-none"
+                    style={{ fontSize: 12, borderColor: t.border, backgroundColor: t.bgSub, color: t.text }}
+                  />
+                </div>
+              ))}
+              <div className="flex gap-2 pt-1">
+                <button onClick={() => setReviewEditing(false)}
+                  className="flex-1 py-2 rounded-xl"
+                  style={{ fontSize: 12, color: t.textSub, backgroundColor: t.bgSub }}>취소</button>
+                <button onClick={saveReview}
+                  className="flex-1 py-2 rounded-xl"
+                  style={{ fontSize: 12, fontWeight: 600, backgroundColor: t.accent, color: '#fff' }}>저장</button>
+              </div>
+            </div>
+          ) : monthlyReview && (monthlyReview.memo || monthlyReview.whatWorked || monthlyReview.whatDidntWork || monthlyReview.nextMonth) ? (
+            <div className="space-y-3">
+              {REVIEW_FIELDS.filter(f => monthlyReview[f.key]).map(field => (
+                <div key={field.key}>
+                  <div style={{
+                    fontSize: 9, fontWeight: 700, color: t.textMuted,
+                    textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 4,
+                  }}>
+                    {field.label}
+                  </div>
+                  <p style={{ fontSize: 12, color: t.text, lineHeight: 1.6, whiteSpace: 'pre-wrap' }}>
+                    {monthlyReview[field.key]}
+                  </p>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p style={{ fontSize: 12, color: t.textMuted }}>이번 달 회고를 작성해보세요 ✍️</p>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ─── Main ─────────────────────────────────────────────────────────────────────
 export function HabitsView() {
   const { habits, routines, selectedDate, updateHabitMemo } = usePlanner();
@@ -532,7 +859,7 @@ export function HabitsView() {
   const tabs = [
     { key: 'habits', label: '습관 관리' },
     { key: 'routines', label: '루틴 설정' },
-    { key: 'stats', label: '통계 & 히트맵' },
+    { key: 'stats', label: '습관 트래커' },
   ] as const;
 
   return (
@@ -692,12 +1019,8 @@ export function HabitsView() {
           </div>
         )}
 
-        {/* Stats Tab */}
-        {tab === 'stats' && (
-          <div className="space-y-4">
-            {habits.map(h => <HabitHeatmap key={h.id} habit={h} />)}
-          </div>
-        )}
+        {/* 습관 트래커 Tab */}
+        {tab === 'stats' && <HabitTrackerView />}
       </div>
 
       {/* Modals */}
