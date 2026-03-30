@@ -1,6 +1,6 @@
 # PROJECT_SPEC.md — My Planner PWA 기능 명세서
 
-> 최종 업데이트: 2026-03-29 (메뉴 구조 개편 + 할일 페이지 + TodoModal 공통화 + 목표관리 탭 개편)
+> 최종 업데이트: 2026-03-30 (루틴 YouTube URL + WeeklyView 개편 + 루틴 실행을 습관&루틴 탭으로 통합)
 
 ---
 
@@ -17,8 +17,7 @@
 | `/goals` | `MonthlyView` | 주간 목표 탭 / 월간 목표 탭 (통계+목표+습관 달성률) |
 | `/projects` | `ProjectsView` | 프로젝트 목록, 신규 프로젝트 생성 |
 | `/projects/:id` | `ProjectDetailView` | 마일스톤 CRUD, 관련 할일 목록 |
-| `/habits` | `HabitsView` | 습관 CRUD, 반복 설정, 5종 목표 유형 체크칩, 연속달성일, 월간 통계 |
-| `/routines` | `RoutinesView` | 루틴 CRUD, 단계 체크 + 카운트다운 타이머, 연속달성일 |
+| `/habits` | `HabitsView` | 습관 CRUD, 반복 설정, 5종 목표 유형 체크칩, 연속달성일, 월간 통계 / **루틴 탭**: 루틴 CRUD, 단계 체크 + 카운트다운 타이머, YouTube URL, 연속달성일 |
 | `/selfcare` | `SelfCareView` | 운동/공부/뷰티 기록, 월간 통계 |
 | `/reviews` | `ReviewsView` | 감정·감사·KPT·데일리리뷰, 주간/월간 리뷰 |
 
@@ -78,12 +77,14 @@
 - 연속 달성일(streak) 표시
 - 월간 달성률 그래프/통계
 
-#### `/routines` — 루틴 실행
+#### `/habits` 루틴 탭 — 루틴 실행 (구 `/routines`, 통합됨)
 - 루틴 추가/편집/삭제 모달 (이름, 아이콘, 시작시간, 소요시간, 단계 목록)
+  - 단계별 YouTube URL 입력 (선택사항, 유효성 검증)
+- 오늘 진행률 바 (완료 수 / 전체)
 - `RoutineCard`: 아이콘, 이름, 시간, 소요시간, 연속달성일 배지
 - `ExecutionPanel`: 하단 시트
   - SVG 원형 카운트다운 타이머
-  - 단계별 체크박스
+  - 단계별 체크박스 + URL 등록 시 "영상 보기" 버튼 (새 탭)
   - "완료로 기록" 버튼 → `checked_dates` 토글 → Supabase 저장
 - 연속 달성일(streak) 계산
 - 완료 루틴은 하단으로 정렬 (미완료 → 시작시간 순)
@@ -291,14 +292,15 @@ created_at      timestamptz 생성일시
 
 #### `routines`
 ```
-id              text        PK
-name            text        루틴 이름
-icon            text        이모지 아이콘
-start_time      text|null   시작 시간 (HH:mm)
-duration        int|null    소요 시간 (분)
-steps           text[]      단계 목록
-checked_dates   text[]      완료 날짜 배열 (yyyy-MM-dd)
-created_at      timestamptz 생성일시
+id                  text        PK
+name                text        루틴 이름
+icon                text        이모지 아이콘
+start_time          text|null   시작 시간 (HH:mm)
+duration            int|null    소요 시간 (분)
+steps               text[]      단계 목록
+step_youtube_urls   text[]      단계별 YouTube URL (steps와 인덱스 1:1 대응)
+checked_dates       text[]      완료 날짜 배열 (yyyy-MM-dd)
+created_at          timestamptz 생성일시
 ```
 
 ---
@@ -348,7 +350,7 @@ store.tsx (PlannerContext)
 │
 ├── tags ───────────────────── TodoModal (태그 선택) → Supabase ✅ (최초 기본값 5개 자동 시드)
 │
-├── routines ───────────────── RoutinesView (CRUD + toggleRoutineDate) → Supabase ✅
+├── routines ───────────────── HabitsView 루틴 탭 (CRUD + toggleRoutineDate) → Supabase ✅
 │
 └── selectedDate ────────────── 모든 날짜 의존 컴포넌트
 ```
@@ -405,6 +407,8 @@ store.tsx (PlannerContext)
 - **할일 페이지(`/todos`)** — 전체 할일 날짜별 그룹 + 미지정 할일 탭, 공통 TodoModal 날짜 네비, 프로젝트 배지
 - **공통 TodoModal** — `date` prop optional: 있으면 날짜 고정, 없으면 `← M월 d일 (요일) →` 날짜 네비게이션 (`TodoModal.tsx`)
 - **목표관리 페이지(`/goals`) 탭 개편** — 주간 목표 / 월간 목표 탭, 탭별 독립 날짜 네비, `WeeklyGoalsSection` 재사용
+- **루틴 단계별 YouTube URL** — 편집 모달에 단계별 URL 입력(선택), 유효성 검증, 실행 화면에서 "영상 보기" 버튼 → 새 탭 열기
+- **루틴 기능 통합** — 기존 `/routines` 별도 페이지 삭제, 습관&루틴(`/habits`) 루틴 탭으로 통합 (진행률 바 + RoutineCard + ExecutionPanel)
 - **메뉴 구조 개편** — 보관함·브레인스토밍 삭제, 월간→목표관리(`/goals`), 할일 메뉴 추가, 모바일 탭바 5개 고정
 - **모바일 하단 네비 개선** (`Layout.tsx`)
   - 8개 탭 → 4탭(홈·일간·캘린더·주간) + 메뉴 버튼으로 축소
@@ -500,8 +504,8 @@ App.tsx
 │   └── DayViewPanel (일별 미니 타임라인)
 │
 ├── WeeklyView
-│   ├── BrainDumpItem (브레인덤프 카드)
-│   ├── AssignDayPopover (요일 배정)
+│   ├── UnassignedTodoItem (날짜 미지정 할일 카드 — 드래그 + 날짜 배정)
+│   ├── AssignDayPopover (요일 배정 팝오버)
 │   ├── DayColumn (요일별 할일 칼럼 — useDroppable)
 │   ├── DraggableTodoCard (드래그 가능한 할일 카드 — useDraggable)
 │   └── OverlayCard (드래그 중 표시되는 고스트 카드 — DragOverlay)
@@ -517,12 +521,15 @@ App.tsx
 │
 ├── HabitsView
 │   ├── HabitModal (추가/편집 — 5종 목표 유형 선택)
-│   └── HabitChip (유형별 위젯: check/count/time/value/memo)
+│   ├── HabitChip (유형별 위젯: check/count/time/value/memo)
+│   ├── RoutineCard (RoutinesView에서 export, 재사용)
+│   ├── RoutineModal (RoutinesView에서 export, 재사용 — 단계 목록 + YouTube URL)
+│   └── ExecutionPanel (RoutinesView에서 export, 재사용 — 타이머 + 단계 체크 + 영상 보기)
 │
-├── RoutinesView
-│   ├── RoutineModal (추가/편집 — 단계 목록)
-│   ├── RoutineCard (아이콘/이름/시간/연속일)
-│   └── ExecutionPanel (하단 시트 — 타이머 + 단계 체크)
+├── RoutinesView (페이지 없음, 컴포넌트 모듈로만 존재)
+│   ├── export RoutineModal
+│   ├── export RoutineCard
+│   └── export ExecutionPanel
 │
 ├── ReviewsView
 │   ├── DailyReviewForm (감정/감사/KPT)

@@ -59,6 +59,12 @@
 - [x] window.confirm() → 커스텀 ConfirmModal 교체 (ProjectView.tsx 프로젝트 삭제)
 - [x] 모바일 하단 네비 바 개선 (4탭 + 메뉴 바텀 시트 오버레이)
 - [x] CLAUDE.md, PROGRESS_LOG.md, PROJECT_SPEC.md 업데이트 + GitHub push
+- [x] 루틴 단계별 YouTube URL 등록 기능 추가 (편집 모달 URL 입력 + 유효성 검증)
+- [x] 루틴 실행 화면 "영상 보기" 버튼 추가 (YouTube 새 탭 열기)
+- [x] Supabase routines 테이블 step_youtube_urls 컬럼 마이그레이션
+- [x] RoutineModal 모바일 너비 대응 (w-[460px] → w-full max-w-[460px])
+- [x] WeeklyView 브레인덤프 → 미지정 할일 기반 좌측 패널로 개편
+- [x] 루틴 실행 기능을 습관&루틴(/habits) 루틴 탭으로 통합, 별도 /routines 페이지 삭제
 
 ### 🛠 오늘 작업 내용
 
@@ -129,6 +135,27 @@
 **⑥ 문서 업데이트**
 - `CLAUDE.md`: 주요 기능에 모바일 하단 네비·ConfirmModal 추가, `/진행현황 저장해줘` 명령어 → PROGRESS_LOG.md + PROJECT_SPEC.md 동시 업데이트 규칙으로 확장
 - `PROJECT_SPEC.md`: 최종 업데이트 날짜, UI/UX 기능 목록, 컴포넌트 구조도 업데이트
+
+**⑦ 루틴 단계별 YouTube URL 기능 (`RoutinesView.tsx`, `store.tsx`, `db.ts`)**
+- Supabase `routines` 테이블에 `step_youtube_urls text[] DEFAULT '{}'` 컬럼 마이그레이션
+- `Routine` 인터페이스 `stepYoutubeUrls?: string[]` 추가
+- `RoutineRow` + `toRoutine` / `fromRoutine` 변환 함수 업데이트
+- `RoutineModal`: 단계별 YouTube URL 입력 필드 추가 (빈값 허용, 잘못된 URL 빨간 경고)
+  - `isValidYoutubeUrl()` 검증 함수 (youtube.com/watch?v= / youtu.be/ 모두 허용)
+- `ExecutionPanel`: URL 등록 단계에 빨간 "영상 보기" 버튼, `stopPropagation()` 처리
+- `RoutineModal` 모바일 너비 대응: `w-[460px]` → `w-full max-w-[460px] mx-4`
+
+**⑧ WeeklyView 좌측 패널 개편 (`WeeklyView.tsx`)**
+- 브레인덤프 아이템 → 날짜 미지정 할일 목록으로 교체 (`BrainDumpItem` → `UnassignedTodoItem`)
+- `AssignDayPopover` 위치 `left-0` → `right-0` (화면 밖 잘림 방지)
+
+**⑨ 루틴 기능 습관&루틴 탭으로 통합 (`HabitsView.tsx`, `routes.tsx`, `Layout.tsx`)**
+- `RoutinesView.tsx`: `RoutineModal`, `ExecutionPanel`, `RoutineCard`, `today`, `getStreak` export 추가
+- `HabitsView.tsx` 루틴 탭: 단순 카드 목록 → 오늘 진행률 바 + RoutineCard(실행/편집) + ExecutionPanel 전체 기능으로 교체
+- 기존 단순 `RoutineModal` 컴포넌트 삭제 → RoutinesView 것 재사용
+- `runningRoutine` state 추가 → ExecutionPanel 연결
+- `routes.tsx`: `/routines` 라우트 삭제
+- `Layout.tsx`: 사이드바 '루틴 실행' 메뉴 항목 삭제
 
 ---
 
