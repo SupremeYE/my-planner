@@ -250,15 +250,6 @@ function getTimerEndHHMM(startHHMM: string, elapsedSec: number): string {
 const currentWeekKey = getWeekKey(new Date());
 const currentMonth = format(new Date(), 'yyyy-MM');
 
-// ───── 기본 태그 (DB가 비어있을 때 시드) ─────
-const initialTags: Tag[] = [
-  { id: 'tg1', name: '일', color: '#E0795B' },
-  { id: 'tg2', name: '자기계발', color: '#5B8FE0' },
-  { id: 'tg3', name: '자기관리', color: '#5BC8AF' },
-  { id: 'tg4', name: '일상', color: '#A07BE0' },
-  { id: 'tg5', name: '건강', color: '#5BC86E' },
-];
-
 // ── Daily Affirmation ──
 export const DEFAULT_AFFIRMATIONS = [
   "오늘 나는 내가 원하는 삶을 만들어가고 있다.",
@@ -487,13 +478,7 @@ export function PlannerProvider({ children }: { children: React.ReactNode }) {
       setBrainstormItems(brainstormItemsData);
       setBrainstormMemos(brainstormMemosData);
       setRoutines(routinesData);
-      // 태그가 없으면 기본 태그 시드
-      if (tagsData.length === 0) {
-        setTags(initialTags);
-        initialTags.forEach(tag => db.tags.upsert(tag));
-      } else {
-        setTags(tagsData);
-      }
+      setTags(tagsData);
       setIsLoading(false);
     };
     load();
@@ -994,7 +979,11 @@ export function PlannerProvider({ children }: { children: React.ReactNode }) {
 
   const deleteTag = useCallback((id: string) => {
     setTags(prev => prev.filter(tg => tg.id !== id));
-    setTodos(prev => prev.map(t => ({ ...t, tags: (t.tags || []).filter(tid => tid !== id) })));
+    setTodos(prev => {
+      const updatedTodos = prev.map(t => ({ ...t, tags: (t.tags || []).filter(tid => tid !== id) }));
+      updatedTodos.forEach(todo => db.todos.upsert(todo));
+      return updatedTodos;
+    });
     db.tags.delete(id);
   }, []);
 

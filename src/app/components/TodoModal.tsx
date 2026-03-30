@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { format, addDays, subDays, parseISO } from 'date-fns';
 import { ko } from 'date-fns/locale';
 import { ChevronLeft, ChevronRight, Star, X } from 'lucide-react';
@@ -17,6 +17,8 @@ const TAG_COLORS = [
   '#EF4444', '#F87171', '#EC4899', '#DB2777',
   '#6B7280', '#94A3B8', '#475569', '#1E293B',
 ];
+const CUSTOM_TAG_COLORS_KEY = 'customTagPaletteColors';
+const MAX_CUSTOM_TAG_COLORS = 14;
 
 interface TodoModalProps {
   /** date prop이 있으면 날짜 고정 (일간 페이지 모드).
@@ -27,7 +29,7 @@ interface TodoModalProps {
 }
 
 export function TodoModal({ date, todo, onClose }: TodoModalProps) {
-  const { addTodo, updateTodo, deleteTodo, tags: allTags, projects, addTag } = usePlanner();
+  const { addTodo, updateTodo, deleteTodo, tags: allTags, projects, addTag, updateTag, deleteTag } = usePlanner();
   const { t } = useTheme();
 
   const todayStr = format(new Date(), 'yyyy-MM-dd');
@@ -56,7 +58,72 @@ export function TodoModal({ date, todo, onClose }: TodoModalProps) {
   const [showNewTag, setShowNewTag] = useState(false);
   const [newTagName, setNewTagName] = useState('');
   const [newTagColor, setNewTagColor] = useState(TAG_COLORS[0]);
+  const [newTagPaletteColor, setNewTagPaletteColor] = useState<string | null>(TAG_COLORS[0]);
+  const [customTagColors, setCustomTagColors] = useState<string[]>([]);
+  const [editingTagId, setEditingTagId] = useState<string | null>(null);
+  const [editingTagName, setEditingTagName] = useState('');
+  const [editingTagColor, setEditingTagColor] = useState(TAG_COLORS[0]);
+  const [editingTagPaletteColor, setEditingTagPaletteColor] = useState<string | null>(null);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [deletingTagId, setDeletingTagId] = useState<string | null>(null);
+
+  const isValidHex = (value: string) => /^#[0-9A-Fa-f]{6}$/.test(value);
+  const normalizeHexInput = (value: string) => `#${value.replace(/[^0-9A-Fa-f]/g, '').slice(0, 6).toUpperCase()}`;
+  const normalizeHex = (value: string) => {
+    const trimmed = value.trim();
+    const withHash = trimmed.startsWith('#') ? trimmed : `#${trimmed}`;
+    return withHash.toUpperCase();
+  };
+  const paletteColors = useMemo(() => [...TAG_COLORS, ...customTagColors], [customTagColors]);
+  const normalizedNewTagColor = useMemo(() => {
+    return normalizeHex(newTagColor);
+  }, [newTagColor]);
+  const normalizedEditingTagColor = useMemo(() => {
+    return normalizeHex(editingTagColor);
+  }, [editingTagColor]);
+  const newTagColorValid = isValidHex(normalizedNewTagColor);
+  const editingTagColorValid = isValidHex(normalizedEditingTagColor);
+  const canUseNewTagColor =
+    TAG_COLORS.includes(normalizedNewTagColor) ||
+    customTagColors.includes(normalizedNewTagColor) ||
+    customTagColors.length < MAX_CUSTOM_TAG_COLORS;
+  const canUseEditingTagColor =
+    TAG_COLORS.includes(normalizedEditingTagColor) ||
+    customTagColors.includes(normalizedEditingTagColor) ||
+    customTagColors.length < MAX_CUSTOM_TAG_COLORS;
+
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem(CUSTOM_TAG_COLORS_KEY);
+      if (!raw) return;
+      const parsed = JSON.parse(raw);
+      if (!Array.isArray(parsed)) return;
+      const filtered = parsed
+        .map((v: string) => normalizeHex(v))
+        .filter((v: string) => isValidHex(v) && !TAG_COLORS.includes(v))
+        .slice(0, MAX_CUSTOM_TAG_COLORS);
+      setCustomTagColors(filtered);
+    } catch {
+      setCustomTagColors([]);
+    }
+  }, []);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(CUSTOM_TAG_COLORS_KEY, JSON.stringify(customTagColors));
+    } catch {
+      // noop
+    }
+  }, [customTagColors]);
+
+  const addColorToCustomPalette = (color: string): boolean => {
+    const normalized = normalizeHex(color);
+    if (!isValidHex(normalized)) return false;
+    if (TAG_COLORS.includes(normalized) || customTagColors.includes(normalized)) return true;
+    if (customTagColors.length >= MAX_CUSTOM_TAG_COLORS) return false;
+    setCustomTagColors(prev => [normalized, ...prev].slice(0, MAX_CUSTOM_TAG_COLORS));
+    return true;
+  };
 
   const toggleTag = (tagId: string) => {
     setSelectedTags(prev =>
@@ -65,10 +132,38 @@ export function TodoModal({ date, todo, onClose }: TodoModalProps) {
   };
 
   const handleCreateTag = () => {
-    if (!newTagName.trim()) return;
-    addTag(newTagName.trim(), newTagColor);
+    if (!newTagName.trim() || !newTagColorValid || !canUseNewTagColor) return;
+    if (!addColorToCustomPalette(normalizedNewTagColor)) return;
+    addTag(newTagName.trim(), normalizedNewTagColor);
     setNewTagName('');
+    setNewTagColor(TAG_COLORS[0]);
+    setNewTagPaletteColor(TAG_COLORS[0]);
     setShowNewTag(false);
+  };
+
+  const startEditTag = (id: string, name: string, color: string) => {
+    const normalizedColor = normalizeHex(color);
+    setEditingTagId(id);
+    setEditingTagName(name);
+    setEditingTagColor(normalizedColor);
+    setEditingTagPaletteColor(TAG_COLORS.includes(normalizedColor) ? normalizedColor : null);
+  };
+
+  const cancelEditTag = () => {
+    setEditingTagId(null);
+    setEditingTagName('');
+    setEditingTagColor(TAG_COLORS[0]);
+    setEditingTagPaletteColor(null);
+  };
+
+  const handleUpdateTag = () => {
+    if (!editingTagId || !editingTagName.trim() || !editingTagColorValid || !canUseEditingTagColor) return;
+    if (!addColorToCustomPalette(normalizedEditingTagColor)) return;
+    updateTag(editingTagId, {
+      name: editingTagName.trim(),
+      color: normalizedEditingTagColor,
+    });
+    cancelEditTag();
   };
 
   const handleSubmit = () => {
@@ -253,19 +348,44 @@ export function TodoModal({ date, todo, onClose }: TodoModalProps) {
               {allTags.map(tag => {
                 const selected = selectedTags.includes(tag.id);
                 return (
-                  <button
-                    key={tag.id}
-                    onClick={() => toggleTag(tag.id)}
-                    className="px-2.5 py-1 rounded-full transition-all"
-                    style={{
-                      fontSize: 11,
-                      backgroundColor: selected ? tag.color : t.bgSub,
-                      color: selected ? '#fff' : t.textSub,
-                      border: `1px solid ${selected ? tag.color : t.border}`,
-                    }}
-                  >
-                    {tag.name}
-                  </button>
+                  <div key={tag.id} className="flex items-center gap-1">
+                    <button
+                      onClick={() => toggleTag(tag.id)}
+                      className="px-2.5 py-1 rounded-full transition-all"
+                      style={{
+                        fontSize: 11,
+                        backgroundColor: selected ? tag.color : t.bgSub,
+                        color: selected ? '#fff' : t.textSub,
+                        border: `1px solid ${selected ? tag.color : t.border}`,
+                      }}
+                    >
+                      {tag.name}
+                    </button>
+                    <button
+                      onClick={() => startEditTag(tag.id, tag.name, tag.color)}
+                      className="px-1.5 py-0.5 rounded-lg"
+                      style={{
+                        fontSize: 10,
+                        color: t.textSub,
+                        border: `1px solid ${t.border}`,
+                        backgroundColor: t.card,
+                      }}
+                    >
+                      편집
+                    </button>
+                    <button
+                      onClick={() => setDeletingTagId(tag.id)}
+                      className="px-1.5 py-0.5 rounded-lg"
+                      style={{
+                        fontSize: 10,
+                        color: '#DC2626',
+                        border: '1px solid #FCA5A5',
+                        backgroundColor: '#FEF2F2',
+                      }}
+                    >
+                      삭제
+                    </button>
+                  </div>
                 );
               })}
               <button
@@ -299,27 +419,254 @@ export function TodoModal({ date, todo, onClose }: TodoModalProps) {
                   {TAG_COLORS.map(c => (
                     <button
                       key={c}
-                      onClick={() => setNewTagColor(c)}
+                      onClick={() => {
+                        setNewTagColor(c);
+                        setNewTagPaletteColor(c);
+                      }}
                       className="w-5 h-5 rounded-full transition-transform"
                       style={{
                         backgroundColor: c,
-                        outline: newTagColor === c ? `2px solid ${c}` : 'none',
+                        outline: newTagPaletteColor === c ? `2px solid ${c}` : 'none',
                         outlineOffset: 1,
-                        transform: newTagColor === c ? 'scale(1.2)' : 'scale(1)',
+                        transform: newTagPaletteColor === c ? 'scale(1.2)' : 'scale(1)',
                       }}
                     />
                   ))}
                 </div>
+                {customTagColors.length > 0 && (
+                  <div className="flex flex-wrap gap-1">
+                    {customTagColors.map(c => (
+                      <div key={`custom-new-${c}`} className="relative">
+                        <button
+                          onClick={() => {
+                            setNewTagColor(c);
+                            setNewTagPaletteColor(c);
+                          }}
+                          className="w-5 h-5 rounded-full transition-transform"
+                          style={{
+                            backgroundColor: c,
+                            outline: newTagPaletteColor === c ? `2px solid ${c}` : 'none',
+                            outlineOffset: 1,
+                            transform: newTagPaletteColor === c ? 'scale(1.2)' : 'scale(1)',
+                          }}
+                        />
+                        <button
+                          onClick={e => {
+                            e.stopPropagation();
+                            setCustomTagColors(prev => prev.filter(color => color !== c));
+                            if (newTagPaletteColor === c) setNewTagPaletteColor(null);
+                            if (editingTagPaletteColor === c) setEditingTagPaletteColor(null);
+                          }}
+                          className="absolute -right-1 -top-1 h-3.5 w-3.5 rounded-full text-[9px] leading-[1] text-white"
+                          style={{ backgroundColor: '#DC2626' }}
+                        >
+                          x
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                <div className="flex items-center gap-2">
+                  <div
+                    className="w-5 h-5 rounded-full border"
+                    style={{
+                      backgroundColor: newTagColorValid ? normalizedNewTagColor : 'transparent',
+                      borderColor: newTagColorValid ? normalizedNewTagColor : '#DC2626',
+                    }}
+                  />
+                  <input
+                    value={newTagColor}
+                    onChange={e => {
+                      const next = normalizeHexInput(e.target.value);
+                      setNewTagColor(next);
+                      setNewTagPaletteColor(paletteColors.includes(next) ? next : null);
+                    }}
+                    placeholder="#FF5733"
+                    className="flex-1 rounded-lg px-2.5 py-1.5 outline-none"
+                    style={{
+                      border: `1px solid ${newTagColorValid ? t.border : '#DC2626'}`,
+                      fontSize: 12,
+                      backgroundColor: t.card,
+                      color: t.text,
+                    }}
+                  />
+                </div>
+                <div
+                  className="inline-flex items-center rounded-full px-2.5 py-1"
+                  style={{
+                    fontSize: 11,
+                    border: `1px solid ${newTagColorValid ? normalizedNewTagColor : t.border}`,
+                    color: newTagColorValid ? normalizedNewTagColor : t.textSub,
+                    backgroundColor: newTagColorValid ? `${normalizedNewTagColor}22` : t.bgSub,
+                  }}
+                >
+                  {newTagName.trim() || '태그 미리보기'}
+                </div>
+                {newTagColorValid && !canUseNewTagColor && (
+                  <div style={{ fontSize: 11, color: '#DC2626' }}>
+                    팔레트 색상은 최대 14개까지 저장됩니다. 기존 색상을 지워주세요.
+                  </div>
+                )}
                 <div className="flex gap-1.5">
                   <button
                     onClick={handleCreateTag}
+                    disabled={!newTagName.trim() || !newTagColorValid || !canUseNewTagColor}
                     className="flex-1 py-1 rounded-lg"
-                    style={{ backgroundColor: t.accent, color: '#fff', fontSize: 11, fontWeight: 600 }}
+                    style={{
+                      backgroundColor: t.accent,
+                      color: '#fff',
+                      fontSize: 11,
+                      fontWeight: 600,
+                      opacity: newTagName.trim() && newTagColorValid && canUseNewTagColor ? 1 : 0.5,
+                      cursor: newTagName.trim() && newTagColorValid && canUseNewTagColor ? 'pointer' : 'not-allowed',
+                    }}
                   >
                     추가
                   </button>
                   <button
                     onClick={() => setShowNewTag(false)}
+                    className="flex-1 py-1 rounded-lg"
+                    style={{
+                      backgroundColor: t.card,
+                      color: t.textSub,
+                      fontSize: 11,
+                      border: `1px solid ${t.border}`,
+                    }}
+                  >
+                    취소
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {editingTagId && (
+              <div
+                className="mt-2 p-3 rounded-xl space-y-2"
+                style={{ backgroundColor: t.bgSub, border: `1px solid ${t.border}` }}
+              >
+                <div style={{ fontSize: 11, color: t.textSub, fontWeight: 600 }}>태그 편집</div>
+                <input
+                  value={editingTagName}
+                  onChange={e => setEditingTagName(e.target.value)}
+                  placeholder="태그 이름"
+                  className="w-full rounded-lg px-2.5 py-1.5 outline-none"
+                  style={{
+                    border: `1px solid ${t.border}`,
+                    fontSize: 12,
+                    backgroundColor: t.card,
+                    color: t.text,
+                  }}
+                />
+                <div className="flex flex-wrap gap-1">
+                  {TAG_COLORS.map(c => (
+                    <button
+                      key={`edit-${c}`}
+                      onClick={() => {
+                        setEditingTagColor(c);
+                        setEditingTagPaletteColor(c);
+                      }}
+                      className="w-5 h-5 rounded-full transition-transform"
+                      style={{
+                        backgroundColor: c,
+                        outline: editingTagPaletteColor === c ? `2px solid ${c}` : 'none',
+                        outlineOffset: 1,
+                        transform: editingTagPaletteColor === c ? 'scale(1.2)' : 'scale(1)',
+                      }}
+                    />
+                  ))}
+                </div>
+                {customTagColors.length > 0 && (
+                  <div className="flex flex-wrap gap-1">
+                    {customTagColors.map(c => (
+                      <div key={`custom-edit-${c}`} className="relative">
+                        <button
+                          onClick={() => {
+                            setEditingTagColor(c);
+                            setEditingTagPaletteColor(c);
+                          }}
+                          className="w-5 h-5 rounded-full transition-transform"
+                          style={{
+                            backgroundColor: c,
+                            outline: editingTagPaletteColor === c ? `2px solid ${c}` : 'none',
+                            outlineOffset: 1,
+                            transform: editingTagPaletteColor === c ? 'scale(1.2)' : 'scale(1)',
+                          }}
+                        />
+                        <button
+                          onClick={e => {
+                            e.stopPropagation();
+                            setCustomTagColors(prev => prev.filter(color => color !== c));
+                            if (newTagPaletteColor === c) setNewTagPaletteColor(null);
+                            if (editingTagPaletteColor === c) setEditingTagPaletteColor(null);
+                          }}
+                          className="absolute -right-1 -top-1 h-3.5 w-3.5 rounded-full text-[9px] leading-[1] text-white"
+                          style={{ backgroundColor: '#DC2626' }}
+                        >
+                          x
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                <div className="flex items-center gap-2">
+                  <div
+                    className="w-5 h-5 rounded-full border"
+                    style={{
+                      backgroundColor: editingTagColorValid ? normalizedEditingTagColor : 'transparent',
+                      borderColor: editingTagColorValid ? normalizedEditingTagColor : '#DC2626',
+                    }}
+                  />
+                  <input
+                    value={editingTagColor}
+                    onChange={e => {
+                      const next = normalizeHexInput(e.target.value);
+                      setEditingTagColor(next);
+                      setEditingTagPaletteColor(paletteColors.includes(next) ? next : null);
+                    }}
+                    placeholder="#FF5733"
+                    className="flex-1 rounded-lg px-2.5 py-1.5 outline-none"
+                    style={{
+                      border: `1px solid ${editingTagColorValid ? t.border : '#DC2626'}`,
+                      fontSize: 12,
+                      backgroundColor: t.card,
+                      color: t.text,
+                    }}
+                  />
+                </div>
+                <div
+                  className="inline-flex items-center rounded-full px-2.5 py-1"
+                  style={{
+                    fontSize: 11,
+                    border: `1px solid ${editingTagColorValid ? normalizedEditingTagColor : t.border}`,
+                    color: editingTagColorValid ? normalizedEditingTagColor : t.textSub,
+                    backgroundColor: editingTagColorValid ? `${normalizedEditingTagColor}22` : t.bgSub,
+                  }}
+                >
+                  {editingTagName.trim() || '태그 미리보기'}
+                </div>
+                {editingTagColorValid && !canUseEditingTagColor && (
+                  <div style={{ fontSize: 11, color: '#DC2626' }}>
+                    팔레트 색상은 최대 14개까지 저장됩니다. 기존 색상을 지워주세요.
+                  </div>
+                )}
+                <div className="flex gap-1.5">
+                  <button
+                    onClick={handleUpdateTag}
+                    disabled={!editingTagName.trim() || !editingTagColorValid || !canUseEditingTagColor}
+                    className="flex-1 py-1 rounded-lg"
+                    style={{
+                      backgroundColor: t.accent,
+                      color: '#fff',
+                      fontSize: 11,
+                      fontWeight: 600,
+                      opacity: editingTagName.trim() && editingTagColorValid && canUseEditingTagColor ? 1 : 0.5,
+                      cursor: editingTagName.trim() && editingTagColorValid && canUseEditingTagColor ? 'pointer' : 'not-allowed',
+                    }}
+                  >
+                    저장
+                  </button>
+                  <button
+                    onClick={cancelEditTag}
                     className="flex-1 py-1 rounded-lg"
                     style={{
                       backgroundColor: t.card,
@@ -378,6 +725,20 @@ export function TodoModal({ date, todo, onClose }: TodoModalProps) {
             onClose();
           }}
           onCancel={() => setShowDeleteConfirm(false)}
+        />
+      )}
+      {deletingTagId && (
+        <ConfirmModal
+          message="태그를 삭제할까요? 연결된 할일에서는 태그만 제거됩니다."
+          confirmText="삭제"
+          confirmDanger
+          onConfirm={() => {
+            deleteTag(deletingTagId);
+            setSelectedTags(prev => prev.filter(id => id !== deletingTagId));
+            if (editingTagId === deletingTagId) cancelEditTag();
+            setDeletingTagId(null);
+          }}
+          onCancel={() => setDeletingTagId(null)}
         />
       )}
     </div>
