@@ -1,6 +1,6 @@
 # PROJECT_SPEC.md — My Planner PWA 기능 명세서
 
-> 최종 업데이트: 2026-03-30 (생리 기록 기능, 습관 트래커 UI 개편)
+> 최종 업데이트: 2026-03-30 (일간 삭제 버그 수정, 수면 기록 컬럼 마이그레이션 반영)
 
 ---
 
@@ -455,6 +455,7 @@ store.tsx (PlannerContext)
 - **루틴 단계별 YouTube URL** — 편집 모달에 단계별 URL 입력(선택), 유효성 검증, 실행 화면에서 "영상 보기" 버튼 → 새 탭 열기
 - **루틴 기능 통합** — 독립 루틴 페이지 대신 습관&루틴(`/habits`) 내부 루틴 탭을 사용하고, `/routines`는 `/habits`로 리다이렉트
 - **메뉴 구조 개편** — 활성 네비게이션에서 보관함·브레인스토밍 제거, 월간→목표관리(`/goals`)로 정리, 할일 메뉴 추가
+- **일간 할일 삭제 안정화** — 삭제 확인 모달 표시 중 컨텍스트 메뉴의 바깥 클릭 `mousedown` 닫힘을 차단해, 확인 버튼 클릭이 누락되지 않도록 수정 (`DailyView.tsx`)
 - **모바일 하단 네비 개선** (`Layout.tsx`)
   - 하단 네비: 5개 고정 탭(대시보드·일간·캘린더·할일·습관&루틴)
   - 활성 탭: 골드 `accentLight` 배경 pill 강조
@@ -472,6 +473,7 @@ store.tsx (PlannerContext)
 |------|------|------|:----:|
 | `DailyView.tsx` (구 L856-861) | `timelineLogs` 로컬 state에 mock 데이터 하드코딩 | 전역 store와 무관하게 동작, 새로고침 시 목 데이터로 초기화 | ✅ 수정 완료 |
 | `DailyView.tsx` (구 L952-958) | `addTimelineLog` / `deleteTimelineLog`가 로컬 state만 업데이트 | Supabase에 저장 안 됨 (store의 전역 함수 미사용) | ✅ 수정 완료 |
+| `DailyView.tsx` (ContextMenu 삭제 플로우) | 삭제 확인 모달에서 버튼 클릭 시 컨텍스트 메뉴가 먼저 닫혀 onConfirm 누락 가능 | 팝업 "삭제" 클릭 후 할일이 삭제되지 않음 | ✅ 수정 완료 |
 
 ### ⚠️ 새로고침 시 데이터 소실 (Supabase 미연동)
 
