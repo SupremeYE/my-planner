@@ -56,6 +56,18 @@ export interface Habit {
   valueUnit?: string;
   dailyProgress: Record<string, number>;
   dailyMemos: Record<string, string>;
+  reason?: string;
+}
+
+export interface HabitMonthlyMemo {
+  id: string;
+  habitId: string;   // 실제 습관 id, 또는 '__review__' (전체 월간 회고)
+  year: number;
+  month: number;     // 1-12
+  memo: string;
+  whatWorked: string;
+  whatDidntWork: string;
+  nextMonth: string;
 }
 
 export interface RoutineStep {
@@ -100,9 +112,20 @@ export function getRoutineSteps(routine: Routine): RoutineStep[] {
 export interface SelfCareRecord {
   id: string;
   date: string;
-  category: 'exercise' | 'study' | 'beauty';
+  category: 'exercise' | 'study' | 'beauty' | 'sleep';
   content: string;
-  duration: number;
+  duration: number; // minutes
+  sleepStart?: string; // "HH:mm" — sleep category only
+  sleepEnd?: string;   // "HH:mm" — sleep category only
+}
+
+export interface PeriodRecord {
+  id: string;
+  startDate: string;        // yyyy-MM-dd
+  endDate: string | null;   // yyyy-MM-dd
+  symptoms: string[];       // ["두통","복통",...]
+  flowLevel: 'light' | 'medium' | 'heavy' | null;
+  memo: string | null;
 }
 
 export type EmotionLevel = 1 | 2 | 3 | 4 | 5;
@@ -300,6 +323,15 @@ interface PlannerContextType {
   updateHabitProgress: (id: string, date: string, value: number) => void;
   updateHabitMemo: (id: string, date: string, memo: string) => void;
 
+  // HabitMonthlyMemo actions
+  habitMonthlyMemos: HabitMonthlyMemo[];
+  setHabitMonthlyMemo: (
+    habitId: string,
+    year: number,
+    month: number,
+    data: Partial<Omit<HabitMonthlyMemo, 'id' | 'habitId' | 'year' | 'month'>>
+  ) => void;
+
   // Routine actions
   addRoutine: (routine: Omit<Routine, 'id'>) => void;
   updateRoutine: (id: string, changes: Partial<Routine>) => void;
@@ -309,6 +341,12 @@ interface PlannerContextType {
   // Self-care actions
   addSelfCareRecord: (record: Omit<SelfCareRecord, 'id'>) => void;
   deleteSelfCareRecord: (id: string) => void;
+
+  // Period actions
+  periodRecords: PeriodRecord[];
+  addPeriodRecord: (record: Omit<PeriodRecord, 'id'>) => void;
+  updatePeriodRecord: (id: string, changes: Partial<PeriodRecord>) => void;
+  deletePeriodRecord: (id: string) => void;
 
   // Review actions
   addReviewRecord: (record: Omit<ReviewRecord, 'id'>) => void;
@@ -382,9 +420,11 @@ export function PlannerProvider({ children }: { children: React.ReactNode }) {
   // ── Supabase 연동 상태 ──
   const [todos, setTodos] = useState<Todo[]>([]);
   const [habits, setHabits] = useState<Habit[]>([]);
+  const [habitMonthlyMemos, setHabitMonthlyMemos] = useState<HabitMonthlyMemo[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
   const [milestones, setMilestones] = useState<Milestone[]>([]);
   const [selfCareRecords, setSelfCareRecords] = useState<SelfCareRecord[]>([]);
+  const [periodRecords, setPeriodRecords] = useState<PeriodRecord[]>([]);
   const [reviewRecords, setReviewRecords] = useState<ReviewRecord[]>([]);
   const [timelineLogs, setTimelineLogs] = useState<TimelineLog[]>([]);
   const [events, setEvents] = useState<Event[]>([]);
@@ -410,6 +450,7 @@ export function PlannerProvider({ children }: { children: React.ReactNode }) {
         selfCareData, reviewData, timelineData, settingsData,
         eventsData, weeklyGoalsData, monthlyGoalsData,
         brainstormItemsData, brainstormMemosData, tagsData, routinesData,
+        periodData, habitMonthlyMemosData,
       ] = await Promise.all([
         db.todos.fetchAll(),
         db.habits.fetchAll(),
@@ -426,12 +467,16 @@ export function PlannerProvider({ children }: { children: React.ReactNode }) {
         db.brainstormMemos.fetchAll(),
         db.tags.fetchAll(),
         db.routines.fetchAll(),
+        db.periodRecords.fetchAll(),
+        db.habitMonthlyMemos.fetchAll(),
       ]);
       setTodos(todosData);
       setHabits(habitsData);
       setProjects(projectsData);
       setMilestones(milestonesData);
       setSelfCareRecords(selfCareData);
+      setPeriodRecords(periodData);
+      setHabitMonthlyMemos(habitMonthlyMemosData);
       setReviewRecords(reviewData);
       setTimelineLogs(timelineData);
       setDayStartHour(settingsData.dayStartHour);
@@ -634,6 +679,52 @@ export function PlannerProvider({ children }: { children: React.ReactNode }) {
   const deleteSelfCareRecord = useCallback((id: string) => {
     setSelfCareRecords(prev => prev.filter(r => r.id !== id));
     db.selfCareRecords.delete(id);
+  }, []);
+
+  // ── HabitMonthlyMemo actions ──
+  const setHabitMonthlyMemo = useCallback((
+    habitId: string,
+    year: number,
+    month: number,
+    data: Partial<Omit<HabitMonthlyMemo, 'id' | 'habitId' | 'year' | 'month'>>
+  ) => {
+    setHabitMonthlyMemos(prev => {
+      const existing = prev.find(m => m.habitId === habitId && m.year === year && m.month === month);
+      if (existing) {
+        const updated = { ...existing, ...data };
+        db.habitMonthlyMemos.upsert(updated);
+        return prev.map(m => m.habitId === habitId && m.year === year && m.month === month ? updated : m);
+      } else {
+        const created: HabitMonthlyMemo = {
+          id: newId(), habitId, year, month,
+          memo: '', whatWorked: '', whatDidntWork: '', nextMonth: '',
+          ...data,
+        };
+        db.habitMonthlyMemos.upsert(created);
+        return [...prev, created];
+      }
+    });
+  }, []);
+
+  // ── Period actions ──
+  const addPeriodRecord = useCallback((record: Omit<PeriodRecord, 'id'>) => {
+    const newRecord: PeriodRecord = { ...record, id: newId() };
+    setPeriodRecords(prev => [...prev, newRecord].sort((a, b) => b.startDate.localeCompare(a.startDate)));
+    db.periodRecords.upsert(newRecord);
+  }, []);
+
+  const updatePeriodRecord = useCallback((id: string, changes: Partial<PeriodRecord>) => {
+    setPeriodRecords(prev => {
+      const updated = prev.map(r => r.id === id ? { ...r, ...changes } : r);
+      const record = updated.find(r => r.id === id);
+      if (record) db.periodRecords.upsert(record);
+      return updated;
+    });
+  }, []);
+
+  const deletePeriodRecord = useCallback((id: string) => {
+    setPeriodRecords(prev => prev.filter(r => r.id !== id));
+    db.periodRecords.delete(id);
   }, []);
 
   // ── Review actions ──
@@ -934,15 +1025,17 @@ export function PlannerProvider({ children }: { children: React.ReactNode }) {
       selectedDate, setSelectedDate,
       todos, events, habits, weeklyGoals, monthlyGoals, brainstormItems, brainstormMemos, activeTimer,
       projects, milestones, tags,
-      routines, selfCareRecords, reviewRecords, weeklyReviews, monthlyReviews,
+      routines, selfCareRecords, periodRecords, reviewRecords, weeklyReviews, monthlyReviews,
       timelineLogs,
       dailyAffirmations, setDailyAffirmation,
       addTodo, updateTodo, deleteTodo, toggleTop3,
       addEvent, updateEvent, deleteEvent,
       addHabit, addHabitFull, updateHabit, deleteHabit, toggleHabit,
       updateHabitProgress, updateHabitMemo,
+      habitMonthlyMemos, setHabitMonthlyMemo,
       addRoutine, updateRoutine, deleteRoutine, toggleRoutineDate,
       addSelfCareRecord, deleteSelfCareRecord,
+      addPeriodRecord, updatePeriodRecord, deletePeriodRecord,
       addReviewRecord, updateReviewRecord, deleteReviewRecord,
       addWeeklyReview, updateWeeklyReview,
       addMonthlyReview, updateMonthlyReview,

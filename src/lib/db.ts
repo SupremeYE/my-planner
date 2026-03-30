@@ -3,6 +3,7 @@ import type {
   Todo, Habit, Project, Milestone,
   SelfCareRecord, ReviewRecord, TimelineLog,
   Event, WeeklyGoal, MonthlyGoal, BrainstormItem, Tag, Routine,
+  PeriodRecord, HabitMonthlyMemo,
 } from '../app/store';
 
 // ── Row types (Supabase snake_case) ──────────────────────────────────────────
@@ -24,6 +25,18 @@ type HabitRow = {
   value_unit: string | null;
   daily_progress: Record<string, number> | null;
   daily_memos: Record<string, string> | null;
+  reason: string | null;
+};
+
+type HabitMonthlyMemoRow = {
+  id: string;
+  habit_id: string;
+  year: number;
+  month: number;
+  memo: string;
+  what_worked: string;
+  what_didnt_work: string;
+  next_month: string;
 };
 
 type ProjectRow = {
@@ -37,6 +50,7 @@ type MilestoneRow = {
 
 type SelfCareRow = {
   id: string; date: string; category: string; content: string; duration: number;
+  sleep_start: string | null; sleep_end: string | null;
 };
 
 type ReviewRow = {
@@ -86,6 +100,15 @@ type RoutineRow = {
   routine_steps?: { title: string; durationMinutes: number; youtubeUrl?: string }[] | null;
 };
 
+type PeriodRecordRow = {
+  id: string;
+  start_date: string;
+  end_date: string | null;
+  symptoms: string[];
+  flow_level: string | null;
+  memo: string | null;
+};
+
 // ── 변환 함수 ────────────────────────────────────────────────────────────────
 
 const toTodo = (r: TodoRow): Todo => ({
@@ -119,6 +142,7 @@ const toHabit = (r: HabitRow): Habit => ({
   valueUnit: r.value_unit ?? undefined,
   dailyProgress: r.daily_progress ?? {},
   dailyMemos: r.daily_memos ?? {},
+  reason: r.reason ?? undefined,
 });
 
 const fromHabit = (h: Habit): HabitRow => ({
@@ -132,6 +156,19 @@ const fromHabit = (h: Habit): HabitRow => ({
   value_unit: h.valueUnit ?? null,
   daily_progress: h.dailyProgress ?? {},
   daily_memos: h.dailyMemos ?? {},
+  reason: h.reason ?? null,
+});
+
+const toHabitMonthlyMemo = (r: HabitMonthlyMemoRow): HabitMonthlyMemo => ({
+  id: r.id, habitId: r.habit_id, year: r.year, month: r.month,
+  memo: r.memo ?? '', whatWorked: r.what_worked ?? '',
+  whatDidntWork: r.what_didnt_work ?? '', nextMonth: r.next_month ?? '',
+});
+
+const fromHabitMonthlyMemo = (m: HabitMonthlyMemo): HabitMonthlyMemoRow => ({
+  id: m.id, habit_id: m.habitId, year: m.year, month: m.month,
+  memo: m.memo, what_worked: m.whatWorked,
+  what_didnt_work: m.whatDidntWork, next_month: m.nextMonth,
 });
 
 const toProject = (r: ProjectRow): Project => ({
@@ -161,10 +198,14 @@ const fromMilestone = (m: Milestone): MilestoneRow => ({
 const toSelfCare = (r: SelfCareRow): SelfCareRecord => ({
   id: r.id, date: r.date, category: r.category as SelfCareRecord['category'],
   content: r.content, duration: r.duration,
+  ...(r.sleep_start ? { sleepStart: r.sleep_start } : {}),
+  ...(r.sleep_end   ? { sleepEnd:   r.sleep_end   } : {}),
 });
 
 const fromSelfCare = (s: SelfCareRecord): SelfCareRow => ({
   id: s.id, date: s.date, category: s.category, content: s.content, duration: s.duration,
+  sleep_start: s.sleepStart ?? null,
+  sleep_end:   s.sleepEnd   ?? null,
 });
 
 const toReview = (r: ReviewRow): ReviewRecord => ({
@@ -266,6 +307,24 @@ const toRoutine = (r: RoutineRow): Routine => {
     checkedDates: r.checked_dates ?? [],
   };
 };
+
+const toPeriodRecord = (r: PeriodRecordRow): PeriodRecord => ({
+  id: r.id,
+  startDate: r.start_date,
+  endDate: r.end_date ?? null,
+  symptoms: r.symptoms ?? [],
+  flowLevel: (r.flow_level as PeriodRecord['flowLevel']) ?? null,
+  memo: r.memo ?? null,
+});
+
+const fromPeriodRecord = (p: PeriodRecord): PeriodRecordRow => ({
+  id: p.id,
+  start_date: p.startDate,
+  end_date: p.endDate ?? null,
+  symptoms: p.symptoms ?? [],
+  flow_level: p.flowLevel ?? null,
+  memo: p.memo ?? null,
+});
 
 const fromRoutine = (r: Routine): RoutineRow => {
   const totalDuration = r.routineSteps && r.routineSteps.length > 0
@@ -510,6 +569,40 @@ export const db = {
     delete: async (id: string) => {
       const { error } = await supabase.from('routines').delete().eq('id', id);
       if (error) console.error('[db] routines delete:', error.message);
+    },
+  },
+
+  habitMonthlyMemos: {
+    fetchAll: async (): Promise<HabitMonthlyMemo[]> => {
+      const { data, error } = await supabase
+        .from('habit_monthly_memos').select('*').order('year').order('month');
+      if (error) console.error('[db] habit_monthly_memos fetch:', error.message);
+      return (data ?? []).map(toHabitMonthlyMemo);
+    },
+    upsert: async (memo: HabitMonthlyMemo) => {
+      const { error } = await supabase.from('habit_monthly_memos').upsert(fromHabitMonthlyMemo(memo));
+      if (error) console.error('[db] habit_monthly_memos upsert:', error.message);
+    },
+    delete: async (id: string) => {
+      const { error } = await supabase.from('habit_monthly_memos').delete().eq('id', id);
+      if (error) console.error('[db] habit_monthly_memos delete:', error.message);
+    },
+  },
+
+  periodRecords: {
+    fetchAll: async (): Promise<PeriodRecord[]> => {
+      const { data, error } = await supabase
+        .from('period_records').select('*').order('start_date', { ascending: false });
+      if (error) console.error('[db] period_records fetch:', error.message);
+      return (data ?? []).map(toPeriodRecord);
+    },
+    upsert: async (record: PeriodRecord) => {
+      const { error } = await supabase.from('period_records').upsert(fromPeriodRecord(record));
+      if (error) console.error('[db] period_records upsert:', error.message);
+    },
+    delete: async (id: string) => {
+      const { error } = await supabase.from('period_records').delete().eq('id', id);
+      if (error) console.error('[db] period_records delete:', error.message);
     },
   },
 

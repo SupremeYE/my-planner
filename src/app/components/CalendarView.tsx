@@ -5,7 +5,7 @@ import {
   getDay, addDays, startOfWeek, endOfWeek, isSameDay, parseISO,
 } from 'date-fns';
 import { ko } from 'date-fns/locale';
-import { usePlanner, Todo } from '../store';
+import { usePlanner, Todo, PeriodRecord } from '../store';
 import { isDoOvertimeVsPlan, doElapsedTitleSuffix, doElapsedInlineSuffix } from '../../lib/todoDoDuration';
 import { useNavigate } from 'react-router';
 import { useTheme } from '../ThemeContext';
@@ -61,12 +61,19 @@ function getContrastTextColor(hex: string): string {
 }
 
 // ─── Month View ───
+function isPeriodDate(dateStr: string, records: PeriodRecord[]): boolean {
+  return records.some(r => {
+    if (!r.endDate) return r.startDate === dateStr;
+    return r.startDate <= dateStr && dateStr <= r.endDate;
+  });
+}
+
 function MonthView({ viewDate, filter, onSelectDate }: {
   viewDate: Date;
   filter: FilterType;
   onSelectDate: (d: string) => void;
 }) {
-  const { todos, events, habits, selfCareRecords, selectedDate } = usePlanner();
+  const { todos, events, habits, selfCareRecords, periodRecords, selectedDate } = usePlanner();
 
   const firstDay = startOfMonth(viewDate);
   const startDow = getDay(firstDay);
@@ -113,6 +120,7 @@ function MonthView({ viewDate, filter, onSelectDate }: {
           const overflow = items.length - 4;
           const isSelected = dateStr === selectedDate;
           const isToday = dateStr === todayStr;
+          const hasPeriod = isPeriodDate(dateStr, periodRecords);
 
           return (
             <button
@@ -124,9 +132,18 @@ function MonthView({ viewDate, filter, onSelectDate }: {
                 minHeight: 72,
               }}
             >
-              <span className="self-center" style={{ fontSize: 13, color: isSelected ? '#fff' : isToday ? '#C8A97E' : '#2D2D2D', fontWeight: isSelected || isToday ? 700 : 400 }}>
-                {day}
-              </span>
+              <div className="self-center flex flex-col items-center gap-0.5">
+                <span style={{ fontSize: 13, color: isSelected ? '#fff' : isToday ? '#C8A97E' : '#2D2D2D', fontWeight: isSelected || isToday ? 700 : 400 }}>
+                  {day}
+                </span>
+                {hasPeriod && (
+                  <span style={{
+                    display: 'block', width: 5, height: 5, borderRadius: '50%',
+                    backgroundColor: isSelected ? 'rgba(255,255,255,0.9)' : '#E07899',
+                    flexShrink: 0,
+                  }} />
+                )}
+              </div>
               <div className="flex flex-col gap-0.5 w-full mt-0.5">
                 {shown.map(item => {
                   const c = CHIP_COLORS[item.type];
