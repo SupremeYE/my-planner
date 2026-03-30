@@ -39,7 +39,7 @@ All global state lives in `src/app/store.tsx` via `PlannerProvider` / `usePlanne
 Four design themes (A, B, C, D) defined in `src/styles/theme.css` as CSS custom properties. Themes A/B/D use a sidebar layout (`Layout.tsx`), theme C uses a top-nav layout (`LayoutC.tsx`). `RootLayout.tsx` switches between them. Theme state is managed in `ThemeContext.tsx`.
 
 ### Routing
-13 routes defined in `routes.tsx`. All views are under a single parent layout. Key routes: `/dashboard`, `/daily`, `/weekly`, `/monthly`, `/calendar`, `/backlog`, `/projects`, `/projects/:id`, `/brainstorm`, `/habits`, `/selfcare`, `/reviews`.
+13 routes defined in `routes.tsx` (root route 포함). All views are under a single parent layout. Key routes: `/dashboard`, `/daily`, `/calendar`, `/todos`, `/weekly`, `/goals`, `/projects`, `/projects/:id`, `/habits`, `/routines`(→ `/habits` redirect), `/selfcare`, `/reviews`.
 
 ### Path Alias
 `@` resolves to `./src` (configured in `vite.config.ts`).
@@ -70,7 +70,7 @@ Four design themes (A, B, C, D) defined in `src/styles/theme.css` as CSS custom 
 - **습관 트래커:** 칩 형태, 연속달성일
 - **리뷰&기록:** 감정/감사/KPT/데일리리뷰
 - **자기관리:** 운동/공부/케어 기록 통계
-- **모바일 하단 네비:** 4탭(홈·일간·캘린더·주간) + 메뉴 버튼 → 바텀 시트 오버레이(전체 페이지 접근), 활성 탭 골드 pill 강조
+- **모바일 네비게이션:** 하단 5탭(대시보드·일간·캘린더·할일·습관&루틴) + 상단 햄버거 버튼 → 바텀 시트 오버레이(전체 페이지 접근), 활성 탭 골드 pill 강조
 - **공통 확인 모달:** `ConfirmModal` — `window.confirm()` 대체, 위험 액션은 빨간 버튼, 일반은 골드 버튼
 
 ## 작업 원칙
@@ -87,7 +87,7 @@ Four design themes (A, B, C, D) defined in `src/styles/theme.css` as CSS custom 
 - `git status`로 변경된 파일 확인 후 관련 파일만 스테이징
 - 커밋 메시지에 **무엇을(what), 왜(why), 어떻게(how) 수정했는지** 명확히 작성
   - 형식: `type: 변경 내용 요약 (변경 전 → 변경 후, 이유)`
-  - 예: `feat: 모바일 하단 네비 8탭 → 4탭+메뉴 오버레이로 개선 (UX 혼잡도 감소)`
+  - 예: `feat: 모바일 네비를 하단 5탭+상단 메뉴 오버레이로 정리 (핵심 이동 유지, 전체 접근성 보완)`
   - 예: `fix: window.confirm → ConfirmModal 교체 (브라우저 기본 다이얼로그 → 앱 디자인 통일)`
   - 예: `refactor: TimePicker 공통 컴포넌트로 분리 (11곳 중복 코드 제거)`
 
@@ -103,7 +103,7 @@ PROGRESS_LOG.md에서 오늘 날짜 섹션을 찾아서
 - `git status`로 미커밋/미push 파일 확인
 - 기능별로 커밋 분리 (예: UI 변경 / 버그 수정 / 리팩토링)
 - 커밋 메시지에 **무엇을 왜 어떻게 수정했는지** 명확히 작성
-  - 예: `feat: 모바일 하단 네비 4탭+메뉴 오버레이로 개선 (8탭 → 4탭, 골드 활성 pill, 바텀 시트)`
+  - 예: `feat: 모바일 네비를 하단 5탭+상단 메뉴 오버레이로 개선 (활성 pill 강조, 전체 메뉴 접근성 보완)`
   - 예: `fix: ProjectView 프로젝트 삭제 window.confirm → ConfirmModal 교체`
 
 **② PROGRESS_LOG.md 업데이트 후 커밋**

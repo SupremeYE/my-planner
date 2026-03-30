@@ -47,7 +47,7 @@
 ### 📋 TODO
 
 ### ✅ 완료
-- [x] 메뉴 구조 개편 (브레인스토밍·보관함 삭제, 월간→목표관리(/goals), 모바일 탭바 5개 고정)
+- [x] 메뉴 구조 개편 (브레인스토밍·보관함 비활성 라우트화, 월간→목표관리(/goals), 모바일 하단 5탭 + 상단 메뉴 오버레이)
 - [x] 할일 페이지(/todos) 신규 개발 (전체 할일 날짜별 그룹 + 미지정 할일 탭)
 - [x] TodoModal 공통 컴포넌트 분리 (DailyView/TodosView 공용)
 - [x] TodoRow 프로젝트 배지 표시
@@ -57,22 +57,22 @@
 - [x] 캘린더 주별/일별 뷰 스크롤 구조 개선 (이중 스크롤 → 단일 스크롤)
 - [x] CLAUDE.md 모바일 작업 원칙 및 주요 기능 항목 업데이트
 - [x] window.confirm() → 커스텀 ConfirmModal 교체 (ProjectView.tsx 프로젝트 삭제)
-- [x] 모바일 하단 네비 바 개선 (4탭 + 메뉴 바텀 시트 오버레이)
+- [x] 모바일 네비게이션 개선 (하단 5탭 + 상단 메뉴 바텀 시트 오버레이)
 - [x] CLAUDE.md, PROGRESS_LOG.md, PROJECT_SPEC.md 업데이트 + GitHub push
 - [x] 루틴 단계별 YouTube URL 등록 기능 추가 (편집 모달 URL 입력 + 유효성 검증)
 - [x] 루틴 실행 화면 "영상 보기" 버튼 추가 (YouTube 새 탭 열기)
 - [x] Supabase routines 테이블 step_youtube_urls 컬럼 마이그레이션
 - [x] RoutineModal 모바일 너비 대응 (w-[460px] → w-full max-w-[460px])
 - [x] WeeklyView 브레인덤프 → 미지정 할일 기반 좌측 패널로 개편
-- [x] 루틴 실행 기능을 습관&루틴(/habits) 루틴 탭으로 통합, 별도 /routines 페이지 삭제
+- [x] 루틴 실행 기능을 습관&루틴(/habits) 루틴 탭으로 통합, `/routines`는 `/habits` 리다이렉트로 정리
 
 ### 🛠 오늘 작업 내용
 
 **① 메뉴 구조 개편 (`routes.tsx`, `Layout.tsx`, `LayoutC.tsx`)**
-- 삭제: `/backlog`(보관함), `/brainstorm`(브레인스토밍) 페이지 및 라우트
+- 활성 메뉴/직접 진입 라우트에서 제거: `/backlog`(보관함), `/brainstorm`(브레인스토밍)
 - 리네임: 월간 → 목표관리, `/monthly` → `/goals`
 - 사이드바 재구성: 대시보드→일간→캘린더→할일→주간→목표관리 순
-- 모바일 탭바: 기존 4탭+더보기 → 5개 고정 (대시보드·일간·캘린더·할일·습관&루틴)
+- 모바일 네비: 하단 5개 고정 탭(대시보드·일간·캘린더·할일·습관&루틴) + 상단 햄버거 메뉴 오버레이
 
 **② 할일 페이지(`/todos`) 신규 개발 (`TodosView.tsx`)**
 - 탭1 "전체 할일": 날짜별 그룹, 완료 접기/펼치기, 상태 순환 (active→inProgress→done)
@@ -123,13 +123,13 @@
 - `ProjectView.tsx`: 프로젝트 삭제 `window.confirm()` → `ConfirmModal` 교체
   - `showDeleteConfirm` state 추가, 삭제 버튼 → `setShowDeleteConfirm(true)`
 
-**⑤ 모바일 하단 네비 바 개선 (`Layout.tsx`)**
-- 기존 8개 탭 → **4개 탭 + 메뉴 버튼** (홈, 일간, 캘린더, 주간, 메뉴)
+**⑤ 모바일 네비게이션 개선 (`Layout.tsx`)**
+- 하단 네비: **5개 고정 탭** (대시보드, 일간, 캘린더, 할일, 습관&루틴)
 - 활성 탭: 아이콘 주위 골드 `accentLight` 배경 pill 강조
-- `MobileMenuOverlay` 컴포넌트 추가 — 바텀 시트 오버레이
+- `MobileMenuOverlay` 컴포넌트 추가 — 상단 햄버거 버튼으로 여는 바텀 시트 오버레이
   - 모든 페이지(mainNavItems + 프로젝트 + lifestyleNavItems) 4열 그리드
   - 현재 활성 페이지 골드 배경 강조, 배경 클릭 시 닫힘
-  - 상단 모바일 topbar에도 햄버거 버튼 추가
+- 모바일 상단 topbar에 햄버거 버튼 추가
 - `mobileMenuOpen` state 추가
 
 **⑥ 문서 업데이트**
@@ -154,7 +154,7 @@
 - `HabitsView.tsx` 루틴 탭: 단순 카드 목록 → 오늘 진행률 바 + RoutineCard(실행/편집) + ExecutionPanel 전체 기능으로 교체
 - 기존 단순 `RoutineModal` 컴포넌트 삭제 → RoutinesView 것 재사용
 - `runningRoutine` state 추가 → ExecutionPanel 연결
-- `routes.tsx`: `/routines` 라우트 삭제
+- `routes.tsx`: 독립 루틴 페이지 대신 `/routines` → `/habits` 리다이렉트로 정리
 - `Layout.tsx`: 사이드바 '루틴 실행' 메뉴 항목 삭제
 
 ---

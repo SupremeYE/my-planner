@@ -1,6 +1,6 @@
 # PROJECT_SPEC.md — My Planner PWA 기능 명세서
 
-> 최종 업데이트: 2026-03-30 (루틴 YouTube URL + WeeklyView 개편 + 루틴 실행을 습관&루틴 탭으로 통합)
+> 최종 업데이트: 2026-03-30 (코드 기준 문서 정합성 보정)
 
 ---
 
@@ -13,13 +13,16 @@
 | `/daily` | `DailyView` | PLAN/DO 타임라인, 스톱워치, 할일 CRUD, 타임라인 로그 |
 | `/calendar` | `CalendarView` | 월/주/일 뷰, 필터 탭(할일·일정·습관·자기관리), 날짜 이동 |
 | `/todos` | `TodosView` | 전체 할일 날짜별 그룹 / 미지정 할일 탭 |
-| `/weekly` | `WeeklyView` | 브레인덤프, 일별 칼럼, 주간 목표, 요일 배정 |
+| `/weekly` | `WeeklyView` | 날짜 미지정 할일 패널, 일별 칼럼, 주간 목표, 요일 배정 |
 | `/goals` | `MonthlyView` | 주간 목표 탭 / 월간 목표 탭 (통계+목표+습관 달성률) |
 | `/projects` | `ProjectsView` | 프로젝트 목록, 신규 프로젝트 생성 |
 | `/projects/:id` | `ProjectDetailView` | 마일스톤 CRUD, 관련 할일 목록 |
 | `/habits` | `HabitsView` | 습관 CRUD, 반복 설정, 5종 목표 유형 체크칩, 연속달성일, 월간 통계 / **루틴 탭**: 루틴 CRUD, 단계 체크 + 카운트다운 타이머, YouTube URL, 연속달성일 |
+| `/routines` | → `/habits` 리다이렉트 | 기존 루틴 페이지 호환용 alias |
 | `/selfcare` | `SelfCareView` | 운동/공부/뷰티 기록, 월간 통계 |
 | `/reviews` | `ReviewsView` | 감정·감사·KPT·데일리리뷰, 주간/월간 리뷰 |
+
+> 참고: `BrainstormView.tsx`, `BacklogView.tsx` 파일은 남아 있지만 현재 `routes.tsx`에는 연결되어 있지 않다.
 
 ### 1-1. 페이지별 상세 기능
 
@@ -46,8 +49,8 @@
 - 날짜 클릭 → 일간 뷰로 이동
 
 #### `/weekly` — 주간 뷰
-- 브레인덤프 아이템 목록
-- 요일 배정 팝오버 (아이디어 → 특정 날 할일 변환)
+- 날짜 미지정 할일 목록
+- 요일 배정 팝오버 (미지정 할일 → 특정 날 할일 배정)
 - 일별 칸반 칼럼 (요일별 할일 + 완료율 표시)
 - 할일 카드 드래그앤드롭으로 날짜 이동 (@dnd-kit)
   - 드래그 중 카드 반투명 + 드롭 영역 강조 + "여기에 놓기" 표시
@@ -100,15 +103,9 @@
 - **주간 리뷰**: 좋았던 것 / 힘들었던 것 / 다음 주 다짐
 - **월간 리뷰**: 이달 성취 / 다음 달 집중
 
-#### `/brainstorm` — 브레인스토밍
-- 아이디어 텍스트 입력
-- 변환: 할일로 만들기 (날짜 선택)
-- 변환: 일정으로 만들기 (날짜, 시간, 장소, 태그)
-
-#### `/backlog` — 보관함
-- 백로그 할일 목록 (날짜 미지정 또는 status='backlog')
-- 카테고리 필터
-- 날짜 배정으로 활성화
+#### 비라우팅 컴포넌트 (현재 `routes.tsx` 미연결)
+- `BrainstormView`: 브레인스토밍 입력/할일·일정 변환 UI 컴포넌트 파일은 존재
+- `BacklogView`: 백로그 할일 관리 UI 컴포넌트 파일은 존재
 
 ---
 
@@ -345,8 +342,10 @@ store.tsx (PlannerContext)
 ├── monthlyGoals ───────────── MonthlyView (CRUD)
 │                              DashboardView (조회) → Supabase ✅
 │
-├── brainstormItems ─────────── BrainstormView (CRUD)
-│                              WeeklyView (CRUD + 변환) → Supabase ✅
+├── brainstormItems ─────────── BrainstormView (CRUD, 현재 라우트 미연결)
+│                              → Supabase ✅
+│
+├── brainstormMemos ─────────── BrainstormView (CRUD, 현재 라우트 미연결)
 │
 ├── tags ───────────────────── TodoModal (태그 선택) → Supabase ✅ (최초 기본값 5개 자동 시드)
 │
@@ -395,7 +394,7 @@ store.tsx (PlannerContext)
 - 상태 순환: 예정 → 진행중 → 완료
 - 미루기 (snoozed) 기능
 - 백로그 → 날짜 배정
-- 브레인덤프 → 할일/일정 변환
+- 브레인스토밍 컴포넌트(현재 라우트 미연결)에서 할일/일정 변환 지원
 - **주간 칸반 드래그앤드롭** — 할일 카드를 다른 날짜 컬럼으로 드래그해 날짜 이동, Supabase 즉시 저장 (@dnd-kit/core)
 - **루틴 실행** — 단계 체크 + SVG 원형 카운트다운 타이머, 완료 기록 → Supabase
 - **습관 5종 목표 유형** — check/count/time/value/memo 각각 전용 위젯
@@ -408,14 +407,13 @@ store.tsx (PlannerContext)
 - **공통 TodoModal** — `date` prop optional: 있으면 날짜 고정, 없으면 `← M월 d일 (요일) →` 날짜 네비게이션 (`TodoModal.tsx`)
 - **목표관리 페이지(`/goals`) 탭 개편** — 주간 목표 / 월간 목표 탭, 탭별 독립 날짜 네비, `WeeklyGoalsSection` 재사용
 - **루틴 단계별 YouTube URL** — 편집 모달에 단계별 URL 입력(선택), 유효성 검증, 실행 화면에서 "영상 보기" 버튼 → 새 탭 열기
-- **루틴 기능 통합** — 기존 `/routines` 별도 페이지 삭제, 습관&루틴(`/habits`) 루틴 탭으로 통합 (진행률 바 + RoutineCard + ExecutionPanel)
-- **메뉴 구조 개편** — 보관함·브레인스토밍 삭제, 월간→목표관리(`/goals`), 할일 메뉴 추가, 모바일 탭바 5개 고정
+- **루틴 기능 통합** — 독립 루틴 페이지 대신 습관&루틴(`/habits`) 내부 루틴 탭을 사용하고, `/routines`는 `/habits`로 리다이렉트
+- **메뉴 구조 개편** — 활성 네비게이션에서 보관함·브레인스토밍 제거, 월간→목표관리(`/goals`)로 정리, 할일 메뉴 추가
 - **모바일 하단 네비 개선** (`Layout.tsx`)
-  - 8개 탭 → 4탭(홈·일간·캘린더·주간) + 메뉴 버튼으로 축소
+  - 하단 네비: 5개 고정 탭(대시보드·일간·캘린더·할일·습관&루틴)
   - 활성 탭: 골드 `accentLight` 배경 pill 강조
-  - `MobileMenuOverlay` 바텀 시트: 전체 페이지 4열 그리드, 활성 항목 골드 강조, 배경 클릭 닫힘
-  - 모바일 상단 topbar에 햄버거 버튼 추가
-- PWA 지원 (서비스워커, manifest)
+  - 모바일 상단 topbar 햄버거 버튼 → `MobileMenuOverlay` 바텀 시트(전체 페이지 4열 그리드)
+- PWA 지원 (manifest + service worker + network-first/cache fallback)
 - 일일 긍정 메시지 (AffirmationCard)
 
 ---
@@ -433,15 +431,15 @@ store.tsx (PlannerContext)
 
 | 데이터 | 영향 페이지 | 상태 |
 |--------|-----------|:----:|
-| 일정 (Event) | 일간, 캘린더, 브레인스토밍 | ✅ 연동 완료 |
+| 일정 (Event) | 일간, 캘린더 | ✅ 연동 완료 |
 | 주간 목표 | 주간, 월간, 대시보드 | ✅ 연동 완료 |
 | 월간 목표 | 월간, 대시보드 | ✅ 연동 완료 |
-| 브레인덤프 아이템 | 브레인스토밍, 주간 | ✅ 연동 완료 |
-| 브레인덤프 메모 | 브레인스토밍 | ✅ 연동 완료 |
+| 브레인덤프 아이템 | 브레인스토밍 컴포넌트(현재 라우트 미연결) | ✅ 연동 완료 |
+| 브레인덤프 메모 | 브레인스토밍 컴포넌트(현재 라우트 미연결) | ✅ 연동 완료 |
 | 태그 | 할일 모달 | ✅ 연동 완료 (최초 실행 시 기본 5개 자동 시드) |
 | 주간 리뷰 | 리뷰 | ❌ 테이블 없음 |
 | 월간 리뷰 | 리뷰 | ❌ 테이블 없음 |
-| 루틴 | 루틴 실행 페이지 | ✅ 연동 완료 |
+| 루틴 | 습관&루틴 탭 | ✅ 연동 완료 |
 
 ### ❌ 미구현 기능
 
@@ -452,7 +450,7 @@ store.tsx (PlannerContext)
 | 습관 alarmTime → 알림 연결 | `useNotification` 알림 시스템 구현됨, 하지만 HabitModal의 `alarmTime`은 DB 저장만 됨 — 습관 알림 스케줄링 별도 구현 필요 |
 | 습관 반복 설정 기반 자동 표시 | `repeat_days` 저장되나 필터링 로직 미구현 |
 | 루틴 반복 설정 | 현재 매일 표시 — weekly/custom 반복 필터 미구현 |
-| PWA 오프라인 모드 | 서비스워커 등록됐으나 캐싱 전략 없음 |
+| PWA 오프라인 모드 | 기본 service worker 캐시(`network-first + cache fallback`)는 있으나 정교한 오프라인 동기화/캐시 정책은 미구현 |
 | 데이터 내보내기/가져오기 | 미구현 |
 | 사용자 인증 (멀티유저) | 현재 단일 사용자 구조 |
 
@@ -465,6 +463,9 @@ App.tsx
 └── ThemeProvider (ThemeContext)
     └── PlannerProvider (store.tsx)
         └── RouterProvider (routes.tsx)
+            ├── GlobalFloatingTimer
+            ├── PWABanner
+            ├── IOSInstallGuide
             └── RootLayout
                 ├── Layout (테마 A/B/D — 사이드바)
                 │   ├── aside (좌측 사이드바)
@@ -494,7 +495,6 @@ App.tsx
 │   ├── TodoModal (추가/편집)
 │   ├── SnoozeModal (미루기)
 │   ├── ContextMenu (우클릭 메뉴)
-│   ├── FloatingTimer (스톱워치)
 │   ├── TimelineLogModal (로그 추가)
 │   └── TimelineSettingsModal (시간대 설정)
 │
@@ -548,20 +548,20 @@ App.tsx
 │       ├── MilestoneItem
 │       └── 관련 할일 목록
 │
-├── BacklogView
-│   ├── BacklogTodoRow
-│   └── AddBacklogModal
-│
-├── BrainstormView
-│   ├── BrainstormItemCard
-│   ├── ConvertToTodoModal
-│   └── ConvertToEventModal
-│
 ├── DashboardView
 │   ├── StatCard (통계 카드)
 │   ├── AffirmationCard (긍정 메시지)
 │   ├── HabitChips (오늘 습관)
 │   └── TodoSummary (Top3 + 기한 초과)
+│
+├── BacklogView (현재 라우트 미연결)
+│   ├── BacklogTodoRow
+│   └── AddBacklogModal
+│
+├── BrainstormView (현재 라우트 미연결)
+│   ├── BrainstormItemCard
+│   ├── ConvertToTodoModal
+│   └── ConvertToEventModal
 │
 └── 공통 컴포넌트
     ├── TodoModal — 할일 추가/편집 모달 (date prop optional: 고정/날짜 네비)
@@ -569,10 +569,10 @@ App.tsx
     ├── TimePicker — ▲▼ 버튼 + 휠(분 1분단위) + 드롭다운 패널 + 패널 직접 입력
     │   └── 적용: DailyView 6곳, HabitsView 2곳, RoutinesView 1곳
     ├── ConfirmModal — window.confirm() 대체 커스텀 확인 모달
-    │   └── 적용: ProjectDetailView (프로젝트 삭제)
-    ├── NotificationPermissionBanner — 알림 권한 요청 배너 (Layout.tsx에 마운트)
+    │   └── 적용: DailyView, TodoModal, TodosView, ProjectView, BacklogView
+    ├── NotificationPermissionBanner — 알림 권한 요청 배너 (`Layout.tsx` 모바일/데스크탑 main에 마운트)
     │   └── useNotification — 알림 권한 관리, 할일 planStart 기준 알림 스케줄링
-    └── MobileMenuOverlay (Layout.tsx 내부) — 모바일 전체 메뉴 바텀 시트 오버레이
+    └── MobileMenuOverlay (Layout.tsx 내부) — 모바일 상단 메뉴 버튼으로 여는 전체 메뉴 바텀 시트 오버레이
 ```
 
 ---
