@@ -26,6 +26,7 @@ export const router = createBrowserRouter([
       { path: 'projects',     Component: ProjectsView },
       { path: 'projects/:id', Component: ProjectDetailView },
       { path: 'habits',       Component: HabitsView },
+      { path: 'routines',     element: <Navigate to="/habits" replace /> },
       { path: 'selfcare',     Component: SelfCareView },
       { path: 'reviews',      Component: ReviewsView },
     ],
