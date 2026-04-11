@@ -16,14 +16,9 @@ const REPEAT_OPTIONS = [
   { value: 'weekend', label: '주말' },
   { value: 'custom', label: '직접 선택' },
 ];
-const CATEGORY_OPTIONS = [
-  { value: 'health', label: '건강' },
-  { value: 'selfdev', label: '자기계발' },
-  { value: 'routine', label: '루틴' },
-  { value: 'other', label: '기타' },
-];
+const CATEGORY_COLOR_PRESETS = ['#515f74', '#D4735A', '#E8A87C', '#F4A261', '#4A82CC', '#45B899', '#006b62', '#8B7CF8', '#22C55E', '#6B7280'];
+const HABIT_CATEGORY_STORAGE_KEY = 'habitCategoryOptions';
 const DAY_LABELS = ['일', '월', '화', '수', '목', '금', '토'];
-const EMOJI_PALETTE = ['💧', '🧘', '🏋️', '📖', '🤸', '🍎', '🌅', '🌙', '💪', '🧠', '🎯', '✍️', '🎵', '🧹', '💊', '🏃', '🎨', '📝', '🧴', '🌿'];
 
 const HABIT_TYPES: { value: Habit['habitType']; label: string; desc: string }[] = [
   { value: 'check',  label: '✓ 체크',  desc: '완료 여부만 체크' },
@@ -32,6 +27,12 @@ const HABIT_TYPES: { value: Habit['habitType']; label: string; desc: string }[] 
   { value: 'value',  label: '📊 수치',  desc: '수치 입력' },
   { value: 'memo',   label: '✍️ 메모',  desc: '체크 + 메모' },
 ];
+
+interface HabitCategoryOption {
+  id: string;
+  name: string;
+  color: string;
+}
 
 function getStreak(checkedDates: string[]): number {
   if (!checkedDates?.length) return 0;
@@ -75,7 +76,7 @@ function isHabitApplicableOnDate(habit: Habit, date: Date): boolean {
 
 // ─── Habit Add/Edit Modal ──────────────────────────────────────────────────────
 function HabitModal({ habit, onClose }: { habit?: Habit; onClose: () => void }) {
-  const { addHabitFull, updateHabit, deleteHabit, habitMonthlyMemos, setHabitMonthlyMemo } = usePlanner();
+  const { addHabitFull, updateHabit, deleteHabit, habitMonthlyMemos, setHabitMonthlyMemo, habits } = usePlanner();
   const { t } = useTheme();
   const [name, setName] = useState(habit?.name || '');
   const [icon, setIcon] = useState(habit?.icon || '🎯');
@@ -83,12 +84,17 @@ function HabitModal({ habit, onClose }: { habit?: Habit; onClose: () => void }) 
   const [repeatDays, setRepeatDays] = useState<number[]>(habit?.repeatDays || [1, 2, 3, 4, 5]);
   const [goalText, setGoalText] = useState(habit?.goalText || '');
   const [alarmTime, setAlarmTime] = useState(habit?.alarmTime || '');
-  const [category, setCategory] = useState<Habit['category']>(habit?.category || 'health');
+  const [category, setCategory] = useState<string>(habit?.category || '');
   const [color, setColor] = useState(habit?.color || HABIT_COLORS[0]);
   const [habitType, setHabitType] = useState<Habit['habitType']>(habit?.habitType || 'check');
   const [targetValue, setTargetValue] = useState<string>(habit?.targetValue?.toString() || '');
   const [valueUnit, setValueUnit] = useState(habit?.valueUnit || '');
   const [reason, setReason] = useState(habit?.reason || '');
+  const normalizedIcon = icon.trim() || '🎯';
+  const [categoryOptions, setCategoryOptions] = useState<HabitCategoryOption[]>([]);
+  const [showAddCategory, setShowAddCategory] = useState(false);
+  const [newCategoryName, setNewCategoryName] = useState('');
+  const [newCategoryColor, setNewCategoryColor] = useState(CATEGORY_COLOR_PRESETS[0]);
 
   // 이번달 메모 (편집 모드일 때만)
   const nowYear = new Date().getFullYear();
@@ -98,12 +104,67 @@ function HabitModal({ habit, onClose }: { habit?: Habit; onClose: () => void }) 
     : undefined;
   const [monthlyMemo, setMonthlyMemo] = useState(existingMemo?.memo || '');
 
+  const isValidHex = (value: string) => /^#[0-9A-Fa-f]{6}$/.test(value);
+  const normalizeHex = (value: string) => {
+    const trimmed = value.trim();
+    const withHash = trimmed.startsWith('#') ? trimmed : `#${trimmed}`;
+    return withHash.toUpperCase();
+  };
+  const normalizeHexInput = (value: string) => `#${value.replace(/[^0-9A-Fa-f]/g, '').slice(0, 6).toUpperCase()}`;
+
+  useEffect(() => {
+    const fromStorage: HabitCategoryOption[] = (() => {
+      try {
+        const raw = localStorage.getItem(HABIT_CATEGORY_STORAGE_KEY);
+        if (!raw) return [];
+        const parsed = JSON.parse(raw);
+        if (!Array.isArray(parsed)) return [];
+        return parsed
+          .filter((item: any) => item && typeof item.name === 'string' && typeof item.color === 'string')
+          .map((item: any) => ({
+            id: item.id || item.name,
+            name: item.name,
+            color: isValidHex(normalizeHex(item.color)) ? normalizeHex(item.color) : CATEGORY_COLOR_PRESETS[0],
+          }));
+      } catch {
+        return [];
+      }
+    })();
+
+    const inferred = habits
+      .map(h => h.category?.trim())
+      .filter((v): v is string => Boolean(v))
+      .reduce<HabitCategoryOption[]>((acc, name) => {
+        if (acc.some(option => option.name === name)) return acc;
+        acc.push({ id: name, name, color: CATEGORY_COLOR_PRESETS[acc.length % CATEGORY_COLOR_PRESETS.length] });
+        return acc;
+      }, []);
+
+    const merged = [...fromStorage];
+    inferred.forEach(option => {
+      if (!merged.some(item => item.name === option.name)) merged.push(option);
+    });
+    if (category && !merged.some(item => item.name === category)) {
+      merged.push({ id: category, name: category, color: CATEGORY_COLOR_PRESETS[merged.length % CATEGORY_COLOR_PRESETS.length] });
+    }
+    setCategoryOptions(merged);
+  }, [habits, category]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(HABIT_CATEGORY_STORAGE_KEY, JSON.stringify(categoryOptions));
+    } catch {
+      // noop
+    }
+  }, [categoryOptions]);
+
   const toggleDay = (d: number) => setRepeatDays(prev => prev.includes(d) ? prev.filter(x => x !== d) : [...prev, d]);
 
   const handleSubmit = () => {
     if (!name.trim()) return;
+    const normalizedCategory = category.trim();
     const data: Omit<Habit, 'id'> = {
-      name: name.trim(), icon, repeat, repeatDays: repeat === 'custom' ? repeatDays : undefined,
+      name: name.trim(), icon: normalizedIcon, repeat, repeatDays: repeat === 'custom' ? repeatDays : undefined,
       goalText, alarmTime, category, color,
       checkedDates: habit?.checkedDates || [],
       habitType,
@@ -113,6 +174,7 @@ function HabitModal({ habit, onClose }: { habit?: Habit; onClose: () => void }) 
       dailyMemos: habit?.dailyMemos || {},
       reason: reason.trim() || undefined,
     };
+    data.category = normalizedCategory || undefined;
     if (habit) {
       updateHabit(habit.id, data);
       // 이번달 메모 저장
@@ -125,38 +187,102 @@ function HabitModal({ habit, onClose }: { habit?: Habit; onClose: () => void }) 
     onClose();
   };
 
+  const addCategoryOption = () => {
+    const nameTrimmed = newCategoryName.trim();
+    const colorNormalized = normalizeHex(newCategoryColor);
+    if (!nameTrimmed || !isValidHex(colorNormalized)) return;
+    if (categoryOptions.some(option => option.name === nameTrimmed)) {
+      setCategory(nameTrimmed);
+      setShowAddCategory(false);
+      setNewCategoryName('');
+      return;
+    }
+    const next: HabitCategoryOption = { id: `${Date.now()}-${nameTrimmed}`, name: nameTrimmed, color: colorNormalized };
+    setCategoryOptions(prev => [next, ...prev]);
+    setCategory(nameTrimmed);
+    setShowAddCategory(false);
+    setNewCategoryName('');
+    setNewCategoryColor(CATEGORY_COLOR_PRESETS[0]);
+  };
+
+  const removeCategoryOption = (name: string) => {
+    setCategoryOptions(prev => prev.filter(option => option.name !== name));
+    if (category === name) setCategory('');
+  };
+
+  const repeatUI = (
+    <div>
+      <label style={{ fontSize: 11, color: t.textSub, fontWeight: 600 }}>반복 설정</label>
+      <div className="flex flex-wrap gap-2 mt-1.5">
+        {REPEAT_OPTIONS.map(opt => (
+          <button
+            key={opt.value}
+            onClick={() => setRepeat(opt.value as Habit['repeat'])}
+            className="px-3 py-1.5 rounded-full"
+            style={{
+              fontSize: 12,
+              backgroundColor: repeat === opt.value ? t.accent : t.bgSub,
+              color: repeat === opt.value ? '#fff' : t.text,
+              border: `1px solid ${repeat === opt.value ? t.accent : t.border}`,
+            }}
+          >
+            {opt.label}
+          </button>
+        ))}
+      </div>
+      {repeat === 'custom' && (
+        <div className="flex gap-1.5 mt-2">
+          {DAY_LABELS.map((d, i) => (
+            <button
+              key={i}
+              onClick={() => toggleDay(i)}
+              className="w-8 h-8 rounded-full flex items-center justify-center"
+              style={{
+                fontSize: 11,
+                backgroundColor: repeatDays.includes(i) ? t.accent : t.bgSub,
+                color: repeatDays.includes(i) ? '#fff' : t.text,
+                border: `1px solid ${repeatDays.includes(i) ? t.accent : t.border}`,
+              }}
+            >
+              {d}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center" style={{ backgroundColor: 'rgba(0,0,0,0.4)' }}>
-      <div className="rounded-2xl shadow-xl w-[440px] max-h-[90vh] overflow-y-auto" style={{ backgroundColor: t.card, border: `1px solid ${t.border}` }}>
+      <div className="rounded-2xl shadow-xl w-[560px] max-w-[95vw] max-h-[90vh] overflow-hidden flex flex-col" style={{ backgroundColor: t.card, border: `1px solid ${t.border}` }}>
         <div className="flex items-center justify-between px-5 py-4 border-b" style={{ borderColor: t.border }}>
           <h3 style={{ fontSize: 15, fontWeight: 700, color: t.text }}>{habit ? '습관 편집' : '습관 추가'}</h3>
           <button onClick={onClose} className="p-1 rounded-lg" style={{ color: t.textMuted }}><X size={18} /></button>
         </div>
 
-        <div className="px-5 py-4 space-y-5">
-          {/* Name */}
+        <div className="flex-1 overflow-y-auto px-4 lg:px-5 py-4 space-y-5">
           <div>
             <label style={{ fontSize: 11, color: t.textSub, fontWeight: 600 }}>습관 이름</label>
-            <input autoFocus value={name} onChange={e => setName(e.target.value)} placeholder="예: 물 2L 마시기"
-              className="w-full mt-1 rounded-lg px-3 py-2 border outline-none"
-              style={{ borderColor: t.border, backgroundColor: t.bgSub, color: t.text, fontSize: 13 }} />
-          </div>
-
-          {/* Icon */}
-          <div>
-            <label style={{ fontSize: 11, color: t.textSub, fontWeight: 600 }}>아이콘</label>
-            <div className="flex flex-wrap gap-1.5 mt-1.5">
-              {EMOJI_PALETTE.map(em => (
-                <button key={em} onClick={() => setIcon(em)}
-                  className="w-8 h-8 rounded-lg flex items-center justify-center transition-all"
-                  style={{ fontSize: 16, backgroundColor: icon === em ? t.accentLight : t.bgSub, border: icon === em ? `2px solid ${t.accent}` : `1px solid ${t.borderLight}` }}>
-                  {em}
-                </button>
-              ))}
+            <div className="mt-1 flex gap-2">
+              <input
+                value={icon}
+                onChange={e => setIcon(Array.from(e.target.value).slice(0, 1).join(''))}
+                placeholder="🎯"
+                className="w-[62px] rounded-lg px-2 py-2 border outline-none text-center"
+                style={{ borderColor: t.border, backgroundColor: t.bgSub, color: t.text, fontSize: 22 }}
+              />
+              <input
+                autoFocus
+                value={name}
+                onChange={e => setName(e.target.value)}
+                placeholder="예: 물 마시기"
+                className="flex-1 rounded-lg px-3 py-2 border outline-none"
+                style={{ borderColor: t.border, backgroundColor: t.bgSub, color: t.text, fontSize: 13 }}
+              />
             </div>
+            <p style={{ fontSize: 10, color: t.textMuted, marginTop: 4 }}>아이콘 칸에서 `Win + .` 로 이모지를 입력할 수 있어요.</p>
           </div>
 
-          {/* Habit Type */}
           <div>
             <label style={{ fontSize: 11, color: t.textSub, fontWeight: 600 }}>목표 유형</label>
             <div className="grid grid-cols-5 gap-1.5 mt-1.5">
@@ -179,81 +305,55 @@ function HabitModal({ habit, onClose }: { habit?: Habit; onClose: () => void }) 
             </p>
           </div>
 
-          {/* Type-specific goal fields */}
-          {habitType === 'count' && (
-            <div>
-              <label style={{ fontSize: 11, color: t.textSub, fontWeight: 600 }}>목표 횟수</label>
-              <div className="flex items-center gap-2 mt-1">
-                <input type="number" min={1} value={targetValue} onChange={e => setTargetValue(e.target.value)}
-                  placeholder="예: 8"
-                  className="w-24 rounded-lg px-3 py-2 border outline-none"
-                  style={{ borderColor: t.border, backgroundColor: t.bgSub, color: t.text, fontSize: 13 }} />
-                <span style={{ fontSize: 13, color: t.textSub }}>회</span>
+          {habitType === 'count' || habitType === 'time' ? (
+            <div className="grid grid-cols-1 lg:grid-cols-[110px_1fr] gap-4">
+              <div>
+                <label style={{ fontSize: 11, color: t.textSub, fontWeight: 600 }}>
+                  {habitType === 'count' ? '목표 횟수' : '목표 시간'}
+                </label>
+                <div className="flex items-center gap-1.5 mt-1">
+                  <input
+                    type="number"
+                    min={1}
+                    value={targetValue}
+                    onChange={e => setTargetValue(e.target.value)}
+                    className="w-20 rounded-lg px-2.5 py-2 border outline-none"
+                    style={{ borderColor: t.border, backgroundColor: t.bgSub, color: t.text, fontSize: 13 }}
+                  />
+                  <span style={{ fontSize: 12, color: t.textSub }}>{habitType === 'count' ? '회' : '분'}</span>
+                </div>
               </div>
+              {repeatUI}
             </div>
-          )}
-          {habitType === 'time' && (
-            <div>
-              <label style={{ fontSize: 11, color: t.textSub, fontWeight: 600 }}>목표 시간</label>
-              <div className="flex items-center gap-2 mt-1">
-                <input type="number" min={1} value={targetValue} onChange={e => setTargetValue(e.target.value)}
-                  placeholder="예: 30"
-                  className="w-24 rounded-lg px-3 py-2 border outline-none"
-                  style={{ borderColor: t.border, backgroundColor: t.bgSub, color: t.text, fontSize: 13 }} />
-                <span style={{ fontSize: 13, color: t.textSub }}>분</span>
-              </div>
-            </div>
-          )}
-          {habitType === 'value' && (
-            <div>
-              <label style={{ fontSize: 11, color: t.textSub, fontWeight: 600 }}>목표 수치</label>
-              <div className="flex items-center gap-2 mt-1">
-                <input type="number" min={0} value={targetValue} onChange={e => setTargetValue(e.target.value)}
-                  placeholder="예: 10000"
-                  className="w-28 rounded-lg px-3 py-2 border outline-none"
-                  style={{ borderColor: t.border, backgroundColor: t.bgSub, color: t.text, fontSize: 13 }} />
-                <input value={valueUnit} onChange={e => setValueUnit(e.target.value)}
-                  placeholder="단위 (km, L…)"
-                  className="flex-1 rounded-lg px-3 py-2 border outline-none"
-                  style={{ borderColor: t.border, backgroundColor: t.bgSub, color: t.text, fontSize: 13 }} />
-              </div>
-            </div>
-          )}
-          {habitType === 'check' && (
-            <div>
-              <label style={{ fontSize: 11, color: t.textSub, fontWeight: 600 }}>목표 메모 (선택)</label>
-              <input value={goalText} onChange={e => setGoalText(e.target.value)} placeholder="예: 30분, 2L"
-                className="w-full mt-1 rounded-lg px-3 py-2 border outline-none"
-                style={{ borderColor: t.border, backgroundColor: t.bgSub, color: t.text, fontSize: 13 }} />
-            </div>
+          ) : (
+            <>
+              {habitType === 'value' && (
+                <div>
+                  <label style={{ fontSize: 11, color: t.textSub, fontWeight: 600 }}>목표 수치</label>
+                  <div className="flex items-center gap-2 mt-1">
+                    <input type="number" min={0} value={targetValue} onChange={e => setTargetValue(e.target.value)}
+                      placeholder="예: 10000"
+                      className="w-28 rounded-lg px-3 py-2 border outline-none"
+                      style={{ borderColor: t.border, backgroundColor: t.bgSub, color: t.text, fontSize: 13 }} />
+                    <input value={valueUnit} onChange={e => setValueUnit(e.target.value)}
+                      placeholder="단위 (km, L…)"
+                      className="flex-1 rounded-lg px-3 py-2 border outline-none"
+                      style={{ borderColor: t.border, backgroundColor: t.bgSub, color: t.text, fontSize: 13 }} />
+                  </div>
+                </div>
+              )}
+              {habitType === 'check' && (
+                <div>
+                  <label style={{ fontSize: 11, color: t.textSub, fontWeight: 600 }}>목표 메모 (선택)</label>
+                  <input value={goalText} onChange={e => setGoalText(e.target.value)} placeholder="예: 30분, 2L"
+                    className="w-full mt-1 rounded-lg px-3 py-2 border outline-none"
+                    style={{ borderColor: t.border, backgroundColor: t.bgSub, color: t.text, fontSize: 13 }} />
+                </div>
+              )}
+              {repeatUI}
+            </>
           )}
 
-          {/* Repeat */}
-          <div>
-            <label style={{ fontSize: 11, color: t.textSub, fontWeight: 600 }}>반복 설정</label>
-            <div className="flex flex-wrap gap-2 mt-1.5">
-              {REPEAT_OPTIONS.map(opt => (
-                <button key={opt.value} onClick={() => setRepeat(opt.value as Habit['repeat'])}
-                  className="px-3 py-1.5 rounded-lg" style={{
-                    fontSize: 12, backgroundColor: repeat === opt.value ? t.accent : t.bgSub,
-                    color: repeat === opt.value ? '#fff' : t.text, border: `1px solid ${repeat === opt.value ? t.accent : t.border}`,
-                  }}>{opt.label}</button>
-              ))}
-            </div>
-            {repeat === 'custom' && (
-              <div className="flex gap-1.5 mt-2">
-                {DAY_LABELS.map((d, i) => (
-                  <button key={i} onClick={() => toggleDay(i)}
-                    className="w-8 h-8 rounded-full flex items-center justify-center" style={{
-                      fontSize: 11, backgroundColor: repeatDays.includes(i) ? t.accent : t.bgSub,
-                      color: repeatDays.includes(i) ? '#fff' : t.text, border: `1px solid ${repeatDays.includes(i) ? t.accent : t.border}`,
-                    }}>{d}</button>
-                ))}
-              </div>
-            )}
-          </div>
-
-          {/* Alarm */}
           <div>
             <label style={{ fontSize: 11, color: t.textSub, fontWeight: 600 }}>알림 시간</label>
             <div className="mt-1">
@@ -261,38 +361,126 @@ function HabitModal({ habit, onClose }: { habit?: Habit; onClose: () => void }) 
             </div>
           </div>
 
-          {/* Category + Color */}
-          <div className="flex gap-4">
-            <div className="flex-1">
+          <div className="grid grid-cols-1 lg:grid-cols-[1fr_auto] gap-4">
+            <div>
               <label style={{ fontSize: 11, color: t.textSub, fontWeight: 600 }}>카테고리</label>
               <div className="flex flex-wrap gap-1.5 mt-1.5">
-                {CATEGORY_OPTIONS.map(opt => (
-                  <button key={opt.value} onClick={() => setCategory(opt.value as Habit['category'])}
-                    className="px-2.5 py-1 rounded-lg" style={{
-                      fontSize: 11, backgroundColor: category === opt.value ? t.accent : t.bgSub,
-                      color: category === opt.value ? '#fff' : t.text, border: `1px solid ${category === opt.value ? t.accent : t.border}`,
-                    }}>{opt.label}</button>
+                {categoryOptions.map(option => (
+                  <button
+                    key={option.id}
+                    onClick={() => setCategory(option.name)}
+                    className="px-2.5 py-1 rounded-full flex items-center gap-1.5"
+                    style={{
+                      fontSize: 11,
+                      backgroundColor: category === option.name ? option.color : t.bgSub,
+                      color: category === option.name ? '#fff' : t.textSub,
+                      border: `1px solid ${category === option.name ? option.color : t.border}`,
+                    }}
+                  >
+                    <span className="inline-block w-2.5 h-2.5 rounded-full" style={{ backgroundColor: option.color }} />
+                    {option.name}
+                    <span
+                      onClick={e => {
+                        e.stopPropagation();
+                        removeCategoryOption(option.name);
+                      }}
+                      style={{ fontSize: 10, lineHeight: 1, opacity: 0.8 }}
+                    >
+                      ×
+                    </span>
+                  </button>
                 ))}
+                <button
+                  onClick={() => setShowAddCategory(prev => !prev)}
+                  className="px-2.5 py-1 rounded-full"
+                  style={{ fontSize: 11, color: t.accent, border: `1px dashed ${t.accent}` }}
+                >
+                  + 카테고리
+                </button>
               </div>
+              {showAddCategory && (
+                <div className="mt-2 p-3 rounded-xl space-y-2" style={{ backgroundColor: t.bgSub, border: `1px solid ${t.border}` }}>
+                  <input
+                    value={newCategoryName}
+                    onChange={e => setNewCategoryName(e.target.value)}
+                    placeholder="카테고리 이름"
+                    className="w-full rounded-lg px-2.5 py-1.5 border outline-none"
+                    style={{ borderColor: t.border, fontSize: 12, backgroundColor: t.card, color: t.text }}
+                  />
+                  <div className="flex flex-wrap gap-1.5">
+                    {CATEGORY_COLOR_PRESETS.map(preset => (
+                      <button
+                        key={preset}
+                        onClick={() => setNewCategoryColor(preset)}
+                        className="w-5 h-5 rounded-full transition-transform"
+                        style={{
+                          backgroundColor: preset,
+                          outline: newCategoryColor === preset ? `2px solid ${preset}` : 'none',
+                          outlineOffset: 1,
+                          transform: newCategoryColor === preset ? 'scale(1.08)' : 'scale(1)',
+                        }}
+                      />
+                    ))}
+                  </div>
+                  <input
+                    value={newCategoryColor}
+                    onChange={e => setNewCategoryColor(normalizeHexInput(e.target.value))}
+                    placeholder="#515F74"
+                    className="w-full rounded-lg px-2.5 py-1.5 border outline-none"
+                    style={{
+                      borderColor: isValidHex(normalizeHex(newCategoryColor)) ? t.border : '#DC2626',
+                      fontSize: 12,
+                      backgroundColor: t.card,
+                      color: t.text,
+                    }}
+                  />
+                  <div className="flex gap-1.5">
+                    <button
+                      onClick={addCategoryOption}
+                      disabled={!newCategoryName.trim() || !isValidHex(normalizeHex(newCategoryColor))}
+                      className="flex-1 py-1.5 rounded-lg"
+                      style={{
+                        fontSize: 12,
+                        fontWeight: 600,
+                        backgroundColor: t.accent,
+                        color: '#fff',
+                        opacity: newCategoryName.trim() && isValidHex(normalizeHex(newCategoryColor)) ? 1 : 0.5,
+                        cursor: newCategoryName.trim() && isValidHex(normalizeHex(newCategoryColor)) ? 'pointer' : 'not-allowed',
+                      }}
+                    >
+                      추가
+                    </button>
+                    <button
+                      onClick={() => setShowAddCategory(false)}
+                      className="flex-1 py-1.5 rounded-lg"
+                      style={{ fontSize: 12, color: t.textSub, backgroundColor: t.card, border: `1px solid ${t.border}` }}
+                    >
+                      취소
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
             <div>
-              <label style={{ fontSize: 11, color: t.textSub, fontWeight: 600 }}>색상</label>
+              <label style={{ fontSize: 11, color: t.textSub, fontWeight: 600 }}>습관 색상</label>
               <div className="flex gap-2 mt-1.5">
                 {HABIT_COLORS.map(c => (
                   <button key={c} onClick={() => setColor(c)} className="w-6 h-6 rounded-full transition-transform"
-                    style={{ backgroundColor: c, outline: color === c ? `2px solid ${c}` : 'none', outlineOffset: 2, transform: color === c ? 'scale(1.2)' : 'scale(1)' }} />
+                    style={{ backgroundColor: c, outline: color === c ? `2px solid ${c}` : 'none', outlineOffset: 2, transform: color === c ? 'scale(1.15)' : 'scale(1)' }} />
                 ))}
               </div>
             </div>
-            {/* Reason */}
+          </div>
+
           <div>
-            <label style={{ fontSize: 11, color: t.textSub, fontWeight: 600 }}>이 습관을 하려는 이유</label>
-            <input value={reason} onChange={e => setReason(e.target.value)} placeholder="예: 건강을 위해, 집중력 향상"
+            <label style={{ fontSize: 11, color: t.textSub, fontWeight: 600 }}>
+              이 습관을 하려는 이유 <span style={{ color: t.textMuted, fontWeight: 400 }}>(선택)</span>
+            </label>
+            <input value={reason} onChange={e => setReason(e.target.value)} placeholder="예: 물을 꾸준히 마셔서 컨디션 유지"
               className="w-full mt-1 rounded-lg px-3 py-2 border outline-none"
               style={{ borderColor: t.border, backgroundColor: t.bgSub, color: t.text, fontSize: 13 }} />
           </div>
 
-          {/* Monthly memo (edit only) */}
           {habit && (
             <div>
               <label style={{ fontSize: 11, color: t.textSub, fontWeight: 600 }}>
@@ -304,7 +492,6 @@ function HabitModal({ habit, onClose }: { habit?: Habit; onClose: () => void }) 
                 style={{ borderColor: t.border, backgroundColor: t.bgSub, color: t.text, fontSize: 13 }} />
             </div>
           )}
-        </div>
         </div>
 
         <div className="flex items-center gap-2 px-5 py-4 border-t" style={{ borderColor: t.border }}>
@@ -386,7 +573,9 @@ function HabitChip({ habit, date }: { habit: Habit; date: string }) {
   };
 
   const handleCountTap = (delta: number) => {
-    const next = Math.max(0, progress + delta);
+    const target = habit.targetValue ?? 0;
+    const nextRaw = Math.max(0, progress + delta);
+    const next = target > 0 ? Math.min(target, nextRaw) : nextRaw;
     updateHabitProgress(habit.id, date, next);
   };
 
@@ -576,12 +765,44 @@ function HabitTrackerView() {
   const renderEmojiCell = (
     habit: Habit,
     date: Date,
-    opts: { height: number; emojiSize: number; fill?: boolean; baseBg?: string; emptyBorder?: string },
+    opts: {
+      height: number;
+      emojiSize: number;
+      fill?: boolean;
+      baseBg?: string;
+      emptyBorder?: string;
+      futureOpacity?: number;
+      futureBg?: string;
+      futureBorder?: string;
+    },
   ) => {
     const checked = habit.checkedDates.includes(toDateKey(date));
     const applicable = isHabitApplicableOnDate(habit, date);
     const isFuture = date.getTime() > todayDate.getTime();
     const isNA = isFuture || !applicable;
+    const futureStyle = isFuture
+      ? {
+          opacity: opts.futureOpacity ?? 0.24,
+          borderColor: opts.futureBorder || t.borderLight,
+          backgroundColor: opts.futureBg || t.bgSub,
+          borderStyle: 'dashed' as const,
+        }
+      : null;
+    const unavailableStyle = !applicable
+      ? {
+          opacity: 0.68,
+          borderColor: t.border,
+          backgroundColor: opts.baseBg || t.bgSub,
+          borderStyle: 'solid' as const,
+        }
+      : null;
+    const activeStyle = {
+      opacity: 1,
+      borderColor: checked ? t.accent : (opts.emptyBorder || t.border),
+      backgroundColor: checked ? t.accentLight : (opts.baseBg || 'transparent'),
+      borderStyle: 'solid' as const,
+    };
+    const cellStyle = futureStyle || unavailableStyle || activeStyle;
     return (
       <div
         key={toDateKey(date)}
@@ -589,12 +810,12 @@ function HabitTrackerView() {
           width: opts.fill ? '100%' : opts.height,
           height: opts.height,
           borderRadius: 6,
-          border: `1px solid ${checked ? t.accent : (opts.emptyBorder || t.borderLight)}`,
-          backgroundColor: checked ? t.accentLight : (opts.baseBg || 'transparent'),
+          border: `1px ${cellStyle.borderStyle} ${cellStyle.borderColor}`,
+          backgroundColor: cellStyle.backgroundColor,
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
-          opacity: isNA ? 0.45 : 1,
+          opacity: cellStyle.opacity,
           fontSize: opts.emojiSize,
           lineHeight: 1,
         }}
@@ -885,7 +1106,16 @@ function HabitTrackerView() {
               >
                 <div />
                 {monthDates.map(date => (
-                  <div key={toDateKey(date)} style={{ textAlign: 'center', fontSize: 10, color: t.textMuted }}>
+                  <div
+                    key={toDateKey(date)}
+                    style={{
+                      textAlign: 'center',
+                      fontSize: 10,
+                      color: date.getTime() > todayDate.getTime() ? t.textMuted : t.textSub,
+                      opacity: date.getTime() > todayDate.getTime() ? 0.45 : 1,
+                      fontWeight: date.getTime() > todayDate.getTime() ? 500 : 700,
+                    }}
+                  >
                     {date.getDate()}
                   </div>
                 ))}
@@ -973,6 +1203,9 @@ function HabitTrackerView() {
                               fill: true,
                               baseBg: t.card,
                               emptyBorder: t.border,
+                              futureOpacity: 0.42,
+                              futureBg: t.card,
+                              futureBorder: t.border,
                             })}
                           </div>
                         ) : (
@@ -1008,8 +1241,9 @@ function HabitTrackerView() {
 
 // ─── Main ─────────────────────────────────────────────────────────────────────
 export function HabitsView() {
-  const { habits, routines, selectedDate, updateHabitMemo } = usePlanner();
+  const { habits, routines, updateHabitMemo } = usePlanner();
   const { t } = useTheme();
+  const executionDate = format(new Date(), 'yyyy-MM-dd');
   const [tab, setTab] = useState<'habits' | 'stats' | 'routines'>('habits');
   const [editHabit, setEditHabit] = useState<Habit | null>(null);
   const [showAddHabit, setShowAddHabit] = useState(false);
@@ -1054,21 +1288,29 @@ export function HabitsView() {
           <div className="space-y-2">
             {habits.map(h => {
               const streak = getStreak(h.checkedDates);
-              const isChecked = h.checkedDates.includes(selectedDate);
+              const isChecked = h.checkedDates.includes(executionDate);
               const habitType = h.habitType ?? 'check';
-              const memoVal = memoEditing[h.id] ?? h.dailyMemos?.[selectedDate] ?? '';
+              const memoVal = memoEditing[h.id] ?? h.dailyMemos?.[executionDate] ?? '';
               const showMemoRow = habitType === 'memo' && isChecked;
 
               return (
                 <div key={h.id} className="rounded-xl transition-all"
                   style={{ backgroundColor: t.card, border: `1px solid ${t.borderLight}` }}>
                   <div className="flex items-center gap-3 p-4">
-                    <HabitChip habit={h} date={selectedDate} />
+                    <HabitChip habit={h} date={executionDate} />
 
                     <span style={{ fontSize: 18 }}>{h.icon || '🎯'}</span>
 
                     <div className="flex-1 min-w-0">
                       <span style={{ fontSize: 14, fontWeight: 600, color: t.text }}>{h.name}</span>
+                      {h.reason && (
+                        <p
+                          className="truncate"
+                          style={{ fontSize: 11, color: t.textMuted, marginTop: 2, marginBottom: 1 }}
+                        >
+                          {h.reason}
+                        </p>
+                      )}
                       <div className="flex items-center gap-2 mt-0.5">
                         <span style={{ fontSize: 11, color: t.textMuted }}>
                           {h.repeat === 'daily' ? '매일' : h.repeat === 'weekday' ? '평일' : h.repeat === 'weekend' ? '주말' : '커스텀'}
@@ -1103,12 +1345,12 @@ export function HabitsView() {
                         value={memoVal}
                         onChange={e => setMemoEditing(prev => ({ ...prev, [h.id]: e.target.value }))}
                         onBlur={() => {
-                          updateHabitMemo(h.id, selectedDate, memoVal);
+                            updateHabitMemo(h.id, executionDate, memoVal);
                           setMemoEditing(prev => { const n = { ...prev }; delete n[h.id]; return n; });
                         }}
                         onKeyDown={e => {
                           if (e.key === 'Enter') {
-                            updateHabitMemo(h.id, selectedDate, memoVal);
+                              updateHabitMemo(h.id, executionDate, memoVal);
                             setMemoEditing(prev => { const n = { ...prev }; delete n[h.id]; return n; });
                           }
                         }}

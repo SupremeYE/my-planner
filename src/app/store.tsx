@@ -49,7 +49,7 @@ export interface Habit {
   repeatDays?: number[];
   goalText?: string;
   alarmTime?: string;
-  category?: 'health' | 'selfdev' | 'routine' | 'other';
+  category?: string;
   color?: string;
   habitType: 'check' | 'count' | 'time' | 'value' | 'memo';
   targetValue?: number;

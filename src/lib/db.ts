@@ -158,7 +158,7 @@ const toHabit = (r: HabitRow): Habit => ({
   id: r.id, name: r.name, checkedDates: r.checked_dates ?? [],
   icon: r.icon ?? undefined, repeat: r.repeat as Habit['repeat'],
   repeatDays: r.repeat_days ?? undefined, goalText: r.goal_text ?? undefined,
-  alarmTime: r.alarm_time ?? undefined, category: r.category as Habit['category'],
+  alarmTime: r.alarm_time ?? undefined, category: r.category ?? undefined,
   color: r.color ?? undefined,
   habitType: (r.habit_type ?? 'check') as Habit['habitType'],
   targetValue: r.target_value ?? undefined,
@@ -597,12 +597,27 @@ export const db = {
 
   routines: {
     fetchAll: async (): Promise<Routine[]> => {
-      const { data, error } = await supabase.from('routines').select('*').order('created_at');
+      let { data, error } = await supabase.from('routines').select('*').order('created_at');
+      // 구 스키마( created_at 없는 테이블 ) 호환
+      if (error && /created_at/i.test(error.message)) {
+        const retry = await supabase.from('routines').select('*');
+        data = retry.data;
+        error = retry.error;
+      }
       if (error) console.error('[db] routines fetch:', error.message);
       return (data ?? []).map(toRoutine);
     },
     upsert: async (routine: Routine) => {
-      const { error } = await supabase.from('routines').upsert(fromRoutine(routine));
+      const payload = fromRoutine(routine) as RoutineRow & { routine_steps?: RoutineRow['routine_steps'] };
+      let { error } = await supabase.from('routines').upsert(payload);
+      // 구 스키마( routine_steps 컬럼 미적용 ) 호환
+      if (error && /routine_steps/i.test(error.message)) {
+        const legacyPayload = { ...payload };
+        delete legacyPayload.routine_steps;
+        const retry = await supabase.from('routines').upsert(legacyPayload);
+        error = retry.error;
+        if (!error) console.warn('[db] routines upsert fallback: routine_steps 없이 저장됨');
+      }
       if (error) console.error('[db] routines upsert:', error.message);
     },
     delete: async (id: string) => {
