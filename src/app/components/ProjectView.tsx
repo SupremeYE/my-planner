@@ -13,7 +13,7 @@ import ConfirmModal from './ConfirmModal';
 // ── Project color palette ──
 export const PROJECT_COLORS = [
   '#5B8FE0', '#E05C7B', '#5BC8AF', '#A07BE0',
-  '#E0A05B', '#C8A97E', '#E05C5C', '#5BB8E0',
+  '#506076', '#515f74', '#9f403d', '#5BB8E0',
 ];
 
 // ── Helpers ──
@@ -44,10 +44,10 @@ function NewProjectModal({ onClose, onSave }: {
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center" style={{ backgroundColor: 'rgba(0,0,0,0.35)' }}>
-      <div className="rounded-2xl p-6 shadow-2xl w-[420px] max-w-[90vw]" style={{ backgroundColor: '#FAF8F5', border: '1px solid #E8E0D4' }}>
+      <div className="rounded-2xl p-6 shadow-2xl w-[420px] max-w-[90vw]" style={{ backgroundColor: '#f6fafe', border: '1px solid #d5e5ef' }}>
         <div className="flex items-center justify-between mb-5">
-          <h2 style={{ fontSize: 18, fontWeight: 700, color: '#2D2D2D' }}>새 프로젝트</h2>
-          <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-[#F0EBE3]">
+          <h2 style={{ fontSize: 18, fontWeight: 700, color: '#26343d' }}>새 프로젝트</h2>
+          <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-[#eef4fa]">
             <X size={16} color="#888" />
           </button>
         </div>
@@ -81,7 +81,7 @@ function NewProjectModal({ onClose, onSave }: {
               onChange={e => setName(e.target.value)}
               placeholder="프로젝트명을 입력하세요"
               className="w-full rounded-xl px-3 py-2.5 border outline-none"
-              style={{ borderColor: '#E8E0D4', fontSize: 14, backgroundColor: '#fff', color: '#2D2D2D' }}
+              style={{ borderColor: '#d5e5ef', fontSize: 14, backgroundColor: '#fff', color: '#26343d' }}
             />
           </div>
           {/* Description */}
@@ -93,7 +93,7 @@ function NewProjectModal({ onClose, onSave }: {
               placeholder="프로젝트에 대한 간략한 설명"
               rows={2}
               className="w-full rounded-xl px-3 py-2.5 border outline-none resize-none"
-              style={{ borderColor: '#E8E0D4', fontSize: 13, backgroundColor: '#fff', color: '#2D2D2D' }}
+              style={{ borderColor: '#d5e5ef', fontSize: 13, backgroundColor: '#fff', color: '#26343d' }}
             />
           </div>
           {/* Dates */}
@@ -102,20 +102,20 @@ function NewProjectModal({ onClose, onSave }: {
               <label style={{ fontSize: 11, color: '#888', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', display: 'block', marginBottom: 6 }}>시작일</label>
               <input type="date" value={startDate} onChange={e => setStartDate(e.target.value)}
                 className="w-full rounded-xl px-3 py-2 border outline-none"
-                style={{ borderColor: '#E8E0D4', fontSize: 13, backgroundColor: '#fff', color: '#2D2D2D' }} />
+                style={{ borderColor: '#d5e5ef', fontSize: 13, backgroundColor: '#fff', color: '#26343d' }} />
             </div>
             <div>
               <label style={{ fontSize: 11, color: '#888', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', display: 'block', marginBottom: 6 }}>마감일</label>
               <input type="date" value={endDate} onChange={e => setEndDate(e.target.value)}
                 className="w-full rounded-xl px-3 py-2 border outline-none"
-                style={{ borderColor: '#E8E0D4', fontSize: 13, backgroundColor: '#fff', color: '#2D2D2D' }} />
+                style={{ borderColor: '#d5e5ef', fontSize: 13, backgroundColor: '#fff', color: '#26343d' }} />
             </div>
           </div>
           <div className="flex gap-2 pt-1">
             <button type="button" onClick={onClose} className="flex-1 py-2.5 rounded-xl"
-              style={{ backgroundColor: '#F0EBE3', color: '#888', fontSize: 14 }}>취소</button>
+              style={{ backgroundColor: '#eef4fa', color: '#888', fontSize: 14 }}>취소</button>
             <button type="submit" className="flex-1 py-2.5 rounded-xl"
-              style={{ backgroundColor: '#C8A97E', color: '#fff', fontSize: 14, fontWeight: 600 }}>만들기</button>
+              style={{ backgroundColor: '#515f74', color: '#fff', fontSize: 14, fontWeight: 600 }}>만들기</button>
           </div>
         </form>
       </div>
@@ -137,7 +137,7 @@ function ProjectCard({ project }: { project: Project }) {
     <NavLink
       to={`/projects/${project.id}`}
       className="block rounded-2xl p-5 transition-all hover:shadow-md"
-      style={{ backgroundColor: '#fff', border: '1px solid #F0EBE3' }}
+      style={{ backgroundColor: '#fff', border: '1px solid #eef4fa' }}
     >
       {/* Header */}
       <div className="flex items-start justify-between mb-3">
@@ -147,7 +147,7 @@ function ProjectCard({ project }: { project: Project }) {
             <FolderKanban size={20} color={project.color} />
           </div>
           <div>
-            <div style={{ fontSize: 15, fontWeight: 700, color: '#2D2D2D' }}>{project.name}</div>
+            <div style={{ fontSize: 15, fontWeight: 700, color: '#26343d' }}>{project.name}</div>
             {project.description && (
               <div style={{ fontSize: 12, color: '#888', marginTop: 1 }}>{project.description}</div>
             )}
@@ -165,7 +165,7 @@ function ProjectCard({ project }: { project: Project }) {
           <span style={{ fontSize: 11, color: '#888' }}>{doneTodos.length}/{projectTodos.length} 완료</span>
           <span style={{ fontSize: 12, color: project.color, fontWeight: 700 }}>{progress}%</span>
         </div>
-        <div className="h-2 rounded-full overflow-hidden" style={{ backgroundColor: '#F0EBE3' }}>
+        <div className="h-2 rounded-full overflow-hidden" style={{ backgroundColor: '#eef4fa' }}>
           <div className="h-full rounded-full transition-all"
             style={{ width: `${progress}%`, backgroundColor: project.color }} />
         </div>
@@ -182,7 +182,7 @@ function ProjectCard({ project }: { project: Project }) {
           <span style={{ fontSize: 11, color: '#ccc' }}>마일스톤 없음</span>
         )}
         {daysLeft !== null && (
-          <span style={{ fontSize: 11, color: daysLeft < 7 ? '#E05C5C' : '#aaa', fontWeight: daysLeft < 7 ? 600 : 400 }}>
+          <span style={{ fontSize: 11, color: daysLeft < 7 ? '#9f403d' : '#aaa', fontWeight: daysLeft < 7 ? 600 : 400 }}>
             {daysLeft < 0 ? '마감 초과' : daysLeft === 0 ? 'D-Day' : `D-${daysLeft}`}
           </span>
         )}
@@ -203,18 +203,18 @@ export function ProjectsView() {
     <div className="h-full overflow-y-auto">
       {/* Header */}
       <div className="sticky top-0 z-10 px-6 py-4 flex items-center justify-between"
-        style={{ backgroundColor: '#FAF8F5', borderBottom: '1px solid #F0EBE3' }}>
+        style={{ backgroundColor: '#f6fafe', borderBottom: '1px solid #eef4fa' }}>
         <div className="flex items-center gap-3">
-          <FolderKanban size={20} color="#C8A97E" />
+          <FolderKanban size={20} color="#515f74" />
           <div>
-            <h1 style={{ fontSize: 20, fontWeight: 700, color: '#2D2D2D' }}>프로젝트</h1>
+            <h1 style={{ fontSize: 20, fontWeight: 700, color: '#26343d' }}>프로젝트</h1>
             <p style={{ fontSize: 12, color: '#aaa' }}>총 {projects.length}개의 프로젝트</p>
           </div>
         </div>
         <button
           onClick={() => setShowNewModal(true)}
           className="flex items-center gap-2 px-4 py-2 rounded-xl"
-          style={{ backgroundColor: '#C8A97E', color: '#fff', fontSize: 13, fontWeight: 600 }}
+          style={{ backgroundColor: '#515f74', color: '#fff', fontSize: 13, fontWeight: 600 }}
         >
           <Plus size={14} />
           새 프로젝트
@@ -226,8 +226,8 @@ export function ProjectsView() {
         {activeProjects.length > 0 && (
           <div>
             <div className="flex items-center gap-2 mb-4">
-              <TrendingUp size={13} color="#C8A97E" />
-              <span style={{ fontSize: 11, color: '#C8A97E', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+              <TrendingUp size={13} color="#515f74" />
+              <span style={{ fontSize: 11, color: '#515f74', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
                 진행 중 ({activeProjects.length})
               </span>
             </div>
@@ -254,12 +254,12 @@ export function ProjectsView() {
 
         {projects.length === 0 && (
           <div className="flex flex-col items-center justify-center py-20 text-center">
-            <FolderKanban size={40} color="#E8E0D4" />
+            <FolderKanban size={40} color="#d5e5ef" />
             <p style={{ fontSize: 15, color: '#aaa', marginTop: 12 }}>아직 프로젝트가 없어요</p>
             <p style={{ fontSize: 12, color: '#ccc', marginTop: 4 }}>새 프로젝트를 만들어 보세요</p>
             <button onClick={() => setShowNewModal(true)}
               className="mt-4 px-4 py-2 rounded-xl"
-              style={{ backgroundColor: '#F0EBE3', color: '#C8A97E', fontSize: 13, fontWeight: 600 }}>
+              style={{ backgroundColor: '#eef4fa', color: '#515f74', fontSize: 13, fontWeight: 600 }}>
               + 프로젝트 만들기
             </button>
           </div>
@@ -286,22 +286,22 @@ function MilestoneItem({ milestone }: { milestone: Milestone }) {
     <>
       <div className="flex items-center gap-3 group">
         <button onClick={() => toggleMilestone(milestone.id)} className="flex-shrink-0">
-          <Flag size={14} color={milestone.done ? '#C8A97E' : isPast ? '#E05C5C' : '#ddd'}
-            fill={milestone.done ? '#C8A97E' : 'none'} />
+          <Flag size={14} color={milestone.done ? '#515f74' : isPast ? '#9f403d' : '#ddd'}
+            fill={milestone.done ? '#515f74' : 'none'} />
         </button>
         <div className="flex-1 min-w-0">
           <span style={{
-            fontSize: 13, color: milestone.done ? '#aaa' : '#2D2D2D',
+            fontSize: 13, color: milestone.done ? '#aaa' : '#26343d',
             textDecoration: milestone.done ? 'line-through' : 'none',
           }}>
             {milestone.title}
           </span>
-          <span style={{ fontSize: 11, color: isPast && !milestone.done ? '#E05C5C' : '#aaa', marginLeft: 8 }}>
+          <span style={{ fontSize: 11, color: isPast && !milestone.done ? '#9f403d' : '#aaa', marginLeft: 8 }}>
             {format(parseISO(milestone.date), 'M월 d일', { locale: ko })}
           </span>
         </div>
         <button onClick={() => setShowDeleteConfirm(true)}
-          className="opacity-0 group-hover:opacity-100 p-1 rounded-lg hover:bg-[#F0EBE3] transition-opacity">
+          className="opacity-0 group-hover:opacity-100 p-1 rounded-lg hover:bg-[#eef4fa] transition-opacity">
           <Trash2 size={11} color="#ccc" />
         </button>
       </div>
@@ -329,7 +329,7 @@ function ProjectTodoItem({ todo, projectColor }: { todo: Todo; projectColor: str
   return (
     <>
       <div className="flex items-start gap-2.5 p-3 rounded-xl group"
-        style={{ backgroundColor: todo.status === 'done' ? '#FAF8F5' : '#fff', border: '1px solid #F0EBE3' }}>
+        style={{ backgroundColor: todo.status === 'done' ? '#f6fafe' : '#fff', border: '1px solid #eef4fa' }}>
         <button
           onClick={() => updateTodo(todo.id, { status: todo.status === 'done' ? 'active' : 'done' })}
           className="flex-shrink-0 mt-0.5"
@@ -339,7 +339,7 @@ function ProjectTodoItem({ todo, projectColor }: { todo: Todo; projectColor: str
         </button>
         <div className="flex-1 min-w-0">
           <p style={{
-            fontSize: 13, color: '#2D2D2D',
+            fontSize: 13, color: '#26343d',
             textDecoration: todo.status === 'done' ? 'line-through' : 'none',
             opacity: todo.status === 'done' ? 0.6 : 1,
           }}>
@@ -363,7 +363,7 @@ function ProjectTodoItem({ todo, projectColor }: { todo: Todo; projectColor: str
           )}
         </div>
         <button onClick={() => setShowDeleteConfirm(true)}
-          className="opacity-0 group-hover:opacity-100 p-1 rounded-lg hover:bg-[#F0EBE3] transition-opacity flex-shrink-0">
+          className="opacity-0 group-hover:opacity-100 p-1 rounded-lg hover:bg-[#eef4fa] transition-opacity flex-shrink-0">
           <Trash2 size={12} color="#ccc" />
         </button>
       </div>
@@ -405,10 +405,10 @@ export function ProjectDetailView() {
     return (
       <div className="flex items-center justify-center h-full">
         <div className="text-center">
-          <FolderKanban size={40} color="#E8E0D4" />
+          <FolderKanban size={40} color="#d5e5ef" />
           <p style={{ fontSize: 15, color: '#aaa', marginTop: 12 }}>프로젝트를 찾을 수 없어요</p>
           <NavLink to="/projects" className="mt-3 inline-block px-4 py-2 rounded-xl"
-            style={{ backgroundColor: '#F0EBE3', color: '#C8A97E', fontSize: 13, fontWeight: 600 }}>
+            style={{ backgroundColor: '#eef4fa', color: '#515f74', fontSize: 13, fontWeight: 600 }}>
             목록으로
           </NavLink>
         </div>
@@ -449,9 +449,9 @@ export function ProjectDetailView() {
     <div className="h-full overflow-y-auto">
       {/* Header */}
       <div className="sticky top-0 z-10 px-6 py-4"
-        style={{ backgroundColor: '#FAF8F5', borderBottom: '1px solid #F0EBE3' }}>
+        style={{ backgroundColor: '#f6fafe', borderBottom: '1px solid #eef4fa' }}>
         <div className="flex items-center gap-3 mb-1">
-          <NavLink to="/projects" className="p-1.5 rounded-lg hover:bg-[#F0EBE3] transition-colors">
+          <NavLink to="/projects" className="p-1.5 rounded-lg hover:bg-[#eef4fa] transition-colors">
             <ChevronLeft size={16} color="#888" />
           </NavLink>
           <div className="w-8 h-8 rounded-xl flex items-center justify-center"
@@ -459,7 +459,7 @@ export function ProjectDetailView() {
             <FolderKanban size={16} color={project.color} />
           </div>
           <div className="flex-1 min-w-0">
-            <h1 style={{ fontSize: 18, fontWeight: 700, color: '#2D2D2D' }}>{project.name}</h1>
+            <h1 style={{ fontSize: 18, fontWeight: 700, color: '#26343d' }}>{project.name}</h1>
             {project.description && (
               <p style={{ fontSize: 12, color: '#888' }}>{project.description}</p>
             )}
@@ -469,7 +469,7 @@ export function ProjectDetailView() {
             value={project.status}
             onChange={e => updateProject(project.id, { status: e.target.value as Project['status'] })}
             className="px-3 py-1.5 rounded-lg border outline-none text-xs"
-            style={{ borderColor: '#E8E0D4', backgroundColor: hexAlpha(project.color, 0.08), color: project.color, fontWeight: 600 }}
+            style={{ borderColor: '#d5e5ef', backgroundColor: hexAlpha(project.color, 0.08), color: project.color, fontWeight: 600 }}
           >
             <option value="active">진행중</option>
             <option value="paused">일시중단</option>
@@ -481,25 +481,25 @@ export function ProjectDetailView() {
       <div className="px-6 py-5 space-y-5">
         {/* Stats Row */}
         <div className="grid grid-cols-3 gap-3">
-          <div className="rounded-2xl p-4" style={{ backgroundColor: '#fff', border: '1px solid #F0EBE3' }}>
+          <div className="rounded-2xl p-4" style={{ backgroundColor: '#fff', border: '1px solid #eef4fa' }}>
             <p style={{ fontSize: 11, color: '#888', textTransform: 'uppercase', letterSpacing: '0.05em', fontWeight: 600 }}>진행률</p>
             <p style={{ fontSize: 28, fontWeight: 700, color: project.color, marginTop: 4 }}>{progress}%</p>
-            <div className="mt-2 h-1.5 rounded-full overflow-hidden" style={{ backgroundColor: '#F0EBE3' }}>
+            <div className="mt-2 h-1.5 rounded-full overflow-hidden" style={{ backgroundColor: '#eef4fa' }}>
               <div className="h-full rounded-full transition-all" style={{ width: `${progress}%`, backgroundColor: project.color }} />
             </div>
           </div>
-          <div className="rounded-2xl p-4" style={{ backgroundColor: '#fff', border: '1px solid #F0EBE3' }}>
+          <div className="rounded-2xl p-4" style={{ backgroundColor: '#fff', border: '1px solid #eef4fa' }}>
             <p style={{ fontSize: 11, color: '#888', textTransform: 'uppercase', letterSpacing: '0.05em', fontWeight: 600 }}>할 일</p>
-            <p style={{ fontSize: 28, fontWeight: 700, color: '#2D2D2D', marginTop: 4 }}>
+            <p style={{ fontSize: 28, fontWeight: 700, color: '#26343d', marginTop: 4 }}>
               {doneTodos.length}<span style={{ fontSize: 14, color: '#aaa', fontWeight: 400 }}>/{projectTodos.length}</span>
             </p>
             <p style={{ fontSize: 11, color: '#aaa', marginTop: 4 }}>완료</p>
           </div>
-          <div className="rounded-2xl p-4" style={{ backgroundColor: '#fff', border: '1px solid #F0EBE3' }}>
+          <div className="rounded-2xl p-4" style={{ backgroundColor: '#fff', border: '1px solid #eef4fa' }}>
             <p style={{ fontSize: 11, color: '#888', textTransform: 'uppercase', letterSpacing: '0.05em', fontWeight: 600 }}>마감</p>
             {daysLeft !== null ? (
               <>
-                <p style={{ fontSize: 28, fontWeight: 700, color: daysLeft < 7 ? '#E05C5C' : '#2D2D2D', marginTop: 4 }}>
+                <p style={{ fontSize: 28, fontWeight: 700, color: daysLeft < 7 ? '#9f403d' : '#26343d', marginTop: 4 }}>
                   {daysLeft < 0 ? '초과' : daysLeft === 0 ? 'D-Day' : `D-${daysLeft}`}
                 </p>
                 <p style={{ fontSize: 11, color: '#aaa', marginTop: 4 }}>
@@ -513,11 +513,11 @@ export function ProjectDetailView() {
         </div>
 
         {/* Milestones */}
-        <div className="rounded-2xl p-5" style={{ backgroundColor: '#fff', border: '1px solid #F0EBE3' }}>
+        <div className="rounded-2xl p-5" style={{ backgroundColor: '#fff', border: '1px solid #eef4fa' }}>
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-2">
               <Flag size={14} color={project.color} />
-              <span style={{ fontSize: 13, fontWeight: 700, color: '#2D2D2D' }}>마일스톤</span>
+              <span style={{ fontSize: 13, fontWeight: 700, color: '#26343d' }}>마일스톤</span>
               <span className="px-1.5 py-0.5 rounded-full" style={{ fontSize: 10, backgroundColor: hexAlpha(project.color, 0.12), color: project.color, fontWeight: 600 }}>
                 {projectMilestones.filter(m => m.done).length}/{projectMilestones.length}
               </span>
@@ -525,7 +525,7 @@ export function ProjectDetailView() {
             <button
               onClick={() => setShowAddMilestone(v => !v)}
               className="flex items-center gap-1 px-2.5 py-1 rounded-lg"
-              style={{ backgroundColor: '#F0EBE3', color: '#C8A97E', fontSize: 12 }}
+              style={{ backgroundColor: '#eef4fa', color: '#515f74', fontSize: 12 }}
             >
               <Plus size={11} /> 추가
             </button>
@@ -542,7 +542,7 @@ export function ProjectDetailView() {
                       <div className="w-3 h-3 rounded-full border-2"
                         style={{
                           backgroundColor: m.done ? project.color : '#fff',
-                          borderColor: m.done ? project.color : '#E8E0D4',
+                          borderColor: m.done ? project.color : '#d5e5ef',
                         }} />
                       <span style={{ fontSize: 9, color: '#aaa', marginTop: 2, whiteSpace: 'nowrap', maxWidth: 60, overflow: 'hidden', textOverflow: 'ellipsis', textAlign: 'center' }}>
                         {m.title.length > 6 ? m.title.slice(0, 6) + '…' : m.title}
@@ -550,7 +550,7 @@ export function ProjectDetailView() {
                     </div>
                     {i < projectMilestones.length - 1 && (
                       <div className="flex-1 h-0.5 mx-1"
-                        style={{ backgroundColor: m.done ? project.color : '#E8E0D4' }} />
+                        style={{ backgroundColor: m.done ? project.color : '#d5e5ef' }} />
                     )}
                   </div>
                 ))}
@@ -566,14 +566,14 @@ export function ProjectDetailView() {
           </div>
 
           {showAddMilestone && (
-            <form onSubmit={handleAddMilestone} className="mt-3 p-3 rounded-xl space-y-2" style={{ backgroundColor: '#FAF8F5' }}>
+            <form onSubmit={handleAddMilestone} className="mt-3 p-3 rounded-xl space-y-2" style={{ backgroundColor: '#f6fafe' }}>
               <input
                 autoFocus
                 value={newMilestoneTitle}
                 onChange={e => setNewMilestoneTitle(e.target.value)}
                 placeholder="마일스톤 제목"
                 className="w-full rounded-lg px-3 py-2 border outline-none"
-                style={{ borderColor: '#E8E0D4', fontSize: 13, backgroundColor: '#fff', color: '#2D2D2D' }}
+                style={{ borderColor: '#d5e5ef', fontSize: 13, backgroundColor: '#fff', color: '#26343d' }}
               />
               <div className="flex gap-2">
                 <input
@@ -581,27 +581,27 @@ export function ProjectDetailView() {
                   value={newMilestoneDate}
                   onChange={e => setNewMilestoneDate(e.target.value)}
                   className="flex-1 rounded-lg px-3 py-2 border outline-none"
-                  style={{ borderColor: '#E8E0D4', fontSize: 13, backgroundColor: '#fff', color: '#2D2D2D' }}
+                  style={{ borderColor: '#d5e5ef', fontSize: 13, backgroundColor: '#fff', color: '#26343d' }}
                 />
                 <button type="submit" className="px-3 py-2 rounded-lg"
                   style={{ backgroundColor: project.color, color: '#fff', fontSize: 12, fontWeight: 600 }}>추가</button>
                 <button type="button" onClick={() => setShowAddMilestone(false)} className="px-3 py-2 rounded-lg"
-                  style={{ backgroundColor: '#F0EBE3', color: '#888', fontSize: 12 }}>취소</button>
+                  style={{ backgroundColor: '#eef4fa', color: '#888', fontSize: 12 }}>취소</button>
               </div>
             </form>
           )}
         </div>
 
         {/* Task List */}
-        <div className="rounded-2xl p-5" style={{ backgroundColor: '#fff', border: '1px solid #F0EBE3' }}>
+        <div className="rounded-2xl p-5" style={{ backgroundColor: '#fff', border: '1px solid #eef4fa' }}>
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-2">
               <CheckCircle2 size={14} color={project.color} />
-              <span style={{ fontSize: 13, fontWeight: 700, color: '#2D2D2D' }}>할 일</span>
+              <span style={{ fontSize: 13, fontWeight: 700, color: '#26343d' }}>할 일</span>
             </div>
             <div className="flex items-center gap-2">
               {/* Filter */}
-              <div className="flex rounded-lg overflow-hidden border" style={{ borderColor: '#E8E0D4' }}>
+              <div className="flex rounded-lg overflow-hidden border" style={{ borderColor: '#d5e5ef' }}>
                 {(['all', 'active', 'done'] as const).map(f => (
                   <button
                     key={f}
@@ -609,7 +609,7 @@ export function ProjectDetailView() {
                     className="px-2.5 py-1"
                     style={{
                       fontSize: 11,
-                      backgroundColor: statusFilter === f ? '#2D2D2D' : '#fff',
+                      backgroundColor: statusFilter === f ? '#26343d' : '#fff',
                       color: statusFilter === f ? '#fff' : '#888',
                       fontWeight: statusFilter === f ? 600 : 400,
                     }}
@@ -621,7 +621,7 @@ export function ProjectDetailView() {
               <button
                 onClick={() => setShowAddTask(v => !v)}
                 className="flex items-center gap-1 px-2.5 py-1 rounded-lg"
-                style={{ backgroundColor: '#F0EBE3', color: '#C8A97E', fontSize: 12 }}
+                style={{ backgroundColor: '#eef4fa', color: '#515f74', fontSize: 12 }}
               >
                 <Plus size={11} /> 추가
               </button>
@@ -636,12 +636,12 @@ export function ProjectDetailView() {
                 onChange={e => setNewTaskText(e.target.value)}
                 placeholder="할 일 입력..."
                 className="flex-1 rounded-xl px-3 py-2 border outline-none"
-                style={{ borderColor: '#E8E0D4', fontSize: 13, backgroundColor: '#FAF8F5', color: '#2D2D2D' }}
+                style={{ borderColor: '#d5e5ef', fontSize: 13, backgroundColor: '#f6fafe', color: '#26343d' }}
               />
               <button type="submit" className="px-3 py-2 rounded-xl"
                 style={{ backgroundColor: project.color, color: '#fff', fontSize: 12, fontWeight: 600 }}>추가</button>
               <button type="button" onClick={() => setShowAddTask(false)} className="px-3 py-2 rounded-xl"
-                style={{ backgroundColor: '#F0EBE3', color: '#888', fontSize: 12 }}>취소</button>
+                style={{ backgroundColor: '#eef4fa', color: '#888', fontSize: 12 }}>취소</button>
             </form>
           )}
 
@@ -658,11 +658,11 @@ export function ProjectDetailView() {
         </div>
 
         {/* Danger zone */}
-        <div className="rounded-2xl p-4" style={{ backgroundColor: '#fff', border: '1px solid #F0EBE3' }}>
+        <div className="rounded-2xl p-4" style={{ backgroundColor: '#fff', border: '1px solid #eef4fa' }}>
           <button
             onClick={() => setShowDeleteConfirm(true)}
             className="flex items-center gap-2 text-sm"
-            style={{ color: '#E05C5C' }}
+            style={{ color: '#9f403d' }}
           >
             <Trash2 size={13} />
             프로젝트 삭제

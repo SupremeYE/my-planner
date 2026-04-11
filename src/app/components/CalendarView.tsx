@@ -16,22 +16,22 @@ type FilterType = 'all' | 'todo' | 'event' | 'habit' | 'selfcare';
 const CHIP_COLORS: Record<Exclude<FilterType, 'all'>, { bg: string; color: string }> = {
   todo:     { bg: '#F0C4B8', color: '#D4735A' },
   event:    { bg: '#D0E0F5', color: '#7B9ED9' },
-  habit:    { bg: '#C8E6D0', color: '#6BAA7A' },
+  habit:    { bg: '#C8E6D0', color: '#006b62' },
   selfcare: { bg: '#E8D9C0', color: '#A08050' },
 };
 
 const FILTER_TABS: { key: FilterType; label: string; activeColor: string }[] = [
-  { key: 'all',      label: '전체',    activeColor: '#2D2D2D' },
+  { key: 'all',      label: '전체',    activeColor: '#26343d' },
   { key: 'todo',     label: '할일',    activeColor: '#D4735A' },
   { key: 'event',    label: '일정',    activeColor: '#7B9ED9' },
-  { key: 'habit',    label: '습관',    activeColor: '#6BAA7A' },
+  { key: 'habit',    label: '습관',    activeColor: '#006b62' },
   { key: 'selfcare', label: '자기관리', activeColor: '#A08050' },
 ];
 
 // ─── Time helpers ───
 const HOUR_HEIGHT = 48;
 const PLAN_BAR_BG = '#EDE3D6';
-const PLAN_BAR_BORDER = '#C4A882';
+const PLAN_BAR_BORDER = '#515f74';
 const DO_BAR_FALLBACK_BG = '#D4EDE0';
 const DO_BAR_FALLBACK_TEXT = '#4A8A5A';
 const OVERTIME_BAR_BG = '#FAE8D6';
@@ -57,7 +57,7 @@ function getContrastTextColor(hex: string): string {
   const g = parseInt(normalized.slice(2, 4), 16);
   const b = parseInt(normalized.slice(4, 6), 16);
   const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
-  return luminance > 0.66 ? '#2D2D2D' : '#ffffff';
+  return luminance > 0.66 ? '#26343d' : '#ffffff';
 }
 
 // ─── Month View ───
@@ -128,12 +128,12 @@ function MonthView({ viewDate, filter, onSelectDate }: {
               onClick={() => onSelectDate(dateStr)}
               className="relative flex flex-col items-start p-1 rounded-xl transition-all"
               style={{
-                backgroundColor: isSelected ? '#C8A97E' : isToday ? '#F5E6CC' : 'transparent',
+                backgroundColor: isSelected ? '#515f74' : isToday ? '#d5e3fd' : 'transparent',
                 minHeight: 72,
               }}
             >
               <div className="self-center flex flex-col items-center gap-0.5">
-                <span style={{ fontSize: 13, color: isSelected ? '#fff' : isToday ? '#C8A97E' : '#2D2D2D', fontWeight: isSelected || isToday ? 700 : 400 }}>
+                <span style={{ fontSize: 13, color: isSelected ? '#fff' : isToday ? '#515f74' : '#26343d', fontWeight: isSelected || isToday ? 700 : 400 }}>
                   {day}
                 </span>
                 {hasPeriod && (
@@ -200,7 +200,7 @@ function WeekView({ viewDate, onSelectDate }: { viewDate: Date; onSelectDate: (d
   return (
     <div className="flex flex-col" style={{ flex: 1, minHeight: 0, overflow: 'hidden' }}>
       {/* Day headers — 고정 */}
-      <div style={{ flexShrink: 0, borderBottom: '1px solid #F0EBE3' }}>
+      <div style={{ flexShrink: 0, borderBottom: '1px solid #eef4fa' }}>
         <div className="px-2 py-2 flex items-center gap-4" style={{ borderBottom: '1px solid #F5EFE7' }}>
           <div className="flex items-center gap-1.5" style={{ fontSize: 10, fontWeight: 600, color: '#7D6347' }}>
             <span className="inline-block w-2 h-2 rounded-full" style={{ backgroundColor: PLAN_BAR_BG, border: `1px solid ${PLAN_BAR_BORDER}` }} />
@@ -227,8 +227,8 @@ function WeekView({ viewDate, onSelectDate }: { viewDate: Date; onSelectDate: (d
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
                   width: 26, height: 26, borderRadius: '50%', marginTop: 2, flexShrink: 0,
                   fontSize: 12, fontWeight: 700,
-                  backgroundColor: isToday ? '#C8A97E' : 'transparent',
-                  color: isToday ? '#fff' : '#2D2D2D',
+                  backgroundColor: isToday ? '#515f74' : 'transparent',
+                  color: isToday ? '#fff' : '#26343d',
                 }}>
                   {format(d, 'd')}
                 </span>
@@ -245,7 +245,7 @@ function WeekView({ viewDate, onSelectDate }: { viewDate: Date; onSelectDate: (d
           {hours.map(h => (
             <div key={h} className="absolute left-0 right-0 flex items-start" style={{ top: (h - START_HOUR) * HOUR_HEIGHT }}>
               <span style={{ fontSize: 9, color: '#aaa', width: WEEK_TIME_LABEL_WIDTH - 4, textAlign: 'right', paddingRight: 4 }}>{String(h % 24).padStart(2, '0')}:00</span>
-              <div className="flex-1 border-t" style={{ borderColor: '#E8E0D4' }} />
+              <div className="flex-1 border-t" style={{ borderColor: '#d5e5ef' }} />
             </div>
           ))}
 
@@ -256,7 +256,7 @@ function WeekView({ viewDate, onSelectDate }: { viewDate: Date; onSelectDate: (d
               const dayTodos = todos.filter(t => t.date === dateStr);
 
               return (
-                <div key={dateStr} className="relative border-l" style={{ borderColor: '#F0EBE3' }}>
+                <div key={dateStr} className="relative border-l" style={{ borderColor: '#eef4fa' }}>
                   <div className="absolute inset-y-0 left-1 right-1 pointer-events-none">
                     <div className="absolute inset-y-1 rounded-xl"
                       style={{
@@ -372,7 +372,7 @@ function DayViewPanel({ dateStr }: { dateStr: string }) {
         {hours.map(h => (
           <div key={h} className="absolute left-0 right-0 flex items-start" style={{ top: (h - START_HOUR) * HOUR_HEIGHT }}>
             <span style={{ fontSize: 10, color: '#aaa', width: WEEK_TIME_LABEL_WIDTH, textAlign: 'right', paddingRight: 6 }}>{String(h % 24).padStart(2, '0')}:00</span>
-            <div className="flex-1 border-t" style={{ borderColor: '#E8E0D4' }} />
+            <div className="flex-1 border-t" style={{ borderColor: '#d5e5ef' }} />
           </div>
         ))}
         <div className="absolute" style={{ left: WEEK_TIME_LABEL_WIDTH + 4, right: 0, top: 0, bottom: 0 }}>
@@ -475,17 +475,17 @@ export function CalendarView() {
       {/* Header — 상단 고정 */}
       <div className="px-3 py-3 lg:px-4 lg:py-4" style={{ flexShrink: 0, backgroundColor: t.sidebar, borderBottom: `1px solid ${t.border}` }}>
         <div className="flex items-center justify-between mb-3">
-          <button onClick={handlePrev} className="p-1.5 lg:p-2 rounded-xl hover:bg-[#F0EBE3]">
+          <button onClick={handlePrev} className="p-1.5 lg:p-2 rounded-xl hover:bg-[#eef4fa]">
             <ChevronLeft size={18} color="#888" />
           </button>
-          <span style={{ fontSize: 16, fontWeight: 700, color: '#2D2D2D' }} className="lg:text-[17px]">{navLabel}</span>
-          <button onClick={handleNext} className="p-1.5 lg:p-2 rounded-xl hover:bg-[#F0EBE3]">
+          <span style={{ fontSize: 16, fontWeight: 700, color: '#26343d' }} className="lg:text-[17px]">{navLabel}</span>
+          <button onClick={handleNext} className="p-1.5 lg:p-2 rounded-xl hover:bg-[#eef4fa]">
             <ChevronRight size={18} color="#888" />
           </button>
         </div>
 
         {/* 월별/주별/일별 탭 */}
-        <div className="flex gap-1 p-1 rounded-xl" style={{ backgroundColor: '#F0EBE3' }}>
+        <div className="flex gap-1 p-1 rounded-xl" style={{ backgroundColor: '#eef4fa' }}>
           {(['month', 'week', 'day'] as TabType[]).map(v => (
             <button key={v} onClick={() => setTab(v)}
               className="flex-1 py-1.5 rounded-lg transition-all"
@@ -493,7 +493,7 @@ export function CalendarView() {
                 fontSize: 12,
                 fontWeight: tab === v ? 600 : 400,
                 backgroundColor: tab === v ? '#fff' : 'transparent',
-                color: tab === v ? '#2D2D2D' : '#888',
+                color: tab === v ? '#26343d' : '#888',
                 boxShadow: tab === v ? '0 1px 3px rgba(0,0,0,0.08)' : 'none',
               }}>
               {v === 'month' ? '월별' : v === 'week' ? '주별' : '일별'}
@@ -511,7 +511,7 @@ export function CalendarView() {
                   className="flex-shrink-0 px-3 py-1 rounded-full transition-all"
                   style={{
                     fontSize: 11, fontWeight: active ? 700 : 500,
-                    backgroundColor: active ? f.activeColor : '#F0EBE3',
+                    backgroundColor: active ? f.activeColor : '#eef4fa',
                     color: active ? '#fff' : f.activeColor,
                     border: `1.5px solid ${active ? f.activeColor : f.activeColor + '60'}`,
                   }}>
@@ -527,7 +527,7 @@ export function CalendarView() {
       {tab === 'month' && (
         <div style={{ flex: 1, overflowY: 'auto' }}>
           <div className="p-3 lg:p-4">
-            <div className="bg-white rounded-2xl p-4 shadow-sm" style={{ border: '1px solid #F0EBE3' }}>
+            <div className="bg-white rounded-2xl p-4 shadow-sm" style={{ border: '1px solid #eef4fa' }}>
               <MonthView viewDate={viewDate} filter={filter} onSelectDate={handleSelectDate} />
             </div>
           </div>
@@ -538,7 +538,7 @@ export function CalendarView() {
       {tab === 'week' && (
         <div className="px-3 pb-3 pt-2.5 lg:px-4 lg:pb-4 lg:pt-3"
           style={{ flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0, overflow: 'hidden' }}>
-          <div className="bg-white rounded-2xl shadow-sm" style={{ border: '1px solid #F0EBE3', flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0, overflow: 'hidden' }}>
+          <div className="bg-white rounded-2xl shadow-sm" style={{ border: '1px solid #eef4fa', flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0, overflow: 'hidden' }}>
             <WeekView viewDate={viewDate} onSelectDate={handleSelectDate} />
           </div>
         </div>
@@ -548,12 +548,12 @@ export function CalendarView() {
       {tab === 'day' && (
         <div className="px-3 pb-3 pt-2.5 lg:px-4 lg:pb-4 lg:pt-3"
           style={{ flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0, overflow: 'hidden' }}>
-          <div className="bg-white rounded-2xl shadow-sm" style={{ border: '1px solid #F0EBE3', flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0, overflow: 'hidden' }}>
+          <div className="bg-white rounded-2xl shadow-sm" style={{ border: '1px solid #eef4fa', flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0, overflow: 'hidden' }}>
             {/* Day view 상단 */}
-            <div className="flex items-center justify-between flex-shrink-0 px-4 py-3" style={{ borderBottom: '1px solid #F0EBE3' }}>
+            <div className="flex items-center justify-between flex-shrink-0 px-4 py-3" style={{ borderBottom: '1px solid #eef4fa' }}>
               <span style={{ fontSize: 13, color: '#888' }}>선택된 날짜의 타임테이블</span>
               <button onClick={() => navigate('/daily')} className="px-3 py-1.5 rounded-xl"
-                style={{ fontSize: 12, backgroundColor: '#C8A97E', color: '#fff' }}>
+                style={{ fontSize: 12, backgroundColor: '#515f74', color: '#fff' }}>
                 일간 뷰로 이동
               </button>
             </div>

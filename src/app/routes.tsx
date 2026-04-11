@@ -10,6 +10,7 @@ import { ProjectsView, ProjectDetailView } from './components/ProjectView';
 import { HabitsView } from './components/HabitsView';
 import { SelfCareView } from './components/SelfCareView';
 import { ReviewsView } from './components/ReviewsView';
+import { SettingsView } from './components/SettingsView';
 
 export const router = createBrowserRouter([
   {
@@ -29,6 +30,7 @@ export const router = createBrowserRouter([
       { path: 'routines',     element: <Navigate to="/habits" replace /> },
       { path: 'selfcare',     Component: SelfCareView },
       { path: 'reviews',      Component: ReviewsView },
+      { path: 'settings',     Component: SettingsView },
     ],
   },
 ]);

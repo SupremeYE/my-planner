@@ -35,11 +35,11 @@ function StatCard({
       style={{
         flex: 1,
         minWidth: 0,
-        background: '#FDFAF4',
+        background: t.card,
         borderRadius: 14,
         padding: 16,
-        border: '1px solid #E2DAD0',
-        boxShadow: '0 1px 4px rgba(0,0,0,0.04)',
+        border: `1px solid ${t.borderLight}`,
+        boxShadow: t.shadow,
         display: 'flex',
         flexDirection: 'column',
         gap: 0,
@@ -49,15 +49,15 @@ function StatCard({
         style={{
           fontSize: 28,
           fontFamily: SERIF,
-          color: '#3A3530',
+          color: t.text,
           lineHeight: 1.15,
         }}
       >
         {value}
       </div>
-      <div style={{ fontSize: 11, color: '#7A6E64', marginTop: 3, fontFamily: "'Noto Sans KR', sans-serif" }}>{label}</div>
+      <div style={{ fontSize: 11, color: t.textSub, marginTop: 3, fontFamily: "'Noto Sans KR', sans-serif" }}>{label}</div>
       {sub && (
-        <div style={{ fontSize: 10, color: subColor || '#C4A882', marginTop: 4 }}>
+        <div style={{ fontSize: 10, color: subColor || t.accent, marginTop: 4 }}>
           {sub}
         </div>
       )}
@@ -114,7 +114,7 @@ function HabitChip({
             alignItems: 'center',
             gap: 2,
             fontSize: 11,
-            color: '#E05C5C',
+            color: '#9f403d',
             fontWeight: 600,
           }}
         >
@@ -565,14 +565,14 @@ export function DashboardView() {
           label="오늘 집중 시간"
           value={focusDisplay}
           sub={focusSub}
-          subColor="#C4A882"
+          subColor="#515f74"
           t={t}
         />
         <StatCard
           label="할일 완료"
           value={`${todayDone}/${todayActive}`}
           sub={todoSub}
-          subColor="#C4A882"
+          subColor="#515f74"
           t={t}
         />
         <StatCard
@@ -586,7 +586,7 @@ export function DashboardView() {
           label="이달 목표"
           value={`${monthlyOverallPct}%`}
           sub={weeklyTotal > 0 ? `이번주 ${weeklyDone}/${weeklyTotal} 완료` : ''}
-          subColor="#C4A882"
+          subColor="#515f74"
           t={t}
         />
       </div>
@@ -685,7 +685,7 @@ export function DashboardView() {
               style={{
                 width: `${weeklyPct}%`,
                 height: '100%',
-                background: `linear-gradient(90deg, ${t.accent}, #6BAA7A)`,
+                background: `linear-gradient(90deg, ${t.accent}, #006b62)`,
                 borderRadius: 4,
                 transition: 'width 0.4s',
               }}

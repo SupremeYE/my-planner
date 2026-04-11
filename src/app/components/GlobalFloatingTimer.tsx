@@ -27,7 +27,7 @@ export function GlobalFloatingTimer() {
 
   return (
     <div className="fixed bottom-5 right-4 z-50 flex items-center gap-3 rounded-2xl px-4 py-3 lg:bottom-6 lg:right-6 lg:px-5"
-      style={{ backgroundColor: '#2D2D2D', color: '#fff', boxShadow: '0 12px 28px rgba(0,0,0,0.22)' }}>
+      style={{ backgroundColor: '#26343d', color: '#fff', boxShadow: '0 12px 28px rgba(0,0,0,0.22)' }}>
       <div className="flex items-center gap-3 min-w-0">
         <div className="w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0"
           style={{ backgroundColor: activeTimer.isPaused ? 'rgba(255,255,255,0.12)' : 'rgba(255,255,255,0.18)' }}>
@@ -58,7 +58,7 @@ export function GlobalFloatingTimer() {
         <button
           onClick={stopTimer}
           className="flex items-center gap-1.5 rounded-xl px-3 py-2"
-          style={{ backgroundColor: '#ffffff', color: '#2D2D2D', fontSize: 12, fontWeight: 700 }}
+          style={{ backgroundColor: '#ffffff', color: '#26343d', fontSize: 12, fontWeight: 700 }}
         >
           <Check size={12} />
           완료

@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import React from 'react';
-import { useSearchParams } from 'react-router';
+import { useSearchParams, NavLink } from 'react-router';
 import {
   ChevronLeft, ChevronRight, Plus, Star, Play,
   Check, Clock, Trash2, X, MoreHorizontal,
@@ -20,17 +20,17 @@ import { formatDoElapsedKo, formatTotalDoKo, todoDoDurationSeconds } from '../..
 const TAG_COLORS = [
   '#E0795B', '#D4735A', '#E8A87C', '#F4A261',
   '#5B8FE0', '#4A82CC', '#60A5FA', '#3B82F6',
-  '#5BC8AF', '#45B899', '#34D399', '#6BAA7A',
+  '#5BC8AF', '#45B899', '#34D399', '#006b62',
   '#A07BE0', '#8B7CF8', '#9B8FFA', '#C084FC',
   '#5BC86E', '#22C55E', '#84CC16', '#059669',
-  '#F59E0B', '#C9A84C', '#C4A882', '#D97706',
+  '#F59E0B', '#515f74', '#515f74', '#D97706',
   '#EF4444', '#F87171', '#EC4899', '#DB2777',
   '#6B7280', '#94A3B8', '#475569', '#1E293B',
 ];
 
 // Log color presets
 const LOG_COLORS = [
-  '#C4A882', '#D4735A', '#6BAA7A', '#7B9ED9',
+  '#515f74', '#D4735A', '#006b62', '#7B9ED9',
   '#A07BE0', '#F4A261', '#059669', '#EF4444',
   '#EC4899', '#6B7280',
 ];
@@ -39,7 +39,7 @@ const LOG_COLORS = [
 const STATUS_CONFIG: Record<string, { label: string; color: string; bgColor: string }> = {
   active: { label: '예정', color: '#6B7280', bgColor: '#F3F4F6' },
   inProgress: { label: '진행중', color: '#059669', bgColor: '#D1FAE5' },
-  done: { label: '완료', color: '#C8A97E', bgColor: '#F5E6CC' },
+  done: { label: '완료', color: '#515f74', bgColor: '#d5e3fd' },
   snoozed: { label: '미루기', color: '#D97706', bgColor: '#FEF3C7' },
   cancelled: { label: '취소', color: '#DC2626', bgColor: '#FEE2E2' },
 };
@@ -52,8 +52,8 @@ const PX_PER_MIN = HOUR_HEIGHT / 60;
 const TIMELINE_LABEL_WIDTH = 36;
 const TIMELINE_CONTENT_LEFT = 40;
 const TIMELINE_LANE_GAP = 10;
-const PLAN_BAR_BG = '#EDE3D6';
-const PLAN_BAR_BORDER = '#C4A882';
+const PLAN_BAR_BG = '#ddeaf3';
+const PLAN_BAR_BORDER = '#515f74';
 const DO_BAR_FALLBACK_BG = '#D4EDE0';
 const DO_BAR_FALLBACK_TEXT = '#4A8A5A';
 const OVERTIME_BAR_BG = '#FAE8D6';
@@ -78,7 +78,7 @@ function getContrastTextColor(hex: string): string {
   const g = parseInt(normalized.slice(2, 4), 16);
   const b = parseInt(normalized.slice(4, 6), 16);
   const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
-  return luminance > 0.66 ? '#2D2D2D' : '#ffffff';
+  return luminance > 0.66 ? '#26343d' : '#ffffff';
 }
 
 // ─── Snooze Date Picker Modal ───
@@ -1053,7 +1053,7 @@ export function DailyView() {
         {/* Resize handle at bottom */}
         <div
           className="absolute left-0 right-0 bottom-0 flex justify-center items-center opacity-0 group-hover:opacity-100 transition-opacity"
-          style={{ height: 8, cursor: 'ns-resize', backgroundColor: isDragging ? 'transparent' : (isPlan ? '#C4A88240' : '#00000015') }}
+          style={{ height: 8, cursor: 'ns-resize', backgroundColor: isDragging ? 'transparent' : (isPlan ? '#515f7440' : '#00000015') }}
           onMouseDown={(e) => handleDragStart(e, 'resize')}
         >
           <div style={{ width: 20, height: 2, borderRadius: 1, backgroundColor: isPlan ? PLAN_BAR_BORDER : `${textColor}80` }} />
@@ -1298,11 +1298,17 @@ export function DailyView() {
           )}
         </div>
         <div className="flex items-center gap-1.5 lg:gap-2">
-          <button onClick={() => setShowTimelineSettings(true)} className="p-1.5 lg:px-3 lg:py-1.5 rounded-lg flex items-center gap-1.5"
+          {/* 데스크탑: 기존 모달 */}
+          <button onClick={() => setShowTimelineSettings(true)} className="hidden lg:flex px-3 py-1.5 rounded-lg items-center gap-1.5"
             style={{ fontSize: 11, color: t.textSub, backgroundColor: t.bgSub, border: `1px solid ${t.border}` }}>
             <Settings size={12} />
-            <span className="hidden lg:inline">시간대 설정</span>
+            <span>시간대 설정</span>
           </button>
+          {/* 모바일: 설정 페이지 링크 */}
+          <NavLink to="/settings" className="lg:hidden p-1.5 rounded-lg flex items-center gap-1"
+            style={{ fontSize: 10, color: t.textSub, backgroundColor: t.bgSub, border: `1px solid ${t.border}` }}>
+            <Settings size={12} />
+          </NavLink>
           <button onClick={() => setShowAddModal(true)} className="px-2.5 py-1.5 lg:px-3 rounded-lg flex items-center gap-1 lg:gap-1.5"
             style={{ fontSize: 11, fontWeight: 600, backgroundColor: t.accent, color: '#fff', whiteSpace: 'nowrap' }}>
             <Plus size={13} /> 할일 추가

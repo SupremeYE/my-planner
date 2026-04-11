@@ -3,8 +3,22 @@ import type {
   Todo, Habit, Project, Milestone,
   SelfCareRecord, ReviewRecord, TimelineLog,
   Event, WeeklyGoal, MonthlyGoal, BrainstormItem, Tag, Routine,
-  PeriodRecord, HabitMonthlyMemo,
+  PeriodRecord, HabitMonthlyMemo, AnnualGoal, QuarterlyGoal,
 } from '../app/store';
+
+function parseAnnualProfilesFromDb(raw: unknown): Record<string, { identity: string; values: string[] }> {
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return {};
+  const out: Record<string, { identity: string; values: string[] }> = {};
+  for (const [k, v] of Object.entries(raw as Record<string, unknown>)) {
+    if (!/^\d{4}$/.test(k)) continue;
+    const o = v as { identity?: unknown; values?: unknown };
+    out[k] = {
+      identity: typeof o.identity === 'string' ? o.identity : '',
+      values: Array.isArray(o.values) ? o.values.filter((x): x is string => typeof x === 'string') : [],
+    };
+  }
+  return out;
+}
 
 // ── Row types (Supabase snake_case) ──────────────────────────────────────────
 
@@ -79,6 +93,7 @@ type WeeklyGoalRow = {
 
 type MonthlyGoalRow = {
   id: string; text: string; month: string; project_id: string | null;
+  annual_goal_id?: string | null;
 };
 
 type BrainstormItemRow = {
@@ -107,6 +122,14 @@ type PeriodRecordRow = {
   symptoms: string[];
   flow_level: string | null;
   memo: string | null;
+};
+
+type AnnualGoalRow = {
+  id: string; year: number; text: string; done: boolean;
+};
+
+type QuarterlyGoalRow = {
+  id: string; year: number; quarter: number; text: string; done: boolean;
 };
 
 // ── 변환 함수 ────────────────────────────────────────────────────────────────
@@ -271,11 +294,27 @@ const fromWeeklyGoal = (g: WeeklyGoal): WeeklyGoalRow => ({
 const toMonthlyGoal = (r: MonthlyGoalRow): MonthlyGoal => ({
   id: r.id, text: r.text, month: r.month,
   projectId: r.project_id ?? undefined,
+  annualGoalId: r.annual_goal_id ?? undefined,
 });
 
 const fromMonthlyGoal = (g: MonthlyGoal): MonthlyGoalRow => ({
   id: g.id, text: g.text, month: g.month,
   project_id: g.projectId ?? null,
+  annual_goal_id: g.annualGoalId ?? null,
+});
+
+const toAnnualGoal = (r: AnnualGoalRow): AnnualGoal => ({
+  id: r.id, year: r.year, text: r.text, done: r.done,
+});
+const fromAnnualGoal = (g: AnnualGoal): AnnualGoalRow => ({
+  id: g.id, year: g.year, text: g.text, done: g.done,
+});
+
+const toQuarterlyGoal = (r: QuarterlyGoalRow): QuarterlyGoal => ({
+  id: r.id, year: r.year, quarter: r.quarter, text: r.text, done: r.done,
+});
+const fromQuarterlyGoal = (g: QuarterlyGoal): QuarterlyGoalRow => ({
+  id: g.id, year: g.year, quarter: g.quarter, text: g.text, done: g.done,
 });
 
 const toBrainstormItem = (r: BrainstormItemRow): BrainstormItem => ({
@@ -607,16 +646,87 @@ export const db = {
   },
 
   settings: {
-    fetch: async (): Promise<{ dayStartHour: number; dayEndHour: number }> => {
+    fetch: async (): Promise<{ dayStartHour: number; dayEndHour: number; appSettings: Partial<import('../app/store').AppSettings> }> => {
       const { data, error } = await supabase
         .from('user_settings').select('*').eq('id', 'default').single();
-      if (error) { console.error('[db] settings fetch:', error.message); return { dayStartHour: 4, dayEndHour: 26 }; }
-      return { dayStartHour: data.day_start_hour, dayEndHour: data.day_end_hour };
+      if (error) { console.error('[db] settings fetch:', error.message); return { dayStartHour: 4, dayEndHour: 26, appSettings: {} }; }
+      let annualProfiles = parseAnnualProfilesFromDb(data.annual_profiles);
+      const cy = String(new Date().getFullYear());
+      const legacyId = (data.annual_identity ?? '').trim();
+      const legacyVals = (data.annual_values ?? []) as string[];
+      if (Object.keys(annualProfiles).length === 0 && (legacyId || legacyVals.length > 0)) {
+        annualProfiles = {
+          [cy]: { identity: data.annual_identity ?? '', values: legacyVals },
+        };
+      }
+      const cyProfile = annualProfiles[cy] ?? { identity: '', values: [] as string[] };
+      return {
+        dayStartHour: data.day_start_hour,
+        dayEndHour: data.day_end_hour,
+        appSettings: {
+          showQuarterlyGoals: data.show_quarterly_goals ?? false,
+          showWeeklyKpt: data.show_weekly_kpt ?? false,
+          showWeeklyHappiness: data.show_weekly_happiness ?? false,
+          showMonthlyKpt: data.show_monthly_kpt ?? false,
+          showHabitHeatmap: data.show_habit_heatmap ?? false,
+          habitAlarmDefault: data.habit_alarm_default ?? '',
+          globalAffirmation: data.global_affirmation ?? '',
+          annualProfiles,
+          annualIdentity: cyProfile.identity,
+          annualValues: cyProfile.values,
+        },
+      };
     },
-    upsert: async (dayStartHour: number, dayEndHour: number) => {
-      const { error } = await supabase
-        .from('user_settings').upsert({ id: 'default', day_start_hour: dayStartHour, day_end_hour: dayEndHour });
+    upsert: async (dayStartHour: number, dayEndHour: number, appSettings?: import('../app/store').AppSettings) => {
+      const payload: Record<string, unknown> = { id: 'default', day_start_hour: dayStartHour, day_end_hour: dayEndHour };
+      if (appSettings) {
+        payload.show_quarterly_goals = appSettings.showQuarterlyGoals;
+        payload.show_weekly_kpt = appSettings.showWeeklyKpt;
+        payload.show_weekly_happiness = appSettings.showWeeklyHappiness;
+        payload.show_monthly_kpt = appSettings.showMonthlyKpt;
+        payload.show_habit_heatmap = appSettings.showHabitHeatmap;
+        payload.habit_alarm_default = appSettings.habitAlarmDefault || null;
+        payload.global_affirmation = appSettings.globalAffirmation || null;
+        payload.annual_profiles = appSettings.annualProfiles ?? {};
+        const cy = String(new Date().getFullYear());
+        const slice = appSettings.annualProfiles?.[cy];
+        payload.annual_identity = slice?.identity?.trim() ? slice.identity : null;
+        payload.annual_values = slice?.values?.length ? slice.values : null;
+      }
+      const { error } = await supabase.from('user_settings').upsert(payload);
       if (error) console.error('[db] settings upsert:', error.message);
+    },
+  },
+
+  annualGoals: {
+    fetchAll: async (): Promise<AnnualGoal[]> => {
+      const { data, error } = await supabase.from('annual_goals').select('*').order('created_at');
+      if (error) console.error('[db] annual_goals fetch:', error.message);
+      return (data ?? []).map(toAnnualGoal);
+    },
+    upsert: async (goal: AnnualGoal) => {
+      const { error } = await supabase.from('annual_goals').upsert(fromAnnualGoal(goal));
+      if (error) console.error('[db] annual_goals upsert:', error.message);
+    },
+    delete: async (id: string) => {
+      const { error } = await supabase.from('annual_goals').delete().eq('id', id);
+      if (error) console.error('[db] annual_goals delete:', error.message);
+    },
+  },
+
+  quarterlyGoals: {
+    fetchAll: async (): Promise<QuarterlyGoal[]> => {
+      const { data, error } = await supabase.from('quarterly_goals').select('*').order('created_at');
+      if (error) console.error('[db] quarterly_goals fetch:', error.message);
+      return (data ?? []).map(toQuarterlyGoal);
+    },
+    upsert: async (goal: QuarterlyGoal) => {
+      const { error } = await supabase.from('quarterly_goals').upsert(fromQuarterlyGoal(goal));
+      if (error) console.error('[db] quarterly_goals upsert:', error.message);
+    },
+    delete: async (id: string) => {
+      const { error } = await supabase.from('quarterly_goals').delete().eq('id', id);
+      if (error) console.error('[db] quarterly_goals delete:', error.message);
     },
   },
 };

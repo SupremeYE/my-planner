@@ -4,8 +4,8 @@
   "description": "나만의 생산성 플래너 - 일간, 주간, 월간 계획 관리",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#FAF8F5",
-  "theme_color": "#C8A97E",
+  "background_color": "#f6fafe",
+  "theme_color": "#515f74",
   "orientation": "portrait-primary",
   "lang": "ko",
   "icons": [

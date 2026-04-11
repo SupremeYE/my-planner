@@ -26,6 +26,7 @@ export function ReviewsView() {
     weeklyReviews, addWeeklyReview, updateWeeklyReview,
     monthlyReviews, addMonthlyReview, updateMonthlyReview,
     habits, todos, selectedDate,
+    appSettings,
   } = usePlanner();
   const { t } = useTheme();
   const [tab, setTab] = useState<'today' | 'list' | 'weekly' | 'monthly'>('today');
@@ -76,6 +77,10 @@ export function ReviewsView() {
   const [wrGood, setWrGood] = useState(weeklyReview?.good || '');
   const [wrHard, setWrHard] = useState(weeklyReview?.hard || '');
   const [wrNext, setWrNext] = useState(weeklyReview?.nextWeek || '');
+  const [wrKptKeep, setWrKptKeep] = useState('');
+  const [wrKptProblem, setWrKptProblem] = useState('');
+  const [wrKptTry, setWrKptTry] = useState('');
+  const [wrHappiness, setWrHappiness] = useState('');
 
   const saveWeeklyReview = () => {
     if (weeklyReview) updateWeeklyReview(weeklyReview.id, { good: wrGood, hard: wrHard, nextWeek: wrNext });
@@ -86,6 +91,9 @@ export function ReviewsView() {
   const monthlyReview = monthlyReviews.find(r => r.month === currentMonth);
   const [mrAchievement, setMrAchievement] = useState(monthlyReview?.achievement || '');
   const [mrFocus, setMrFocus] = useState(monthlyReview?.nextFocus || '');
+  const [mrKptKeep, setMrKptKeep] = useState('');
+  const [mrKptProblem, setMrKptProblem] = useState('');
+  const [mrKptTry, setMrKptTry] = useState('');
 
   const saveMonthlyReview = () => {
     if (monthlyReview) updateMonthlyReview(monthlyReview.id, { achievement: mrAchievement, nextFocus: mrFocus });
@@ -191,7 +199,7 @@ export function ReviewsView() {
                 <h3 style={{ fontSize: 13, fontWeight: 700, color: t.text, marginBottom: 12 }}>🔄 KPT 회고</h3>
                 <div className="space-y-3">
                   <div>
-                    <label style={{ fontSize: 11, color: '#6BAA7A', fontWeight: 600 }}>Keep (유지할 것)</label>
+                    <label style={{ fontSize: 11, color: '#006b62', fontWeight: 600 }}>Keep (유지할 것)</label>
                     <textarea value={kptKeep} onChange={e => setKptKeep(e.target.value)} rows={2}
                       className="w-full mt-1 rounded-lg px-3 py-2 border outline-none resize-none" style={inputStyle} />
                   </div>
@@ -230,7 +238,7 @@ export function ReviewsView() {
                       className="w-full mt-1 rounded-lg px-3 py-2 border outline-none" style={inputStyle} />
                   </div>
                   <div>
-                    <label style={{ fontSize: 11, color: '#6BAA7A', fontWeight: 600 }}>잘한 점</label>
+                    <label style={{ fontSize: 11, color: '#006b62', fontWeight: 600 }}>잘한 점</label>
                     <textarea value={dailyGood} onChange={e => setDailyGood(e.target.value)} rows={2}
                       className="w-full mt-1 rounded-lg px-3 py-2 border outline-none resize-none" style={inputStyle} />
                   </div>
@@ -312,7 +320,7 @@ export function ReviewsView() {
               <h3 style={{ fontSize: 13, fontWeight: 700, color: t.text, marginBottom: 12 }}>주간 리뷰 ({currentWeekKey})</h3>
               <div className="space-y-3">
                 <div>
-                  <label style={{ fontSize: 11, color: '#6BAA7A', fontWeight: 600 }}>잘한 것</label>
+                  <label style={{ fontSize: 11, color: '#006b62', fontWeight: 600 }}>잘한 것</label>
                   <textarea value={wrGood} onChange={e => setWrGood(e.target.value)} rows={3}
                     className="w-full mt-1 rounded-lg px-3 py-2 border outline-none resize-none" style={inputStyle} />
                 </div>
@@ -327,6 +335,41 @@ export function ReviewsView() {
                     className="w-full mt-1 rounded-lg px-3 py-2 border outline-none resize-none" style={inputStyle} />
                 </div>
               </div>
+
+              {/* KPT 섹션 — 설정에서 ON 시 표시 */}
+              {appSettings.showWeeklyKpt && (
+                <div className="mt-4 p-4 rounded-xl" style={{ backgroundColor: t.card, border: `1px solid ${t.borderLight}` }}>
+                  <h3 style={{ fontSize: 13, fontWeight: 700, color: t.text, marginBottom: 12 }}>🔄 KPT 주간 회고</h3>
+                  <div className="space-y-3">
+                    <div>
+                      <label style={{ fontSize: 11, color: '#006b62', fontWeight: 600 }}>Keep (유지할 것)</label>
+                      <textarea value={wrKptKeep} onChange={e => setWrKptKeep(e.target.value)} rows={2}
+                        className="w-full mt-1 rounded-lg px-3 py-2 border outline-none resize-none" style={inputStyle} />
+                    </div>
+                    <div>
+                      <label style={{ fontSize: 11, color: '#D4735A', fontWeight: 600 }}>Problem (문제점)</label>
+                      <textarea value={wrKptProblem} onChange={e => setWrKptProblem(e.target.value)} rows={2}
+                        className="w-full mt-1 rounded-lg px-3 py-2 border outline-none resize-none" style={inputStyle} />
+                    </div>
+                    <div>
+                      <label style={{ fontSize: 11, color: '#7B9ED9', fontWeight: 600 }}>Try (시도할 것)</label>
+                      <textarea value={wrKptTry} onChange={e => setWrKptTry(e.target.value)} rows={2}
+                        className="w-full mt-1 rounded-lg px-3 py-2 border outline-none resize-none" style={inputStyle} />
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* 행복했던 일 섹션 — 설정에서 ON 시 표시 */}
+              {appSettings.showWeeklyHappiness && (
+                <div className="mt-4 p-4 rounded-xl" style={{ backgroundColor: t.card, border: `1px solid ${t.borderLight}` }}>
+                  <h3 style={{ fontSize: 13, fontWeight: 700, color: t.text, marginBottom: 12 }}>✨ 이번 주 행복했던 일</h3>
+                  <textarea value={wrHappiness} onChange={e => setWrHappiness(e.target.value)}
+                    placeholder="이번 주 행복했던 순간을 적어보세요" rows={3}
+                    className="w-full rounded-lg px-3 py-2 border outline-none resize-none" style={inputStyle} />
+                </div>
+              )}
+
               <button onClick={saveWeeklyReview}
                 className="w-full mt-4 py-2.5 rounded-xl"
                 style={{ fontSize: 13, fontWeight: 600, backgroundColor: t.accent, color: '#fff' }}>
@@ -342,7 +385,7 @@ export function ReviewsView() {
             <h3 style={{ fontSize: 13, fontWeight: 700, color: t.text, marginBottom: 12 }}>월간 리뷰 ({currentMonth})</h3>
             <div className="space-y-4">
               <div>
-                <label style={{ fontSize: 11, color: '#C4A882', fontWeight: 600 }}>가장 큰 성취</label>
+                <label style={{ fontSize: 11, color: '#515f74', fontWeight: 600 }}>가장 큰 성취</label>
                 <textarea value={mrAchievement} onChange={e => setMrAchievement(e.target.value)}
                   placeholder="이번 달 가장 자랑스러운 성취는?" rows={4}
                   className="w-full mt-1 rounded-lg px-3 py-2 border outline-none resize-none" style={inputStyle} />
@@ -353,6 +396,27 @@ export function ReviewsView() {
                   placeholder="다음 달에 집중하고 싶은 것은?" rows={4}
                   className="w-full mt-1 rounded-lg px-3 py-2 border outline-none resize-none" style={inputStyle} />
               </div>
+              {/* KPT 섹션 — 설정에서 ON 시 표시 */}
+              {appSettings.showMonthlyKpt && (
+                <div className="mt-2 space-y-3">
+                  <h4 style={{ fontSize: 12, fontWeight: 700, color: t.textSub }}>🔄 KPT 월간 회고</h4>
+                  <div>
+                    <label style={{ fontSize: 11, color: '#006b62', fontWeight: 600 }}>Keep</label>
+                    <textarea value={mrKptKeep} onChange={e => setMrKptKeep(e.target.value)} rows={2}
+                      className="w-full mt-1 rounded-lg px-3 py-2 border outline-none resize-none" style={inputStyle} />
+                  </div>
+                  <div>
+                    <label style={{ fontSize: 11, color: '#D4735A', fontWeight: 600 }}>Problem</label>
+                    <textarea value={mrKptProblem} onChange={e => setMrKptProblem(e.target.value)} rows={2}
+                      className="w-full mt-1 rounded-lg px-3 py-2 border outline-none resize-none" style={inputStyle} />
+                  </div>
+                  <div>
+                    <label style={{ fontSize: 11, color: '#7B9ED9', fontWeight: 600 }}>Try</label>
+                    <textarea value={mrKptTry} onChange={e => setMrKptTry(e.target.value)} rows={2}
+                      className="w-full mt-1 rounded-lg px-3 py-2 border outline-none resize-none" style={inputStyle} />
+                  </div>
+                </div>
+              )}
             </div>
             <button onClick={saveMonthlyReview}
               className="w-full mt-4 py-2.5 rounded-xl"

@@ -1,24 +1,19 @@
 import { useEffect, useMemo, useState } from 'react';
 import { format, addDays, subDays, parseISO } from 'date-fns';
 import { ko } from 'date-fns/locale';
-import { ChevronLeft, ChevronRight, Star, X } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Star, Trash2, X } from 'lucide-react';
 import { usePlanner, Todo } from '../store';
 import { useTheme } from '../ThemeContext';
 import ConfirmModal from './ConfirmModal';
 import { TimePicker } from './TimePicker';
 
-const TAG_COLORS = [
+const DEFAULT_TAG_COLORS = [
   '#E0795B', '#D4735A', '#E8A87C', '#F4A261',
-  '#5B8FE0', '#4A82CC', '#60A5FA', '#3B82F6',
-  '#5BC8AF', '#45B899', '#34D399', '#6BAA7A',
-  '#A07BE0', '#8B7CF8', '#9B8FFA', '#C084FC',
-  '#5BC86E', '#22C55E', '#84CC16', '#059669',
-  '#F59E0B', '#C9A84C', '#C4A882', '#D97706',
-  '#EF4444', '#F87171', '#EC4899', '#DB2777',
-  '#6B7280', '#94A3B8', '#475569', '#1E293B',
+  '#4A82CC', '#3B82F6', '#45B899', '#34D399',
+  '#006b62', '#8B7CF8', '#22C55E', '#515f74', '#475569',
 ];
-const CUSTOM_TAG_COLORS_KEY = 'customTagPaletteColors';
-const MAX_CUSTOM_TAG_COLORS = 14;
+const TAG_PALETTE_KEY = 'tagPaletteColors';
+const MAX_TAG_COLORS = 13;
 
 interface TodoModalProps {
   /** date prop이 있으면 날짜 고정 (일간 페이지 모드).
@@ -57,12 +52,12 @@ export function TodoModal({ date, todo, onClose }: TodoModalProps) {
   const [projectId, setProjectId] = useState(todo?.projectId ?? '');
   const [showNewTag, setShowNewTag] = useState(false);
   const [newTagName, setNewTagName] = useState('');
-  const [newTagColor, setNewTagColor] = useState(TAG_COLORS[0]);
-  const [newTagPaletteColor, setNewTagPaletteColor] = useState<string | null>(TAG_COLORS[0]);
-  const [customTagColors, setCustomTagColors] = useState<string[]>([]);
+  const [newTagColor, setNewTagColor] = useState(DEFAULT_TAG_COLORS[0]);
+  const [newTagPaletteColor, setNewTagPaletteColor] = useState<string | null>(DEFAULT_TAG_COLORS[0]);
+  const [paletteColors, setPaletteColors] = useState<string[]>(DEFAULT_TAG_COLORS);
   const [editingTagId, setEditingTagId] = useState<string | null>(null);
   const [editingTagName, setEditingTagName] = useState('');
-  const [editingTagColor, setEditingTagColor] = useState(TAG_COLORS[0]);
+  const [editingTagColor, setEditingTagColor] = useState(DEFAULT_TAG_COLORS[0]);
   const [editingTagPaletteColor, setEditingTagPaletteColor] = useState<string | null>(null);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [deletingTagId, setDeletingTagId] = useState<string | null>(null);
@@ -74,7 +69,6 @@ export function TodoModal({ date, todo, onClose }: TodoModalProps) {
     const withHash = trimmed.startsWith('#') ? trimmed : `#${trimmed}`;
     return withHash.toUpperCase();
   };
-  const paletteColors = useMemo(() => [...TAG_COLORS, ...customTagColors], [customTagColors]);
   const normalizedNewTagColor = useMemo(() => {
     return normalizeHex(newTagColor);
   }, [newTagColor]);
@@ -83,46 +77,72 @@ export function TodoModal({ date, todo, onClose }: TodoModalProps) {
   }, [editingTagColor]);
   const newTagColorValid = isValidHex(normalizedNewTagColor);
   const editingTagColorValid = isValidHex(normalizedEditingTagColor);
-  const canUseNewTagColor =
-    TAG_COLORS.includes(normalizedNewTagColor) ||
-    customTagColors.includes(normalizedNewTagColor) ||
-    customTagColors.length < MAX_CUSTOM_TAG_COLORS;
-  const canUseEditingTagColor =
-    TAG_COLORS.includes(normalizedEditingTagColor) ||
-    customTagColors.includes(normalizedEditingTagColor) ||
-    customTagColors.length < MAX_CUSTOM_TAG_COLORS;
+  const newTagNeedsCustomSlot =
+    newTagColorValid &&
+    !paletteColors.includes(normalizedNewTagColor);
+  const editingTagNeedsCustomSlot =
+    editingTagColorValid &&
+    !paletteColors.includes(normalizedEditingTagColor);
+  const newTagColorLimitExceeded = newTagNeedsCustomSlot && paletteColors.length >= MAX_TAG_COLORS;
+  const editingTagColorLimitExceeded = editingTagNeedsCustomSlot && paletteColors.length >= MAX_TAG_COLORS;
 
   useEffect(() => {
     try {
-      const raw = localStorage.getItem(CUSTOM_TAG_COLORS_KEY);
+      const raw = localStorage.getItem(TAG_PALETTE_KEY);
       if (!raw) return;
       const parsed = JSON.parse(raw);
       if (!Array.isArray(parsed)) return;
       const filtered = parsed
         .map((v: string) => normalizeHex(v))
-        .filter((v: string) => isValidHex(v) && !TAG_COLORS.includes(v))
-        .slice(0, MAX_CUSTOM_TAG_COLORS);
-      setCustomTagColors(filtered);
+        .filter((v: string) => isValidHex(v))
+        .slice(0, MAX_TAG_COLORS);
+      if (filtered.length > 0) setPaletteColors(filtered);
     } catch {
-      setCustomTagColors([]);
+      setPaletteColors(DEFAULT_TAG_COLORS);
     }
   }, []);
 
   useEffect(() => {
     try {
-      localStorage.setItem(CUSTOM_TAG_COLORS_KEY, JSON.stringify(customTagColors));
+      localStorage.setItem(TAG_PALETTE_KEY, JSON.stringify(paletteColors));
     } catch {
       // noop
     }
-  }, [customTagColors]);
+  }, [paletteColors]);
 
-  const addColorToCustomPalette = (color: string): boolean => {
+  const addColorToPalette = (color: string): boolean => {
     const normalized = normalizeHex(color);
     if (!isValidHex(normalized)) return false;
-    if (TAG_COLORS.includes(normalized) || customTagColors.includes(normalized)) return true;
-    if (customTagColors.length >= MAX_CUSTOM_TAG_COLORS) return false;
-    setCustomTagColors(prev => [normalized, ...prev].slice(0, MAX_CUSTOM_TAG_COLORS));
+    if (paletteColors.includes(normalized)) return true;
+    if (paletteColors.length >= MAX_TAG_COLORS) return false;
+    setPaletteColors(prev => [normalized, ...prev].slice(0, MAX_TAG_COLORS));
     return true;
+  };
+
+  const replacePaletteColor = (fromColor: string, toColor: string): boolean => {
+    const from = normalizeHex(fromColor);
+    const to = normalizeHex(toColor);
+    if (!paletteColors.includes(from) || !isValidHex(to)) return false;
+    setPaletteColors(prev => {
+      const withoutFrom = prev.filter(c => c !== from);
+      if (withoutFrom.includes(to)) return withoutFrom;
+      return [to, ...withoutFrom].slice(0, MAX_TAG_COLORS);
+    });
+    return true;
+  };
+
+  const removePaletteColor = (color: string) => {
+    const normalized = normalizeHex(color);
+    const nextPalette = paletteColors.filter(c => c !== normalized);
+    setPaletteColors(nextPalette);
+    if (newTagPaletteColor === normalized) {
+      setNewTagPaletteColor(nextPalette[0] ?? null);
+      setNewTagColor(nextPalette[0] ?? normalized);
+    }
+    if (editingTagPaletteColor === normalized) {
+      setEditingTagPaletteColor(nextPalette[0] ?? null);
+      setEditingTagColor(nextPalette[0] ?? normalized);
+    }
   };
 
   const toggleTag = (tagId: string) => {
@@ -132,12 +152,12 @@ export function TodoModal({ date, todo, onClose }: TodoModalProps) {
   };
 
   const handleCreateTag = () => {
-    if (!newTagName.trim() || !newTagColorValid || !canUseNewTagColor) return;
-    if (!addColorToCustomPalette(normalizedNewTagColor)) return;
+    if (!newTagName.trim() || !newTagColorValid || newTagColorLimitExceeded) return;
+    if (!addColorToPalette(normalizedNewTagColor)) return;
     addTag(newTagName.trim(), normalizedNewTagColor);
     setNewTagName('');
-    setNewTagColor(TAG_COLORS[0]);
-    setNewTagPaletteColor(TAG_COLORS[0]);
+    setNewTagColor(paletteColors[0] || DEFAULT_TAG_COLORS[0]);
+    setNewTagPaletteColor(paletteColors[0] || DEFAULT_TAG_COLORS[0]);
     setShowNewTag(false);
   };
 
@@ -146,19 +166,19 @@ export function TodoModal({ date, todo, onClose }: TodoModalProps) {
     setEditingTagId(id);
     setEditingTagName(name);
     setEditingTagColor(normalizedColor);
-    setEditingTagPaletteColor(TAG_COLORS.includes(normalizedColor) ? normalizedColor : null);
+    setEditingTagPaletteColor(paletteColors.includes(normalizedColor) ? normalizedColor : null);
   };
 
   const cancelEditTag = () => {
     setEditingTagId(null);
     setEditingTagName('');
-    setEditingTagColor(TAG_COLORS[0]);
+    setEditingTagColor(paletteColors[0] || DEFAULT_TAG_COLORS[0]);
     setEditingTagPaletteColor(null);
   };
 
   const handleUpdateTag = () => {
-    if (!editingTagId || !editingTagName.trim() || !editingTagColorValid || !canUseEditingTagColor) return;
-    if (!addColorToCustomPalette(normalizedEditingTagColor)) return;
+    if (!editingTagId || !editingTagName.trim() || !editingTagColorValid || editingTagColorLimitExceeded) return;
+    if (!addColorToPalette(normalizedEditingTagColor)) return;
     updateTag(editingTagId, {
       name: editingTagName.trim(),
       color: normalizedEditingTagColor,
@@ -361,30 +381,6 @@ export function TodoModal({ date, todo, onClose }: TodoModalProps) {
                     >
                       {tag.name}
                     </button>
-                    <button
-                      onClick={() => startEditTag(tag.id, tag.name, tag.color)}
-                      className="px-1.5 py-0.5 rounded-lg"
-                      style={{
-                        fontSize: 10,
-                        color: t.textSub,
-                        border: `1px solid ${t.border}`,
-                        backgroundColor: t.card,
-                      }}
-                    >
-                      편집
-                    </button>
-                    <button
-                      onClick={() => setDeletingTagId(tag.id)}
-                      className="px-1.5 py-0.5 rounded-lg"
-                      style={{
-                        fontSize: 10,
-                        color: '#DC2626',
-                        border: '1px solid #FCA5A5',
-                        backgroundColor: '#FEF2F2',
-                      }}
-                    >
-                      삭제
-                    </button>
                   </div>
                 );
               })}
@@ -407,7 +403,7 @@ export function TodoModal({ date, todo, onClose }: TodoModalProps) {
                   onChange={e => setNewTagName(e.target.value)}
                   placeholder="태그 이름"
                   autoFocus
-                  className="w-full rounded-lg px-2.5 py-1.5 outline-none"
+                  className="w-full rounded-lg px-2.5 py-1.5 outline-none mb-3"
                   style={{
                     border: `1px solid ${t.border}`,
                     fontSize: 12,
@@ -415,57 +411,25 @@ export function TodoModal({ date, todo, onClose }: TodoModalProps) {
                     color: t.text,
                   }}
                 />
-                <div className="flex flex-wrap gap-1">
-                  {TAG_COLORS.map(c => (
-                    <button
-                      key={c}
-                      onClick={() => {
-                        setNewTagColor(c);
-                        setNewTagPaletteColor(c);
-                      }}
-                      className="w-5 h-5 rounded-full transition-transform"
-                      style={{
-                        backgroundColor: c,
-                        outline: newTagPaletteColor === c ? `2px solid ${c}` : 'none',
-                        outlineOffset: 1,
-                        transform: newTagPaletteColor === c ? 'scale(1.2)' : 'scale(1)',
-                      }}
-                    />
+                <div className="flex flex-nowrap gap-1 overflow-x-auto overflow-y-visible px-1 pt-1 pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+                  {paletteColors.map(c => (
+                    <div key={`new-${c}`} className="relative shrink-0">
+                      <button
+                        onClick={() => {
+                          setNewTagColor(c);
+                          setNewTagPaletteColor(c);
+                        }}
+                        className="h-5 w-5 rounded-full transition-transform"
+                        style={{
+                          backgroundColor: c,
+                          outline: newTagPaletteColor === c ? `2px solid ${c}` : 'none',
+                          outlineOffset: 1,
+                          transform: newTagPaletteColor === c ? 'scale(1.06)' : 'scale(1)',
+                        }}
+                      />
+                    </div>
                   ))}
                 </div>
-                {customTagColors.length > 0 && (
-                  <div className="flex flex-wrap gap-1">
-                    {customTagColors.map(c => (
-                      <div key={`custom-new-${c}`} className="relative">
-                        <button
-                          onClick={() => {
-                            setNewTagColor(c);
-                            setNewTagPaletteColor(c);
-                          }}
-                          className="w-5 h-5 rounded-full transition-transform"
-                          style={{
-                            backgroundColor: c,
-                            outline: newTagPaletteColor === c ? `2px solid ${c}` : 'none',
-                            outlineOffset: 1,
-                            transform: newTagPaletteColor === c ? 'scale(1.2)' : 'scale(1)',
-                          }}
-                        />
-                        <button
-                          onClick={e => {
-                            e.stopPropagation();
-                            setCustomTagColors(prev => prev.filter(color => color !== c));
-                            if (newTagPaletteColor === c) setNewTagPaletteColor(null);
-                            if (editingTagPaletteColor === c) setEditingTagPaletteColor(null);
-                          }}
-                          className="absolute -right-1 -top-1 h-3.5 w-3.5 rounded-full text-[9px] leading-[1] text-white"
-                          style={{ backgroundColor: '#DC2626' }}
-                        >
-                          x
-                        </button>
-                      </div>
-                    ))}
-                  </div>
-                )}
                 <div className="flex items-center gap-2">
                   <div
                     className="w-5 h-5 rounded-full border"
@@ -481,6 +445,13 @@ export function TodoModal({ date, todo, onClose }: TodoModalProps) {
                       setNewTagColor(next);
                       setNewTagPaletteColor(paletteColors.includes(next) ? next : null);
                     }}
+                    onKeyDown={e => {
+                      if (e.key !== 'Enter' || !newTagColorValid || !newTagPaletteColor) return;
+                      if (!paletteColors.includes(newTagPaletteColor)) return;
+                      e.preventDefault();
+                      const replaced = replacePaletteColor(newTagPaletteColor, normalizedNewTagColor);
+                      if (replaced) setNewTagPaletteColor(normalizedNewTagColor);
+                    }}
                     placeholder="#FF5733"
                     className="flex-1 rounded-lg px-2.5 py-1.5 outline-none"
                     style={{
@@ -490,6 +461,22 @@ export function TodoModal({ date, todo, onClose }: TodoModalProps) {
                       color: t.text,
                     }}
                   />
+                  <button
+                    type="button"
+                    onClick={() => newTagPaletteColor && removePaletteColor(newTagPaletteColor)}
+                    disabled={!newTagPaletteColor}
+                    className="flex h-8 w-8 items-center justify-center rounded-lg"
+                    style={{
+                      border: `1px solid ${newTagPaletteColor ? '#FCA5A5' : t.border}`,
+                      backgroundColor: newTagPaletteColor ? '#FEF2F2' : t.card,
+                      color: newTagPaletteColor ? '#DC2626' : t.textMuted,
+                      opacity: newTagPaletteColor ? 1 : 0.5,
+                      cursor: newTagPaletteColor ? 'pointer' : 'not-allowed',
+                    }}
+                    aria-label="선택한 팔레트 색상 삭제"
+                  >
+                    <Trash2 size={14} />
+                  </button>
                 </div>
                 <div
                   className="inline-flex items-center rounded-full px-2.5 py-1"
@@ -500,25 +487,28 @@ export function TodoModal({ date, todo, onClose }: TodoModalProps) {
                     backgroundColor: newTagColorValid ? `${normalizedNewTagColor}22` : t.bgSub,
                   }}
                 >
-                  {newTagName.trim() || '태그 미리보기'}
+                  {newTagName.trim() || 'TAG'}
                 </div>
-                {newTagColorValid && !canUseNewTagColor && (
-                  <div style={{ fontSize: 11, color: '#DC2626' }}>
-                    팔레트 색상은 최대 14개까지 저장됩니다. 기존 색상을 지워주세요.
-                  </div>
-                )}
+                <div
+                  style={{
+                    fontSize: 11,
+                    color: newTagColorLimitExceeded ? '#DC2626' : t.textSub,
+                  }}
+                >
+                  팔레트는 최대 13개까지 저장됩니다. 새 색을 추가하려면 기존 색을 삭제하세요.
+                </div>
                 <div className="flex gap-1.5">
                   <button
                     onClick={handleCreateTag}
-                    disabled={!newTagName.trim() || !newTagColorValid || !canUseNewTagColor}
+                    disabled={!newTagName.trim() || !newTagColorValid || newTagColorLimitExceeded}
                     className="flex-1 py-1 rounded-lg"
                     style={{
                       backgroundColor: t.accent,
                       color: '#fff',
                       fontSize: 11,
                       fontWeight: 600,
-                      opacity: newTagName.trim() && newTagColorValid && canUseNewTagColor ? 1 : 0.5,
-                      cursor: newTagName.trim() && newTagColorValid && canUseNewTagColor ? 'pointer' : 'not-allowed',
+                      opacity: newTagName.trim() && newTagColorValid && !newTagColorLimitExceeded ? 1 : 0.5,
+                      cursor: newTagName.trim() && newTagColorValid && !newTagColorLimitExceeded ? 'pointer' : 'not-allowed',
                     }}
                   >
                     추가
@@ -549,7 +539,7 @@ export function TodoModal({ date, todo, onClose }: TodoModalProps) {
                   value={editingTagName}
                   onChange={e => setEditingTagName(e.target.value)}
                   placeholder="태그 이름"
-                  className="w-full rounded-lg px-2.5 py-1.5 outline-none"
+                  className="w-full rounded-lg px-2.5 py-1.5 outline-none mb-3"
                   style={{
                     border: `1px solid ${t.border}`,
                     fontSize: 12,
@@ -557,57 +547,25 @@ export function TodoModal({ date, todo, onClose }: TodoModalProps) {
                     color: t.text,
                   }}
                 />
-                <div className="flex flex-wrap gap-1">
-                  {TAG_COLORS.map(c => (
-                    <button
-                      key={`edit-${c}`}
-                      onClick={() => {
-                        setEditingTagColor(c);
-                        setEditingTagPaletteColor(c);
-                      }}
-                      className="w-5 h-5 rounded-full transition-transform"
-                      style={{
-                        backgroundColor: c,
-                        outline: editingTagPaletteColor === c ? `2px solid ${c}` : 'none',
-                        outlineOffset: 1,
-                        transform: editingTagPaletteColor === c ? 'scale(1.2)' : 'scale(1)',
-                      }}
-                    />
+                <div className="flex flex-nowrap gap-1 overflow-x-auto overflow-y-visible px-1 pt-1 pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+                  {paletteColors.map(c => (
+                    <div key={`edit-${c}`} className="relative shrink-0">
+                      <button
+                        onClick={() => {
+                          setEditingTagColor(c);
+                          setEditingTagPaletteColor(c);
+                        }}
+                        className="h-5 w-5 rounded-full transition-transform"
+                        style={{
+                          backgroundColor: c,
+                          outline: editingTagPaletteColor === c ? `2px solid ${c}` : 'none',
+                          outlineOffset: 1,
+                          transform: editingTagPaletteColor === c ? 'scale(1.06)' : 'scale(1)',
+                        }}
+                      />
+                    </div>
                   ))}
                 </div>
-                {customTagColors.length > 0 && (
-                  <div className="flex flex-wrap gap-1">
-                    {customTagColors.map(c => (
-                      <div key={`custom-edit-${c}`} className="relative">
-                        <button
-                          onClick={() => {
-                            setEditingTagColor(c);
-                            setEditingTagPaletteColor(c);
-                          }}
-                          className="w-5 h-5 rounded-full transition-transform"
-                          style={{
-                            backgroundColor: c,
-                            outline: editingTagPaletteColor === c ? `2px solid ${c}` : 'none',
-                            outlineOffset: 1,
-                            transform: editingTagPaletteColor === c ? 'scale(1.2)' : 'scale(1)',
-                          }}
-                        />
-                        <button
-                          onClick={e => {
-                            e.stopPropagation();
-                            setCustomTagColors(prev => prev.filter(color => color !== c));
-                            if (newTagPaletteColor === c) setNewTagPaletteColor(null);
-                            if (editingTagPaletteColor === c) setEditingTagPaletteColor(null);
-                          }}
-                          className="absolute -right-1 -top-1 h-3.5 w-3.5 rounded-full text-[9px] leading-[1] text-white"
-                          style={{ backgroundColor: '#DC2626' }}
-                        >
-                          x
-                        </button>
-                      </div>
-                    ))}
-                  </div>
-                )}
                 <div className="flex items-center gap-2">
                   <div
                     className="w-5 h-5 rounded-full border"
@@ -623,6 +581,13 @@ export function TodoModal({ date, todo, onClose }: TodoModalProps) {
                       setEditingTagColor(next);
                       setEditingTagPaletteColor(paletteColors.includes(next) ? next : null);
                     }}
+                    onKeyDown={e => {
+                      if (e.key !== 'Enter' || !editingTagColorValid || !editingTagPaletteColor) return;
+                      if (!paletteColors.includes(editingTagPaletteColor)) return;
+                      e.preventDefault();
+                      const replaced = replacePaletteColor(editingTagPaletteColor, normalizedEditingTagColor);
+                      if (replaced) setEditingTagPaletteColor(normalizedEditingTagColor);
+                    }}
                     placeholder="#FF5733"
                     className="flex-1 rounded-lg px-2.5 py-1.5 outline-none"
                     style={{
@@ -632,6 +597,22 @@ export function TodoModal({ date, todo, onClose }: TodoModalProps) {
                       color: t.text,
                     }}
                   />
+                  <button
+                    type="button"
+                    onClick={() => editingTagPaletteColor && removePaletteColor(editingTagPaletteColor)}
+                    disabled={!editingTagPaletteColor}
+                    className="flex h-8 w-8 items-center justify-center rounded-lg"
+                    style={{
+                      border: `1px solid ${editingTagPaletteColor ? '#FCA5A5' : t.border}`,
+                      backgroundColor: editingTagPaletteColor ? '#FEF2F2' : t.card,
+                      color: editingTagPaletteColor ? '#DC2626' : t.textMuted,
+                      opacity: editingTagPaletteColor ? 1 : 0.5,
+                      cursor: editingTagPaletteColor ? 'pointer' : 'not-allowed',
+                    }}
+                    aria-label="선택한 팔레트 색상 삭제"
+                  >
+                    <Trash2 size={14} />
+                  </button>
                 </div>
                 <div
                   className="inline-flex items-center rounded-full px-2.5 py-1"
@@ -642,25 +623,28 @@ export function TodoModal({ date, todo, onClose }: TodoModalProps) {
                     backgroundColor: editingTagColorValid ? `${normalizedEditingTagColor}22` : t.bgSub,
                   }}
                 >
-                  {editingTagName.trim() || '태그 미리보기'}
+                  {editingTagName.trim() || 'TAG'}
                 </div>
-                {editingTagColorValid && !canUseEditingTagColor && (
-                  <div style={{ fontSize: 11, color: '#DC2626' }}>
-                    팔레트 색상은 최대 14개까지 저장됩니다. 기존 색상을 지워주세요.
-                  </div>
-                )}
+                <div
+                  style={{
+                    fontSize: 11,
+                    color: editingTagColorLimitExceeded ? '#DC2626' : t.textSub,
+                  }}
+                >
+                  팔레트는 최대 13개까지 저장됩니다. 새 색을 추가하려면 기존 색을 삭제하세요.
+                </div>
                 <div className="flex gap-1.5">
                   <button
                     onClick={handleUpdateTag}
-                    disabled={!editingTagName.trim() || !editingTagColorValid || !canUseEditingTagColor}
+                    disabled={!editingTagName.trim() || !editingTagColorValid || editingTagColorLimitExceeded}
                     className="flex-1 py-1 rounded-lg"
                     style={{
                       backgroundColor: t.accent,
                       color: '#fff',
                       fontSize: 11,
                       fontWeight: 600,
-                      opacity: editingTagName.trim() && editingTagColorValid && canUseEditingTagColor ? 1 : 0.5,
-                      cursor: editingTagName.trim() && editingTagColorValid && canUseEditingTagColor ? 'pointer' : 'not-allowed',
+                      opacity: editingTagName.trim() && editingTagColorValid && !editingTagColorLimitExceeded ? 1 : 0.5,
+                      cursor: editingTagName.trim() && editingTagColorValid && !editingTagColorLimitExceeded ? 'pointer' : 'not-allowed',
                     }}
                   >
                     저장

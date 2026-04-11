@@ -13,7 +13,7 @@ import { TodoModal } from './TodoModal';
 const STATUS_CONFIG: Record<string, { label: string; color: string; bgColor: string }> = {
   active:     { label: '예정',   color: '#6B7280', bgColor: '#F3F4F6' },
   inProgress: { label: '진행중', color: '#059669', bgColor: '#D1FAE5' },
-  done:       { label: '완료',   color: '#C4A882', bgColor: '#F5E6CC' },
+  done:       { label: '완료',   color: '#515f74', bgColor: '#d5e3fd' },
   snoozed:    { label: '미루기', color: '#D97706', bgColor: '#FEF3C7' },
   backlog:    { label: '보관',   color: '#9CA3AF', bgColor: '#F3F4F6' },
   cancelled:  { label: '취소',   color: '#DC2626', bgColor: '#FEE2E2' },
@@ -131,7 +131,7 @@ function TodoRow({
                   </span>
                 )}
                 {todo.dueDate && (
-                  <span style={{ fontSize: 10, color: duePast ? '#E05C5C' : t.textSub }}>
+                  <span style={{ fontSize: 10, color: duePast ? '#9f403d' : t.textSub }}>
                     마감 {format(parseISO(todo.dueDate), 'M/d')}
                   </span>
                 )}

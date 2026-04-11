@@ -3,7 +3,7 @@ import { Outlet, NavLink, useLocation } from 'react-router';
 import {
   Sun, CalendarDays, LayoutList, BarChart2, ListTodo,
   ChevronLeft, ChevronRight, Target, FolderKanban, Plus, Home,
-  Menu, Heart, Repeat, BookOpen,
+  Menu, Heart, Repeat, BookOpen, Settings,
 } from 'lucide-react';
 import { usePlanner, getWeekKey } from '../store';
 import { useTheme } from '../ThemeContext';
@@ -255,6 +255,7 @@ function MobileMenuOverlay({ onClose }: { onClose: () => void }) {
     ...mainNavItems,
     { to: '/projects', icon: FolderKanban, label: '프로젝트' },
     ...lifestyleNavItems,
+    { to: '/settings', icon: Settings, label: '설정' },
   ];
 
   return (
@@ -485,8 +486,27 @@ export function Layout() {
                 </div>
               </div>
 
+              {/* Settings — 하단 고정 */}
+              <div className="mt-auto border-t px-2 py-2" style={{ borderColor: t.border }}>
+                <NavLink
+                  to="/settings"
+                  className="flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all"
+                  style={({ isActive }) => ({
+                    ...(isActive ? navActiveStyle : navInactiveStyle),
+                    fontSize: 13,
+                  })}
+                >
+                  {({ isActive }) => (
+                    <>
+                      <Settings size={18} color={isActive ? t.accent : t.textMuted} />
+                      <span>설정</span>
+                    </>
+                  )}
+                </NavLink>
+              </div>
+
               {/* Mini Calendar — pushed to bottom */}
-              <div className="mt-auto border-t" style={{ borderColor: t.border }}>
+              <div className="border-t" style={{ borderColor: t.border }}>
                 <MiniCalendar />
               </div>
             </>
@@ -525,6 +545,21 @@ export function Layout() {
                 >
                   {({ isActive }) => (
                     <FolderKanban size={18} color={isActive ? t.accent : t.textMuted} />
+                  )}
+                </NavLink>
+              </div>
+              {/* Collapsed state - settings icon */}
+              <div className="px-2 mt-auto border-t pt-2" style={{ borderColor: t.border }}>
+                <NavLink
+                  to="/settings"
+                  className="flex items-center justify-center p-3 rounded-xl transition-all"
+                  style={({ isActive }) => ({
+                    backgroundColor: isActive ? t.accentLight : 'transparent',
+                  })}
+                  title="설정"
+                >
+                  {({ isActive }) => (
+                    <Settings size={18} color={isActive ? t.accent : t.textMuted} />
                   )}
                 </NavLink>
               </div>

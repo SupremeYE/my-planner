@@ -3,7 +3,7 @@ import { Outlet, NavLink, useNavigate } from 'react-router';
 import {
   Sun, CalendarDays, LayoutList, BarChart2, FolderKanban, ListTodo,
   ChevronLeft, ChevronRight, Calendar, Plus, Target, CheckCircle2,
-  ChevronDown, X, Home, Menu,
+  ChevronDown, X, Home, Menu, Settings,
 } from 'lucide-react';
 import { usePlanner, getWeekKey } from '../store';
 import { useTheme } from '../ThemeContext';
@@ -392,6 +392,17 @@ export function LayoutC() {
         {/* Right controls */}
         <div className="flex items-center gap-2 px-4 flex-shrink-0" style={{ borderLeft: `1px solid ${t.border}`, height: '100%' }}>
           <CalendarDropdown />
+          <NavLink
+            to="/settings"
+            className="p-2 rounded-lg transition-colors"
+            style={({ isActive }) => ({
+              backgroundColor: isActive ? t.accentLight : 'transparent',
+              color: isActive ? t.accent : t.textMuted,
+            })}
+            title="설정"
+          >
+            <Settings size={15} />
+          </NavLink>
           <button
             onClick={() => setShowNewProject(true)}
             className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg transition-colors"

@@ -472,7 +472,7 @@ export function ExecutionPanel({ routine, onClose }: { routine: Routine; onClose
                 disabled={isCompletedToday}
                 className="w-full py-3.5 rounded-xl flex items-center justify-center gap-2"
                 style={{
-                  backgroundColor: isCompletedToday ? t.bgSub : '#6BAA7A',
+                  backgroundColor: isCompletedToday ? t.bgSub : '#006b62',
                   color: isCompletedToday ? t.textMuted : '#fff',
                   fontWeight: 600, fontSize: 14,
                   opacity: isCompletedToday ? 0.6 : 1,
@@ -626,7 +626,7 @@ export function ExecutionPanel({ routine, onClose }: { routine: Routine; onClose
                           className="flex items-center justify-center gap-2 py-3 rounded-xl"
                           style={{
                             flex: 2,
-                            backgroundColor: currentIdx + 1 < routineSteps.length ? t.accent : '#6BAA7A',
+                            backgroundColor: currentIdx + 1 < routineSteps.length ? t.accent : '#006b62',
                             color: '#fff',
                             fontSize: 13, fontWeight: 700,
                           }}>
@@ -724,7 +724,7 @@ export function RoutineCard({ routine, onEdit, onRun }: {
         </div>
         {isCompletedToday && (
           <div className="absolute -bottom-1 -right-1 w-5 h-5 rounded-full flex items-center justify-center"
-            style={{ backgroundColor: '#6BAA7A' }}>
+            style={{ backgroundColor: '#006b62' }}>
             <Check size={11} color="#fff" strokeWidth={3} />
           </div>
         )}
@@ -816,11 +816,11 @@ export function RoutinesView() {
               <div className="h-full rounded-full transition-all duration-500"
                 style={{
                   width: `${(completedToday / routines.length) * 100}%`,
-                  backgroundColor: completedToday === routines.length ? '#6BAA7A' : t.accent,
+                  backgroundColor: completedToday === routines.length ? '#006b62' : t.accent,
                 }} />
             </div>
             {completedToday === routines.length && routines.length > 0 && (
-              <p className="mt-2 text-center" style={{ fontSize: 13, color: '#6BAA7A', fontWeight: 600 }}>
+              <p className="mt-2 text-center" style={{ fontSize: 13, color: '#006b62', fontWeight: 600 }}>
                 🎉 오늘 모든 루틴 완료!
               </p>
             )}

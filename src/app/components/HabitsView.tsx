@@ -9,7 +9,7 @@ import { useTheme } from '../ThemeContext';
 import { format, subDays, startOfMonth, getDaysInMonth, getDay, addMonths, subMonths } from 'date-fns';
 import { RoutineModal, ExecutionPanel, RoutineCard, today as routineToday, getStreak as getRoutineStreak } from './RoutinesView';
 
-const HABIT_COLORS = ['#C4A882', '#D4735A', '#6BAA7A', '#7B9ED9', '#A07BE0', '#6B7280'];
+const HABIT_COLORS = ['#515f74', '#D4735A', '#006b62', '#7B9ED9', '#A07BE0', '#6B7280'];
 const REPEAT_OPTIONS = [
   { value: 'daily', label: '매일' },
   { value: 'weekday', label: '평일' },
@@ -648,7 +648,7 @@ function HabitTrackerView() {
 
       {/* 습관별 행 */}
       {habits.map(habit => {
-        const color = habit.color || '#C4A882';
+        const color = habit.color || '#515f74';
         const score = days.filter(d => habit.checkedDates.includes(dateStr(d))).length;
         const pct = daysInMonth > 0 ? Math.round((score / daysInMonth) * 100) : 0;
         const habitMemo = getHabitMemo(habit.id);
@@ -982,11 +982,11 @@ export function HabitsView() {
                   <div className="h-full rounded-full transition-all duration-500"
                     style={{
                       width: `${(completedToday / routines.length) * 100}%`,
-                      backgroundColor: completedToday === routines.length ? '#6BAA7A' : t.accent,
+                      backgroundColor: completedToday === routines.length ? '#006b62' : t.accent,
                     }} />
                 </div>
                 {completedToday === routines.length && routines.length > 0 && (
-                  <p className="mt-2 text-center" style={{ fontSize: 13, color: '#6BAA7A', fontWeight: 600 }}>
+                  <p className="mt-2 text-center" style={{ fontSize: 13, color: '#006b62', fontWeight: 600 }}>
                     🎉 오늘 모든 루틴 완료!
                   </p>
                 )}

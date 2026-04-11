@@ -53,9 +53,9 @@ export function BacklogView() {
       {/* Header */}
       <div className="sticky top-0 z-10 px-4 py-4" style={{ backgroundColor: t.sidebar, borderBottom: `1px solid ${t.border}` }}>
         <div className="flex items-center gap-2 mb-3">
-          <Archive size={18} color="#C8A97E" />
-          <h1 style={{ fontSize: 18, fontWeight: 700, color: '#2D2D2D' }}>미지정 할일 보관함</h1>
-          <span className="ml-auto px-2 py-0.5 rounded-full" style={{ fontSize: 12, backgroundColor: '#F5E6CC', color: '#C8A97E', fontWeight: 600 }}>
+          <Archive size={18} color="#515f74" />
+          <h1 style={{ fontSize: 18, fontWeight: 700, color: '#26343d' }}>미지정 할일 보관함</h1>
+          <span className="ml-auto px-2 py-0.5 rounded-full" style={{ fontSize: 12, backgroundColor: '#d5e3fd', color: '#515f74', fontWeight: 600 }}>
             {backlogTodos.length}
           </span>
         </div>
@@ -69,7 +69,7 @@ export function BacklogView() {
               className="px-3 py-1.5 rounded-full flex-shrink-0 transition-all"
               style={{
                 fontSize: 12,
-                backgroundColor: selectedCategory === cat ? '#C8A97E' : '#F0EBE3',
+                backgroundColor: selectedCategory === cat ? '#515f74' : '#eef4fa',
                 color: selectedCategory === cat ? '#fff' : '#888',
                 fontWeight: selectedCategory === cat ? 600 : 400,
               }}
@@ -85,30 +85,30 @@ export function BacklogView() {
 
       <div className="p-4 space-y-3">
         {/* Desktop: table view */}
-        <div className="hidden lg:block bg-white rounded-2xl shadow-sm overflow-hidden" style={{ border: '1px solid #F0EBE3' }}>
+        <div className="hidden lg:block bg-white rounded-2xl shadow-sm overflow-hidden" style={{ border: '1px solid #eef4fa' }}>
           <table className="w-full">
             <thead>
-              <tr style={{ backgroundColor: '#FAF8F5', borderBottom: '1px solid #F0EBE3' }}>
-                <th className="text-left px-4 py-3" style={{ fontSize: 11, color: '#C8A97E', fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase' }}>
+              <tr style={{ backgroundColor: '#f6fafe', borderBottom: '1px solid #eef4fa' }}>
+                <th className="text-left px-4 py-3" style={{ fontSize: 11, color: '#515f74', fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase' }}>
                   할일
                 </th>
-                <th className="text-left px-4 py-3" style={{ fontSize: 11, color: '#C8A97E', fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase' }}>
+                <th className="text-left px-4 py-3" style={{ fontSize: 11, color: '#515f74', fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase' }}>
                   카테고리
                 </th>
-                <th className="text-left px-4 py-3" style={{ fontSize: 11, color: '#C8A97E', fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase' }}>
+                <th className="text-left px-4 py-3" style={{ fontSize: 11, color: '#515f74', fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase' }}>
                   작업
                 </th>
               </tr>
             </thead>
             <tbody>
               {filtered.map((todo, i) => (
-                <tr key={todo.id} style={{ borderBottom: i < filtered.length - 1 ? '1px solid #F5F0E8' : 'none' }}>
+                <tr key={todo.id} style={{ borderBottom: i < filtered.length - 1 ? '1px solid #eef4fa' : 'none' }}>
                   <td className="px-4 py-3">
-                    <span style={{ fontSize: 14, color: '#2D2D2D' }}>{todo.text}</span>
+                    <span style={{ fontSize: 14, color: '#26343d' }}>{todo.text}</span>
                   </td>
                   <td className="px-4 py-3">
                     {todo.category ? (
-                      <span className="px-2 py-0.5 rounded-full" style={{ fontSize: 11, backgroundColor: '#F5E6CC', color: '#C8A97E' }}>
+                      <span className="px-2 py-0.5 rounded-full" style={{ fontSize: 11, backgroundColor: '#d5e3fd', color: '#515f74' }}>
                         {todo.category}
                       </span>
                     ) : (
@@ -124,7 +124,7 @@ export function BacklogView() {
                             value={snoozeDate}
                             onChange={e => setSnoozeDate(e.target.value)}
                             className="px-2 py-1 rounded-lg outline-none"
-                            style={{ fontSize: 12, backgroundColor: '#F0EBE3', border: 'none', color: '#2D2D2D' }}
+                            style={{ fontSize: 12, backgroundColor: '#eef4fa', border: 'none', color: '#26343d' }}
                           />
                           <button onClick={() => handleAssignDate(todo.id)}
                             className="px-2 py-1 rounded-lg"
@@ -132,7 +132,7 @@ export function BacklogView() {
                             배정
                           </button>
                           <button onClick={() => setSnoozeId(null)} className="px-2 py-1 rounded-lg"
-                            style={{ fontSize: 12, backgroundColor: '#F0EBE3', color: '#888' }}>
+                            style={{ fontSize: 12, backgroundColor: '#eef4fa', color: '#888' }}>
                             취소
                           </button>
                         </div>
@@ -140,11 +140,11 @@ export function BacklogView() {
                         <>
                           <button onClick={() => { setSnoozeId(todo.id); setSnoozeDate(''); }}
                             className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg transition-colors hover:opacity-80"
-                            style={{ fontSize: 12, backgroundColor: '#F5E6CC', color: '#C8A97E' }}>
+                            style={{ fontSize: 12, backgroundColor: '#d5e3fd', color: '#515f74' }}>
                             <CalendarClock size={12} /> 날짜 배정
                           </button>
                           <button onClick={() => setDeleteTarget(todo)}
-                            className="p-1.5 rounded-lg hover:bg-[#F0EBE3]">
+                            className="p-1.5 rounded-lg hover:bg-[#eef4fa]">
                             <Trash2 size={13} color="#ccc" />
                           </button>
                         </>
@@ -167,18 +167,18 @@ export function BacklogView() {
         {/* Mobile: card list */}
         <div className="lg:hidden space-y-2">
           {filtered.map(todo => (
-            <div key={todo.id} className="bg-white rounded-2xl p-4 shadow-sm" style={{ border: '1px solid #F0EBE3' }}>
+            <div key={todo.id} className="bg-white rounded-2xl p-4 shadow-sm" style={{ border: '1px solid #eef4fa' }}>
               <div className="flex items-start gap-3">
-                <Archive size={16} color="#C8A97E" className="flex-shrink-0 mt-0.5" />
+                <Archive size={16} color="#515f74" className="flex-shrink-0 mt-0.5" />
                 <div className="flex-1 min-w-0">
-                  <p style={{ fontSize: 14, color: '#2D2D2D', lineHeight: 1.4 }}>{todo.text}</p>
+                  <p style={{ fontSize: 14, color: '#26343d', lineHeight: 1.4 }}>{todo.text}</p>
                   {todo.category && (
-                    <span className="mt-1 inline-block px-2 py-0.5 rounded-full" style={{ fontSize: 11, backgroundColor: '#F5E6CC', color: '#C8A97E' }}>
+                    <span className="mt-1 inline-block px-2 py-0.5 rounded-full" style={{ fontSize: 11, backgroundColor: '#d5e3fd', color: '#515f74' }}>
                       {todo.category}
                     </span>
                   )}
                 </div>
-                <button onClick={() => setDeleteTarget(todo)} className="p-1.5 rounded-lg hover:bg-[#F0EBE3] flex-shrink-0">
+                <button onClick={() => setDeleteTarget(todo)} className="p-1.5 rounded-lg hover:bg-[#eef4fa] flex-shrink-0">
                   <Trash2 size={13} color="#ccc" />
                 </button>
               </div>
@@ -190,7 +190,7 @@ export function BacklogView() {
                     value={snoozeDate}
                     onChange={e => setSnoozeDate(e.target.value)}
                     className="flex-1 px-3 py-2 rounded-xl outline-none"
-                    style={{ fontSize: 13, backgroundColor: '#F0EBE3', border: 'none', color: '#2D2D2D' }}
+                    style={{ fontSize: 13, backgroundColor: '#eef4fa', border: 'none', color: '#26343d' }}
                   />
                   <button onClick={() => handleAssignDate(todo.id)}
                     className="px-3 py-2 rounded-xl"
@@ -199,7 +199,7 @@ export function BacklogView() {
                   </button>
                   <button onClick={() => setSnoozeId(null)}
                     className="px-3 py-2 rounded-xl"
-                    style={{ fontSize: 13, backgroundColor: '#F0EBE3', color: '#888' }}>
+                    style={{ fontSize: 13, backgroundColor: '#eef4fa', color: '#888' }}>
                     취소
                   </button>
                 </div>
@@ -207,7 +207,7 @@ export function BacklogView() {
                 <button
                   onClick={() => { setSnoozeId(todo.id); setSnoozeDate(''); }}
                   className="mt-3 flex items-center gap-1.5 px-3 py-1.5 rounded-xl w-full justify-center"
-                  style={{ fontSize: 13, backgroundColor: '#F5E6CC', color: '#C8A97E' }}
+                  style={{ fontSize: 13, backgroundColor: '#d5e3fd', color: '#515f74' }}
                 >
                   <CalendarClock size={13} /> 날짜 배정하기
                 </button>
@@ -216,15 +216,15 @@ export function BacklogView() {
           ))}
           {filtered.length === 0 && (
             <div className="text-center py-12">
-              <Archive size={32} color="#E8E0D4" className="mx-auto mb-3" />
+              <Archive size={32} color="#d5e5ef" className="mx-auto mb-3" />
               <p style={{ fontSize: 13, color: '#aaa' }}>보관된 할일이 없어요</p>
             </div>
           )}
         </div>
 
         {/* Add new backlog item */}
-        <div className="bg-white rounded-2xl p-4 shadow-sm" style={{ border: '1px solid #F0EBE3' }}>
-          <div style={{ fontSize: 11, color: '#C8A97E', fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase', marginBottom: 12 }}>
+        <div className="bg-white rounded-2xl p-4 shadow-sm" style={{ border: '1px solid #eef4fa' }}>
+          <div style={{ fontSize: 11, color: '#515f74', fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase', marginBottom: 12 }}>
             할일 추가
           </div>
           <div className="space-y-2">
@@ -234,20 +234,20 @@ export function BacklogView() {
               onKeyDown={e => e.key === 'Enter' && handleAdd()}
               placeholder="날짜 없는 할일 추가..."
               className="w-full px-3 py-2 rounded-xl outline-none"
-              style={{ fontSize: 13, backgroundColor: '#F0EBE3', color: '#2D2D2D', border: 'none' }}
+              style={{ fontSize: 13, backgroundColor: '#eef4fa', color: '#26343d', border: 'none' }}
             />
             <div className="flex gap-2">
               <select
                 value={newCategory}
                 onChange={e => setNewCategory(e.target.value)}
                 className="flex-1 px-3 py-2 rounded-xl outline-none"
-                style={{ fontSize: 13, backgroundColor: '#F0EBE3', color: newCategory ? '#2D2D2D' : '#aaa', border: 'none' }}
+                style={{ fontSize: 13, backgroundColor: '#eef4fa', color: newCategory ? '#26343d' : '#aaa', border: 'none' }}
               >
                 <option value="">카테고리 선택 (선택사항)</option>
                 {CATEGORIES.slice(1).map(cat => <option key={cat} value={cat}>{cat}</option>)}
               </select>
               <button onClick={handleAdd} className="px-4 py-2 rounded-xl flex items-center gap-1.5"
-                style={{ backgroundColor: '#C8A97E', color: '#fff', fontSize: 13, fontWeight: 600, flexShrink: 0 }}>
+                style={{ backgroundColor: '#515f74', color: '#fff', fontSize: 13, fontWeight: 600, flexShrink: 0 }}>
                 <Plus size={14} /> 추가
               </button>
             </div>

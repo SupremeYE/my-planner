@@ -137,8 +137,8 @@ export function usePWA() {
     document.title = 'My Planner';
     injectMeta('application-name', 'My Planner');
     injectMeta('description', '나만의 생산성 플래너');
-    injectMeta('theme-color', '#C8A97E');
-    injectMeta('msapplication-TileColor', '#C8A97E');
+    injectMeta('theme-color', '#515f74');
+    injectMeta('msapplication-TileColor', '#515f74');
     injectMeta('apple-mobile-web-app-capable', 'yes');
     injectMeta('apple-mobile-web-app-status-bar-style', 'default');
     injectMeta('apple-mobile-web-app-title', 'My Planner');

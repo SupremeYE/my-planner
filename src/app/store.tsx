@@ -174,6 +174,51 @@ export interface MonthlyGoal {
   text: string;
   month: string;
   projectId?: string;
+  /** 연간 목표 1개에 연결 (레거시 행은 비어 있을 수 있음) */
+  annualGoalId?: string;
+}
+
+/** 연도별 연간 정체성·핵심 가치 (키: "2026" 등) */
+export type AnnualYearProfile = { identity: string; values: string[] };
+
+export function emptyAnnualYearProfile(): AnnualYearProfile {
+  return { identity: '', values: [] };
+}
+
+export function parseAnnualProfiles(raw: unknown): Record<string, AnnualYearProfile> {
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return {};
+  const out: Record<string, AnnualYearProfile> = {};
+  for (const [k, v] of Object.entries(raw as Record<string, unknown>)) {
+    if (!/^\d{4}$/.test(k)) continue;
+    const o = v as { identity?: unknown; values?: unknown };
+    out[k] = {
+      identity: typeof o.identity === 'string' ? o.identity : '',
+      values: Array.isArray(o.values) ? o.values.filter((x): x is string => typeof x === 'string') : [],
+    };
+  }
+  return out;
+}
+
+export function getAnnualProfileForYear(
+  profiles: Record<string, AnnualYearProfile> | undefined,
+  year: number
+): AnnualYearProfile {
+  return profiles?.[String(year)] ?? emptyAnnualYearProfile();
+}
+
+export interface AnnualGoal {
+  id: string;
+  year: number;
+  text: string;
+  done: boolean;
+}
+
+export interface QuarterlyGoal {
+  id: string;
+  year: number;
+  quarter: number; // 1-4
+  text: string;
+  done: boolean;
 }
 
 export interface BrainstormItem {
@@ -248,7 +293,35 @@ function getTimerEndHHMM(startHHMM: string, elapsedSec: number): string {
 }
 
 const currentWeekKey = getWeekKey(new Date());
-const currentMonth = format(new Date(), 'yyyy-MM');
+
+// ── App Settings ──
+export interface AppSettings {
+  showQuarterlyGoals: boolean;
+  showWeeklyKpt: boolean;
+  showWeeklyHappiness: boolean;
+  showMonthlyKpt: boolean;
+  showHabitHeatmap: boolean;
+  habitAlarmDefault: string;
+  globalAffirmation: string;
+  /** 연도 문자열 키 → 정체성·가치 */
+  annualProfiles: Record<string, AnnualYearProfile>;
+  /** DB/구버전 호환용 (현재 연도 프로필과 동기화 가능) */
+  annualIdentity: string;
+  annualValues: string[];
+}
+
+export const DEFAULT_APP_SETTINGS: AppSettings = {
+  showQuarterlyGoals: false,
+  showWeeklyKpt: false,
+  showWeeklyHappiness: false,
+  showMonthlyKpt: false,
+  showHabitHeatmap: false,
+  habitAlarmDefault: '',
+  globalAffirmation: '',
+  annualProfiles: {},
+  annualIdentity: '',
+  annualValues: [],
+};
 
 // ── Daily Affirmation ──
 export const DEFAULT_AFFIRMATIONS = [
@@ -279,6 +352,8 @@ interface PlannerContextType {
   habits: Habit[];
   weeklyGoals: WeeklyGoal[];
   monthlyGoals: MonthlyGoal[];
+  annualGoals: AnnualGoal[];
+  quarterlyGoals: QuarterlyGoal[];
   brainstormItems: BrainstormItem[];
   brainstormMemos: Record<string, string>;
   activeTimer: ActiveTimer | null;
@@ -293,6 +368,10 @@ interface PlannerContextType {
   timelineLogs: TimelineLog[];
   dailyAffirmations: Record<string, string>;
   setDailyAffirmation: (date: string, text: string) => void;
+
+  // App settings
+  appSettings: AppSettings;
+  updateAppSettings: (s: Partial<AppSettings>) => void;
 
   // Todo actions
   addTodo: (todo: Omit<Todo, 'id'>) => void;
@@ -354,8 +433,19 @@ interface PlannerContextType {
   deleteWeeklyGoal: (id: string) => void;
 
   // Monthly goal actions
-  addMonthlyGoal: (text: string, projectId?: string) => void;
+  addMonthlyGoal: (text: string, annualGoalId: string, month: string, projectId?: string) => void;
+  updateMonthlyGoal: (id: string, changes: Partial<Pick<MonthlyGoal, 'text' | 'annualGoalId' | 'projectId'>>) => void;
   deleteMonthlyGoal: (id: string) => void;
+
+  // Annual goal actions
+  addAnnualGoal: (text: string, year: number) => void;
+  toggleAnnualGoal: (id: string) => void;
+  deleteAnnualGoal: (id: string) => void;
+
+  // Quarterly goal actions
+  addQuarterlyGoal: (text: string, year: number, quarter: number) => void;
+  toggleQuarterlyGoal: (id: string) => void;
+  deleteQuarterlyGoal: (id: string) => void;
 
   // Brainstorm actions
   addBrainstormItem: (text: string, date: string) => void;
@@ -421,6 +511,8 @@ export function PlannerProvider({ children }: { children: React.ReactNode }) {
   const [events, setEvents] = useState<Event[]>([]);
   const [weeklyGoals, setWeeklyGoals] = useState<WeeklyGoal[]>([]);
   const [monthlyGoals, setMonthlyGoals] = useState<MonthlyGoal[]>([]);
+  const [annualGoals, setAnnualGoals] = useState<AnnualGoal[]>([]);
+  const [quarterlyGoals, setQuarterlyGoals] = useState<QuarterlyGoal[]>([]);
   const [brainstormItems, setBrainstormItems] = useState<BrainstormItem[]>([]);
   const [brainstormMemos, setBrainstormMemos] = useState<Record<string, string>>({});
   const [tags, setTags] = useState<Tag[]>([]);
@@ -431,6 +523,7 @@ export function PlannerProvider({ children }: { children: React.ReactNode }) {
   const [weeklyReviews, setWeeklyReviews] = useState<WeeklyReview[]>([]);
   const [monthlyReviews, setMonthlyReviews] = useState<MonthlyReview[]>([]);
   const [dailyAffirmations, setDailyAffirmations] = useState<Record<string, string>>({});
+  const [appSettings, setAppSettings] = useState<AppSettings>(DEFAULT_APP_SETTINGS);
 
   // ── 앱 시작 시 Supabase에서 데이터 로드 ──
   useEffect(() => {
@@ -441,7 +534,7 @@ export function PlannerProvider({ children }: { children: React.ReactNode }) {
         selfCareData, reviewData, timelineData, settingsData,
         eventsData, weeklyGoalsData, monthlyGoalsData,
         brainstormItemsData, brainstormMemosData, tagsData, routinesData,
-        periodData, habitMonthlyMemosData,
+        periodData, habitMonthlyMemosData, annualGoalsData, quarterlyGoalsData,
       ] = await Promise.all([
         db.todos.fetchAll(),
         db.habits.fetchAll(),
@@ -460,6 +553,8 @@ export function PlannerProvider({ children }: { children: React.ReactNode }) {
         db.routines.fetchAll(),
         db.periodRecords.fetchAll(),
         db.habitMonthlyMemos.fetchAll(),
+        db.annualGoals.fetchAll(),
+        db.quarterlyGoals.fetchAll(),
       ]);
       setTodos(todosData);
       setHabits(habitsData);
@@ -472,13 +567,28 @@ export function PlannerProvider({ children }: { children: React.ReactNode }) {
       setTimelineLogs(timelineData);
       setDayStartHour(settingsData.dayStartHour);
       setDayEndHour(settingsData.dayEndHour);
+      setAppSettings(prev => ({ ...prev, ...settingsData.appSettings }));
       setEvents(eventsData);
       setWeeklyGoals(weeklyGoalsData);
-      setMonthlyGoals(monthlyGoalsData);
+      const normalizedMonthly = monthlyGoalsData.map(mg => {
+        if (mg.annualGoalId) return mg;
+        const y = parseInt(mg.month.slice(0, 4), 10);
+        const first = annualGoalsData.find(a => a.year === y);
+        return first ? { ...mg, annualGoalId: first.id } : mg;
+      });
+      normalizedMonthly.forEach(g => {
+        const orig = monthlyGoalsData.find(o => o.id === g.id);
+        if (orig && g.annualGoalId && orig.annualGoalId !== g.annualGoalId) {
+          db.monthlyGoals.upsert(g);
+        }
+      });
+      setMonthlyGoals(normalizedMonthly);
       setBrainstormItems(brainstormItemsData);
       setBrainstormMemos(brainstormMemosData);
       setRoutines(routinesData);
       setTags(tagsData);
+      setAnnualGoals(annualGoalsData);
+      setQuarterlyGoals(quarterlyGoalsData);
       setIsLoading(false);
     };
     load();
@@ -773,15 +883,83 @@ export function PlannerProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   // ── Monthly goal actions ──
-  const addMonthlyGoal = useCallback((text: string, projectId?: string) => {
-    const newGoal: MonthlyGoal = { id: newId(), text, month: currentMonth, projectId };
+  const addMonthlyGoal = useCallback((text: string, annualGoalId: string, month: string, projectId?: string) => {
+    const trimmed = text.trim();
+    if (!trimmed || !annualGoalId) return;
+    const newGoal: MonthlyGoal = { id: newId(), text: trimmed, month, projectId, annualGoalId };
     setMonthlyGoals(prev => [...prev, newGoal]);
     db.monthlyGoals.upsert(newGoal);
+  }, []);
+
+  const updateMonthlyGoal = useCallback((id: string, changes: Partial<Pick<MonthlyGoal, 'text' | 'annualGoalId' | 'projectId'>>) => {
+    setMonthlyGoals(prev => {
+      const updated = prev.map(g => (g.id === id ? { ...g, ...changes } : g));
+      const goal = updated.find(g => g.id === id);
+      if (goal) db.monthlyGoals.upsert(goal);
+      return updated;
+    });
   }, []);
 
   const deleteMonthlyGoal = useCallback((id: string) => {
     setMonthlyGoals(prev => prev.filter(g => g.id !== id));
     db.monthlyGoals.delete(id);
+  }, []);
+
+  // ── Annual goal actions ──
+  const addAnnualGoal = useCallback((text: string, year: number) => {
+    const newGoal: AnnualGoal = { id: newId(), text, year, done: false };
+    setAnnualGoals(prev => [...prev, newGoal]);
+    db.annualGoals.upsert(newGoal);
+  }, []);
+
+  const toggleAnnualGoal = useCallback((id: string) => {
+    setAnnualGoals(prev => {
+      const updated = prev.map(g => g.id === id ? { ...g, done: !g.done } : g);
+      const goal = updated.find(g => g.id === id);
+      if (goal) db.annualGoals.upsert(goal);
+      return updated;
+    });
+  }, []);
+
+  const deleteAnnualGoal = useCallback((id: string) => {
+    setAnnualGoals(prev => {
+      const victim = prev.find(g => g.id === id);
+      if (!victim) return prev;
+      const replacement = prev.find(g => g.id !== id && g.year === victim.year)?.id;
+      setMonthlyGoals(mgPrev => {
+        const next = mgPrev.map(mg =>
+          mg.annualGoalId === id ? { ...mg, annualGoalId: replacement } : mg
+        );
+        next.forEach(g => {
+          const o = mgPrev.find(x => x.id === g.id);
+          if (o && o.annualGoalId !== g.annualGoalId) db.monthlyGoals.upsert(g);
+        });
+        return next;
+      });
+      db.annualGoals.delete(id);
+      return prev.filter(g => g.id !== id);
+    });
+  }, []);
+
+  // ── Quarterly goal actions ──
+  const addQuarterlyGoal = useCallback((text: string, year: number, quarter: number) => {
+    const newGoal: QuarterlyGoal = { id: newId(), text, year, quarter, done: false };
+    setQuarterlyGoals(prev => [...prev, newGoal]);
+    db.quarterlyGoals.upsert(newGoal);
+  }, []);
+
+  const toggleQuarterlyGoal = useCallback((id: string) => {
+    setQuarterlyGoals(prev => {
+      const updated = prev.map(g => g.id === id ? { ...g, done: !g.done } : g);
+      const goal = updated.find(g => g.id === id);
+      if (goal) db.quarterlyGoals.upsert(goal);
+      return updated;
+    });
+  }, []);
+
+  const deleteQuarterlyGoal = useCallback((id: string) => {
+    setQuarterlyGoals(prev => prev.filter(g => g.id !== id));
+    db.quarterlyGoals.delete(id);
   }, []);
 
   // ── Brainstorm actions ──
@@ -991,8 +1169,16 @@ export function PlannerProvider({ children }: { children: React.ReactNode }) {
   const setDayHours = useCallback((s: number, e: number) => {
     setDayStartHour(s);
     setDayEndHour(e);
-    db.settings.upsert(s, e);
-  }, []);
+    db.settings.upsert(s, e, appSettings);
+  }, [appSettings]);
+
+  const updateAppSettings = useCallback((changes: Partial<AppSettings>) => {
+    setAppSettings(prev => {
+      const next = { ...prev, ...changes };
+      db.settings.upsert(dayStartHour, dayEndHour, next);
+      return next;
+    });
+  }, [dayStartHour, dayEndHour]);
 
   // ── Timeline log actions ──
   const addTimelineLog = useCallback((log: Omit<TimelineLog, 'id'>) => {
@@ -1014,11 +1200,12 @@ export function PlannerProvider({ children }: { children: React.ReactNode }) {
     <PlannerContext.Provider value={{
       isLoading,
       selectedDate, setSelectedDate,
-      todos, events, habits, weeklyGoals, monthlyGoals, brainstormItems, brainstormMemos, activeTimer,
+      todos, events, habits, weeklyGoals, monthlyGoals, annualGoals, quarterlyGoals, brainstormItems, brainstormMemos, activeTimer,
       projects, milestones, tags,
       routines, selfCareRecords, periodRecords, reviewRecords, weeklyReviews, monthlyReviews,
       timelineLogs,
       dailyAffirmations, setDailyAffirmation,
+      appSettings, updateAppSettings,
       addTodo, updateTodo, deleteTodo, toggleTop3,
       addEvent, updateEvent, deleteEvent,
       addHabit, addHabitFull, updateHabit, deleteHabit, toggleHabit,
@@ -1031,7 +1218,9 @@ export function PlannerProvider({ children }: { children: React.ReactNode }) {
       addWeeklyReview, updateWeeklyReview,
       addMonthlyReview, updateMonthlyReview,
       addWeeklyGoal, toggleWeeklyGoal, deleteWeeklyGoal,
-      addMonthlyGoal, deleteMonthlyGoal,
+      addMonthlyGoal, updateMonthlyGoal, deleteMonthlyGoal,
+      addAnnualGoal, toggleAnnualGoal, deleteAnnualGoal,
+      addQuarterlyGoal, toggleQuarterlyGoal, deleteQuarterlyGoal,
       addBrainstormItem, deleteBrainstormItem, brainstormToTodo, brainstormToEvent,
       setBrainstormMemo,
       addWeeklyBrainstorm, weeklyBrainstormAssign,

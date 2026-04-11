@@ -13,7 +13,7 @@ function pickAffirmation(date: string): string {
 }
 
 export function AffirmationCard({ date }: { date: string }) {
-  const { dailyAffirmations, setDailyAffirmation } = usePlanner();
+  const { dailyAffirmations, setDailyAffirmation, appSettings } = usePlanner();
   const { t, theme } = useTheme();
 
   const [collapsed, setCollapsed] = useState(false);
@@ -22,7 +22,7 @@ export function AffirmationCard({ date }: { date: string }) {
   const [randomOffset, setRandomOffset] = useState(0);
 
   const customText = dailyAffirmations[date];
-  const baseAffirmation = pickAffirmation(date + randomOffset);
+  const baseAffirmation = appSettings.globalAffirmation || pickAffirmation(date + randomOffset);
   const displayText = customText || baseAffirmation;
 
   const handleEdit = () => {
