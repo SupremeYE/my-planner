@@ -261,7 +261,7 @@ export function TimePicker({
   return (
     <div ref={wrapperRef} style={{ position: 'relative', width: '100%' }}>
 
-      {/* ── 메인 피커 UI ── */}
+      {/* ── 메인 피커 UI (빈 값이어도 스피너를 기본 노출) ── */}
       <div
         className="flex items-center"
         style={{
@@ -273,65 +273,56 @@ export function TimePicker({
           transition: 'border-color 0.15s',
         }}
       >
-        {/* 빈 상태 */}
-        {isEmpty && !openPanel ? (
+        <>
+          {renderCol(
+            'hour', hourColRef,
+            isEmpty ? 0 : hour,
+            handleHourWheel,
+            () => isEmpty ? handleInit() : changeHour(1),
+            () => isEmpty ? handleInit() : changeHour(-1),
+            openHourPanel,
+          )}
+
+          {/* 콜론 */}
+          <div style={{
+            fontSize: isMd ? 18 : 15, fontWeight: 700,
+            color: t.textMuted, padding: '0 3px',
+            alignSelf: 'center', paddingBottom: 2, userSelect: 'none',
+          }}>:</div>
+
+          {renderCol(
+            'minute', minuteColRef,
+            isEmpty ? 0 : minute,
+            handleMinuteWheel,
+            () => isEmpty ? handleInit() : changeMinute(1),
+            () => isEmpty ? handleInit() : changeMinute(-1),
+            openMinutePanel,
+          )}
+
+          {/* 지우기 */}
           <button
             type="button"
-            onClick={openHourPanel}
+            onClick={handleClear}
+            disabled={isEmpty}
+            aria-label={isEmpty ? placeholder : '시간 지우기'}
             style={{
-              flex: 1, padding: isMd ? '10px 0' : '6px 0',
-              color: t.textMuted, fontSize: isMd ? 14 : 12,
+              marginLeft: isMd ? 10 : 6, color: t.textMuted,
               background: 'transparent', border: 'none',
-              cursor: 'pointer', textAlign: 'center',
+              cursor: isEmpty ? 'not-allowed' : 'pointer', padding: 2,
+              display: 'flex', alignItems: 'center',
+              borderRadius: 4, transition: 'color 0.15s', alignSelf: 'center',
+              opacity: isEmpty ? 0.45 : 1,
+            }}
+            onMouseEnter={e => {
+              if (!isEmpty) e.currentTarget.style.color = t.text;
+            }}
+            onMouseLeave={e => {
+              e.currentTarget.style.color = t.textMuted;
             }}
           >
-            {placeholder}
+            <X size={isMd ? 13 : 11} strokeWidth={2} />
           </button>
-        ) : (
-          <>
-            {renderCol(
-              'hour', hourColRef,
-              isEmpty ? 0 : hour,
-              handleHourWheel,
-              () => isEmpty ? handleInit() : changeHour(1),
-              () => isEmpty ? handleInit() : changeHour(-1),
-              openHourPanel,
-            )}
-
-            {/* 콜론 */}
-            <div style={{
-              fontSize: isMd ? 18 : 15, fontWeight: 700,
-              color: t.textMuted, padding: '0 3px',
-              alignSelf: 'center', paddingBottom: 2, userSelect: 'none',
-            }}>:</div>
-
-            {renderCol(
-              'minute', minuteColRef,
-              isEmpty ? 0 : minute,
-              handleMinuteWheel,
-              () => isEmpty ? handleInit() : changeMinute(1),
-              () => isEmpty ? handleInit() : changeMinute(-1),
-              openMinutePanel,
-            )}
-
-            {/* 지우기 */}
-            <button
-              type="button"
-              onClick={handleClear}
-              style={{
-                marginLeft: isMd ? 10 : 6, color: t.textMuted,
-                background: 'transparent', border: 'none',
-                cursor: 'pointer', padding: 2,
-                display: 'flex', alignItems: 'center',
-                borderRadius: 4, transition: 'color 0.15s', alignSelf: 'center',
-              }}
-              onMouseEnter={e => (e.currentTarget.style.color = t.text)}
-              onMouseLeave={e => (e.currentTarget.style.color = t.textMuted)}
-            >
-              <X size={isMd ? 13 : 11} strokeWidth={2} />
-            </button>
-          </>
-        )}
+        </>
       </div>
 
       {/* ── 드롭다운 패널 ── */}
