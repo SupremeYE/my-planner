@@ -5,7 +5,7 @@ export default function SplashScreen({ isFadingOut = false }) {
         position: 'fixed',
         inset: 0,
         zIndex: 9999,
-        backgroundColor: '#F5F0E8',
+        background: 'linear-gradient(160deg, #ECF4FF 0%, #E5F0FF 52%, #DCEBFF 100%)',
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
