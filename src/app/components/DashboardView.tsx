@@ -3,18 +3,26 @@ import { useNavigate } from 'react-router';
 import { useTheme } from '../ThemeContext';
 import { usePlanner, DEFAULT_AFFIRMATIONS, today, getWeekKey } from '../store';
 import {
-  Clock, CheckCircle2, Flame, Target, TrendingUp, ChevronDown, ChevronRight,
+  CheckCircle2, Target, TrendingUp, ChevronDown, ChevronRight,
   Calendar, AlertTriangle, AlertCircle, Zap, ArrowRight,
 } from 'lucide-react';
 import {
-  format, addDays, differenceInDays, subDays, startOfMonth, endOfMonth,
-  startOfWeek, endOfWeek, getDaysInMonth, getDay,
+  format, addDays, differenceInDays, subDays,
+  startOfWeek, endOfWeek, getDaysInMonth,
 } from 'date-fns';
 import { ko } from 'date-fns/locale';
 import { AffirmationCard } from './AffirmationCard';
 import { todoDoDurationSeconds, formatTotalDoKo, formatDoElapsedKo } from '../../lib/todoDoDuration';
 
 const SERIF = "'DM Serif Display', serif";
+
+function isHabitApplicableOnDate(habit: any, date: Date) {
+  const dow = date.getDay();
+  if (habit.repeat === 'weekday') return dow >= 1 && dow <= 5;
+  if (habit.repeat === 'weekend') return dow === 0 || dow === 6;
+  if (habit.repeat === 'custom') return habit.repeatDays?.includes(dow) ?? false;
+  return true;
+}
 
 // ── Stat Card ──
 function StatCard({
@@ -65,17 +73,16 @@ function StatCard({
   );
 }
 
-// ── Habit Chip ──
-function HabitChip({
+function TodayHabitChip({
+  icon,
   name,
   checked,
-  streak,
   onClick,
   t,
 }: {
+  icon?: string;
   name: string;
   checked: boolean;
-  streak: number;
   onClick: () => void;
   t: any;
 }) {
@@ -86,99 +93,95 @@ function HabitChip({
         display: 'inline-flex',
         alignItems: 'center',
         gap: 6,
-        padding: '8px 14px',
+        padding: '7px 12px',
         borderRadius: 20,
-        border: `1.5px solid ${checked ? t.accent : t.border}`,
-        background: checked
-          ? `linear-gradient(135deg, ${t.accent}22, ${t.accent}10)`
-          : t.bg,
+        border: `1.5px solid ${checked ? t.accent : t.borderLight}`,
+        background: checked ? t.accentLight : t.bgSub,
         cursor: 'pointer',
         transition: 'all 0.2s',
         whiteSpace: 'nowrap',
       }}
     >
-      {checked && <CheckCircle2 size={14} color={t.accent} />}
+      <span style={{ fontSize: 14, lineHeight: 1 }}>{icon || '🎯'}</span>
       <span
         style={{
-          fontSize: 13,
+          fontSize: 12,
           color: checked ? t.accent : t.text,
           fontWeight: checked ? 600 : 400,
         }}
       >
         {name}
       </span>
-      {streak > 0 && (
-        <span
-          style={{
-            display: 'inline-flex',
-            alignItems: 'center',
-            gap: 2,
-            fontSize: 11,
-            color: '#9f403d',
-            fontWeight: 600,
-          }}
-        >
-          <Flame size={11} />
-          {streak}
-        </span>
-      )}
     </button>
   );
 }
 
-// ── Mini Heatmap ──
-function MiniHeatmap({ habits, t }: { habits: any[]; t: any }) {
-  const now = new Date();
-  const monthStart = startOfMonth(now);
-  const daysInM = getDaysInMonth(now);
-  const startDow = getDay(monthStart);
-
-  // count how many habits done each day
-  const cells: { day: number; count: number }[] = [];
-  for (let d = 1; d <= daysInM; d++) {
-    const dateStr = format(new Date(now.getFullYear(), now.getMonth(), d), 'yyyy-MM-dd');
-    const count = habits.filter((h) => h.checkedDates.includes(dateStr)).length;
-    cells.push({ day: d, count });
-  }
-
-  const maxCount = habits.length || 1;
-
+function WeeklyHabitMiniTracker({ habits, t }: { habits: any[]; t: any }) {
+  const baseToday = new Date();
+  baseToday.setHours(0, 0, 0, 0);
+  const weekStart = startOfWeek(baseToday, { weekStartsOn: 1 });
+  const weekDates = Array.from({ length: 7 }, (_, i) => addDays(weekStart, i));
+  const weekLabels = ['월', '화', '수', '목', '금', '토', '일'];
   return (
     <div style={{ marginTop: 12 }}>
-      <div style={{ fontSize: 10, color: t.textMuted, marginBottom: 6 }}>
-        {format(now, 'M월', { locale: ko })} 달성 현황
-      </div>
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 3 }}>
-        {['일', '월', '화', '수', '목', '금', '토'].map((d) => (
-          <div key={d} style={{ fontSize: 8, color: t.textMuted, textAlign: 'center' }}>
-            {d}
+      <div style={{ display: 'grid', gridTemplateColumns: 'minmax(92px, 1.1fr) repeat(7, minmax(0, 1fr))', gap: 4, alignItems: 'center', marginBottom: 6 }}>
+        <div />
+        {weekLabels.map(label => (
+          <div key={label} style={{ fontSize: 9, color: t.textMuted, textAlign: 'center' }}>
+            {label}
           </div>
         ))}
-        {Array.from({ length: startDow }).map((_, i) => (
-          <div key={`e-${i}`} />
-        ))}
-        {cells.map(({ day, count }) => {
-          const ratio = count / maxCount;
-          const isToday = day === now.getDate();
-          let bg = t.bgSub;
-          if (ratio > 0 && ratio < 0.5) bg = `${t.accent}40`;
-          else if (ratio >= 0.5 && ratio < 1) bg = `${t.accent}80`;
-          else if (ratio >= 1) bg = t.accent;
+      </div>
 
-          return (
+      <div className="space-y-1.5">
+        {habits.map(habit => (
+          <div key={habit.id} style={{ display: 'grid', gridTemplateColumns: 'minmax(92px, 1.1fr) repeat(7, minmax(0, 1fr))', gap: 4, alignItems: 'center' }}>
             <div
-              key={day}
-              title={`${day}일: ${count}/${habits.length}`}
               style={{
-                width: '100%',
-                aspectRatio: '1',
-                borderRadius: 3,
-                background: bg,
-                border: isToday ? `1.5px solid ${t.accent}` : 'none',
+                display: 'flex',
+                alignItems: 'center',
+                gap: 6,
+                minWidth: 0,
+                fontSize: 11,
+                color: t.textSub,
               }}
-            />
-          );
-        })}
+            >
+              <span style={{ fontSize: 12 }}>{habit.icon || '🎯'}</span>
+              <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{habit.name}</span>
+            </div>
+            {weekDates.map(date => {
+              const dateKey = format(date, 'yyyy-MM-dd');
+              const checked = habit.checkedDates.includes(dateKey);
+              const applicable = isHabitApplicableOnDate(habit, date);
+              const isFuture = date.getTime() > baseToday.getTime();
+              const isToday = dateKey === today;
+              const isInactive = isFuture || !applicable;
+
+              return (
+                <div
+                  key={`${habit.id}-${dateKey}`}
+                  style={{
+                    width: '100%',
+                    height: 28,
+                    borderRadius: 6,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    backgroundColor: checked ? t.card : isInactive ? 'transparent' : t.bgSub,
+                    border: isInactive
+                      ? 'none'
+                      : `${isToday ? 2 : 1}px solid ${isToday ? t.accent : t.border}`,
+                    opacity: isInactive ? 0.45 : 1,
+                    fontSize: 12,
+                    lineHeight: 1,
+                  }}
+                >
+                  {checked ? habit.icon || '🎯' : ''}
+                </div>
+              );
+            })}
+          </div>
+        ))}
       </div>
     </div>
   );
@@ -519,21 +522,6 @@ export function DashboardView() {
     return differenceInDays(new Date(t.dueDate), new Date()) < 0;
   });
 
-  // ── Habit streaks ──
-  const getStreak = (checkedDates: string[]) => {
-    let streak = 0;
-    let d = new Date();
-    // Check today first
-    if (!checkedDates.includes(format(d, 'yyyy-MM-dd'))) {
-      d = subDays(d, 1);
-    }
-    while (checkedDates.includes(format(d, 'yyyy-MM-dd'))) {
-      streak++;
-      d = subDays(d, 1);
-    }
-    return streak;
-  };
-
   // ── Projects ──
   const activeProjects = projects.filter((p) => p.status === 'active');
 
@@ -772,26 +760,44 @@ export function DashboardView() {
           {habits.length === 0 ? (
             <p style={{ fontSize: 13, color: t.textMuted }}>습관이 없습니다</p>
           ) : (
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
-              {habits.map((h) => {
-                const checked = h.checkedDates.includes(today);
-                const streak = getStreak(h.checkedDates);
-                return (
-                  <HabitChip
-                    key={h.id}
-                    name={h.name}
-                    checked={checked}
-                    streak={streak}
-                    onClick={() => toggleHabit(h.id, today)}
-                    t={t}
-                  />
-                );
-              })}
-            </div>
+            <>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+                {habits.map((h) => {
+                  const checked = h.checkedDates.includes(today);
+                  return (
+                    <TodayHabitChip
+                      key={h.id}
+                      icon={h.icon}
+                      name={h.name}
+                      checked={checked}
+                      onClick={() => toggleHabit(h.id, today)}
+                      t={t}
+                    />
+                  );
+                })}
+              </div>
+              <div style={{ height: 1, backgroundColor: t.borderLight, margin: '12px 0' }} />
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
+                <span style={{ fontSize: 11, color: t.textMuted }}>이번 주 현황</span>
+              </div>
+              <WeeklyHabitMiniTracker habits={habits} t={t} />
+              <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 8 }}>
+                <button
+                  onClick={() => navigate('/habits')}
+                  style={{
+                    fontSize: 12,
+                    fontWeight: 600,
+                    color: t.accent,
+                    background: 'transparent',
+                    border: 'none',
+                    cursor: 'pointer',
+                  }}
+                >
+                  습관 관리 →
+                </button>
+              </div>
+            </>
           )}
-
-          {/* Mini Heatmap */}
-          <MiniHeatmap habits={habits} t={t} />
         </div>
 
         {/* 📋 오늘 챙길 것들 */}

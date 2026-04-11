@@ -50,6 +50,7 @@ function formatMinSec(totalSec: number): string {
 export function RoutineModal({ routine, onClose }: { routine?: Routine; onClose: () => void }) {
   const { addRoutine, updateRoutine, deleteRoutine } = usePlanner();
   const { t } = useTheme();
+  const normalizeDurationMinutes = (value: unknown) => Math.max(1, Number.parseInt(String(value), 10) || 1);
 
   const [name, setName] = useState(routine?.name ?? '');
   const [icon, setIcon] = useState(routine?.icon ?? '🌅');
@@ -58,7 +59,10 @@ export function RoutineModal({ routine, onClose }: { routine?: Routine; onClose:
   // 기존 데이터 마이그레이션: routineSteps 없으면 steps에서 변환
   const initialSteps: RoutineStep[] = (() => {
     if (routine?.routineSteps && routine.routineSteps.length > 0) {
-      return routine.routineSteps;
+      return routine.routineSteps.map(step => ({
+        ...step,
+        durationMinutes: normalizeDurationMinutes(step.durationMinutes),
+      }));
     }
     if (routine?.steps && routine.steps.length > 0) {
       return routine.steps.map((title, i) => ({
@@ -204,7 +208,12 @@ export function RoutineModal({ routine, onClose }: { routine?: Routine; onClose:
                       <input
                         type="number" min={1} max={120}
                         value={step.durationMinutes}
-                        onChange={e => updateStep(i, { durationMinutes: Number(e.target.value) })}
+                        onChange={e => {
+                          const normalized = e.target.value
+                            .replace(/[^\d]/g, '')
+                            .replace(/^0+(?=\d)/, '');
+                          updateStep(i, { durationMinutes: normalizeDurationMinutes(normalized) });
+                        }}
                         className="w-16 rounded-lg px-2 py-1.5 border outline-none text-center"
                         style={{ borderColor: t.border, fontSize: 13, backgroundColor: t.card, color: t.text }}
                       />

@@ -1,13 +1,13 @@
-import React, { useState, useRef, useEffect, useCallback } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import {
-  Plus, Edit3, Trash2, X, Flame, Check, ChevronLeft, ChevronRight,
-  Timer, Hash, TrendingUp, MessageSquare, Minus, Pencil, BookOpen,
+  Plus, Edit3, X, Flame, Check, ChevronLeft, ChevronRight,
+  Timer, Hash, TrendingUp, MessageSquare, Minus,
 } from 'lucide-react';
 import { TimePicker } from './TimePicker';
 import { usePlanner, Habit, Routine } from '../store';
 import { useTheme } from '../ThemeContext';
-import { format, subDays, startOfMonth, getDaysInMonth, getDay, addMonths, subMonths } from 'date-fns';
-import { RoutineModal, ExecutionPanel, RoutineCard, today as routineToday, getStreak as getRoutineStreak } from './RoutinesView';
+import { format, subDays, startOfMonth, getDaysInMonth, getDay, addDays, startOfWeek, addMonths, subMonths } from 'date-fns';
+import { RoutineModal, ExecutionPanel, RoutineCard, today as routineToday } from './RoutinesView';
 
 const HABIT_COLORS = ['#515f74', '#D4735A', '#006b62', '#7B9ED9', '#A07BE0', '#6B7280'];
 const REPEAT_OPTIONS = [
@@ -46,6 +46,31 @@ function getStreak(checkedDates: string[]): number {
     else break;
   }
   return streak;
+}
+
+function toDateKey(date: Date): string {
+  return format(date, 'yyyy-MM-dd');
+}
+
+function normalizeDate(date: Date): Date {
+  const d = new Date(date);
+  d.setHours(0, 0, 0, 0);
+  return d;
+}
+
+function isHabitApplicableOnDate(habit: Habit, date: Date): boolean {
+  const dow = date.getDay();
+  switch (habit.repeat) {
+    case 'weekday':
+      return dow >= 1 && dow <= 5;
+    case 'weekend':
+      return dow === 0 || dow === 6;
+    case 'custom':
+      return habit.repeatDays?.includes(dow) ?? false;
+    case 'daily':
+    default:
+      return true;
+  }
 }
 
 // ─── Habit Add/Edit Modal ──────────────────────────────────────────────────────
@@ -495,348 +520,488 @@ function HabitChip({ habit, date }: { habit: Habit; date: string }) {
   return null;
 }
 
-// ─── Heatmap ──────────────────────────────────────────────────────────────────
-function HabitHeatmap({ habit }: { habit: Habit }) {
-  const { t } = useTheme();
-  const [viewMonth, setViewMonth] = useState(new Date());
-  const year = viewMonth.getFullYear();
-  const month = viewMonth.getMonth();
-  const firstDay = startOfMonth(viewMonth);
-  const startDow = getDay(firstDay);
-  const daysInMonth = getDaysInMonth(viewMonth);
-
-  const cells: (number | null)[] = [];
-  for (let i = 0; i < startDow; i++) cells.push(null);
-  for (let d = 1; d <= daysInMonth; d++) cells.push(d);
-
-  const dateStr = (day: number) => `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
-  const monthChecked = Array.from({ length: daysInMonth }, (_, i) => dateStr(i + 1)).filter(d => habit.checkedDates.includes(d)).length;
-
-  return (
-    <div className="rounded-xl p-4" style={{ backgroundColor: t.card, border: `1px solid ${t.borderLight}` }}>
-      <div className="flex items-center justify-between mb-3">
-        <div className="flex items-center gap-2">
-          <span style={{ fontSize: 16 }}>{habit.icon}</span>
-          <span style={{ fontSize: 13, fontWeight: 600, color: t.text }}>{habit.name}</span>
-          <span className="px-2 py-0.5 rounded-full" style={{ fontSize: 10, backgroundColor: t.bgSub, color: t.textMuted }}>
-            {HABIT_TYPES.find(h => h.value === (habit.habitType ?? 'check'))?.label}
-          </span>
-        </div>
-        <div className="flex items-center gap-4">
-          <span style={{ fontSize: 11, color: t.textSub }}>이번달 {monthChecked}회</span>
-          <span style={{ fontSize: 11, color: '#D4735A' }}><Flame size={11} className="inline" style={{ verticalAlign: -1 }} /> {getStreak(habit.checkedDates)}일 연속</span>
-        </div>
-      </div>
-      <div className="flex items-center justify-between mb-2">
-        <button onClick={() => setViewMonth(subMonths(viewMonth, 1))} className="p-1 rounded" style={{ color: t.textSub }}><ChevronLeft size={14} /></button>
-        <span style={{ fontSize: 12, fontWeight: 600, color: t.text }}>{year}년 {month + 1}월</span>
-        <button onClick={() => setViewMonth(addMonths(viewMonth, 1))} className="p-1 rounded" style={{ color: t.textSub }}><ChevronRight size={14} /></button>
-      </div>
-      <div className="grid grid-cols-7 gap-1">
-        {DAY_LABELS.map(d => <div key={d} className="text-center" style={{ fontSize: 9, color: t.textMuted }}>{d}</div>)}
-        {cells.map((day, i) => {
-          if (day === null) return <div key={i} className="w-6 h-6" />;
-          const checked = habit.checkedDates.includes(dateStr(day));
-          return (
-            <div key={i} className="w-6 h-6 rounded flex items-center justify-center mx-auto" style={{
-              backgroundColor: checked ? (habit.color || t.accent) : t.bgSub,
-              opacity: checked ? 1 : 0.3,
-            }}>
-              <span style={{ fontSize: 8, color: checked ? '#fff' : t.textMuted }}>{day}</span>
-            </div>
-          );
-        })}
-      </div>
-    </div>
-  );
-}
-
-// ─── Habit Tracker (FM002 스타일) ──────────────────────────────────────────────
-const MONTH_LABELS_SHORT = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+type TrackerMode = 'week' | 'month' | 'year';
+const TRACKER_TABS: { key: TrackerMode; label: string }[] = [
+  { key: 'week', label: '이번 주' },
+  { key: 'month', label: '이번 달' },
+  { key: 'year', label: '올해' },
+];
+const WEEK_LABELS = ['월', '화', '수', '목', '금', '토', '일'];
+const YEAR_MONTH_LABELS = ['1월', '2월', '3월', '4월', '5월', '6월', '7월', '8월', '9월', '10월', '11월', '12월'];
 
 function HabitTrackerView() {
-  const { habits, habitMonthlyMemos, setHabitMonthlyMemo } = usePlanner();
+  const { habits } = usePlanner();
   const { t } = useTheme();
+  const [mode, setMode] = useState<TrackerMode>('week');
+  const [viewDate, setViewDate] = useState(new Date());
+  const todayDate = normalizeDate(new Date());
+  const weekStart = startOfWeek(viewDate, { weekStartsOn: 1 });
+  const weekDates = Array.from({ length: 7 }, (_, i) => normalizeDate(addDays(weekStart, i)));
+  const monthStart = startOfMonth(viewDate);
+  const daysInMonth = getDaysInMonth(monthStart);
+  const monthDates = Array.from({ length: daysInMonth }, (_, i) => normalizeDate(new Date(monthStart.getFullYear(), monthStart.getMonth(), i + 1)));
+  const viewYear = viewDate.getFullYear();
+  const currentYear = todayDate.getFullYear();
+  const currentMonth = todayDate.getMonth();
 
-  const nowDate = new Date();
-  const [viewYear, setViewYear] = useState(nowDate.getFullYear());
-  const [viewMonth, setViewMonth] = useState(nowDate.getMonth() + 1); // 1-12
+  const movePrev = () => {
+    if (mode === 'week') setViewDate(prev => addDays(prev, -7));
+    if (mode === 'month') setViewDate(prev => subMonths(prev, 1));
+    if (mode === 'year') setViewDate(prev => new Date(prev.getFullYear() - 1, prev.getMonth(), 1));
+  };
+  const moveNext = () => {
+    if (mode === 'week') setViewDate(prev => addDays(prev, 7));
+    if (mode === 'month') setViewDate(prev => addMonths(prev, 1));
+    if (mode === 'year') setViewDate(prev => new Date(prev.getFullYear() + 1, prev.getMonth(), 1));
+  };
 
-  // 메모 인라인 편집 상태
-  const [editingMemo, setEditingMemo] = useState<Record<string, string>>({});
-  // 월간 회고 상태
-  const [reviewEditing, setReviewEditing] = useState(false);
-  const [reviewDraft, setReviewDraft] = useState({ memo: '', whatWorked: '', whatDidntWork: '', nextMonth: '' });
+  const rangeLabel = (() => {
+    if (mode === 'week') return `${format(weekDates[0], 'M.d')} - ${format(weekDates[6], 'M.d')}`;
+    if (mode === 'month') return `${format(viewDate, 'yyyy년 M월')}`;
+    return `${viewYear}년`;
+  })();
 
-  const daysInMonth = getDaysInMonth(new Date(viewYear, viewMonth - 1));
-  const days = Array.from({ length: daysInMonth }, (_, i) => i + 1);
-  const dateStr = (day: number) =>
-    `${viewYear}-${String(viewMonth).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
-
-  const getHabitMemo = (habitId: string) =>
-    habitMonthlyMemos.find(m => m.habitId === habitId && m.year === viewYear && m.month === viewMonth);
-
-  const monthlyReview = habitMonthlyMemos.find(
-    m => m.habitId === '__review__' && m.year === viewYear && m.month === viewMonth
-  );
-
-  useEffect(() => {
-    setReviewEditing(false);
-    setReviewDraft({
-      memo: monthlyReview?.memo || '',
-      whatWorked: monthlyReview?.whatWorked || '',
-      whatDidntWork: monthlyReview?.whatDidntWork || '',
-      nextMonth: monthlyReview?.nextMonth || '',
+  const getRangeCount = (habit: Habit, dates: Date[]) => {
+    let done = 0;
+    let total = 0;
+    dates.forEach(date => {
+      if (date.getTime() > todayDate.getTime()) return;
+      if (!isHabitApplicableOnDate(habit, date)) return;
+      total += 1;
+      if (habit.checkedDates.includes(toDateKey(date))) done += 1;
     });
-  }, [viewYear, viewMonth]);
-
-  const saveReview = () => {
-    setHabitMonthlyMemo('__review__', viewYear, viewMonth, reviewDraft);
-    setReviewEditing(false);
+    return { done, total };
   };
 
-  const saveMemo = (habitId: string, memo: string) => {
-    setHabitMonthlyMemo(habitId, viewYear, viewMonth, { memo });
-    setEditingMemo(prev => { const n = { ...prev }; delete n[habitId]; return n; });
+  const renderEmojiCell = (
+    habit: Habit,
+    date: Date,
+    opts: { height: number; emojiSize: number; fill?: boolean; baseBg?: string; emptyBorder?: string },
+  ) => {
+    const checked = habit.checkedDates.includes(toDateKey(date));
+    const applicable = isHabitApplicableOnDate(habit, date);
+    const isFuture = date.getTime() > todayDate.getTime();
+    const isNA = isFuture || !applicable;
+    return (
+      <div
+        key={toDateKey(date)}
+        style={{
+          width: opts.fill ? '100%' : opts.height,
+          height: opts.height,
+          borderRadius: 6,
+          border: `1px solid ${checked ? t.accent : (opts.emptyBorder || t.borderLight)}`,
+          backgroundColor: checked ? t.accentLight : (opts.baseBg || 'transparent'),
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          opacity: isNA ? 0.45 : 1,
+          fontSize: opts.emojiSize,
+          lineHeight: 1,
+        }}
+      >
+        {checked && !isNA ? habit.icon || '🎯' : ''}
+      </div>
+    );
   };
-
-  const REVIEW_FIELDS: { key: keyof typeof reviewDraft; label: string }[] = [
-    { key: 'memo', label: 'This month' },
-    { key: 'whatWorked', label: 'What worked' },
-    { key: 'whatDidntWork', label: "What didn't work" },
-    { key: 'nextMonth', label: 'Next month' },
-  ];
 
   return (
-    <div>
-      {/* 연도 네비 */}
-      <div className="flex items-center justify-center gap-3 mb-3">
-        <button onClick={() => setViewYear(y => y - 1)} className="p-1 rounded" style={{ color: t.textSub }}>
-          <ChevronLeft size={15} />
+    <div className="rounded-xl p-3 lg:p-5" style={{ backgroundColor: t.card, border: `1px solid ${t.borderLight}` }}>
+      <div className="flex items-center justify-between gap-2 mb-3">
+        <button onClick={movePrev} className="p-1.5 rounded-lg" style={{ color: t.textSub, backgroundColor: t.bgSub }}>
+          <ChevronLeft size={14} />
         </button>
-        <span style={{ fontSize: 13, fontWeight: 600, color: t.text }}>{viewYear}</span>
-        <button onClick={() => setViewYear(y => y + 1)} className="p-1 rounded" style={{ color: t.textSub }}>
-          <ChevronRight size={15} />
+        <span style={{ fontSize: 16, fontWeight: 700, color: t.text, fontFamily: "'DM Serif Display', serif" }}>{rangeLabel}</span>
+        <button onClick={moveNext} className="p-1.5 rounded-lg" style={{ color: t.textSub, backgroundColor: t.bgSub }}>
+          <ChevronRight size={14} />
         </button>
       </div>
 
-      {/* 월 탭 */}
-      <div className="flex gap-1 mb-5 overflow-x-auto pb-1">
-        {MONTH_LABELS_SHORT.map((label, i) => {
-          const isNowMonth = viewYear === nowDate.getFullYear() && i + 1 === nowDate.getMonth() + 1;
-          const isSelected = viewMonth === i + 1;
-          return (
-            <button key={i} onClick={() => setViewMonth(i + 1)}
-              className="px-2.5 py-1.5 rounded-lg flex-shrink-0 transition-all"
-              style={{
-                fontSize: 11, fontWeight: isSelected ? 700 : 400,
-                backgroundColor: isSelected ? t.accent : isNowMonth ? t.accentLight : t.bgSub,
-                color: isSelected ? '#fff' : isNowMonth ? t.accent : t.textSub,
-              }}>
-              {label}
-            </button>
-          );
-        })}
+      <div className="flex gap-1.5 overflow-x-auto pb-1 mb-4">
+        {TRACKER_TABS.map(tab => (
+          <button
+            key={tab.key}
+            onClick={() => setMode(tab.key)}
+            className="px-3 py-1.5 rounded-lg flex-shrink-0"
+            style={{
+              fontSize: 12,
+              fontWeight: mode === tab.key ? 700 : 500,
+              backgroundColor: mode === tab.key ? t.accent : t.bgSub,
+              color: mode === tab.key ? '#fff' : t.textSub,
+            }}
+          >
+            {tab.label}
+          </button>
+        ))}
       </div>
 
-      {/* 습관 없을 때 */}
-      {habits.length === 0 && (
-        <p style={{ fontSize: 13, color: t.textMuted, textAlign: 'center', padding: '32px 0' }}>
-          습관 관리 탭에서 먼저 습관을 추가해주세요
+      {habits.length === 0 ? (
+        <p style={{ fontSize: 13, color: t.textMuted, textAlign: 'center', padding: '22px 0' }}>
+          습관을 추가하면 트래커가 표시됩니다
         </p>
+      ) : mode === 'year' ? (
+        <>
+          <div className="hidden lg:block overflow-x-auto">
+            <div style={{ width: '100%' }}>
+              <div
+                style={{
+                  display: 'grid',
+                  gridTemplateColumns: 'minmax(140px, 1.2fr) repeat(12, minmax(44px, 1fr))',
+                  gap: 8,
+                  marginBottom: 6,
+                }}
+              >
+                <div />
+                {YEAR_MONTH_LABELS.map(label => (
+                  <div key={label} style={{ fontSize: 10, color: t.textMuted, textAlign: 'center' }}>{label}</div>
+                ))}
+              </div>
+              <div className="space-y-2">
+                {habits.map(habit => (
+                  <div
+                    key={habit.id}
+                    style={{
+                      display: 'grid',
+                      gridTemplateColumns: 'minmax(140px, 1.2fr) repeat(12, minmax(44px, 1fr))',
+                      gap: 8,
+                      alignItems: 'center',
+                    }}
+                  >
+                    <div className="truncate" style={{ fontSize: 12, color: t.text, display: 'flex', alignItems: 'center', gap: 6 }}>
+                      <span>{habit.icon || '🎯'}</span>
+                      <span className="truncate">{habit.name}</span>
+                    </div>
+                    {Array.from({ length: 12 }, (_, monthIdx) => {
+                      const monthDatesForRate = Array.from(
+                        { length: getDaysInMonth(new Date(viewYear, monthIdx, 1)) },
+                        (_, dayIdx) => normalizeDate(new Date(viewYear, monthIdx, dayIdx + 1)),
+                      );
+                      const { done, total } = getRangeCount(habit, monthDatesForRate);
+                      const rate = total > 0 ? Math.round((done / total) * 100) : 0;
+                      const isFutureMonth = viewYear > currentYear || (viewYear === currentYear && monthIdx > currentMonth);
+                      const bg = isFutureMonth
+                        ? t.bgSub
+                        : rate >= 70
+                          ? t.accent
+                          : rate >= 40
+                            ? t.accentLight
+                            : t.bgHover;
+                      const fg = isFutureMonth ? t.textMuted : rate >= 70 ? '#fff' : t.textSub;
+                      return (
+                        <div
+                          key={`${habit.id}-${monthIdx}`}
+                          style={{
+                            height: 30,
+                            borderRadius: 8,
+                            border: `1px solid ${isFutureMonth ? t.borderLight : t.border}`,
+                            backgroundColor: bg,
+                            color: fg,
+                            fontSize: 11,
+                            fontWeight: 700,
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            opacity: isFutureMonth ? 0.65 : 1,
+                            fontVariantNumeric: 'tabular-nums',
+                          }}
+                        >
+                          {isFutureMonth ? '—' : `${rate}%`}
+                        </div>
+                      );
+                    })}
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          <div className="lg:hidden space-y-2.5">
+            {habits.map(habit => (
+              <div
+                key={`${habit.id}-year-mobile`}
+                className="rounded-lg p-2.5"
+                style={{ border: `1px solid ${t.borderLight}`, backgroundColor: t.bgSub }}
+              >
+                <div className="truncate mb-2" style={{ fontSize: 12, color: t.text, display: 'flex', alignItems: 'center', gap: 6 }}>
+                  <span>{habit.icon || '🎯'}</span>
+                  <span className="truncate">{habit.name}</span>
+                </div>
+                <div
+                  style={{
+                    display: 'grid',
+                    gridTemplateColumns: 'repeat(3, minmax(0, 1fr))',
+                    gap: 6,
+                  }}
+                >
+                  {Array.from({ length: 12 }, (_, monthIdx) => {
+                    const monthDatesForRate = Array.from(
+                      { length: getDaysInMonth(new Date(viewYear, monthIdx, 1)) },
+                      (_, dayIdx) => normalizeDate(new Date(viewYear, monthIdx, dayIdx + 1)),
+                    );
+                    const { done, total } = getRangeCount(habit, monthDatesForRate);
+                    const rate = total > 0 ? Math.round((done / total) * 100) : 0;
+                    const isFutureMonth = viewYear > currentYear || (viewYear === currentYear && monthIdx > currentMonth);
+                    const bg = isFutureMonth
+                      ? t.card
+                      : rate >= 70
+                        ? t.accent
+                        : rate >= 40
+                          ? t.accentLight
+                          : t.bgHover;
+                    const fg = isFutureMonth ? t.textMuted : rate >= 70 ? '#fff' : t.textSub;
+                    return (
+                      <div
+                        key={`${habit.id}-m-${monthIdx}`}
+                        style={{
+                          height: 38,
+                          borderRadius: 8,
+                          border: `1px solid ${isFutureMonth ? t.borderLight : t.border}`,
+                          backgroundColor: bg,
+                          color: fg,
+                          display: 'flex',
+                          flexDirection: 'column',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          opacity: isFutureMonth ? 0.7 : 1,
+                          fontVariantNumeric: 'tabular-nums',
+                          lineHeight: 1.1,
+                          gap: 3,
+                        }}
+                      >
+                        <span style={{ fontSize: 9 }}>{YEAR_MONTH_LABELS[monthIdx]}</span>
+                        <span style={{ fontSize: 11, fontWeight: 700 }}>
+                          {isFutureMonth ? '—' : `${rate}%`}
+                        </span>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            ))}
+          </div>
+        </>
+      ) : mode === 'week' ? (
+        <>
+          <div className="hidden lg:block">
+            <div>
+              <div
+                style={{
+                  display: 'grid',
+                  gridTemplateColumns: 'minmax(140px, 1.2fr) repeat(7, minmax(44px, 1fr)) 64px',
+                  gap: 10,
+                  marginBottom: 6,
+                  alignItems: 'center',
+                }}
+              >
+                <div />
+                {WEEK_LABELS.map(label => (
+                  <div key={label} style={{ textAlign: 'center', fontSize: 11, color: t.textMuted }}>{label}</div>
+                ))}
+                <div />
+              </div>
+              <div className="space-y-2">
+                {habits.map(habit => {
+                  const stats = getRangeCount(habit, weekDates);
+                  return (
+                    <div
+                      key={habit.id}
+                      style={{
+                        display: 'grid',
+                        gridTemplateColumns: 'minmax(140px, 1.2fr) repeat(7, minmax(44px, 1fr)) 64px',
+                        gap: 10,
+                        alignItems: 'center',
+                      }}
+                    >
+                      <div className="truncate" style={{ fontSize: 12, color: t.text, display: 'flex', alignItems: 'center', gap: 6 }}>
+                        <span>{habit.icon || '🎯'}</span>
+                        <span className="truncate">{habit.name}</span>
+                      </div>
+                      {weekDates.map(date => renderEmojiCell(habit, date, { height: 40, emojiSize: 16, fill: true }))}
+                      <div style={{ fontSize: 11, color: t.textSub, textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>
+                        {stats.done}/{stats.total}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+
+          <div className="lg:hidden">
+            <div
+              style={{
+                display: 'grid',
+                gridTemplateColumns: '94px repeat(7, minmax(0, 1fr))',
+                gap: 4,
+                marginBottom: 6,
+                alignItems: 'center',
+              }}
+            >
+              <div />
+              {WEEK_LABELS.map(label => (
+                <div key={label} style={{ textAlign: 'center', fontSize: 10, color: t.textMuted }}>{label}</div>
+              ))}
+            </div>
+            <div className="space-y-2">
+              {habits.map(habit => {
+                const stats = getRangeCount(habit, weekDates);
+                return (
+                  <div
+                    key={`${habit.id}-m`}
+                    style={{
+                      display: 'grid',
+                      gridTemplateColumns: '94px repeat(7, minmax(0, 1fr))',
+                      gap: 4,
+                      alignItems: 'center',
+                    }}
+                  >
+                    <div style={{ minWidth: 0 }}>
+                      <div className="truncate" style={{ fontSize: 12, color: t.text, display: 'flex', alignItems: 'center', gap: 5 }}>
+                        <span>{habit.icon || '🎯'}</span>
+                        <span className="truncate">{habit.name}</span>
+                      </div>
+                      <div style={{ fontSize: 10, color: t.textMuted, marginTop: 1, fontVariantNumeric: 'tabular-nums' }}>
+                        {stats.done}/{stats.total}
+                      </div>
+                    </div>
+                    {weekDates.map(date => renderEmojiCell(habit, date, { height: 34, emojiSize: 14, fill: true }))}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </>
+      ) : (
+        <>
+          <div className="hidden lg:block overflow-x-auto pb-1">
+            <div style={{ width: '100%' }}>
+              <div
+                style={{
+                  display: 'grid',
+                  gridTemplateColumns: `minmax(140px, 1.2fr) repeat(${daysInMonth}, minmax(18px, 1fr)) 64px`,
+                  gap: 3,
+                  marginBottom: 6,
+                  alignItems: 'center',
+                }}
+              >
+                <div />
+                {monthDates.map(date => (
+                  <div key={toDateKey(date)} style={{ textAlign: 'center', fontSize: 10, color: t.textMuted }}>
+                    {date.getDate()}
+                  </div>
+                ))}
+                <div />
+              </div>
+              <div className="space-y-2">
+                {habits.map(habit => {
+                  const stats = getRangeCount(habit, monthDates);
+                  return (
+                    <div
+                      key={habit.id}
+                      style={{
+                        display: 'grid',
+                        gridTemplateColumns: `minmax(140px, 1.2fr) repeat(${daysInMonth}, minmax(18px, 1fr)) 64px`,
+                        gap: 3,
+                        alignItems: 'center',
+                      }}
+                    >
+                      <div className="truncate" style={{ fontSize: 12, color: t.text, display: 'flex', alignItems: 'center', gap: 6 }}>
+                        <span>{habit.icon || '🎯'}</span>
+                        <span className="truncate">{habit.name}</span>
+                      </div>
+                      {monthDates.map(date => renderEmojiCell(habit, date, { height: 20, emojiSize: 10, fill: true }))}
+                      <div style={{ fontSize: 11, color: t.textSub, textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>
+                        {stats.done}/{stats.total}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+
+          <div className="lg:hidden">
+            <div
+              style={{
+                display: 'grid',
+                gridTemplateColumns: 'repeat(7, minmax(0, 1fr))',
+                gap: 4,
+                marginBottom: 8,
+              }}
+            >
+              {WEEK_LABELS.map(label => (
+                <div key={`month-mobile-h-${label}`} style={{ textAlign: 'center', fontSize: 10, color: t.textMuted }}>
+                  {label}
+                </div>
+              ))}
+            </div>
+            <div className="space-y-2.5">
+              {habits.map(habit => {
+                const stats = getRangeCount(habit, monthDates);
+                const monthStartOffset = (getDay(monthStart) + 6) % 7;
+                const cells: (Date | null)[] = [
+                  ...Array.from({ length: monthStartOffset }, () => null),
+                  ...monthDates,
+                ];
+                return (
+                  <div
+                    key={`${habit.id}-month-mobile`}
+                    className="rounded-lg p-2.5"
+                    style={{ border: `1px solid ${t.borderLight}`, backgroundColor: t.bgSub }}
+                  >
+                    <div className="flex items-center justify-between mb-2">
+                      <div className="truncate" style={{ fontSize: 12, color: t.text, display: 'flex', alignItems: 'center', gap: 6 }}>
+                        <span>{habit.icon || '🎯'}</span>
+                        <span className="truncate">{habit.name}</span>
+                      </div>
+                      <div style={{ fontSize: 10, color: t.textMuted, fontVariantNumeric: 'tabular-nums' }}>
+                        {stats.done}/{stats.total}
+                      </div>
+                    </div>
+                    <div
+                      style={{
+                        display: 'grid',
+                        gridTemplateColumns: 'repeat(7, minmax(0, 1fr))',
+                        gap: 4,
+                      }}
+                    >
+                      {cells.map((date, idx) =>
+                        date ? (
+                          <div key={`${habit.id}-${toDateKey(date)}`}>
+                            {renderEmojiCell(habit, date, {
+                              height: 20,
+                              emojiSize: 10,
+                              fill: true,
+                              baseBg: t.card,
+                              emptyBorder: t.border,
+                            })}
+                          </div>
+                        ) : (
+                          <div key={`${habit.id}-empty-${idx}`} style={{ height: 20 }} />
+                        ),
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </>
       )}
 
-      {/* 습관별 행 */}
-      {habits.map(habit => {
-        const color = habit.color || '#515f74';
-        const score = days.filter(d => habit.checkedDates.includes(dateStr(d))).length;
-        const pct = daysInMonth > 0 ? Math.round((score / daysInMonth) * 100) : 0;
-        const habitMemo = getHabitMemo(habit.id);
-        const isEditingMemo = habit.id in editingMemo;
-        const memoText = isEditingMemo ? editingMemo[habit.id] : (habitMemo?.memo || '');
-
-        // 날짜 점 공통 컴포넌트
-        const Dot = ({ day }: { day: number }) => {
-          const checked = habit.checkedDates.includes(dateStr(day));
-          return (
-            <div style={{
-              borderRadius: '50%',
-              backgroundColor: checked ? color : 'transparent',
-              border: `1.5px solid ${checked ? color : t.borderLight}`,
-              flexShrink: 0,
-            }} />
-          );
-        };
-
-        return (
-          <div key={habit.id} className="rounded-xl mb-3 p-3 lg:p-4"
-            style={{ backgroundColor: t.card, border: `1px solid ${t.borderLight}` }}>
-
-            {/* 헤더: 이모지 + 이름 + 이유 + score */}
-            <div className="flex items-start gap-2 mb-3">
-              <span style={{ fontSize: 20, lineHeight: '1.4', flexShrink: 0 }}>{habit.icon || '🎯'}</span>
-              <div className="flex-1 min-w-0">
-                <span style={{ fontSize: 13, fontWeight: 700, color: t.text, display: 'block' }}>
-                  {habit.name}
-                </span>
-                {habit.reason && (
-                  <span style={{ fontSize: 10, color: t.textMuted, marginTop: 1, display: 'block' }}>
-                    {habit.reason}
-                  </span>
-                )}
-              </div>
-              <div className="flex items-baseline gap-0.5 flex-shrink-0">
-                <span style={{ fontSize: 16, fontWeight: 700, color, fontFamily: "'DM Serif Display', serif" }}>
-                  {score}
-                </span>
-                <span style={{ fontSize: 11, color: t.textMuted }}>/{daysInMonth}</span>
-              </div>
-            </div>
-
-            {/* PC: 그리드 점 — 전체 너비 균등 분배 */}
-            <div className="hidden lg:block mb-2">
-              <div style={{
-                display: 'grid',
-                gridTemplateColumns: `repeat(${daysInMonth}, 1fr)`,
-                gap: 3,
-              }}>
-                {days.map(d => <Dot key={d} day={d} />)}
-              </div>
-              <div style={{
-                display: 'grid',
-                gridTemplateColumns: `repeat(${daysInMonth}, 1fr)`,
-                gap: 3, marginTop: 3,
-              }}>
-                {days.map(d => (
-                  <div key={d} style={{ textAlign: 'center', fontSize: 8, color: t.textMuted }}>{d}</div>
-                ))}
-              </div>
-            </div>
-
-            {/* 모바일: 가로 스크롤 점 */}
-            <div className="lg:hidden overflow-x-auto mb-2" style={{ marginLeft: -12, marginRight: -12, paddingLeft: 12, paddingRight: 12 }}>
-              <div className="flex gap-0.5" style={{ minWidth: 'max-content' }}>
-                {days.map(d => (
-                  <div key={d} className="flex flex-col items-center gap-0.5">
-                    <div style={{
-                      width: 14, height: 14, borderRadius: '50%',
-                      backgroundColor: habit.checkedDates.includes(dateStr(d)) ? color : 'transparent',
-                      border: `1.5px solid ${habit.checkedDates.includes(dateStr(d)) ? color : t.borderLight}`,
-                    }} />
-                    <span style={{ fontSize: 7, color: t.textMuted, width: 14, textAlign: 'center' }}>{d}</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            {/* 진행률 바 */}
-            <div className="h-1 rounded-full overflow-hidden mb-2" style={{ backgroundColor: t.bgSub }}>
-              <div className="h-full rounded-full transition-all duration-500"
-                style={{ width: `${pct}%`, backgroundColor: color }} />
-            </div>
-
-            {/* 이번달 메모 */}
-            {isEditingMemo ? (
-              <input
-                autoFocus
-                value={memoText}
-                onChange={e => setEditingMemo(prev => ({ ...prev, [habit.id]: e.target.value }))}
-                onBlur={() => saveMemo(habit.id, memoText)}
-                onKeyDown={e => {
-                  if (e.key === 'Enter') saveMemo(habit.id, memoText);
-                  if (e.key === 'Escape') setEditingMemo(prev => { const n = { ...prev }; delete n[habit.id]; return n; });
-                }}
-                className="w-full rounded-lg px-2.5 py-1.5 border outline-none"
-                style={{ fontSize: 11, borderColor: t.accent, backgroundColor: t.bgSub, color: t.text }}
-                placeholder="이 달 메모를 남겨보세요"
-              />
-            ) : (
-              <button
-                onClick={() => setEditingMemo(prev => ({ ...prev, [habit.id]: habitMemo?.memo || '' }))}
-                className="w-full text-left rounded-lg px-2.5 py-1.5 transition-colors"
-                style={{ fontSize: 11, color: habitMemo?.memo ? t.text : t.textMuted, backgroundColor: t.bgSub }}>
-                {habitMemo?.memo || '+ 이 달 메모 추가...'}
-              </button>
-            )}
-          </div>
-        );
-      })}
-
-      {/* 월간 회고 */}
-      {habits.length > 0 && (
-        <div className="rounded-xl p-4 mt-2" style={{ backgroundColor: t.card, border: `1px solid ${t.borderLight}` }}>
-          <div className="flex items-center justify-between mb-3">
-            <div className="flex items-center gap-2">
-              <BookOpen size={14} color={t.accent} />
-              <span style={{ fontSize: 13, fontWeight: 700, color: t.text }}>월간 회고</span>
-            </div>
-            {!reviewEditing && (
-              <button
-                onClick={() => {
-                  setReviewDraft({
-                    memo: monthlyReview?.memo || '',
-                    whatWorked: monthlyReview?.whatWorked || '',
-                    whatDidntWork: monthlyReview?.whatDidntWork || '',
-                    nextMonth: monthlyReview?.nextMonth || '',
-                  });
-                  setReviewEditing(true);
-                }}
-                className="px-3 py-1 rounded-lg"
-                style={{ fontSize: 11, color: t.accent, backgroundColor: t.accentLight }}>
-                {monthlyReview ? '편집' : '작성하기'}
-              </button>
-            )}
-          </div>
-
-          {reviewEditing ? (
-            <div className="space-y-3">
-              {REVIEW_FIELDS.map(field => (
-                <div key={field.key}>
-                  <label style={{
-                    fontSize: 9, fontWeight: 700, color: t.textMuted,
-                    textTransform: 'uppercase', letterSpacing: '0.08em', display: 'block', marginBottom: 4,
-                  }}>
-                    {field.label}
-                  </label>
-                  <textarea
-                    value={reviewDraft[field.key]}
-                    onChange={e => setReviewDraft(prev => ({ ...prev, [field.key]: e.target.value }))}
-                    rows={2}
-                    className="w-full rounded-lg px-3 py-2 border outline-none resize-none"
-                    style={{ fontSize: 12, borderColor: t.border, backgroundColor: t.bgSub, color: t.text }}
-                  />
-                </div>
-              ))}
-              <div className="flex gap-2 pt-1">
-                <button onClick={() => setReviewEditing(false)}
-                  className="flex-1 py-2 rounded-xl"
-                  style={{ fontSize: 12, color: t.textSub, backgroundColor: t.bgSub }}>취소</button>
-                <button onClick={saveReview}
-                  className="flex-1 py-2 rounded-xl"
-                  style={{ fontSize: 12, fontWeight: 600, backgroundColor: t.accent, color: '#fff' }}>저장</button>
-              </div>
-            </div>
-          ) : monthlyReview && (monthlyReview.memo || monthlyReview.whatWorked || monthlyReview.whatDidntWork || monthlyReview.nextMonth) ? (
-            <div className="space-y-3">
-              {REVIEW_FIELDS.filter(f => monthlyReview[f.key]).map(field => (
-                <div key={field.key}>
-                  <div style={{
-                    fontSize: 9, fontWeight: 700, color: t.textMuted,
-                    textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 4,
-                  }}>
-                    {field.label}
-                  </div>
-                  <p style={{ fontSize: 12, color: t.text, lineHeight: 1.6, whiteSpace: 'pre-wrap' }}>
-                    {monthlyReview[field.key]}
-                  </p>
-                </div>
-              ))}
-            </div>
-          ) : (
-            <p style={{ fontSize: 12, color: t.textMuted }}>이번 달 회고를 작성해보세요 ✍️</p>
-          )}
+      <div className="flex flex-wrap gap-3 mt-4" style={{ fontSize: 11, color: t.textMuted }}>
+        <div className="flex items-center gap-1.5">
+          <span className="inline-block w-3.5 h-3.5 rounded" style={{ backgroundColor: t.accentLight, border: `1px solid ${t.accent}` }} />
+          달성
         </div>
-      )}
+        <div className="flex items-center gap-1.5">
+          <span className="inline-block w-3.5 h-3.5 rounded" style={{ border: `1px solid ${t.borderLight}` }} />
+          미달성
+        </div>
+        <div className="flex items-center gap-1.5">
+          <span className="inline-block w-3.5 h-3.5 rounded" style={{ backgroundColor: t.bgSub, border: `1px solid ${t.borderLight}`, opacity: 0.55 }} />
+          해당없음
+        </div>
+      </div>
     </div>
   );
 }
@@ -845,7 +1010,7 @@ function HabitTrackerView() {
 export function HabitsView() {
   const { habits, routines, selectedDate, updateHabitMemo } = usePlanner();
   const { t } = useTheme();
-  const [tab, setTab] = useState<'habits' | 'routines' | 'stats'>('habits');
+  const [tab, setTab] = useState<'habits' | 'stats' | 'routines'>('habits');
   const [editHabit, setEditHabit] = useState<Habit | null>(null);
   const [showAddHabit, setShowAddHabit] = useState(false);
   const [editRoutine, setEditRoutine] = useState<Routine | null>(null);
@@ -857,21 +1022,21 @@ export function HabitsView() {
   const completedToday = routines.filter(r => r.checkedDates?.includes(routineToday)).length;
 
   const tabs = [
-    { key: 'habits', label: '습관 관리' },
-    { key: 'routines', label: '루틴 설정' },
+    { key: 'habits', label: '습관 실행' },
     { key: 'stats', label: '습관 트래커' },
+    { key: 'routines', label: '루틴 설정' },
   ] as const;
 
   return (
     <div className="flex-1 overflow-y-auto">
       {/* Header */}
-      <div className="px-6 pt-6 pb-4">
+      <div className="px-4 lg:px-6 pt-6 pb-4">
         <h1 style={{ fontSize: 22, fontWeight: 700, color: t.text, fontFamily: "'DM Serif Display', serif" }}>습관 & 루틴</h1>
         <p style={{ fontSize: 13, color: t.textSub, marginTop: 4 }}>좋은 습관을 만들고, 루틴으로 하루를 설계하세요</p>
       </div>
 
       {/* Tabs */}
-      <div className="flex gap-1 px-6 mb-4">
+      <div className="flex gap-1 px-4 lg:px-6 mb-4 overflow-x-auto pb-1">
         {tabs.map(tb => (
           <button key={tb.key} onClick={() => setTab(tb.key)}
             className="px-4 py-2 rounded-xl transition-all"
@@ -883,7 +1048,7 @@ export function HabitsView() {
         ))}
       </div>
 
-      <div className="px-6 pb-8">
+      <div className="px-4 lg:px-6 pb-8">
         {/* Habits Tab */}
         {tab === 'habits' && (
           <div className="space-y-2">
@@ -898,7 +1063,6 @@ export function HabitsView() {
                 <div key={h.id} className="rounded-xl transition-all"
                   style={{ backgroundColor: t.card, border: `1px solid ${t.borderLight}` }}>
                   <div className="flex items-center gap-3 p-4">
-                    {/* Type-specific chip */}
                     <HabitChip habit={h} date={selectedDate} />
 
                     <span style={{ fontSize: 18 }}>{h.icon || '🎯'}</span>
@@ -922,9 +1086,9 @@ export function HabitsView() {
                     </div>
 
                     {streak > 0 && (
-                      <div className="flex items-center gap-1 px-2.5 py-1 rounded-full" style={{ backgroundColor: '#FEF3C7' }}>
-                        <Flame size={12} color="#D97706" />
-                        <span style={{ fontSize: 11, fontWeight: 600, color: '#D97706' }}>{streak}</span>
+                      <div className="flex items-center gap-1 px-2.5 py-1 rounded-full" style={{ backgroundColor: t.accentLight }}>
+                        <Flame size={12} color={t.accent} />
+                        <span style={{ fontSize: 11, fontWeight: 600, color: t.accent }}>{streak}일</span>
                       </div>
                     )}
                     <button onClick={() => setEditHabit(h)} className="p-2 rounded-lg" style={{ color: t.textMuted }}>
@@ -932,7 +1096,6 @@ export function HabitsView() {
                     </button>
                   </div>
 
-                  {/* Memo inline row (memo type, after checking) */}
                   {showMemoRow && (
                     <div className="px-4 pb-3 flex items-center gap-2" style={{ borderTop: `1px solid ${t.borderLight}` }}>
                       <MessageSquare size={13} color={t.textMuted} style={{ flexShrink: 0, marginTop: 8 }} />
@@ -966,9 +1129,23 @@ export function HabitsView() {
           </div>
         )}
 
+        {/* Habit Tracker Tab */}
+        {tab === 'stats' && <HabitTrackerView />}
+
         {/* Routines Tab */}
         {tab === 'routines' && (
           <div className="space-y-4">
+            <div className="flex items-center justify-between">
+              <h3 style={{ fontSize: 14, fontWeight: 700, color: t.text }}>루틴 목록</h3>
+              <button
+                onClick={() => setShowAddRoutine(true)}
+                className="px-2.5 py-1.5 lg:px-3 rounded-lg flex items-center gap-1 lg:gap-1.5"
+                style={{ fontSize: 11, fontWeight: 600, backgroundColor: t.accent, color: '#fff', whiteSpace: 'nowrap' }}
+              >
+                <Plus size={13} /> 루틴 추가
+              </button>
+            </div>
+
             {/* 오늘 진행률 */}
             {routines.length > 0 && (
               <div className="rounded-2xl p-4" style={{ backgroundColor: t.card, border: `1px solid ${t.border}` }}>
@@ -1010,17 +1187,22 @@ export function HabitsView() {
                     onRun={() => setRunningRoutine(r)}
                   />
                 ))}
-              <button onClick={() => setShowAddRoutine(true)}
-                className="w-full flex items-center justify-center gap-2 py-3 rounded-xl transition-colors"
-                style={{ border: `2px dashed ${t.border}`, color: t.accent, fontSize: 13, fontWeight: 600 }}>
-                <Plus size={16} /> 루틴 추가
-              </button>
+              {routines.length === 0 && (
+                <div className="rounded-xl py-10 text-center" style={{ backgroundColor: t.card, border: `1px solid ${t.borderLight}` }}>
+                  <p style={{ fontSize: 13, color: t.textMuted }}>아직 루틴이 없습니다</p>
+                  <button
+                    onClick={() => setShowAddRoutine(true)}
+                    className="mt-2 px-4 py-1.5 rounded-lg"
+                    style={{ fontSize: 12, color: t.accent, backgroundColor: t.accentLight }}
+                  >
+                    + 루틴 추가
+                  </button>
+                </div>
+              )}
             </div>
           </div>
         )}
 
-        {/* 습관 트래커 Tab */}
-        {tab === 'stats' && <HabitTrackerView />}
       </div>
 
       {/* Modals */}
