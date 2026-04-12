@@ -31,12 +31,25 @@ export interface Todo {
 
 export interface Event {
   id: string;
+  sourceEventId?: string;
   title: string;
   date: string;
+  startDate?: string;
+  endDate?: string;
   startTime?: string;
   endTime?: string;
+  isAllDay?: boolean;
   location?: string;
+  linkUrl?: string;
   memo?: string;
+  repeatType?: 'none' | 'daily' | 'weekly' | 'monthly';
+  repeatEndDate?: string;
+  alertMinutes?: 0 | 10 | 30 | 60;
+  projectId?: string;
+  color?: string;
+  startAt?: string;
+  endAt?: string;
+  isOccurrence?: boolean;
   tags?: string[];
 }
 
@@ -303,6 +316,8 @@ export interface AppSettings {
   showHabitHeatmap: boolean;
   habitAlarmDefault: string;
   globalAffirmation: string;
+  weekStartsOn: 0 | 1;
+  mobileWeekDays: 2 | 3;
   /** 연도 문자열 키 → 정체성·가치 */
   annualProfiles: Record<string, AnnualYearProfile>;
   /** DB/구버전 호환용 (현재 연도 프로필과 동기화 가능) */
@@ -318,6 +333,8 @@ export const DEFAULT_APP_SETTINGS: AppSettings = {
   showHabitHeatmap: false,
   habitAlarmDefault: '',
   globalAffirmation: '',
+  weekStartsOn: 1,
+  mobileWeekDays: 3,
   annualProfiles: {},
   annualIdentity: '',
   annualValues: [],
@@ -595,6 +612,7 @@ export function PlannerProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const newId = () => Math.random().toString(36).slice(2, 9);
+  const newEventId = () => globalThis.crypto?.randomUUID?.() ?? `${newId()}-${Date.now()}`;
 
   // ── Todo actions ──
   const addTodo = useCallback((todo: Omit<Todo, 'id'>) => {
@@ -634,23 +652,36 @@ export function PlannerProvider({ children }: { children: React.ReactNode }) {
 
   // ── Event actions ──
   const addEvent = useCallback((event: Omit<Event, 'id'>) => {
-    const newEvent: Event = { ...event, id: newId(), tags: event.tags ?? [] };
-    setEvents(prev => [...prev, newEvent]);
-    db.events.upsert(newEvent);
+    const newEvent: Event = {
+      ...event,
+      id: newEventId(),
+      sourceEventId: undefined,
+      tags: event.tags ?? [],
+      repeatType: event.repeatType ?? 'none',
+    };
+    void db.events.upsert(newEvent).then(() => {
+      void db.events.fetchAll().then(setEvents);
+    });
   }, []);
 
   const updateEvent = useCallback((id: string, changes: Partial<Event>) => {
     setEvents(prev => {
       const updated = prev.map(e => e.id === id ? { ...e, ...changes } : e);
       const event = updated.find(e => e.id === id);
-      if (event) db.events.upsert(event);
+      if (event) {
+        void db.events.upsert(event).then(() => {
+          void db.events.fetchAll().then(setEvents);
+        });
+      }
       return updated;
     });
   }, []);
 
   const deleteEvent = useCallback((id: string) => {
     setEvents(prev => prev.filter(e => e.id !== id));
-    db.events.delete(id);
+    void db.events.delete(id).then(() => {
+      void db.events.fetchAll().then(setEvents);
+    });
   }, []);
 
   // ── Habit actions ──
@@ -992,9 +1023,21 @@ export function PlannerProvider({ children }: { children: React.ReactNode }) {
     setBrainstormItems(prev => {
       const item = prev.find(b => b.id === id);
       if (!item) return prev;
-      const newEvent: Event = { id: newId(), title: item.text, ...eventData };
-      setEvents(e => [...e, newEvent]);
-      db.events.upsert(newEvent);
+      const newEvent: Event = {
+        id: newEventId(),
+        title: item.text,
+        date: eventData.date,
+        startDate: eventData.date,
+        endDate: eventData.date,
+        startTime: eventData.startTime,
+        endTime: eventData.endTime,
+        location: eventData.location,
+        tags: eventData.tags ?? [],
+        repeatType: 'none',
+      };
+      void db.events.upsert(newEvent).then(() => {
+        void db.events.fetchAll().then(setEvents);
+      });
       db.brainstormItems.delete(id);
       return prev.filter(b => b.id !== id);
     });

@@ -200,12 +200,12 @@ function ReminderSection({
 }: {
   icon: React.ReactNode;
   title: string;
-  items: { label: string; sub?: string }[];
+  items: { id: string; label: string; sub?: string; meta?: string; badge?: string; badgeColor?: string; date?: string; route?: 'daily' | 'calendar' }[];
   emptyText: string;
   color: string;
   defaultOpen?: boolean;
   t: any;
-  onItemClick?: (idx: number) => void;
+  onItemClick?: (item: { id: string; label: string; sub?: string; meta?: string; badge?: string; badgeColor?: string; date?: string; route?: 'daily' | 'calendar' }) => void;
 }) {
   const [open, setOpen] = useState(defaultOpen ?? true);
 
@@ -250,16 +250,18 @@ function ReminderSection({
             <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
               {items.map((item, idx) => (
                 <div
-                  key={idx}
-                  onClick={() => onItemClick?.(idx)}
+                  key={item.id || idx}
+                  onClick={() => onItemClick?.(item)}
                   style={{
                     display: 'flex',
-                    alignItems: 'baseline',
+                    alignItems: 'flex-start',
                     gap: 8,
-                    padding: '4px 8px',
-                    borderRadius: 6,
+                    justifyContent: 'space-between',
+                    padding: '8px 10px',
+                    borderRadius: 10,
                     cursor: onItemClick ? 'pointer' : 'default',
                     transition: 'background 0.15s',
+                    border: `1px solid ${t.borderLight}`,
                   }}
                   onMouseEnter={(e) => {
                     if (onItemClick) e.currentTarget.style.background = t.bgSub;
@@ -268,20 +270,56 @@ function ReminderSection({
                     e.currentTarget.style.background = 'transparent';
                   }}
                 >
-                  {item.sub && (
+                  <div style={{ minWidth: 0, display: 'flex', flexDirection: 'column', gap: 3, flex: 1 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0, flexWrap: 'wrap' }}>
+                      {item.sub && (
+                        <span
+                          style={{
+                            fontSize: 11,
+                            color: t.accent,
+                            fontFamily: SERIF,
+                            flexShrink: 0,
+                          }}
+                        >
+                          {item.sub}
+                        </span>
+                      )}
+                      <span
+                        style={{
+                          fontSize: 13,
+                          color: t.text,
+                          minWidth: 0,
+                          overflow: 'hidden',
+                          textOverflow: 'ellipsis',
+                          whiteSpace: 'nowrap',
+                        }}
+                      >
+                        {item.label}
+                      </span>
+                    </div>
+                    {item.meta && (
+                      <span style={{ fontSize: 11, color: t.textMuted }}>
+                        {item.meta}
+                      </span>
+                    )}
+                  </div>
+                  {item.badge && (
                     <span
                       style={{
-                        fontSize: 11,
-                        color: t.accent,
-                        fontFamily: SERIF,
-                        minWidth: 42,
+                        fontSize: 10,
+                        fontWeight: 700,
+                        color: item.badgeColor || t.textSub,
+                        background: `${item.badgeColor || t.bgSub}18`,
+                        border: `1px solid ${(item.badgeColor || t.border)}40`,
+                        borderRadius: 999,
+                        padding: '3px 8px',
                         flexShrink: 0,
+                        alignSelf: 'center',
                       }}
                     >
-                      {item.sub}
+                      {item.badge}
                     </span>
                   )}
-                  <span style={{ fontSize: 13, color: t.text }}>{item.label}</span>
                 </div>
               ))}
             </div>
@@ -418,12 +456,18 @@ export function DashboardView() {
     monthlyGoals,
     projects,
     milestones,
+    setSelectedDate,
     toggleHabit,
     toggleWeeklyGoal,
   } = usePlanner();
 
   const currentWeekKey = getWeekKey(new Date());
   const currentMonth = format(new Date(), 'yyyy-MM');
+  const todayBase = new Date();
+  todayBase.setHours(0, 0, 0, 0);
+  const toDateOnly = (dateString: string) => new Date(`${dateString}T00:00:00`);
+  const getDateDiff = (dateString: string) => differenceInDays(toDateOnly(dateString), todayBase);
+  const formatDateLabel = (dateString: string) => format(toDateOnly(dateString), 'M/d', { locale: ko });
 
   // ── Stats ──
   const todayTodos = todos.filter((t) => t.date === today);
@@ -514,13 +558,111 @@ export function DashboardView() {
   const tomorrowEvents = events.filter((e) => e.date === tomorrow).sort((a, b) => (a.startTime || '').localeCompare(b.startTime || ''));
   const dueSoonTodos = todos.filter((t) => {
     if (!t.dueDate || t.status !== 'active') return false;
-    const d = differenceInDays(new Date(t.dueDate), new Date());
+    const d = getDateDiff(t.dueDate);
     return d >= 0 && d <= 3;
   });
   const overdueTodos = todos.filter((t) => {
     if (!t.dueDate || t.status !== 'active') return false;
-    return differenceInDays(new Date(t.dueDate), new Date()) < 0;
+    return getDateDiff(t.dueDate) < 0;
   });
+  const dueSoonEvents = events.filter((e) => {
+    const d = getDateDiff(e.date);
+    return d >= 0 && d <= 3;
+  });
+  const overdueEvents = events.filter((e) => getDateDiff(e.date) < 0);
+
+  const reminderTodayItems = todayEvents.map((e) => ({
+    id: `today-event-${e.id}`,
+    label: e.title,
+    sub: e.startTime || '하루 일정',
+    meta: e.location || formatDateLabel(e.date),
+    badge: '일정',
+    badgeColor: t.info,
+    date: e.date,
+    route: 'calendar' as const,
+  }));
+
+  const reminderTomorrowItems = tomorrowEvents.map((e) => ({
+    id: `tomorrow-event-${e.id}`,
+    label: e.title,
+    sub: e.startTime || '하루 일정',
+    meta: e.location || formatDateLabel(e.date),
+    badge: '일정',
+    badgeColor: t.info,
+    date: e.date,
+    route: 'calendar' as const,
+  }));
+
+  const dueSoonItems = [
+    ...dueSoonTodos.map((todo) => {
+      const diff = getDateDiff(todo.dueDate!);
+      return {
+        id: `due-soon-todo-${todo.id}`,
+        label: todo.text,
+        sub: diff === 0 ? 'D-Day' : `D-${diff}`,
+        meta: `${formatDateLabel(todo.dueDate!)} 마감`,
+        badge: '할일',
+        badgeColor: t.accent,
+        date: todo.date || todo.dueDate!,
+        route: 'daily' as const,
+      };
+    }),
+    ...dueSoonEvents.map((event) => {
+      const diff = getDateDiff(event.date);
+      return {
+        id: `due-soon-event-${event.id}`,
+        label: event.title,
+        sub: diff === 0 ? 'D-Day' : `D-${diff}`,
+        meta: `${formatDateLabel(event.date)}${event.startTime ? ` · ${event.startTime}` : ''}`,
+        badge: '일정',
+        badgeColor: t.info,
+        date: event.date,
+        route: 'calendar' as const,
+      };
+    }),
+  ].sort((a, b) => {
+    const dateDiff = getDateDiff(a.date!) - getDateDiff(b.date!);
+    if (dateDiff !== 0) return dateDiff;
+    return a.label.localeCompare(b.label);
+  });
+
+  const overdueItems = [
+    ...overdueTodos.map((todo) => {
+      const diff = Math.abs(getDateDiff(todo.dueDate!));
+      return {
+        id: `overdue-todo-${todo.id}`,
+        label: todo.text,
+        sub: `D+${diff}`,
+        meta: `${formatDateLabel(todo.dueDate!)} 마감`,
+        badge: '할일',
+        badgeColor: t.accent,
+        date: todo.date || todo.dueDate!,
+        route: 'daily' as const,
+      };
+    }),
+    ...overdueEvents.map((event) => {
+      const diff = Math.abs(getDateDiff(event.date));
+      return {
+        id: `overdue-event-${event.id}`,
+        label: event.title,
+        sub: `D+${diff}`,
+        meta: `${formatDateLabel(event.date)}${event.startTime ? ` · ${event.startTime}` : ''}`,
+        badge: '일정',
+        badgeColor: t.info,
+        date: event.date,
+        route: 'calendar' as const,
+      };
+    }),
+  ].sort((a, b) => {
+    const dateDiff = getDateDiff(a.date!) - getDateDiff(b.date!);
+    if (dateDiff !== 0) return dateDiff;
+    return a.label.localeCompare(b.label);
+  });
+
+  const handleReminderClick = (item: { date?: string; route?: 'daily' | 'calendar' }) => {
+    if (item.date) setSelectedDate(item.date);
+    navigate(item.route === 'calendar' ? '/calendar' : '/daily');
+  };
 
   // ── Projects ──
   const activeProjects = projects.filter((p) => p.status === 'active');
@@ -818,56 +960,45 @@ export function DashboardView() {
           <ReminderSection
             icon={<Calendar size={14} />}
             title="오늘 일정"
-            items={todayEvents.map((e) => ({
-              label: e.title,
-              sub: e.startTime || '',
-            }))}
+            items={reminderTodayItems}
             emptyText="일정 없음"
             color={t.accent}
             defaultOpen={true}
             t={t}
-            onItemClick={() => navigate('/daily')}
+            onItemClick={handleReminderClick}
           />
 
           <ReminderSection
             icon={<Calendar size={14} />}
             title="내일 일정"
-            items={tomorrowEvents.map((e) => ({
-              label: e.title,
-              sub: e.startTime || '',
-            }))}
+            items={reminderTomorrowItems}
             emptyText="일정 없음"
             color={t.info}
             defaultOpen={false}
             t={t}
+            onItemClick={handleReminderClick}
           />
 
           <ReminderSection
             icon={<AlertTriangle size={14} />}
             title="⚠️ 기한 3일 이내"
-            items={dueSoonTodos.map((t) => ({
-              label: t.text,
-              sub: `D-${differenceInDays(new Date(t.dueDate!), new Date())}`,
-            }))}
+            items={dueSoonItems}
             emptyText="해당 없음"
             color="#E0A030"
             defaultOpen={true}
             t={t}
-            onItemClick={() => navigate('/daily')}
+            onItemClick={handleReminderClick}
           />
 
           <ReminderSection
             icon={<AlertCircle size={14} />}
             title="🔴 기한 초과"
-            items={overdueTodos.map((t) => ({
-              label: t.text,
-              sub: `D+${Math.abs(differenceInDays(new Date(t.dueDate!), new Date()))}`,
-            }))}
+            items={overdueItems}
             emptyText="해당 없음"
             color={t.danger}
             defaultOpen={true}
             t={t}
-            onItemClick={() => navigate('/daily')}
+            onItemClick={handleReminderClick}
           />
         </div>
       </div>

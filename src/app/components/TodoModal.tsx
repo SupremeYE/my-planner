@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
-import { format, addDays, subDays, parseISO } from 'date-fns';
+import { format } from 'date-fns';
 import { ko } from 'date-fns/locale';
-import { ChevronLeft, ChevronRight, Star, Trash2, X } from 'lucide-react';
+import { CalendarDays, Star, Trash2, X } from 'lucide-react';
 import { usePlanner, Todo } from '../store';
 import { useTheme } from '../ThemeContext';
 import ConfirmModal from './ConfirmModal';
@@ -16,8 +16,7 @@ const TAG_PALETTE_KEY = 'tagPaletteColors';
 const MAX_TAG_COLORS = 13;
 
 interface TodoModalProps {
-  /** date prop이 있으면 날짜 고정 (일간 페이지 모드).
-   *  없으면 모달 내부에서 날짜 선택 가능 (할일 페이지 모드). */
+  /** date prop은 기본 날짜로 사용되며, 모달 안에서 변경/해제할 수 있다. */
   date?: string;
   todo?: Todo;
   onClose: () => void;
@@ -29,19 +28,14 @@ export function TodoModal({ date, todo, onClose }: TodoModalProps) {
 
   const todayStr = format(new Date(), 'yyyy-MM-dd');
 
-  // 날짜 선택 모드용 state (date prop 없을 때만 사용)
   const [modalDate, setModalDate] = useState<string>(
-    date ?? todo?.date ?? todayStr,
+    date ?? todo?.date ?? '',
   );
 
-  const effectiveDate = date ?? modalDate; // date prop 있으면 고정, 없으면 내부 state 사용
-  const showDateNav = date === undefined;   // date prop 없을 때만 날짜 네비 표시
-
-  // 날짜 이동 헬퍼
-  const dateObj = parseISO(effectiveDate + (effectiveDate.length === 10 ? 'T12:00:00' : ''));
-  const dayName = format(dateObj, 'EEEE', { locale: ko });
-  const goPrev = () => setModalDate(format(subDays(dateObj, 1), 'yyyy-MM-dd'));
-  const goNext = () => setModalDate(format(addDays(dateObj, 1), 'yyyy-MM-dd'));
+  const effectiveDate = modalDate;
+  const dateLabel = effectiveDate
+    ? format(new Date(`${effectiveDate}T12:00:00`), 'M월 d일 (EEEE)', { locale: ko })
+    : '미지정';
 
   // 폼 fields
   const [text, setText] = useState(todo?.text ?? '');
@@ -201,7 +195,7 @@ export function TodoModal({ date, todo, onClose }: TodoModalProps) {
     } else {
       addTodo({
         text: text.trim(),
-        date: effectiveDate || todayStr,
+        date: effectiveDate || null,
         status: 'active',
         isTop3,
         planStart: planStart || undefined,
@@ -242,56 +236,43 @@ export function TodoModal({ date, todo, onClose }: TodoModalProps) {
         </div>
 
         <div className="px-5 py-4 space-y-4">
-          {/* 날짜 선택 네비게이션 (date prop 없을 때만) */}
-          {showDateNav && (
-            <div
-              className="flex items-center gap-2 pb-4"
-              style={{ borderBottom: `1px solid ${t.border}` }}
-            >
-              <button
-                onClick={goPrev}
-                className="p-1.5 rounded-lg"
-                style={{ color: t.textSub }}
-              >
-                <ChevronLeft size={18} />
-              </button>
-              <div className="flex-1 text-center">
-                <div
-                  style={{
-                    fontSize: 18,
-                    fontWeight: 700,
-                    color: t.text,
-                    fontFamily: "'DM Serif Display', serif",
-                  }}
-                >
-                  {format(dateObj, 'M월 d일')}
-                </div>
-                <div style={{ fontSize: 12, color: t.textSub }}>{dayName}</div>
-              </div>
-              <button
-                onClick={goNext}
-                className="p-1.5 rounded-lg"
-                style={{ color: t.textSub }}
-              >
-                <ChevronRight size={18} />
-              </button>
-              {effectiveDate !== todayStr && (
-                <button
-                  onClick={() => setModalDate(todayStr)}
-                  className="px-2 py-1 rounded-lg"
-                  style={{
-                    fontSize: 11,
-                    fontWeight: 600,
-                    backgroundColor: t.accentLight,
-                    color: t.accent,
-                    whiteSpace: 'nowrap',
-                  }}
-                >
-                  오늘
-                </button>
-              )}
+          <div className="pb-4 space-y-2" style={{ borderBottom: `1px solid ${t.border}` }}>
+            <div className="flex items-center gap-2">
+              <CalendarDays size={14} color={t.accent} />
+              <span style={{ fontSize: 12, color: t.text, fontWeight: 600 }}>날짜</span>
+              <span style={{ fontSize: 11, color: t.textMuted }}>{dateLabel}</span>
             </div>
-          )}
+            <div className="flex items-center gap-2">
+              <input
+                type="date"
+                value={effectiveDate}
+                onChange={e => setModalDate(e.target.value)}
+                className="flex-1 rounded-lg px-3 py-2 outline-none"
+                style={{
+                  border: `1px solid ${t.border}`,
+                  backgroundColor: t.bgSub,
+                  color: t.text,
+                  fontSize: 13,
+                }}
+              />
+              <button
+                type="button"
+                onClick={() => setModalDate(todayStr)}
+                className="px-3 py-2 rounded-lg"
+                style={{ fontSize: 11, fontWeight: 600, color: t.accent, backgroundColor: t.accentLight }}
+              >
+                오늘
+              </button>
+              <button
+                type="button"
+                onClick={() => setModalDate('')}
+                className="px-3 py-2 rounded-lg"
+                style={{ fontSize: 11, fontWeight: 600, color: t.textSub, backgroundColor: t.bgSub }}
+              >
+                미지정
+              </button>
+            </div>
+          </div>
 
           {/* 할일 텍스트 */}
           <div>

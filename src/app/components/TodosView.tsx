@@ -8,6 +8,8 @@ import { usePlanner, Todo, TodoStatus } from '../store';
 import { useTheme } from '../ThemeContext';
 import ConfirmModal from './ConfirmModal';
 import { TodoModal } from './TodoModal';
+import { EventModal } from './EventModal';
+import { AddEntryMenu } from './AddEntryMenu';
 
 // ─── Constants ───────────────────────────────────────────────
 const STATUS_CONFIG: Record<string, { label: string; color: string; bgColor: string }> = {
@@ -20,7 +22,7 @@ const STATUS_CONFIG: Record<string, { label: string; color: string; bgColor: str
 };
 
 const STATUS_NEXT: Record<string, TodoStatus> = {
-  active:     'inProgress',
+  active:     'done',
   inProgress: 'done',
   done:       'active',
   snoozed:    'active',
@@ -417,10 +419,11 @@ function UnassignedTab() {
 
 // ─── Main Export ───────────────────────────────────────────────
 export function TodosView() {
-  const { todos } = usePlanner();
+  const { todos, selectedDate } = usePlanner();
   const { t } = useTheme();
   const [tab, setTab] = useState<'all' | 'unassigned'>('all');
   const [showAddModal, setShowAddModal] = useState(false);
+  const [showAddEventModal, setShowAddEventModal] = useState(false);
 
   const allCount        = todos.filter(td => td.date !== null && td.status !== 'backlog').length;
   const unassignedCount = todos.filter(td => td.date === null  || td.status === 'backlog').length;
@@ -443,14 +446,10 @@ export function TodosView() {
               <ListTodo size={18} color={t.accent} />
               <h1 style={{ fontSize: 18, fontWeight: 700, color: t.text }}>할일</h1>
             </div>
-            {/* 할일 추가 버튼 — DailyView 헤더와 동일한 스타일 */}
-            <button
-              onClick={() => setShowAddModal(true)}
-              className="px-2.5 py-1.5 lg:px-3 rounded-lg flex items-center gap-1 lg:gap-1.5"
-              style={{ fontSize: 11, fontWeight: 600, backgroundColor: t.accent, color: '#fff', whiteSpace: 'nowrap' }}
-            >
-              <Plus size={13} /> 할일 추가
-            </button>
+            <AddEntryMenu
+              onAddTodo={() => setShowAddModal(true)}
+              onAddEvent={() => setShowAddEventModal(true)}
+            />
           </div>
 
           {/* Tab bar */}
@@ -500,6 +499,12 @@ export function TodosView() {
       {/* 상단 헤더 할일 추가 버튼용 모달 (날짜 네비 포함) */}
       {showAddModal && (
         <TodoModal onClose={() => setShowAddModal(false)} />
+      )}
+      {showAddEventModal && (
+        <EventModal
+          date={selectedDate}
+          onClose={() => setShowAddEventModal(false)}
+        />
       )}
     </div>
   );

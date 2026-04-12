@@ -14,7 +14,10 @@ import { useNotification } from '../hooks/useNotification';
 import { TimePicker } from './TimePicker';
 import ConfirmModal from './ConfirmModal';
 import { TodoModal } from './TodoModal';
-import { formatDoElapsedKo, formatTotalDoKo, todoDoDurationSeconds } from '../../lib/todoDoDuration';
+import { EventModal } from './EventModal';
+import { FloatingAddFab } from './FloatingAddFab';
+import { AddEntryMenu } from './AddEntryMenu';
+import { formatDuration, formatTotalDoKo, todoDoDurationSeconds } from '../../lib/todoDoDuration';
 
 // ─── Color Palette for tag creation ───
 const TAG_COLORS = [
@@ -49,8 +52,8 @@ const DEFAULT_START_HOUR = 4;
 const DEFAULT_END_HOUR = 26;
 const HOUR_HEIGHT = 60;
 const PX_PER_MIN = HOUR_HEIGHT / 60;
-const TIMELINE_LABEL_WIDTH = 36;
-const TIMELINE_CONTENT_LEFT = 40;
+const TIMELINE_LABEL_WIDTH = 48;
+const TIMELINE_CONTENT_LEFT = 56;
 const TIMELINE_LANE_GAP = 10;
 const PLAN_BAR_BG = '#ddeaf3';
 const PLAN_BAR_BORDER = '#515f74';
@@ -300,7 +303,7 @@ function ContextMenu({ todo, position, onClose }: {
     { label: '편집', icon: Edit3, action: 'edit' },
     { divider: true },
     { label: '예정', icon: Clock, action: 'active', status: 'active' },
-    { label: '진행중', icon: Play, action: 'inProgress', status: 'inProgress' },
+    { label: '포커스 시작', icon: Play, action: 'focus' },
     { label: '미루기', icon: Pause, action: 'snoozed', status: 'snoozed' },
     { label: '취소', icon: Ban, action: 'cancelled', status: 'cancelled' },
     { divider: true },
@@ -338,6 +341,9 @@ function ContextMenu({ todo, position, onClose }: {
                 if ((item as any).action === 'edit') {
                   onClose();
                   window.dispatchEvent(new CustomEvent('editTodo', { detail: todo }));
+                } else if ((item as any).action === 'focus') {
+                  console.log('포커스 시작');
+                  onClose();
                 } else if ((item as any).action === 'snoozed') {
                   onClose();
                   window.dispatchEvent(new CustomEvent('snoozeTodo', { detail: todo }));
@@ -626,6 +632,87 @@ function TimelineSettingsModal({ startHour, endHour, onSave, onClose }: {
   );
 }
 
+function DailyDatePickerModal({ selectedDate, onClose, onConfirm }: {
+  selectedDate: string;
+  onClose: () => void;
+  onConfirm: (date: string) => void;
+}) {
+  const { t } = useTheme();
+  const [dateValue, setDateValue] = useState(selectedDate);
+
+  useEffect(() => {
+    setDateValue(selectedDate);
+  }, [selectedDate]);
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center" style={{ backgroundColor: 'rgba(0,0,0,0.35)' }}>
+      <div
+        className="rounded-2xl w-[340px]"
+        style={{ backgroundColor: t.card, border: `1px solid ${t.border}`, boxShadow: '0 25px 50px -12px rgba(0,0,0,0.15)' }}
+      >
+        <div className="flex items-center justify-between px-6 py-5" style={{ borderBottom: `1px solid ${t.border}` }}>
+          <div>
+            <h3 style={{ fontSize: 16, fontWeight: 700, color: t.text }}>날짜 선택</h3>
+            <p style={{ fontSize: 12, color: t.textSub, marginTop: 3 }}>원하는 날짜의 일간 페이지로 이동해요</p>
+          </div>
+          <button onClick={onClose} className="p-1 rounded-lg" style={{ color: t.textMuted }}>
+            <X size={18} />
+          </button>
+        </div>
+
+        <div className="px-6 py-5 space-y-4">
+          <div className="rounded-xl px-4 py-4" style={{ backgroundColor: t.bgSub, border: `1px solid ${t.borderLight}` }}>
+            <label className="flex items-center gap-2 mb-2" style={{ fontSize: 11, color: t.textMuted, fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase' }}>
+              <CalendarDays size={14} />
+              날짜
+            </label>
+            <input
+              type="date"
+              value={dateValue}
+              onChange={e => setDateValue(e.target.value)}
+              className="w-full rounded-xl px-3 py-2.5 outline-none"
+              style={{ fontSize: 13, backgroundColor: t.card, border: `1px solid ${t.border}`, color: t.text }}
+            />
+            {dateValue && (
+              <p style={{ fontSize: 12, color: t.textSub, marginTop: 10 }}>
+                {format(new Date(`${dateValue}T12:00:00`), 'yyyy년 M월 d일 (EEEE)', { locale: ko })}
+              </p>
+            )}
+          </div>
+
+          <button
+            onClick={() => setDateValue(format(new Date(), 'yyyy-MM-dd'))}
+            className="px-3 py-2 rounded-xl"
+            style={{ fontSize: 12, fontWeight: 600, color: t.accent, backgroundColor: t.accentLight }}
+          >
+            오늘로 선택
+          </button>
+        </div>
+
+        <div className="flex gap-3 px-6 py-5" style={{ borderTop: `1px solid ${t.border}` }}>
+          <button
+            onClick={onClose}
+            className="flex-1 py-3 rounded-xl"
+            style={{ fontSize: 14, fontWeight: 500, color: t.textSub, backgroundColor: t.bgSub, border: `1px solid ${t.border}` }}
+          >
+            취소
+          </button>
+          <button
+            onClick={() => {
+              if (!dateValue) return;
+              onConfirm(dateValue);
+            }}
+            className="flex-1 py-3 rounded-xl"
+            style={{ fontSize: 14, fontWeight: 600, backgroundColor: t.accent, color: '#fff' }}
+          >
+            이동
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ─── Main Daily View ───
 export function DailyView() {
   const {
@@ -641,12 +728,14 @@ export function DailyView() {
   const [searchParams] = useSearchParams();
   const highlightTodoId = searchParams.get('todoId');
   const [showAddModal, setShowAddModal] = useState(false);
+  const [showAddEventModal, setShowAddEventModal] = useState(false);
   const [editingTodo, setEditingTodo] = useState<Todo | null>(null);
   const [snoozingTodo, setSnoozingTodo] = useState<Todo | null>(null);
   const [contextMenu, setContextMenu] = useState<{ todo: Todo; pos: { x: number; y: number } } | null>(null);
   const [dailyMemo, setDailyMemo] = useState<Record<string, string>>({});
   const [showLogModal, setShowLogModal] = useState(false);
   const [showTimelineSettings, setShowTimelineSettings] = useState(false);
+  const [showDatePicker, setShowDatePicker] = useState(false);
   const [mobileTab, setMobileTab] = useState<'todos' | 'timeline'>('todos');
   const [timelineTab, setTimelineTab] = useState<'plan' | 'do' | 'compare'>('compare');
   const [timerNowMs, setTimerNowMs] = useState(Date.now());
@@ -733,6 +822,7 @@ export function DailyView() {
 
   const dateTodos = todos.filter(td => td.date === selectedDate && td.status !== 'backlog');
   const importantTodos = dateTodos.filter(td => td.isTop3);
+  const regularTodos = dateTodos.filter(td => !td.isTop3);
 
   useEffect(() => {
     if (!activeTimer || activeTimer.isPaused) return;
@@ -797,16 +887,25 @@ export function DailyView() {
     storeDeleteTimelineLog(id);
   }, [storeDeleteTimelineLog]);
 
-  const handleTodoPrimaryAction = (todo: Todo) => {
+  const handleTodoCheckboxAction = (todo: Todo) => {
+    if (activeTimer?.todoId === todo.id) {
+      stopTimer();
+      return;
+    }
+    if (todo.status === 'done') {
+      updateTodo(todo.id, { status: 'active', doStart: undefined, doEnd: undefined, doElapsedSec: undefined });
+      return;
+    }
+    const doneAt = format(new Date(), 'HH:mm');
+    updateTodo(todo.id, { status: 'done', doStart: doneAt, doEnd: doneAt, doElapsedSec: 0 });
+  };
+
+  const handleTodoFocusAction = (todo: Todo) => {
     if (activeTimer?.todoId === todo.id) {
       stopTimer();
       return;
     }
     if (activeTimer && activeTimer.todoId !== todo.id) return;
-    if (todo.status === 'done') {
-      updateTodo(todo.id, { status: 'active', doStart: undefined, doEnd: undefined, doElapsedSec: undefined });
-      return;
-    }
     startTimer(todo.id);
   };
 
@@ -930,17 +1029,19 @@ export function DailyView() {
       endMin = dragPreview.endMin;
     }
 
-    const top = (startMin / 60 - tlStartHour) * HOUR_HEIGHT;
-    const height = Math.max((endMin - startMin) * PX_PER_MIN, 20);
-
     const isPlan = type === 'plan';
+    const isCheckOnlyDo = !isPlan && todo.doElapsedSec === 0;
+    const hasFocusedDuration = !isPlan && todo.doElapsedSec != null && todo.doElapsedSec > 0;
+    const top = (startMin / 60 - tlStartHour) * HOUR_HEIGHT;
+    const height = isCheckOnlyDo ? 30 : Math.max((endMin - startMin) * PX_PER_MIN, 20);
     const tagColor = getTodoTagColor(todo);
     const laneBounds = getTimelineLaneBounds(isPlan ? 'plan' : 'do');
     if (!laneBounds) return null;
+    const canDrag = isPlan || !isCheckOnlyDo;
 
     // DO 초과 감지 (DO 시간 > PLAN 시간) — 타이머 실제 초가 있으면 분 단위 막대 대신 사용
     let isOvertime = false;
-    if (!isPlan && todo.planStart && todo.planEnd) {
+    if (!isPlan && !isCheckOnlyDo && todo.planStart && todo.planEnd) {
       const planDur = timeToMinutes(todo.planEnd) - timeToMinutes(todo.planStart);
       const doDurMin =
         todo.doElapsedSec != null && todo.doElapsedSec >= 0
@@ -954,21 +1055,25 @@ export function DailyView() {
     let borderClr: string;
 
     if (isPlan) {
-      bg = PLAN_BAR_BG;
+      bg = 'rgba(237,228,216,0.52)';
       textColor = '#7D6347';
-      borderClr = PLAN_BAR_BORDER;
+      borderClr = '#C4A882';
     } else if (isOvertime) {
-      bg = OVERTIME_BAR_BG;
+      bg = 'rgba(250,232,214,0.65)';
       textColor = OVERTIME_BAR_BORDER;
       borderClr = OVERTIME_BAR_BORDER;
+    } else if (isCheckOnlyDo) {
+      bg = tagColor ? `${tagColor}12` : 'rgba(212,237,224,0.45)';
+      textColor = tagColor || '#3D7A58';
+      borderClr = tagColor || '#6BAA7A';
     } else if (tagColor) {
-      bg = tagColor;
-      textColor = getContrastTextColor(tagColor);
-      borderClr = 'transparent';
+      bg = tagColor + '1A';
+      textColor = tagColor;
+      borderClr = tagColor;
     } else {
-      bg = DO_BAR_FALLBACK_BG;
-      textColor = DO_BAR_FALLBACK_TEXT;
-      borderClr = 'transparent';
+      bg = 'rgba(212,237,224,0.52)';
+      textColor = '#3D7A58';
+      borderClr = '#6BAA7A';
     }
 
     const handleDragStart = (e: React.MouseEvent, mode: 'move' | 'resize') => {
@@ -988,13 +1093,19 @@ export function DailyView() {
     const baseTimeLabel = isDragging && dragPreview
       ? `${minutesToTime(dragPreview.startMin)}-${minutesToTime(dragPreview.endMin)}`
       : `${start}-${end}`;
-    const actualSuffix =
-      !isPlan && todo.doElapsedSec != null && todo.doElapsedSec >= 0
-        ? ` · 실제 ${formatDoElapsedKo(todo.doElapsedSec)}`
-        : '';
-    const timeLabel = `${baseTimeLabel}${actualSuffix}`;
-    const compactLabel = `${todo.text} ${timeLabel}`;
-    const isCompact = height < 52;
+    const durationLabel = hasFocusedDuration ? formatDuration(todo.doElapsedSec!) : '';
+    const compactLabel = isPlan
+      ? `${todo.text} ${baseTimeLabel}`
+      : hasFocusedDuration
+        ? `${todo.text} ${durationLabel}`
+        : todo.text;
+    const detailLabel = isPlan ? baseTimeLabel : durationLabel;
+    const isCompact = isCheckOnlyDo || height < 52;
+    const titleLabel = isPlan
+      ? `${todo.text}\n${baseTimeLabel}`
+      : hasFocusedDuration
+        ? `${todo.text}\n${baseTimeLabel}\n${durationLabel}`
+        : `${todo.text}\n${start}`;
 
     return (
       <div key={`${todo.id}-${type}`}
@@ -1005,15 +1116,16 @@ export function DailyView() {
           left: laneBounds.left,
           right: laneBounds.right,
           backgroundColor: bg,
-          border: `1px solid ${borderClr}`,
+          border: `1px solid ${borderClr}20`,
+          borderLeft: `3px solid ${borderClr}`,
           opacity: isDragging ? 0.85 : (todo.status === 'cancelled' ? 0.4 : 1),
-          cursor: isDragging ? 'grabbing' : 'grab',
+          cursor: canDrag ? (isDragging ? 'grabbing' : 'grab') : 'pointer',
           userSelect: 'none',
           zIndex: isDragging ? 30 : 1,
           transition: isDragging ? 'none' : 'opacity 0.15s',
-          boxShadow: isPlan ? '0 1px 2px rgba(125,99,71,0.08)' : '0 1px 3px rgba(0,0,0,0.08)',
+          boxShadow: `0 2px 8px ${borderClr}14, 0 1px 2px rgba(0,0,0,0.04)`,
         }}
-        onMouseDown={(e) => handleDragStart(e, 'move')}
+        onMouseDown={canDrag ? ((e) => handleDragStart(e, 'move')) : undefined}
         onClick={(e) => {
           if (!dragState && !dragMovedRef.current) window.dispatchEvent(new CustomEvent('editTodo', { detail: todo }));
         }}
@@ -1021,9 +1133,10 @@ export function DailyView() {
           e.preventDefault();
           setContextMenu({ todo, pos: { x: e.clientX, y: e.clientY } });
         }}
+        title={titleLabel}
       >
         {isCompact ? (
-          <div className="flex items-center justify-between gap-2 h-full">
+          <div className="flex items-center gap-2 h-full">
             <span style={{
               fontSize: 11, fontWeight: 600, color: textColor,
               textDecoration: todo.status === 'done' ? 'line-through' : 'none',
@@ -1031,11 +1144,10 @@ export function DailyView() {
             }}>
               {compactLabel}
             </span>
-            {!isPlan && todo.status === 'done' && <Check size={12} color={textColor} />}
           </div>
         ) : (
           <>
-            <div className="flex items-center justify-between gap-2">
+            <div className="flex items-center gap-2">
               <span style={{
                 fontSize: 11, fontWeight: 700, color: textColor,
                 textDecoration: todo.status === 'done' ? 'line-through' : 'none',
@@ -1043,21 +1155,23 @@ export function DailyView() {
               }}>
                 {todo.text}
               </span>
-              {!isPlan && todo.status === 'done' && <Check size={12} color={textColor} />}
             </div>
-            <div style={{ fontSize: 10, color: textColor, opacity: 0.85, marginTop: 2, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-              {timeLabel}
-            </div>
+            {detailLabel && (
+              <div style={{ fontSize: 10, color: textColor, opacity: 0.7, marginTop: 2, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                {detailLabel}
+              </div>
+            )}
           </>
         )}
-        {/* Resize handle at bottom */}
-        <div
-          className="absolute left-0 right-0 bottom-0 flex justify-center items-center opacity-0 group-hover:opacity-100 transition-opacity"
-          style={{ height: 8, cursor: 'ns-resize', backgroundColor: isDragging ? 'transparent' : (isPlan ? '#515f7440' : '#00000015') }}
-          onMouseDown={(e) => handleDragStart(e, 'resize')}
-        >
-          <div style={{ width: 20, height: 2, borderRadius: 1, backgroundColor: isPlan ? PLAN_BAR_BORDER : `${textColor}80` }} />
-        </div>
+        {canDrag && (
+          <div
+            className="absolute left-0 right-0 bottom-0 flex justify-center items-center opacity-0 group-hover:opacity-100 transition-opacity"
+            style={{ height: 8, cursor: 'ns-resize', backgroundColor: isDragging ? 'transparent' : (isPlan ? '#515f7440' : '#00000015') }}
+            onMouseDown={(e) => handleDragStart(e, 'resize')}
+          >
+            <div style={{ width: 20, height: 2, borderRadius: 1, backgroundColor: isPlan ? PLAN_BAR_BORDER : `${textColor}80` }} />
+          </div>
+        )}
       </div>
     );
   };
@@ -1071,6 +1185,7 @@ export function DailyView() {
     const endMin = timeToMinutes(evt.endTime);
     const top = (startMin / 60 - tlStartHour) * HOUR_HEIGHT;
     const height = Math.max((endMin - startMin) * PX_PER_MIN, 20);
+    const eventColor = evt.color || '#7B9ED9';
 
     return (
       <div key={`ev-${evt.id}`}
@@ -1078,15 +1193,15 @@ export function DailyView() {
         style={{
           top, height,
           left: laneBounds.left, right: laneBounds.right,
-          backgroundColor: '#D0E0F5',
-          border: '1.5px solid #A8C4E8',
+          backgroundColor: `${eventColor}24`,
+          border: `1.5px solid ${eventColor}`,
           zIndex: 3,
         }}>
-        <div style={{ fontSize: 11, fontWeight: 600, color: '#7B9ED9', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+        <div style={{ fontSize: 11, fontWeight: 600, color: eventColor, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
           📅 {evt.title}
         </div>
         {height > 30 && (
-          <div style={{ fontSize: 9, color: '#7B9ED9', opacity: 0.8, marginTop: 1 }}>
+          <div style={{ fontSize: 9, color: eventColor, opacity: 0.8, marginTop: 1 }}>
             {evt.startTime} - {evt.endTime}
             {evt.location && ` · ${evt.location}`}
           </div>
@@ -1124,7 +1239,7 @@ export function DailyView() {
         }}>
         <div style={{ fontSize: 11, fontWeight: 600, color: textColor }}>{todo.text}</div>
         <div style={{ fontSize: 9, color: textColor, opacity: 0.85 }}>
-          {activeTimer.isPaused ? '일시정지' : '진행 중...'} · {minutesToTime(startMin)}-{minutesToTime(startMin + elapsedMin)}
+          {activeTimer.isPaused ? '일시정지' : '포커스 중'} {formatDuration(elapsedSec)}
         </div>
       </div>
     );
@@ -1152,24 +1267,36 @@ export function DailyView() {
             {/* Dashed line across */}
             <div className="absolute z-15 pointer-events-none"
               style={{ top: top - 0.5, left: 0, right: 0, height: 1, borderBottom: `1px dashed ${logColor}40` }} />
-            {/* Content block in DO area */}
-            <div className="absolute z-20 flex items-center gap-1 px-2 py-0.5 rounded-md cursor-pointer"
+            {/* Thought bubble in DO area */}
+            <div className="absolute z-20 cursor-pointer"
               style={{
-                top: top - 9,
+                top: top - 14,
                 left: laneBounds.left,
-                right: laneBounds.right,
-                height: 18,
-                backgroundColor: logColor,
-                color: '#fff',
-                overflow: 'hidden',
+                minWidth: 140,
+                maxWidth: 210,
+                backgroundColor: 'rgba(253,250,244,0.96)',
+                backdropFilter: 'blur(4px)',
+                border: `1px solid ${logColor}28`,
+                borderRadius: '0 10px 10px 10px',
+                boxShadow: `0 3px 12px rgba(0,0,0,0.07), 0 1px 3px ${logColor}20`,
+                padding: '5px 9px',
               }}
               onClick={() => setShowLogModal(true)}
               title={log.text}
             >
-              {log.icon && <span style={{ fontSize: 9, lineHeight: 1 }}>{log.icon}</span>}
-              <span style={{ fontSize: 9, fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                {displayText}
-              </span>
+              <div className="flex items-start gap-1.5">
+                <span style={{ fontSize: 12, color: logColor, flexShrink: 0, lineHeight: 1.3 }}>
+                  {log.icon || '💭'}
+                </span>
+                <div>
+                  <p style={{ fontSize: 10, fontStyle: 'italic', color: '#3D3020', lineHeight: 1.4, margin: 0 }}>
+                    {log.text.length > 28 ? log.text.slice(0, 28) + '…' : log.text}
+                  </p>
+                  <span style={{ fontSize: 8, fontWeight: 700, color: logColor, textTransform: 'uppercase', letterSpacing: '0.07em' }}>
+                    {log.time}
+                  </span>
+                </div>
+              </div>
             </div>
           </div>
         );
@@ -1197,14 +1324,14 @@ export function DailyView() {
         }}
       >
         {/* Status checkbox */}
-        <button onClick={() => handleTodoPrimaryAction(todo)}
+        <button onClick={() => handleTodoCheckboxAction(todo)}
           className="w-5 h-5 rounded-full flex items-center justify-center flex-shrink-0 transition-all mt-0.5"
           style={{
-            border: isDone ? 'none' : `2px solid ${accentColor}60`,
-            backgroundColor: todo.id === activeTimer?.todoId || isDone ? t.checkDone : 'transparent',
+            border: isDone ? 'none' : `2px solid ${todo.status === 'inProgress' ? t.success : accentColor}60`,
+            backgroundColor: isDone ? t.checkDone : (todo.status === 'inProgress' ? `${t.success}12` : 'transparent'),
           }}>
-          {(isDone || todo.id === activeTimer?.todoId) && <Check size={11} color="#fff" strokeWidth={3} />}
-          {todo.status === 'inProgress' && todo.id !== activeTimer?.todoId && <Play size={9} color={t.success} fill={t.success} />}
+          {isDone && <Check size={11} color="#fff" strokeWidth={3} />}
+          {!isDone && todo.status === 'inProgress' && <Play size={9} color={t.success} fill={t.success} />}
         </button>
 
         {/* Content */}
@@ -1250,9 +1377,9 @@ export function DailyView() {
         <div className="flex items-center gap-1.5 flex-shrink-0 mt-0.5">
           <StatusBadge status={todo.status} />
           {todo.status !== 'done' && (!activeTimer || activeTimer.todoId === todo.id) && (
-            <button onClick={() => handleTodoPrimaryAction(todo)}
+            <button onClick={() => handleTodoFocusAction(todo)}
               className="p-1.5 rounded-lg transition-colors"
-              title={todo.id === activeTimer?.todoId ? '완료' : '타이머 시작'}
+              title={todo.id === activeTimer?.todoId ? '포커스 완료' : '포커스 시작'}
               style={{
                 color: todo.id === activeTimer?.todoId ? '#fff' : t.success,
                 backgroundColor: todo.id === activeTimer?.todoId ? t.success : t.success + '10',
@@ -1277,27 +1404,44 @@ export function DailyView() {
   const todayHabits = habits;
 
   return (
-    <div className="flex-1 flex flex-col overflow-hidden h-full">
+    <div className="relative flex-1 flex flex-col overflow-hidden h-full">
       {/* Header */}
-      <div className="flex items-center justify-between px-3 py-3 lg:px-6 lg:py-4 flex-shrink-0" style={{ borderBottom: `1px solid ${t.border}` }}>
-        <div className="flex items-center gap-1.5 lg:gap-3">
-          <button onClick={goPrev} className="p-1.5 rounded-lg" style={{ color: t.textSub }}><ChevronLeft size={18} /></button>
-          <div>
-            <h2 style={{ fontSize: 18, fontWeight: 700, color: t.text, fontFamily: "'DM Serif Display', serif" }}
-              className="lg:text-[20px]">
-              {format(dateObj, 'M월 d일')}
-            </h2>
-            <p style={{ fontSize: 12, color: t.textSub }}>{dayName}</p>
-          </div>
-          <button onClick={goNext} className="p-1.5 rounded-lg" style={{ color: t.textSub }}><ChevronRight size={18} /></button>
-          {selectedDate !== nowStr && (
-            <button onClick={goToday} className="px-2 py-1 rounded-lg"
-              style={{ fontSize: 11, fontWeight: 600, backgroundColor: t.accentLight, color: t.accent, whiteSpace: 'nowrap' }}>
-              오늘
+      <div className="relative flex items-center justify-between px-3 py-3 lg:px-6 lg:py-4 flex-shrink-0" style={{ borderBottom: `1px solid ${t.border}` }}>
+        <div className="w-10 lg:w-28 flex-shrink-0" />
+        <div className="absolute inset-x-0 top-1/2 -translate-y-1/2 flex justify-center px-3 lg:px-6">
+          <div className="flex items-center gap-1 lg:gap-2 max-w-full">
+            <button onClick={goPrev} className="p-1.5 rounded-lg flex-shrink-0" style={{ color: t.textSub }}>
+              <ChevronLeft size={18} />
             </button>
-          )}
+            <button
+              onClick={() => setShowDatePicker(true)}
+              className="rounded-xl px-2.5 py-1.5 transition-colors min-w-0"
+              style={{ backgroundColor: 'transparent' }}
+              title="날짜 선택"
+            >
+              <div className="text-center">
+                <h2 style={{ fontSize: 18, fontWeight: 700, color: t.text, fontFamily: "'DM Serif Display', serif" }}
+                  className="lg:text-[20px] whitespace-nowrap">
+                  {format(dateObj, 'M월 d일')}
+                </h2>
+                <p style={{ fontSize: 12, color: t.textSub }} className="whitespace-nowrap">{dayName}</p>
+              </div>
+            </button>
+            <button onClick={goNext} className="p-1.5 rounded-lg flex-shrink-0" style={{ color: t.textSub }}>
+              <ChevronRight size={18} />
+            </button>
+          </div>
         </div>
         <div className="flex items-center gap-1.5 lg:gap-2">
+          {selectedDate !== nowStr && (
+            <button
+              onClick={goToday}
+              className="px-2 py-1 rounded-lg"
+              style={{ fontSize: 11, fontWeight: 600, backgroundColor: t.accentLight, color: t.accent, whiteSpace: 'nowrap' }}
+            >
+              Today
+            </button>
+          )}
           {/* 데스크탑: 기존 모달 */}
           <button onClick={() => setShowTimelineSettings(true)} className="hidden lg:flex px-3 py-1.5 rounded-lg items-center gap-1.5"
             style={{ fontSize: 11, color: t.textSub, backgroundColor: t.bgSub, border: `1px solid ${t.border}` }}>
@@ -1309,10 +1453,6 @@ export function DailyView() {
             style={{ fontSize: 10, color: t.textSub, backgroundColor: t.bgSub, border: `1px solid ${t.border}` }}>
             <Settings size={12} />
           </NavLink>
-          <button onClick={() => setShowAddModal(true)} className="px-2.5 py-1.5 lg:px-3 rounded-lg flex items-center gap-1 lg:gap-1.5"
-            style={{ fontSize: 11, fontWeight: 600, backgroundColor: t.accent, color: '#fff', whiteSpace: 'nowrap' }}>
-            <Plus size={13} /> 할일 추가
-          </button>
         </div>
       </div>
 
@@ -1338,7 +1478,7 @@ export function DailyView() {
               color: mobileTab === 'timeline' ? t.accent : t.textSub,
               borderBottom: mobileTab === 'timeline' ? `2px solid ${t.accent}` : '2px solid transparent',
             }}>
-            ⏰ 타임라인
+            TIMELINE
           </button>
         </div>
 
@@ -1365,20 +1505,21 @@ export function DailyView() {
 
           {/* All todos */}
           <div className="mb-4 rounded-2xl p-4" style={{ backgroundColor: t.bgSub, border: `1px solid ${t.border}` }}>
-            <div className="flex items-center gap-2 mb-3">
+            <div className="flex items-center justify-between gap-3 mb-3">
               <span style={{ fontSize: 10, color: t.textSub, fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase' }}>
-                전체 할일 ({dateTodos.length})
+                  전체 할일 ({regularTodos.length})
               </span>
+              <AddEntryMenu
+                onAddTodo={() => setShowAddModal(true)}
+                onAddEvent={() => setShowAddEventModal(true)}
+                align="end"
+              />
             </div>
             <div className="space-y-2">
-              {dateTodos.map(todo => <TodoRow key={todo.id} todo={todo} />)}
-              {dateTodos.length === 0 && (
+              {regularTodos.map(todo => <TodoRow key={todo.id} todo={todo} />)}
+              {regularTodos.length === 0 && (
                 <div className="py-8 text-center">
                   <p style={{ fontSize: 13, color: t.textMuted }}>아직 할일이 없습니다</p>
-                  <button onClick={() => setShowAddModal(true)} className="mt-2 px-4 py-1.5 rounded-lg"
-                    style={{ fontSize: 12, color: t.accent, backgroundColor: t.accentLight }}>
-                    + 할일 추가
-                  </button>
                 </div>
               )}
             </div>
@@ -1470,14 +1611,13 @@ export function DailyView() {
           <div className="px-3 py-2.5 lg:px-4 flex-shrink-0" style={{ borderBottom: `1px solid ${t.border}` }}>
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <span style={{ fontSize: 14 }}>⏰</span>
-                <span style={{ fontSize: 13, fontWeight: 700, color: t.text }}>타임라인</span>
+                <span style={{ fontSize: 13, fontWeight: 800, color: t.text, letterSpacing: '0.08em' }}>TIMELINE</span>
               </div>
               <div className="flex items-center gap-2">
                 <button onClick={() => setShowLogModal(true)}
                   className="flex items-center gap-1 px-2 py-1.5 rounded-lg lg:gap-1.5 lg:px-2.5"
                   style={{ fontSize: 11, color: t.textSub, backgroundColor: t.bgSub, border: `1px solid ${t.border}` }}>
-                  <span style={{ fontSize: 11 }}>🔮</span> 로그
+                  <span style={{ fontSize: 11 }}>💭</span> Think
                 </button>
                 {/* PLAN / 비교 / DO 탭 */}
                 <div className="flex items-center rounded-lg overflow-hidden" style={{ border: `1px solid ${t.border}` }}>
@@ -1487,11 +1627,9 @@ export function DailyView() {
                       className="px-2 py-1.5 lg:px-2.5"
                       style={{
                         fontSize: 10, fontWeight: timelineTab === tab ? 700 : 500,
-                        backgroundColor: timelineTab === tab
-                          ? (tab === 'plan' ? '#EDE3D6' : tab === 'do' ? '#D4EDE0' : t.bgSub)
-                          : 'transparent',
+                        backgroundColor: timelineTab === tab ? t.bgSub : 'transparent',
                         color: timelineTab === tab
-                          ? (tab === 'plan' ? '#7D6347' : tab === 'do' ? '#4A8A5A' : t.text)
+                          ? t.text
                           : t.textMuted,
                         borderRight: i < 2 ? `1px solid ${t.border}` : 'none',
                         transition: 'all 0.15s',
@@ -1502,32 +1640,28 @@ export function DailyView() {
                 </div>
               </div>
             </div>
-            <div className="mt-2 flex items-center gap-2">
-              <div style={{ width: TIMELINE_LABEL_WIDTH, flexShrink: 0 }} />
+            <div className="mt-2 flex items-center gap-1">
+              <div style={{ width: TIMELINE_LABEL_WIDTH, flexShrink: 0, fontSize: 8, color: t.textMuted, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em', textAlign: 'right', paddingRight: 6 }}>
+                TIME
+              </div>
               {timelineTab === 'compare' ? (
-                <div className="flex-1 grid gap-2" style={{ gridTemplateColumns: '1fr 1fr' }}>
-                  <div className="rounded-full px-3 py-1 text-center"
-                    style={{ fontSize: 10, fontWeight: 700, color: '#7D6347', backgroundColor: `${PLAN_BAR_BG}CC`, border: `1px solid ${PLAN_BAR_BORDER}55`, letterSpacing: '0.08em' }}>
+                <div className="flex-1 grid" style={{ gridTemplateColumns: `1fr ${TIMELINE_LANE_GAP}px 1fr` }}>
+                  <div className="px-3 py-1"
+                    style={{ fontSize: 9, fontWeight: 800, color: '#C4A882', letterSpacing: '0.1em', textTransform: 'uppercase', borderLeft: '3px solid #C4A88230' }}>
                     PLAN
                   </div>
-                  <div className="rounded-full px-3 py-1 text-center"
-                    style={{ fontSize: 10, fontWeight: 700, color: '#4A8A5A', backgroundColor: `${DO_BAR_FALLBACK_BG}D9`, border: '1px solid #B6DCCB', letterSpacing: '0.08em' }}>
+                  <div />
+                  <div className="px-3 py-1"
+                    style={{ fontSize: 9, fontWeight: 800, color: '#6BAA7A', letterSpacing: '0.1em', textTransform: 'uppercase', borderLeft: '3px solid #6BAA7A30' }}>
                     DO
                   </div>
                 </div>
               ) : (
-                <div className="flex-1">
-                  <div className="rounded-full px-3 py-1 text-center"
-                    style={{
-                      fontSize: 10,
-                      fontWeight: 700,
-                      color: timelineTab === 'plan' ? '#7D6347' : '#4A8A5A',
-                      backgroundColor: timelineTab === 'plan' ? `${PLAN_BAR_BG}CC` : `${DO_BAR_FALLBACK_BG}D9`,
-                      border: timelineTab === 'plan' ? `1px solid ${PLAN_BAR_BORDER}55` : '1px solid #B6DCCB',
-                      letterSpacing: '0.08em',
-                    }}>
+                <div className="flex-1 px-3 py-1"
+                  style={{ borderLeft: `3px solid ${timelineTab === 'plan' ? '#C4A88230' : '#6BAA7A30'}` }}>
+                  <span style={{ fontSize: 9, fontWeight: 800, color: timelineTab === 'plan' ? '#C4A882' : '#6BAA7A', letterSpacing: '0.1em', textTransform: 'uppercase' }}>
                     {timelineTab === 'plan' ? 'PLAN' : 'DO'}
-                  </div>
+                  </span>
                 </div>
               )}
             </div>
@@ -1562,15 +1696,15 @@ export function DailyView() {
                       style={{
                         left: 0,
                         right: `calc(50% + ${TIMELINE_LANE_GAP / 2}px)`,
-                        background: 'linear-gradient(180deg, rgba(237,227,214,0.55) 0%, rgba(237,227,214,0.18) 100%)',
-                        border: `1px solid ${PLAN_BAR_BORDER}22`,
+                        background: 'transparent',
+                        border: `1px solid ${t.borderLight}`,
                       }} />
                     <div className="absolute inset-y-0 rounded-2xl"
                       style={{
                         left: `calc(50% + ${TIMELINE_LANE_GAP / 2}px)`,
                         right: 0,
-                        background: 'linear-gradient(180deg, rgba(212,237,224,0.52) 0%, rgba(212,237,224,0.16) 100%)',
-                        border: '1px solid rgba(107,170,122,0.14)',
+                        background: 'transparent',
+                        border: `1px solid ${t.borderLight}`,
                       }} />
                     <div className="absolute inset-y-0"
                       style={{
@@ -1583,9 +1717,7 @@ export function DailyView() {
                 ) : (
                   <div className="absolute inset-0 rounded-2xl"
                     style={{
-                      background: timelineTab === 'plan'
-                        ? 'linear-gradient(180deg, rgba(237,227,214,0.58) 0%, rgba(237,227,214,0.16) 100%)'
-                        : 'linear-gradient(180deg, rgba(212,237,224,0.54) 0%, rgba(212,237,224,0.16) 100%)',
+                      background: 'transparent',
                       border: `1px solid ${t.borderLight}`,
                     }} />
                 )}
@@ -1596,8 +1728,8 @@ export function DailyView() {
                   {/* Hour line */}
                   <div className="absolute left-0 right-0 flex items-start" style={{ top: idx * HOUR_HEIGHT }}>
                     <span style={{
-                      fontSize: 9, color: t.textMuted, width: TIMELINE_LABEL_WIDTH, flexShrink: 0,
-                      paddingTop: 0, textAlign: 'right', paddingRight: 6,
+                      fontSize: 10, color: t.textMuted, width: TIMELINE_LABEL_WIDTH, flexShrink: 0,
+                      paddingTop: 0, textAlign: 'right', paddingRight: 8,
                     }}>
                       {String(h).padStart(2, '0')}:00
                     </span>
@@ -1614,7 +1746,7 @@ export function DailyView() {
               {/* Current time indicator */}
               {showCurrentTime && (
                 <div className="absolute left-0 right-0 z-20 pointer-events-none" style={{ top: currentTimeTop }}>
-                  <div className="flex items-center" style={{ marginLeft: TIMELINE_LABEL_WIDTH - 8 }}>
+                  <div className="flex items-center" style={{ marginLeft: TIMELINE_LABEL_WIDTH - 4 }}>
                     <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: CURRENT_TIME_COLOR }} />
                     <div className="flex-1 h-[2px]" style={{ backgroundColor: CURRENT_TIME_COLOR }} />
                   </div>
@@ -1635,8 +1767,14 @@ export function DailyView() {
         </div>{/* /Columns Wrapper */}
       </div>
 
+      <FloatingAddFab
+        onAddTodo={() => setShowAddModal(true)}
+        onAddEvent={() => setShowAddEventModal(true)}
+      />
+
       {/* Modals */}
       {showAddModal && <TodoModal date={selectedDate} onClose={() => setShowAddModal(false)} />}
+      {showAddEventModal && <EventModal date={selectedDate} onClose={() => setShowAddEventModal(false)} />}
       {editingTodo && <TodoModal date={selectedDate} todo={editingTodo} onClose={() => setEditingTodo(null)} />}
       {snoozingTodo && <SnoozeModal todo={snoozingTodo} onClose={() => setSnoozingTodo(null)} />}
       {contextMenu && (
@@ -1661,6 +1799,16 @@ export function DailyView() {
           endHour={tlEndHour}
           onSave={(s, e) => setDayHours(s, e)}
           onClose={() => setShowTimelineSettings(false)}
+        />
+      )}
+      {showDatePicker && (
+        <DailyDatePickerModal
+          selectedDate={selectedDate}
+          onClose={() => setShowDatePicker(false)}
+          onConfirm={(date) => {
+            setSelectedDate(date);
+            setShowDatePicker(false);
+          }}
         />
       )}
     </div>

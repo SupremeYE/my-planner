@@ -1,7 +1,6 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router';
 import {
-  Clock, Tag, Sparkles, SlidersHorizontal, Bell,
+  Clock, Tag, Sparkles, SlidersHorizontal,
   Plus, Pencil, Trash2, Check, X, ChevronRight,
 } from 'lucide-react';
 import { usePlanner } from '../store';
@@ -70,7 +69,6 @@ function ToggleRow({ label, desc, value, onChange }: {
 // ─── 타임라인 설정 섹션 ───
 function TimelineSection() {
   const { t } = useTheme();
-  const navigate = useNavigate();
   const { dayStartHour, dayEndHour, setDayHours } = usePlanner();
 
   const toTimeStr = (h: number) => `${String(h % 24).padStart(2, '0')}:00`;
@@ -112,6 +110,63 @@ function TimelineSection() {
       >
         {saved ? '✓ 저장됨' : '적용'}
       </button>
+    </Section>
+  );
+}
+
+function ChoiceChipRow<T extends string | number>({ label, desc, value, options, onChange }: {
+  label: string;
+  desc?: string;
+  value: T;
+  options: { value: T; label: string }[];
+  onChange: (value: T) => void;
+}) {
+  const { t } = useTheme();
+
+  return (
+    <div>
+      <p style={{ fontSize: 13, fontWeight: 500, color: t.text }}>{label}</p>
+      {desc && <p style={{ fontSize: 11, color: t.textMuted, marginTop: 2 }}>{desc}</p>}
+      <div className="flex gap-2 mt-3">
+        {options.map(option => {
+          const active = value === option.value;
+          return (
+            <button
+              key={String(option.value)}
+              onClick={() => onChange(option.value)}
+              className="px-3 py-2 rounded-xl transition-colors"
+              style={{
+                fontSize: 12,
+                fontWeight: active ? 700 : 500,
+                color: active ? '#fff' : t.textSub,
+                backgroundColor: active ? t.accent : t.bgSub,
+                border: `1px solid ${active ? t.accent : t.border}`,
+              }}
+            >
+              {option.label}
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+function CalendarSection() {
+  const { appSettings, updateAppSettings } = usePlanner();
+
+  return (
+    <Section title="캘린더 설정" icon={<ChevronRight size={16} />}>
+      <ChoiceChipRow
+        label="주 시작 요일"
+        desc="주별과 월별 캘린더의 시작 요일을 정합니다."
+        value={appSettings.weekStartsOn}
+        options={[
+          { value: 0, label: '일요일 시작' },
+          { value: 1, label: '월요일 시작' },
+        ]}
+        onChange={(value) => updateAppSettings({ weekStartsOn: value as 0 | 1 })}
+      />
     </Section>
   );
 }
@@ -318,41 +373,6 @@ function FeatureTogglesSection() {
   );
 }
 
-// ─── 알림 설정 섹션 ───
-function NotificationSection() {
-  const { t } = useTheme();
-  const { appSettings, updateAppSettings } = usePlanner();
-  const [alarmTime, setAlarmTime] = useState(appSettings.habitAlarmDefault || '');
-  const [saved, setSaved] = useState(false);
-
-  const handleSave = () => {
-    updateAppSettings({ habitAlarmDefault: alarmTime });
-    setSaved(true);
-    setTimeout(() => setSaved(false), 1500);
-  };
-
-  return (
-    <Section title="알림 설정" icon={<Bell size={16} />}>
-      <div>
-        <label style={{ fontSize: 12, color: t.textSub, fontWeight: 500, display: 'block', marginBottom: 6 }}>
-          습관 알림 기본 시간
-        </label>
-        <TimePicker value={alarmTime} onChange={setAlarmTime} placeholder="예: 09:00" size="md" minuteStep={5} />
-        <p style={{ fontSize: 11, color: t.textMuted, marginTop: 6 }}>
-          새 습관 추가 시 기본으로 사용할 알림 시간입니다.
-        </p>
-      </div>
-      <button
-        onClick={handleSave}
-        className="w-full py-2.5 rounded-xl"
-        style={{ fontSize: 13, fontWeight: 600, backgroundColor: saved ? '#006b62' : '#515f74', color: '#fff' }}
-      >
-        {saved ? '✓ 저장됨' : '저장'}
-      </button>
-    </Section>
-  );
-}
-
 // ─── 메인 뷰 ───
 export function SettingsView() {
   const { t } = useTheme();
@@ -368,10 +388,10 @@ export function SettingsView() {
       {/* 섹션들 */}
       <div className="px-4 lg:px-6 pb-8 space-y-4">
         <TimelineSection />
+        <CalendarSection />
         <TagsSection />
         <AffirmationSection />
         <FeatureTogglesSection />
-        <NotificationSection />
       </div>
     </div>
   );

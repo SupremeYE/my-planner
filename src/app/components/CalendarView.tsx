@@ -1,104 +1,124 @@
-import { useState, useEffect } from 'react';
-import { ChevronLeft, ChevronRight } from 'lucide-react';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { ChevronLeft, ChevronRight, MoreVertical } from 'lucide-react';
 import {
-  format, addMonths, subMonths, startOfMonth, getDaysInMonth,
-  getDay, addDays, startOfWeek, endOfWeek, isSameDay, parseISO,
+  addDays,
+  addMonths,
+  endOfWeek,
+  format,
+  getDay,
+  getDaysInMonth,
+  parseISO,
+  startOfMonth,
+  startOfWeek,
+  subMonths,
 } from 'date-fns';
 import { ko } from 'date-fns/locale';
-import { usePlanner, Todo, PeriodRecord } from '../store';
-import { isDoOvertimeVsPlan, doElapsedTitleSuffix, doElapsedInlineSuffix } from '../../lib/todoDoDuration';
-import { useNavigate } from 'react-router';
+import { usePlanner, PeriodRecord, Todo } from '../store';
+import { isDoOvertimeVsPlan, doElapsedInlineSuffix, doElapsedTitleSuffix } from '../../lib/todoDoDuration';
 import { useTheme } from '../ThemeContext';
+import { TodoModal } from './TodoModal';
+import { EventModal } from './EventModal';
+import { FloatingAddFab } from './FloatingAddFab';
 
-type TabType = 'month' | 'week' | 'day';
+type TabType = 'month' | 'week';
 type FilterType = 'all' | 'todo' | 'event' | 'habit' | 'selfcare';
 
 const CHIP_COLORS: Record<Exclude<FilterType, 'all'>, { bg: string; color: string }> = {
-  todo:     { bg: '#F0C4B8', color: '#D4735A' },
-  event:    { bg: '#D0E0F5', color: '#7B9ED9' },
-  habit:    { bg: '#C8E6D0', color: '#006b62' },
+  todo: { bg: '#F0C4B8', color: '#D4735A' },
+  event: { bg: '#D0E0F5', color: '#7B9ED9' },
+  habit: { bg: '#C8E6D0', color: '#006b62' },
   selfcare: { bg: '#E8D9C0', color: '#A08050' },
 };
 
 const FILTER_TABS: { key: FilterType; label: string; activeColor: string }[] = [
-  { key: 'all',      label: '전체',    activeColor: '#26343d' },
-  { key: 'todo',     label: '할일',    activeColor: '#D4735A' },
-  { key: 'event',    label: '일정',    activeColor: '#7B9ED9' },
-  { key: 'habit',    label: '습관',    activeColor: '#006b62' },
+  { key: 'all', label: '전체', activeColor: '#26343d' },
+  { key: 'todo', label: '할일', activeColor: '#D4735A' },
+  { key: 'event', label: '일정', activeColor: '#7B9ED9' },
+  { key: 'habit', label: '습관', activeColor: '#006b62' },
   { key: 'selfcare', label: '자기관리', activeColor: '#A08050' },
 ];
 
-// ─── Time helpers ───
 const HOUR_HEIGHT = 48;
-const PLAN_BAR_BG = '#EDE3D6';
-const PLAN_BAR_BORDER = '#515f74';
-const DO_BAR_FALLBACK_BG = '#D4EDE0';
-const DO_BAR_FALLBACK_TEXT = '#4A8A5A';
-const OVERTIME_BAR_BG = '#FAE8D6';
-const OVERTIME_BAR_BORDER = '#D4735A';
 const CURRENT_TIME_COLOR = '#D4735A';
-const WEEK_TIME_LABEL_WIDTH = 40;
-const WEEK_DAY_GAP = 6;
+const WEEK_TIME_LABEL_WIDTH = 54;
+const WEEKDAY_LABELS_SUN = ['일', '월', '화', '수', '목', '금', '토'];
+const WEEKDAY_LABELS_MON = ['월', '화', '수', '목', '금', '토', '일'];
+const CALENDAR_PANEL_HEIGHT_KEY = 'calendar-panel-height';
+const MIN_CALENDAR_HEIGHT = 180;
+const MAX_CALENDAR_HEIGHT = 480;
 
 function timeToTop(time: string, startHour: number): number {
   const [h, m] = time.split(':').map(Number);
   return ((h - startHour) * 60 + m) * (HOUR_HEIGHT / 60);
 }
+
 function durationToPx(start: string, end: string): number {
   const [sh, sm] = start.split(':').map(Number);
   const [eh, em] = end.split(':').map(Number);
-  return Math.max(((eh - sh) * 60 + (em - sm)) * (HOUR_HEIGHT / 60), 16);
+  return Math.max(((eh - sh) * 60 + (em - sm)) * (HOUR_HEIGHT / 60), 24);
 }
 
-function getContrastTextColor(hex: string): string {
-  const normalized = hex.replace('#', '');
-  if (normalized.length !== 6) return '#ffffff';
-  const r = parseInt(normalized.slice(0, 2), 16);
-  const g = parseInt(normalized.slice(2, 4), 16);
-  const b = parseInt(normalized.slice(4, 6), 16);
-  const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
-  return luminance > 0.66 ? '#26343d' : '#ffffff';
+function getWeekdayLabels(weekStartsOn: 0 | 1) {
+  return weekStartsOn === 1 ? WEEKDAY_LABELS_MON : WEEKDAY_LABELS_SUN;
 }
 
-// ─── Month View ───
-function isPeriodDate(dateStr: string, records: PeriodRecord[]): boolean {
-  return records.some(r => {
-    if (!r.endDate) return r.startDate === dateStr;
-    return r.startDate <= dateStr && dateStr <= r.endDate;
+function isPeriodDate(dateStr: string, records: PeriodRecord[]) {
+  return records.some(record => {
+    if (!record.endDate) return record.startDate === dateStr;
+    return record.startDate <= dateStr && dateStr <= record.endDate;
   });
 }
 
-function MonthView({ viewDate, filter, onSelectDate }: {
+function MonthView({ viewDate, filter, selectedTagIds, weekStartsOn, onSelectDate }: {
   viewDate: Date;
   filter: FilterType;
+  selectedTagIds: string[];
+  weekStartsOn: 0 | 1;
   onSelectDate: (d: string) => void;
 }) {
   const { todos, events, habits, selfCareRecords, periodRecords, selectedDate } = usePlanner();
 
   const firstDay = startOfMonth(viewDate);
-  const startDow = getDay(firstDay);
+  const startOffset = (getDay(firstDay) - weekStartsOn + 7) % 7;
   const daysInMonth = getDaysInMonth(viewDate);
   const year = viewDate.getFullYear();
   const month = viewDate.getMonth();
+  const weekdayLabels = getWeekdayLabels(weekStartsOn);
 
   const cells: (number | null)[] = [];
-  for (let i = 0; i < startDow; i++) cells.push(null);
-  for (let d = 1; d <= daysInMonth; d++) cells.push(d);
+  for (let i = 0; i < startOffset; i++) cells.push(null);
+  for (let day = 1; day <= daysInMonth; day++) cells.push(day);
 
   const getItems = (dateStr: string) => {
     const items: { id: string; text: string; type: Exclude<FilterType, 'all'> }[] = [];
-    if (filter === 'all' || filter === 'todo')
-      todos.filter(t => t.date === dateStr && t.status !== 'backlog' && t.status !== 'cancelled')
-        .forEach(t => items.push({ id: t.id, text: t.text, type: 'todo' }));
-    if (filter === 'all' || filter === 'event')
-      events.filter(e => e.date === dateStr)
-        .forEach(e => items.push({ id: e.id, text: e.title, type: 'event' }));
-    if (filter === 'all' || filter === 'habit')
-      habits.filter(h => h.checkedDates.includes(dateStr))
-        .forEach(h => items.push({ id: h.id, text: h.name, type: 'habit' }));
-    if (filter === 'all' || filter === 'selfcare')
-      selfCareRecords.filter(s => s.date === dateStr)
-        .forEach(s => items.push({ id: s.id, text: s.content, type: 'selfcare' }));
+    const matchesTags = (itemTags?: string[]) =>
+      selectedTagIds.length === 0 || (itemTags ?? []).some(tagId => selectedTagIds.includes(tagId));
+
+    if (filter === 'all' || filter === 'todo') {
+      todos
+        .filter(todo =>
+          todo.date === dateStr &&
+          todo.status !== 'backlog' &&
+          todo.status !== 'cancelled' &&
+          (filter !== 'todo' || matchesTags(todo.tags))
+        )
+        .forEach(todo => items.push({ id: todo.id, text: todo.text, type: 'todo' }));
+    }
+    if (filter === 'all' || filter === 'event') {
+      events
+        .filter(event => event.date === dateStr && (filter !== 'event' || matchesTags(event.tags)))
+        .forEach(event => items.push({ id: event.id, text: event.title, type: 'event' }));
+    }
+    if (filter === 'all' || filter === 'habit') {
+      habits
+        .filter(habit => habit.checkedDates.includes(dateStr))
+        .forEach(habit => items.push({ id: habit.id, text: habit.name, type: 'habit' }));
+    }
+    if (filter === 'all' || filter === 'selfcare') {
+      selfCareRecords
+        .filter(record => record.date === dateStr)
+        .forEach(record => items.push({ id: record.id, text: record.content, type: 'selfcare' }));
+    }
     return items;
   };
 
@@ -107,13 +127,16 @@ function MonthView({ viewDate, filter, onSelectDate }: {
   return (
     <div>
       <div className="grid grid-cols-7 mb-1">
-        {['일', '월', '화', '수', '목', '금', '토'].map(d => (
-          <div key={d} className="text-center py-2" style={{ fontSize: 12, color: '#888', fontWeight: 600 }}>{d}</div>
+        {weekdayLabels.map(label => (
+          <div key={label} className="text-center py-2" style={{ fontSize: 12, color: '#888', fontWeight: 600 }}>
+            {label}
+          </div>
         ))}
       </div>
       <div className="grid grid-cols-7 gap-1">
-        {cells.map((day, i) => {
-          if (day === null) return <div key={i} />;
+        {cells.map((day, index) => {
+          if (day === null) return <div key={index} />;
+
           const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
           const items = getItems(dateStr);
           const shown = items.slice(0, 4);
@@ -124,45 +147,61 @@ function MonthView({ viewDate, filter, onSelectDate }: {
 
           return (
             <button
-              key={i}
+              key={index}
               onClick={() => onSelectDate(dateStr)}
               className="relative flex flex-col items-start p-1 rounded-xl transition-all"
               style={{
-                backgroundColor: isSelected ? '#515f74' : isToday ? '#d5e3fd' : 'transparent',
+                backgroundColor: isToday ? '#d5e3fd' : isSelected ? '#f8fbff' : 'transparent',
+                border: isSelected ? '1px solid #d5e3fd' : '1px solid transparent',
+                boxShadow: isSelected && !isToday ? '0 0 0 1px rgba(81,95,116,0.04)' : 'none',
                 minHeight: 72,
               }}
             >
               <div className="self-center flex flex-col items-center gap-0.5">
-                <span style={{ fontSize: 13, color: isSelected ? '#fff' : isToday ? '#515f74' : '#26343d', fontWeight: isSelected || isToday ? 700 : 400 }}>
+                <span style={{ fontSize: 13, color: isToday ? '#515f74' : '#26343d', fontWeight: isSelected || isToday ? 700 : 400 }}>
                   {day}
                 </span>
                 {hasPeriod && (
-                  <span style={{
-                    display: 'block', width: 5, height: 5, borderRadius: '50%',
-                    backgroundColor: isSelected ? 'rgba(255,255,255,0.9)' : '#E07899',
-                    flexShrink: 0,
-                  }} />
+                  <span
+                    style={{
+                      display: 'block',
+                      width: 5,
+                      height: 5,
+                      borderRadius: '50%',
+                      backgroundColor: isToday ? '#515f74' : '#E07899',
+                      flexShrink: 0,
+                    }}
+                  />
                 )}
               </div>
               <div className="flex flex-col gap-0.5 w-full mt-0.5">
                 {shown.map(item => {
-                  const c = CHIP_COLORS[item.type];
+                  const color = CHIP_COLORS[item.type];
                   return (
-                    <div key={item.id} className="rounded px-1 w-full overflow-hidden"
-                      style={{ backgroundColor: isSelected ? 'rgba(255,255,255,0.25)' : c.bg }}>
-                      <span style={{
-                        fontSize: 9, fontWeight: 600,
-                        color: isSelected ? '#fff' : c.color,
-                        whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
-                        display: 'block', lineHeight: '14px',
-                      }}>
+                    <div
+                      key={item.id}
+                      className="rounded px-1 w-full overflow-hidden"
+                      style={{ backgroundColor: color.bg }}
+                    >
+                      <span
+                        style={{
+                          fontSize: 9,
+                          fontWeight: 600,
+                          color: color.color,
+                          whiteSpace: 'nowrap',
+                          overflow: 'hidden',
+                          textOverflow: 'ellipsis',
+                          display: 'block',
+                          lineHeight: '14px',
+                        }}
+                      >
                         {item.text}
                       </span>
                     </div>
                   );
                 })}
                 {overflow > 0 && (
-                  <span style={{ fontSize: 9, color: isSelected ? '#fff' : '#999', paddingLeft: 2 }}>
+                  <span style={{ fontSize: 9, color: '#999', paddingLeft: 2 }}>
                     +{overflow}개
                   </span>
                 )}
@@ -175,178 +214,337 @@ function MonthView({ viewDate, filter, onSelectDate }: {
   );
 }
 
-// ─── Week View ───
-// 헤더(요일)는 고정, 타임라인만 단일 스크롤
-function WeekView({ viewDate, onSelectDate }: { viewDate: Date; onSelectDate: (d: string) => void }) {
-  const { todos, tags, dayStartHour: START_HOUR, dayEndHour: END_HOUR } = usePlanner();
+function WeekView({ viewDate, selectedDate, onSelectDate, viewDays, weekStartsOn }: {
+  viewDate: Date;
+  selectedDate: string;
+  onSelectDate: (d: string) => void;
+  viewDays: 1 | 2 | 3 | 7;
+  weekStartsOn: 0 | 1;
+}) {
+  const { todos, events, tags, dayStartHour: startHour, dayEndHour: endHour } = usePlanner();
   const { t } = useTheme();
   const [nowTime, setNowTime] = useState(new Date());
-  const [selectedBlock, setSelectedBlock] = useState<{ text: string; time: string; date: string; tone: string } | null>(null);
+  const [selectedBlock, setSelectedBlock] = useState<{ text: string; time: string; date: string; tone: string; type?: string } | null>(null);
+  const [windowStart, setWindowStart] = useState(0);
+
   useEffect(() => {
-    const iv = setInterval(() => setNowTime(new Date()), 60000);
-    return () => clearInterval(iv);
+    const interval = setInterval(() => setNowTime(new Date()), 60000);
+    return () => clearInterval(interval);
   }, []);
-  const nowHHMM = `${String(nowTime.getHours()).padStart(2, '0')}:${String(nowTime.getMinutes()).padStart(2, '0')}`;
+
+  const weekStart = startOfWeek(viewDate, { weekStartsOn });
+  const days = useMemo(
+    () => Array.from({ length: 7 }, (_, index) => addDays(weekStart, index)),
+    [weekStart]
+  );
+  const hours = Array.from({ length: endHour - startHour + 1 }, (_, index) => startHour + index);
+  const todayStr = format(new Date(), 'yyyy-MM-dd');
+  const nowHHMM = format(nowTime, 'HH:mm');
+  const maxWindowStart = Math.max(0, 7 - viewDays);
+  const visibleDays = useMemo(
+    () => (viewDays === 7 ? days : days.slice(windowStart, windowStart + viewDays)),
+    [days, viewDays, windowStart]
+  );
+
+  useEffect(() => {
+    const selectedIndex = days.findIndex(day => format(day, 'yyyy-MM-dd') === selectedDate);
+    if (selectedIndex < 0) {
+      setWindowStart(0);
+      return;
+    }
+    if (viewDays === 7) {
+      setWindowStart(0);
+      return;
+    }
+    setWindowStart(prev => {
+      if (selectedIndex >= prev && selectedIndex < prev + viewDays) return prev;
+      return Math.min(selectedIndex, maxWindowStart);
+    });
+  }, [days, maxWindowStart, selectedDate, viewDays]);
+
   const getTodoTagColor = (todo: Todo) => {
     if (!todo.tags?.length) return null;
-    return tags.find(tg => tg.id === todo.tags?.[0])?.color || null;
+    return tags.find(tag => tag.id === todo.tags?.[0])?.color || null;
   };
 
-  const weekStart = startOfWeek(viewDate, { weekStartsOn: 0 });
-  const days = Array.from({ length: 7 }, (_, i) => addDays(weekStart, i));
-  const hours = Array.from({ length: END_HOUR - START_HOUR + 1 }, (_, i) => START_HOUR + i);
-  const todayStr = format(new Date(), 'yyyy-MM-dd');
+  const renderWeekTable = (daysToRender: Date[], isMobile: boolean) => {
+    const columnTemplate = `${WEEK_TIME_LABEL_WIDTH}px repeat(${daysToRender.length}, minmax(0, 1fr))`;
 
-  return (
-    <div className="flex flex-col" style={{ flex: 1, minHeight: 0, overflow: 'hidden' }}>
-      {/* Day headers — 고정 */}
-      <div style={{ flexShrink: 0, borderBottom: '1px solid #eef4fa' }}>
-        <div className="px-2 py-2 flex items-center gap-4" style={{ borderBottom: '1px solid #F5EFE7' }}>
-          <div className="flex items-center gap-1.5" style={{ fontSize: 10, fontWeight: 600, color: '#7D6347' }}>
-            <span className="inline-block w-2 h-2 rounded-full" style={{ backgroundColor: PLAN_BAR_BG, border: `1px solid ${PLAN_BAR_BORDER}` }} />
-            PLAN
-          </div>
-          <div className="flex items-center gap-1.5" style={{ fontSize: 10, fontWeight: 600, color: '#4A8A5A' }}>
-            <span className="inline-block w-2 h-2 rounded-full" style={{ backgroundColor: DO_BAR_FALLBACK_BG, border: '1px solid #B6DCCB' }} />
-            DO
-          </div>
-          <div className="flex items-center gap-1.5" style={{ fontSize: 10, fontWeight: 600, color: OVERTIME_BAR_BORDER }}>
-            <span className="inline-block w-2 h-2 rounded-full" style={{ backgroundColor: OVERTIME_BAR_BG, border: `1px solid ${OVERTIME_BAR_BORDER}` }} />
-            초과
-          </div>
-        </div>
-        <div className="grid" style={{ gridTemplateColumns: `${WEEK_TIME_LABEL_WIDTH}px repeat(7, 1fr)` }}>
-          <div />
-          {days.map(d => {
-            const dateStr = format(d, 'yyyy-MM-dd');
-            const isToday = dateStr === todayStr;
-            return (
-              <button key={dateStr} onClick={() => onSelectDate(dateStr)} className="flex flex-col items-center py-2">
-                <span style={{ fontSize: 11, color: '#888' }}>{format(d, 'E', { locale: ko })}</span>
-                <span style={{
-                  display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  width: 26, height: 26, borderRadius: '50%', marginTop: 2, flexShrink: 0,
-                  fontSize: 12, fontWeight: 700,
-                  backgroundColor: isToday ? '#515f74' : 'transparent',
-                  color: isToday ? '#fff' : '#26343d',
-                }}>
-                  {format(d, 'd')}
-                </span>
-              </button>
-            );
-          })}
-        </div>
-      </div>
-
-      {/* Time grid — 단일 스크롤 */}
-      <div style={{ flex: 1, overflowY: 'auto', minHeight: 0 }}>
-        <div className="relative" style={{ height: (END_HOUR - START_HOUR) * HOUR_HEIGHT }}>
-          {/* Hour lines */}
-          {hours.map(h => (
-            <div key={h} className="absolute left-0 right-0 flex items-start" style={{ top: (h - START_HOUR) * HOUR_HEIGHT }}>
-              <span style={{ fontSize: 9, color: '#aaa', width: WEEK_TIME_LABEL_WIDTH - 4, textAlign: 'right', paddingRight: 4 }}>{String(h % 24).padStart(2, '0')}:00</span>
-              <div className="flex-1 border-t" style={{ borderColor: '#d5e5ef' }} />
+    return (
+      <div className="flex flex-col" style={{ flex: 1, minHeight: 0, overflow: 'hidden' }}>
+        <div style={{ flexShrink: 0, borderBottom: '1px solid #eef4fa' }}>
+          <div className="px-3 py-2 flex items-center gap-4" style={{ borderBottom: '1px solid #F3F0EA' }}>
+            <div className="flex items-center gap-1.5" style={{ fontSize: 10, fontWeight: 700, color: '#8D7152' }}>
+              <span className="inline-block w-2 h-2 rounded-full" style={{ backgroundColor: '#E9E1D6', border: '1px solid #D8C5AE' }} />
+              PLAN
             </div>
-          ))}
+            <div className="flex items-center gap-1.5" style={{ fontSize: 10, fontWeight: 700, color: '#6BAA7A' }}>
+              <span className="inline-block w-2 h-2 rounded-full" style={{ backgroundColor: '#D8EFE0', border: '1px solid #6BAA7A40' }} />
+              DO
+            </div>
+            <div className="flex items-center gap-1.5" style={{ fontSize: 10, fontWeight: 700, color: '#D4735A' }}>
+              <span className="inline-block w-2 h-2 rounded-full" style={{ backgroundColor: '#FAE8D6', border: '1px solid #D4735A66' }} />
+              초과
+            </div>
+          </div>
 
-          {/* Day columns with blocks */}
-          <div className="absolute grid" style={{ left: WEEK_TIME_LABEL_WIDTH, right: 0, top: 0, bottom: 0, gridTemplateColumns: 'repeat(7, 1fr)' }}>
-            {days.map(d => {
-              const dateStr = format(d, 'yyyy-MM-dd');
-              const dayTodos = todos.filter(t => t.date === dateStr);
-
+          <div className="grid" style={{ gridTemplateColumns: columnTemplate }}>
+            <div />
+            {daysToRender.map(day => {
+              const dateStr = format(day, 'yyyy-MM-dd');
+              const isToday = dateStr === todayStr;
+              const isSelected = dateStr === selectedDate;
               return (
-                <div key={dateStr} className="relative border-l" style={{ borderColor: '#eef4fa' }}>
-                  <div className="absolute inset-y-0 left-1 right-1 pointer-events-none">
-                    <div className="absolute inset-y-1 rounded-xl"
-                      style={{
-                        left: 0,
-                        right: `calc(50% + ${WEEK_DAY_GAP / 2}px)`,
-                        background: 'linear-gradient(180deg, rgba(237,227,214,0.55) 0%, rgba(237,227,214,0.16) 100%)',
-                        border: `1px solid ${PLAN_BAR_BORDER}22`,
-                      }} />
-                    <div className="absolute inset-y-1 rounded-xl"
-                      style={{
-                        left: `calc(50% + ${WEEK_DAY_GAP / 2}px)`,
-                        right: 0,
-                        background: 'linear-gradient(180deg, rgba(212,237,224,0.52) 0%, rgba(212,237,224,0.16) 100%)',
-                        border: '1px solid rgba(107,170,122,0.14)',
-                      }} />
-                    <div className="absolute inset-y-0"
-                      style={{
-                        left: `calc(50% - ${WEEK_DAY_GAP / 2}px)`,
-                        width: WEEK_DAY_GAP,
-                        borderLeft: `1px dashed ${t.border}`,
-                        borderRight: `1px dashed ${t.border}`,
-                      }} />
-                  </div>
-                  {/* PLAN 블록 */}
-                  {dayTodos.filter(t => t.planStart && t.planEnd).map(todo => (
-                    <div key={`p-${todo.id}`} className="absolute rounded"
-                      title={`${todo.text}\n${todo.planStart}–${todo.planEnd}`}
-                      onClick={() => setSelectedBlock({
-                        text: todo.text,
-                        time: `${todo.planStart}–${todo.planEnd}`,
-                        date: format(d, 'M월 d일 (E)', { locale: ko }),
-                        tone: '#7D6347',
-                      })}
-                      style={{
-                        top: timeToTop(todo.planStart!, START_HOUR),
-                        height: durationToPx(todo.planStart!, todo.planEnd!),
-                        left: 2, right: `calc(50% + ${WEEK_DAY_GAP / 2}px)`,
-                        backgroundColor: PLAN_BAR_BG,
-                        border: `1px solid ${PLAN_BAR_BORDER}`,
-                        overflow: 'hidden',
-                        zIndex: 1,
-                        cursor: 'pointer',
-                      }} />
-                  ))}
-                  {/* DO 블록 */}
-                  {dayTodos.filter(t => t.doStart && t.doEnd).map(todo => {
-                    const tagColor = getTodoTagColor(todo);
-                    const isOvertime = isDoOvertimeVsPlan(todo);
-                    const bgColor = isOvertime ? OVERTIME_BAR_BG : (tagColor || DO_BAR_FALLBACK_BG);
-                    const border = isOvertime ? `1px solid ${OVERTIME_BAR_BORDER}` : 'none';
-                    return (
-                      <div key={`d-${todo.id}`} className="absolute rounded"
-                        title={`${todo.text}\n${todo.doStart}–${todo.doEnd}${doElapsedTitleSuffix(todo)}${isOvertime ? ' (초과)' : ''}`}
-                        onClick={() => setSelectedBlock({
-                          text: todo.text,
-                          time: `${todo.doStart}–${todo.doEnd}${doElapsedInlineSuffix(todo)}${isOvertime ? ' · 초과' : ''}`,
-                          date: format(d, 'M월 d일 (E)', { locale: ko }),
-                          tone: isOvertime ? OVERTIME_BAR_BORDER : (tagColor ? getContrastTextColor(tagColor) : DO_BAR_FALLBACK_TEXT),
-                        })}
-                        style={{
-                          top: timeToTop(todo.doStart!, START_HOUR),
-                          height: durationToPx(todo.doStart!, todo.doEnd!),
-                          left: `calc(50% + ${WEEK_DAY_GAP / 2}px)`, right: 2,
-                          backgroundColor: bgColor,
-                          border,
-                          overflow: 'hidden',
-                          zIndex: 1,
-                          cursor: 'pointer',
-                        }} />
-                    );
-                  })}
-                  {/* 현재 시각선 (오늘 열에만) */}
-                  {dateStr === todayStr && (
-                    <div className="absolute left-0 right-0 z-10 pointer-events-none flex items-center"
-                      style={{ top: timeToTop(nowHHMM, START_HOUR) }}>
-                      <div style={{ width: 5, height: 5, borderRadius: '50%', backgroundColor: CURRENT_TIME_COLOR, flexShrink: 0 }} />
-                      <div style={{ flex: 1, height: 2, backgroundColor: CURRENT_TIME_COLOR }} />
-                    </div>
-                  )}
-                </div>
+                <button key={dateStr} onClick={() => onSelectDate(dateStr)} className="flex flex-col items-center py-2.5">
+                  <span style={{ fontSize: isMobile ? 10 : 11, color: '#888', fontWeight: 600 }}>
+                    {format(day, 'E', { locale: ko })}
+                  </span>
+                  <span
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      width: isMobile ? 28 : 30,
+                      height: isMobile ? 28 : 30,
+                      borderRadius: '50%',
+                      marginTop: 4,
+                      flexShrink: 0,
+                      fontSize: isMobile ? 12 : 13,
+                      fontWeight: 700,
+                      backgroundColor: isSelected ? '#26343d' : isToday ? '#515f74' : 'transparent',
+                      color: isSelected || isToday ? '#fff' : '#26343d',
+                      border: isSelected ? '2px solid #d5e3fd' : '2px solid transparent',
+                    }}
+                  >
+                    {format(day, 'd')}
+                  </span>
+                </button>
               );
             })}
           </div>
         </div>
+
+        <div style={{ flex: 1, overflowY: 'auto', minHeight: 0 }}>
+          <div className="relative" style={{ height: (endHour - startHour) * HOUR_HEIGHT + 8 }}>
+            {hours.map(hour => (
+              <div key={hour} className="absolute left-0 right-0 flex items-start" style={{ top: (hour - startHour) * HOUR_HEIGHT }}>
+                <span
+                  style={{
+                    fontSize: 10,
+                    color: '#9aa7b4',
+                    width: WEEK_TIME_LABEL_WIDTH,
+                    textAlign: 'right',
+                    paddingRight: 8,
+                  }}
+                >
+                  {String(hour % 24).padStart(2, '0')}:00
+                </span>
+                <div className="flex-1 border-t" style={{ borderColor: '#dbe6ee' }} />
+              </div>
+            ))}
+
+            {hours.slice(0, -1).map(hour => (
+              <div key={`half-${hour}`} className="absolute left-0 right-0 flex items-start" style={{ top: (hour - startHour) * HOUR_HEIGHT + HOUR_HEIGHT / 2 }}>
+                <span style={{ width: WEEK_TIME_LABEL_WIDTH, flexShrink: 0 }} />
+                <div className="flex-1" style={{ borderTop: '1px dashed #e9eff5' }} />
+              </div>
+            ))}
+
+            <div
+              className="absolute grid gap-2"
+              style={{
+                left: WEEK_TIME_LABEL_WIDTH,
+                right: 0,
+                top: 0,
+                bottom: 0,
+                gridTemplateColumns: `repeat(${daysToRender.length}, minmax(0, 1fr))`,
+              }}
+            >
+              {daysToRender.map(day => {
+                const dateStr = format(day, 'yyyy-MM-dd');
+                const dayTodos = todos.filter(todo => todo.date === dateStr && todo.status !== 'backlog');
+                const dayEvents = events.filter(event => event.date === dateStr && event.startTime && event.endTime);
+
+                return (
+                  <div key={dateStr} className="relative">
+                    <div
+                      className="absolute inset-y-1 inset-x-0 rounded-[24px] pointer-events-none"
+                      style={{
+                        background: 'linear-gradient(180deg, rgba(250,252,255,0.96) 0%, rgba(244,248,252,0.82) 100%)',
+                        border: dateStr === selectedDate ? `1px solid ${t.accent}55` : '1px solid #eef4fa',
+                        boxShadow: dateStr === selectedDate ? '0 0 0 2px rgba(81,95,116,0.08)' : 'none',
+                      }}
+                    />
+
+                    {dayEvents.map(event => {
+                      const eventColor = event.color || '#7B9ED9';
+                      const top = timeToTop(event.startTime!, startHour);
+                      const height = durationToPx(event.startTime!, event.endTime!);
+                      return (
+                        <button
+                          key={`event-${event.id}`}
+                          type="button"
+                          onClick={() => setSelectedBlock({
+                            text: event.title,
+                            time: `${event.startTime}-${event.endTime}${event.location ? ` · ${event.location}` : ''}`,
+                            date: format(day, 'M월 d일 (E)', { locale: ko }),
+                            tone: eventColor,
+                            type: '일정',
+                          })}
+                          title={`${event.title}\n${event.startTime}-${event.endTime}${event.location ? ` · ${event.location}` : ''}`}
+                          className="absolute rounded-2xl text-left overflow-hidden"
+                          style={{
+                            top,
+                            height,
+                            left: '7%',
+                            right: '22%',
+                            backgroundColor: `${eventColor}16`,
+                            border: `1px solid ${eventColor}66`,
+                            padding: '6px 8px',
+                            zIndex: 3,
+                            cursor: 'pointer',
+                          }}
+                        >
+                          <div style={{ fontSize: isMobile ? 10 : 11, fontWeight: 700, color: eventColor, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                            {event.title}
+                          </div>
+                          {height >= 40 && (
+                            <div style={{ fontSize: 9, color: eventColor, opacity: 0.8, marginTop: 2, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                              {event.startTime}-{event.endTime}
+                            </div>
+                          )}
+                        </button>
+                      );
+                    })}
+
+                    {dayTodos.filter(todo => todo.planStart && todo.planEnd).map(todo => {
+                      const top = timeToTop(todo.planStart!, startHour);
+                      const height = durationToPx(todo.planStart!, todo.planEnd!);
+                      return (
+                        <button
+                          key={`plan-${todo.id}`}
+                          type="button"
+                          onClick={() => setSelectedBlock({
+                            text: todo.text,
+                            time: `${todo.planStart}-${todo.planEnd}`,
+                            date: format(day, 'M월 d일 (E)', { locale: ko }),
+                            tone: '#7D6347',
+                            type: 'PLAN',
+                          })}
+                          title={`${todo.text}\n${todo.planStart}-${todo.planEnd}`}
+                          className="absolute rounded-[18px] text-left overflow-hidden"
+                          style={{
+                            top,
+                            height,
+                            left: '8%',
+                            right: '18%',
+                            backgroundColor: 'rgba(239,232,223,0.94)',
+                            border: '1px solid rgba(196,168,130,0.38)',
+                            boxShadow: '0 2px 8px rgba(125,99,71,0.06)',
+                            padding: '7px 8px',
+                            zIndex: 2,
+                            cursor: 'pointer',
+                          }}
+                        >
+                          <div style={{ fontSize: isMobile ? 10 : 11, fontWeight: 700, color: '#6B553D', lineHeight: 1.35, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                            {todo.text}
+                          </div>
+                          {height >= 42 && (
+                            <div style={{ fontSize: 9, color: '#9A8165', marginTop: 2, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                              {todo.planStart}-{todo.planEnd}
+                            </div>
+                          )}
+                        </button>
+                      );
+                    })}
+
+                    {dayTodos.filter(todo => todo.doStart && todo.doEnd).map(todo => {
+                      const tagColor = getTodoTagColor(todo) || '#6BAA7A';
+                      const isOvertime = isDoOvertimeVsPlan(todo);
+                      const tone = isOvertime ? '#D4735A' : tagColor;
+                      const top = timeToTop(todo.doStart!, startHour);
+                      const height = durationToPx(todo.doStart!, todo.doEnd!);
+                      return (
+                        <button
+                          key={`do-${todo.id}`}
+                          type="button"
+                          onClick={() => setSelectedBlock({
+                            text: todo.text,
+                            time: `${todo.doStart}-${todo.doEnd}${doElapsedInlineSuffix(todo)}${isOvertime ? ' · 초과' : ''}`,
+                            date: format(day, 'M월 d일 (E)', { locale: ko }),
+                            tone,
+                            type: isOvertime ? 'DO · 초과' : 'DO',
+                          })}
+                          title={`${todo.text}\n${todo.doStart}-${todo.doEnd}${doElapsedTitleSuffix(todo)}${isOvertime ? ' (초과)' : ''}`}
+                          className="absolute rounded-[18px] text-left overflow-hidden"
+                          style={{
+                            top,
+                            height,
+                            left: '18%',
+                            right: '8%',
+                            backgroundColor: isOvertime ? 'rgba(250,232,214,0.95)' : `${tagColor}20`,
+                            border: `1px solid ${isOvertime ? '#D4735A55' : `${tagColor}38`}`,
+                            borderLeft: `3px solid ${tone}`,
+                            boxShadow: `0 3px 10px ${tone}14`,
+                            padding: '7px 8px',
+                            zIndex: 4,
+                            cursor: 'pointer',
+                          }}
+                        >
+                          <div style={{ fontSize: isMobile ? 10 : 11, fontWeight: 700, color: tone, lineHeight: 1.35, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                            {todo.text}
+                          </div>
+                          {height >= 42 && (
+                            <div style={{ fontSize: 9, color: tone, opacity: 0.78, marginTop: 2, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                              {todo.doStart}-{todo.doEnd}
+                            </div>
+                          )}
+                        </button>
+                      );
+                    })}
+
+                    {dateStr === todayStr && (
+                      <div className="absolute left-[6%] right-[6%] z-10 pointer-events-none flex items-center" style={{ top: timeToTop(nowHHMM, startHour) }}>
+                        <div style={{ width: 7, height: 7, borderRadius: '50%', backgroundColor: CURRENT_TIME_COLOR, flexShrink: 0 }} />
+                        <div style={{ flex: 1, height: 2, backgroundColor: CURRENT_TIME_COLOR }} />
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  return (
+    <div className="flex flex-col" style={{ flex: 1, minHeight: 0, overflow: 'hidden' }}>
+      <div className="flex" style={{ flex: 1, minHeight: 0 }}>
+        {renderWeekTable(visibleDays, viewDays !== 7)}
       </div>
       {selectedBlock && (
-        <div className="mx-2 mt-2 mb-2 rounded-xl px-3 py-2"
-          style={{ backgroundColor: t.card, border: `1px solid ${t.border}` }}>
+        <div className="mx-2 mt-2 mb-2 rounded-xl px-3 py-2" style={{ backgroundColor: t.card, border: `1px solid ${t.border}` }}>
           <div style={{ fontSize: 10, color: t.textMuted, marginBottom: 2 }}>{selectedBlock.date}</div>
-          <div style={{ fontSize: 12, fontWeight: 700, color: selectedBlock.tone }}>{selectedBlock.text}</div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+            {selectedBlock.type && (
+              <span
+                style={{
+                  fontSize: 10,
+                  color: selectedBlock.tone,
+                  border: `1px solid ${selectedBlock.tone}40`,
+                  backgroundColor: `${selectedBlock.tone}14`,
+                  borderRadius: 999,
+                  padding: '2px 6px',
+                  fontWeight: 700,
+                }}
+              >
+                {selectedBlock.type}
+              </span>
+            )}
+            <div style={{ fontSize: 12, fontWeight: 700, color: selectedBlock.tone }}>{selectedBlock.text}</div>
+          </div>
           <div style={{ fontSize: 11, color: t.textSub, marginTop: 1 }}>{selectedBlock.time}</div>
         </div>
       )}
@@ -354,213 +552,521 @@ function WeekView({ viewDate, onSelectDate }: { viewDate: Date; onSelectDate: (d
   );
 }
 
-// ─── Day View (mini daily) ───
-// flex-1로 남은 높이를 채우고, 내부에서만 스크롤
-function DayViewPanel({ dateStr }: { dateStr: string }) {
-  const { todos, tags, dayStartHour: START_HOUR, dayEndHour: END_HOUR } = usePlanner();
-  const { t } = useTheme();
-  const dayTodos = todos.filter(t => t.date === dateStr && t.status !== 'backlog');
-  const hours = Array.from({ length: END_HOUR - START_HOUR + 1 }, (_, i) => START_HOUR + i);
-  const getTodoTagColor = (todo: Todo) => {
-    if (!todo.tags?.length) return null;
-    return tags.find(tg => tg.id === todo.tags?.[0])?.color || null;
-  };
-
-  return (
-    <div style={{ flex: 1, overflowY: 'auto', minHeight: 0 }}>
-      <div className="relative" style={{ height: (END_HOUR - START_HOUR) * HOUR_HEIGHT + 8 }}>
-        {hours.map(h => (
-          <div key={h} className="absolute left-0 right-0 flex items-start" style={{ top: (h - START_HOUR) * HOUR_HEIGHT }}>
-            <span style={{ fontSize: 10, color: '#aaa', width: WEEK_TIME_LABEL_WIDTH, textAlign: 'right', paddingRight: 6 }}>{String(h % 24).padStart(2, '0')}:00</span>
-            <div className="flex-1 border-t" style={{ borderColor: '#d5e5ef' }} />
-          </div>
-        ))}
-        <div className="absolute" style={{ left: WEEK_TIME_LABEL_WIDTH + 4, right: 0, top: 0, bottom: 0 }}>
-          <div className="absolute inset-y-0 left-0 right-0 pointer-events-none">
-            <div className="absolute inset-y-0 rounded-2xl"
-              style={{
-                left: 0,
-                right: `calc(50% + ${WEEK_DAY_GAP / 2}px)`,
-                background: 'linear-gradient(180deg, rgba(237,227,214,0.55) 0%, rgba(237,227,214,0.16) 100%)',
-                border: `1px solid ${PLAN_BAR_BORDER}22`,
-              }} />
-            <div className="absolute inset-y-0 rounded-2xl"
-              style={{
-                left: `calc(50% + ${WEEK_DAY_GAP / 2}px)`,
-                right: 0,
-                background: 'linear-gradient(180deg, rgba(212,237,224,0.52) 0%, rgba(212,237,224,0.16) 100%)',
-                border: '1px solid rgba(107,170,122,0.14)',
-              }} />
-          </div>
-          {dayTodos.filter(t => t.planStart && t.planEnd).map(todo => (
-            <div key={`p-${todo.id}`} className="absolute rounded"
-              title={`${todo.text}\n${todo.planStart}–${todo.planEnd}`}
-              style={{
-                top: timeToTop(todo.planStart!, START_HOUR),
-                height: durationToPx(todo.planStart!, todo.planEnd!),
-                left: 0, right: `calc(50% + ${WEEK_DAY_GAP / 2}px)`,
-                backgroundColor: PLAN_BAR_BG,
-                border: `1px solid ${PLAN_BAR_BORDER}`,
-                padding: '2px 6px',
-                overflow: 'hidden',
-                fontSize: 11,
-                color: '#7D6347',
-              }}>
-              {todo.text}
-            </div>
-          ))}
-          {dayTodos.filter(t => t.doStart && t.doEnd).map(todo => {
-            const tagColor = getTodoTagColor(todo);
-            const isOvertime = isDoOvertimeVsPlan(todo);
-            return (
-              <div key={`d-${todo.id}`} className="absolute rounded"
-                title={`${todo.text}\n${todo.doStart}–${todo.doEnd}${doElapsedTitleSuffix(todo)}${isOvertime ? ' (초과)' : ''}`}
-                style={{
-                  top: timeToTop(todo.doStart!, START_HOUR),
-                  height: durationToPx(todo.doStart!, todo.doEnd!),
-                  left: `calc(50% + ${WEEK_DAY_GAP / 2}px)`, right: 0,
-                  backgroundColor: isOvertime ? OVERTIME_BAR_BG : (tagColor || DO_BAR_FALLBACK_BG),
-                  border: isOvertime ? `1px solid ${OVERTIME_BAR_BORDER}` : 'none',
-                  padding: '2px 6px',
-                  overflow: 'hidden',
-                  fontSize: 11,
-                  color: isOvertime ? OVERTIME_BAR_BORDER : (tagColor ? getContrastTextColor(tagColor) : DO_BAR_FALLBACK_TEXT),
-                }}>
-                {todo.text}
-              </div>
-            );
-          })}
-        </div>
-      </div>
-    </div>
-  );
-}
-
-// ─── Calendar View ───
 export function CalendarView() {
-  const { selectedDate, setSelectedDate } = usePlanner();
+  const { selectedDate, setSelectedDate, appSettings, tags, events, todos, habits, brainstormMemos } = usePlanner();
   const { t } = useTheme();
   const [tab, setTab] = useState<TabType>('month');
   const [filter, setFilter] = useState<FilterType>('all');
-  const [viewDate, setViewDate] = useState(new Date());
-  const navigate = useNavigate();
+  const [viewDate, setViewDate] = useState(parseISO(selectedDate));
+  const [showAddTodoModal, setShowAddTodoModal] = useState(false);
+  const [showAddEventModal, setShowAddEventModal] = useState(false);
+  const [showCalendarMenu, setShowCalendarMenu] = useState(false);
+  const [weekViewDays, setWeekViewDays] = useState<1 | 2 | 3 | 7>(7);
+  const [selectedTagIds, setSelectedTagIds] = useState<string[]>([]);
+  const [panelDate, setPanelDate] = useState<string | null>(null);
+  const [calendarHeight, setCalendarHeight] = useState(320);
+  const calendarMenuRef = useRef<HTMLDivElement>(null);
+  const dragStartYRef = useRef(0);
+  const dragStartHeightRef = useRef(320);
+  const calendarHeightRef = useRef(320);
+  const isDraggingRef = useRef(false);
+  const weekStartsOn = appSettings.weekStartsOn ?? 1;
+  const showTagLayer = tab === 'month' && (filter === 'todo' || filter === 'event') && tags.length > 0;
+
+  useEffect(() => {
+    setViewDate(parseISO(selectedDate));
+  }, [selectedDate]);
+
+  useEffect(() => {
+    const saved = window.localStorage.getItem(CALENDAR_PANEL_HEIGHT_KEY);
+    if (!saved) return;
+    const parsed = Number(saved);
+    if (!Number.isNaN(parsed)) {
+      const nextHeight = Math.min(MAX_CALENDAR_HEIGHT, Math.max(MIN_CALENDAR_HEIGHT, parsed));
+      setCalendarHeight(nextHeight);
+      calendarHeightRef.current = nextHeight;
+    }
+  }, []);
+
+  useEffect(() => {
+    setSelectedTagIds([]);
+  }, [filter]);
+
+  useEffect(() => {
+    if (!showCalendarMenu) return;
+    const handleOutsideClick = (event: MouseEvent) => {
+      if (calendarMenuRef.current && !calendarMenuRef.current.contains(event.target as Node)) {
+        setShowCalendarMenu(false);
+      }
+    };
+    document.addEventListener('mousedown', handleOutsideClick);
+    return () => document.removeEventListener('mousedown', handleOutsideClick);
+  }, [showCalendarMenu]);
 
   const handleSelectDate = (dateStr: string) => {
     setSelectedDate(dateStr);
-    if (tab === 'month') {
-      navigate('/daily');
-    }
+    setViewDate(parseISO(dateStr));
+    setPanelDate(dateStr);
   };
 
   const navLabel = tab === 'month'
     ? format(viewDate, 'yyyy년 M월')
-    : tab === 'week'
-      ? `${format(startOfWeek(viewDate, { weekStartsOn: 0 }), 'M월 d일')} – ${format(endOfWeek(viewDate, { weekStartsOn: 0 }), 'M월 d일', { locale: ko })}`
-      : format(parseISO(selectedDate), 'M월 d일 (E)', { locale: ko });
+    : `${format(startOfWeek(viewDate, { weekStartsOn }), 'M월 d일')} - ${format(endOfWeek(viewDate, { weekStartsOn }), 'M월 d일', { locale: ko })}`;
 
   const handlePrev = () => {
-    if (tab === 'month') setViewDate(subMonths(viewDate, 1));
-    else if (tab === 'week') setViewDate(addDays(viewDate, -7));
-    else setSelectedDate(format(addDays(parseISO(selectedDate), -1), 'yyyy-MM-dd'));
+    if (tab === 'month') {
+      setViewDate(subMonths(viewDate, 1));
+      return;
+    }
+    const prevWeek = addDays(viewDate, -7);
+    setViewDate(prevWeek);
+    setSelectedDate(format(addDays(parseISO(selectedDate), -7), 'yyyy-MM-dd'));
   };
 
   const handleNext = () => {
-    if (tab === 'month') setViewDate(addMonths(viewDate, 1));
-    else if (tab === 'week') setViewDate(addDays(viewDate, 7));
-    else setSelectedDate(format(addDays(parseISO(selectedDate), 1), 'yyyy-MM-dd'));
+    if (tab === 'month') {
+      setViewDate(addMonths(viewDate, 1));
+      return;
+    }
+    const nextWeek = addDays(viewDate, 7);
+    setViewDate(nextWeek);
+    setSelectedDate(format(addDays(parseISO(selectedDate), 7), 'yyyy-MM-dd'));
   };
 
+  const handleToday = () => {
+    const todayStr = format(new Date(), 'yyyy-MM-dd');
+    setSelectedDate(todayStr);
+    setViewDate(parseISO(todayStr));
+    setPanelDate(todayStr);
+  };
+
+  const clampCalendarHeight = (height: number) =>
+    Math.min(MAX_CALENDAR_HEIGHT, Math.max(MIN_CALENDAR_HEIGHT, height));
+
+  const finishDrag = () => {
+    if (!isDraggingRef.current) return;
+    isDraggingRef.current = false;
+    window.localStorage.setItem(CALENDAR_PANEL_HEIGHT_KEY, String(calendarHeightRef.current));
+    document.body.style.userSelect = '';
+  };
+
+  const startDrag = (clientY: number) => {
+    dragStartYRef.current = clientY;
+    dragStartHeightRef.current = calendarHeightRef.current;
+    isDraggingRef.current = true;
+    document.body.style.userSelect = 'none';
+  };
+
+  useEffect(() => {
+    const handleMouseMove = (event: MouseEvent) => {
+      if (!isDraggingRef.current) return;
+      const delta = event.clientY - dragStartYRef.current;
+      const nextHeight = clampCalendarHeight(dragStartHeightRef.current + delta);
+      calendarHeightRef.current = nextHeight;
+      setCalendarHeight(nextHeight);
+    };
+    const handleTouchMove = (event: TouchEvent) => {
+      if (!isDraggingRef.current) return;
+      event.preventDefault();
+      const touch = event.touches[0];
+      if (!touch) return;
+      const nextHeight = clampCalendarHeight(dragStartHeightRef.current + (touch.clientY - dragStartYRef.current));
+      calendarHeightRef.current = nextHeight;
+      setCalendarHeight(nextHeight);
+    };
+    const handleMouseUp = () => finishDrag();
+    const handleTouchEnd = () => finishDrag();
+
+    window.addEventListener('mousemove', handleMouseMove);
+    window.addEventListener('mouseup', handleMouseUp);
+    window.addEventListener('touchmove', handleTouchMove, { passive: false });
+    window.addEventListener('touchend', handleTouchEnd);
+
+    return () => {
+      window.removeEventListener('mousemove', handleMouseMove);
+      window.removeEventListener('mouseup', handleMouseUp);
+      window.removeEventListener('touchmove', handleTouchMove);
+      window.removeEventListener('touchend', handleTouchEnd);
+    };
+  }, []);
+
+  const panelEvents = panelDate
+    ? events
+      .filter(event => event.date === panelDate)
+      .slice()
+      .sort((a, b) => (a.startTime ?? '').localeCompare(b.startTime ?? ''))
+    : [];
+  const panelTodos = panelDate
+    ? todos
+      .filter(todo => todo.date === panelDate && todo.status !== 'backlog' && todo.status !== 'cancelled')
+      .slice()
+      .sort((a, b) => (a.planStart ?? a.doStart ?? '').localeCompare(b.planStart ?? b.doStart ?? ''))
+    : [];
+  const panelHabits = panelDate ? habits : [];
+  const panelMemo = panelDate ? brainstormMemos[panelDate]?.trim() ?? '' : '';
+
+  const getTagName = (tagId: string) => tags.find(tag => tag.id === tagId);
+  const hasPanelContent = panelEvents.length > 0 || panelTodos.length > 0 || panelHabits.length > 0 || !!panelMemo;
+
   return (
-    <div style={{ height: '100%', display: 'flex', flexDirection: 'column', backgroundColor: t.bg }}>
-      {/* Header — 상단 고정 */}
+    <div className="relative" style={{ height: '100%', display: 'flex', flexDirection: 'column', backgroundColor: t.bg }}>
       <div className="px-3 py-3 lg:px-4 lg:py-4" style={{ flexShrink: 0, backgroundColor: t.sidebar, borderBottom: `1px solid ${t.border}` }}>
-        <div className="flex items-center justify-between mb-3">
+        <div className="flex items-center gap-2 mb-3">
           <button onClick={handlePrev} className="p-1.5 lg:p-2 rounded-xl hover:bg-[#eef4fa]">
             <ChevronLeft size={18} color="#888" />
           </button>
-          <span style={{ fontSize: 16, fontWeight: 700, color: '#26343d' }} className="lg:text-[17px]">{navLabel}</span>
-          <button onClick={handleNext} className="p-1.5 lg:p-2 rounded-xl hover:bg-[#eef4fa]">
-            <ChevronRight size={18} color="#888" />
-          </button>
+          <span className="flex-1 text-center" style={{ fontSize: 16, fontWeight: 700, color: '#26343d' }}>{navLabel}</span>
+          <div className="flex items-center gap-2">
+            <div className="relative" ref={calendarMenuRef}>
+              <button
+                onClick={() => setShowCalendarMenu(prev => !prev)}
+                className="p-1.5 lg:p-2 rounded-xl hover:bg-[#eef4fa]"
+              >
+                <MoreVertical size={18} color="#888" />
+              </button>
+              {showCalendarMenu && (
+                <div
+                  className="absolute right-0 top-full mt-1 rounded-2xl z-20 p-1"
+                  style={{
+                    backgroundColor: '#fff',
+                    border: `1px solid ${t.border}`,
+                    boxShadow: '0 8px 18px rgba(38,52,61,0.08)',
+                    minWidth: 124,
+                  }}
+                >
+                  <button
+                    onClick={() => {
+                      handleToday();
+                      setShowCalendarMenu(false);
+                    }}
+                    className="w-full px-3 py-2 text-left transition-colors rounded-xl"
+                    style={{
+                      fontSize: 12,
+                      fontWeight: 700,
+                      color: t.accent,
+                      backgroundColor: '#fff',
+                      borderBottom: tab === 'week' ? `1px solid ${t.borderLight}` : 'none',
+                    }}
+                  >
+                    오늘
+                  </button>
+                  {tab === 'week' && [
+                    { value: 7 as const, label: '전체' },
+                    { value: 1 as const, label: '일별보기' },
+                    { value: 2 as const, label: '주 2일' },
+                    { value: 3 as const, label: '주 3일' },
+                  ].map(option => (
+                    <button
+                      key={option.value}
+                      onClick={() => {
+                        setWeekViewDays(option.value);
+                        setShowCalendarMenu(false);
+                      }}
+                      className="w-full px-3 py-2 text-left transition-colors rounded-xl"
+                      style={{
+                        fontSize: 12,
+                        fontWeight: weekViewDays === option.value ? 700 : 500,
+                        color: weekViewDays === option.value ? t.accent : t.text,
+                        backgroundColor: weekViewDays === option.value ? t.accentLight : '#fff',
+                        borderBottom: option.value !== 3 ? `1px solid ${t.borderLight}` : 'none',
+                      }}
+                    >
+                      {option.label}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+            <button onClick={handleNext} className="p-1.5 lg:p-2 rounded-xl hover:bg-[#eef4fa]">
+              <ChevronRight size={18} color="#888" />
+            </button>
+          </div>
         </div>
 
-        {/* 월별/주별/일별 탭 */}
-        <div className="flex gap-1 p-1 rounded-xl" style={{ backgroundColor: '#eef4fa' }}>
-          {(['month', 'week', 'day'] as TabType[]).map(v => (
-            <button key={v} onClick={() => setTab(v)}
+        <div className="flex gap-1 p-1 rounded-xl" style={{ backgroundColor: '#eef4fa', border: `1px solid ${t.border}` }}>
+          {(['month', 'week'] as TabType[]).map(value => (
+            <button
+              key={value}
+              onClick={() => {
+                setTab(value);
+                if (value === 'week') setViewDate(parseISO(selectedDate));
+              }}
               className="flex-1 py-1.5 rounded-lg transition-all"
               style={{
                 fontSize: 12,
-                fontWeight: tab === v ? 600 : 400,
-                backgroundColor: tab === v ? '#fff' : 'transparent',
-                color: tab === v ? '#26343d' : '#888',
-                boxShadow: tab === v ? '0 1px 3px rgba(0,0,0,0.08)' : 'none',
-              }}>
-              {v === 'month' ? '월별' : v === 'week' ? '주별' : '일별'}
+                fontWeight: tab === value ? 600 : 400,
+                backgroundColor: tab === value ? '#fff' : 'transparent',
+                color: tab === value ? '#26343d' : '#888',
+                border: tab === value ? `1px solid ${t.border}` : '1px solid transparent',
+                boxShadow: tab === value ? '0 1px 3px rgba(0,0,0,0.08)' : 'none',
+              }}
+            >
+              {value === 'month' ? '월별' : '주별'}
             </button>
           ))}
         </div>
 
-        {/* 필터 탭 (월별 뷰일 때만) */}
         {tab === 'month' && (
-          <div className="flex gap-1.5 mt-2 overflow-x-auto" style={{ scrollbarWidth: 'none' }}>
-            {FILTER_TABS.map(f => {
-              const active = filter === f.key;
-              return (
-                <button key={f.key} onClick={() => setFilter(f.key)}
-                  className="flex-shrink-0 px-3 py-1 rounded-full transition-all"
-                  style={{
-                    fontSize: 11, fontWeight: active ? 700 : 500,
-                    backgroundColor: active ? f.activeColor : '#eef4fa',
-                    color: active ? '#fff' : f.activeColor,
-                    border: `1.5px solid ${active ? f.activeColor : f.activeColor + '60'}`,
-                  }}>
-                  {f.label}
-                </button>
-              );
-            })}
-          </div>
+          <>
+            <div className="flex gap-1.5 mt-2 overflow-x-auto" style={{ scrollbarWidth: 'none' }}>
+              {FILTER_TABS.map(item => {
+                const active = filter === item.key;
+                return (
+                  <button
+                    key={item.key}
+                    onClick={() => setFilter(item.key)}
+                    className="flex-shrink-0 px-3 py-1 rounded-full transition-all"
+                    style={{
+                      fontSize: 11,
+                      fontWeight: active ? 700 : 500,
+                      backgroundColor: active ? item.activeColor : '#eef4fa',
+                      color: active ? '#fff' : item.activeColor,
+                      border: `1.5px solid ${active ? item.activeColor : item.activeColor + '60'}`,
+                    }}
+                  >
+                    {item.label}
+                  </button>
+                );
+              })}
+            </div>
+            {showTagLayer && (
+              <div className="flex gap-1.5 mt-2 overflow-x-auto" style={{ scrollbarWidth: 'none' }}>
+                {tags.map(tag => {
+                  const active = selectedTagIds.includes(tag.id);
+                  return (
+                    <button
+                      key={tag.id}
+                      onClick={() => setSelectedTagIds(prev =>
+                        prev.includes(tag.id) ? prev.filter(id => id !== tag.id) : [...prev, tag.id]
+                      )}
+                      className="flex-shrink-0 px-3 py-1 rounded-full transition-all"
+                      style={{
+                        fontSize: 11,
+                        fontWeight: active ? 700 : 500,
+                        backgroundColor: active ? `${tag.color}22` : '#eef4fa',
+                        color: tag.color,
+                        border: `1.5px solid ${active ? tag.color : `${tag.color}66`}`,
+                      }}
+                    >
+                      {tag.name}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+          </>
         )}
       </div>
 
-      {/* ── 월별: 페이지 스크롤 ── */}
-      {tab === 'month' && (
-        <div style={{ flex: 1, overflowY: 'auto' }}>
-          <div className="p-3 lg:p-4">
-            <div className="bg-white rounded-2xl p-4 shadow-sm" style={{ border: '1px solid #eef4fa' }}>
-              <MonthView viewDate={viewDate} filter={filter} onSelectDate={handleSelectDate} />
+      <div className="flex-1 px-3 pb-3 pt-2.5 lg:px-4 lg:pb-4 lg:pt-3 flex flex-col" style={{ minHeight: 0, overflow: 'hidden' }}>
+        <div
+          style={{
+            height: calendarHeight,
+            minHeight: MIN_CALENDAR_HEIGHT,
+            maxHeight: MAX_CALENDAR_HEIGHT,
+            flexShrink: 0,
+            overflow: 'hidden',
+          }}
+        >
+          {tab === 'month' && (
+            <div style={{ height: '100%', overflowY: 'auto' }}>
+              <div className="h-full">
+                <div className="bg-white rounded-2xl p-4 shadow-sm h-full" style={{ border: '1px solid #eef4fa' }}>
+                  <MonthView
+                    viewDate={viewDate}
+                    filter={filter}
+                    selectedTagIds={selectedTagIds}
+                    weekStartsOn={weekStartsOn}
+                    onSelectDate={handleSelectDate}
+                  />
+                </div>
+              </div>
+            </div>
+          )}
+
+          {tab === 'week' && (
+            <div style={{ height: '100%', display: 'flex', flexDirection: 'column', minHeight: 0, overflow: 'hidden' }}>
+              <div className="bg-white rounded-2xl shadow-sm h-full" style={{ border: '1px solid #eef4fa', display: 'flex', flexDirection: 'column', minHeight: 0, overflow: 'hidden' }}>
+                <WeekView
+                  viewDate={viewDate}
+                  selectedDate={selectedDate}
+                  onSelectDate={handleSelectDate}
+                  viewDays={weekViewDays}
+                  weekStartsOn={weekStartsOn}
+                />
+              </div>
+            </div>
+          )}
+        </div>
+
+        <div
+          className="flex items-center justify-center py-2 cursor-row-resize touch-none"
+          onMouseDown={(event) => startDrag(event.clientY)}
+          onTouchStart={(event) => {
+            const touch = event.touches[0];
+            if (!touch) return;
+            startDrag(touch.clientY);
+          }}
+        >
+          <div
+            style={{
+              width: 32,
+              height: 4,
+              borderRadius: 999,
+              backgroundColor: t.border,
+              opacity: 0.9,
+            }}
+          />
+        </div>
+
+        <div className="flex-1 min-h-0 overflow-hidden">
+          <div
+            className="rounded-[18px] h-full overflow-hidden"
+            style={{ backgroundColor: t.card, border: `1px solid ${t.border}` }}
+          >
+            <div className="h-full overflow-y-auto px-4 py-4 lg:px-5">
+              {!panelDate && (
+                <div className="h-full flex items-center justify-center">
+                  <p style={{ fontSize: 13, color: t.textMuted }}>날짜를 선택하면 기록이 표시돼요</p>
+                </div>
+              )}
+
+              {panelDate && (
+                <div className="space-y-4">
+                  <div>
+                    <p style={{ fontSize: 11, color: t.textMuted, fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase' }}>
+                      {format(parseISO(panelDate), 'M월 d일 (E)', { locale: ko })}
+                    </p>
+                  </div>
+
+                  {panelEvents.length > 0 && (
+                    <section>
+                      <h3 style={{ fontSize: 13, fontWeight: 700, color: t.text, marginBottom: 8 }}>일정</h3>
+                      <div className="space-y-2">
+                        {panelEvents.map(event => (
+                          <div key={event.id} className="rounded-xl px-3 py-2" style={{ backgroundColor: t.bgSub, border: `1px solid ${t.borderLight}` }}>
+                            <div style={{ fontSize: 13, fontWeight: 600, color: t.text }}>{event.title}</div>
+                            {(event.startTime || event.endTime) && (
+                              <div style={{ fontSize: 11, color: t.textSub, marginTop: 2 }}>
+                                {event.startTime || '--:--'} ~ {event.endTime || '--:--'}
+                              </div>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    </section>
+                  )}
+
+                  {panelTodos.length > 0 && (
+                    <section>
+                      <h3 style={{ fontSize: 13, fontWeight: 700, color: t.text, marginBottom: 8 }}>할일</h3>
+                      <div className="space-y-2">
+                        {panelTodos.map(todo => (
+                          <div key={todo.id} className="rounded-xl px-3 py-2" style={{ backgroundColor: t.bgSub, border: `1px solid ${t.borderLight}` }}>
+                            <div
+                              style={{
+                                fontSize: 13,
+                                fontWeight: 600,
+                                color: todo.status === 'done' ? t.textMuted : t.text,
+                                textDecoration: todo.status === 'done' ? 'line-through' : 'none',
+                              }}
+                            >
+                              {todo.text}
+                            </div>
+                            <div className="flex gap-1.5 flex-wrap mt-2">
+                              <span
+                                className="inline-flex items-center px-2 py-0.5 rounded-full"
+                                style={{
+                                  fontSize: 10,
+                                  fontWeight: 600,
+                                  backgroundColor: todo.status === 'done' ? t.checkDone : t.card,
+                                  color: todo.status === 'done' ? '#fff' : t.textSub,
+                                  border: `1px solid ${todo.status === 'done' ? t.checkDone : t.border}`,
+                                }}
+                              >
+                                {todo.status === 'done' ? '완료' : '미완료'}
+                              </span>
+                              {(todo.tags ?? []).map(tagId => {
+                                const tag = getTagName(tagId);
+                                if (!tag) return null;
+                                return (
+                                  <span
+                                    key={tagId}
+                                    className="inline-flex items-center px-2 py-0.5 rounded-full"
+                                    style={{
+                                      fontSize: 10,
+                                      fontWeight: 600,
+                                      color: tag.color,
+                                      backgroundColor: `${tag.color}18`,
+                                      border: `1px solid ${tag.color}33`,
+                                    }}
+                                  >
+                                    {tag.name}
+                                  </span>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </section>
+                  )}
+
+                  {panelHabits.length > 0 && (
+                    <section>
+                      <h3 style={{ fontSize: 13, fontWeight: 700, color: t.text, marginBottom: 8 }}>습관</h3>
+                      <div className="flex flex-wrap gap-2">
+                        {panelHabits.map(habit => {
+                          const checked = habit.checkedDates.includes(panelDate);
+                          return (
+                            <span
+                              key={habit.id}
+                              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl"
+                              style={{
+                                fontSize: 12,
+                                fontWeight: 500,
+                                color: checked ? t.accent : t.textSub,
+                                backgroundColor: checked ? t.accentLight : t.bgSub,
+                                border: `1px solid ${checked ? t.accent : t.border}`,
+                              }}
+                            >
+                              <span>{checked ? '✓' : '✗'}</span>
+                              <span>{habit.name}</span>
+                            </span>
+                          );
+                        })}
+                      </div>
+                    </section>
+                  )}
+
+                  {panelMemo && (
+                    <section>
+                      <h3 style={{ fontSize: 13, fontWeight: 700, color: t.text, marginBottom: 8 }}>메모</h3>
+                      <div className="rounded-xl px-3 py-3" style={{ backgroundColor: t.bgSub, border: `1px solid ${t.borderLight}` }}>
+                        <p style={{ fontSize: 13, color: t.text, lineHeight: 1.6 }}>{panelMemo}</p>
+                      </div>
+                    </section>
+                  )}
+
+                  {!hasPanelContent && (
+                    <div className="rounded-xl px-3 py-4" style={{ backgroundColor: t.bgSub, border: `1px solid ${t.borderLight}` }}>
+                      <p style={{ fontSize: 13, color: t.textMuted }}>선택한 날짜에 표시할 기록이 아직 없어요</p>
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
           </div>
         </div>
-      )}
+      </div>
 
-      {/* ── 주별: 헤더 고정 + 타임라인 단일 스크롤 ── */}
-      {tab === 'week' && (
-        <div className="px-3 pb-3 pt-2.5 lg:px-4 lg:pb-4 lg:pt-3"
-          style={{ flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0, overflow: 'hidden' }}>
-          <div className="bg-white rounded-2xl shadow-sm" style={{ border: '1px solid #eef4fa', flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0, overflow: 'hidden' }}>
-            <WeekView viewDate={viewDate} onSelectDate={handleSelectDate} />
-          </div>
-        </div>
-      )}
+      <FloatingAddFab
+        onAddTodo={() => setShowAddTodoModal(true)}
+        onAddEvent={() => setShowAddEventModal(true)}
+      />
 
-      {/* ── 일별: 헤더 고정 + 타임라인 단일 스크롤 ── */}
-      {tab === 'day' && (
-        <div className="px-3 pb-3 pt-2.5 lg:px-4 lg:pb-4 lg:pt-3"
-          style={{ flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0, overflow: 'hidden' }}>
-          <div className="bg-white rounded-2xl shadow-sm" style={{ border: '1px solid #eef4fa', flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0, overflow: 'hidden' }}>
-            {/* Day view 상단 */}
-            <div className="flex items-center justify-between flex-shrink-0 px-4 py-3" style={{ borderBottom: '1px solid #eef4fa' }}>
-              <span style={{ fontSize: 13, color: '#888' }}>선택된 날짜의 타임테이블</span>
-              <button onClick={() => navigate('/daily')} className="px-3 py-1.5 rounded-xl"
-                style={{ fontSize: 12, backgroundColor: '#515f74', color: '#fff' }}>
-                일간 뷰로 이동
-              </button>
-            </div>
-            <DayViewPanel dateStr={selectedDate} />
-          </div>
-        </div>
-      )}
+      {showAddTodoModal && <TodoModal date={selectedDate} onClose={() => setShowAddTodoModal(false)} />}
+      {showAddEventModal && <EventModal date={selectedDate} onClose={() => setShowAddEventModal(false)} />}
     </div>
   );
 }

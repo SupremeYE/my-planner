@@ -1,4 +1,6 @@
 import { supabase } from './supabase';
+import { format, addDays, subDays } from 'date-fns';
+import { createEvent as createEventApi, deleteEvent as deleteEventApi, getEvents, updateEvent as updateEventApi } from '../api/events';
 import type {
   Todo, Habit, Project, Milestone,
   SelfCareRecord, ReviewRecord, TimelineLog,
@@ -505,17 +507,20 @@ export const db = {
 
   events: {
     fetchAll: async (): Promise<Event[]> => {
-      const { data, error } = await supabase.from('events').select('*').order('date');
-      if (error) console.error('[db] events fetch:', error.message);
-      return (data ?? []).map(toEvent);
+      const startDate = format(subDays(new Date(), 365), 'yyyy-MM-dd');
+      const endDate = format(addDays(new Date(), 730), 'yyyy-MM-dd');
+      return getEvents(undefined, startDate, endDate);
     },
     upsert: async (event: Event) => {
-      const { error } = await supabase.from('events').upsert(fromEvent(event));
-      if (error) console.error('[db] events upsert:', error.message);
+      const targetId = event.sourceEventId || (event.isOccurrence ? undefined : event.id);
+      const saved = targetId
+        ? await updateEventApi(targetId, event)
+        : await createEventApi(event);
+      if (!saved) console.error('[db] events upsert: failed');
     },
     delete: async (id: string) => {
-      const { error } = await supabase.from('events').delete().eq('id', id);
-      if (error) console.error('[db] events delete:', error.message);
+      const ok = await deleteEventApi(id);
+      if (!ok) console.error('[db] events delete: failed');
     },
   },
 
@@ -686,6 +691,8 @@ export const db = {
           showHabitHeatmap: data.show_habit_heatmap ?? false,
           habitAlarmDefault: data.habit_alarm_default ?? '',
           globalAffirmation: data.global_affirmation ?? '',
+          weekStartsOn: data.week_starts_on === 0 ? 0 : 1,
+          mobileWeekDays: data.mobile_week_days === 2 ? 2 : 3,
           annualProfiles,
           annualIdentity: cyProfile.identity,
           annualValues: cyProfile.values,
@@ -702,6 +709,8 @@ export const db = {
         payload.show_habit_heatmap = appSettings.showHabitHeatmap;
         payload.habit_alarm_default = appSettings.habitAlarmDefault || null;
         payload.global_affirmation = appSettings.globalAffirmation || null;
+        payload.week_starts_on = appSettings.weekStartsOn;
+        payload.mobile_week_days = appSettings.mobileWeekDays;
         payload.annual_profiles = appSettings.annualProfiles ?? {};
         const cy = String(new Date().getFullYear());
         const slice = appSettings.annualProfiles?.[cy];

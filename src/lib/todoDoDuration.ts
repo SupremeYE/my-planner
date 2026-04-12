@@ -10,6 +10,18 @@ export function todoDoDurationSeconds(t: Pick<Todo, 'doStart' | 'doEnd' | 'doEla
   return Math.max(0, durMin * 60);
 }
 
+export function formatDuration(seconds: number): string {
+  if (seconds <= 0) return '(0s)';
+  if (seconds < 60) return `(${seconds}s)`;
+
+  const totalMinutes = Math.floor(seconds / 60);
+  if (totalMinutes < 60) return `(${totalMinutes}m)`;
+
+  const hours = Math.floor(totalMinutes / 60);
+  const minutes = totalMinutes % 60;
+  return minutes > 0 ? `(${hours}h ${minutes}m)` : `(${hours}h)`;
+}
+
 export function formatDoElapsedKo(sec: number): string {
   if (sec <= 0) return '0초';
   if (sec < 60) return `${sec}초`;
@@ -47,11 +59,11 @@ export function isDoOvertimeVsPlan(todo: Pick<Todo, 'planStart' | 'planEnd' | 'd
 /** 툴팁/상세용: DO HH:mm 줄 아래 실제 소요 표기 */
 export function doElapsedTitleSuffix(todo: Pick<Todo, 'doElapsedSec'>): string {
   if (todo.doElapsedSec == null || todo.doElapsedSec < 0) return '';
-  return `\n실제 ${formatDoElapsedKo(todo.doElapsedSec)}`;
+  return `\n${formatDuration(todo.doElapsedSec)}`;
 }
 
 /** 한 줄 요약용 */
 export function doElapsedInlineSuffix(todo: Pick<Todo, 'doElapsedSec'>): string {
   if (todo.doElapsedSec == null || todo.doElapsedSec < 0) return '';
-  return ` · 실제 ${formatDoElapsedKo(todo.doElapsedSec)}`;
+  return ` ${formatDuration(todo.doElapsedSec)}`;
 }
