@@ -8,6 +8,7 @@ import { usePlanner, Habit, Routine } from '../store';
 import { useTheme } from '../ThemeContext';
 import { format, subDays, startOfMonth, getDaysInMonth, getDay, addDays, startOfWeek, addMonths, subMonths } from 'date-fns';
 import { RoutineModal, ExecutionPanel, RoutineCard, today as routineToday } from './RoutinesView';
+import { useNotification } from '../hooks/useNotification';
 
 const HABIT_COLORS = ['#515f74', '#D4735A', '#006b62', '#7B9ED9', '#A07BE0', '#6B7280'];
 const REPEAT_OPTIONS = [
@@ -1243,8 +1244,16 @@ function HabitTrackerView() {
 export function HabitsView() {
   const { habits, routines, updateHabitMemo } = usePlanner();
   const { t } = useTheme();
+  const { scheduleHabitAlerts, permission } = useNotification();
   const executionDate = format(new Date(), 'yyyy-MM-dd');
   const [tab, setTab] = useState<'habits' | 'stats' | 'routines'>('habits');
+
+  // 알림 권한이 허용된 경우 오늘 습관 알림 스케줄링
+  useEffect(() => {
+    if (permission === 'granted') {
+      scheduleHabitAlerts(habits, executionDate);
+    }
+  }, [habits, executionDate, permission, scheduleHabitAlerts]);
   const [editHabit, setEditHabit] = useState<Habit | null>(null);
   const [showAddHabit, setShowAddHabit] = useState(false);
   const [editRoutine, setEditRoutine] = useState<Routine | null>(null);
@@ -1253,7 +1262,17 @@ export function HabitsView() {
   // memo inline editing per habit id
   const [memoEditing, setMemoEditing] = useState<Record<string, string>>({});
 
-  const completedToday = routines.filter(r => r.checkedDates?.includes(routineToday)).length;
+  const todayDow = new Date().getDay();
+  const isRoutineApplicableToday = (r: Routine) => {
+    switch (r.repeat) {
+      case 'weekday': return todayDow >= 1 && todayDow <= 5;
+      case 'weekend': return todayDow === 0 || todayDow === 6;
+      case 'custom': return r.repeatDays?.includes(todayDow) ?? false;
+      default: return true; // 'daily' 또는 미설정
+    }
+  };
+  const todayRoutines = routines.filter(isRoutineApplicableToday);
+  const completedToday = todayRoutines.filter(r => r.checkedDates?.includes(routineToday)).length;
 
   const tabs = [
     { key: 'habits', label: '습관 실행' },
@@ -1286,7 +1305,7 @@ export function HabitsView() {
         {/* Habits Tab */}
         {tab === 'habits' && (
           <div className="space-y-2">
-            {habits.map(h => {
+            {habits.filter(h => isHabitApplicableOnDate(h, new Date())).map(h => {
               const streak = getStreak(h.checkedDates);
               const isChecked = h.checkedDates.includes(executionDate);
               const habitType = h.habitType ?? 'check';
@@ -1389,22 +1408,22 @@ export function HabitsView() {
             </div>
 
             {/* 오늘 진행률 */}
-            {routines.length > 0 && (
+            {todayRoutines.length > 0 && (
               <div className="rounded-2xl p-4" style={{ backgroundColor: t.card, border: `1px solid ${t.border}` }}>
                 <div className="flex justify-between items-center mb-2">
                   <span style={{ fontSize: 12, fontWeight: 600, color: t.textSub }}>오늘 진행률</span>
                   <span style={{ fontSize: 12, color: t.textMuted }}>
-                    {completedToday}/{routines.length} · {Math.round((completedToday / routines.length) * 100)}%
+                    {completedToday}/{todayRoutines.length} · {Math.round((completedToday / todayRoutines.length) * 100)}%
                   </span>
                 </div>
                 <div className="h-2 rounded-full overflow-hidden" style={{ backgroundColor: t.bgSub }}>
                   <div className="h-full rounded-full transition-all duration-500"
                     style={{
-                      width: `${(completedToday / routines.length) * 100}%`,
-                      backgroundColor: completedToday === routines.length ? '#006b62' : t.accent,
+                      width: `${(completedToday / todayRoutines.length) * 100}%`,
+                      backgroundColor: completedToday === todayRoutines.length ? '#006b62' : t.accent,
                     }} />
                 </div>
-                {completedToday === routines.length && routines.length > 0 && (
+                {completedToday === todayRoutines.length && todayRoutines.length > 0 && (
                   <p className="mt-2 text-center" style={{ fontSize: 13, color: '#006b62', fontWeight: 600 }}>
                     🎉 오늘 모든 루틴 완료!
                   </p>
@@ -1414,7 +1433,7 @@ export function HabitsView() {
 
             {/* 루틴 목록 */}
             <div className="space-y-3">
-              {[...routines]
+              {[...todayRoutines]
                 .sort((a, b) => {
                   const aDone = a.checkedDates?.includes(routineToday) ? 1 : 0;
                   const bDone = b.checkedDates?.includes(routineToday) ? 1 : 0;

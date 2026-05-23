@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
-import { Todo } from '../store';
+import { Todo, Habit } from '../store';
 
 export type NotifPermission = 'default' | 'granted' | 'denied' | 'unsupported';
 
@@ -21,7 +21,7 @@ export function formatAlertBefore(minutes: number): string {
 }
 
 interface ScheduledNotif {
-  todoId: string;
+  id: string;
   timerId: ReturnType<typeof setTimeout>;
 }
 
@@ -111,10 +111,56 @@ export function useNotification() {
           }
         }, delay);
 
-        scheduledRef.current.push({ todoId: todo.id, timerId });
+        scheduledRef.current.push({ id: todo.id, timerId });
       });
     },
     [permission, alertBefore, cancelAll, isSupported]
+  );
+
+  const scheduleHabitAlerts = useCallback(
+    (habits: Habit[], dateStr: string) => {
+      if (permission !== 'granted' || !isSupported) return;
+
+      const now = Date.now();
+
+      habits.forEach((habit) => {
+        if (!habit.alarmTime) return;
+        // 이미 오늘 체크 완료된 습관은 알림 skip
+        if (habit.checkedDates?.includes(dateStr)) return;
+
+        const [h, m] = habit.alarmTime.split(':').map(Number);
+        const alarmMs = new Date(
+          `${dateStr}T${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:00`
+        ).getTime();
+
+        const delay = alarmMs - now;
+        if (delay <= 0) return;
+
+        const timerId = setTimeout(async () => {
+          const body = '습관 실행 시간이에요!';
+          const url = '/habits';
+          try {
+            const reg = await navigator.serviceWorker.ready;
+            await reg.showNotification(habit.name, {
+              body,
+              icon: '/icons/icon-192x192.png',
+              badge: '/icons/icon-72x72.png',
+              vibrate: [100, 50, 100],
+              data: { url },
+              tag: `habit-${habit.id}`,
+            } as NotificationOptions);
+          } catch {
+            if (Notification.permission === 'granted') {
+              const n = new Notification(habit.name, { body, icon: '/icons/icon-192x192.png' });
+              n.onclick = () => { window.focus(); window.location.href = url; };
+            }
+          }
+        }, delay);
+
+        scheduledRef.current.push({ id: habit.id, timerId });
+      });
+    },
+    [permission, isSupported]
   );
 
   useEffect(() => () => cancelAll(), [cancelAll]);
@@ -135,6 +181,7 @@ export function useNotification() {
     setAlertBefore,
     dismissBanner,
     scheduleAlerts,
+    scheduleHabitAlerts,
     cancelAll,
   };
 }
