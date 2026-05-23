@@ -571,6 +571,7 @@ export function PlannerProvider({ children }: { children: React.ReactNode }) {
         eventsData, weeklyGoalsData, monthlyGoalsData,
         brainstormItemsData, brainstormMemosData, tagsData, routinesData,
         periodData, habitMonthlyMemosData, annualGoalsData, quarterlyGoalsData,
+        weeklyReviewsData, monthlyReviewsData,
       ] = await Promise.all([
         db.todos.fetchAll(),
         db.habits.fetchAll(),
@@ -591,6 +592,8 @@ export function PlannerProvider({ children }: { children: React.ReactNode }) {
         db.habitMonthlyMemos.fetchAll(),
         db.annualGoals.fetchAll(),
         db.quarterlyGoals.fetchAll(),
+        db.weeklyReviews.fetchAll(),
+        db.monthlyReviews.fetchAll(),
       ]);
       setTodos(todosData);
       setHabits(habitsData);
@@ -625,6 +628,8 @@ export function PlannerProvider({ children }: { children: React.ReactNode }) {
       setTags(tagsData);
       setAnnualGoals(annualGoalsData);
       setQuarterlyGoals(quarterlyGoalsData);
+      setWeeklyReviews(weeklyReviewsData);
+      setMonthlyReviews(monthlyReviewsData);
       setIsLoading(false);
     };
     load();
@@ -1029,19 +1034,33 @@ export function PlannerProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const addWeeklyReview = useCallback((review: Omit<WeeklyReview, 'id'>) => {
-    setWeeklyReviews(prev => [...prev, { ...review, id: newId() }]);
+    const newReview = { ...review, id: newId() };
+    setWeeklyReviews(prev => [...prev, newReview]);
+    db.weeklyReviews.upsert(newReview);
   }, []);
 
   const updateWeeklyReview = useCallback((id: string, changes: Partial<WeeklyReview>) => {
-    setWeeklyReviews(prev => prev.map(r => r.id === id ? { ...r, ...changes } : r));
+    setWeeklyReviews(prev => prev.map(r => {
+      if (r.id !== id) return r;
+      const updated = { ...r, ...changes };
+      db.weeklyReviews.upsert(updated);
+      return updated;
+    }));
   }, []);
 
   const addMonthlyReview = useCallback((review: Omit<MonthlyReview, 'id'>) => {
-    setMonthlyReviews(prev => [...prev, { ...review, id: newId() }]);
+    const newReview = { ...review, id: newId() };
+    setMonthlyReviews(prev => [...prev, newReview]);
+    db.monthlyReviews.upsert(newReview);
   }, []);
 
   const updateMonthlyReview = useCallback((id: string, changes: Partial<MonthlyReview>) => {
-    setMonthlyReviews(prev => prev.map(r => r.id === id ? { ...r, ...changes } : r));
+    setMonthlyReviews(prev => prev.map(r => {
+      if (r.id !== id) return r;
+      const updated = { ...r, ...changes };
+      db.monthlyReviews.upsert(updated);
+      return updated;
+    }));
   }, []);
 
   // ── Weekly goal actions ──

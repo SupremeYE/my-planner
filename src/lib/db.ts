@@ -3,7 +3,7 @@ import { format, addDays, subDays } from 'date-fns';
 import { createEvent as createEventApi, deleteEvent as deleteEventApi, getEvents, updateEvent as updateEventApi } from '../api/events';
 import type {
   Todo, Habit, Project, Milestone,
-  SelfCareRecord, ReviewRecord, TimelineLog,
+  SelfCareRecord, ReviewRecord, WeeklyReview, MonthlyReview, TimelineLog,
   Event, WeeklyGoal, MonthlyGoal, BrainstormItem, Tag, Routine,
   PeriodRecord, HabitMonthlyMemo, AnnualGoal, QuarterlyGoal,
 } from '../app/store';
@@ -231,6 +231,28 @@ const fromSelfCare = (s: SelfCareRecord): SelfCareRow => ({
   id: s.id, date: s.date, category: s.category, content: s.content, duration: s.duration,
   sleep_start: s.sleepStart ?? null,
   sleep_end:   s.sleepEnd   ?? null,
+});
+
+type WeeklyReviewRow = {
+  id: string; week_key: string; good: string; hard: string; next_week: string;
+};
+
+type MonthlyReviewRow = {
+  id: string; month: string; achievement: string; next_focus: string;
+};
+
+const toWeeklyReview = (r: WeeklyReviewRow): WeeklyReview => ({
+  id: r.id, weekKey: r.week_key, good: r.good ?? '', hard: r.hard ?? '', nextWeek: r.next_week ?? '',
+});
+const fromWeeklyReview = (r: WeeklyReview): WeeklyReviewRow => ({
+  id: r.id, week_key: r.weekKey, good: r.good ?? '', hard: r.hard ?? '', next_week: r.nextWeek ?? '',
+});
+
+const toMonthlyReview = (r: MonthlyReviewRow): MonthlyReview => ({
+  id: r.id, month: r.month, achievement: r.achievement ?? '', nextFocus: r.next_focus ?? '',
+});
+const fromMonthlyReview = (r: MonthlyReview): MonthlyReviewRow => ({
+  id: r.id, month: r.month, achievement: r.achievement ?? '', next_focus: r.nextFocus ?? '',
 });
 
 const toReview = (r: ReviewRow): ReviewRecord => ({
@@ -485,6 +507,32 @@ export const db = {
     delete: async (id: string) => {
       const { error } = await supabase.from('review_records').delete().eq('id', id);
       if (error) console.error('[db] review_records delete:', error.message);
+    },
+  },
+
+  weeklyReviews: {
+    fetchAll: async (): Promise<WeeklyReview[]> => {
+      const { data, error } = await supabase
+        .from('weekly_reviews').select('*').order('week_key', { ascending: false });
+      if (error) console.error('[db] weekly_reviews fetch:', error.message);
+      return (data ?? []).map(toWeeklyReview);
+    },
+    upsert: async (record: WeeklyReview) => {
+      const { error } = await supabase.from('weekly_reviews').upsert(fromWeeklyReview(record));
+      if (error) console.error('[db] weekly_reviews upsert:', error.message);
+    },
+  },
+
+  monthlyReviews: {
+    fetchAll: async (): Promise<MonthlyReview[]> => {
+      const { data, error } = await supabase
+        .from('monthly_reviews').select('*').order('month', { ascending: false });
+      if (error) console.error('[db] monthly_reviews fetch:', error.message);
+      return (data ?? []).map(toMonthlyReview);
+    },
+    upsert: async (record: MonthlyReview) => {
+      const { error } = await supabase.from('monthly_reviews').upsert(fromMonthlyReview(record));
+      if (error) console.error('[db] monthly_reviews upsert:', error.message);
     },
   },
 
