@@ -1,4 +1,4 @@
-import React, { useRef, useState } from 'react';
+import React, { useRef, useState, useEffect } from 'react';
 import { Plus, X, ChevronRight, Mic } from 'lucide-react';
 import { usePlanner, ReviewRecord, WeeklyReview, MonthlyReview, EmotionLevel, getWeekKey } from '../store';
 import { useTheme } from '../ThemeContext';
@@ -128,6 +128,22 @@ export function ReviewsView() {
   const [dailyGood, setDailyGood] = useState(todayRecord?.dailyGood || '');
   const [dailyImprove, setDailyImprove] = useState(todayRecord?.dailyImprove || '');
 
+  // Supabase 로드 완료 후 오늘 기록 state 동기화
+  useEffect(() => {
+    if (!todayRecord) return;
+    setSelectedTypes(todayRecord.types || []);
+    setEmotion(todayRecord.emotion || 3);
+    setEmotionMemo(todayRecord.emotionMemo || '');
+    setGratitude(todayRecord.gratitude || ['', '', '']);
+    setKptKeep(todayRecord.kptKeep || '');
+    setKptProblem(todayRecord.kptProblem || '');
+    setKptTry(todayRecord.kptTry || '');
+    setHappiness(todayRecord.happiness || '');
+    setDailySummary(todayRecord.dailySummary || '');
+    setDailyGood(todayRecord.dailyGood || '');
+    setDailyImprove(todayRecord.dailyImprove || '');
+  }, [todayRecord?.id]);
+
   const toggleType = (key: string) => {
     setSelectedTypes(prev => prev.includes(key) ? prev.filter(k => k !== key) : [...prev, key]);
   };
@@ -161,6 +177,13 @@ export function ReviewsView() {
   const [wrKptTry, setWrKptTry] = useState('');
   const [wrHappiness, setWrHappiness] = useState('');
 
+  // Supabase 로드 완료 후 주간 리뷰 state 동기화
+  useEffect(() => {
+    setWrGood(weeklyReview?.good || '');
+    setWrHard(weeklyReview?.hard || '');
+    setWrNext(weeklyReview?.nextWeek || '');
+  }, [weeklyReview?.id]);
+
   const saveWeeklyReview = () => {
     if (weeklyReview) updateWeeklyReview(weeklyReview.id, { good: wrGood, hard: wrHard, nextWeek: wrNext });
     else addWeeklyReview({ weekKey: currentWeekKey, good: wrGood, hard: wrHard, nextWeek: wrNext });
@@ -173,6 +196,12 @@ export function ReviewsView() {
   const [mrKptKeep, setMrKptKeep] = useState('');
   const [mrKptProblem, setMrKptProblem] = useState('');
   const [mrKptTry, setMrKptTry] = useState('');
+
+  // Supabase 로드 완료 후 월간 리뷰 state 동기화
+  useEffect(() => {
+    setMrAchievement(monthlyReview?.achievement || '');
+    setMrFocus(monthlyReview?.nextFocus || '');
+  }, [monthlyReview?.id]);
 
   const saveMonthlyReview = () => {
     if (monthlyReview) updateMonthlyReview(monthlyReview.id, { achievement: mrAchievement, nextFocus: mrFocus });
