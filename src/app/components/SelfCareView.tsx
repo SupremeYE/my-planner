@@ -26,7 +26,7 @@ function calcSleepMinutes(start: string, end: string): number {
   const startMin = sh * 60 + sm;
   const endMin = eh * 60 + em;
   let diff = endMin - startMin;
-  if (diff <= 0) diff += 24 * 60; // 자정 넘기는 케이스
+  if (diff < 0) diff += 24 * 60; // 기상이 취침보다 이른 시각 → 다음날 기상
   return diff;
 }
 
