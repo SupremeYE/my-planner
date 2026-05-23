@@ -55,6 +55,8 @@ export function RoutineModal({ routine, onClose }: { routine?: Routine; onClose:
   const [name, setName] = useState(routine?.name ?? '');
   const [icon, setIcon] = useState(routine?.icon ?? '🌅');
   const [startTime, setStartTime] = useState(routine?.startTime ?? '07:00');
+  const [repeat, setRepeat] = useState<Routine['repeat']>(routine?.repeat ?? 'daily');
+  const [repeatDays, setRepeatDays] = useState<number[]>(routine?.repeatDays ?? [1, 2, 3, 4, 5]);
 
   // 기존 데이터 마이그레이션: routineSteps 없으면 steps에서 변환
   const initialSteps: RoutineStep[] = (() => {
@@ -95,6 +97,8 @@ export function RoutineModal({ routine, onClose }: { routine?: Routine; onClose:
       stepYoutubeUrls: routineSteps.map(s => s.youtubeUrl ?? ''),
       routineSteps,
       checkedDates: routine?.checkedDates ?? [],
+      repeat,
+      repeatDays: repeat === 'custom' ? repeatDays : [],
     };
     if (routine) updateRoutine(routine.id, data);
     else addRoutine(data);
@@ -160,6 +164,48 @@ export function RoutineModal({ routine, onClose }: { routine?: Routine; onClose:
               <div className="mt-3">
                 <label style={{ fontSize: 12, color: t.textSub, display: 'block', marginBottom: 4 }}>시작 시간</label>
                 <TimePicker value={startTime} onChange={setStartTime} placeholder="시작 시간" />
+              </div>
+              {/* 반복 설정 */}
+              <div className="mt-3">
+                <label style={{ fontSize: 12, color: t.textSub, display: 'block', marginBottom: 6 }}>반복</label>
+                <div className="flex gap-1.5 flex-wrap">
+                  {([
+                    { value: 'daily', label: '매일' },
+                    { value: 'weekday', label: '평일' },
+                    { value: 'weekend', label: '주말' },
+                    { value: 'custom', label: '직접 선택' },
+                  ] as const).map(opt => (
+                    <button key={opt.value} onClick={() => setRepeat(opt.value)}
+                      className="px-3 py-1 rounded-full"
+                      style={{
+                        fontSize: 12,
+                        backgroundColor: repeat === opt.value ? t.accent : t.bgSub,
+                        color: repeat === opt.value ? '#fff' : t.text,
+                        border: `1px solid ${repeat === opt.value ? t.accent : t.border}`,
+                      }}>
+                      {opt.label}
+                    </button>
+                  ))}
+                </div>
+                {repeat === 'custom' && (
+                  <div className="flex gap-1.5 mt-2">
+                    {['일', '월', '화', '수', '목', '금', '토'].map((d, i) => (
+                      <button key={i}
+                        onClick={() => setRepeatDays(prev =>
+                          prev.includes(i) ? prev.filter(x => x !== i) : [...prev, i]
+                        )}
+                        className="w-8 h-8 rounded-full flex items-center justify-center"
+                        style={{
+                          fontSize: 12,
+                          backgroundColor: repeatDays.includes(i) ? t.accent : t.bgSub,
+                          color: repeatDays.includes(i) ? '#fff' : t.text,
+                          border: `1px solid ${repeatDays.includes(i) ? t.accent : t.border}`,
+                        }}>
+                        {d}
+                      </button>
+                    ))}
+                  </div>
+                )}
               </div>
               {/* 총 소요시간: 자동 계산 */}
               <div className="mt-3 flex items-center gap-1.5 px-3 py-2 rounded-xl"

@@ -115,6 +115,8 @@ type RoutineRow = {
   start_time: string; duration: number;
   steps: string[]; step_youtube_urls: string[]; checked_dates: string[];
   routine_steps?: { title: string; durationMinutes: number; youtubeUrl?: string }[] | null;
+  repeat?: string | null;
+  repeat_days?: number[] | null;
 };
 
 type PeriodRecordRow = {
@@ -368,6 +370,8 @@ const toRoutine = (r: RoutineRow): Routine => {
     steps: r.steps ?? [], stepYoutubeUrls: r.step_youtube_urls ?? [],
     routineSteps,
     checkedDates: r.checked_dates ?? [],
+    repeat: (r.repeat as Routine['repeat']) ?? 'daily',
+    repeatDays: r.repeat_days ?? [],
   };
 };
 
@@ -402,6 +406,8 @@ const fromRoutine = (r: Routine): RoutineRow => {
       : (r.stepYoutubeUrls ?? []),
     routine_steps: r.routineSteps ?? null,
     checked_dates: r.checkedDates ?? [],
+    repeat: r.repeat ?? 'daily',
+    repeat_days: r.repeatDays ?? [],
   };
 };
 
