@@ -14,7 +14,7 @@ import {
 } from 'date-fns';
 import { ko } from 'date-fns/locale';
 import { usePlanner, PeriodRecord, Todo } from '../store';
-import { isDoOvertimeVsPlan, doElapsedInlineSuffix, doElapsedTitleSuffix } from '../../lib/todoDoDuration';
+import { isDoOvertimeVsPlan, doElapsedTitleSuffix } from '../../lib/todoDoDuration';
 import { useTheme } from '../ThemeContext';
 import { TodoModal } from './TodoModal';
 import { EventModal } from './EventModal';
@@ -222,9 +222,7 @@ function WeekView({ viewDate, selectedDate, onSelectDate, viewDays, weekStartsOn
   weekStartsOn: 0 | 1;
 }) {
   const { todos, events, tags, dayStartHour: startHour, dayEndHour: endHour } = usePlanner();
-  const { t } = useTheme();
   const [nowTime, setNowTime] = useState(new Date());
-  const [selectedBlock, setSelectedBlock] = useState<{ text: string; time: string; date: string; tone: string; type?: string } | null>(null);
   const [windowStart, setWindowStart] = useState(0);
 
   useEffect(() => {
@@ -367,15 +365,6 @@ function WeekView({ viewDate, selectedDate, onSelectDate, viewDays, weekStartsOn
 
                 return (
                   <div key={dateStr} className="relative">
-                    <div
-                      className="absolute inset-y-1 inset-x-0 rounded-[24px] pointer-events-none"
-                      style={{
-                        background: 'linear-gradient(180deg, rgba(250,252,255,0.96) 0%, rgba(244,248,252,0.82) 100%)',
-                        border: dateStr === selectedDate ? `1px solid ${t.accent}55` : '1px solid #eef4fa',
-                        boxShadow: dateStr === selectedDate ? '0 0 0 2px rgba(81,95,116,0.08)' : 'none',
-                      }}
-                    />
-
                     {dayEvents.map(event => {
                       const eventColor = event.color || '#7B9ED9';
                       const top = timeToTop(event.startTime!, startHour);
@@ -384,13 +373,6 @@ function WeekView({ viewDate, selectedDate, onSelectDate, viewDays, weekStartsOn
                         <button
                           key={`event-${event.id}`}
                           type="button"
-                          onClick={() => setSelectedBlock({
-                            text: event.title,
-                            time: `${event.startTime}-${event.endTime}${event.location ? ` · ${event.location}` : ''}`,
-                            date: format(day, 'M월 d일 (E)', { locale: ko }),
-                            tone: eventColor,
-                            type: '일정',
-                          })}
                           title={`${event.title}\n${event.startTime}-${event.endTime}${event.location ? ` · ${event.location}` : ''}`}
                           className="absolute rounded-2xl text-left overflow-hidden"
                           style={{
@@ -424,13 +406,6 @@ function WeekView({ viewDate, selectedDate, onSelectDate, viewDays, weekStartsOn
                         <button
                           key={`plan-${todo.id}`}
                           type="button"
-                          onClick={() => setSelectedBlock({
-                            text: todo.text,
-                            time: `${todo.planStart}-${todo.planEnd}`,
-                            date: format(day, 'M월 d일 (E)', { locale: ko }),
-                            tone: '#7D6347',
-                            type: 'PLAN',
-                          })}
                           title={`${todo.text}\n${todo.planStart}-${todo.planEnd}`}
                           className="absolute rounded-[18px] text-left overflow-hidden"
                           style={{
@@ -468,13 +443,6 @@ function WeekView({ viewDate, selectedDate, onSelectDate, viewDays, weekStartsOn
                         <button
                           key={`do-${todo.id}`}
                           type="button"
-                          onClick={() => setSelectedBlock({
-                            text: todo.text,
-                            time: `${todo.doStart}-${todo.doEnd}${doElapsedInlineSuffix(todo)}${isOvertime ? ' · 초과' : ''}`,
-                            date: format(day, 'M월 d일 (E)', { locale: ko }),
-                            tone,
-                            type: isOvertime ? 'DO · 초과' : 'DO',
-                          })}
                           title={`${todo.text}\n${todo.doStart}-${todo.doEnd}${doElapsedTitleSuffix(todo)}${isOvertime ? ' (초과)' : ''}`}
                           className="absolute rounded-[18px] text-left overflow-hidden"
                           style={{
@@ -524,30 +492,6 @@ function WeekView({ viewDate, selectedDate, onSelectDate, viewDays, weekStartsOn
       <div className="flex" style={{ flex: 1, minHeight: 0 }}>
         {renderWeekTable(visibleDays, viewDays !== 7)}
       </div>
-      {selectedBlock && (
-        <div className="mx-2 mt-2 mb-2 rounded-xl px-3 py-2" style={{ backgroundColor: t.card, border: `1px solid ${t.border}` }}>
-          <div style={{ fontSize: 10, color: t.textMuted, marginBottom: 2 }}>{selectedBlock.date}</div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-            {selectedBlock.type && (
-              <span
-                style={{
-                  fontSize: 10,
-                  color: selectedBlock.tone,
-                  border: `1px solid ${selectedBlock.tone}40`,
-                  backgroundColor: `${selectedBlock.tone}14`,
-                  borderRadius: 999,
-                  padding: '2px 6px',
-                  fontWeight: 700,
-                }}
-              >
-                {selectedBlock.type}
-              </span>
-            )}
-            <div style={{ fontSize: 12, fontWeight: 700, color: selectedBlock.tone }}>{selectedBlock.text}</div>
-          </div>
-          <div style={{ fontSize: 11, color: t.textSub, marginTop: 1 }}>{selectedBlock.time}</div>
-        </div>
-      )}
     </div>
   );
 }
@@ -858,17 +802,29 @@ export function CalendarView() {
         )}
       </div>
 
-      <div className="flex-1 px-3 pb-3 pt-2.5 lg:px-4 lg:pb-4 lg:pt-3 flex flex-col" style={{ minHeight: 0, overflow: 'hidden' }}>
-        <div
-          style={{
-            height: calendarHeight,
-            minHeight: MIN_CALENDAR_HEIGHT,
-            maxHeight: MAX_CALENDAR_HEIGHT,
-            flexShrink: 0,
-            overflow: 'hidden',
-          }}
-        >
-          {tab === 'month' && (
+      {tab === 'week' ? (
+        <div className="flex-1 px-3 pb-3 pt-2.5 lg:px-4 lg:pb-4 lg:pt-3 flex flex-col" style={{ minHeight: 0, overflow: 'hidden' }}>
+          <div className="bg-white rounded-2xl shadow-sm h-full" style={{ border: '1px solid #eef4fa', display: 'flex', flexDirection: 'column', minHeight: 0, overflow: 'hidden' }}>
+            <WeekView
+              viewDate={viewDate}
+              selectedDate={selectedDate}
+              onSelectDate={handleSelectDate}
+              viewDays={weekViewDays}
+              weekStartsOn={weekStartsOn}
+            />
+          </div>
+        </div>
+      ) : (
+        <div className="flex-1 px-3 pb-3 pt-2.5 lg:px-4 lg:pb-4 lg:pt-3 flex flex-col" style={{ minHeight: 0, overflow: 'hidden' }}>
+          <div
+            style={{
+              height: calendarHeight,
+              minHeight: MIN_CALENDAR_HEIGHT,
+              maxHeight: MAX_CALENDAR_HEIGHT,
+              flexShrink: 0,
+              overflow: 'hidden',
+            }}
+          >
             <div style={{ height: '100%', overflowY: 'auto' }}>
               <div className="h-full">
                 <div className="bg-white rounded-2xl p-4 shadow-sm h-full" style={{ border: '1px solid #eef4fa' }}>
@@ -882,183 +838,169 @@ export function CalendarView() {
                 </div>
               </div>
             </div>
-          )}
+          </div>
 
-          {tab === 'week' && (
-            <div style={{ height: '100%', display: 'flex', flexDirection: 'column', minHeight: 0, overflow: 'hidden' }}>
-              <div className="bg-white rounded-2xl shadow-sm h-full" style={{ border: '1px solid #eef4fa', display: 'flex', flexDirection: 'column', minHeight: 0, overflow: 'hidden' }}>
-                <WeekView
-                  viewDate={viewDate}
-                  selectedDate={selectedDate}
-                  onSelectDate={handleSelectDate}
-                  viewDays={weekViewDays}
-                  weekStartsOn={weekStartsOn}
-                />
-              </div>
-            </div>
-          )}
-        </div>
-
-        <div
-          className="flex items-center justify-center py-2 cursor-row-resize touch-none"
-          onMouseDown={(event) => startDrag(event.clientY)}
-          onTouchStart={(event) => {
-            const touch = event.touches[0];
-            if (!touch) return;
-            startDrag(touch.clientY);
-          }}
-        >
           <div
-            style={{
-              width: 32,
-              height: 4,
-              borderRadius: 999,
-              backgroundColor: t.border,
-              opacity: 0.9,
+            className="flex items-center justify-center py-2 cursor-row-resize touch-none"
+            onMouseDown={(event) => startDrag(event.clientY)}
+            onTouchStart={(event) => {
+              const touch = event.touches[0];
+              if (!touch) return;
+              startDrag(touch.clientY);
             }}
-          />
-        </div>
-
-        <div className="flex-1 min-h-0 overflow-hidden">
-          <div
-            className="rounded-[18px] h-full overflow-hidden"
-            style={{ backgroundColor: t.card, border: `1px solid ${t.border}` }}
           >
-            <div className="h-full overflow-y-auto px-4 py-4 lg:px-5">
-              {!panelDate && (
-                <div className="h-full flex items-center justify-center">
-                  <p style={{ fontSize: 13, color: t.textMuted }}>날짜를 선택하면 기록이 표시돼요</p>
-                </div>
-              )}
+            <div
+              style={{
+                width: 32,
+                height: 4,
+                borderRadius: 999,
+                backgroundColor: t.border,
+                opacity: 0.9,
+              }}
+            />
+          </div>
 
-              {panelDate && (
-                <div className="space-y-4">
-                  <div>
-                    <p style={{ fontSize: 11, color: t.textMuted, fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase' }}>
-                      {format(parseISO(panelDate), 'M월 d일 (E)', { locale: ko })}
-                    </p>
+          <div className="flex-1 min-h-0 overflow-hidden">
+            <div
+              className="rounded-[18px] h-full overflow-hidden"
+              style={{ backgroundColor: t.card, border: `1px solid ${t.border}` }}
+            >
+              <div className="h-full overflow-y-auto px-4 py-4 lg:px-5">
+                {!panelDate && (
+                  <div className="h-full flex items-center justify-center">
+                    <p style={{ fontSize: 13, color: t.textMuted }}>날짜를 선택하면 기록이 표시돼요</p>
                   </div>
+                )}
 
-                  {panelEvents.length > 0 && (
-                    <section>
-                      <h3 style={{ fontSize: 13, fontWeight: 700, color: t.text, marginBottom: 8 }}>일정</h3>
-                      <div className="space-y-2">
-                        {panelEvents.map(event => (
-                          <div key={event.id} className="rounded-xl px-3 py-2" style={{ backgroundColor: t.bgSub, border: `1px solid ${t.borderLight}` }}>
-                            <div style={{ fontSize: 13, fontWeight: 600, color: t.text }}>{event.title}</div>
-                            {(event.startTime || event.endTime) && (
-                              <div style={{ fontSize: 11, color: t.textSub, marginTop: 2 }}>
-                                {event.startTime || '--:--'} ~ {event.endTime || '--:--'}
-                              </div>
-                            )}
-                          </div>
-                        ))}
-                      </div>
-                    </section>
-                  )}
+                {panelDate && (
+                  <div className="space-y-4">
+                    <div>
+                      <p style={{ fontSize: 11, color: t.textMuted, fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase' }}>
+                        {format(parseISO(panelDate), 'M월 d일 (E)', { locale: ko })}
+                      </p>
+                    </div>
 
-                  {panelTodos.length > 0 && (
-                    <section>
-                      <h3 style={{ fontSize: 13, fontWeight: 700, color: t.text, marginBottom: 8 }}>할일</h3>
-                      <div className="space-y-2">
-                        {panelTodos.map(todo => (
-                          <div key={todo.id} className="rounded-xl px-3 py-2" style={{ backgroundColor: t.bgSub, border: `1px solid ${t.borderLight}` }}>
-                            <div
-                              style={{
-                                fontSize: 13,
-                                fontWeight: 600,
-                                color: todo.status === 'done' ? t.textMuted : t.text,
-                                textDecoration: todo.status === 'done' ? 'line-through' : 'none',
-                              }}
-                            >
-                              {todo.text}
+                    {panelEvents.length > 0 && (
+                      <section>
+                        <h3 style={{ fontSize: 13, fontWeight: 700, color: t.text, marginBottom: 8 }}>일정</h3>
+                        <div className="space-y-2">
+                          {panelEvents.map(event => (
+                            <div key={event.id} className="rounded-xl px-3 py-2" style={{ backgroundColor: t.bgSub, border: `1px solid ${t.borderLight}` }}>
+                              <div style={{ fontSize: 13, fontWeight: 600, color: t.text }}>{event.title}</div>
+                              {(event.startTime || event.endTime) && (
+                                <div style={{ fontSize: 11, color: t.textSub, marginTop: 2 }}>
+                                  {event.startTime || '--:--'} ~ {event.endTime || '--:--'}
+                                </div>
+                              )}
                             </div>
-                            <div className="flex gap-1.5 flex-wrap mt-2">
-                              <span
-                                className="inline-flex items-center px-2 py-0.5 rounded-full"
+                          ))}
+                        </div>
+                      </section>
+                    )}
+
+                    {panelTodos.length > 0 && (
+                      <section>
+                        <h3 style={{ fontSize: 13, fontWeight: 700, color: t.text, marginBottom: 8 }}>할일</h3>
+                        <div className="space-y-2">
+                          {panelTodos.map(todo => (
+                            <div key={todo.id} className="rounded-xl px-3 py-2" style={{ backgroundColor: t.bgSub, border: `1px solid ${t.borderLight}` }}>
+                              <div
                                 style={{
-                                  fontSize: 10,
+                                  fontSize: 13,
                                   fontWeight: 600,
-                                  backgroundColor: todo.status === 'done' ? t.checkDone : t.card,
-                                  color: todo.status === 'done' ? '#fff' : t.textSub,
-                                  border: `1px solid ${todo.status === 'done' ? t.checkDone : t.border}`,
+                                  color: todo.status === 'done' ? t.textMuted : t.text,
+                                  textDecoration: todo.status === 'done' ? 'line-through' : 'none',
                                 }}
                               >
-                                {todo.status === 'done' ? '완료' : '미완료'}
-                              </span>
-                              {(todo.tags ?? []).map(tagId => {
-                                const tag = getTagName(tagId);
-                                if (!tag) return null;
-                                return (
-                                  <span
-                                    key={tagId}
-                                    className="inline-flex items-center px-2 py-0.5 rounded-full"
-                                    style={{
-                                      fontSize: 10,
-                                      fontWeight: 600,
-                                      color: tag.color,
-                                      backgroundColor: `${tag.color}18`,
-                                      border: `1px solid ${tag.color}33`,
-                                    }}
-                                  >
-                                    {tag.name}
-                                  </span>
-                                );
-                              })}
+                                {todo.text}
+                              </div>
+                              <div className="flex gap-1.5 flex-wrap mt-2">
+                                <span
+                                  className="inline-flex items-center px-2 py-0.5 rounded-full"
+                                  style={{
+                                    fontSize: 10,
+                                    fontWeight: 600,
+                                    backgroundColor: todo.status === 'done' ? t.checkDone : t.card,
+                                    color: todo.status === 'done' ? '#fff' : t.textSub,
+                                    border: `1px solid ${todo.status === 'done' ? t.checkDone : t.border}`,
+                                  }}
+                                >
+                                  {todo.status === 'done' ? '완료' : '미완료'}
+                                </span>
+                                {(todo.tags ?? []).map(tagId => {
+                                  const tag = getTagName(tagId);
+                                  if (!tag) return null;
+                                  return (
+                                    <span
+                                      key={tagId}
+                                      className="inline-flex items-center px-2 py-0.5 rounded-full"
+                                      style={{
+                                        fontSize: 10,
+                                        fontWeight: 600,
+                                        color: tag.color,
+                                        backgroundColor: `${tag.color}18`,
+                                        border: `1px solid ${tag.color}33`,
+                                      }}
+                                    >
+                                      {tag.name}
+                                    </span>
+                                  );
+                                })}
+                              </div>
                             </div>
-                          </div>
-                        ))}
-                      </div>
-                    </section>
-                  )}
+                          ))}
+                        </div>
+                      </section>
+                    )}
 
-                  {panelHabits.length > 0 && (
-                    <section>
-                      <h3 style={{ fontSize: 13, fontWeight: 700, color: t.text, marginBottom: 8 }}>습관</h3>
-                      <div className="flex flex-wrap gap-2">
-                        {panelHabits.map(habit => {
-                          const checked = habit.checkedDates.includes(panelDate);
-                          return (
-                            <span
-                              key={habit.id}
-                              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl"
-                              style={{
-                                fontSize: 12,
-                                fontWeight: 500,
-                                color: checked ? t.accent : t.textSub,
-                                backgroundColor: checked ? t.accentLight : t.bgSub,
-                                border: `1px solid ${checked ? t.accent : t.border}`,
-                              }}
-                            >
-                              <span>{checked ? '✓' : '✗'}</span>
-                              <span>{habit.name}</span>
-                            </span>
-                          );
-                        })}
-                      </div>
-                    </section>
-                  )}
+                    {panelHabits.length > 0 && (
+                      <section>
+                        <h3 style={{ fontSize: 13, fontWeight: 700, color: t.text, marginBottom: 8 }}>습관</h3>
+                        <div className="flex flex-wrap gap-2">
+                          {panelHabits.map(habit => {
+                            const checked = habit.checkedDates.includes(panelDate);
+                            return (
+                              <span
+                                key={habit.id}
+                                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl"
+                                style={{
+                                  fontSize: 12,
+                                  fontWeight: 500,
+                                  color: checked ? t.accent : t.textSub,
+                                  backgroundColor: checked ? t.accentLight : t.bgSub,
+                                  border: `1px solid ${checked ? t.accent : t.border}`,
+                                }}
+                              >
+                                <span>{checked ? '✓' : '✗'}</span>
+                                <span>{habit.name}</span>
+                              </span>
+                            );
+                          })}
+                        </div>
+                      </section>
+                    )}
 
-                  {panelMemo && (
-                    <section>
-                      <h3 style={{ fontSize: 13, fontWeight: 700, color: t.text, marginBottom: 8 }}>메모</h3>
-                      <div className="rounded-xl px-3 py-3" style={{ backgroundColor: t.bgSub, border: `1px solid ${t.borderLight}` }}>
-                        <p style={{ fontSize: 13, color: t.text, lineHeight: 1.6 }}>{panelMemo}</p>
-                      </div>
-                    </section>
-                  )}
+                    {panelMemo && (
+                      <section>
+                        <h3 style={{ fontSize: 13, fontWeight: 700, color: t.text, marginBottom: 8 }}>메모</h3>
+                        <div className="rounded-xl px-3 py-3" style={{ backgroundColor: t.bgSub, border: `1px solid ${t.borderLight}` }}>
+                          <p style={{ fontSize: 13, color: t.text, lineHeight: 1.6 }}>{panelMemo}</p>
+                        </div>
+                      </section>
+                    )}
 
-                  {!hasPanelContent && (
-                    <div className="rounded-xl px-3 py-4" style={{ backgroundColor: t.bgSub, border: `1px solid ${t.borderLight}` }}>
-                      <p style={{ fontSize: 13, color: t.textMuted }}>선택한 날짜에 표시할 기록이 아직 없어요</p>
-                    </div>
-                  )}
-                </div>
-              )}
+                    {!hasPanelContent && (
+                      <div className="rounded-xl px-3 py-4" style={{ backgroundColor: t.bgSub, border: `1px solid ${t.borderLight}` }}>
+                        <p style={{ fontSize: 13, color: t.textMuted }}>선택한 날짜에 표시할 기록이 아직 없어요</p>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
             </div>
           </div>
         </div>
-      </div>
+      )}
 
       <FloatingAddFab
         onAddTodo={() => setShowAddTodoModal(true)}

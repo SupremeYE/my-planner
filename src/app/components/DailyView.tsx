@@ -8,13 +8,14 @@ import {
 } from 'lucide-react';
 import { format, addDays, subDays, addMonths, subMonths, startOfMonth, getDaysInMonth, getDay as getDayOfWeek } from 'date-fns';
 import { ko } from 'date-fns/locale';
-import { usePlanner, Todo, Event, Tag as TagType, TimelineLog } from '../store';
+import { usePlanner, Todo, Event, Tag as TagType, TimelineLog, getTimerElapsedSec } from '../store';
 import { useTheme } from '../ThemeContext';
 import { useNotification } from '../hooks/useNotification';
 import { TimePicker } from './TimePicker';
 import ConfirmModal from './ConfirmModal';
 import { TodoModal } from './TodoModal';
 import { EventModal } from './EventModal';
+import { FocusModal } from './FocusModal';
 import { FloatingAddFab } from './FloatingAddFab';
 import { AddEntryMenu } from './AddEntryMenu';
 import { formatDuration, formatTotalDoKo, todoDoDurationSeconds } from '../../lib/todoDoDuration';
@@ -62,6 +63,7 @@ const DO_BAR_FALLBACK_TEXT = '#4A8A5A';
 const OVERTIME_BAR_BG = '#FAE8D6';
 const OVERTIME_BAR_BORDER = '#D4735A';
 const CURRENT_TIME_COLOR = '#D4735A';
+const LOG_OFFSET_STORAGE_KEY = 'daily-timeline-log-offsets';
 
 function timeToMinutes(time: string): number {
   const [h, m] = time.split(':').map(Number);
@@ -278,10 +280,11 @@ function SnoozeModal({ todo, onClose }: { todo: Todo; onClose: () => void }) {
 }
 
 // ─── Context Menu ───
-function ContextMenu({ todo, position, onClose }: {
+function ContextMenu({ todo, position, onClose, onFocus }: {
   todo: Todo;
   position: { x: number; y: number };
   onClose: () => void;
+  onFocus: (todo: Todo) => void;
 }) {
   const { updateTodo, deleteTodo } = usePlanner();
   const { t } = useTheme();
@@ -342,7 +345,7 @@ function ContextMenu({ todo, position, onClose }: {
                   onClose();
                   window.dispatchEvent(new CustomEvent('editTodo', { detail: todo }));
                 } else if ((item as any).action === 'focus') {
-                  console.log('포커스 시작');
+                  onFocus(todo);
                   onClose();
                 } else if ((item as any).action === 'snoozed') {
                   onClose();
@@ -647,10 +650,10 @@ function DailyDatePickerModal({ selectedDate, onClose, onConfirm }: {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center" style={{ backgroundColor: 'rgba(0,0,0,0.35)' }}>
       <div
-        className="rounded-2xl w-[340px]"
+        className="rounded-2xl w-[calc(100vw-32px)] max-w-[340px] overflow-hidden"
         style={{ backgroundColor: t.card, border: `1px solid ${t.border}`, boxShadow: '0 25px 50px -12px rgba(0,0,0,0.15)' }}
       >
-        <div className="flex items-center justify-between px-6 py-5" style={{ borderBottom: `1px solid ${t.border}` }}>
+        <div className="flex items-center justify-between px-5 py-4 lg:px-6 lg:py-5" style={{ borderBottom: `1px solid ${t.border}` }}>
           <div>
             <h3 style={{ fontSize: 16, fontWeight: 700, color: t.text }}>날짜 선택</h3>
             <p style={{ fontSize: 12, color: t.textSub, marginTop: 3 }}>원하는 날짜의 일간 페이지로 이동해요</p>
@@ -660,8 +663,8 @@ function DailyDatePickerModal({ selectedDate, onClose, onConfirm }: {
           </button>
         </div>
 
-        <div className="px-6 py-5 space-y-4">
-          <div className="rounded-xl px-4 py-4" style={{ backgroundColor: t.bgSub, border: `1px solid ${t.borderLight}` }}>
+        <div className="px-5 py-4 space-y-4 lg:px-6 lg:py-5">
+          <div className="rounded-xl px-3 py-3 lg:px-4 lg:py-4" style={{ backgroundColor: t.bgSub, border: `1px solid ${t.borderLight}` }}>
             <label className="flex items-center gap-2 mb-2" style={{ fontSize: 11, color: t.textMuted, fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase' }}>
               <CalendarDays size={14} />
               날짜
@@ -670,8 +673,8 @@ function DailyDatePickerModal({ selectedDate, onClose, onConfirm }: {
               type="date"
               value={dateValue}
               onChange={e => setDateValue(e.target.value)}
-              className="w-full rounded-xl px-3 py-2.5 outline-none"
-              style={{ fontSize: 13, backgroundColor: t.card, border: `1px solid ${t.border}`, color: t.text }}
+              className="w-full rounded-xl px-3 py-3 outline-none"
+              style={{ fontSize: 16, backgroundColor: t.card, border: `1px solid ${t.border}`, color: t.text, minHeight: 48 }}
             />
             {dateValue && (
               <p style={{ fontSize: 12, color: t.textSub, marginTop: 10 }}>
@@ -689,7 +692,7 @@ function DailyDatePickerModal({ selectedDate, onClose, onConfirm }: {
           </button>
         </div>
 
-        <div className="flex gap-3 px-6 py-5" style={{ borderTop: `1px solid ${t.border}` }}>
+        <div className="flex gap-3 px-5 py-4 lg:px-6 lg:py-5" style={{ borderTop: `1px solid ${t.border}` }}>
           <button
             onClick={onClose}
             className="flex-1 py-3 rounded-xl"
@@ -730,6 +733,7 @@ export function DailyView() {
   const [showAddModal, setShowAddModal] = useState(false);
   const [showAddEventModal, setShowAddEventModal] = useState(false);
   const [editingTodo, setEditingTodo] = useState<Todo | null>(null);
+  const [focusingTodo, setFocusingTodo] = useState<Todo | null>(null);
   const [snoozingTodo, setSnoozingTodo] = useState<Todo | null>(null);
   const [contextMenu, setContextMenu] = useState<{ todo: Todo; pos: { x: number; y: number } } | null>(null);
   const [dailyMemo, setDailyMemo] = useState<Record<string, string>>({});
@@ -739,6 +743,7 @@ export function DailyView() {
   const [mobileTab, setMobileTab] = useState<'todos' | 'timeline'>('todos');
   const [timelineTab, setTimelineTab] = useState<'plan' | 'do' | 'compare'>('compare');
   const [timerNowMs, setTimerNowMs] = useState(Date.now());
+  const [logOffsets, setLogOffsets] = useState<Record<string, number>>({});
 
   // Drag state for timeline blocks
   const [dragState, setDragState] = useState<{
@@ -751,6 +756,8 @@ export function DailyView() {
   } | null>(null);
   const [dragPreview, setDragPreview] = useState<{ startMin: number; endMin: number } | null>(null);
   const dragMovedRef = useRef(false);
+  const logDragRef = useRef<{ id: string; startX: number; startOffset: number } | null>(null);
+  const logDragMovedRef = useRef(false);
 
   // 알림 클릭으로 진입 시 URL params 처리 (date 이동 + todoId 하이라이트 스크롤)
   useEffect(() => {
@@ -765,6 +772,21 @@ export function DailyView() {
       setTimeout(() => el.scrollIntoView({ behavior: 'smooth', block: 'center' }), 300);
     }
   }, [highlightTodoId]);
+
+  useEffect(() => {
+    try {
+      const raw = window.localStorage.getItem(LOG_OFFSET_STORAGE_KEY);
+      if (!raw) return;
+      const parsed = JSON.parse(raw) as Record<string, number>;
+      setLogOffsets(parsed);
+    } catch {
+      // ignore malformed local storage value
+    }
+  }, []);
+
+  useEffect(() => {
+    window.localStorage.setItem(LOG_OFFSET_STORAGE_KEY, JSON.stringify(logOffsets));
+  }, [logOffsets]);
 
   // Listen for editTodo events from context menu / timeline
   useEffect(() => {
@@ -820,6 +842,51 @@ export function DailyView() {
     };
   }, [dragState, dragPreview, tlStartHour, tlEndHour, updateTodo]);
 
+  useEffect(() => {
+    const clampLogOffset = (offset: number) => {
+      const limit = window.innerWidth < 1024 ? 56 : 120;
+      return Math.max(-limit, Math.min(limit, offset));
+    };
+    const handleMouseMove = (e: MouseEvent) => {
+      if (!logDragRef.current) return;
+      logDragMovedRef.current = true;
+      const delta = e.clientX - logDragRef.current.startX;
+      setLogOffsets(prev => ({
+        ...prev,
+        [logDragRef.current!.id]: clampLogOffset(logDragRef.current!.startOffset + delta),
+      }));
+    };
+    const handleTouchMove = (e: TouchEvent) => {
+      if (!logDragRef.current) return;
+      const touch = e.touches[0];
+      if (!touch) return;
+      logDragMovedRef.current = true;
+      const delta = touch.clientX - logDragRef.current.startX;
+      setLogOffsets(prev => ({
+        ...prev,
+        [logDragRef.current!.id]: clampLogOffset(logDragRef.current!.startOffset + delta),
+      }));
+    };
+    const handleEnd = () => {
+      if (!logDragRef.current) return;
+      logDragRef.current = null;
+      setTimeout(() => {
+        logDragMovedRef.current = false;
+      }, 0);
+    };
+
+    window.addEventListener('mousemove', handleMouseMove);
+    window.addEventListener('mouseup', handleEnd);
+    window.addEventListener('touchmove', handleTouchMove, { passive: true });
+    window.addEventListener('touchend', handleEnd);
+    return () => {
+      window.removeEventListener('mousemove', handleMouseMove);
+      window.removeEventListener('mouseup', handleEnd);
+      window.removeEventListener('touchmove', handleTouchMove);
+      window.removeEventListener('touchend', handleEnd);
+    };
+  }, []);
+
   const dateTodos = todos.filter(td => td.date === selectedDate && td.status !== 'backlog');
   const importantTodos = dateTodos.filter(td => td.isTop3);
   const regularTodos = dateTodos.filter(td => !td.isTop3);
@@ -832,7 +899,7 @@ export function DailyView() {
 
   const getActiveTimerElapsedSec = () => {
     if (!activeTimer) return 0;
-    return activeTimer.elapsedSec + (activeTimer.isPaused ? 0 : Math.max(0, Math.floor((timerNowMs - activeTimer.startTime) / 1000)));
+    return getTimerElapsedSec(activeTimer, timerNowMs);
   };
 
   const activeTimerTodo = activeTimer ? todos.find(td => td.id === activeTimer.todoId) : null;
@@ -906,7 +973,7 @@ export function DailyView() {
       return;
     }
     if (activeTimer && activeTimer.todoId !== todo.id) return;
-    startTimer(todo.id);
+    setFocusingTodo(todo);
   };
 
   // Status badge
@@ -1097,9 +1164,9 @@ export function DailyView() {
     const compactLabel = isPlan
       ? `${todo.text} ${baseTimeLabel}`
       : hasFocusedDuration
-        ? `${todo.text} ${durationLabel}`
+        ? `${todo.text} ${baseTimeLabel} ${durationLabel}`
         : todo.text;
-    const detailLabel = isPlan ? baseTimeLabel : durationLabel;
+    const detailLabel = isPlan ? baseTimeLabel : hasFocusedDuration ? `${baseTimeLabel} ${durationLabel}` : '';
     const isCompact = isCheckOnlyDo || height < 52;
     const titleLabel = isPlan
       ? `${todo.text}\n${baseTimeLabel}`
@@ -1137,9 +1204,37 @@ export function DailyView() {
       >
         {isCompact ? (
           <div className="flex items-center gap-2 h-full">
+            {isCheckOnlyDo && (
+              <span
+                className="relative inline-flex items-center justify-center flex-shrink-0"
+                style={{
+                  width: 16,
+                  height: 16,
+                  borderRadius: '50%',
+                  border: `1.5px solid ${borderClr}`,
+                  backgroundColor: `${borderClr}12`,
+                }}
+              >
+                <span
+                  className="inline-flex items-center justify-center"
+                  style={{
+                    width: 9,
+                    height: 9,
+                    borderRadius: '50%',
+                    backgroundColor: borderClr,
+                    color: '#fff',
+                    fontSize: 7,
+                    fontWeight: 700,
+                    lineHeight: 1,
+                  }}
+                >
+                  ✓
+                </span>
+              </span>
+            )}
             <span style={{
               fontSize: 11, fontWeight: 600, color: textColor,
-              textDecoration: todo.status === 'done' ? 'line-through' : 'none',
+              textDecoration: isCheckOnlyDo ? 'none' : (todo.status === 'done' ? 'line-through' : 'none'),
               overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
             }}>
               {compactLabel}
@@ -1222,6 +1317,7 @@ export function DailyView() {
     const elapsedMin = Math.max(1, Math.ceil(elapsedSec / 60));
     const top = (startMin / 60 - tlStartHour) * HOUR_HEIGHT;
     const height = Math.max(elapsedMin * PX_PER_MIN, 30);
+    const currentEndHHMM = minutesToTime(startMin + elapsedMin);
     const tagColor = getTodoTagColor(todo);
     const planDur = todo.planStart && todo.planEnd
       ? timeToMinutes(todo.planEnd) - timeToMinutes(todo.planStart)
@@ -1239,7 +1335,7 @@ export function DailyView() {
         }}>
         <div style={{ fontSize: 11, fontWeight: 600, color: textColor }}>{todo.text}</div>
         <div style={{ fontSize: 9, color: textColor, opacity: 0.85 }}>
-          {activeTimer.isPaused ? '일시정지' : '포커스 중'} {formatDuration(elapsedSec)}
+          {activeTimer.startHHMM}-{currentEndHHMM} {formatDuration(elapsedSec)}
         </div>
       </div>
     );
@@ -1255,7 +1351,15 @@ export function DailyView() {
         const min = timeToMinutes(log.time);
         const top = (min / 60 - tlStartHour) * HOUR_HEIGHT;
         const logColor = log.color || t.accent;
-        const displayText = log.text.length > 10 ? log.text.slice(0, 10) + '…' : log.text;
+        const offset = logOffsets[log.id] ?? 0;
+        const beginLogDrag = (clientX: number) => {
+          logDragRef.current = {
+            id: log.id,
+            startX: clientX,
+            startOffset: offset,
+          };
+          logDragMovedRef.current = false;
+        };
 
         return (
           <div key={log.id} style={{ display: 'contents' }}>
@@ -1268,20 +1372,29 @@ export function DailyView() {
             <div className="absolute z-15 pointer-events-none"
               style={{ top: top - 0.5, left: 0, right: 0, height: 1, borderBottom: `1px dashed ${logColor}40` }} />
             {/* Thought bubble in DO area */}
-            <div className="absolute z-20 cursor-pointer"
+            <div className="absolute z-20"
               style={{
                 top: top - 14,
                 left: laneBounds.left,
-                minWidth: 140,
-                maxWidth: 210,
-                backgroundColor: 'rgba(253,250,244,0.96)',
-                backdropFilter: 'blur(4px)',
+                minWidth: 108,
+                maxWidth: 'min(210px, calc(100vw - 132px))',
+                backgroundColor: 'rgba(253,250,244,0.74)',
                 border: `1px solid ${logColor}28`,
                 borderRadius: '0 10px 10px 10px',
-                boxShadow: `0 3px 12px rgba(0,0,0,0.07), 0 1px 3px ${logColor}20`,
+                boxShadow: `0 3px 12px rgba(0,0,0,0.05), 0 1px 3px ${logColor}18`,
                 padding: '5px 9px',
+                transform: `translateX(${offset}px)`,
+                cursor: 'grab',
               }}
-              onClick={() => setShowLogModal(true)}
+              onMouseDown={(e) => beginLogDrag(e.clientX)}
+              onTouchStart={(e) => {
+                const touch = e.touches[0];
+                if (!touch) return;
+                beginLogDrag(touch.clientX);
+              }}
+              onClick={() => {
+                if (!logDragMovedRef.current) setShowLogModal(true);
+              }}
               title={log.text}
             >
               <div className="flex items-start gap-1.5">
@@ -1782,6 +1895,17 @@ export function DailyView() {
           todo={contextMenu.todo}
           position={contextMenu.pos}
           onClose={() => setContextMenu(null)}
+          onFocus={setFocusingTodo}
+        />
+      )}
+      {focusingTodo && (
+        <FocusModal
+          todo={focusingTodo}
+          onClose={() => setFocusingTodo(null)}
+          onStart={(mode, pomoDurationSec) => {
+            startTimer(focusingTodo.id, { mode, pomoDurationSec });
+            setFocusingTodo(null);
+          }}
         />
       )}
       {showLogModal && (

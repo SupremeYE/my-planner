@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useCallback, useEffect } from 'react';
+import React, { createContext, useContext, useState, useCallback, useEffect, useRef } from 'react';
 import { format, getISOWeek, getYear, subDays } from 'date-fns';
 import { db } from '../lib/db';
 
@@ -241,12 +241,17 @@ export interface BrainstormItem {
   weekKey?: string;
 }
 
+export type TimerMode = 'pomodoro' | 'stopwatch';
+
 export interface ActiveTimer {
   todoId: string;
-  startTime: number;
+  mode: TimerMode;
+  startedAt: number;
   startHHMM: string;
-  elapsedSec: number;
+  pausedDurationMs: number;
   isPaused: boolean;
+  pauseStartedAt: number | null;
+  pomoDurationSec: number;
 }
 
 export interface TimelineLog {
@@ -296,8 +301,21 @@ function minutesToTime(mins: number): string {
   return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
 }
 
-function getTimerElapsedSec(timer: ActiveTimer, nowMs = Date.now()): number {
-  return timer.elapsedSec + (timer.isPaused ? 0 : Math.max(0, Math.floor((nowMs - timer.startTime) / 1000)));
+const ACTIVE_TIMER_STORAGE_KEY = 'planner-active-focus-timer';
+
+function getTimerEffectiveNowMs(timer: ActiveTimer, nowMs = Date.now()): number {
+  if (timer.isPaused && timer.pauseStartedAt != null) return timer.pauseStartedAt;
+  return nowMs;
+}
+
+export function getTimerElapsedSec(timer: ActiveTimer, nowMs = Date.now()): number {
+  const elapsedMs = Math.max(0, getTimerEffectiveNowMs(timer, nowMs) - timer.startedAt - timer.pausedDurationMs);
+  return Math.floor(elapsedMs / 1000);
+}
+
+export function getTimerRemainingSec(timer: ActiveTimer, nowMs = Date.now()): number {
+  if (timer.mode !== 'pomodoro') return getTimerElapsedSec(timer, nowMs);
+  return Math.max(0, timer.pomoDurationSec - getTimerElapsedSec(timer, nowMs));
 }
 
 function getTimerEndHHMM(startHHMM: string, elapsedSec: number): string {
@@ -474,7 +492,7 @@ interface PlannerContextType {
   weeklyBrainstormAssign: (id: string, date: string) => void;
 
   // Timer actions
-  startTimer: (todoId: string) => void;
+  startTimer: (todoId: string, options?: { mode?: TimerMode; pomoDurationSec?: number }) => void;
   pauseTimer: () => void;
   resumeTimer: () => void;
   stopTimer: () => void;
@@ -541,6 +559,7 @@ export function PlannerProvider({ children }: { children: React.ReactNode }) {
   const [monthlyReviews, setMonthlyReviews] = useState<MonthlyReview[]>([]);
   const [dailyAffirmations, setDailyAffirmations] = useState<Record<string, string>>({});
   const [appSettings, setAppSettings] = useState<AppSettings>(DEFAULT_APP_SETTINGS);
+  const wakeLockRef = useRef<any>(null);
 
   // ── 앱 시작 시 Supabase에서 데이터 로드 ──
   useEffect(() => {
@@ -613,6 +632,139 @@ export function PlannerProvider({ children }: { children: React.ReactNode }) {
 
   const newId = () => Math.random().toString(36).slice(2, 9);
   const newEventId = () => globalThis.crypto?.randomUUID?.() ?? `${newId()}-${Date.now()}`;
+
+  const releaseWakeLock = useCallback(async () => {
+    try {
+      if (wakeLockRef.current) {
+        await wakeLockRef.current.release();
+        wakeLockRef.current = null;
+      }
+    } catch {
+      wakeLockRef.current = null;
+    }
+  }, []);
+
+  const requestWakeLock = useCallback(async () => {
+    try {
+      if (!('wakeLock' in navigator) || document.visibilityState !== 'visible' || wakeLockRef.current) return;
+      wakeLockRef.current = await (navigator as any).wakeLock.request('screen');
+      wakeLockRef.current?.addEventListener?.('release', () => {
+        wakeLockRef.current = null;
+      });
+    } catch {
+      wakeLockRef.current = null;
+    }
+  }, []);
+
+  const completeTimer = useCallback((timer: ActiveTimer) => {
+    const rawElapsedSec = getTimerElapsedSec(timer);
+    const totalElapsedSec = timer.mode === 'pomodoro'
+      ? Math.min(rawElapsedSec, timer.pomoDurationSec)
+      : rawElapsedSec;
+    const endHHMM = getTimerEndHHMM(timer.startHHMM, totalElapsedSec);
+
+    setTodos(currentTodos => {
+      const updated = currentTodos.map(t =>
+        t.id === timer.todoId
+          ? { ...t, status: 'done' as TodoStatus, doStart: timer.startHHMM, doEnd: endHHMM, doElapsedSec: totalElapsedSec }
+          : t
+      );
+      const todo = updated.find(t => t.id === timer.todoId);
+      if (todo) db.todos.upsert(todo);
+      return updated;
+    });
+    setActiveTimer(null);
+    window.localStorage.removeItem(ACTIVE_TIMER_STORAGE_KEY);
+  }, []);
+
+  useEffect(() => {
+    const restoreTimerFromStorage = () => {
+      try {
+        const raw = window.localStorage.getItem(ACTIVE_TIMER_STORAGE_KEY);
+        if (!raw) return;
+
+        const parsed = JSON.parse(raw) as {
+          taskId: string;
+          mode: TimerMode;
+          startedAt: number;
+          pausedDuration: number;
+          isPaused: boolean;
+          pomoDuration: number;
+          pauseStartedAt?: number | null;
+          startHHMM?: string;
+        };
+
+        if (!parsed?.taskId || !parsed?.startedAt) return;
+
+        const restoredTimer: ActiveTimer = {
+          todoId: parsed.taskId,
+          mode: parsed.mode === 'pomodoro' ? 'pomodoro' : 'stopwatch',
+          startedAt: parsed.startedAt,
+          startHHMM: parsed.startHHMM || format(new Date(parsed.startedAt), 'HH:mm'),
+          pausedDurationMs: parsed.pausedDuration ?? 0,
+          isPaused: !!parsed.isPaused,
+          pauseStartedAt: parsed.isPaused ? (parsed.pauseStartedAt ?? Date.now()) : null,
+          pomoDurationSec: parsed.mode === 'pomodoro' ? Math.max(60, parsed.pomoDuration ?? 25 * 60) : 0,
+        };
+
+        setActiveTimer(current => current ?? restoredTimer);
+      } catch {
+        window.localStorage.removeItem(ACTIVE_TIMER_STORAGE_KEY);
+      }
+    };
+
+    restoreTimerFromStorage();
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        restoreTimerFromStorage();
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
+  }, []);
+
+  useEffect(() => {
+    if (!activeTimer) {
+      window.localStorage.removeItem(ACTIVE_TIMER_STORAGE_KEY);
+      void releaseWakeLock();
+      return;
+    }
+
+    window.localStorage.setItem(ACTIVE_TIMER_STORAGE_KEY, JSON.stringify({
+      taskId: activeTimer.todoId,
+      mode: activeTimer.mode,
+      startedAt: activeTimer.startedAt,
+      pausedDuration: activeTimer.pausedDurationMs,
+      isPaused: activeTimer.isPaused,
+      pomoDuration: activeTimer.pomoDurationSec,
+      pauseStartedAt: activeTimer.pauseStartedAt,
+      startHHMM: activeTimer.startHHMM,
+    }));
+
+    if (activeTimer.isPaused || document.visibilityState !== 'visible') {
+      void releaseWakeLock();
+      return;
+    }
+
+    void requestWakeLock();
+  }, [activeTimer, releaseWakeLock, requestWakeLock]);
+
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (document.visibilityState !== 'visible') {
+        void releaseWakeLock();
+        return;
+      }
+      if (activeTimer && !activeTimer.isPaused) {
+        void requestWakeLock();
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
+  }, [activeTimer, releaseWakeLock, requestWakeLock]);
 
   // ── Todo actions ──
   const addTodo = useCallback((todo: Omit<Todo, 'id'>) => {
@@ -1069,8 +1221,11 @@ export function PlannerProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   // ── Timer actions ──
-  const startTimer = useCallback((todoId: string) => {
+  const startTimer = useCallback((todoId: string, options?: { mode?: TimerMode; pomoDurationSec?: number }) => {
     if (activeTimer && activeTimer.todoId !== todoId) return;
+    const mode = options?.mode ?? 'stopwatch';
+    const pomoDurationSec = mode === 'pomodoro' ? Math.max(60, options?.pomoDurationSec ?? 25 * 60) : 0;
+
     setTodos(prev => {
       const updated = prev.map(t =>
         t.id === todoId
@@ -1082,17 +1237,17 @@ export function PlannerProvider({ children }: { children: React.ReactNode }) {
       return updated;
     });
     setActiveTimer(prev => {
-      if (prev?.todoId === todoId && prev.isPaused) {
-        return { ...prev, isPaused: false, startTime: Date.now() };
-      }
       if (prev) return prev;
       const now = new Date();
       return {
         todoId,
-        startTime: now.getTime(),
+        mode,
+        startedAt: now.getTime(),
         startHHMM: format(now, 'HH:mm'),
-        elapsedSec: 0,
+        pausedDurationMs: 0,
         isPaused: false,
+        pauseStartedAt: null,
+        pomoDurationSec,
       };
     });
   }, [activeTimer]);
@@ -1102,8 +1257,8 @@ export function PlannerProvider({ children }: { children: React.ReactNode }) {
       if (!prev || prev.isPaused) return prev;
       return {
         ...prev,
-        elapsedSec: getTimerElapsedSec(prev),
         isPaused: true,
+        pauseStartedAt: Date.now(),
       };
     });
   }, []);
@@ -1111,32 +1266,20 @@ export function PlannerProvider({ children }: { children: React.ReactNode }) {
   const resumeTimer = useCallback(() => {
     setActiveTimer(prev => {
       if (!prev || !prev.isPaused) return prev;
+      const pausedFor = prev.pauseStartedAt ? Date.now() - prev.pauseStartedAt : 0;
       return {
         ...prev,
         isPaused: false,
-        startTime: Date.now(),
+        pauseStartedAt: null,
+        pausedDurationMs: prev.pausedDurationMs + Math.max(0, pausedFor),
       };
     });
   }, []);
 
   const stopTimer = useCallback(() => {
-    setActiveTimer(prev => {
-      if (!prev) return prev;
-      const totalElapsedSec = getTimerElapsedSec(prev);
-      const endHHMM = getTimerEndHHMM(prev.startHHMM, totalElapsedSec);
-      setTodos(currentTodos => {
-        const updated = currentTodos.map(t =>
-          t.id === prev.todoId
-            ? { ...t, status: 'done' as TodoStatus, doStart: prev.startHHMM, doEnd: endHHMM, doElapsedSec: totalElapsedSec }
-            : t
-        );
-        const todo = updated.find(t => t.id === prev.todoId);
-        if (todo) db.todos.upsert(todo);
-        return updated;
-      });
-      return null;
-    });
-  }, []);
+    if (!activeTimer) return;
+    completeTimer(activeTimer);
+  }, [activeTimer, completeTimer]);
 
   // ── Project actions ──
   const addProject = useCallback((project: Omit<Project, 'id'>) => {

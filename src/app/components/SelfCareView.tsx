@@ -1,9 +1,8 @@
-import React, { useState } from 'react';
-import { Plus, X, Dumbbell, BookOpen, Sparkles, Moon, ChevronDown, ChevronRight, Heart, Trash2, Pencil } from 'lucide-react';
+import React, { useEffect, useRef, useState } from 'react';
+import { Plus, X, Dumbbell, BookOpen, Sparkles, Moon, ChevronDown, ChevronRight, Heart, Trash2, Pencil, Sun } from 'lucide-react';
 import { usePlanner, SelfCareRecord } from '../store';
 import { useTheme } from '../ThemeContext';
 import { format, subDays, differenceInDays, parseISO, addDays } from 'date-fns';
-import { TimePicker } from './TimePicker';
 
 const CATEGORIES = [
   { key: 'exercise' as const, label: '운동 & 피트니스', icon: Dumbbell, color: '#D4735A' },
@@ -314,12 +313,37 @@ function PeriodSection() {
   );
 }
 
+// 인라인 시간 수정 입력
+function TimeEditInput({ value, onChange, onDone }: {
+  value: string;
+  onChange: (v: string) => void;
+  onDone: () => void;
+}) {
+  const ref = useRef<HTMLInputElement>(null);
+  useEffect(() => { ref.current?.focus(); }, []);
+  return (
+    <input
+      ref={ref}
+      type="time"
+      value={value}
+      onChange={e => onChange(e.target.value)}
+      onBlur={onDone}
+      onKeyDown={e => { if (e.key === 'Enter' || e.key === 'Escape') onDone(); }}
+      className="outline-none bg-transparent text-center"
+      style={{ fontSize: 22, fontWeight: 700, color: SLEEP_COLOR, width: '100%', border: 'none' }}
+    />
+  );
+}
+
 function SleepSection() {
   const { selfCareRecords, addSelfCareRecord, deleteSelfCareRecord } = usePlanner();
   const { t } = useTheme();
   const [date, setDate] = useState(format(new Date(), 'yyyy-MM-dd'));
   const [sleepStart, setSleepStart] = useState('');
   const [sleepEnd, setSleepEnd] = useState('');
+  const [editingField, setEditingField] = useState<'start' | 'end' | null>(null);
+
+  const nowHHMM = () => format(new Date(), 'HH:mm');
 
   const sleepRecords = selfCareRecords
     .filter(r => r.category === 'sleep')
@@ -333,12 +357,13 @@ function SleepSection() {
       date,
       category: 'sleep',
       content: `${sleepStart} ~ ${sleepEnd}`,
-      duration: calcSleepMinutes(sleepStart, sleepEnd),
+      duration: previewMin,
       sleepStart,
       sleepEnd,
     });
     setSleepStart('');
     setSleepEnd('');
+    setEditingField(null);
   };
 
   // 통계
@@ -351,20 +376,93 @@ function SleepSection() {
 
   // 최근 7일 데이터
   const last7Days = Array.from({ length: 7 }, (_, i) => format(subDays(today, 6 - i), 'yyyy-MM-dd'));
-  const sleepByDate: Record<string, number> = {};
-  sleepRecords.forEach(r => { if (!sleepByDate[r.date]) sleepByDate[r.date] = r.duration; });
+  const sleepByDate: Record<string, { duration: number; start?: string; end?: string }> = {};
+  sleepRecords.forEach(r => {
+    if (!sleepByDate[r.date]) sleepByDate[r.date] = { duration: r.duration, start: r.sleepStart, end: r.sleepEnd };
+  });
   const last7Data = last7Days.map(d => ({
     date: d,
-    label: d === format(today, 'yyyy-MM-dd') ? '오늘' : ['일','월','화','수','목','금','토'][new Date(d).getDay()],
-    duration: sleepByDate[d] ?? 0,
+    label: d === format(today, 'yyyy-MM-dd') ? '오늘' : ['일','월','화','수','목','금','토'][new Date(d + 'T12:00:00').getDay()],
+    duration: sleepByDate[d]?.duration ?? 0,
+    start: sleepByDate[d]?.start,
+    end: sleepByDate[d]?.end,
   }));
   const weekWithData = last7Data.filter(d => d.duration > 0);
   const weekAvg = weekWithData.length
     ? Math.round(weekWithData.reduce((s, d) => s + d.duration, 0) / weekWithData.length)
     : 0;
-  const maxBar = Math.max(...last7Data.map(d => d.duration), 8 * 60);
+  // 그래프 기준: 최대 10시간(600분) 또는 실제 최대값
+  const maxBar = Math.max(...last7Data.map(d => d.duration), 10 * 60);
 
   const hasStats = sleepRecords.length > 0;
+
+  // 취침/기상 버튼 공통 렌더
+  const renderTimeSlot = (
+    field: 'start' | 'end',
+    label: string,
+    Icon: React.ElementType,
+    value: string,
+    setter: (v: string) => void,
+  ) => {
+    const isEmpty = !value;
+    const isEditing = editingField === field;
+
+    return (
+      <div
+        className="flex-1 rounded-2xl p-3 lg:p-4 flex flex-col items-center gap-1"
+        style={{
+          backgroundColor: isEmpty ? t.bgSub : SLEEP_COLOR + '12',
+          border: `1.5px solid ${isEmpty ? t.borderLight : SLEEP_COLOR + '40'}`,
+          minWidth: 0,
+        }}
+      >
+        <div className="flex items-center gap-1 mb-1" style={{ fontSize: 10, color: SLEEP_COLOR, fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase' }}>
+          <Icon size={11} />
+          {label}
+        </div>
+
+        {isEditing ? (
+          <TimeEditInput
+            value={value}
+            onChange={setter}
+            onDone={() => setEditingField(null)}
+          />
+        ) : isEmpty ? (
+          <button
+            onClick={() => { setter(nowHHMM()); setEditingField(null); }}
+            className="w-full rounded-xl py-2.5 mt-0.5 transition-colors"
+            style={{ backgroundColor: SLEEP_COLOR, color: '#fff', fontSize: 12, fontWeight: 700 }}
+          >
+            지금 기록
+          </button>
+        ) : (
+          <>
+            <button
+              onClick={() => setEditingField(field)}
+              style={{ fontSize: 22, fontWeight: 700, color: SLEEP_COLOR, lineHeight: 1, background: 'none', border: 'none', cursor: 'text' }}
+            >
+              {value}
+            </button>
+            <div className="flex items-center gap-2 mt-1">
+              <button
+                onClick={() => setter(nowHHMM())}
+                className="rounded-full px-2 py-0.5"
+                style={{ fontSize: 9, color: t.textMuted, border: `1px solid ${t.borderLight}`, background: 'none' }}
+              >
+                지금으로
+              </button>
+              <button
+                onClick={() => { setter(''); setEditingField(null); }}
+                style={{ color: t.textMuted, background: 'none', border: 'none' }}
+              >
+                <X size={11} />
+              </button>
+            </div>
+          </>
+        )}
+      </div>
+    );
+  };
 
   return (
     <div className="mb-6">
@@ -380,54 +478,57 @@ function SleepSection() {
         )}
       </div>
 
-      {/* 입력 폼 */}
-      <div className="p-4 rounded-xl mb-3" style={{ backgroundColor: t.card, border: `1px solid ${t.borderLight}` }}>
-        <div className="grid grid-cols-2 gap-3 lg:grid-cols-4 lg:items-end">
-          {/* 날짜 */}
-          <div className="col-span-2 lg:col-span-1">
-            <label style={{ fontSize: 11, color: t.textSub, fontWeight: 600 }}>날짜</label>
-            <input type="date" value={date} onChange={e => setDate(e.target.value)}
-              className="w-full mt-1 rounded-lg px-3 py-2 border outline-none"
-              style={{ borderColor: t.border, backgroundColor: t.bgSub, color: t.text, fontSize: 13 }} />
-          </div>
-          {/* 취침 시간 */}
-          <div>
-            <label style={{ fontSize: 11, color: t.textSub, fontWeight: 600 }}>취침</label>
-            <div className="mt-1">
-              <TimePicker value={sleepStart} onChange={setSleepStart} placeholder="취침 시간" minuteStep={5} />
-            </div>
-          </div>
-          {/* 기상 시간 */}
-          <div>
-            <label style={{ fontSize: 11, color: t.textSub, fontWeight: 600 }}>기상</label>
-            <div className="mt-1">
-              <TimePicker value={sleepEnd} onChange={setSleepEnd} placeholder="기상 시간" minuteStep={5} />
-            </div>
-          </div>
-          {/* 자동 계산 + 기록 버튼 */}
-          <div className="col-span-2 lg:col-span-1 flex flex-col justify-end gap-1">
-            {previewMin > 0 && (
-              <div className="text-center" style={{ fontSize: 12, color: SLEEP_COLOR, fontWeight: 700 }}>
-                {fmtSleep(previewMin)}
-              </div>
-            )}
-            <button onClick={handleAdd} disabled={!sleepStart || !sleepEnd}
-              className="w-full py-2 rounded-lg transition-colors"
-              style={{
-                fontSize: 13, fontWeight: 600,
-                backgroundColor: sleepStart && sleepEnd ? SLEEP_COLOR : t.bgSub,
-                color: sleepStart && sleepEnd ? '#fff' : t.textMuted,
-                cursor: sleepStart && sleepEnd ? 'pointer' : 'default',
-              }}>
-              기록하기
-            </button>
-          </div>
+      {/* 입력 카드 */}
+      <div className="p-3 lg:p-4 rounded-2xl mb-3" style={{ backgroundColor: t.card, border: `1px solid ${t.borderLight}` }}>
+        {/* 날짜 */}
+        <div className="mb-3">
+          <input
+            type="date"
+            value={date}
+            onChange={e => setDate(e.target.value)}
+            className="w-full rounded-xl px-3 py-2 border outline-none"
+            style={{ borderColor: t.borderLight, backgroundColor: t.bgSub, color: t.text, fontSize: 13 }}
+          />
         </div>
+
+        {/* 취침 / 기상 버튼 */}
+        <div className="flex gap-2 mb-3">
+          {renderTimeSlot('start', '취침', Moon, sleepStart, setSleepStart)}
+          {renderTimeSlot('end', '기상', Sun, sleepEnd, setSleepEnd)}
+        </div>
+
+        {/* 수면 시간 자동 계산 */}
+        <div className="flex items-center justify-center mb-3" style={{ minHeight: 28 }}>
+          {previewMin > 0 ? (
+            <div className="flex items-center gap-2 px-4 py-1.5 rounded-full"
+              style={{ backgroundColor: SLEEP_COLOR + '15', border: `1px solid ${SLEEP_COLOR}30` }}>
+              <Moon size={12} color={SLEEP_COLOR} />
+              <span style={{ fontSize: 13, fontWeight: 700, color: SLEEP_COLOR }}>수면 {fmtSleep(previewMin)}</span>
+            </div>
+          ) : (
+            <span style={{ fontSize: 11, color: t.textMuted }}>취침·기상 시각을 기록하면 수면시간이 계산됩니다</span>
+          )}
+        </div>
+
+        {/* 저장 버튼 */}
+        <button
+          onClick={handleAdd}
+          disabled={!sleepStart || !sleepEnd}
+          className="w-full py-2.5 rounded-xl transition-colors"
+          style={{
+            fontSize: 13, fontWeight: 700,
+            backgroundColor: sleepStart && sleepEnd ? SLEEP_COLOR : t.bgSub,
+            color: sleepStart && sleepEnd ? '#fff' : t.textMuted,
+            cursor: sleepStart && sleepEnd ? 'pointer' : 'default',
+          }}
+        >
+          기록하기
+        </button>
       </div>
 
-      {/* 통계 + 바 차트 */}
+      {/* 통계 + 주간 그래프 */}
       {hasStats && (
-        <div className="p-4 rounded-xl mb-3" style={{ backgroundColor: t.card, border: `1px solid ${t.borderLight}` }}>
+        <div className="p-3 lg:p-4 rounded-2xl mb-3" style={{ backgroundColor: t.card, border: `1px solid ${t.borderLight}` }}>
           {/* 통계 카드 */}
           <div className="flex gap-4 mb-4">
             <div className="flex-1 text-center">
@@ -447,34 +548,55 @@ function SleepSection() {
 
           {/* 최근 7일 바 차트 */}
           <div>
-            <div style={{ fontSize: 10, color: t.textMuted, fontWeight: 600, marginBottom: 6 }}>최근 7일 수면</div>
-            <div className="flex items-end justify-between gap-1" style={{ height: 80 }}>
+            <div style={{ fontSize: 10, color: t.textMuted, fontWeight: 600, marginBottom: 8 }}>최근 7일 수면</div>
+            <div className="flex items-end justify-between gap-1.5" style={{ height: 96 }}>
               {last7Data.map(d => {
-                const barH = d.duration > 0 ? Math.max(6, Math.round((d.duration / maxBar) * 56)) : 3;
                 const isGood = d.duration >= 7 * 60;
                 const barColor = d.duration === 0
                   ? t.borderLight
                   : isGood ? SLEEP_COLOR : '#D4735A';
+                // 바 높이: 72px 기준
+                const barH = d.duration > 0 ? Math.max(8, Math.round((d.duration / maxBar) * 72)) : 4;
+                const hLabel = d.duration > 0
+                  ? (d.duration >= 60 ? `${Math.floor(d.duration / 60)}h${d.duration % 60 > 0 ? (d.duration % 60) + 'm' : ''}` : `${d.duration}m`)
+                  : '';
+
                 return (
                   <div key={d.date} className="flex flex-col items-center flex-1" style={{ minWidth: 0 }}>
-                    <span style={{ fontSize: 8, color: SLEEP_COLOR, fontWeight: 600, height: 12, lineHeight: '12px' }}>
-                      {d.duration > 0 ? `${Math.floor(d.duration / 60)}h` : ''}
+                    {/* 수면시간 레이블 */}
+                    <span style={{ fontSize: 8, color: barColor, fontWeight: 700, height: 14, lineHeight: '14px', textAlign: 'center', whiteSpace: 'nowrap' }}>
+                      {hLabel}
                     </span>
-                    <div style={{
-                      width: '75%', minWidth: 8, height: barH,
-                      backgroundColor: barColor,
-                      borderRadius: '3px 3px 2px 2px',
-                    }} />
-                    <span style={{ fontSize: 9, color: t.textMuted, marginTop: 3 }}>{d.label}</span>
+                    {/* 바 */}
+                    <div
+                      title={d.duration > 0 ? `${d.start ?? '?'} ~ ${d.end ?? '?'} · ${fmtSleep(d.duration)}` : ''}
+                      style={{
+                        width: '70%',
+                        minWidth: 8,
+                        height: barH,
+                        backgroundColor: barColor,
+                        borderRadius: '4px 4px 2px 2px',
+                        transition: 'height 0.3s',
+                      }}
+                    />
+                    {/* 요일 레이블 */}
+                    <span style={{ fontSize: 9, color: t.textMuted, marginTop: 4, fontWeight: d.date === format(today, 'yyyy-MM-dd') ? 700 : 400 }}>
+                      {d.label}
+                    </span>
                   </div>
                 );
               })}
             </div>
-            <div className="flex items-center gap-2 mt-2">
-              <div style={{ width: 8, height: 8, borderRadius: 2, backgroundColor: SLEEP_COLOR, flexShrink: 0 }} />
-              <span style={{ fontSize: 9, color: t.textMuted }}>7시간 이상</span>
-              <div style={{ width: 8, height: 8, borderRadius: 2, backgroundColor: '#D4735A', flexShrink: 0, marginLeft: 6 }} />
-              <span style={{ fontSize: 9, color: t.textMuted }}>7시간 미만</span>
+            {/* 범례 */}
+            <div className="flex items-center gap-3 mt-3">
+              <div className="flex items-center gap-1.5">
+                <div style={{ width: 8, height: 8, borderRadius: 2, backgroundColor: SLEEP_COLOR, flexShrink: 0 }} />
+                <span style={{ fontSize: 9, color: t.textMuted }}>7시간 이상 (권장)</span>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <div style={{ width: 8, height: 8, borderRadius: 2, backgroundColor: '#D4735A', flexShrink: 0 }} />
+                <span style={{ fontSize: 9, color: t.textMuted }}>7시간 미만</span>
+              </div>
             </div>
           </div>
         </div>
@@ -486,7 +608,7 @@ function SleepSection() {
           <div key={r.id} className="flex items-center gap-3 px-4 py-2.5 rounded-xl"
             style={{ backgroundColor: t.card, border: `1px solid ${t.borderLight}` }}>
             <Moon size={12} color={SLEEP_COLOR} />
-            <span style={{ fontSize: 11, color: t.textMuted, width: 48, flexShrink: 0 }}>{r.date.slice(5)}</span>
+            <span style={{ fontSize: 11, color: t.textMuted, width: 44, flexShrink: 0 }}>{r.date.slice(5)}</span>
             <span style={{ fontSize: 13, color: t.text, flex: 1 }}>{r.content}</span>
             <span style={{ fontSize: 11, color: SLEEP_COLOR, fontWeight: 600, flexShrink: 0 }}>
               {fmtSleep(r.duration)}

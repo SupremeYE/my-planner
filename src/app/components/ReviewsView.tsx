@@ -1,8 +1,87 @@
-import React, { useState } from 'react';
-import { Plus, X, ChevronRight } from 'lucide-react';
+import React, { useRef, useState } from 'react';
+import { Plus, X, ChevronRight, Mic } from 'lucide-react';
 import { usePlanner, ReviewRecord, WeeklyReview, MonthlyReview, EmotionLevel, getWeekKey } from '../store';
 import { useTheme } from '../ThemeContext';
 import { format } from 'date-fns';
+
+// ─── 음성 입력 버튼 ───
+function VoiceInputButton({
+  onResult,
+  disabled,
+}: {
+  onResult: (text: string) => void;
+  disabled?: boolean;
+}) {
+  const { t } = useTheme();
+  const [isListening, setIsListening] = useState(false);
+  const recognitionRef = useRef<any>(null);
+
+  const SpeechRecognitionAPI =
+    (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+  if (!SpeechRecognitionAPI) return null;
+
+  const toggle = () => {
+    if (isListening) {
+      recognitionRef.current?.stop();
+      setIsListening(false);
+      return;
+    }
+    const recognition = new SpeechRecognitionAPI();
+    recognition.lang = 'ko-KR';
+    recognition.interimResults = false;
+    recognition.maxAlternatives = 1;
+    recognition.onresult = (e: any) => {
+      const text: string = e.results[0][0].transcript;
+      onResult(text);
+    };
+    recognition.onend = () => setIsListening(false);
+    recognition.onerror = () => setIsListening(false);
+    recognitionRef.current = recognition;
+    recognition.start();
+    setIsListening(true);
+  };
+
+  return (
+    <button
+      type="button"
+      onClick={toggle}
+      disabled={disabled}
+      title={isListening ? '녹음 중지' : '음성으로 입력'}
+      className="flex items-center justify-center rounded-lg flex-shrink-0 transition-colors"
+      style={{
+        width: 30,
+        height: 30,
+        backgroundColor: isListening ? '#fee2e2' : t.bgSub,
+        border: `1px solid ${isListening ? '#fca5a5' : t.borderLight}`,
+        color: isListening ? '#ef4444' : t.textMuted,
+      }}
+    >
+      {isListening ? (
+        <span
+          className="animate-pulse rounded-full"
+          style={{ width: 9, height: 9, backgroundColor: '#ef4444', display: 'block' }}
+        />
+      ) : (
+        <Mic size={13} />
+      )}
+    </button>
+  );
+}
+
+// label + VoiceInputButton을 한 줄에 나란히
+function LabelRow({ label, labelColor, onVoiceResult }: {
+  label: string;
+  labelColor?: string;
+  onVoiceResult: (text: string) => void;
+}) {
+  const { t } = useTheme();
+  return (
+    <div className="flex items-center justify-between mb-1">
+      <label style={{ fontSize: 11, color: labelColor ?? t.textSub, fontWeight: 600 }}>{label}</label>
+      <VoiceInputButton onResult={onVoiceResult} />
+    </div>
+  );
+}
 
 const EMOTIONS: { level: EmotionLevel; emoji: string; label: string }[] = [
   { level: 1, emoji: '😞', label: '나쁨' },
@@ -173,9 +252,12 @@ export function ReviewsView() {
                     </button>
                   ))}
                 </div>
-                <textarea value={emotionMemo} onChange={e => setEmotionMemo(e.target.value)}
-                  placeholder="오늘 기분은 어떤가요?" rows={2}
-                  className="w-full rounded-lg px-3 py-2 border outline-none resize-none" style={inputStyle} />
+                <div className="flex items-end gap-2">
+                  <textarea value={emotionMemo} onChange={e => setEmotionMemo(e.target.value)}
+                    placeholder="오늘 기분은 어떤가요?" rows={2}
+                    className="flex-1 rounded-lg px-3 py-2 border outline-none resize-none" style={inputStyle} />
+                  <VoiceInputButton onResult={text => setEmotionMemo(prev => prev ? `${prev} ${text}` : text)} />
+                </div>
               </div>
             )}
 
@@ -188,6 +270,9 @@ export function ReviewsView() {
                     <span style={{ fontSize: 12, color: t.accent, fontWeight: 600, width: 16 }}>{i + 1}.</span>
                     <input value={g} onChange={e => { const ng = [...gratitude]; ng[i] = e.target.value; setGratitude(ng); }}
                       placeholder="오늘 감사한 것" className="flex-1 rounded-lg px-3 py-2 border outline-none" style={inputStyle} />
+                    <VoiceInputButton onResult={text => {
+                      const ng = [...gratitude]; ng[i] = ng[i] ? `${ng[i]} ${text}` : text; setGratitude(ng);
+                    }} />
                   </div>
                 ))}
               </div>
@@ -199,19 +284,19 @@ export function ReviewsView() {
                 <h3 style={{ fontSize: 13, fontWeight: 700, color: t.text, marginBottom: 12 }}>🔄 KPT 회고</h3>
                 <div className="space-y-3">
                   <div>
-                    <label style={{ fontSize: 11, color: '#006b62', fontWeight: 600 }}>Keep (유지할 것)</label>
+                    <LabelRow label="Keep (유지할 것)" labelColor="#006b62" onVoiceResult={text => setKptKeep(prev => prev ? `${prev} ${text}` : text)} />
                     <textarea value={kptKeep} onChange={e => setKptKeep(e.target.value)} rows={2}
-                      className="w-full mt-1 rounded-lg px-3 py-2 border outline-none resize-none" style={inputStyle} />
+                      className="w-full rounded-lg px-3 py-2 border outline-none resize-none" style={inputStyle} />
                   </div>
                   <div>
-                    <label style={{ fontSize: 11, color: '#D4735A', fontWeight: 600 }}>Problem (문제점)</label>
+                    <LabelRow label="Problem (문제점)" labelColor="#D4735A" onVoiceResult={text => setKptProblem(prev => prev ? `${prev} ${text}` : text)} />
                     <textarea value={kptProblem} onChange={e => setKptProblem(e.target.value)} rows={2}
-                      className="w-full mt-1 rounded-lg px-3 py-2 border outline-none resize-none" style={inputStyle} />
+                      className="w-full rounded-lg px-3 py-2 border outline-none resize-none" style={inputStyle} />
                   </div>
                   <div>
-                    <label style={{ fontSize: 11, color: '#7B9ED9', fontWeight: 600 }}>Try (시도할 것)</label>
+                    <LabelRow label="Try (시도할 것)" labelColor="#7B9ED9" onVoiceResult={text => setKptTry(prev => prev ? `${prev} ${text}` : text)} />
                     <textarea value={kptTry} onChange={e => setKptTry(e.target.value)} rows={2}
-                      className="w-full mt-1 rounded-lg px-3 py-2 border outline-none resize-none" style={inputStyle} />
+                      className="w-full rounded-lg px-3 py-2 border outline-none resize-none" style={inputStyle} />
                   </div>
                 </div>
               </div>
@@ -221,9 +306,12 @@ export function ReviewsView() {
             {selectedTypes.includes('happiness') && (
               <div className="p-4 rounded-xl" style={{ backgroundColor: t.card, border: `1px solid ${t.borderLight}` }}>
                 <h3 style={{ fontSize: 13, fontWeight: 700, color: t.text, marginBottom: 12 }}>✨ 행복 기록</h3>
-                <textarea value={happiness} onChange={e => setHappiness(e.target.value)}
-                  placeholder="오늘 행복했던 순간을 적어보세요" rows={3}
-                  className="w-full rounded-lg px-3 py-2 border outline-none resize-none" style={inputStyle} />
+                <div className="flex items-end gap-2">
+                  <textarea value={happiness} onChange={e => setHappiness(e.target.value)}
+                    placeholder="오늘 행복했던 순간을 적어보세요" rows={3}
+                    className="flex-1 rounded-lg px-3 py-2 border outline-none resize-none" style={inputStyle} />
+                  <VoiceInputButton onResult={text => setHappiness(prev => prev ? `${prev} ${text}` : text)} />
+                </div>
               </div>
             )}
 
@@ -233,19 +321,19 @@ export function ReviewsView() {
                 <h3 style={{ fontSize: 13, fontWeight: 700, color: t.text, marginBottom: 12 }}>📔 데일리 리뷰</h3>
                 <div className="space-y-3">
                   <div>
-                    <label style={{ fontSize: 11, color: t.textSub, fontWeight: 600 }}>한줄 요약</label>
+                    <LabelRow label="한줄 요약" onVoiceResult={text => setDailySummary(prev => prev ? `${prev} ${text}` : text)} />
                     <input value={dailySummary} onChange={e => setDailySummary(e.target.value)}
-                      className="w-full mt-1 rounded-lg px-3 py-2 border outline-none" style={inputStyle} />
+                      className="w-full rounded-lg px-3 py-2 border outline-none" style={inputStyle} />
                   </div>
                   <div>
-                    <label style={{ fontSize: 11, color: '#006b62', fontWeight: 600 }}>잘한 점</label>
+                    <LabelRow label="잘한 점" labelColor="#006b62" onVoiceResult={text => setDailyGood(prev => prev ? `${prev} ${text}` : text)} />
                     <textarea value={dailyGood} onChange={e => setDailyGood(e.target.value)} rows={2}
-                      className="w-full mt-1 rounded-lg px-3 py-2 border outline-none resize-none" style={inputStyle} />
+                      className="w-full rounded-lg px-3 py-2 border outline-none resize-none" style={inputStyle} />
                   </div>
                   <div>
-                    <label style={{ fontSize: 11, color: '#D4735A', fontWeight: 600 }}>개선할 점</label>
+                    <LabelRow label="개선할 점" labelColor="#D4735A" onVoiceResult={text => setDailyImprove(prev => prev ? `${prev} ${text}` : text)} />
                     <textarea value={dailyImprove} onChange={e => setDailyImprove(e.target.value)} rows={2}
-                      className="w-full mt-1 rounded-lg px-3 py-2 border outline-none resize-none" style={inputStyle} />
+                      className="w-full rounded-lg px-3 py-2 border outline-none resize-none" style={inputStyle} />
                   </div>
                 </div>
               </div>
@@ -320,19 +408,19 @@ export function ReviewsView() {
               <h3 style={{ fontSize: 13, fontWeight: 700, color: t.text, marginBottom: 12 }}>주간 리뷰 ({currentWeekKey})</h3>
               <div className="space-y-3">
                 <div>
-                  <label style={{ fontSize: 11, color: '#006b62', fontWeight: 600 }}>잘한 것</label>
+                  <LabelRow label="잘한 것" labelColor="#006b62" onVoiceResult={text => setWrGood(prev => prev ? `${prev} ${text}` : text)} />
                   <textarea value={wrGood} onChange={e => setWrGood(e.target.value)} rows={3}
-                    className="w-full mt-1 rounded-lg px-3 py-2 border outline-none resize-none" style={inputStyle} />
+                    className="w-full rounded-lg px-3 py-2 border outline-none resize-none" style={inputStyle} />
                 </div>
                 <div>
-                  <label style={{ fontSize: 11, color: '#D4735A', fontWeight: 600 }}>어려웠던 점</label>
+                  <LabelRow label="어려웠던 점" labelColor="#D4735A" onVoiceResult={text => setWrHard(prev => prev ? `${prev} ${text}` : text)} />
                   <textarea value={wrHard} onChange={e => setWrHard(e.target.value)} rows={3}
-                    className="w-full mt-1 rounded-lg px-3 py-2 border outline-none resize-none" style={inputStyle} />
+                    className="w-full rounded-lg px-3 py-2 border outline-none resize-none" style={inputStyle} />
                 </div>
                 <div>
-                  <label style={{ fontSize: 11, color: '#7B9ED9', fontWeight: 600 }}>다음 주 다짐</label>
+                  <LabelRow label="다음 주 다짐" labelColor="#7B9ED9" onVoiceResult={text => setWrNext(prev => prev ? `${prev} ${text}` : text)} />
                   <textarea value={wrNext} onChange={e => setWrNext(e.target.value)} rows={3}
-                    className="w-full mt-1 rounded-lg px-3 py-2 border outline-none resize-none" style={inputStyle} />
+                    className="w-full rounded-lg px-3 py-2 border outline-none resize-none" style={inputStyle} />
                 </div>
               </div>
 
@@ -342,19 +430,19 @@ export function ReviewsView() {
                   <h3 style={{ fontSize: 13, fontWeight: 700, color: t.text, marginBottom: 12 }}>🔄 KPT 주간 회고</h3>
                   <div className="space-y-3">
                     <div>
-                      <label style={{ fontSize: 11, color: '#006b62', fontWeight: 600 }}>Keep (유지할 것)</label>
+                      <LabelRow label="Keep (유지할 것)" labelColor="#006b62" onVoiceResult={text => setWrKptKeep(prev => prev ? `${prev} ${text}` : text)} />
                       <textarea value={wrKptKeep} onChange={e => setWrKptKeep(e.target.value)} rows={2}
-                        className="w-full mt-1 rounded-lg px-3 py-2 border outline-none resize-none" style={inputStyle} />
+                        className="w-full rounded-lg px-3 py-2 border outline-none resize-none" style={inputStyle} />
                     </div>
                     <div>
-                      <label style={{ fontSize: 11, color: '#D4735A', fontWeight: 600 }}>Problem (문제점)</label>
+                      <LabelRow label="Problem (문제점)" labelColor="#D4735A" onVoiceResult={text => setWrKptProblem(prev => prev ? `${prev} ${text}` : text)} />
                       <textarea value={wrKptProblem} onChange={e => setWrKptProblem(e.target.value)} rows={2}
-                        className="w-full mt-1 rounded-lg px-3 py-2 border outline-none resize-none" style={inputStyle} />
+                        className="w-full rounded-lg px-3 py-2 border outline-none resize-none" style={inputStyle} />
                     </div>
                     <div>
-                      <label style={{ fontSize: 11, color: '#7B9ED9', fontWeight: 600 }}>Try (시도할 것)</label>
+                      <LabelRow label="Try (시도할 것)" labelColor="#7B9ED9" onVoiceResult={text => setWrKptTry(prev => prev ? `${prev} ${text}` : text)} />
                       <textarea value={wrKptTry} onChange={e => setWrKptTry(e.target.value)} rows={2}
-                        className="w-full mt-1 rounded-lg px-3 py-2 border outline-none resize-none" style={inputStyle} />
+                        className="w-full rounded-lg px-3 py-2 border outline-none resize-none" style={inputStyle} />
                     </div>
                   </div>
                 </div>
@@ -364,9 +452,12 @@ export function ReviewsView() {
               {appSettings.showWeeklyHappiness && (
                 <div className="mt-4 p-4 rounded-xl" style={{ backgroundColor: t.card, border: `1px solid ${t.borderLight}` }}>
                   <h3 style={{ fontSize: 13, fontWeight: 700, color: t.text, marginBottom: 12 }}>✨ 이번 주 행복했던 일</h3>
-                  <textarea value={wrHappiness} onChange={e => setWrHappiness(e.target.value)}
-                    placeholder="이번 주 행복했던 순간을 적어보세요" rows={3}
-                    className="w-full rounded-lg px-3 py-2 border outline-none resize-none" style={inputStyle} />
+                  <div className="flex items-end gap-2">
+                    <textarea value={wrHappiness} onChange={e => setWrHappiness(e.target.value)}
+                      placeholder="이번 주 행복했던 순간을 적어보세요" rows={3}
+                      className="flex-1 rounded-lg px-3 py-2 border outline-none resize-none" style={inputStyle} />
+                    <VoiceInputButton onResult={text => setWrHappiness(prev => prev ? `${prev} ${text}` : text)} />
+                  </div>
                 </div>
               )}
 
@@ -385,35 +476,35 @@ export function ReviewsView() {
             <h3 style={{ fontSize: 13, fontWeight: 700, color: t.text, marginBottom: 12 }}>월간 리뷰 ({currentMonth})</h3>
             <div className="space-y-4">
               <div>
-                <label style={{ fontSize: 11, color: '#515f74', fontWeight: 600 }}>가장 큰 성취</label>
+                <LabelRow label="가장 큰 성취" labelColor="#515f74" onVoiceResult={text => setMrAchievement(prev => prev ? `${prev} ${text}` : text)} />
                 <textarea value={mrAchievement} onChange={e => setMrAchievement(e.target.value)}
                   placeholder="이번 달 가장 자랑스러운 성취는?" rows={4}
-                  className="w-full mt-1 rounded-lg px-3 py-2 border outline-none resize-none" style={inputStyle} />
+                  className="w-full rounded-lg px-3 py-2 border outline-none resize-none" style={inputStyle} />
               </div>
               <div>
-                <label style={{ fontSize: 11, color: '#7B9ED9', fontWeight: 600 }}>다음 달 집중할 것</label>
+                <LabelRow label="다음 달 집중할 것" labelColor="#7B9ED9" onVoiceResult={text => setMrFocus(prev => prev ? `${prev} ${text}` : text)} />
                 <textarea value={mrFocus} onChange={e => setMrFocus(e.target.value)}
                   placeholder="다음 달에 집중하고 싶은 것은?" rows={4}
-                  className="w-full mt-1 rounded-lg px-3 py-2 border outline-none resize-none" style={inputStyle} />
+                  className="w-full rounded-lg px-3 py-2 border outline-none resize-none" style={inputStyle} />
               </div>
               {/* KPT 섹션 — 설정에서 ON 시 표시 */}
               {appSettings.showMonthlyKpt && (
                 <div className="mt-2 space-y-3">
                   <h4 style={{ fontSize: 12, fontWeight: 700, color: t.textSub }}>🔄 KPT 월간 회고</h4>
                   <div>
-                    <label style={{ fontSize: 11, color: '#006b62', fontWeight: 600 }}>Keep</label>
+                    <LabelRow label="Keep" labelColor="#006b62" onVoiceResult={text => setMrKptKeep(prev => prev ? `${prev} ${text}` : text)} />
                     <textarea value={mrKptKeep} onChange={e => setMrKptKeep(e.target.value)} rows={2}
-                      className="w-full mt-1 rounded-lg px-3 py-2 border outline-none resize-none" style={inputStyle} />
+                      className="w-full rounded-lg px-3 py-2 border outline-none resize-none" style={inputStyle} />
                   </div>
                   <div>
-                    <label style={{ fontSize: 11, color: '#D4735A', fontWeight: 600 }}>Problem</label>
+                    <LabelRow label="Problem" labelColor="#D4735A" onVoiceResult={text => setMrKptProblem(prev => prev ? `${prev} ${text}` : text)} />
                     <textarea value={mrKptProblem} onChange={e => setMrKptProblem(e.target.value)} rows={2}
-                      className="w-full mt-1 rounded-lg px-3 py-2 border outline-none resize-none" style={inputStyle} />
+                      className="w-full rounded-lg px-3 py-2 border outline-none resize-none" style={inputStyle} />
                   </div>
                   <div>
-                    <label style={{ fontSize: 11, color: '#7B9ED9', fontWeight: 600 }}>Try</label>
+                    <LabelRow label="Try" labelColor="#7B9ED9" onVoiceResult={text => setMrKptTry(prev => prev ? `${prev} ${text}` : text)} />
                     <textarea value={mrKptTry} onChange={e => setMrKptTry(e.target.value)} rows={2}
-                      className="w-full mt-1 rounded-lg px-3 py-2 border outline-none resize-none" style={inputStyle} />
+                      className="w-full rounded-lg px-3 py-2 border outline-none resize-none" style={inputStyle} />
                   </div>
                 </div>
               )}
