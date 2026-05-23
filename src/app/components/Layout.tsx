@@ -254,7 +254,9 @@ function MobileMenuOverlay({ onClose }: { onClose: () => void }) {
   const allItems = [
     ...mainNavItems,
     { to: '/projects', icon: FolderKanban, label: '프로젝트' },
-    ...lifestyleNavItems,
+    { to: '/habits', icon: Repeat, label: '습관&루틴' },
+    { to: '/selfcare', icon: Heart, label: '자기관리' },
+    { to: '/reviews', icon: BookOpen, label: '기록' },
     { to: '/settings', icon: Settings, label: '설정' },
   ];
 
@@ -290,7 +292,7 @@ function MobileMenuOverlay({ onClose }: { onClose: () => void }) {
                 }}
               >
                 <Icon size={20} color={isActive ? t.accent : t.textMuted} />
-                <span style={{ fontSize: 10, color: isActive ? t.accent : t.textSub, fontWeight: isActive ? 700 : 400, textAlign: 'center' as const }}>
+                <span style={{ fontSize: 10, color: isActive ? t.accent : t.textSub, fontWeight: isActive ? 700 : 400, textAlign: 'center' as const, whiteSpace: 'nowrap' }}>
                   {label}
                 </span>
               </NavLink>
