@@ -6,6 +6,56 @@
 
 ---
 
+## 2026-05-22
+
+### 📋 TODO
+
+### ✅ 완료
+- [x] 모바일 메뉴 레이블 줄바꿈 버그 수정 (공백 제거 + nowrap)
+- [x] 주간/월간 리뷰 PC-모바일 동기화 (Supabase weekly_reviews / monthly_reviews 테이블 연동)
+- [x] 수면 시간 동일 시각 → 24시간 표시 버그 수정 (diff < 0 조건으로 수정)
+- [x] 리뷰 데이터 Supabase 로드 후 화면 미반영 버그 수정 (useEffect 동기화)
+- [x] 습관 반복 설정 기반 자동 표시 필터링 구현 (오늘 요일 기준)
+- [x] 자기관리 기록 수정 기능 추가 (기록 행 hover → 수정/삭제 버튼)
+- [x] 습관 alarmTime → useNotification 알림 연결 (scheduleHabitAlerts)
+- [x] 루틴 반복 설정 구현 (매일/평일/주말/직접 선택, Supabase 컬럼 추가)
+
+### 🛠 오늘 작업 내용
+
+**① 버그 수정 3건**
+- `Layout.tsx`: 모바일 메뉴 '습관 & 루틴', '리뷰 & 기록' 레이블 줄바꿈 → 공백 제거 + `whiteSpace: 'nowrap'`
+- `SelfCareView.tsx`: `calcSleepMinutes` 함수 `diff <= 0` → `diff < 0` 수정 (동일 시각 0시간 처리)
+- `ReviewsView.tsx`: `useEffect` 추가 — `todayRecord`, `weeklyReview`, `monthlyReview` 각각 Supabase 로드 후 state 동기화
+
+**② 주간/월간 리뷰 Supabase 연동 완성**
+- Supabase MCP로 `weekly_reviews`, `monthly_reviews` 테이블 직접 생성
+- `db.ts`: `WeeklyReviewRow`, `MonthlyReviewRow`, `toWeeklyReview`, `fromWeeklyReview`, `toMonthlyReview`, `fromMonthlyReview`, CRUD 추가
+- `store.tsx`: 앱 로드 시 fetch → setState 연결, `addWeeklyReview` / `updateWeeklyReview` / `addMonthlyReview` / `updateMonthlyReview`에 `db.upsert()` 호출 추가
+
+**③ 습관 반복 설정 필터링**
+- `HabitsView.tsx` 습관 탭: `isHabitApplicableOnDate(h, new Date())` 필터 적용
+- 평일 전용, 주말 전용, 커스텀 요일 설정 습관이 오늘 해당하지 않으면 숨김
+
+**④ 자기관리 기록 수정 기능**
+- `store.tsx`: `updateSelfCareRecord(id, changes)` 함수 추가 → `db.selfCareRecords.upsert()` 연동
+- `SelfCareView.tsx`: `AddRecordModal`에 `editRecord?: SelfCareRecord` prop 추가 (수정 모드 지원)
+- 기록 행 hover 시 수정(✏️) / 삭제(🗑️) 버튼 표시
+
+**⑤ 습관 alarmTime → 알림 연결**
+- `useNotification.ts`: `scheduleHabitAlerts(habits, date)` 함수 추가
+  - `alarmTime` 설정 습관 → 해당 시각 푸시 알림 발송
+  - 이미 오늘 체크 완료된 습관은 skip
+- `HabitsView.tsx`: 알림 권한이 있을 때 습관 변경 시 자동 재스케줄링
+
+**⑥ 루틴 반복 설정**
+- `store.tsx`: `Routine` 인터페이스에 `repeat`, `repeatDays` 필드 추가
+- `db.ts`: `RoutineRow`에 `repeat`, `repeat_days` 컬럼, `toRoutine` / `fromRoutine` 변환 함수 업데이트
+- `RoutinesView.tsx`: `RoutineModal`에 반복 설정 UI 추가 (매일/평일/주말/직접 선택 + 요일 버튼)
+- `HabitsView.tsx`: `isRoutineApplicableToday` 필터 — 루틴 탭 목록 및 진행률을 오늘 해당 루틴만 표시
+- Supabase MCP: `routines` 테이블에 `repeat TEXT DEFAULT 'daily'`, `repeat_days INT[] DEFAULT '{}'` 컬럼 추가
+
+---
+
 ## 2026-03-30
 
 ### 📋 TODO

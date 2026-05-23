@@ -1,6 +1,6 @@
 # PROJECT_SPEC.md — My Planner PWA 기능 명세서
 
-> 최종 업데이트: 2026-04-12 (공통 +추가 메뉴, 일정 모달, events v2 스키마 반영)
+> 최종 업데이트: 2026-05-22 (미구현 기능 완료, 버그 수정, 루틴 반복 설정 추가)
 
 ---
 
@@ -146,6 +146,8 @@
 | `routines` | 루틴 | `created_at` ASC | ✅ |
 | `period_records` | 생리 기록 | `start_date` DESC | ✅ |
 | `habit_monthly_memos` | 습관별 월간 메모 + 전체 회고 | `year` ASC, `month` ASC | ✅ |
+| `weekly_reviews` | 주간 리뷰 | `week_key` DESC | ✅ |
+| `monthly_reviews` | 월간 리뷰 | `month` DESC | ✅ |
 
 ### 2-2. 테이블별 컬럼 상세
 
@@ -347,7 +349,28 @@ duration            int|null    소요 시간 (분)
 steps               text[]      단계 목록
 step_youtube_urls   text[]      단계별 YouTube URL (steps와 인덱스 1:1 대응)
 checked_dates       text[]      완료 날짜 배열 (yyyy-MM-dd)
+repeat              text        daily|weekday|weekend|custom (기본값: 'daily')
+repeat_days         int[]       반복 요일 (0=일 ~ 6=토, custom일 때 사용)
 created_at          timestamptz 생성일시
+```
+
+#### `weekly_reviews`
+```
+id          text        PK
+week_key    text        UNIQUE (예: 2026-W21)
+good        text        좋았던 것
+hard        text        힘들었던 것
+next_week   text        다음 주 다짐
+created_at  timestamptz 생성일시
+```
+
+#### `monthly_reviews`
+```
+id           text        PK
+month        text        UNIQUE (예: 2026-05)
+achievement  text        이달의 성취
+next_focus   text        다음 달 집중
+created_at   timestamptz 생성일시
 ```
 
 ---
@@ -429,8 +452,8 @@ store.tsx (PlannerContext)
 | 브레인덤프 메모 | ✅ | ✅ | ✅ | — | ✅ 연동 |
 | 태그 | ✅ | ✅ | ✅ | ✅ | ✅ 연동 |
 | 루틴 | ✅ | ✅ | ✅ | ✅ | ✅ 연동 |
-| 주간 리뷰 | ✅ | ✅ | ✅ | — | ❌ 메모리 (테이블 없음) |
-| 월간 리뷰 | ✅ | ✅ | ✅ | — | ❌ 메모리 (테이블 없음) |
+| 주간 리뷰 | ✅ | ✅ | ✅ | — | ✅ 연동 (weekly_reviews 테이블) |
+| 월간 리뷰 | ✅ | ✅ | ✅ | — | ✅ 연동 (monthly_reviews 테이블) |
 
 ### ✅ UI/UX 기능
 
@@ -456,6 +479,11 @@ store.tsx (PlannerContext)
 - **모바일 일간 탭 UI** — 모바일에서 할일 목록 / 타임라인 탭 전환 (`mobileTab` state, `lg:hidden` 탭 바), 데스크탑 좌우 분할 유지
 - **모바일 캘린더 스크롤 구조** — 주별/일별 헤더 고정 + 타임라인 내부 단일 스크롤, 7열 자동 축소
 - **공통 ConfirmModal** — `window.confirm()` 대체, `confirmDanger` prop으로 삭제(빨간)/일반(골드) 버튼 구분, 배경 클릭·ESC 닫기 (`ConfirmModal.tsx`)
+- **자기관리 기록 수정** — 기록 행 hover 시 수정(✏️)/삭제(🗑️) 버튼 표시, `AddRecordModal` 수정 모드 지원 (`SelfCareView.tsx`)
+- **습관 반복 설정 필터링** — 습관 탭에서 `isHabitApplicableOnDate` 적용, 오늘 요일에 해당하는 습관만 표시 (`HabitsView.tsx`)
+- **습관 alarmTime 알림 연결** — `scheduleHabitAlerts(habits, date)` 추가, 알림 설정 시각에 푸시 알림 발송, 체크 완료 습관 skip (`useNotification.ts`)
+- **루틴 반복 설정** — 루틴 편집 모달에 매일/평일/주말/직접 선택 UI, 오늘 해당 루틴만 목록/진행률 표시, Supabase `repeat`/`repeat_days` 컬럼 추가 (`RoutinesView.tsx`, `HabitsView.tsx`)
+- **주간/월간 리뷰 Supabase 연동** — `weekly_reviews`, `monthly_reviews` 테이블 생성 및 CRUD 완성, 데이터 로드 후 state 동기화 (`store.tsx`, `db.ts`, `ReviewsView.tsx`)
 - **자기관리 생리 기록** — 접기/펼치기 섹션, 시작일/종료일/흘림양/증상/메모 입력, 과거 기록 기반 평균 주기 + 다음 예상 시작일 자동 계산 (`SelfCareView.tsx` `PeriodSection`)
 - **캘린더 생리 기간 핑크 점** — MonthView 날짜 셀에 period_records 기간 해당 날짜 핑크 원 표시 (`CalendarView.tsx`)
 - **습관 트래커 탭 (FM002 스타일)** — 월별 날짜 점 히트맵 (PC: grid 균등, 모바일: 가로 스크롤), 습관 이유 표시, 이번달 메모 인라인 편집, 월간 회고 섹션 (`HabitsView.tsx` `HabitTrackerView`)
@@ -489,27 +517,12 @@ store.tsx (PlannerContext)
 
 ### ⚠️ 새로고침 시 데이터 소실 (Supabase 미연동)
 
-| 데이터 | 영향 페이지 | 상태 |
-|--------|-----------|:----:|
-| 일정 (Event) | 일간, 캘린더 | ✅ 연동 완료 |
-| 주간 목표 | 주간, 월간, 대시보드 | ✅ 연동 완료 |
-| 월간 목표 | 월간, 대시보드 | ✅ 연동 완료 |
-| 브레인덤프 아이템 | 브레인스토밍 컴포넌트(현재 라우트 미연결) | ✅ 연동 완료 |
-| 브레인덤프 메모 | 브레인스토밍 컴포넌트(현재 라우트 미연결) | ✅ 연동 완료 |
-| 태그 | 할일 모달 | ✅ 연동 완료 (최초 실행 시 기본 5개 자동 시드) |
-| 주간 리뷰 | 리뷰 | ❌ 테이블 없음 |
-| 월간 리뷰 | 리뷰 | ❌ 테이블 없음 |
-| 루틴 | 습관&루틴 탭 | ✅ 연동 완료 |
+모든 데이터 Supabase 연동 완료 ✅
 
 ### ❌ 미구현 기능
 
 | 기능 | 설명 |
 |------|------|
-| 리뷰(Weekly/Monthly Review) Supabase 저장 | 테이블 없음, 설계 및 생성 필요 |
-| 자기관리 기록 수정(Update) | 삭제 후 재등록만 가능 |
-| 습관 alarmTime → 알림 연결 | `useNotification` 알림 시스템 구현됨, 하지만 HabitModal의 `alarmTime`은 DB 저장만 됨 — 습관 알림 스케줄링 별도 구현 필요 |
-| 습관 반복 설정 기반 자동 표시 | `repeat_days` 저장되나 필터링 로직 미구현 |
-| 루틴 반복 설정 | 현재 매일 표시 — weekly/custom 반복 필터 미구현 |
 | PWA 오프라인 모드 | 기본 service worker 캐시(`network-first + cache fallback`)는 있으나 정교한 오프라인 동기화/캐시 정책은 미구현 |
 | 데이터 내보내기/가져오기 | 미구현 |
 | 사용자 인증 (멀티유저) | 현재 단일 사용자 구조 |
