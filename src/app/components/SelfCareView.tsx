@@ -627,17 +627,23 @@ function SleepSection() {
   );
 }
 
-function AddRecordModal({ onClose }: { onClose: () => void }) {
-  const { addSelfCareRecord } = usePlanner();
+function AddRecordModal({ onClose, editRecord }: { onClose: () => void; editRecord?: SelfCareRecord }) {
+  const { addSelfCareRecord, updateSelfCareRecord } = usePlanner();
   const { t } = useTheme();
-  const [category, setCategory] = useState<'exercise' | 'study' | 'beauty'>('exercise');
-  const [content, setContent] = useState('');
-  const [duration, setDuration] = useState(30);
-  const [date, setDate] = useState(format(new Date(), 'yyyy-MM-dd'));
+  const [category, setCategory] = useState<'exercise' | 'study' | 'beauty'>(
+    (editRecord?.category as 'exercise' | 'study' | 'beauty') ?? 'exercise'
+  );
+  const [content, setContent] = useState(editRecord?.content ?? '');
+  const [duration, setDuration] = useState(editRecord?.duration ?? 30);
+  const [date, setDate] = useState(editRecord?.date ?? format(new Date(), 'yyyy-MM-dd'));
 
   const handleSubmit = () => {
     if (!content.trim()) return;
-    addSelfCareRecord({ date, category, content: content.trim(), duration });
+    if (editRecord) {
+      updateSelfCareRecord(editRecord.id, { date, category, content: content.trim(), duration });
+    } else {
+      addSelfCareRecord({ date, category, content: content.trim(), duration });
+    }
     onClose();
   };
 
@@ -645,7 +651,7 @@ function AddRecordModal({ onClose }: { onClose: () => void }) {
     <div className="fixed inset-0 z-50 flex items-center justify-center" style={{ backgroundColor: 'rgba(0,0,0,0.4)' }}>
       <div className="rounded-2xl shadow-xl w-[400px]" style={{ backgroundColor: t.card, border: `1px solid ${t.border}` }}>
         <div className="flex items-center justify-between px-5 py-4 border-b" style={{ borderColor: t.border }}>
-          <h3 style={{ fontSize: 15, fontWeight: 700, color: t.text }}>기록 추가</h3>
+          <h3 style={{ fontSize: 15, fontWeight: 700, color: t.text }}>{editRecord ? '기록 수정' : '기록 추가'}</h3>
           <button onClick={onClose} className="p-1 rounded-lg" style={{ color: t.textMuted }}><X size={18} /></button>
         </div>
         <div className="px-5 py-4 space-y-4">
@@ -685,7 +691,9 @@ function AddRecordModal({ onClose }: { onClose: () => void }) {
         </div>
         <div className="flex gap-2 px-5 py-4 border-t" style={{ borderColor: t.border }}>
           <button onClick={onClose} className="flex-1 py-2 rounded-xl" style={{ fontSize: 13, color: t.textSub, backgroundColor: t.bgSub }}>취소</button>
-          <button onClick={handleSubmit} className="flex-1 py-2 rounded-xl" style={{ fontSize: 13, fontWeight: 600, backgroundColor: t.accent, color: '#fff' }}>추가</button>
+          <button onClick={handleSubmit} className="flex-1 py-2 rounded-xl" style={{ fontSize: 13, fontWeight: 600, backgroundColor: t.accent, color: '#fff' }}>
+            {editRecord ? '수정' : '추가'}
+          </button>
         </div>
       </div>
     </div>
@@ -693,9 +701,10 @@ function AddRecordModal({ onClose }: { onClose: () => void }) {
 }
 
 export function SelfCareView() {
-  const { selfCareRecords } = usePlanner();
+  const { selfCareRecords, deleteSelfCareRecord } = usePlanner();
   const { t } = useTheme();
   const [showAdd, setShowAdd] = useState(false);
+  const [editRecord, setEditRecord] = useState<SelfCareRecord | null>(null);
 
   const currentMonth = format(new Date(), 'yyyy-MM');
   const monthRecords = selfCareRecords.filter(r => r.date.startsWith(currentMonth));
@@ -769,11 +778,19 @@ export function SelfCareView() {
               </div>
               <div className="space-y-2">
                 {catRecords.slice(0, 5).map(r => (
-                  <div key={r.id} className="flex items-center gap-3 px-4 py-2.5 rounded-xl"
+                  <div key={r.id} className="flex items-center gap-3 px-4 py-2.5 rounded-xl group"
                     style={{ backgroundColor: t.card, border: `1px solid ${t.borderLight}` }}>
                     <span style={{ fontSize: 11, color: t.textMuted, width: 80 }}>{r.date.slice(5)}</span>
                     <span style={{ fontSize: 13, color: t.text, flex: 1 }}>{r.content}</span>
                     <span style={{ fontSize: 11, color: cat.color, fontWeight: 600 }}>{r.duration}분</span>
+                    <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <button onClick={() => setEditRecord(r)} className="p-1 rounded" style={{ color: t.textMuted }}>
+                        <Pencil size={12} />
+                      </button>
+                      <button onClick={() => deleteSelfCareRecord(r.id)} className="p-1 rounded" style={{ color: t.textMuted }}>
+                        <Trash2 size={12} />
+                      </button>
+                    </div>
                   </div>
                 ))}
                 {catRecords.length === 0 && (
@@ -800,6 +817,7 @@ export function SelfCareView() {
       </div>
 
       {showAdd && <AddRecordModal onClose={() => setShowAdd(false)} />}
+      {editRecord && <AddRecordModal editRecord={editRecord} onClose={() => setEditRecord(null)} />}
     </div>
   );
 }

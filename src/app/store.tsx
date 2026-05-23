@@ -99,6 +99,8 @@ export interface Routine {
   stepYoutubeUrls?: string[]; // backward compat
   routineSteps?: RoutineStep[]; // structured steps (new)
   checkedDates: string[];
+  repeat?: 'daily' | 'weekday' | 'weekend' | 'custom';
+  repeatDays?: number[]; // 0=일 ~ 6=토
 }
 
 /** routineSteps 합산 or 기존 duration 반환 */
@@ -445,6 +447,7 @@ interface PlannerContextType {
 
   // Self-care actions
   addSelfCareRecord: (record: Omit<SelfCareRecord, 'id'>) => void;
+  updateSelfCareRecord: (id: string, changes: Partial<Omit<SelfCareRecord, 'id'>>) => void;
   deleteSelfCareRecord: (id: string) => void;
 
   // Period actions
@@ -961,6 +964,15 @@ export function PlannerProvider({ children }: { children: React.ReactNode }) {
     db.selfCareRecords.upsert(newRecord);
   }, []);
 
+  const updateSelfCareRecord = useCallback((id: string, changes: Partial<Omit<SelfCareRecord, 'id'>>) => {
+    setSelfCareRecords(prev => prev.map(r => {
+      if (r.id !== id) return r;
+      const updated = { ...r, ...changes };
+      db.selfCareRecords.upsert(updated);
+      return updated;
+    }));
+  }, []);
+
   const deleteSelfCareRecord = useCallback((id: string) => {
     setSelfCareRecords(prev => prev.filter(r => r.id !== id));
     db.selfCareRecords.delete(id);
@@ -1417,7 +1429,7 @@ export function PlannerProvider({ children }: { children: React.ReactNode }) {
       updateHabitProgress, updateHabitMemo,
       habitMonthlyMemos, setHabitMonthlyMemo,
       addRoutine, updateRoutine, deleteRoutine, toggleRoutineDate,
-      addSelfCareRecord, deleteSelfCareRecord,
+      addSelfCareRecord, updateSelfCareRecord, deleteSelfCareRecord,
       addPeriodRecord, updatePeriodRecord, deletePeriodRecord,
       addReviewRecord, updateReviewRecord, deleteReviewRecord,
       addWeeklyReview, updateWeeklyReview,
