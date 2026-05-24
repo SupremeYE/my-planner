@@ -6,6 +6,59 @@
 
 ---
 
+## 2026-05-25
+
+### 📋 TODO
+
+### ✅ 완료
+- [x] 식단 오늘 탭 날짜 헤더 표시
+- [x] 식단 통계 탭 기간 필터 추가 (이번달/지난달/최근14일/직접선택)
+- [x] 식단 달력 PC 레이아웃 버그 수정 (max-w 제약 제거, 셀 높이 수학적 계산)
+- [x] 식단 사진 업로드 안 되는 버그 수정 (Supabase storage RLS 정책 추가)
+- [x] 식단 달력 탭 선택 날짜 기록에 수정/삭제 기능 추가 (FoodCard 교체)
+- [x] 식사 유형에 ☕ 커피 추가
+- [x] 맛 평가 메모 기능 추가 (평가 선택 시 한 줄 메모 입력, tasteMemo 저장)
+
+### 🛠 오늘 작업 내용
+
+**① 식단 오늘 탭 날짜 헤더 (`FoodView.tsx`)**
+- 요약 카드 위에 `2026년 5월 25일 (월)` 형식 날짜 표시
+
+**② 식단 통계 탭 기간 필터 (`FoodView.tsx`, `StatsTab`)**
+- 필터 칩: `[이번달] [지난달] [최근14일] [직접선택]`
+- 직접선택: `◀ 2026년 5월 ▶` 월 네비게이션
+- 식비 총액 레이블 동적 변경 (`5월 식비 총액`, `최근 14일 식비` 등)
+- 칼로리 차트: 최근14일 → 일별 14개, 이번달/지난달/직접선택 → 해당 달 전체 일별 데이터
+- 식사유형 횟수·도넛·TOP5·맛있었던 것 모두 선택 기간 기준으로 필터링
+
+**③ 식단 달력 접기/펼치기 + PC 레이아웃 버그 수정 (`FoodView.tsx`, `CalendarTab`)**
+- `max-w-sm/md` 제약 제거 → PC에서 가로 너비 꽉 채움
+- `overflow-hidden` 내부 `getBoundingClientRect()` 측정 문제 해결
+  → 컨테이너 너비 `ResizeObserver` 측정 → `cellW * 4/3 = cellH` 수학적 계산
+- `collapsedH / expandedH` 정확히 계산해 접힘·펼침 모두 잘리지 않음
+- Supabase `food-photos` 버킷에 anon INSERT/UPDATE/DELETE/SELECT 정책 추가
+  → 갤러리/카메라 사진 업로드 정상 작동
+
+**④ 식단 달력 탭 수정/삭제 기능 (`FoodView.tsx`, `CalendarTab`)**
+- 선택 날짜 기록 목록: 단순 버튼 → `FoodCard` 컴포넌트로 교체
+- 연필(수정) · 휴지통(삭제, ConfirmModal 포함) 버튼 표시
+- 오늘 탭과 동일한 UX
+
+**⑤ 식사 유형 ☕ 커피 추가**
+- `DiningType`에 `'coffee'` 추가 (`store.tsx`)
+- `foodIcons.ts`: `coffee: '☕'` 아이콘/레이블 추가
+- `FoodView` DINING_TYPES 배열 및 DINING_DOT_COLOR에 coffee 추가
+
+**⑥ 맛 평가 메모 기능**
+- `FoodRecord`에 `tasteMemo?: string | null` 추가 (`store.tsx`)
+- Supabase `food_records` 테이블에 `taste_memo TEXT` 컬럼 추가 (마이그레이션)
+- `db.ts` fetchAll/upsert에 `taste_memo` 매핑 추가
+- `AddFoodSheet` step 7: 맛 평가 선택 시 한 줄 메모 입력폼 표출 (최대 50자, 저장하기 버튼 위)
+- `FoodCard`: 맛 이모지 옆에 `tasteMemo` 텍스트 표시
+- 수정 모드에서도 기존 메모 불러와 편집 가능
+
+---
+
 ## 2026-05-24
 
 ### 📋 TODO
