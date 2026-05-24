@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Search, X, Plus, BookOpen, ChevronRight, Tag, Trash2, BookMarked, Check } from 'lucide-react';
+import { Search, X, Plus, BookOpen, ChevronRight, Tag, Trash2, BookMarked, Check, Mic, Star } from 'lucide-react';
 import { useTheme } from '../ThemeContext';
 import { format } from 'date-fns';
 import { ko } from 'date-fns/locale';
@@ -14,6 +14,7 @@ type Quote = {
   text: string;
   page?: number;
   tags: string[];
+  starred: boolean;
   createdAt: string;
 };
 
@@ -54,10 +55,11 @@ const STATUS_COLORS: Record<BookStatus, string> = {
   done: '#D4735A',
 };
 
-const TAB_LIST: { key: BookStatus | 'stats'; label: string }[] = [
+const TAB_LIST: { key: BookStatus | 'quotes' | 'stats'; label: string }[] = [
   { key: 'reading', label: '읽는 중' },
   { key: 'want', label: '읽고 싶어요' },
   { key: 'done', label: '완독' },
+  { key: 'quotes', label: '구절' },
   { key: 'stats', label: '통계' },
 ];
 
@@ -373,6 +375,10 @@ function BookDetailModal({
   const [activeTab, setActiveTab] = useState<'progress' | 'quotes'>('progress');
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [confirmDeleteQuote, setConfirmDeleteQuote] = useState<string | null>(null);
+  const [isRecording, setIsRecording] = useState(false);
+  const recognitionRef = useRef<any>(null);
+  const hasSpeechApi = typeof window !== 'undefined' &&
+    ('SpeechRecognition' in window || 'webkitSpeechRecognition' in window);
 
   const pct = totalPages && parseInt(totalPages) > 0
     ? Math.min(100, Math.round((parseInt(currentPage || '0') / parseInt(totalPages)) * 100))
@@ -407,6 +413,26 @@ function BookDetailModal({
     onUpdate(updated);
   };
 
+  const toggleRecording = () => {
+    if (isRecording) {
+      recognitionRef.current?.stop();
+      setIsRecording(false);
+      return;
+    }
+    const SR = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    const recognition = new SR();
+    recognition.lang = 'ko-KR';
+    recognition.interimResults = false;
+    recognition.onresult = (e: any) => {
+      const transcript = e.results[0][0].transcript;
+      setQuoteText(prev => prev ? prev + ' ' + transcript : transcript);
+    };
+    recognition.onend = () => setIsRecording(false);
+    recognitionRef.current = recognition;
+    recognition.start();
+    setIsRecording(true);
+  };
+
   const handleAddQuote = () => {
     if (!quoteText.trim()) return;
     const tags = quoteTags.split(/[,#\s]+/).map(t => t.trim()).filter(Boolean);
@@ -415,6 +441,7 @@ function BookDetailModal({
       text: quoteText.trim(),
       page: quotePage ? parseInt(quotePage) : undefined,
       tags,
+      starred: false,
       createdAt: format(new Date(), 'yyyy-MM-dd'),
     };
     // Supabase 저장
@@ -424,6 +451,7 @@ function BookDetailModal({
       text: quote.text,
       page: quote.page ?? null,
       tags: quote.tags,
+      starred: false,
       created_at: quote.createdAt,
     }).then(({ error }) => {
       if (error) console.error('[book_quotes] insert:', error.message);
@@ -432,6 +460,17 @@ function BookDetailModal({
     setQuoteText('');
     setQuotePage('');
     setQuoteTags('');
+  };
+
+  const handleToggleFavorite = (qid: string) => {
+    const target = book.quotes.find(q => q.id === qid);
+    if (!target) return;
+    const newFav = !target.starred;
+    onUpdate({ ...book, quotes: book.quotes.map(q => q.id === qid ? { ...q, starred: newFav } : q) });
+    supabase.from('book_quotes').update({ starred: newFav }).eq('id', qid)
+      .then(({ error }) => {
+        if (error) console.error('[book_quotes] starred:', error.message);
+      });
   };
 
   const handleDeleteQuote = (qid: string) => {
@@ -597,25 +636,31 @@ function BookDetailModal({
             {/* 구절 탭 */}
             {activeTab === 'quotes' && (
               <>
-                {/* 구절 입력 */}
+                {/* 구절 입력 영역 */}
                 <div className="p-3 rounded-xl space-y-2"
                   style={{ backgroundColor: t.card, border: `1px solid ${t.border}` }}>
                   <textarea
                     value={quoteText}
                     onChange={e => setQuoteText(e.target.value)}
-                    placeholder="좋은 구절을 입력하세요..."
-                    rows={3}
-                    className="w-full resize-none outline-none text-sm"
-                    style={{ backgroundColor: 'transparent', color: t.text }}
+                    placeholder="마음에 남는 문장을 기록해보세요..."
+                    className="w-full resize-none outline-none"
+                    style={{
+                      backgroundColor: 'transparent',
+                      color: t.text,
+                      fontFamily: 'Georgia, "Noto Serif KR", serif',
+                      fontSize: 14,
+                      minHeight: 80,
+                      lineHeight: 1.75,
+                    }}
                   />
-                  <div className="flex gap-2">
+                  <div className="flex gap-2 items-center">
                     <input
                       type="number"
                       value={quotePage}
                       onChange={e => setQuotePage(e.target.value)}
                       placeholder="페이지"
-                      className="w-20 rounded-lg px-2 py-1.5 outline-none text-xs"
-                      style={{ backgroundColor: t.bgSub, border: `1px solid ${t.border}`, color: t.text }}
+                      className="rounded-lg px-2 py-1.5 outline-none text-xs"
+                      style={{ width: 80, backgroundColor: t.bgSub, border: `1px solid ${t.border}`, color: t.text }}
                     />
                     <input
                       value={quoteTags}
@@ -624,11 +669,30 @@ function BookDetailModal({
                       className="flex-1 rounded-lg px-2 py-1.5 outline-none text-xs"
                       style={{ backgroundColor: t.bgSub, border: `1px solid ${t.border}`, color: t.text }}
                     />
+                    {hasSpeechApi && (
+                      <button
+                        onClick={toggleRecording}
+                        className="p-1.5 rounded-lg transition-all"
+                        style={{
+                          backgroundColor: isRecording ? '#D4735A' : t.bgSub,
+                          border: `1px solid ${isRecording ? '#D4735A' : t.border}`,
+                          color: isRecording ? '#fff' : t.textMuted,
+                        }}
+                        title="음성 입력"
+                      >
+                        <Mic size={14} />
+                      </button>
+                    )}
                     <button
                       onClick={handleAddQuote}
                       disabled={!quoteText.trim()}
                       className="px-3 py-1.5 rounded-lg"
-                      style={{ backgroundColor: t.accent, color: '#fff', fontSize: 12, fontWeight: 600 }}
+                      style={{
+                        backgroundColor: quoteText.trim() ? t.accent : t.bgSub,
+                        color: quoteText.trim() ? '#fff' : t.textMuted,
+                        fontSize: 12,
+                        fontWeight: 600,
+                      }}
                     >
                       저장
                     </button>
@@ -643,33 +707,51 @@ function BookDetailModal({
                     </p>
                   )}
                   {book.quotes.map(q => (
-                    <div key={q.id} className="p-3 rounded-xl"
-                      style={{ backgroundColor: t.card, border: `1px solid ${t.border}` }}>
-                      <div className="flex items-start justify-between gap-2">
-                        <p style={{ fontSize: 13, color: t.text, lineHeight: 1.6, flex: 1 }}>
-                          "{q.text}"
-                        </p>
-                        <button
-                          onClick={() => setConfirmDeleteQuote(q.id)}
-                          style={{ color: t.textMuted, flexShrink: 0 }}
-                        >
-                          <X size={14} />
-                        </button>
-                      </div>
-                      <div className="flex items-center gap-2 mt-2 flex-wrap">
-                        {q.page && (
-                          <span style={{ fontSize: 10, color: t.textMuted }}>{q.page}p</span>
-                        )}
-                        {q.tags.map(tag => (
-                          <span key={tag}
-                            className="px-1.5 py-0.5 rounded-md"
-                            style={{ fontSize: 10, backgroundColor: t.accentLight, color: t.accent }}>
-                            #{tag}
+                    <div key={q.id} className="flex rounded-xl overflow-hidden"
+                      style={{ border: `1px solid ${t.border}` }}>
+                      {/* 왼쪽 accent 라인 */}
+                      <div style={{ width: 3, backgroundColor: t.accent, flexShrink: 0 }} />
+                      {/* 내용 */}
+                      <div className="flex-1 p-3" style={{ backgroundColor: t.card }}>
+                        <div className="flex items-start justify-between gap-2">
+                          <p style={{
+                            fontSize: 13,
+                            color: t.text,
+                            lineHeight: 1.75,
+                            flex: 1,
+                            fontFamily: 'Georgia, "Noto Serif KR", serif',
+                          }}>
+                            {q.text}
+                          </p>
+                          <button
+                            onClick={() => setConfirmDeleteQuote(q.id)}
+                            style={{ color: t.textMuted, flexShrink: 0 }}
+                          >
+                            <X size={13} />
+                          </button>
+                        </div>
+                        <div className="flex items-center gap-2 mt-2 flex-wrap">
+                          <span style={{ fontSize: 11, color: t.textSub, fontWeight: 600 }} className="truncate max-w-[6rem]">
+                            {book.title}
                           </span>
-                        ))}
-                        <span style={{ fontSize: 10, color: t.textMuted, marginLeft: 'auto' }}>
-                          {q.createdAt}
-                        </span>
+                          {q.page && (
+                            <span style={{ fontSize: 10, color: t.textMuted }}>{q.page}p</span>
+                          )}
+                          {q.tags.map(tag => (
+                            <span key={tag}
+                              className="px-1.5 py-0.5 rounded-md"
+                              style={{ fontSize: 10, backgroundColor: t.accentLight, color: t.accent }}>
+                              #{tag}
+                            </span>
+                          ))}
+                          <button
+                            onClick={() => handleToggleFavorite(q.id)}
+                            className="ml-auto"
+                            style={{ color: q.starred ? '#C4A882' : t.textMuted }}
+                          >
+                            <Star size={14} fill={q.starred ? '#C4A882' : 'none'} />
+                          </button>
+                        </div>
                       </div>
                     </div>
                   ))}
@@ -710,8 +792,167 @@ function BookDetailModal({
   );
 }
 
+// ─── 구절 패널 ──────────────────────────────────────────────────────────
+type QuoteWithBook = Quote & { bookTitle: string; bookId: string };
+
+function QuotesPanel({
+  books,
+  onToggleFavorite,
+}: {
+  books: Book[];
+  onToggleFavorite: (bookId: string, quoteId: string) => void;
+}) {
+  const { t } = useTheme();
+  const [searchText, setSearchText] = useState('');
+  const [activeFilter, setActiveFilter] = useState<string>('all');
+  const [sortBy, setSortBy] = useState<'recent' | 'book'>('recent');
+
+  const allQuotes: QuoteWithBook[] = books.flatMap(b =>
+    b.quotes.map(q => ({ ...q, bookTitle: b.title, bookId: b.id }))
+  );
+
+  const allTags = Array.from(new Set(allQuotes.flatMap(q => q.tags))).filter(Boolean);
+
+  let filtered = allQuotes;
+  if (searchText.trim()) {
+    const q = searchText.trim().toLowerCase();
+    filtered = filtered.filter(item => item.text.toLowerCase().includes(q));
+  }
+  if (activeFilter === 'fav') {
+    filtered = filtered.filter(q => q.starred);
+  } else if (activeFilter !== 'all') {
+    filtered = filtered.filter(q => q.tags.includes(activeFilter));
+  }
+  if (sortBy === 'recent') {
+    filtered = [...filtered].sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+  } else {
+    filtered = [...filtered].sort((a, b) => a.bookTitle.localeCompare(b.bookTitle));
+  }
+
+  const chips = [
+    { key: 'all', label: '전체' },
+    { key: 'fav', label: '즐겨찾기' },
+    ...allTags.map(tag => ({ key: tag, label: `#${tag}` })),
+  ];
+
+  return (
+    <div className="space-y-3">
+      {/* 검색 */}
+      <div className="flex items-center gap-2 px-3 py-2 rounded-xl"
+        style={{ backgroundColor: t.card, border: `1px solid ${t.border}` }}>
+        <Search size={14} color={t.textMuted} />
+        <input
+          value={searchText}
+          onChange={e => setSearchText(e.target.value)}
+          placeholder="저장된 문장 검색..."
+          className="flex-1 outline-none bg-transparent text-sm"
+          style={{ color: t.text }}
+        />
+        {searchText && (
+          <button onClick={() => setSearchText('')}>
+            <X size={14} color={t.textMuted} />
+          </button>
+        )}
+      </div>
+
+      {/* 태그 필터 + 정렬 */}
+      <div className="flex items-center gap-2">
+        <div className="flex gap-1.5 overflow-x-auto flex-1" style={{ scrollbarWidth: 'none' }}>
+          {chips.map(chip => (
+            <button
+              key={chip.key}
+              onClick={() => setActiveFilter(chip.key)}
+              className="px-2.5 py-1 rounded-full whitespace-nowrap flex-shrink-0 transition-all"
+              style={{
+                fontSize: 11,
+                fontWeight: activeFilter === chip.key ? 700 : 400,
+                backgroundColor: activeFilter === chip.key ? t.accent : t.card,
+                color: activeFilter === chip.key ? '#fff' : t.textSub,
+                border: `1px solid ${activeFilter === chip.key ? t.accent : t.border}`,
+              }}
+            >
+              {chip.label}
+            </button>
+          ))}
+        </div>
+        <button
+          onClick={() => setSortBy(s => s === 'recent' ? 'book' : 'recent')}
+          className="flex-shrink-0 px-2.5 py-1 rounded-lg"
+          style={{
+            fontSize: 11,
+            backgroundColor: t.card,
+            color: t.textSub,
+            border: `1px solid ${t.border}`,
+          }}
+        >
+          {sortBy === 'recent' ? '최신순' : '책별'}
+        </button>
+      </div>
+
+      {/* 구절 목록 */}
+      {filtered.length === 0 ? (
+        <div className="flex flex-col items-center justify-center py-16">
+          <p style={{ fontSize: 14, color: t.textMuted }}>
+            {searchText || activeFilter !== 'all' ? '검색 결과가 없어요' : '저장된 구절이 없어요'}
+          </p>
+        </div>
+      ) : (
+        <div className="space-y-2">
+          {filtered.map(q => (
+            <div key={q.id} className="flex rounded-xl overflow-hidden"
+              style={{ border: `1px solid ${t.border}` }}>
+              <div style={{ width: 3, backgroundColor: t.accent, flexShrink: 0 }} />
+              <div className="flex-1 p-3" style={{ backgroundColor: t.card }}>
+                <p style={{
+                  fontSize: 13,
+                  color: t.text,
+                  lineHeight: 1.75,
+                  fontFamily: 'Georgia, "Noto Serif KR", serif',
+                }}>
+                  {q.text}
+                </p>
+                <div className="flex items-center gap-2 mt-2 flex-wrap">
+                  <span style={{ fontSize: 11, color: t.textSub, fontWeight: 600 }}>
+                    {q.bookTitle}{q.page ? ` · p.${q.page}` : ''}
+                  </span>
+                  {q.tags.map(tag => (
+                    <span key={tag} className="px-1.5 py-0.5 rounded-md"
+                      style={{ fontSize: 10, backgroundColor: t.accentLight, color: t.accent }}>
+                      #{tag}
+                    </span>
+                  ))}
+                  <button
+                    onClick={() => onToggleFavorite(q.bookId, q.id)}
+                    className="ml-auto"
+                    style={{ color: q.starred ? '#C4A882' : t.textMuted }}
+                  >
+                    <Star size={14} fill={q.starred ? '#C4A882' : 'none'} />
+                  </button>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ─── 통계 패널 ──────────────────────────────────────────────────────────
 function StatsPanel({ books }: { books: Book[] }) {
+  // 이달의 문장
+  const currentMonth = format(new Date(), 'yyyy-MM');
+  const allFavQuotes = books.flatMap(b =>
+    b.quotes
+      .filter(q => q.starred)
+      .map(q => ({ ...q, bookTitle: b.title }))
+  );
+  const thisMonthFav = allFavQuotes.filter(q => q.createdAt.startsWith(currentMonth));
+  const featuredQuote = thisMonthFav.length > 0
+    ? thisMonthFav[Math.floor(Math.random() * thisMonthFav.length)]
+    : allFavQuotes.length > 0
+      ? allFavQuotes[Math.floor(Math.random() * allFavQuotes.length)]
+      : null;
   const { t } = useTheme();
   const currentYear = new Date().getFullYear();
   const currentMonth = format(new Date(), 'yyyy-MM');
@@ -813,6 +1054,32 @@ function StatsPanel({ books }: { books: Book[] }) {
           </div>
         </div>
       )}
+
+      {/* 이달의 문장 */}
+      {featuredQuote && (
+        <div style={panel}>
+          <p style={{ fontSize: 12, fontWeight: 700, color: t.textSub, marginBottom: 10 }}>
+            이달의 문장
+          </p>
+          <div className="flex rounded-xl overflow-hidden" style={{ border: `1px solid ${t.border}` }}>
+            <div style={{ width: 3, backgroundColor: t.accent, flexShrink: 0 }} />
+            <div className="flex-1 p-3" style={{ backgroundColor: t.bgSub }}>
+              <p style={{
+                fontSize: 14,
+                color: t.text,
+                lineHeight: 1.8,
+                fontFamily: 'Georgia, "Noto Serif KR", serif',
+              }}>
+                {featuredQuote.text}
+              </p>
+              <p style={{ fontSize: 11, color: t.textMuted, marginTop: 8, fontWeight: 600 }}>
+                — {featuredQuote.bookTitle}
+                {featuredQuote.page ? ` · p.${featuredQuote.page}` : ''}
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -822,7 +1089,7 @@ export function BooksView() {
   const { t } = useTheme();
   const [books, setBooks] = useState<Book[]>([]);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<BookStatus | 'stats'>('reading');
+  const [activeTab, setActiveTab] = useState<BookStatus | 'quotes' | 'stats'>('reading');
   const [showSearch, setShowSearch] = useState(false);
   const [selectedBook, setSelectedBook] = useState<Book | null>(null);
 
@@ -846,6 +1113,7 @@ export function BooksView() {
           text: q.text,
           page: q.page ?? undefined,
           tags: q.tags ?? [],
+          starred: q.starred ?? false,
           createdAt: q.created_at,
         });
       }
@@ -915,7 +1183,24 @@ export function BooksView() {
     });
   };
 
-  const filteredBooks = activeTab === 'stats'
+  const handleToggleFavoriteGlobal = (bookId: string, quoteId: string) => {
+    const book = books.find(b => b.id === bookId);
+    if (!book) return;
+    const target = book.quotes.find(q => q.id === quoteId);
+    if (!target) return;
+    const newFav = !target.starred;
+    setBooks(prev => prev.map(b =>
+      b.id === bookId
+        ? { ...b, quotes: b.quotes.map(q => q.id === quoteId ? { ...q, starred: newFav } : q) }
+        : b
+    ));
+    supabase.from('book_quotes').update({ starred: newFav }).eq('id', quoteId)
+      .then(({ error }) => {
+        if (error) console.error('[book_quotes] starred:', error.message);
+      });
+  };
+
+  const filteredBooks = activeTab === 'stats' || activeTab === 'quotes'
     ? []
     : books.filter(b => b.status === activeTab);
 
@@ -950,7 +1235,11 @@ export function BooksView() {
         <div className="flex gap-1 p-1 rounded-2xl" style={{ backgroundColor: t.card }}>
           {TAB_LIST.map(tab => {
             const isActive = activeTab === tab.key;
-            const count = tab.key !== 'stats' ? tabCounts[tab.key as BookStatus] : null;
+            const totalQuoteCount = books.reduce((acc, b) => acc + b.quotes.length, 0);
+            const count =
+              tab.key === 'quotes' ? totalQuoteCount
+              : tab.key === 'stats' ? null
+              : tabCounts[tab.key as BookStatus];
             return (
               <button
                 key={tab.key}
@@ -990,6 +1279,8 @@ export function BooksView() {
           </div>
         ) : activeTab === 'stats' ? (
           <StatsPanel books={books} />
+        ) : activeTab === 'quotes' ? (
+          <QuotesPanel books={books} onToggleFavorite={handleToggleFavoriteGlobal} />
         ) : filteredBooks.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-48 gap-3">
             <BookMarked size={36} color={t.textMuted} strokeWidth={1.5} />
