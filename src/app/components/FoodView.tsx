@@ -152,35 +152,37 @@ function FoodCard({
   const taste = TASTE_OPTIONS.find(o => o.key === record.tasteRating);
   const dining = DINING_TYPES.find(d => d.key === record.diningType);
 
+  const meal = MEALS.find(m => m.key === record.mealType);
+
   return (
     <div className="flex items-center gap-3 py-2.5 px-3 rounded-xl"
       style={{ backgroundColor: t.card, border: `1px solid ${t.border}` }}>
-      {/* 사진 or 플레이스홀더 */}
+      {/* 사진: 원형 썸네일 */}
       {record.photoUrl ? (
         <img src={record.photoUrl} alt={record.foodName}
-          className="w-12 h-12 rounded-lg object-cover flex-shrink-0" />
+          className="w-12 h-12 rounded-full object-cover flex-shrink-0" />
       ) : (
-        <div className="w-12 h-12 rounded-lg flex items-center justify-center flex-shrink-0 text-2xl"
-          style={{ backgroundColor: t.bgSub }}>🍽️</div>
+        <div className="w-12 h-12 rounded-full flex items-center justify-center flex-shrink-0 text-xl"
+          style={{ backgroundColor: t.bgSub }}>
+          {meal?.emoji ?? '🍽️'}
+        </div>
       )}
 
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-1.5 flex-wrap">
           <span style={{ fontSize: 14, fontWeight: 600, color: t.text }}>{record.foodName}</span>
           {taste && <span style={{ fontSize: 12 }}>{taste.emoji}</span>}
-          {dining && <span style={{ fontSize: 11, color: t.textMuted }}>{dining.emoji} {dining.label}</span>}
         </div>
-        <div className="flex gap-2 flex-wrap mt-0.5">
+        <div className="flex items-center gap-2 flex-wrap mt-0.5">
+          {/* 식사 유형 아이콘 항상 표시 */}
+          <span style={{ fontSize: 11, color: t.textMuted }}>
+            {dining ? `${dining.emoji} ${dining.label}` : '🍽️ 미선택'}
+          </span>
           {record.calories != null && (
             <span style={{ fontSize: 11, color: t.accent }}>{record.calories} kcal</span>
           )}
           {record.amount > 0 && (
             <span style={{ fontSize: 11, color: t.textSub }}>{record.amount.toLocaleString()}원</span>
-          )}
-          {record.carbs != null && (
-            <span style={{ fontSize: 10, color: t.textMuted }}>
-              탄 {record.carbs}g · 단 {record.protein}g · 지 {record.fat}g
-            </span>
           )}
         </div>
       </div>
@@ -271,6 +273,11 @@ function TodayTab({
 
   return (
     <div className="p-4">
+      {/* 날짜 헤더 */}
+      <p style={{ fontSize: 13, fontWeight: 600, color: t.textSub, marginBottom: 12 }}>
+        {format(new Date(), 'yyyy년 M월 d일 (EEE)', { locale: ko })}
+      </p>
+
       {/* 요약 카드 */}
       <div className="grid grid-cols-2 gap-3 mb-5">
         <div className="p-3 rounded-2xl" style={{ backgroundColor: t.card, border: `1px solid ${t.border}` }}>
@@ -551,61 +558,165 @@ function CalendarTab({
 }
 
 // ─── 통계 탭 ────────────────────────────────────────────────────────
+type FilterMode = 'thisMonth' | 'lastMonth' | 'last14' | 'custom';
+
 function StatsTab({ allRecords }: { allRecords: FoodRecord[] }) {
   const { t } = useTheme();
   const { appSettings } = usePlanner();
   const now = new Date();
-  const thisMonth = format(now, 'yyyy-MM');
 
-  const monthRecords = allRecords.filter(r => r.date.startsWith(thisMonth));
+  const [filterMode, setFilterMode] = useState<FilterMode>('thisMonth');
+  // custom 모드에서 탐색 중인 달 (yyyy-MM)
+  const [customMonth, setCustomMonth] = useState(format(now, 'yyyy-MM'));
 
-  // 이번 달 식비
-  const monthTotal = monthRecords.reduce((s, r) => s + (r.amount ?? 0), 0);
+  // 기간에 해당하는 기록 필터링
+  const filteredRecords = (() => {
+    if (filterMode === 'thisMonth') {
+      const m = format(now, 'yyyy-MM');
+      return allRecords.filter(r => r.date.startsWith(m));
+    }
+    if (filterMode === 'lastMonth') {
+      const m = format(subMonths(now, 1), 'yyyy-MM');
+      return allRecords.filter(r => r.date.startsWith(m));
+    }
+    if (filterMode === 'last14') {
+      const cutoff = format(subDays(now, 13), 'yyyy-MM-dd');
+      return allRecords.filter(r => r.date >= cutoff);
+    }
+    // custom
+    return allRecords.filter(r => r.date.startsWith(customMonth));
+  })();
 
-  // 배달/외식/집밥 횟수
-  const deliveryCnt = monthRecords.filter(r => r.diningType === 'delivery').length;
-  const restaurantCnt = monthRecords.filter(r => r.diningType === 'restaurant').length;
-  const homeCnt = monthRecords.filter(r => r.diningType === 'home').length;
+  // 기간 레이블
+  const periodLabel = (() => {
+    if (filterMode === 'thisMonth') return `${now.getMonth() + 1}월 식비 총액`;
+    if (filterMode === 'lastMonth') {
+      const lm = subMonths(now, 1);
+      return `${lm.getMonth() + 1}월 식비 총액`;
+    }
+    if (filterMode === 'last14') return '최근 14일 식비';
+    const [, mm] = customMonth.split('-');
+    return `${parseInt(mm, 10)}월 식비 총액`;
+  })();
 
-  // 배달/외식/집밥 비율 (도넛 차트)
+  // 식비 합계
+  const periodTotal = filteredRecords.reduce((s, r) => s + (r.amount ?? 0), 0);
+
+  // 배달/외식/집밥 횟수 (항상 filterMode 기준)
+  const deliveryCnt = filteredRecords.filter(r => r.diningType === 'delivery').length;
+  const restaurantCnt = filteredRecords.filter(r => r.diningType === 'restaurant').length;
+  const homeCnt = filteredRecords.filter(r => r.diningType === 'home').length;
+
+  // 도넛 차트
   const diningCounts = DINING_TYPES.map(d => ({
     name: `${d.emoji} ${d.label}`,
-    value: monthRecords.filter(r => r.diningType === d.key).length,
+    value: filteredRecords.filter(r => r.diningType === d.key).length,
   })).filter(d => d.value > 0);
 
   // 자주 먹은 음식 TOP5
   const foodFreq: Record<string, number> = {};
-  monthRecords.forEach(r => { foodFreq[r.foodName] = (foodFreq[r.foodName] ?? 0) + 1; });
+  filteredRecords.forEach(r => { foodFreq[r.foodName] = (foodFreq[r.foodName] ?? 0) + 1; });
   const top5 = Object.entries(foodFreq).sort((a, b) => b[1] - a[1]).slice(0, 5);
 
   // 맛있었던 것들
-  const delicious = allRecords.filter(r => r.tasteRating === 'good').slice(0, 20);
+  const delicious = filteredRecords.filter(r => r.tasteRating === 'good').slice(0, 20);
 
-  // 최근 14일 칼로리
-  const calByDay = Array.from({ length: 14 }, (_, i) => {
-    const d = subDays(now, 13 - i);
-    const dateStr = format(d, 'yyyy-MM-dd');
-    const cal = allRecords.filter(r => r.date === dateStr).reduce((s, r) => s + (r.calories ?? 0), 0);
-    return { date: format(d, 'M/d'), calories: cal };
-  });
+  // 칼로리 차트 데이터
+  const calByDay = (() => {
+    if (filterMode === 'last14') {
+      return Array.from({ length: 14 }, (_, i) => {
+        const d = subDays(now, 13 - i);
+        const dateStr = format(d, 'yyyy-MM-dd');
+        const cal = allRecords.filter(r => r.date === dateStr).reduce((s, r) => s + (r.calories ?? 0), 0);
+        return { date: format(d, 'M/d'), calories: cal };
+      });
+    }
+    // 이번달 / 지난달 / 직접선택 → 선택 달의 일별
+    const targetMonth = filterMode === 'lastMonth'
+      ? format(subMonths(now, 1), 'yyyy-MM')
+      : filterMode === 'custom'
+        ? customMonth
+        : format(now, 'yyyy-MM');
+    const [y, m] = targetMonth.split('-').map(Number);
+    const days = getDaysInMonth(new Date(y, m - 1));
+    return Array.from({ length: days }, (_, i) => {
+      const d = new Date(y, m - 1, i + 1);
+      const dateStr = format(d, 'yyyy-MM-dd');
+      const cal = allRecords.filter(r => r.date === dateStr).reduce((s, r) => s + (r.calories ?? 0), 0);
+      return { date: String(i + 1), calories: cal };
+    });
+  })();
+
+  const calChartTitle = filterMode === 'last14' ? '최근 14일 칼로리' : (() => {
+    const targetMonth = filterMode === 'lastMonth'
+      ? format(subMonths(now, 1), 'yyyy-MM')
+      : filterMode === 'custom'
+        ? customMonth
+        : format(now, 'yyyy-MM');
+    const [, mm] = targetMonth.split('-');
+    return `${parseInt(mm, 10)}월 일별 칼로리`;
+  })();
+
+  const FILTER_CHIPS: { key: FilterMode; label: string }[] = [
+    { key: 'thisMonth', label: '이번달' },
+    { key: 'lastMonth', label: '지난달' },
+    { key: 'last14',    label: '최근 14일' },
+    { key: 'custom',    label: '직접선택' },
+  ];
 
   return (
     <div className="p-4 space-y-5">
-      {/* 이번 달 식비 */}
+      {/* 기간 필터 칩 */}
+      <div className="flex gap-2 overflow-x-auto pb-1 -mx-1 px-1">
+        {FILTER_CHIPS.map(chip => (
+          <button key={chip.key}
+            onClick={() => setFilterMode(chip.key)}
+            className="flex-shrink-0 px-3 py-1.5 rounded-full transition-colors"
+            style={{
+              backgroundColor: filterMode === chip.key ? t.accent : t.bgSub,
+              color: filterMode === chip.key ? '#fff' : t.textSub,
+              fontSize: 12, fontWeight: 600,
+            }}>
+            {chip.label}
+          </button>
+        ))}
+      </div>
+
+      {/* 직접선택: 월 네비게이션 */}
+      {filterMode === 'custom' && (
+        <div className="flex items-center justify-between px-2">
+          <button onClick={() => setCustomMonth(m => format(subMonths(new Date(m + '-01'), 1), 'yyyy-MM'))}
+            className="p-1.5 rounded-full" style={{ backgroundColor: t.bgSub }}>
+            <ChevronLeft size={16} color={t.textSub} />
+          </button>
+          <span style={{ fontSize: 14, fontWeight: 700, color: t.text }}>
+            {(() => {
+              const [y, mm] = customMonth.split('-');
+              return `${y}년 ${parseInt(mm, 10)}월`;
+            })()}
+          </span>
+          <button onClick={() => setCustomMonth(m => format(addMonths(new Date(m + '-01'), 1), 'yyyy-MM'))}
+            className="p-1.5 rounded-full" style={{ backgroundColor: t.bgSub }}>
+            <ChevronRight size={16} color={t.textSub} />
+          </button>
+        </div>
+      )}
+
+      {/* 식비 총액 */}
       <div className="p-4 rounded-2xl" style={{ backgroundColor: t.card, border: `1px solid ${t.border}` }}>
-        <p style={{ fontSize: 11, color: t.textMuted, marginBottom: 4 }}>이번 달 식비 총액</p>
+        <p style={{ fontSize: 11, color: t.textMuted, marginBottom: 4 }}>{periodLabel}</p>
         <p style={{ fontSize: 24, fontWeight: 700, color: t.text }}>
-          {monthTotal > 0 ? `${monthTotal.toLocaleString()}원` : '기록 없음'}
+          {periodTotal > 0 ? `${periodTotal.toLocaleString()}원` : '기록 없음'}
         </p>
         <p style={{ fontSize: 11, color: t.textMuted, marginTop: 4 }}>
-          총 {monthRecords.length}건
+          총 {filteredRecords.length}건
         </p>
       </div>
 
       {/* 식사 유형 횟수 */}
       {(deliveryCnt + restaurantCnt + homeCnt) > 0 && (
         <div className="p-4 rounded-2xl" style={{ backgroundColor: t.card, border: `1px solid ${t.border}` }}>
-          <p style={{ fontSize: 13, fontWeight: 700, color: t.text, marginBottom: 12 }}>이번 달 식사 유형</p>
+          <p style={{ fontSize: 13, fontWeight: 700, color: t.text, marginBottom: 12 }}>기간 내 식사 유형</p>
           <div className="grid grid-cols-3 gap-2 mb-4">
             {[
               { label: '배달', emoji: '🛵', cnt: deliveryCnt, goal: appSettings.foodGoalDelivery, color: DINING_DOT_COLOR.delivery },
@@ -729,7 +840,7 @@ function StatsTab({ allRecords }: { allRecords: FoodRecord[] }) {
       {/* 일별 칼로리 막대 그래프 */}
       <div className="p-4 rounded-2xl" style={{ backgroundColor: t.card, border: `1px solid ${t.border}` }}>
         <div className="flex items-center justify-between mb-3">
-          <p style={{ fontSize: 13, fontWeight: 700, color: t.text }}>최근 14일 칼로리</p>
+          <p style={{ fontSize: 13, fontWeight: 700, color: t.text }}>{calChartTitle}</p>
           {appSettings.foodGoalCalories != null && (
             <span style={{ fontSize: 11, color: t.textMuted }}>
               목표 {appSettings.foodGoalCalories.toLocaleString()} kcal/일
