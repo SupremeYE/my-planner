@@ -955,7 +955,6 @@ function StatsPanel({ books }: { books: Book[] }) {
       : null;
   const { t } = useTheme();
   const currentYear = new Date().getFullYear();
-  const currentMonth = format(new Date(), 'yyyy-MM');
 
   const doneBooks = books.filter(b => b.status === 'done');
   const yearDone = doneBooks.filter(b =>
