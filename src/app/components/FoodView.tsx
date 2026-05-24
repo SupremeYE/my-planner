@@ -1,14 +1,15 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import {
   format, startOfMonth, getDaysInMonth, getDay,
-  addMonths, subMonths, parseISO, isToday, isSameDay,
+  addMonths, subMonths, isToday, isSameDay,
   subDays,
 } from 'date-fns';
 import { ko } from 'date-fns/locale';
 import {
   ChevronLeft, ChevronRight, X, Camera, Image as ImageIcon,
-  Mic, MicOff, Trash2, Pencil, Search,
+  Mic, MicOff, Trash2, Pencil,
 } from 'lucide-react';
+import { MEAL_ICONS, MEAL_LABELS, DINING_ICONS, DINING_LABELS } from '../../constants/foodIcons';
 import {
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer,
   PieChart, Pie, Cell, Legend,
@@ -20,16 +21,16 @@ import ConfirmModal from './ConfirmModal';
 
 // ─── 상수 ───────────────────────────────────────────────────────────
 const MEALS: { key: MealType; label: string; emoji: string; time: string }[] = [
-  { key: 'breakfast', label: '아침',  emoji: '🌅', time: '08:00' },
-  { key: 'lunch',     label: '점심',  emoji: '☀️', time: '12:00' },
-  { key: 'dinner',    label: '저녁',  emoji: '🌙', time: '18:00' },
-  { key: 'snack',     label: '간식',  emoji: '🍪', time: '' },
+  { key: 'breakfast', label: MEAL_LABELS.breakfast, emoji: MEAL_ICONS.breakfast, time: '08:00' },
+  { key: 'lunch',     label: MEAL_LABELS.lunch,     emoji: MEAL_ICONS.lunch,     time: '12:00' },
+  { key: 'dinner',    label: MEAL_LABELS.dinner,    emoji: MEAL_ICONS.dinner,    time: '18:00' },
+  { key: 'snack',     label: MEAL_LABELS.snack,     emoji: MEAL_ICONS.snack,     time: '' },
 ];
 
 const DINING_TYPES: { key: DiningType; label: string; emoji: string }[] = [
-  { key: 'home',       label: '집밥', emoji: '🏠' },
-  { key: 'delivery',   label: '배달', emoji: '🛵' },
-  { key: 'restaurant', label: '외식', emoji: '🍴' },
+  { key: 'home',       label: DINING_LABELS.home,       emoji: DINING_ICONS.home },
+  { key: 'delivery',   label: DINING_LABELS.delivery,   emoji: DINING_ICONS.delivery },
+  { key: 'restaurant', label: DINING_LABELS.restaurant, emoji: DINING_ICONS.restaurant },
 ];
 
 const TASTE_OPTIONS: { key: TasteRating; label: string; emoji: string }[] = [
@@ -40,7 +41,7 @@ const TASTE_OPTIONS: { key: TasteRating; label: string; emoji: string }[] = [
 
 const DONUT_COLORS = ['#6BAA7A', '#D4735A', '#C4A882'];
 
-// 달력 dot 색상: home=파랑, delivery=빨강, restaurant=초록
+// 통계 탭 목표 대비 dot 색상
 const DINING_DOT_COLOR: Record<DiningType, string> = {
   home: '#4A82CC',
   delivery: '#D4735A',
@@ -48,15 +49,6 @@ const DINING_DOT_COLOR: Record<DiningType, string> = {
 };
 
 // ─── 타입 ───────────────────────────────────────────────────────────
-type NutritionResult = {
-  foodName: string;
-  calories: number;
-  carbs: number;
-  protein: number;
-  fat: number;
-  servingSize: number;
-};
-
 type AddStep = 1 | 2 | 3 | 4 | 5 | 6 | 7;
 
 type FormState = {
@@ -67,9 +59,6 @@ type FormState = {
   diningType: DiningType | null;
   amount: string;
   calories: string;
-  carbs: number | null;
-  protein: number | null;
-  fat: number | null;
   tasteRating: TasteRating | null;
 };
 
@@ -81,9 +70,6 @@ const initForm = (meal: MealType = 'breakfast'): FormState => ({
   diningType: null,
   amount: '',
   calories: '',
-  carbs: null,
-  protein: null,
-  fat: null,
   tasteRating: null,
 });
 
@@ -122,90 +108,34 @@ function VoiceInputButton({ onResult }: { onResult: (text: string) => void }) {
   );
 }
 
-// ─── 영양성분 파싱 (Edge Function과 동일한 로직, fallback용) ──────────
-function parseNutritionRaw(raw: any): NutritionResult[] {
-  const body = raw?.response?.body ?? raw?.body ?? raw;
-  const rawItems = body?.items;
-  let items: any[] = [];
-  if (Array.isArray(rawItems)) {
-    items = rawItems;
-  } else if (rawItems?.item) {
-    items = Array.isArray(rawItems.item) ? rawItems.item : [rawItems.item];
-  } else if (rawItems && typeof rawItems === 'object' && rawItems.FOOD_NM_KR) {
-    items = [rawItems];
-  }
-  return items
-    .filter((item: any) => item?.FOOD_NM_KR)
-    .map((item: any) => ({
-      foodName: item.FOOD_NM_KR as string,
-      calories: parseFloat(item.NUTR_CONT1) || 0,
-      protein: parseFloat(item.NUTR_CONT3) || 0,
-      fat: parseFloat(item.NUTR_CONT4) || 0,
-      carbs: parseFloat(item.NUTR_CONT6) || 0,
-      servingSize: parseFloat(item.SERVING_WT) || 100,
-    }));
-}
-
-const FOOD_API_DIRECT =
-  'https://apis.data.go.kr/1471000/FoodNtrCpntDbInfo01/getFoodNtrCpntDbInqD2';
-
-// ─── 영양 검색 훅 ────────────────────────────────────────────────────
-function useNutritionSearch(query: string) {
-  const [results, setResults] = useState<NutritionResult[]>([]);
+// ─── AI 칼로리 추정 훅 ────────────────────────────────────────────────
+function useCalorieEstimate() {
   const [loading, setLoading] = useState(false);
-  const [searched, setSearched] = useState(false); // 검색 시도 여부
-  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [estimated, setEstimated] = useState<number | null>(null);
 
-  useEffect(() => {
-    if (timerRef.current) clearTimeout(timerRef.current);
-    if (query.trim().length < 1) {
-      setResults([]);
-      setSearched(false);
-      return;
-    }
-    timerRef.current = setTimeout(async () => {
-      setLoading(true);
-      setSearched(false);
-      let found: NutritionResult[] = [];
-
-      // 1차: Vercel Edge Function 프록시
-      try {
-        const res = await fetch(`/api/food-nutrition?query=${encodeURIComponent(query)}`);
-        if (res.ok) {
-          const data = await res.json();
-          found = data.results ?? [];
-        }
-      } catch {
-        // 프록시 실패 시 직접 호출 시도 (로컬 dev용)
+  const estimate = useCallback(async (input: string) => {
+    if (!input.trim()) return;
+    setLoading(true);
+    setEstimated(null);
+    try {
+      const res = await fetch(`/api/food-calorie?input=${encodeURIComponent(input)}`);
+      if (res.ok) {
+        const data = await res.json();
+        if (typeof data.calories === 'number') setEstimated(data.calories);
       }
-
-      // 2차: 직접 호출 fallback (VITE_FOOD_API_KEY 환경변수 필요)
-      if (found.length === 0) {
-        const apiKey = (import.meta as any).env?.VITE_FOOD_API_KEY as string | undefined;
-        if (apiKey) {
-          try {
-            const url =
-              `${FOOD_API_DIRECT}?serviceKey=${apiKey}` +
-              `&pageNo=1&numOfRows=15` +
-              `&FOOD_NM_KR=${encodeURIComponent(query)}&type=json`;
-            const res = await fetch(url, { headers: { Accept: 'application/json' } });
-            if (res.ok) {
-              const raw = await res.json();
-              found = parseNutritionRaw(raw);
-            }
-          } catch {
-            // CORS 등으로 실패해도 조용히 처리
-          }
-        }
-      }
-
-      setResults(found);
-      setSearched(true);
+    } catch {
+      // 실패 시 조용히 처리
+    } finally {
       setLoading(false);
-    }, 500);
-  }, [query]);
+    }
+  }, []);
 
-  return { results, loading, searched };
+  const reset = useCallback(() => {
+    setEstimated(null);
+    setLoading(false);
+  }, []);
+
+  return { estimate, loading, estimated, setEstimated, reset };
 }
 
 // ─── 기록 카드 ──────────────────────────────────────────────────────
@@ -390,11 +320,10 @@ function CalendarTab({
 
   const monthStart = startOfMonth(viewMonth);
   const daysInMonth = getDaysInMonth(viewMonth);
-  const startDow = getDay(monthStart); // 0=일
+  const startDow = getDay(monthStart);
   const cells = Array.from({ length: startDow + daysInMonth }, (_, i) => {
     if (i < startDow) return null;
-    const d = new Date(viewMonth.getFullYear(), viewMonth.getMonth(), i - startDow + 1);
-    return d;
+    return new Date(viewMonth.getFullYear(), viewMonth.getMonth(), i - startDow + 1);
   });
 
   const recordsByDate = (date: Date) =>
@@ -420,52 +349,90 @@ function CalendarTab({
       {/* 요일 헤더 */}
       <div className="grid grid-cols-7 mb-1">
         {['일','월','화','수','목','금','토'].map(d => (
-          <div key={d} className="text-center" style={{ fontSize: 11, color: t.textMuted, paddingBottom: 6 }}>{d}</div>
+          <div key={d} className="text-center" style={{ fontSize: 10, color: t.textMuted, paddingBottom: 4 }}>{d}</div>
         ))}
       </div>
 
-      {/* 날짜 그리드 */}
+      {/* 날짜 그리드 — 4분할 */}
       <div className="grid grid-cols-7 gap-1 mb-4">
         {cells.map((date, i) => {
           if (!date) return <div key={i} />;
           const recs = recordsByDate(date);
-          const firstPhoto = recs.find(r => r.photoUrl)?.photoUrl;
           const isSelected = selectedDate && isSameDay(date, selectedDate);
           const today = isToday(date);
-          // 이 날짜에 있는 식사 유형 중복 제거
-          const diningTypesPresent = Array.from(new Set(
-            recs.map(r => r.diningType).filter((d): d is DiningType => !!d)
-          ));
+
+          // 식사별 첫 번째 기록
+          const byMeal: Record<MealType, FoodRecord | undefined> = {
+            breakfast: recs.find(r => r.mealType === 'breakfast'),
+            lunch:     recs.find(r => r.mealType === 'lunch'),
+            dinner:    recs.find(r => r.mealType === 'dinner'),
+            snack:     recs.find(r => r.mealType === 'snack'),
+          };
+
+          // 추가 사진 수 (+N)
+          const totalPhotos = recs.filter(r => r.photoUrl).length;
+          const shownPhotos = MEALS.filter(m => byMeal[m.key]?.photoUrl).length;
+          const extraCount = totalPhotos - shownPhotos;
+
           return (
             <button key={i} onClick={() => setSelectedDate(date)}
-              className="aspect-square rounded-xl overflow-hidden flex flex-col items-center justify-center relative"
+              className="relative overflow-hidden rounded-xl flex flex-col"
               style={{
-                backgroundColor: isSelected ? t.accent : today ? t.accentLight : t.card,
-                border: `1px solid ${isSelected ? t.accent : t.border}`,
+                aspectRatio: '3/4',
+                border: `1.5px solid ${isSelected ? t.accent : today ? `${t.accent}70` : t.border}`,
+                backgroundColor: t.card,
               }}>
-              {firstPhoto ? (
-                <img src={firstPhoto} alt="" className="absolute inset-0 w-full h-full object-cover opacity-60" />
-              ) : null}
-              <span className="relative z-10" style={{
-                fontSize: 12, fontWeight: today || isSelected ? 700 : 400,
-                color: isSelected ? '#fff' : today ? t.accent : t.text,
-              }}>
-                {date.getDate()}
-              </span>
-              {/* 식사 유형 dot */}
-              {diningTypesPresent.length > 0 && (
-                <div className="absolute bottom-1 left-1/2 -translate-x-1/2 flex gap-0.5 z-10">
-                  {diningTypesPresent.map(dt => (
-                    <div key={dt} className="w-1.5 h-1.5 rounded-full"
-                      style={{ backgroundColor: isSelected ? 'rgba(255,255,255,0.8)' : DINING_DOT_COLOR[dt] }} />
-                  ))}
-                </div>
-              )}
-              {/* dot: 식사 유형 미기록 but 기록 있음 */}
-              {recs.length > 0 && diningTypesPresent.length === 0 && !firstPhoto && (
-                <div className="absolute bottom-1 left-1/2 -translate-x-1/2 w-1 h-1 rounded-full z-10"
-                  style={{ backgroundColor: isSelected ? '#fff' : t.accent }} />
-              )}
+
+              {/* 4분할 그리드 */}
+              <div className="flex-1 grid grid-cols-2 min-h-0"
+                style={{ gridTemplateRows: '1fr 1fr' }}>
+                {MEALS.map((meal, idx) => {
+                  const rec = byMeal[meal.key];
+                  const photo = rec?.photoUrl;
+                  const hasRecord = !!rec;
+                  const isLeft = idx % 2 === 0;
+                  const isTop  = idx < 2;
+                  return (
+                    <div key={meal.key}
+                      className="relative flex items-center justify-center overflow-hidden"
+                      style={{
+                        borderRight:  isLeft ? `1px solid ${t.border}` : 'none',
+                        borderBottom: isTop  ? `1px solid ${t.border}` : 'none',
+                        backgroundColor: hasRecord
+                          ? isSelected ? 'rgba(255,255,255,0.15)' : `${t.accent}18`
+                          : 'transparent',
+                      }}>
+                      {photo
+                        ? <img src={photo} alt="" className="absolute inset-0 w-full h-full object-cover" />
+                        : <span style={{ fontSize: 9, opacity: hasRecord ? 0.85 : 0.2, lineHeight: 1 }}>
+                            {meal.emoji}
+                          </span>
+                      }
+                    </div>
+                  );
+                })}
+              </div>
+
+              {/* 하단 스트립: 날짜 + +N */}
+              <div className="flex-shrink-0 flex items-center justify-between px-1"
+                style={{
+                  height: 14,
+                  backgroundColor: isSelected ? t.accent : 'transparent',
+                }}>
+                <span style={{
+                  fontSize: 9,
+                  fontWeight: today || isSelected ? 700 : 400,
+                  color: isSelected ? '#fff' : today ? t.accent : t.text,
+                  lineHeight: 1,
+                }}>
+                  {date.getDate()}
+                </span>
+                {extraCount > 0 && (
+                  <span style={{ fontSize: 8, color: isSelected ? 'rgba(255,255,255,0.8)' : t.textMuted, lineHeight: 1 }}>
+                    +{extraCount}
+                  </span>
+                )}
+              </div>
             </button>
           );
         })}
@@ -757,9 +724,6 @@ function AddFoodSheet({
         diningType: editRecord.diningType ?? null,
         amount: editRecord.amount > 0 ? String(editRecord.amount) : '',
         calories: editRecord.calories != null ? String(editRecord.calories) : '',
-        carbs: editRecord.carbs ?? null,
-        protein: editRecord.protein ?? null,
-        fat: editRecord.fat ?? null,
         tasteRating: editRecord.tasteRating ?? null,
       }
     : initForm(initMeal)
@@ -769,14 +733,8 @@ function AddFoodSheet({
   const cameraRef = useRef<HTMLInputElement>(null);
   const galleryRef = useRef<HTMLInputElement>(null);
 
-  // 영양 검색
-  const { results: nutritionResults, loading: nutritionLoading, searched: nutritionSearched } = useNutritionSearch(
-    step === 3 || editRecord ? form.foodName : ''
-  );
-  const [showResults, setShowResults] = useState(false);
-  useEffect(() => {
-    setShowResults(form.foodName.trim().length > 0 && (nutritionResults.length > 0 || nutritionSearched));
-  }, [nutritionResults, nutritionSearched, form.foodName]);
+  // AI 칼로리 추정
+  const { estimate, loading: calLoading, estimated, setEstimated, reset: resetEstimate } = useCalorieEstimate();
 
   const set = (patch: Partial<FormState>) => setForm(prev => ({ ...prev, ...patch }));
 
@@ -810,9 +768,9 @@ function AddFoodSheet({
       photoUrl: photoUrl ?? null,
       memo: null,
       calories: form.calories ? Number(form.calories) : null,
-      carbs: form.carbs,
-      protein: form.protein,
-      fat: form.fat,
+      carbs: editRecord?.carbs ?? null,
+      protein: editRecord?.protein ?? null,
+      fat: editRecord?.fat ?? null,
       diningType: form.diningType,
       tasteRating: form.tasteRating,
     });
@@ -934,74 +892,37 @@ function AddFoodSheet({
             </div>
           )}
 
-          {/* Step 3: 음식 이름 */}
+          {/* Step 3: 음식 이름 + 양 */}
           {(step === 3 || editRecord) && (
             <div className={editRecord ? 'mb-5' : ''}>
-              {editRecord && <p style={{ fontSize: 12, color: t.textMuted, marginBottom: 8 }}>음식 이름</p>}
-              <div className="flex items-center gap-2 px-3 py-2.5 rounded-xl mb-2"
+              {editRecord && <p style={{ fontSize: 12, color: t.textMuted, marginBottom: 8 }}>음식 이름 + 양</p>}
+              <div className="flex items-center gap-2 px-3 py-2.5 rounded-xl"
                 style={{ backgroundColor: t.card, border: `1px solid ${t.border}` }}>
-                <Search size={16} color={t.textMuted} />
                 <input
                   autoFocus={step === 3}
                   value={form.foodName}
                   onChange={e => set({ foodName: e.target.value })}
-                  placeholder="음식명 입력 (예: 김치찌개)"
+                  placeholder='예: "포케", "방울토마토 8개", "아메리카노 톨"'
                   className="flex-1 bg-transparent outline-none"
                   style={{ fontSize: 14, color: t.text }}
-                  onKeyDown={e => { if (e.key === 'Enter' && !editRecord) nextStep(); }}
+                  onKeyDown={e => {
+                    if (e.key === 'Enter' && !editRecord && form.foodName.trim()) {
+                      estimate(form.foodName);
+                      nextStep();
+                    }
+                  }}
                 />
                 <VoiceInputButton onResult={text => set({ foodName: text })} />
               </div>
-
-              {/* 영양 검색 결과 */}
-              {nutritionLoading && (
-                <div className="flex items-center gap-2 px-1 py-2" style={{ fontSize: 12, color: t.textMuted }}>
-                  <div className="w-3 h-3 rounded-full border-2 border-t-transparent animate-spin"
-                    style={{ borderColor: t.accent, borderTopColor: 'transparent' }} />
-                  식약처 DB 검색 중...
-                </div>
-              )}
-              {showResults && !nutritionLoading && (
-                nutritionResults.length > 0 ? (
-                  <div className="rounded-xl overflow-hidden mb-3"
-                    style={{ border: `1px solid ${t.border}`, backgroundColor: t.card }}>
-                    {nutritionResults.map((r, i) => (
-                      <button key={i}
-                        className="w-full text-left px-3 py-2.5 flex items-center justify-between gap-2"
-                        style={{ borderBottom: i < nutritionResults.length - 1 ? `1px solid ${t.border}` : 'none' }}
-                        onClick={() => {
-                          set({
-                            foodName: r.foodName,
-                            calories: String(r.calories),
-                            carbs: r.carbs,
-                            protein: r.protein,
-                            fat: r.fat,
-                          });
-                          setShowResults(false);
-                        }}>
-                        <div className="min-w-0 flex-1">
-                          <p style={{ fontSize: 13, color: t.text }} className="truncate">{r.foodName}</p>
-                          <p style={{ fontSize: 11, color: t.textMuted }}>
-                            탄 {r.carbs}g · 단 {r.protein}g · 지 {r.fat}g
-                            {r.servingSize !== 100 && ` (${r.servingSize}g 기준)`}
-                          </p>
-                        </div>
-                        <span className="flex-shrink-0" style={{ fontSize: 12, fontWeight: 700, color: t.accent }}>
-                          {r.calories} kcal
-                        </span>
-                      </button>
-                    ))}
-                  </div>
-                ) : (
-                  <div className="px-1 py-2 mb-2" style={{ fontSize: 12, color: t.textMuted }}>
-                    검색 결과 없음 — 직접 칼로리를 입력해주세요
-                  </div>
-                )
-              )}
+              <p style={{ fontSize: 11, color: t.textMuted, marginTop: 6, marginBottom: 12, paddingLeft: 4 }}>
+                양을 함께 적으면 AI가 칼로리를 더 정확하게 추정해요
+              </p>
 
               {!editRecord && (
-                <button onClick={nextStep} disabled={!form.foodName.trim()}
-                  className="w-full py-3.5 rounded-2xl mt-2"
+                <button
+                  onClick={() => { estimate(form.foodName); nextStep(); }}
+                  disabled={!form.foodName.trim()}
+                  className="w-full py-3.5 rounded-2xl"
                   style={{
                     backgroundColor: form.foodName.trim() ? t.accent : t.bgSub,
                     color: form.foodName.trim() ? '#fff' : t.textMuted,
@@ -1084,10 +1005,35 @@ function AddFoodSheet({
             </div>
           )}
 
-          {/* Step 6: 칼로리 */}
+          {/* Step 6: 칼로리 (AI 추정) */}
           {(step === 6 || editRecord) && (
             <div className={editRecord ? 'mb-5' : ''}>
               {editRecord && <p style={{ fontSize: 12, color: t.textMuted, marginBottom: 8 }}>칼로리</p>}
+
+              {/* AI 추정 로딩 */}
+              {calLoading && (
+                <div className="flex items-center gap-2 mb-3 px-3 py-2.5 rounded-xl"
+                  style={{ backgroundColor: t.bgSub }}>
+                  <div className="w-3 h-3 rounded-full border-2 animate-spin"
+                    style={{ borderColor: t.accent, borderTopColor: 'transparent' }} />
+                  <span style={{ fontSize: 12, color: t.textMuted }}>AI가 칼로리를 추정하고 있어요...</span>
+                </div>
+              )}
+
+              {/* AI 추정 결과 적용 버튼 */}
+              {estimated !== null && !calLoading && (
+                <button
+                  onClick={() => set({ calories: String(estimated) })}
+                  className="w-full flex items-center justify-between px-4 py-3 rounded-xl mb-3"
+                  style={{ backgroundColor: `${t.accent}15`, border: `1.5px solid ${t.accent}50` }}>
+                  <span style={{ fontSize: 12, color: t.textSub }}>✨ AI 추정 칼로리</span>
+                  <span style={{ fontSize: 16, fontWeight: 700, color: t.accent }}>
+                    {estimated} kcal 적용하기
+                  </span>
+                </button>
+              )}
+
+              {/* 직접 입력 */}
               <div className="w-full flex items-center gap-2 px-4 py-3 rounded-xl"
                 style={{ backgroundColor: t.card, border: `1px solid ${t.border}` }}>
                 <input
@@ -1095,31 +1041,27 @@ function AddFoodSheet({
                   inputMode="decimal"
                   value={form.calories}
                   onChange={e => set({ calories: e.target.value })}
-                  placeholder="0"
+                  placeholder={estimated !== null ? String(estimated) : '직접 입력'}
                   className="min-w-0 flex-1 bg-transparent outline-none text-right"
                   style={{ fontSize: 22, fontWeight: 600, color: t.accent }}
                   onKeyDown={e => { if (e.key === 'Enter' && !editRecord) nextStep(); }}
                 />
                 <span className="flex-shrink-0" style={{ fontSize: 16, color: t.textSub }}>kcal</span>
               </div>
-              {form.carbs != null && (
-                <p style={{ fontSize: 11, color: t.textMuted, marginTop: 6, textAlign: 'center' }}>
-                  탄수화물 {form.carbs}g · 단백질 {form.protein}g · 지방 {form.fat}g
-                </p>
-              )}
+
               {!editRecord && (
                 <div className="flex gap-2 mt-3">
                   <button onClick={nextStep}
-                    disabled={!form.calories}
+                    disabled={!form.calories && estimated === null}
                     className="flex-1 py-3.5 rounded-2xl"
                     style={{
-                      backgroundColor: form.calories ? t.accent : t.bgSub,
-                      color: form.calories ? '#fff' : t.textMuted,
+                      backgroundColor: (form.calories || estimated !== null) ? t.accent : t.bgSub,
+                      color: (form.calories || estimated !== null) ? '#fff' : t.textMuted,
                       fontSize: 15, fontWeight: 600,
                     }}>
                     다음
                   </button>
-                  <button onClick={nextStep} className="py-3.5 px-5 rounded-2xl"
+                  <button onClick={() => { resetEstimate(); nextStep(); }} className="py-3.5 px-5 rounded-2xl"
                     style={{ backgroundColor: t.bgSub, color: t.textSub, fontSize: 14 }}>
                     건너뛰기
                   </button>
