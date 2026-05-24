@@ -3,7 +3,7 @@ import { Outlet, NavLink, useLocation } from 'react-router';
 import {
   Sun, CalendarDays, LayoutList, BarChart2, ListTodo,
   ChevronLeft, ChevronRight, Target, FolderKanban, Plus, Home,
-  Menu, Heart, Repeat, BookOpen, Settings,
+  Menu, Heart, Repeat, BookOpen, Library, Settings,
 } from 'lucide-react';
 import { usePlanner, getWeekKey } from '../store';
 import { useTheme } from '../ThemeContext';
@@ -25,6 +25,7 @@ const lifestyleNavItems = [
   { to: '/selfcare', icon: Heart, label: '자기관리' },
   { to: '/reviews', icon: BookOpen, label: '리뷰 & 기록' },
   { to: '/food', icon: () => <span style={{ fontSize: 16 }}>🍽️</span>, label: '식단' },
+  { to: '/books', icon: Library, label: '독서' },
 ];
 
 // ── Inline new project form ──
@@ -259,6 +260,7 @@ function MobileMenuOverlay({ onClose }: { onClose: () => void }) {
     { to: '/selfcare', icon: Heart, label: '자기관리' },
     { to: '/reviews', icon: BookOpen, label: '기록' },
     { to: '/food', icon: () => <span style={{ fontSize: 16 }}>🍽️</span>, label: '식단' },
+    { to: '/books', icon: Library, label: '독서' },
     { to: '/settings', icon: Settings, label: '설정' },
   ];
 
