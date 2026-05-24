@@ -134,6 +134,18 @@ export interface SelfCareRecord {
   sleepEnd?: string;   // "HH:mm" — sleep category only
 }
 
+export type MealType = 'breakfast' | 'lunch' | 'dinner' | 'snack';
+
+export interface FoodRecord {
+  id: string;
+  date: string;           // yyyy-MM-dd
+  mealType: MealType;
+  foodName: string;
+  amount: number;         // 원
+  photoUrl?: string | null;
+  memo?: string | null;
+}
+
 export interface PeriodRecord {
   id: string;
   startDate: string;        // yyyy-MM-dd
@@ -450,6 +462,12 @@ interface PlannerContextType {
   updateSelfCareRecord: (id: string, changes: Partial<Omit<SelfCareRecord, 'id'>>) => void;
   deleteSelfCareRecord: (id: string) => void;
 
+  // Food actions
+  foodRecords: FoodRecord[];
+  addFoodRecord: (record: Omit<FoodRecord, 'id'>) => void;
+  updateFoodRecord: (id: string, changes: Partial<Omit<FoodRecord, 'id'>>) => void;
+  deleteFoodRecord: (id: string) => void;
+
   // Period actions
   periodRecords: PeriodRecord[];
   addPeriodRecord: (record: Omit<PeriodRecord, 'id'>) => void;
@@ -544,6 +562,7 @@ export function PlannerProvider({ children }: { children: React.ReactNode }) {
   const [milestones, setMilestones] = useState<Milestone[]>([]);
   const [selfCareRecords, setSelfCareRecords] = useState<SelfCareRecord[]>([]);
   const [periodRecords, setPeriodRecords] = useState<PeriodRecord[]>([]);
+  const [foodRecords, setFoodRecords] = useState<FoodRecord[]>([]);
   const [reviewRecords, setReviewRecords] = useState<ReviewRecord[]>([]);
   const [timelineLogs, setTimelineLogs] = useState<TimelineLog[]>([]);
   const [events, setEvents] = useState<Event[]>([]);
@@ -574,7 +593,7 @@ export function PlannerProvider({ children }: { children: React.ReactNode }) {
         eventsData, weeklyGoalsData, monthlyGoalsData,
         brainstormItemsData, brainstormMemosData, tagsData, routinesData,
         periodData, habitMonthlyMemosData, annualGoalsData, quarterlyGoalsData,
-        weeklyReviewsData, monthlyReviewsData,
+        weeklyReviewsData, monthlyReviewsData, foodRecordsData,
       ] = await Promise.all([
         db.todos.fetchAll(),
         db.habits.fetchAll(),
@@ -597,6 +616,7 @@ export function PlannerProvider({ children }: { children: React.ReactNode }) {
         db.quarterlyGoals.fetchAll(),
         db.weeklyReviews.fetchAll(),
         db.monthlyReviews.fetchAll(),
+        db.foodRecords.fetchAll(),
       ]);
       setTodos(todosData);
       setHabits(habitsData);
@@ -633,6 +653,7 @@ export function PlannerProvider({ children }: { children: React.ReactNode }) {
       setQuarterlyGoals(quarterlyGoalsData);
       setWeeklyReviews(weeklyReviewsData);
       setMonthlyReviews(monthlyReviewsData);
+      setFoodRecords(foodRecordsData);
       setIsLoading(false);
     };
     load();
@@ -1001,6 +1022,27 @@ export function PlannerProvider({ children }: { children: React.ReactNode }) {
         return [...prev, created];
       }
     });
+  }, []);
+
+  // ── Food actions ──
+  const addFoodRecord = useCallback((record: Omit<FoodRecord, 'id'>) => {
+    const newRecord: FoodRecord = { ...record, id: newId() };
+    setFoodRecords(prev => [...prev, newRecord]);
+    db.foodRecords.upsert(newRecord);
+  }, []);
+
+  const updateFoodRecord = useCallback((id: string, changes: Partial<Omit<FoodRecord, 'id'>>) => {
+    setFoodRecords(prev => prev.map(r => {
+      if (r.id !== id) return r;
+      const updated = { ...r, ...changes };
+      db.foodRecords.upsert(updated);
+      return updated;
+    }));
+  }, []);
+
+  const deleteFoodRecord = useCallback((id: string) => {
+    setFoodRecords(prev => prev.filter(r => r.id !== id));
+    db.foodRecords.delete(id);
   }, []);
 
   // ── Period actions ──
@@ -1430,6 +1472,7 @@ export function PlannerProvider({ children }: { children: React.ReactNode }) {
       habitMonthlyMemos, setHabitMonthlyMemo,
       addRoutine, updateRoutine, deleteRoutine, toggleRoutineDate,
       addSelfCareRecord, updateSelfCareRecord, deleteSelfCareRecord,
+      foodRecords, addFoodRecord, updateFoodRecord, deleteFoodRecord,
       addPeriodRecord, updatePeriodRecord, deletePeriodRecord,
       addReviewRecord, updateReviewRecord, deleteReviewRecord,
       addWeeklyReview, updateWeeklyReview,

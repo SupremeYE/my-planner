@@ -4,7 +4,7 @@ import { createEvent as createEventApi, deleteEvent as deleteEventApi, getEvents
 import type {
   Todo, Habit, Project, Milestone,
   SelfCareRecord, ReviewRecord, WeeklyReview, MonthlyReview, TimelineLog,
-  Event, WeeklyGoal, MonthlyGoal, BrainstormItem, Tag, Routine,
+  FoodRecord, Event, WeeklyGoal, MonthlyGoal, BrainstormItem, Tag, Routine,
   PeriodRecord, HabitMonthlyMemo, AnnualGoal, QuarterlyGoal,
 } from '../app/store';
 
@@ -539,6 +539,50 @@ export const db = {
     upsert: async (record: MonthlyReview) => {
       const { error } = await supabase.from('monthly_reviews').upsert(fromMonthlyReview(record));
       if (error) console.error('[db] monthly_reviews upsert:', error.message);
+    },
+  },
+
+  foodRecords: {
+    fetchAll: async (): Promise<FoodRecord[]> => {
+      const { data, error } = await supabase
+        .from('food_records').select('*').order('date', { ascending: false }).order('created_at', { ascending: false });
+      if (error) console.error('[db] food_records fetch:', error.message);
+      return (data ?? []).map((r: any): FoodRecord => ({
+        id: r.id,
+        date: r.date,
+        mealType: r.meal_type,
+        foodName: r.food_name,
+        amount: r.amount ?? 0,
+        photoUrl: r.photo_url ?? null,
+        memo: r.memo ?? null,
+      }));
+    },
+    upsert: async (record: FoodRecord) => {
+      const { error } = await supabase.from('food_records').upsert({
+        id: record.id,
+        date: record.date,
+        meal_type: record.mealType,
+        food_name: record.foodName,
+        amount: record.amount,
+        photo_url: record.photoUrl ?? null,
+        memo: record.memo ?? null,
+      });
+      if (error) console.error('[db] food_records upsert:', error.message);
+    },
+    delete: async (id: string) => {
+      const { error } = await supabase.from('food_records').delete().eq('id', id);
+      if (error) console.error('[db] food_records delete:', error.message);
+    },
+    uploadPhoto: async (file: File, recordId: string): Promise<string | null> => {
+      const ext = file.name.split('.').pop() ?? 'jpg';
+      const path = `${recordId}.${ext}`;
+      const { error } = await supabase.storage.from('food-photos').upload(path, file, { upsert: true });
+      if (error) { console.error('[db] food photo upload:', error.message); return null; }
+      const { data } = supabase.storage.from('food-photos').getPublicUrl(path);
+      return data.publicUrl;
+    },
+    deletePhoto: async (path: string) => {
+      await supabase.storage.from('food-photos').remove([path]);
     },
   },
 
