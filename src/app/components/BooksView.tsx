@@ -653,40 +653,45 @@ function BookDetailModal({
                       lineHeight: 1.75,
                     }}
                   />
-                  <div className="flex gap-2 items-center">
+                  {/* 1행: 페이지 + 태그 */}
+                  <div className="flex gap-2">
                     <input
                       type="number"
                       value={quotePage}
                       onChange={e => setQuotePage(e.target.value)}
                       placeholder="페이지"
-                      className="rounded-lg px-2 py-1.5 outline-none text-xs"
-                      style={{ width: 80, backgroundColor: t.bgSub, border: `1px solid ${t.border}`, color: t.text }}
+                      className="rounded-lg px-2 py-1.5 outline-none text-xs flex-shrink-0"
+                      style={{ width: 72, backgroundColor: t.bgSub, border: `1px solid ${t.border}`, color: t.text }}
                     />
                     <input
                       value={quoteTags}
                       onChange={e => setQuoteTags(e.target.value)}
                       placeholder="태그 (쉼표 구분)"
-                      className="flex-1 rounded-lg px-2 py-1.5 outline-none text-xs"
+                      className="flex-1 min-w-0 rounded-lg px-2 py-1.5 outline-none text-xs"
                       style={{ backgroundColor: t.bgSub, border: `1px solid ${t.border}`, color: t.text }}
                     />
+                  </div>
+                  {/* 2행: 음성 버튼 + 저장 버튼 */}
+                  <div className="flex gap-2">
                     {hasSpeechApi && (
                       <button
                         onClick={toggleRecording}
-                        className="p-1.5 rounded-lg transition-all"
+                        className="flex items-center justify-center gap-1.5 flex-1 py-1.5 rounded-lg transition-all"
                         style={{
                           backgroundColor: isRecording ? '#D4735A' : t.bgSub,
                           border: `1px solid ${isRecording ? '#D4735A' : t.border}`,
                           color: isRecording ? '#fff' : t.textMuted,
+                          fontSize: 12,
                         }}
-                        title="음성 입력"
                       >
-                        <Mic size={14} />
+                        <Mic size={13} />
+                        {isRecording ? '녹음 중...' : '음성 입력'}
                       </button>
                     )}
                     <button
                       onClick={handleAddQuote}
                       disabled={!quoteText.trim()}
-                      className="px-3 py-1.5 rounded-lg"
+                      className="flex-1 py-1.5 rounded-lg"
                       style={{
                         backgroundColor: quoteText.trim() ? t.accent : t.bgSub,
                         color: quoteText.trim() ? '#fff' : t.textMuted,
