@@ -110,7 +110,6 @@ function BookSearchModal({
     const docs = await searchKakaoBooks(query.trim());
     setResults(docs);
     setLoading(false);
-    if (docs.length === 0) setIsManual(true);
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
@@ -229,15 +228,18 @@ function BookSearchModal({
               {!loading && results.length === 0 && query && (
                 <div className="text-center py-2">
                   <p style={{ fontSize: 13, color: t.textMuted }}>검색 결과가 없어요</p>
+                  <p style={{ fontSize: 12, color: t.textMuted, marginTop: 4 }}>
+                    카카오 API 키가 설정되지 않았거나 결과가 없습니다
+                  </p>
                 </div>
               )}
               {/* 직접 입력 */}
               <button
                 onClick={() => setIsManual(true)}
                 className="w-full py-2.5 rounded-xl text-center"
-                style={{ border: `1px dashed ${t.border}`, fontSize: 13, color: t.textSub }}
+                style={{ border: `1px dashed ${t.border}`, fontSize: 13, color: t.accent }}
               >
-                + 직접 입력하기
+                + 직접 입력하기 (검색 없이 추가)
               </button>
             </div>
           )}
@@ -866,7 +868,7 @@ export function BooksView() {
     })();
   }, []);
 
-  const handleAdd = async (data: Omit<Book, 'id' | 'quotes' | 'addedAt'>) => {
+  const handleAdd = (data: Omit<Book, 'id' | 'quotes' | 'addedAt'>) => {
     const book: Book = {
       ...data,
       id: nanoid(),
@@ -875,7 +877,11 @@ export function BooksView() {
       startDate: data.status === 'reading' ? format(new Date(), 'yyyy-MM-dd') : undefined,
       finishDate: data.status === 'done' ? format(new Date(), 'yyyy-MM-dd') : undefined,
     };
-    const { error } = await supabase.from('books').insert({
+    // 낙관적 업데이트 — UI 즉시 반영
+    setBooks(prev => [book, ...prev]);
+    setActiveTab(data.status);
+    // 백그라운드 Supabase 저장
+    supabase.from('books').insert({
       id: book.id,
       title: book.title,
       author: book.author,
@@ -887,10 +893,12 @@ export function BooksView() {
       start_date: book.startDate ?? null,
       finish_date: book.finishDate ?? null,
       added_at: book.addedAt,
+    }).then(({ error }) => {
+      if (error) {
+        console.error('[books] insert 실패 — 롤백:', error.message);
+        setBooks(prev => prev.filter(b => b.id !== book.id));
+      }
     });
-    if (error) { console.error('[books] insert:', error.message); return; }
-    setBooks(prev => [book, ...prev]);
-    setActiveTab(data.status);
   };
 
   const handleUpdate = (updated: Book) => {
@@ -898,11 +906,13 @@ export function BooksView() {
     setSelectedBook(updated);
   };
 
-  const handleDelete = async (id: string) => {
-    const { error } = await supabase.from('books').delete().eq('id', id);
-    if (error) { console.error('[books] delete:', error.message); return; }
+  const handleDelete = (id: string) => {
+    // 낙관적 업데이트
     setBooks(prev => prev.filter(b => b.id !== id));
     setSelectedBook(null);
+    supabase.from('books').delete().eq('id', id).then(({ error }) => {
+      if (error) console.error('[books] delete 실패:', error.message);
+    });
   };
 
   const filteredBooks = activeTab === 'stats'
