@@ -31,6 +31,7 @@ const DINING_TYPES: { key: DiningType; label: string; emoji: string }[] = [
   { key: 'home',       label: DINING_LABELS.home,       emoji: DINING_ICONS.home },
   { key: 'delivery',   label: DINING_LABELS.delivery,   emoji: DINING_ICONS.delivery },
   { key: 'restaurant', label: DINING_LABELS.restaurant, emoji: DINING_ICONS.restaurant },
+  { key: 'coffee',     label: DINING_LABELS.coffee,     emoji: DINING_ICONS.coffee },
 ];
 
 const TASTE_OPTIONS: { key: TasteRating; label: string; emoji: string }[] = [
@@ -46,6 +47,7 @@ const DINING_DOT_COLOR: Record<DiningType, string> = {
   home: '#4A82CC',
   delivery: '#D4735A',
   restaurant: '#6BAA7A',
+  coffee: '#C4A882',
 };
 
 // ─── 타입 ───────────────────────────────────────────────────────────
@@ -60,6 +62,7 @@ type FormState = {
   amount: string;
   calories: string;
   tasteRating: TasteRating | null;
+  tasteMemo: string;
 };
 
 const initForm = (meal: MealType = 'breakfast'): FormState => ({
@@ -71,6 +74,7 @@ const initForm = (meal: MealType = 'breakfast'): FormState => ({
   amount: '',
   calories: '',
   tasteRating: null,
+  tasteMemo: '',
 });
 
 // ─── 음성 입력 버튼 ─────────────────────────────────────────────────
@@ -171,7 +175,14 @@ function FoodCard({
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-1.5 flex-wrap">
           <span style={{ fontSize: 14, fontWeight: 600, color: t.text }}>{record.foodName}</span>
-          {taste && <span style={{ fontSize: 12 }}>{taste.emoji}</span>}
+          {taste && (
+            <span className="flex items-center gap-1">
+              <span style={{ fontSize: 12 }}>{taste.emoji}</span>
+              {record.tasteMemo && (
+                <span style={{ fontSize: 11, color: t.textSub }}>{record.tasteMemo}</span>
+              )}
+            </span>
+          )}
         </div>
         <div className="flex items-center gap-2 flex-wrap mt-0.5">
           {/* 식사 유형 아이콘 항상 표시 */}
@@ -938,6 +949,7 @@ function AddFoodSheet({
         amount: editRecord.amount > 0 ? String(editRecord.amount) : '',
         calories: editRecord.calories != null ? String(editRecord.calories) : '',
         tasteRating: editRecord.tasteRating ?? null,
+        tasteMemo: editRecord.tasteMemo ?? '',
       }
     : initForm(initMeal)
   );
@@ -986,6 +998,7 @@ function AddFoodSheet({
       fat: editRecord?.fat ?? null,
       diningType: form.diningType,
       tasteRating: form.tasteRating,
+      tasteMemo: form.tasteMemo.trim() || null,
     });
     setSaving(false);
     onClose();
@@ -1341,6 +1354,25 @@ function AddFoodSheet({
                   </button>
                 ))}
               </div>
+
+              {/* 맛 메모 입력 — 평가 선택 시 표출 */}
+              {form.tasteRating && (
+                <div className="mt-3">
+                  <input
+                    value={form.tasteMemo}
+                    onChange={e => set({ tasteMemo: e.target.value })}
+                    placeholder="맛에 대해 한 줄 메모 (선택)"
+                    maxLength={50}
+                    className="w-full px-3 py-2.5 rounded-xl outline-none"
+                    style={{
+                      backgroundColor: t.card,
+                      border: `1px solid ${t.border}`,
+                      fontSize: 13,
+                      color: t.text,
+                    }}
+                  />
+                </div>
+              )}
 
               {/* 저장 버튼 */}
               {!editRecord && (

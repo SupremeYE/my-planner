@@ -22,10 +22,12 @@ export const DINING_ICONS: Record<DiningType, string> = {
   home:       '🏠',
   delivery:   '🛵',
   restaurant: '🍴',
+  coffee:     '☕',
 };
 
 export const DINING_LABELS: Record<DiningType, string> = {
   home:       '집밥',
   delivery:   '배달',
   restaurant: '외식',
+  coffee:     '커피',
 };

@@ -561,6 +561,7 @@ export const db = {
         fat: r.fat ?? null,
         diningType: (r.dining_type as DiningType) ?? null,
         tasteRating: (r.taste_rating as TasteRating) ?? null,
+        tasteMemo: r.taste_memo ?? null,
       }));
     },
     upsert: async (record: FoodRecord) => {
@@ -578,6 +579,7 @@ export const db = {
         fat: record.fat ?? null,
         dining_type: record.diningType ?? null,
         taste_rating: record.tasteRating ?? null,
+        taste_memo: record.tasteMemo ?? null,
       });
       if (error) console.error('[db] food_records upsert:', error.message);
     },

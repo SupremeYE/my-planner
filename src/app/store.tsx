@@ -135,7 +135,7 @@ export interface SelfCareRecord {
 }
 
 export type MealType = 'breakfast' | 'lunch' | 'dinner' | 'snack';
-export type DiningType = 'home' | 'delivery' | 'restaurant';
+export type DiningType = 'home' | 'delivery' | 'restaurant' | 'coffee';
 export type TasteRating = 'good' | 'normal' | 'bad';
 
 export interface FoodRecord {
@@ -152,6 +152,7 @@ export interface FoodRecord {
   fat?: number | null;
   diningType?: DiningType | null;
   tasteRating?: TasteRating | null;
+  tasteMemo?: string | null;
 }
 
 export interface PeriodRecord {
