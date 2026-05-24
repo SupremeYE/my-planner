@@ -581,25 +581,12 @@ function CalendarTab({
           ) : (
             <div className="space-y-2">
               {dayRecords.map(r => (
-                <button key={r.id} onClick={() => onEdit(r)}
-                  className="w-full flex items-center gap-3 p-2.5 rounded-xl text-left"
-                  style={{ backgroundColor: t.card, border: `1px solid ${t.border}` }}>
-                  {r.photoUrl
-                    ? <img src={r.photoUrl} alt="" className="w-10 h-10 rounded-lg object-cover flex-shrink-0" />
-                    : <div className="w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0"
-                        style={{ backgroundColor: t.bgSub, fontSize: 18 }}>
-                        {MEALS.find(m => m.key === r.mealType)?.emoji ?? '🍽️'}
-                      </div>
-                  }
-                  <div className="flex-1 min-w-0">
-                    <p style={{ fontSize: 13, fontWeight: 600, color: t.text }} className="truncate">{r.foodName}</p>
-                    <p style={{ fontSize: 11, color: t.textMuted }}>
-                      {MEALS.find(m => m.key === r.mealType)?.label}
-                      {r.calories ? ` · ${r.calories} kcal` : ''}
-                      {r.diningType ? ` · ${DINING_TYPES.find(d => d.key === r.diningType)?.emoji}` : ''}
-                    </p>
-                  </div>
-                </button>
+                <FoodCard
+                  key={r.id}
+                  record={r}
+                  onEdit={() => onEdit(r)}
+                  onDelete={() => onDelete(r.id)}
+                />
               ))}
             </div>
           )}
