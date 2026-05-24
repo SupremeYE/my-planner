@@ -115,30 +115,90 @@ function VoiceInputButton({ onResult }: { onResult: (text: string) => void }) {
   );
 }
 
+// ─── 영양성분 파싱 (Edge Function과 동일한 로직, fallback용) ──────────
+function parseNutritionRaw(raw: any): NutritionResult[] {
+  const body = raw?.response?.body ?? raw?.body ?? raw;
+  const rawItems = body?.items;
+  let items: any[] = [];
+  if (Array.isArray(rawItems)) {
+    items = rawItems;
+  } else if (rawItems?.item) {
+    items = Array.isArray(rawItems.item) ? rawItems.item : [rawItems.item];
+  } else if (rawItems && typeof rawItems === 'object' && rawItems.FOOD_NM_KR) {
+    items = [rawItems];
+  }
+  return items
+    .filter((item: any) => item?.FOOD_NM_KR)
+    .map((item: any) => ({
+      foodName: item.FOOD_NM_KR as string,
+      calories: parseFloat(item.NUTR_CONT1) || 0,
+      protein: parseFloat(item.NUTR_CONT3) || 0,
+      fat: parseFloat(item.NUTR_CONT4) || 0,
+      carbs: parseFloat(item.NUTR_CONT6) || 0,
+      servingSize: parseFloat(item.SERVING_WT) || 100,
+    }));
+}
+
+const FOOD_API_DIRECT =
+  'https://apis.data.go.kr/1471000/FoodNtrCpntDbInfo01/getFoodNtrCpntDbInqD2';
+
 // ─── 영양 검색 훅 ────────────────────────────────────────────────────
 function useNutritionSearch(query: string) {
   const [results, setResults] = useState<NutritionResult[]>([]);
   const [loading, setLoading] = useState(false);
+  const [searched, setSearched] = useState(false); // 검색 시도 여부
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     if (timerRef.current) clearTimeout(timerRef.current);
-    if (query.trim().length < 1) { setResults([]); return; }
+    if (query.trim().length < 1) {
+      setResults([]);
+      setSearched(false);
+      return;
+    }
     timerRef.current = setTimeout(async () => {
       setLoading(true);
+      setSearched(false);
+      let found: NutritionResult[] = [];
+
+      // 1차: Vercel Edge Function 프록시
       try {
         const res = await fetch(`/api/food-nutrition?query=${encodeURIComponent(query)}`);
-        const data = await res.json();
-        setResults(data.results ?? []);
+        if (res.ok) {
+          const data = await res.json();
+          found = data.results ?? [];
+        }
       } catch {
-        setResults([]);
-      } finally {
-        setLoading(false);
+        // 프록시 실패 시 직접 호출 시도 (로컬 dev용)
       }
+
+      // 2차: 직접 호출 fallback (VITE_FOOD_API_KEY 환경변수 필요)
+      if (found.length === 0) {
+        const apiKey = (import.meta as any).env?.VITE_FOOD_API_KEY as string | undefined;
+        if (apiKey) {
+          try {
+            const url =
+              `${FOOD_API_DIRECT}?serviceKey=${apiKey}` +
+              `&pageNo=1&numOfRows=15` +
+              `&FOOD_NM_KR=${encodeURIComponent(query)}&type=json`;
+            const res = await fetch(url, { headers: { Accept: 'application/json' } });
+            if (res.ok) {
+              const raw = await res.json();
+              found = parseNutritionRaw(raw);
+            }
+          } catch {
+            // CORS 등으로 실패해도 조용히 처리
+          }
+        }
+      }
+
+      setResults(found);
+      setSearched(true);
+      setLoading(false);
     }, 500);
   }, [query]);
 
-  return { results, loading };
+  return { results, loading, searched };
 }
 
 // ─── 기록 카드 ──────────────────────────────────────────────────────
@@ -586,13 +646,13 @@ function AddFoodSheet({
   const galleryRef = useRef<HTMLInputElement>(null);
 
   // 영양 검색
-  const { results: nutritionResults, loading: nutritionLoading } = useNutritionSearch(
-    step === 3 ? form.foodName : ''
+  const { results: nutritionResults, loading: nutritionLoading, searched: nutritionSearched } = useNutritionSearch(
+    step === 3 || editRecord ? form.foodName : ''
   );
   const [showResults, setShowResults] = useState(false);
   useEffect(() => {
-    setShowResults(nutritionResults.length > 0 && form.foodName.length > 0);
-  }, [nutritionResults, form.foodName]);
+    setShowResults(form.foodName.trim().length > 0 && (nutritionResults.length > 0 || nutritionSearched));
+  }, [nutritionResults, nutritionSearched, form.foodName]);
 
   const set = (patch: Partial<FormState>) => setForm(prev => ({ ...prev, ...patch }));
 
@@ -771,35 +831,48 @@ function AddFoodSheet({
 
               {/* 영양 검색 결과 */}
               {nutritionLoading && (
-                <p style={{ fontSize: 12, color: t.textMuted, padding: '8px 4px' }}>검색 중...</p>
-              )}
-              {showResults && (
-                <div className="rounded-xl overflow-hidden mb-3"
-                  style={{ border: `1px solid ${t.border}`, backgroundColor: t.card }}>
-                  {nutritionResults.map((r, i) => (
-                    <button key={i}
-                      className="w-full text-left px-3 py-2.5 flex items-center justify-between"
-                      style={{ borderBottom: i < nutritionResults.length - 1 ? `1px solid ${t.border}` : 'none' }}
-                      onClick={() => {
-                        set({
-                          foodName: r.foodName,
-                          calories: String(r.calories),
-                          carbs: r.carbs,
-                          protein: r.protein,
-                          fat: r.fat,
-                        });
-                        setShowResults(false);
-                      }}>
-                      <div>
-                        <p style={{ fontSize: 13, color: t.text }}>{r.foodName}</p>
-                        <p style={{ fontSize: 11, color: t.textMuted }}>
-                          탄 {r.carbs}g · 단 {r.protein}g · 지 {r.fat}g ({r.servingSize}g 기준)
-                        </p>
-                      </div>
-                      <span style={{ fontSize: 12, fontWeight: 700, color: t.accent }}>{r.calories} kcal</span>
-                    </button>
-                  ))}
+                <div className="flex items-center gap-2 px-1 py-2" style={{ fontSize: 12, color: t.textMuted }}>
+                  <div className="w-3 h-3 rounded-full border-2 border-t-transparent animate-spin"
+                    style={{ borderColor: t.accent, borderTopColor: 'transparent' }} />
+                  식약처 DB 검색 중...
                 </div>
+              )}
+              {showResults && !nutritionLoading && (
+                nutritionResults.length > 0 ? (
+                  <div className="rounded-xl overflow-hidden mb-3"
+                    style={{ border: `1px solid ${t.border}`, backgroundColor: t.card }}>
+                    {nutritionResults.map((r, i) => (
+                      <button key={i}
+                        className="w-full text-left px-3 py-2.5 flex items-center justify-between gap-2"
+                        style={{ borderBottom: i < nutritionResults.length - 1 ? `1px solid ${t.border}` : 'none' }}
+                        onClick={() => {
+                          set({
+                            foodName: r.foodName,
+                            calories: String(r.calories),
+                            carbs: r.carbs,
+                            protein: r.protein,
+                            fat: r.fat,
+                          });
+                          setShowResults(false);
+                        }}>
+                        <div className="min-w-0 flex-1">
+                          <p style={{ fontSize: 13, color: t.text }} className="truncate">{r.foodName}</p>
+                          <p style={{ fontSize: 11, color: t.textMuted }}>
+                            탄 {r.carbs}g · 단 {r.protein}g · 지 {r.fat}g
+                            {r.servingSize !== 100 && ` (${r.servingSize}g 기준)`}
+                          </p>
+                        </div>
+                        <span className="flex-shrink-0" style={{ fontSize: 12, fontWeight: 700, color: t.accent }}>
+                          {r.calories} kcal
+                        </span>
+                      </button>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="px-1 py-2 mb-2" style={{ fontSize: 12, color: t.textMuted }}>
+                    검색 결과 없음 — 직접 칼로리를 입력해주세요
+                  </div>
+                )
               )}
 
               {!editRecord && (
@@ -852,18 +925,19 @@ function AddFoodSheet({
           {(step === 5 || editRecord) && (
             <div className={editRecord ? 'mb-5' : ''}>
               {editRecord && <p style={{ fontSize: 12, color: t.textMuted, marginBottom: 8 }}>금액</p>}
-              <div className="flex items-center gap-2 px-4 py-3 rounded-xl"
+              <div className="w-full flex items-center gap-2 px-4 py-3 rounded-xl"
                 style={{ backgroundColor: t.card, border: `1px solid ${t.border}` }}>
                 <input
                   type="number"
+                  inputMode="numeric"
                   value={form.amount}
                   onChange={e => set({ amount: e.target.value })}
                   placeholder="0"
-                  className="flex-1 bg-transparent outline-none text-right"
-                  style={{ fontSize: 20, fontWeight: 600, color: t.text }}
+                  className="min-w-0 flex-1 bg-transparent outline-none text-right"
+                  style={{ fontSize: 22, fontWeight: 600, color: t.text }}
                   onKeyDown={e => { if (e.key === 'Enter' && !editRecord) nextStep(); }}
                 />
-                <span style={{ fontSize: 16, color: t.textSub }}>원</span>
+                <span className="flex-shrink-0" style={{ fontSize: 16, color: t.textSub }}>원</span>
               </div>
               {!editRecord && (
                 <div className="flex gap-2 mt-3">
@@ -890,18 +964,19 @@ function AddFoodSheet({
           {(step === 6 || editRecord) && (
             <div className={editRecord ? 'mb-5' : ''}>
               {editRecord && <p style={{ fontSize: 12, color: t.textMuted, marginBottom: 8 }}>칼로리</p>}
-              <div className="flex items-center gap-2 px-4 py-3 rounded-xl"
+              <div className="w-full flex items-center gap-2 px-4 py-3 rounded-xl"
                 style={{ backgroundColor: t.card, border: `1px solid ${t.border}` }}>
                 <input
                   type="number"
+                  inputMode="decimal"
                   value={form.calories}
                   onChange={e => set({ calories: e.target.value })}
                   placeholder="0"
-                  className="flex-1 bg-transparent outline-none text-right"
-                  style={{ fontSize: 20, fontWeight: 600, color: t.accent }}
+                  className="min-w-0 flex-1 bg-transparent outline-none text-right"
+                  style={{ fontSize: 22, fontWeight: 600, color: t.accent }}
                   onKeyDown={e => { if (e.key === 'Enter' && !editRecord) nextStep(); }}
                 />
-                <span style={{ fontSize: 16, color: t.textSub }}>kcal</span>
+                <span className="flex-shrink-0" style={{ fontSize: 16, color: t.textSub }}>kcal</span>
               </div>
               {form.carbs != null && (
                 <p style={{ fontSize: 11, color: t.textMuted, marginTop: 6, textAlign: 'center' }}>

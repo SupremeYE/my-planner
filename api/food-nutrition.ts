@@ -51,8 +51,22 @@ export default async function handler(req: Request): Promise<Response> {
     return json({ error: '외부 API 요청 중 오류 발생', results: [] }, 502);
   }
 
-  // 응답 구조: { header, body: { items: [...] } }
-  const items: any[] = raw?.body?.items ?? [];
+  // 식약처 API 응답 구조는 버전별로 다양:
+  //  A) { response: { body: { items: { item: [...] } } } }
+  //  B) { body: { items: { item: [...] } } }
+  //  C) { body: { items: [...] } }
+  //  D) items.item이 배열 대신 단일 객체 (결과 1건)
+  const body = raw?.response?.body ?? raw?.body ?? raw;
+  const rawItems = body?.items;
+
+  let items: any[] = [];
+  if (Array.isArray(rawItems)) {
+    items = rawItems;
+  } else if (rawItems?.item) {
+    items = Array.isArray(rawItems.item) ? rawItems.item : [rawItems.item];
+  } else if (rawItems && typeof rawItems === 'object' && rawItems.FOOD_NM_KR) {
+    items = [rawItems];
+  }
 
   const results = items
     .filter((item) => item?.FOOD_NM_KR)
@@ -63,7 +77,6 @@ export default async function handler(req: Request): Promise<Response> {
       protein: parseNum(item.NUTR_CONT3),
       fat: parseNum(item.NUTR_CONT4),
       carbs: parseNum(item.NUTR_CONT6),
-      // 1회 제공량(g) — 없으면 100g 기준값
       servingSize: parseNum(item.SERVING_WT) || 100,
     }));
 
