@@ -40,6 +40,13 @@ const TASTE_OPTIONS: { key: TasteRating; label: string; emoji: string }[] = [
 
 const DONUT_COLORS = ['#6BAA7A', '#D4735A', '#C4A882'];
 
+// 달력 dot 색상: home=파랑, delivery=빨강, restaurant=초록
+const DINING_DOT_COLOR: Record<DiningType, string> = {
+  home: '#4A82CC',
+  delivery: '#D4735A',
+  restaurant: '#6BAA7A',
+};
+
 // ─── 타입 ───────────────────────────────────────────────────────────
 type NutritionResult = {
   foodName: string;
@@ -425,6 +432,10 @@ function CalendarTab({
           const firstPhoto = recs.find(r => r.photoUrl)?.photoUrl;
           const isSelected = selectedDate && isSameDay(date, selectedDate);
           const today = isToday(date);
+          // 이 날짜에 있는 식사 유형 중복 제거
+          const diningTypesPresent = Array.from(new Set(
+            recs.map(r => r.diningType).filter((d): d is DiningType => !!d)
+          ));
           return (
             <button key={i} onClick={() => setSelectedDate(date)}
               className="aspect-square rounded-xl overflow-hidden flex flex-col items-center justify-center relative"
@@ -441,8 +452,18 @@ function CalendarTab({
               }}>
                 {date.getDate()}
               </span>
-              {recs.length > 0 && !firstPhoto && (
-                <div className="absolute bottom-1 left-1/2 -translate-x-1/2 w-1 h-1 rounded-full"
+              {/* 식사 유형 dot */}
+              {diningTypesPresent.length > 0 && (
+                <div className="absolute bottom-1 left-1/2 -translate-x-1/2 flex gap-0.5 z-10">
+                  {diningTypesPresent.map(dt => (
+                    <div key={dt} className="w-1.5 h-1.5 rounded-full"
+                      style={{ backgroundColor: isSelected ? 'rgba(255,255,255,0.8)' : DINING_DOT_COLOR[dt] }} />
+                  ))}
+                </div>
+              )}
+              {/* dot: 식사 유형 미기록 but 기록 있음 */}
+              {recs.length > 0 && diningTypesPresent.length === 0 && !firstPhoto && (
+                <div className="absolute bottom-1 left-1/2 -translate-x-1/2 w-1 h-1 rounded-full z-10"
                   style={{ backgroundColor: isSelected ? '#fff' : t.accent }} />
               )}
             </button>
@@ -471,7 +492,25 @@ function CalendarTab({
           ) : (
             <div className="space-y-2">
               {dayRecords.map(r => (
-                <FoodCard key={r.id} record={r} onEdit={() => onEdit(r)} onDelete={() => onDelete(r.id)} />
+                <button key={r.id} onClick={() => onEdit(r)}
+                  className="w-full flex items-center gap-3 p-2.5 rounded-xl text-left"
+                  style={{ backgroundColor: t.card, border: `1px solid ${t.border}` }}>
+                  {r.photoUrl
+                    ? <img src={r.photoUrl} alt="" className="w-10 h-10 rounded-lg object-cover flex-shrink-0" />
+                    : <div className="w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0"
+                        style={{ backgroundColor: t.bgSub, fontSize: 18 }}>
+                        {MEALS.find(m => m.key === r.mealType)?.emoji ?? '🍽️'}
+                      </div>
+                  }
+                  <div className="flex-1 min-w-0">
+                    <p style={{ fontSize: 13, fontWeight: 600, color: t.text }} className="truncate">{r.foodName}</p>
+                    <p style={{ fontSize: 11, color: t.textMuted }}>
+                      {MEALS.find(m => m.key === r.mealType)?.label}
+                      {r.calories ? ` · ${r.calories} kcal` : ''}
+                      {r.diningType ? ` · ${DINING_TYPES.find(d => d.key === r.diningType)?.emoji}` : ''}
+                    </p>
+                  </div>
+                </button>
               ))}
             </div>
           )}
@@ -484,6 +523,7 @@ function CalendarTab({
 // ─── 통계 탭 ────────────────────────────────────────────────────────
 function StatsTab({ allRecords }: { allRecords: FoodRecord[] }) {
   const { t } = useTheme();
+  const { appSettings } = usePlanner();
   const now = new Date();
   const thisMonth = format(now, 'yyyy-MM');
 
@@ -492,7 +532,12 @@ function StatsTab({ allRecords }: { allRecords: FoodRecord[] }) {
   // 이번 달 식비
   const monthTotal = monthRecords.reduce((s, r) => s + (r.amount ?? 0), 0);
 
-  // 배달/외식/집밥 비율
+  // 배달/외식/집밥 횟수
+  const deliveryCnt = monthRecords.filter(r => r.diningType === 'delivery').length;
+  const restaurantCnt = monthRecords.filter(r => r.diningType === 'restaurant').length;
+  const homeCnt = monthRecords.filter(r => r.diningType === 'home').length;
+
+  // 배달/외식/집밥 비율 (도넛 차트)
   const diningCounts = DINING_TYPES.map(d => ({
     name: `${d.emoji} ${d.label}`,
     value: monthRecords.filter(r => r.diningType === d.key).length,
@@ -526,6 +571,70 @@ function StatsTab({ allRecords }: { allRecords: FoodRecord[] }) {
           총 {monthRecords.length}건
         </p>
       </div>
+
+      {/* 식사 유형 횟수 */}
+      {(deliveryCnt + restaurantCnt + homeCnt) > 0 && (
+        <div className="p-4 rounded-2xl" style={{ backgroundColor: t.card, border: `1px solid ${t.border}` }}>
+          <p style={{ fontSize: 13, fontWeight: 700, color: t.text, marginBottom: 12 }}>이번 달 식사 유형</p>
+          <div className="grid grid-cols-3 gap-2 mb-4">
+            {[
+              { label: '배달', emoji: '🛵', cnt: deliveryCnt, goal: appSettings.foodGoalDelivery, color: DINING_DOT_COLOR.delivery },
+              { label: '외식', emoji: '🍽️', cnt: restaurantCnt, goal: appSettings.foodGoalRestaurant, color: DINING_DOT_COLOR.restaurant },
+              { label: '집밥', emoji: '🏠', cnt: homeCnt, goal: undefined, color: DINING_DOT_COLOR.home },
+            ].map(({ label, emoji, cnt, goal, color }) => (
+              <div key={label} className="flex flex-col items-center p-2.5 rounded-xl"
+                style={{ backgroundColor: t.bgSub }}>
+                <span style={{ fontSize: 16, marginBottom: 2 }}>{emoji}</span>
+                <span style={{ fontSize: 11, color: t.textMuted, marginBottom: 2 }}>{label}</span>
+                <span style={{ fontSize: 18, fontWeight: 700, color }}>
+                  {cnt}<span style={{ fontSize: 11, fontWeight: 400 }}>회</span>
+                </span>
+                {goal != null && (
+                  <span style={{ fontSize: 10, color: cnt <= goal ? t.textMuted : '#D4735A', marginTop: 2 }}>
+                    목표 {goal}회
+                  </span>
+                )}
+              </div>
+            ))}
+          </div>
+
+          {/* 목표 대비 현황 — 목표가 설정된 항목만 */}
+          {(appSettings.foodGoalDelivery != null || appSettings.foodGoalRestaurant != null) && (
+            <div className="space-y-2">
+              {appSettings.foodGoalDelivery != null && (
+                <div>
+                  <div className="flex justify-between mb-1">
+                    <span style={{ fontSize: 11, color: t.textMuted }}>🛵 배달 목표 달성률</span>
+                    <span style={{ fontSize: 11, color: t.textSub }}>{deliveryCnt} / {appSettings.foodGoalDelivery}회</span>
+                  </div>
+                  <div className="h-1.5 rounded-full" style={{ backgroundColor: t.bgSub }}>
+                    <div className="h-full rounded-full transition-all"
+                      style={{
+                        width: `${Math.min((deliveryCnt / appSettings.foodGoalDelivery) * 100, 100)}%`,
+                        backgroundColor: deliveryCnt <= appSettings.foodGoalDelivery ? DINING_DOT_COLOR.delivery : '#D4735A',
+                      }} />
+                  </div>
+                </div>
+              )}
+              {appSettings.foodGoalRestaurant != null && (
+                <div>
+                  <div className="flex justify-between mb-1">
+                    <span style={{ fontSize: 11, color: t.textMuted }}>🍽️ 외식 목표 달성률</span>
+                    <span style={{ fontSize: 11, color: t.textSub }}>{restaurantCnt} / {appSettings.foodGoalRestaurant}회</span>
+                  </div>
+                  <div className="h-1.5 rounded-full" style={{ backgroundColor: t.bgSub }}>
+                    <div className="h-full rounded-full transition-all"
+                      style={{
+                        width: `${Math.min((restaurantCnt / appSettings.foodGoalRestaurant) * 100, 100)}%`,
+                        backgroundColor: restaurantCnt <= appSettings.foodGoalRestaurant ? DINING_DOT_COLOR.restaurant : '#D4735A',
+                      }} />
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      )}
 
       {/* 배달/외식/집밥 도넛 차트 */}
       {diningCounts.length > 0 && (
@@ -589,7 +698,14 @@ function StatsTab({ allRecords }: { allRecords: FoodRecord[] }) {
 
       {/* 일별 칼로리 막대 그래프 */}
       <div className="p-4 rounded-2xl" style={{ backgroundColor: t.card, border: `1px solid ${t.border}` }}>
-        <p style={{ fontSize: 13, fontWeight: 700, color: t.text, marginBottom: 12 }}>최근 14일 칼로리</p>
+        <div className="flex items-center justify-between mb-3">
+          <p style={{ fontSize: 13, fontWeight: 700, color: t.text }}>최근 14일 칼로리</p>
+          {appSettings.foodGoalCalories != null && (
+            <span style={{ fontSize: 11, color: t.textMuted }}>
+              목표 {appSettings.foodGoalCalories.toLocaleString()} kcal/일
+            </span>
+          )}
+        </div>
         {calByDay.some(d => d.calories > 0) ? (
           <ResponsiveContainer width="100%" height={150}>
             <BarChart data={calByDay} barSize={14}>
@@ -599,7 +715,15 @@ function StatsTab({ allRecords }: { allRecords: FoodRecord[] }) {
                 contentStyle={{ backgroundColor: t.card, border: `1px solid ${t.border}`, borderRadius: 8, fontSize: 12 }}
                 formatter={(v: any) => [`${v} kcal`, '칼로리']}
               />
-              <Bar dataKey="calories" fill={t.accent} radius={[4, 4, 0, 0]} />
+              <Bar dataKey="calories" radius={[4, 4, 0, 0]}>
+                {calByDay.map((entry, i) => (
+                  <Cell key={i} fill={
+                    appSettings.foodGoalCalories != null && entry.calories > appSettings.foodGoalCalories
+                      ? '#D4735A'
+                      : t.accent
+                  } />
+                ))}
+              </Bar>
             </BarChart>
           </ResponsiveContainer>
         ) : (

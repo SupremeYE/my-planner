@@ -363,6 +363,10 @@ export interface AppSettings {
   /** DB/구버전 호환용 (현재 연도 프로필과 동기화 가능) */
   annualIdentity: string;
   annualValues: string[];
+  /** 식단 목표 (미설정 시 undefined) */
+  foodGoalDelivery?: number;
+  foodGoalRestaurant?: number;
+  foodGoalCalories?: number;
 }
 
 export const DEFAULT_APP_SETTINGS: AppSettings = {

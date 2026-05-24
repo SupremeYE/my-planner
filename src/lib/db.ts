@@ -806,6 +806,9 @@ export const db = {
           annualProfiles,
           annualIdentity: cyProfile.identity,
           annualValues: cyProfile.values,
+          foodGoalDelivery: data.food_goal_delivery ?? undefined,
+          foodGoalRestaurant: data.food_goal_restaurant ?? undefined,
+          foodGoalCalories: data.food_goal_calories ?? undefined,
         },
       };
     },
@@ -826,6 +829,9 @@ export const db = {
         const slice = appSettings.annualProfiles?.[cy];
         payload.annual_identity = slice?.identity?.trim() ? slice.identity : null;
         payload.annual_values = slice?.values?.length ? slice.values : null;
+        payload.food_goal_delivery = appSettings.foodGoalDelivery ?? null;
+        payload.food_goal_restaurant = appSettings.foodGoalRestaurant ?? null;
+        payload.food_goal_calories = appSettings.foodGoalCalories ?? null;
       }
       const { error } = await supabase.from('user_settings').upsert(payload);
       if (error) console.error('[db] settings upsert:', error.message);

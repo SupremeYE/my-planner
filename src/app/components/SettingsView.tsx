@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
   Clock, Tag, Sparkles, SlidersHorizontal,
   Plus, Pencil, Trash2, Check, X, ChevronRight,
@@ -373,6 +373,65 @@ function FeatureTogglesSection() {
   );
 }
 
+// ─── 식단 목표 섹션 ───
+function FoodGoalsSection() {
+  const { t } = useTheme();
+  const { appSettings, updateAppSettings } = usePlanner();
+
+  const [delivery, setDelivery] = useState(String(appSettings.foodGoalDelivery ?? ''));
+  const [restaurant, setRestaurant] = useState(String(appSettings.foodGoalRestaurant ?? ''));
+  const [calories, setCalories] = useState(String(appSettings.foodGoalCalories ?? ''));
+
+  useEffect(() => {
+    setDelivery(String(appSettings.foodGoalDelivery ?? ''));
+    setRestaurant(String(appSettings.foodGoalRestaurant ?? ''));
+    setCalories(String(appSettings.foodGoalCalories ?? ''));
+  }, [appSettings.foodGoalDelivery, appSettings.foodGoalRestaurant, appSettings.foodGoalCalories]);
+
+  function save() {
+    updateAppSettings({
+      foodGoalDelivery: delivery ? Number(delivery) : undefined,
+      foodGoalRestaurant: restaurant ? Number(restaurant) : undefined,
+      foodGoalCalories: calories ? Number(calories) : undefined,
+    });
+  }
+
+  const inputStyle = {
+    borderColor: t.border, backgroundColor: t.card, color: t.text,
+    fontSize: 13, borderRadius: 8, padding: '6px 10px', outline: 'none',
+    border: `1px solid ${t.border}`, width: '100%',
+  } as const;
+
+  return (
+    <Section title="식단 목표" icon={<span style={{ fontSize: 16 }}>🍽️</span>}>
+      <p style={{ fontSize: 11, color: t.textMuted, marginTop: -8 }}>
+        입력하지 않은 항목은 통계에 표시되지 않아요
+      </p>
+      {[
+        { label: '월 배달 횟수 목표', unit: '회', value: delivery, set: setDelivery },
+        { label: '월 외식 횟수 목표', unit: '회', value: restaurant, set: setRestaurant },
+        { label: '일일 칼로리 목표', unit: 'kcal', value: calories, set: setCalories },
+      ].map(({ label, unit, value, set }) => (
+        <div key={label} className="flex items-center justify-between gap-3">
+          <span style={{ fontSize: 13, fontWeight: 500, color: t.text, flexShrink: 0 }}>{label}</span>
+          <div className="flex items-center gap-1.5">
+            <input
+              type="number"
+              inputMode="numeric"
+              value={value}
+              onChange={e => set(e.target.value)}
+              onBlur={save}
+              placeholder="미설정"
+              style={{ ...inputStyle, width: 80, textAlign: 'right' }}
+            />
+            <span style={{ fontSize: 12, color: t.textSub, flexShrink: 0 }}>{unit}</span>
+          </div>
+        </div>
+      ))}
+    </Section>
+  );
+}
+
 // ─── 메인 뷰 ───
 export function SettingsView() {
   const { t } = useTheme();
@@ -389,6 +448,7 @@ export function SettingsView() {
       <div className="px-4 lg:px-6 pb-8 space-y-4">
         <TimelineSection />
         <CalendarSection />
+        <FoodGoalsSection />
         <TagsSection />
         <AffirmationSection />
         <FeatureTogglesSection />
