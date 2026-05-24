@@ -6,7 +6,7 @@ import {
 } from 'date-fns';
 import { ko } from 'date-fns/locale';
 import {
-  ChevronLeft, ChevronRight, X, Camera, Image as ImageIcon,
+  ChevronLeft, ChevronRight, ChevronDown, X, Camera, Image as ImageIcon,
   Mic, MicOff, Trash2, Pencil,
 } from 'lucide-react';
 import { MEAL_ICONS, MEAL_LABELS, DINING_ICONS, DINING_LABELS } from '../../constants/foodIcons';
@@ -302,6 +302,93 @@ function TodayTab({
   );
 }
 
+// ─── 달력 날짜 셀 ────────────────────────────────────────────────────
+function CalendarCell({
+  date,
+  recs,
+  isSelected,
+  today,
+  onSelect,
+}: {
+  date: Date;
+  recs: FoodRecord[];
+  isSelected: boolean;
+  today: boolean;
+  onSelect: () => void;
+}) {
+  const { t } = useTheme();
+
+  const byMeal: Record<MealType, FoodRecord | undefined> = {
+    breakfast: recs.find(r => r.mealType === 'breakfast'),
+    lunch:     recs.find(r => r.mealType === 'lunch'),
+    dinner:    recs.find(r => r.mealType === 'dinner'),
+    snack:     recs.find(r => r.mealType === 'snack'),
+  };
+
+  const totalPhotos = recs.filter(r => r.photoUrl).length;
+  const shownPhotos = MEALS.filter(m => byMeal[m.key]?.photoUrl).length;
+  const extraCount = totalPhotos - shownPhotos;
+
+  return (
+    <button onClick={onSelect}
+      className="relative overflow-hidden rounded-xl flex flex-col"
+      style={{
+        aspectRatio: '3/4',
+        border: `1.5px solid ${isSelected ? t.accent : today ? `${t.accent}70` : t.border}`,
+        backgroundColor: t.card,
+      }}>
+
+      {/* 4분할 그리드 */}
+      <div className="flex-1 grid grid-cols-2 min-h-0"
+        style={{ gridTemplateRows: '1fr 1fr' }}>
+        {MEALS.map((meal, idx) => {
+          const rec = byMeal[meal.key];
+          const photo = rec?.photoUrl;
+          const hasRecord = !!rec;
+          const isLeft = idx % 2 === 0;
+          const isTop  = idx < 2;
+          return (
+            <div key={meal.key}
+              className="relative flex items-center justify-center overflow-hidden"
+              style={{
+                borderRight:  isLeft ? `1px solid ${t.border}` : 'none',
+                borderBottom: isTop  ? `1px solid ${t.border}` : 'none',
+                backgroundColor: hasRecord
+                  ? isSelected ? 'rgba(255,255,255,0.15)' : `${t.accent}18`
+                  : 'transparent',
+              }}>
+              {photo
+                ? <img src={photo} alt="" className="absolute inset-0 w-full h-full object-cover" />
+                : <span style={{ fontSize: 9, opacity: hasRecord ? 0.85 : 0.2, lineHeight: 1 }}>
+                    {meal.emoji}
+                  </span>
+              }
+            </div>
+          );
+        })}
+      </div>
+
+      {/* 하단 스트립: 날짜 + +N */}
+      <div className="flex-shrink-0 flex items-center justify-between px-1"
+        style={{ height: 14, backgroundColor: isSelected ? t.accent : 'transparent' }}>
+        <span style={{
+          fontSize: 9,
+          fontWeight: today || isSelected ? 700 : 400,
+          color: isSelected ? '#fff' : today ? t.accent : t.text,
+          lineHeight: 1,
+        }}>
+          {date.getDate()}
+        </span>
+        {extraCount > 0 && (
+          <span style={{ fontSize: 8, color: isSelected ? 'rgba(255,255,255,0.8)' : t.textMuted, lineHeight: 1 }}>
+            +{extraCount}
+          </span>
+        )}
+      </div>
+    </button>
+  );
+}
+
 // ─── 달력 탭 ────────────────────────────────────────────────────────
 function CalendarTab({
   allRecords,
@@ -317,14 +404,29 @@ function CalendarTab({
   const { t } = useTheme();
   const [viewMonth, setViewMonth] = useState(new Date());
   const [selectedDate, setSelectedDate] = useState<Date | null>(new Date());
+  const [expanded, setExpanded] = useState(false);
 
   const monthStart = startOfMonth(viewMonth);
   const daysInMonth = getDaysInMonth(viewMonth);
   const startDow = getDay(monthStart);
-  const cells = Array.from({ length: startDow + daysInMonth }, (_, i) => {
+
+  // 전체 달력 셀 (null = 빈 칸)
+  const allCells = Array.from({ length: startDow + daysInMonth }, (_, i) => {
     if (i < startDow) return null;
     return new Date(viewMonth.getFullYear(), viewMonth.getMonth(), i - startDow + 1);
   });
+
+  // 접힌 상태: 선택된 날짜가 속한 주 1행만 표시
+  const selectedCellIdx = selectedDate
+    ? allCells.findIndex(d => d !== null && isSameDay(d, selectedDate))
+    : allCells.findIndex(d => d !== null && isToday(d));
+  const rowIdx = selectedCellIdx >= 0 ? Math.floor(selectedCellIdx / 7) : 0;
+  const weekStartIdx = rowIdx * 7;
+  const weekCells = allCells.slice(weekStartIdx, weekStartIdx + 7);
+  // 7개 미만이면 null로 패딩
+  while (weekCells.length < 7) weekCells.push(null);
+
+  const visibleCells = expanded ? allCells : weekCells;
 
   const recordsByDate = (date: Date) =>
     allRecords.filter(r => r.date === format(date, 'yyyy-MM-dd'));
@@ -353,90 +455,51 @@ function CalendarTab({
         ))}
       </div>
 
-      {/* 날짜 그리드 — 4분할 */}
-      <div className="grid grid-cols-7 gap-1 mb-4">
-        {cells.map((date, i) => {
-          if (!date) return <div key={i} />;
-          const recs = recordsByDate(date);
-          const isSelected = selectedDate && isSameDay(date, selectedDate);
-          const today = isToday(date);
-
-          // 식사별 첫 번째 기록
-          const byMeal: Record<MealType, FoodRecord | undefined> = {
-            breakfast: recs.find(r => r.mealType === 'breakfast'),
-            lunch:     recs.find(r => r.mealType === 'lunch'),
-            dinner:    recs.find(r => r.mealType === 'dinner'),
-            snack:     recs.find(r => r.mealType === 'snack'),
-          };
-
-          // 추가 사진 수 (+N)
-          const totalPhotos = recs.filter(r => r.photoUrl).length;
-          const shownPhotos = MEALS.filter(m => byMeal[m.key]?.photoUrl).length;
-          const extraCount = totalPhotos - shownPhotos;
-
-          return (
-            <button key={i} onClick={() => setSelectedDate(date)}
-              className="relative overflow-hidden rounded-xl flex flex-col"
-              style={{
-                aspectRatio: '3/4',
-                border: `1.5px solid ${isSelected ? t.accent : today ? `${t.accent}70` : t.border}`,
-                backgroundColor: t.card,
-              }}>
-
-              {/* 4분할 그리드 */}
-              <div className="flex-1 grid grid-cols-2 min-h-0"
-                style={{ gridTemplateRows: '1fr 1fr' }}>
-                {MEALS.map((meal, idx) => {
-                  const rec = byMeal[meal.key];
-                  const photo = rec?.photoUrl;
-                  const hasRecord = !!rec;
-                  const isLeft = idx % 2 === 0;
-                  const isTop  = idx < 2;
-                  return (
-                    <div key={meal.key}
-                      className="relative flex items-center justify-center overflow-hidden"
-                      style={{
-                        borderRight:  isLeft ? `1px solid ${t.border}` : 'none',
-                        borderBottom: isTop  ? `1px solid ${t.border}` : 'none',
-                        backgroundColor: hasRecord
-                          ? isSelected ? 'rgba(255,255,255,0.15)' : `${t.accent}18`
-                          : 'transparent',
-                      }}>
-                      {photo
-                        ? <img src={photo} alt="" className="absolute inset-0 w-full h-full object-cover" />
-                        : <span style={{ fontSize: 9, opacity: hasRecord ? 0.85 : 0.2, lineHeight: 1 }}>
-                            {meal.emoji}
-                          </span>
-                      }
-                    </div>
-                  );
-                })}
-              </div>
-
-              {/* 하단 스트립: 날짜 + +N */}
-              <div className="flex-shrink-0 flex items-center justify-between px-1"
-                style={{
-                  height: 14,
-                  backgroundColor: isSelected ? t.accent : 'transparent',
-                }}>
-                <span style={{
-                  fontSize: 9,
-                  fontWeight: today || isSelected ? 700 : 400,
-                  color: isSelected ? '#fff' : today ? t.accent : t.text,
-                  lineHeight: 1,
-                }}>
-                  {date.getDate()}
-                </span>
-                {extraCount > 0 && (
-                  <span style={{ fontSize: 8, color: isSelected ? 'rgba(255,255,255,0.8)' : t.textMuted, lineHeight: 1 }}>
-                    +{extraCount}
-                  </span>
-                )}
-              </div>
-            </button>
-          );
-        })}
+      {/* 날짜 그리드 — 접기/펼치기 애니메이션 */}
+      <div
+        className="overflow-hidden"
+        style={{
+          maxHeight: expanded ? 600 : 110,
+          transition: 'max-height 0.32s ease-in-out',
+        }}>
+        <div className="grid grid-cols-7 gap-1">
+          {visibleCells.map((date, i) =>
+            date ? (
+              <CalendarCell
+                key={i}
+                date={date}
+                recs={recordsByDate(date)}
+                isSelected={!!(selectedDate && isSameDay(date, selectedDate))}
+                today={isToday(date)}
+                onSelect={() => setSelectedDate(date)}
+              />
+            ) : (
+              <div key={i} />
+            )
+          )}
+        </div>
       </div>
+
+      {/* 접기/펼치기 토글 버튼 */}
+      <button
+        onClick={() => setExpanded(e => !e)}
+        className="flex items-center justify-center w-full pt-1 pb-3"
+        style={{ color: t.textMuted }}>
+        <div className="flex items-center gap-1 px-3 py-1 rounded-full"
+          style={{ backgroundColor: t.bgSub }}>
+          <span style={{ fontSize: 11, color: t.textMuted }}>
+            {expanded ? '접기' : '펼치기'}
+          </span>
+          <ChevronDown
+            size={14}
+            color={t.textMuted}
+            style={{
+              transform: expanded ? 'rotate(180deg)' : 'rotate(0deg)',
+              transition: 'transform 0.32s ease-in-out',
+            }}
+          />
+        </div>
+      </button>
 
       {/* 선택 날짜 기록 */}
       {selectedDate && (
