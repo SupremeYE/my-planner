@@ -412,6 +412,8 @@ function CalendarTab({
   const [viewMonth, setViewMonth] = useState(new Date());
   const [selectedDate, setSelectedDate] = useState<Date | null>(new Date());
   const [expanded, setExpanded] = useState(false);
+  const rowRef = useRef<HTMLDivElement>(null);
+  const [rowHeight, setRowHeight] = useState(90); // fallback
 
   const monthStart = startOfMonth(viewMonth);
   const daysInMonth = getDaysInMonth(viewMonth);
@@ -424,16 +426,32 @@ function CalendarTab({
   });
 
   // 접힌 상태: 선택된 날짜가 속한 주 1행만 표시
-  const selectedCellIdx = selectedDate
-    ? allCells.findIndex(d => d !== null && isSameDay(d, selectedDate))
-    : allCells.findIndex(d => d !== null && isToday(d));
-  const rowIdx = selectedCellIdx >= 0 ? Math.floor(selectedCellIdx / 7) : 0;
+  const selectedCellIdx = (() => {
+    const idx = selectedDate
+      ? allCells.findIndex(d => d !== null && isSameDay(d, selectedDate))
+      : -1;
+    if (idx >= 0) return idx;
+    const todayIdx = allCells.findIndex(d => d !== null && isToday(d));
+    return todayIdx >= 0 ? todayIdx : startDow; // 이번 달 첫 날로 fallback
+  })();
+  const rowIdx = Math.floor(selectedCellIdx / 7);
   const weekStartIdx = rowIdx * 7;
   const weekCells = allCells.slice(weekStartIdx, weekStartIdx + 7);
-  // 7개 미만이면 null로 패딩
   while (weekCells.length < 7) weekCells.push(null);
 
-  const visibleCells = expanded ? allCells : weekCells;
+  const numRows = Math.ceil(allCells.length / 7);
+  const expandedHeight = numRows * (rowHeight + 4); // gap-1 = 4px
+
+  // 첫 번째 셀 높이 측정 → rowHeight 갱신
+  useEffect(() => {
+    const el = rowRef.current?.querySelector('button');
+    if (!el) return;
+    const obs = new ResizeObserver(() => {
+      setRowHeight(el.getBoundingClientRect().height);
+    });
+    obs.observe(el);
+    return () => obs.disconnect();
+  }, []);
 
   const recordsByDate = (date: Date) =>
     allRecords.filter(r => r.date === format(date, 'yyyy-MM-dd'));
@@ -442,71 +460,94 @@ function CalendarTab({
 
   return (
     <div className="p-4">
-      {/* 월 네비 */}
-      <div className="flex items-center justify-between mb-4">
-        <button onClick={() => setViewMonth(m => subMonths(m, 1))} className="p-2">
-          <ChevronLeft size={18} color={t.textSub} />
-        </button>
-        <span style={{ fontSize: 15, fontWeight: 700, color: t.text }}>
-          {format(viewMonth, 'yyyy년 M월')}
-        </span>
-        <button onClick={() => setViewMonth(m => addMonths(m, 1))} className="p-2">
-          <ChevronRight size={18} color={t.textSub} />
-        </button>
-      </div>
+      {/* 월 네비 — 최대 너비 제한으로 PC에서도 적절한 크기 유지 */}
+      <div className="max-w-sm mx-auto lg:max-w-md">
+        <div className="flex items-center justify-between mb-4">
+          <button onClick={() => setViewMonth(m => subMonths(m, 1))} className="p-2">
+            <ChevronLeft size={18} color={t.textSub} />
+          </button>
+          <span style={{ fontSize: 15, fontWeight: 700, color: t.text }}>
+            {format(viewMonth, 'yyyy년 M월')}
+          </span>
+          <button onClick={() => setViewMonth(m => addMonths(m, 1))} className="p-2">
+            <ChevronRight size={18} color={t.textSub} />
+          </button>
+        </div>
 
-      {/* 요일 헤더 */}
-      <div className="grid grid-cols-7 mb-1">
-        {['일','월','화','수','목','금','토'].map(d => (
-          <div key={d} className="text-center" style={{ fontSize: 10, color: t.textMuted, paddingBottom: 4 }}>{d}</div>
-        ))}
-      </div>
+        {/* 요일 헤더 */}
+        <div className="grid grid-cols-7 mb-1">
+          {['일','월','화','수','목','금','토'].map(d => (
+            <div key={d} className="text-center" style={{ fontSize: 10, color: t.textMuted, paddingBottom: 4 }}>{d}</div>
+          ))}
+        </div>
 
-      {/* 날짜 그리드 — 접기/펼치기 애니메이션 */}
-      <div
-        className="overflow-hidden"
-        style={{
-          maxHeight: expanded ? 600 : 110,
-          transition: 'max-height 0.32s ease-in-out',
-        }}>
-        <div className="grid grid-cols-7 gap-1">
-          {visibleCells.map((date, i) =>
-            date ? (
-              <CalendarCell
-                key={i}
-                date={date}
-                recs={recordsByDate(date)}
-                isSelected={!!(selectedDate && isSameDay(date, selectedDate))}
-                today={isToday(date)}
-                onSelect={() => setSelectedDate(date)}
-              />
-            ) : (
-              <div key={i} />
-            )
+        {/* 날짜 그리드 — 접기/펼치기 애니메이션 */}
+        <div
+          ref={rowRef}
+          className="overflow-hidden"
+          style={{
+            maxHeight: expanded ? expandedHeight + 8 : rowHeight + 8,
+            transition: 'max-height 0.32s ease-in-out',
+          }}>
+          {/* 접힌 상태: 해당 주만 / 펼친 상태: 전달 전체 */}
+          {expanded ? (
+            <div className="grid grid-cols-7 gap-1">
+              {allCells.map((date, i) =>
+                date ? (
+                  <CalendarCell
+                    key={i}
+                    date={date}
+                    recs={recordsByDate(date)}
+                    isSelected={!!(selectedDate && isSameDay(date, selectedDate))}
+                    today={isToday(date)}
+                    onSelect={() => setSelectedDate(date)}
+                  />
+                ) : (
+                  <div key={i} />
+                )
+              )}
+            </div>
+          ) : (
+            <div className="grid grid-cols-7 gap-1">
+              {weekCells.map((date, i) =>
+                date ? (
+                  <CalendarCell
+                    key={i}
+                    date={date}
+                    recs={recordsByDate(date)}
+                    isSelected={!!(selectedDate && isSameDay(date, selectedDate))}
+                    today={isToday(date)}
+                    onSelect={() => setSelectedDate(date)}
+                  />
+                ) : (
+                  <div key={i} />
+                )
+              )}
+            </div>
           )}
         </div>
-      </div>
 
-      {/* 접기/펼치기 토글 버튼 */}
-      <button
-        onClick={() => setExpanded(e => !e)}
-        className="flex items-center justify-center w-full pt-1 pb-3"
-        style={{ color: t.textMuted }}>
-        <div className="flex items-center gap-1 px-3 py-1 rounded-full"
-          style={{ backgroundColor: t.bgSub }}>
-          <span style={{ fontSize: 11, color: t.textMuted }}>
-            {expanded ? '접기' : '펼치기'}
-          </span>
-          <ChevronDown
-            size={14}
-            color={t.textMuted}
-            style={{
-              transform: expanded ? 'rotate(180deg)' : 'rotate(0deg)',
-              transition: 'transform 0.32s ease-in-out',
-            }}
-          />
-        </div>
-      </button>
+        {/* 접기/펼치기 토글 버튼 */}
+        <button
+          onClick={() => setExpanded(e => !e)}
+          className="flex items-center justify-center w-full pt-2 pb-3"
+          style={{ color: t.textMuted }}>
+          <div className="flex items-center gap-1 px-3 py-1 rounded-full"
+            style={{ backgroundColor: t.bgSub }}>
+            <span style={{ fontSize: 11, color: t.textMuted }}>
+              {expanded ? '접기' : '펼치기'}
+            </span>
+            <ChevronDown
+              size={14}
+              color={t.textMuted}
+              style={{
+                transform: expanded ? 'rotate(180deg)' : 'rotate(0deg)',
+                transition: 'transform 0.32s ease-in-out',
+              }}
+            />
+          </div>
+        </button>
+      </div>
 
       {/* 선택 날짜 기록 */}
       {selectedDate && (
