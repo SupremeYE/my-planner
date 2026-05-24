@@ -11,6 +11,7 @@ import { HabitsView } from './components/HabitsView';
 import { SelfCareView } from './components/SelfCareView';
 import { ReviewsView } from './components/ReviewsView';
 import { SettingsView } from './components/SettingsView';
+import { FoodView } from './components/FoodView';
 
 export const router = createBrowserRouter([
   {
@@ -31,6 +32,7 @@ export const router = createBrowserRouter([
       { path: 'selfcare',     Component: SelfCareView },
       { path: 'reviews',      Component: ReviewsView },
       { path: 'settings',     Component: SettingsView },
+      { path: 'food',         Component: FoodView },
     ],
   },
 ]);

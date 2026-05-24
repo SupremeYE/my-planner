@@ -135,6 +135,8 @@ export interface SelfCareRecord {
 }
 
 export type MealType = 'breakfast' | 'lunch' | 'dinner' | 'snack';
+export type DiningType = 'home' | 'delivery' | 'restaurant';
+export type TasteRating = 'good' | 'normal' | 'bad';
 
 export interface FoodRecord {
   id: string;
@@ -144,6 +146,12 @@ export interface FoodRecord {
   amount: number;         // 원
   photoUrl?: string | null;
   memo?: string | null;
+  calories?: number | null;
+  carbs?: number | null;
+  protein?: number | null;
+  fat?: number | null;
+  diningType?: DiningType | null;
+  tasteRating?: TasteRating | null;
 }
 
 export interface PeriodRecord {

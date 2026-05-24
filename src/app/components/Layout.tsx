@@ -24,6 +24,7 @@ const lifestyleNavItems = [
   { to: '/habits', icon: Repeat, label: '습관 & 루틴' },
   { to: '/selfcare', icon: Heart, label: '자기관리' },
   { to: '/reviews', icon: BookOpen, label: '리뷰 & 기록' },
+  { to: '/food', icon: () => <span style={{ fontSize: 16 }}>🍽️</span>, label: '식단' },
 ];
 
 // ── Inline new project form ──
@@ -257,6 +258,7 @@ function MobileMenuOverlay({ onClose }: { onClose: () => void }) {
     { to: '/habits', icon: Repeat, label: '습관&루틴' },
     { to: '/selfcare', icon: Heart, label: '자기관리' },
     { to: '/reviews', icon: BookOpen, label: '기록' },
+    { to: '/food', icon: () => <span style={{ fontSize: 16 }}>🍽️</span>, label: '식단' },
     { to: '/settings', icon: Settings, label: '설정' },
   ];
 

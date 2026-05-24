@@ -4,7 +4,7 @@ import { createEvent as createEventApi, deleteEvent as deleteEventApi, getEvents
 import type {
   Todo, Habit, Project, Milestone,
   SelfCareRecord, ReviewRecord, WeeklyReview, MonthlyReview, TimelineLog,
-  FoodRecord, Event, WeeklyGoal, MonthlyGoal, BrainstormItem, Tag, Routine,
+  FoodRecord, DiningType, TasteRating, Event, WeeklyGoal, MonthlyGoal, BrainstormItem, Tag, Routine,
   PeriodRecord, HabitMonthlyMemo, AnnualGoal, QuarterlyGoal,
 } from '../app/store';
 
@@ -555,6 +555,12 @@ export const db = {
         amount: r.amount ?? 0,
         photoUrl: r.photo_url ?? null,
         memo: r.memo ?? null,
+        calories: r.calories ?? null,
+        carbs: r.carbs ?? null,
+        protein: r.protein ?? null,
+        fat: r.fat ?? null,
+        diningType: (r.dining_type as DiningType) ?? null,
+        tasteRating: (r.taste_rating as TasteRating) ?? null,
       }));
     },
     upsert: async (record: FoodRecord) => {
@@ -566,6 +572,12 @@ export const db = {
         amount: record.amount,
         photo_url: record.photoUrl ?? null,
         memo: record.memo ?? null,
+        calories: record.calories ?? null,
+        carbs: record.carbs ?? null,
+        protein: record.protein ?? null,
+        fat: record.fat ?? null,
+        dining_type: record.diningType ?? null,
+        taste_rating: record.tasteRating ?? null,
       });
       if (error) console.error('[db] food_records upsert:', error.message);
     },
