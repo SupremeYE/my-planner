@@ -740,7 +740,7 @@ function AddFoodSheet({
 
   const handlePhotoFile = async (file: File) => {
     set({ photoFile: file, photoUrl: URL.createObjectURL(file) });
-    nextStep();
+    if (!editRecord) nextStep();
   };
 
   const nextStep = () => setStep(s => Math.min(s + 1, 7) as AddStep);
@@ -885,6 +885,44 @@ function AddFoodSheet({
                 style={{ backgroundColor: t.bgSub }}>
                 <span style={{ fontSize: 14, color: t.textSub }}>건너뛰기</span>
               </button>
+              <input ref={cameraRef} type="file" accept="image/*" capture="environment"
+                className="hidden" onChange={e => e.target.files?.[0] && handlePhotoFile(e.target.files[0])} />
+              <input ref={galleryRef} type="file" accept="image/*"
+                className="hidden" onChange={e => e.target.files?.[0] && handlePhotoFile(e.target.files[0])} />
+            </div>
+          )}
+
+          {/* 사진 (수정 모드 전용) */}
+          {editRecord && (
+            <div className="mb-5">
+              <p style={{ fontSize: 12, color: t.textMuted, marginBottom: 8 }}>사진</p>
+              {form.photoUrl ? (
+                <div className="relative mb-2">
+                  <img src={form.photoUrl} alt="" className="w-full h-44 object-cover rounded-2xl" />
+                  <button
+                    onClick={() => set({ photoUrl: null, photoFile: null })}
+                    className="absolute top-2 right-2 p-1.5 rounded-full"
+                    style={{ backgroundColor: 'rgba(0,0,0,0.55)' }}>
+                    <X size={14} color="#fff" />
+                  </button>
+                </div>
+              ) : null}
+              <div className="flex gap-2">
+                <button
+                  onClick={() => cameraRef.current?.click()}
+                  className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl"
+                  style={{ backgroundColor: t.card, border: `1px solid ${t.border}` }}>
+                  <Camera size={16} color={t.accent} />
+                  <span style={{ fontSize: 13, color: t.text }}>지금 찍기</span>
+                </button>
+                <button
+                  onClick={() => galleryRef.current?.click()}
+                  className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl"
+                  style={{ backgroundColor: t.card, border: `1px solid ${t.border}` }}>
+                  <ImageIcon size={16} color={t.accent} />
+                  <span style={{ fontSize: 13, color: t.text }}>갤러리</span>
+                </button>
+              </div>
               <input ref={cameraRef} type="file" accept="image/*" capture="environment"
                 className="hidden" onChange={e => e.target.files?.[0] && handlePhotoFile(e.target.files[0])} />
               <input ref={galleryRef} type="file" accept="image/*"
