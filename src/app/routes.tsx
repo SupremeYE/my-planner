@@ -13,6 +13,7 @@ import { ReviewsView } from './components/ReviewsView';
 import { SettingsView } from './components/SettingsView';
 import { FoodView } from './components/FoodView';
 import { BooksView } from './components/BooksView';
+import { MoodView } from './components/MoodView';
 
 export const router = createBrowserRouter([
   {
@@ -35,6 +36,7 @@ export const router = createBrowserRouter([
       { path: 'settings',     Component: SettingsView },
       { path: 'food',         Component: FoodView },
       { path: 'books',        Component: BooksView },
+      { path: 'mood',         Component: MoodView },
     ],
   },
 ]);

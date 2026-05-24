@@ -1,6 +1,6 @@
 import React, { useRef, useState, useEffect } from 'react';
 import { Plus, X, ChevronRight, Mic } from 'lucide-react';
-import { usePlanner, ReviewRecord, WeeklyReview, MonthlyReview, EmotionLevel, getWeekKey } from '../store';
+import { usePlanner, ReviewRecord, WeeklyReview, MonthlyReview, getWeekKey } from '../store';
 import { useTheme } from '../ThemeContext';
 import { format } from 'date-fns';
 
@@ -83,16 +83,7 @@ function LabelRow({ label, labelColor, onVoiceResult }: {
   );
 }
 
-const EMOTIONS: { level: EmotionLevel; emoji: string; label: string }[] = [
-  { level: 1, emoji: '😞', label: '나쁨' },
-  { level: 2, emoji: '😐', label: '별로' },
-  { level: 3, emoji: '🙂', label: '보통' },
-  { level: 4, emoji: '😊', label: '좋음' },
-  { level: 5, emoji: '🤩', label: '최고' },
-];
-
 const RECORD_TYPES = [
-  { key: 'emotion', emoji: '😊', label: '감정 기록' },
   { key: 'gratitude', emoji: '🙏', label: '감사 일기' },
   { key: 'kpt', emoji: '🔄', label: 'KPT 회고' },
   { key: 'happiness', emoji: '✨', label: '행복 기록' },
@@ -117,8 +108,6 @@ export function ReviewsView() {
   // Today's record
   const todayRecord = reviewRecords.find(r => r.date === today);
   const [selectedTypes, setSelectedTypes] = useState<string[]>(todayRecord?.types || []);
-  const [emotion, setEmotion] = useState<EmotionLevel>(todayRecord?.emotion || 3);
-  const [emotionMemo, setEmotionMemo] = useState(todayRecord?.emotionMemo || '');
   const [gratitude, setGratitude] = useState<string[]>(todayRecord?.gratitude || ['', '', '']);
   const [kptKeep, setKptKeep] = useState(todayRecord?.kptKeep || '');
   const [kptProblem, setKptProblem] = useState(todayRecord?.kptProblem || '');
@@ -132,8 +121,6 @@ export function ReviewsView() {
   useEffect(() => {
     if (!todayRecord) return;
     setSelectedTypes(todayRecord.types || []);
-    setEmotion(todayRecord.emotion || 3);
-    setEmotionMemo(todayRecord.emotionMemo || '');
     setGratitude(todayRecord.gratitude || ['', '', '']);
     setKptKeep(todayRecord.kptKeep || '');
     setKptProblem(todayRecord.kptProblem || '');
@@ -152,8 +139,6 @@ export function ReviewsView() {
     const data: Omit<ReviewRecord, 'id'> = {
       date: today,
       types: selectedTypes,
-      emotion: selectedTypes.includes('emotion') ? emotion : undefined,
-      emotionMemo: selectedTypes.includes('emotion') ? emotionMemo : undefined,
       gratitude: selectedTypes.includes('gratitude') ? gratitude.filter(g => g.trim()) : undefined,
       kptKeep: selectedTypes.includes('kpt') ? kptKeep : undefined,
       kptProblem: selectedTypes.includes('kpt') ? kptProblem : undefined,
@@ -253,7 +238,7 @@ export function ReviewsView() {
         {tab === 'today' && (
           <div className="space-y-4">
             {/* Type selection */}
-            <div className="grid grid-cols-5 gap-2">
+            <div className="grid grid-cols-4 gap-2">
               {RECORD_TYPES.map(rt => (
                 <button key={rt.key} onClick={() => toggleType(rt.key)}
                   className="flex flex-col items-center gap-1.5 p-3 rounded-xl transition-all"
@@ -266,29 +251,6 @@ export function ReviewsView() {
                 </button>
               ))}
             </div>
-
-            {/* Emotion */}
-            {selectedTypes.includes('emotion') && (
-              <div className="p-4 rounded-xl" style={{ backgroundColor: t.card, border: `1px solid ${t.borderLight}` }}>
-                <h3 style={{ fontSize: 13, fontWeight: 700, color: t.text, marginBottom: 12 }}>😊 감정 기록</h3>
-                <div className="flex justify-center gap-4 mb-3">
-                  {EMOTIONS.map(em => (
-                    <button key={em.level} onClick={() => setEmotion(em.level)}
-                      className="flex flex-col items-center gap-1 transition-transform"
-                      style={{ transform: emotion === em.level ? 'scale(1.2)' : 'scale(1)' }}>
-                      <span style={{ fontSize: emotion === em.level ? 32 : 24, opacity: emotion === em.level ? 1 : 0.5 }}>{em.emoji}</span>
-                      <span style={{ fontSize: 10, color: emotion === em.level ? t.accent : t.textMuted }}>{em.label}</span>
-                    </button>
-                  ))}
-                </div>
-                <div className="flex items-end gap-2">
-                  <textarea value={emotionMemo} onChange={e => setEmotionMemo(e.target.value)}
-                    placeholder="오늘 기분은 어떤가요?" rows={2}
-                    className="flex-1 rounded-lg px-3 py-2 border outline-none resize-none" style={inputStyle} />
-                  <VoiceInputButton onResult={text => setEmotionMemo(prev => prev ? `${prev} ${text}` : text)} />
-                </div>
-              </div>
-            )}
 
             {/* Gratitude */}
             {selectedTypes.includes('gratitude') && (
@@ -400,9 +362,6 @@ export function ReviewsView() {
                     })}
                   </div>
                 </div>
-                {record.emotion && (
-                  <p style={{ fontSize: 12, color: t.textSub }}>{EMOTIONS[record.emotion - 1]?.emoji} {record.emotionMemo}</p>
-                )}
                 {record.dailySummary && (
                   <p style={{ fontSize: 12, color: t.textSub }}>📔 {record.dailySummary}</p>
                 )}
