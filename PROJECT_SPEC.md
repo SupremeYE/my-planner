@@ -1,6 +1,6 @@
 # PROJECT_SPEC.md — My Planner PWA 기능 명세서
 
-> 최종 업데이트: 2026-05-22 (미구현 기능 완료, 버그 수정, 루틴 반복 설정 추가)
+> 최종 업데이트: 2026-05-24 (식단 기록 페이지 추가, 식약처 API Edge Function 추가)
 
 ---
 
@@ -21,6 +21,7 @@
 | `/routines` | → `/habits` 리다이렉트 | 기존 루틴 페이지 호환용 alias |
 | `/selfcare` | `SelfCareView` | 운동/공부/뷰티 기록, 월간 통계 |
 | `/reviews` | `ReviewsView` | 감정·감사·KPT·데일리리뷰, 주간/월간 리뷰 |
+| `/food` | `FoodView` | 식단 기록 3탭(오늘/달력/통계), 영양성분 API 연동, 사진 업로드 |
 
 > 참고: `BrainstormView.tsx`, `BacklogView.tsx` 파일은 남아 있지만 현재 `routes.tsx`에는 연결되어 있지 않다.
 
@@ -117,6 +118,20 @@
 - **주간 리뷰**: 좋았던 것 / 힘들었던 것 / 다음 주 다짐
 - **월간 리뷰**: 이달 성취 / 다음 달 집중
 
+#### `/food` — 식단 기록
+- **오늘 탭**: 오늘 총 식비·칼로리 요약 카드, 아침/점심/저녁/간식 섹션별 기록 목록
+  - 사진 썸네일, 칼로리·금액·영양소 표시, 수정·삭제
+- **7단계 바텀시트 추가 흐름**:
+  1. 시간대 선택 (🌅 아침 / ☀️ 점심 / 🌙 저녁 / 🍪 간식)
+  2. 사진 (카메라/갤러리/건너뛰기) → Supabase `food-photos` Storage 업로드
+  3. 음식 이름 입력 + 식약처 영양성분 DB API 실시간 검색 → 칼로리/탄단지 자동입력, 음성입력 지원
+  4. 식사 유형 (🏠 집밥 / 🛵 배달 / 🍴 외식)
+  5. 금액 입력 (선택)
+  6. 칼로리 입력 (API 자동입력 또는 직접 입력, 선택)
+  7. 맛 평가 (😋 맛있었어 / 😐 보통 / 😑 별로, 선택)
+- **달력 탭**: 월별 그리드, 날짜 셀에 첫 번째 음식 사진 썸네일, 날짜 탭 → 그날 전체 기록 목록
+- **통계 탭**: 이번 달 식비 총액, 식사유형(집밥/배달/외식) 도넛 차트, 자주 먹은 음식 TOP5, ⭐ 맛있었던 것 모아보기, 최근 14일 칼로리 막대 그래프
+
 #### 비라우팅 컴포넌트 (현재 `routes.tsx` 미연결)
 - `BrainstormView`: 브레인스토밍 입력/할일·일정 변환 UI 컴포넌트 파일은 존재
 - `BacklogView`: 백로그 할일 관리 UI 컴포넌트 파일은 존재
@@ -148,6 +163,7 @@
 | `habit_monthly_memos` | 습관별 월간 메모 + 전체 회고 | `year` ASC, `month` ASC | ✅ |
 | `weekly_reviews` | 주간 리뷰 | `week_key` DESC | ✅ |
 | `monthly_reviews` | 월간 리뷰 | `month` DESC | ✅ |
+| `food_records` | 식단 기록 | `date` DESC, `created_at` DESC | ✅ |
 
 ### 2-2. 테이블별 컬럼 상세
 
@@ -373,6 +389,25 @@ next_focus   text        다음 달 집중
 created_at   timestamptz 생성일시
 ```
 
+#### `food_records`
+```
+id           text        PK
+date         text        날짜 (yyyy-MM-dd)
+meal_type    text        breakfast|lunch|dinner|snack
+food_name    text        음식 이름
+amount       integer     식비 (원, 기본값 0)
+photo_url    text|null   Supabase Storage 사진 URL
+memo         text|null   메모
+calories     numeric(7,1)|null  칼로리 (kcal)
+carbs        numeric(7,1)|null  탄수화물 (g)
+protein      numeric(7,1)|null  단백질 (g)
+fat          numeric(7,1)|null  지방 (g)
+dining_type  text|null   home|delivery|restaurant
+taste_rating text|null   good|normal|bad
+created_at   timestamptz 생성일시
+```
+> Storage: `food-photos` 버킷 (public) — 사진 업로드/삭제 지원
+
 ---
 
 ## 3. 페이지간 데이터 연동 관계
@@ -454,6 +489,7 @@ store.tsx (PlannerContext)
 | 루틴 | ✅ | ✅ | ✅ | ✅ | ✅ 연동 |
 | 주간 리뷰 | ✅ | ✅ | ✅ | — | ✅ 연동 (weekly_reviews 테이블) |
 | 월간 리뷰 | ✅ | ✅ | ✅ | — | ✅ 연동 (monthly_reviews 테이블) |
+| 식단 기록 | ✅ | ✅ | ✅ | ✅ | ✅ 연동 (food_records 테이블) |
 
 ### ✅ UI/UX 기능
 
@@ -502,6 +538,8 @@ store.tsx (PlannerContext)
   - 모바일 상단 topbar 햄버거 버튼 → `MobileMenuOverlay` 바텀 시트(전체 페이지 4열 그리드)
 - PWA 지원 (manifest + service worker + network-first/cache fallback)
 - 일일 긍정 메시지 (AffirmationCard)
+- **식단 기록 페이지(`/food`)** — 3탭(오늘/달력/통계), 7단계 바텀시트 추가 흐름, 식약처 영양성분 API 자동 검색, 사진 업로드(카메라/갤러리), 음성입력, 식사유형·맛평가, 도넛·바 차트 통계 (`FoodView.tsx`)
+- **식약처 영양성분 API 프록시** — Vercel Edge Function `GET /api/food-nutrition?query=음식명` → 칼로리/탄수화물/단백질/지방 반환 (`api/food-nutrition.ts`)
 
 ---
 
@@ -642,6 +680,13 @@ App.tsx
 │   ├── BrainstormItemCard
 │   ├── ConvertToTodoModal
 │   └── ConvertToEventModal
+│
+├── FoodView (/food)
+│   ├── TodayTab (오늘 식단 — 요약 카드 + 식사 섹션별 기록)
+│   │   └── MealSection (아침/점심/저녁/간식 + FoodCard)
+│   ├── CalendarTab (월별 그리드 + 날짜별 기록 목록)
+│   ├── StatsTab (식비·도넛차트·TOP5·맛있었던것·칼로리바차트)
+│   └── AddFoodSheet (7단계 바텀시트 — 시간대/사진/음식명+영양검색/식사유형/금액/칼로리/맛평가)
 │
 └── 공통 컴포넌트
     ├── AddEntryMenu — `+ 추가` 버튼 드롭다운 (할일 추가 / 일정 추가)

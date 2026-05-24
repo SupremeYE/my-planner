@@ -6,6 +6,52 @@
 
 ---
 
+## 2026-05-24
+
+### 📋 TODO
+
+### ✅ 완료
+- [x] Vercel Edge Function 프록시 생성 (api/food-nutrition.ts) — 식약처 영양성분 API 연동
+- [x] vercel.json /api/ 경로 SPA rewrite 제외 처리
+- [x] food_records 테이블 컬럼 추가 마이그레이션 (calories, carbs, protein, fat, dining_type, taste_rating)
+- [x] FoodRecord 인터페이스 + DiningType/TasteRating 타입 추가 (store.tsx)
+- [x] db.ts food_records fetchAll/upsert 신규 필드 매핑
+- [x] 식단 기록 페이지 UI 구현 (/food, FoodView.tsx)
+- [x] /food 라우트 등록 및 사이드바·모바일 메뉴에 🍽️ 식단 추가
+
+### 🛠 오늘 작업 내용
+
+**① Vercel Edge Function — 식약처 영양성분 API 프록시 (`api/food-nutrition.ts`)**
+- `GET /api/food-nutrition?query=음식명` → 식약처 API 호출 후 칼로리/탄수화물/단백질/지방 반환
+- `VITE_FOOD_API_KEY` 환경변수, 이중 인코딩 방지 처리
+- `vercel.json` 수정: `/((?!api/).*)` 패턴으로 /api/ 경로 SPA rewrite 제외
+
+**② Supabase food_records 컬럼 추가 마이그레이션**
+- `calories NUMERIC(7,1)`, `carbs NUMERIC(7,1)`, `protein NUMERIC(7,1)`, `fat NUMERIC(7,1)`
+- `dining_type TEXT` (home|delivery|restaurant CHECK), `taste_rating TEXT` (good|normal|bad CHECK)
+- `food-photos` Storage 버킷 이미 존재 확인 (public)
+
+**③ 식단 기록 페이지 UI (`FoodView.tsx`, 신규)**
+- 3탭 구조: **오늘** / **달력** / **통계**
+- **오늘 탭**: 식비·칼로리 요약 카드, 아침/점심/저녁/간식 섹션별 기록, 사진 썸네일, 수정·삭제
+- **7단계 바텀시트 추가 흐름**:
+  1. 시간대 선택 (아침/점심/저녁/간식)
+  2. 사진 (카메라/갤러리/건너뛰기) → Supabase Storage 업로드
+  3. 음식 이름 입력 + 식약처 API 실시간 검색 → 영양소 자동입력 + 음성입력 지원
+  4. 식사 유형 (집밥/배달/외식)
+  5. 금액 입력 (선택)
+  6. 칼로리 입력 (API 자동입력 또는 수정, 선택)
+  7. 맛 평가 (😋/😐/😑, 선택)
+- **달력 탭**: 월별 그리드, 사진 썸네일, 날짜 탭 → 그날 기록 목록
+- **통계 탭**: 월 식비 총액, 식사유형 도넛 차트(recharts), 자주 먹은 음식 TOP5, ⭐ 맛있었던 것 모아보기, 최근 14일 칼로리 바차트
+- 수정 모드: 모든 필드 인라인 수정 지원
+
+**④ 라우트 및 네비게이션 추가**
+- `routes.tsx`: `/food` 라우트 등록
+- `Layout.tsx`: 사이드바 lifestyleNavItems·모바일 MobileMenuOverlay allItems에 🍽️ 식단 추가
+
+---
+
 ## 2026-05-22
 
 ### 📋 TODO
