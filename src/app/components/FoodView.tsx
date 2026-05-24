@@ -412,8 +412,25 @@ function CalendarTab({
   const [viewMonth, setViewMonth] = useState(new Date());
   const [selectedDate, setSelectedDate] = useState<Date | null>(new Date());
   const [expanded, setExpanded] = useState(false);
-  const rowRef = useRef<HTMLDivElement>(null);
-  const [rowHeight, setRowHeight] = useState(90); // fallback
+  // 그리드 컨테이너 너비 → 셀 높이 수학적 계산 (overflow-hidden 영향 없음)
+  const gridWrapRef = useRef<HTMLDivElement>(null);
+  const [gridWidth, setGridWidth] = useState(0);
+
+  useEffect(() => {
+    const el = gridWrapRef.current;
+    if (!el) return;
+    const obs = new ResizeObserver(entries => {
+      setGridWidth(entries[0].contentRect.width);
+    });
+    obs.observe(el);
+    return () => obs.disconnect();
+  }, []);
+
+  // gap-1 = 4px, 6개 gap, 7열 → 셀 너비 → aspectRatio 3/4 → 셀 높이
+  const cellW = gridWidth > 0 ? (gridWidth - 6 * 4) / 7 : 0;
+  const cellH = cellW * (4 / 3);
+  // 1행 높이 = 셀 높이 (date strip은 aspectRatio 포함)
+  const oneRowH = Math.ceil(cellH) + 4; // +4 for gap below row
 
   const monthStart = startOfMonth(viewMonth);
   const daysInMonth = getDaysInMonth(viewMonth);
@@ -425,71 +442,65 @@ function CalendarTab({
     return new Date(viewMonth.getFullYear(), viewMonth.getMonth(), i - startDow + 1);
   });
 
-  // 접힌 상태: 선택된 날짜가 속한 주 1행만 표시
+  const numRows = Math.ceil(allCells.length / 7);
+  // 전체 높이 = 행수 × 셀높이 + (행수-1) × gap
+  const allRowsH = numRows * Math.ceil(cellH) + (numRows - 1) * 4;
+
+  // 접힌 상태: 선택된 날짜가 속한 주 1행
   const selectedCellIdx = (() => {
     const idx = selectedDate
       ? allCells.findIndex(d => d !== null && isSameDay(d, selectedDate))
       : -1;
     if (idx >= 0) return idx;
     const todayIdx = allCells.findIndex(d => d !== null && isToday(d));
-    return todayIdx >= 0 ? todayIdx : startDow; // 이번 달 첫 날로 fallback
+    return todayIdx >= 0 ? todayIdx : startDow;
   })();
   const rowIdx = Math.floor(selectedCellIdx / 7);
   const weekStartIdx = rowIdx * 7;
   const weekCells = allCells.slice(weekStartIdx, weekStartIdx + 7);
   while (weekCells.length < 7) weekCells.push(null);
 
-  const numRows = Math.ceil(allCells.length / 7);
-  const expandedHeight = numRows * (rowHeight + 4); // gap-1 = 4px
-
-  // 첫 번째 셀 높이 측정 → rowHeight 갱신
-  useEffect(() => {
-    const el = rowRef.current?.querySelector('button');
-    if (!el) return;
-    const obs = new ResizeObserver(() => {
-      setRowHeight(el.getBoundingClientRect().height);
-    });
-    obs.observe(el);
-    return () => obs.disconnect();
-  }, []);
-
   const recordsByDate = (date: Date) =>
     allRecords.filter(r => r.date === format(date, 'yyyy-MM-dd'));
 
   const dayRecords = selectedDate ? recordsByDate(selectedDate) : [];
 
+  // gridWidth가 0(초기)이면 max-height를 크게 잡아 잘리지 않도록 fallback
+  const collapsedH = gridWidth > 0 ? oneRowH : 120;
+  const expandedH  = gridWidth > 0 ? allRowsH + 4 : 800;
+
   return (
     <div className="p-4">
-      {/* 월 네비 — 최대 너비 제한으로 PC에서도 적절한 크기 유지 */}
-      <div className="max-w-sm mx-auto lg:max-w-md">
-        <div className="flex items-center justify-between mb-4">
-          <button onClick={() => setViewMonth(m => subMonths(m, 1))} className="p-2">
-            <ChevronLeft size={18} color={t.textSub} />
-          </button>
-          <span style={{ fontSize: 15, fontWeight: 700, color: t.text }}>
-            {format(viewMonth, 'yyyy년 M월')}
-          </span>
-          <button onClick={() => setViewMonth(m => addMonths(m, 1))} className="p-2">
-            <ChevronRight size={18} color={t.textSub} />
-          </button>
-        </div>
+      {/* 월 네비 */}
+      <div className="flex items-center justify-between mb-4">
+        <button onClick={() => setViewMonth(m => subMonths(m, 1))} className="p-2">
+          <ChevronLeft size={18} color={t.textSub} />
+        </button>
+        <span style={{ fontSize: 15, fontWeight: 700, color: t.text }}>
+          {format(viewMonth, 'yyyy년 M월')}
+        </span>
+        <button onClick={() => setViewMonth(m => addMonths(m, 1))} className="p-2">
+          <ChevronRight size={18} color={t.textSub} />
+        </button>
+      </div>
 
-        {/* 요일 헤더 */}
-        <div className="grid grid-cols-7 mb-1">
-          {['일','월','화','수','목','금','토'].map(d => (
-            <div key={d} className="text-center" style={{ fontSize: 10, color: t.textMuted, paddingBottom: 4 }}>{d}</div>
-          ))}
-        </div>
+      {/* 요일 헤더 */}
+      <div className="grid grid-cols-7 mb-1">
+        {['일','월','화','수','목','금','토'].map(d => (
+          <div key={d} className="text-center" style={{ fontSize: 10, color: t.textMuted, paddingBottom: 4 }}>{d}</div>
+        ))}
+      </div>
 
+      {/* 그리드 너비 측정용 wrapper (overflow-hidden 밖에서 측정) */}
+      <div ref={gridWrapRef}>
         {/* 날짜 그리드 — 접기/펼치기 애니메이션 */}
         <div
-          ref={rowRef}
           className="overflow-hidden"
           style={{
-            maxHeight: expanded ? expandedHeight + 8 : rowHeight + 8,
-            transition: 'max-height 0.32s ease-in-out',
+            maxHeight: expanded ? expandedH : collapsedH,
+            transition: 'max-height 0.35s ease-in-out',
           }}>
-          {/* 접힌 상태: 해당 주만 / 펼친 상태: 전달 전체 */}
+          {/* 펼침: 전체 달 / 접힘: 해당 주 1행 */}
           {expanded ? (
             <div className="grid grid-cols-7 gap-1">
               {allCells.map((date, i) =>
@@ -526,28 +537,28 @@ function CalendarTab({
             </div>
           )}
         </div>
-
-        {/* 접기/펼치기 토글 버튼 */}
-        <button
-          onClick={() => setExpanded(e => !e)}
-          className="flex items-center justify-center w-full pt-2 pb-3"
-          style={{ color: t.textMuted }}>
-          <div className="flex items-center gap-1 px-3 py-1 rounded-full"
-            style={{ backgroundColor: t.bgSub }}>
-            <span style={{ fontSize: 11, color: t.textMuted }}>
-              {expanded ? '접기' : '펼치기'}
-            </span>
-            <ChevronDown
-              size={14}
-              color={t.textMuted}
-              style={{
-                transform: expanded ? 'rotate(180deg)' : 'rotate(0deg)',
-                transition: 'transform 0.32s ease-in-out',
-              }}
-            />
-          </div>
-        </button>
       </div>
+
+      {/* 접기/펼치기 토글 버튼 */}
+      <button
+        onClick={() => setExpanded(e => !e)}
+        className="flex items-center justify-center w-full pt-2 pb-3"
+        style={{ color: t.textMuted }}>
+        <div className="flex items-center gap-1 px-3 py-1 rounded-full"
+          style={{ backgroundColor: t.bgSub }}>
+          <span style={{ fontSize: 11, color: t.textMuted }}>
+            {expanded ? '접기' : '펼치기'}
+          </span>
+          <ChevronDown
+            size={14}
+            color={t.textMuted}
+            style={{
+              transform: expanded ? 'rotate(180deg)' : 'rotate(0deg)',
+              transition: 'transform 0.32s ease-in-out',
+            }}
+          />
+        </div>
+      </button>
 
       {/* 선택 날짜 기록 */}
       {selectedDate && (
