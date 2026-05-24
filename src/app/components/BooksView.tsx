@@ -1,9 +1,10 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Search, X, Plus, BookOpen, ChevronRight, Tag, Trash2, BarChart2, BookMarked, Check } from 'lucide-react';
+import { Search, X, Plus, BookOpen, ChevronRight, Tag, Trash2, BookMarked, Check } from 'lucide-react';
 import { useTheme } from '../ThemeContext';
 import { format } from 'date-fns';
 import { ko } from 'date-fns/locale';
 import ConfirmModal from './ConfirmModal';
+import { supabase } from '../../lib/supabase';
 
 // ─── 타입 ──────────────────────────────────────────────────────────────
 type BookStatus = 'reading' | 'want' | 'done';
@@ -385,6 +386,22 @@ function BookDetailModal({
         ? format(new Date(), 'yyyy-MM-dd')
         : book.finishDate,
     };
+    // Supabase 저장
+    supabase.from('books').upsert({
+      id: updated.id,
+      title: updated.title,
+      author: updated.author,
+      publisher: updated.publisher,
+      thumbnail: updated.thumbnail,
+      total_pages: updated.totalPages,
+      current_page: updated.currentPage,
+      status: updated.status,
+      start_date: updated.startDate ?? null,
+      finish_date: updated.finishDate ?? null,
+      added_at: updated.addedAt,
+    }).then(({ error }) => {
+      if (error) console.error('[books] upsert:', error.message);
+    });
     onUpdate(updated);
   };
 
@@ -398,6 +415,17 @@ function BookDetailModal({
       tags,
       createdAt: format(new Date(), 'yyyy-MM-dd'),
     };
+    // Supabase 저장
+    supabase.from('book_quotes').insert({
+      id: quote.id,
+      book_id: book.id,
+      text: quote.text,
+      page: quote.page ?? null,
+      tags: quote.tags,
+      created_at: quote.createdAt,
+    }).then(({ error }) => {
+      if (error) console.error('[book_quotes] insert:', error.message);
+    });
     onUpdate({ ...book, quotes: [quote, ...book.quotes] });
     setQuoteText('');
     setQuotePage('');
@@ -405,6 +433,10 @@ function BookDetailModal({
   };
 
   const handleDeleteQuote = (qid: string) => {
+    // Supabase 삭제
+    supabase.from('book_quotes').delete().eq('id', qid).then(({ error }) => {
+      if (error) console.error('[book_quotes] delete:', error.message);
+    });
     onUpdate({ ...book, quotes: book.quotes.filter(q => q.id !== qid) });
   };
 
@@ -787,11 +819,54 @@ function StatsPanel({ books }: { books: Book[] }) {
 export function BooksView() {
   const { t } = useTheme();
   const [books, setBooks] = useState<Book[]>([]);
+  const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<BookStatus | 'stats'>('reading');
   const [showSearch, setShowSearch] = useState(false);
   const [selectedBook, setSelectedBook] = useState<Book | null>(null);
 
-  const handleAdd = (data: Omit<Book, 'id' | 'quotes' | 'addedAt'>) => {
+  // ── Supabase에서 불러오기 ──
+  useEffect(() => {
+    (async () => {
+      const { data: booksData, error: bErr } = await supabase
+        .from('books').select('*').order('added_at', { ascending: false });
+      if (bErr) { console.error('[books] fetch:', bErr.message); setLoading(false); return; }
+
+      const { data: quotesData, error: qErr } = await supabase
+        .from('book_quotes').select('*').order('created_at', { ascending: false });
+      if (qErr) console.error('[book_quotes] fetch:', qErr.message);
+
+      // 책별 구절 맵핑
+      const quoteMap: Record<string, Quote[]> = {};
+      for (const q of (quotesData ?? [])) {
+        if (!quoteMap[q.book_id]) quoteMap[q.book_id] = [];
+        quoteMap[q.book_id].push({
+          id: q.id,
+          text: q.text,
+          page: q.page ?? undefined,
+          tags: q.tags ?? [],
+          createdAt: q.created_at,
+        });
+      }
+
+      setBooks((booksData ?? []).map((b: any): Book => ({
+        id: b.id,
+        title: b.title,
+        author: b.author ?? '',
+        publisher: b.publisher ?? '',
+        thumbnail: b.thumbnail ?? '',
+        totalPages: b.total_pages ?? 0,
+        currentPage: b.current_page ?? 0,
+        status: b.status as BookStatus,
+        quotes: quoteMap[b.id] ?? [],
+        startDate: b.start_date ?? undefined,
+        finishDate: b.finish_date ?? undefined,
+        addedAt: b.added_at,
+      })));
+      setLoading(false);
+    })();
+  }, []);
+
+  const handleAdd = async (data: Omit<Book, 'id' | 'quotes' | 'addedAt'>) => {
     const book: Book = {
       ...data,
       id: nanoid(),
@@ -800,6 +875,20 @@ export function BooksView() {
       startDate: data.status === 'reading' ? format(new Date(), 'yyyy-MM-dd') : undefined,
       finishDate: data.status === 'done' ? format(new Date(), 'yyyy-MM-dd') : undefined,
     };
+    const { error } = await supabase.from('books').insert({
+      id: book.id,
+      title: book.title,
+      author: book.author,
+      publisher: book.publisher,
+      thumbnail: book.thumbnail,
+      total_pages: book.totalPages,
+      current_page: book.currentPage,
+      status: book.status,
+      start_date: book.startDate ?? null,
+      finish_date: book.finishDate ?? null,
+      added_at: book.addedAt,
+    });
+    if (error) { console.error('[books] insert:', error.message); return; }
     setBooks(prev => [book, ...prev]);
     setActiveTab(data.status);
   };
@@ -809,7 +898,9 @@ export function BooksView() {
     setSelectedBook(updated);
   };
 
-  const handleDelete = (id: string) => {
+  const handleDelete = async (id: string) => {
+    const { error } = await supabase.from('books').delete().eq('id', id);
+    if (error) { console.error('[books] delete:', error.message); return; }
     setBooks(prev => prev.filter(b => b.id !== id));
     setSelectedBook(null);
   };
@@ -883,7 +974,11 @@ export function BooksView() {
 
       {/* 콘텐츠 */}
       <div className="flex-1 overflow-y-auto px-4 pb-4">
-        {activeTab === 'stats' ? (
+        {loading ? (
+          <div className="flex items-center justify-center h-48">
+            <p style={{ fontSize: 13, color: t.textMuted }}>불러오는 중...</p>
+          </div>
+        ) : activeTab === 'stats' ? (
           <StatsPanel books={books} />
         ) : filteredBooks.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-48 gap-3">
