@@ -549,7 +549,8 @@ function EnergyLineChart({ dailyEnergy, today }: {
           {/* 데이터 포인트 + X축 레이블 */}
           {dailyEnergy.map(({ date, avg, label }, i) => {
             const isToday = date === today;
-            const showLabel = N <= 14 || parseInt(label) % 5 === 1 || isToday;
+            const labelInterval = N <= 7 ? 1 : N <= 14 ? 2 : N <= 31 ? 5 : 7;
+            const showLabel = i % labelInterval === 0 || isToday;
             const cx = xOf(i);
             return (
               <g key={date}>
@@ -599,8 +600,15 @@ function StatsTab({ records }: { records: MoodRecord[] }) {
   const { startDate, endDate } = useMemo(() => {
     const now = new Date();
     switch (periodFilter) {
-      case 'this-month':
-        return { startDate: format(new Date(now.getFullYear(), now.getMonth(), 1), 'yyyy-MM-dd'), endDate: today };
+      case 'this-month': {
+        const firstOfMonth = format(new Date(now.getFullYear(), now.getMonth(), 1), 'yyyy-MM-dd');
+        const totalDays = getDaysBetween(firstOfMonth, today).length;
+        if (totalDays < 7) {
+          const s = new Date(); s.setDate(s.getDate() - 6);
+          return { startDate: format(s, 'yyyy-MM-dd'), endDate: today };
+        }
+        return { startDate: firstOfMonth, endDate: today };
+      }
       case 'last-month': {
         const s = new Date(now.getFullYear(), now.getMonth() - 1, 1);
         const e = new Date(now.getFullYear(), now.getMonth(), 0);
@@ -655,6 +663,24 @@ function StatsTab({ records }: { records: MoodRecord[] }) {
   const periodLabels: Record<PeriodFilter, string> = {
     'this-month': '이번 달', 'last-month': '지난달', '14-days': '최근 14일', 'custom': '직접 선택',
   };
+
+  const chartPeriodLabel = useMemo(() => {
+    const now = new Date();
+    switch (periodFilter) {
+      case 'this-month': return `${now.getMonth() + 1}월 1일 ~ 오늘`;
+      case 'last-month': {
+        const m = now.getMonth() === 0 ? 12 : now.getMonth();
+        return `${m}월`;
+      }
+      case '14-days': return '최근 14일';
+      case 'custom': {
+        if (!customStart || !customEnd) return '직접 선택';
+        const s = new Date(customStart + 'T12:00:00');
+        const e = new Date(customEnd + 'T12:00:00');
+        return `${s.getMonth() + 1}월 ${s.getDate()}일 ~ ${e.getMonth() + 1}월 ${e.getDate()}일`;
+      }
+    }
+  }, [periodFilter, customStart, customEnd]);
 
   const cardBase = { backgroundColor: t.card, border: `1px solid ${t.borderLight}`, borderRadius: 16, padding: 16 };
 
@@ -777,7 +803,8 @@ function StatsTab({ records }: { records: MoodRecord[] }) {
           {/* 에너지 레벨 추이 */}
           <div style={cardBase}>
             <p style={{ fontSize: 12, fontWeight: 700, color: t.text, marginBottom: 12 }}>
-              에너지 레벨 추이 ({days.length}일)
+              에너지 레벨 추이{' '}
+              <span style={{ fontWeight: 400, color: t.textMuted }}>{chartPeriodLabel}</span>
             </p>
             <EnergyLineChart dailyEnergy={dailyEnergy} today={today} />
           </div>
