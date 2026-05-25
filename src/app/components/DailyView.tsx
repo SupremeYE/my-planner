@@ -8,7 +8,7 @@ import {
 } from 'lucide-react';
 import { format, addDays, subDays, addMonths, subMonths, startOfMonth, getDaysInMonth, getDay as getDayOfWeek } from 'date-fns';
 import { ko } from 'date-fns/locale';
-import { usePlanner, Todo, Event, Tag as TagType, TimelineLog, getTimerElapsedSec } from '../store';
+import { usePlanner, Todo, Event, Tag as TagType, TimelineLog, SelfCareRecord, getTimerElapsedSec } from '../store';
 import { useTheme } from '../ThemeContext';
 import { useNotification } from '../hooks/useNotification';
 import { TimePicker } from './TimePicker';
@@ -852,11 +852,56 @@ function PlanDoTimeEditModal({ todo, type, onClose, onConfirm }: {
   );
 }
 
+// ─── Sleep Time Edit Modal ───
+function SleepTimeEditModal({ record, onClose, onConfirm }: {
+  record: SelfCareRecord;
+  onClose: () => void;
+  onConfirm: (sleepStart: string, sleepEnd: string) => void;
+}) {
+  const { t } = useTheme();
+  const [start, setStart] = useState(record.sleepStart ?? '');
+  const [end, setEnd] = useState(record.sleepEnd ?? '');
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center" style={{ backgroundColor: 'rgba(0,0,0,0.35)' }}>
+      <div className="rounded-2xl w-[calc(100vw-32px)] max-w-[320px] overflow-hidden"
+        style={{ backgroundColor: t.card, border: `1px solid ${t.border}`, boxShadow: '0 25px 50px -12px rgba(0,0,0,0.15)' }}>
+        <div className="flex items-center justify-between px-5 py-4" style={{ borderBottom: `1px solid ${t.border}` }}>
+          <h3 style={{ fontSize: 15, fontWeight: 700, color: t.text }}>🌙 수면 시간 수정</h3>
+          <button onClick={onClose} className="p-1 rounded-lg" style={{ color: t.textMuted }}><X size={16} /></button>
+        </div>
+        <div className="px-5 py-4 space-y-3">
+          <div className="flex items-center gap-3">
+            <label style={{ fontSize: 12, color: t.textSub, width: 48, flexShrink: 0 }}>취침</label>
+            <TimePicker value={start} onChange={setStart} placeholder="취침 시간" minuteStep={30} />
+          </div>
+          <div className="flex items-center gap-3">
+            <label style={{ fontSize: 12, color: t.textSub, width: 48, flexShrink: 0 }}>기상</label>
+            <TimePicker value={end} onChange={setEnd} placeholder="기상 시간" minuteStep={30} />
+          </div>
+        </div>
+        <div className="flex gap-3 px-5 py-4" style={{ borderTop: `1px solid ${t.border}` }}>
+          <button onClick={onClose} className="flex-1 py-2.5 rounded-xl"
+            style={{ fontSize: 13, color: t.textSub, backgroundColor: t.bgSub, border: `1px solid ${t.border}` }}>
+            취소
+          </button>
+          <button onClick={() => { if (start && end) onConfirm(start, end); }}
+            disabled={!start || !end}
+            className="flex-1 py-2.5 rounded-xl"
+            style={{ fontSize: 13, fontWeight: 600, backgroundColor: start && end ? '#94A3B8' : t.bgSub, color: start && end ? '#fff' : t.textMuted }}>
+            확인
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ─── Main Daily View ───
 export function DailyView() {
   const {
     selectedDate, setSelectedDate, todos, events, updateTodo, habits, toggleHabit,
     activeTimer, startTimer, stopTimer, tags, projects,
+    selfCareRecords, updateSelfCareRecord,
     dayStartHour: tlStartHour, dayEndHour: tlEndHour, setDayHours,
     timelineLogs,
     addTimelineLog: storeAddTimelineLog,
@@ -875,6 +920,18 @@ export function DailyView() {
   const [planBlockMenu, setPlanBlockMenu] = useState<{ todo: Todo; pos: { x: number; y: number } } | null>(null);
   const [timeEditBlock, setTimeEditBlock] = useState<{ todo: Todo; type: 'plan' | 'do' } | null>(null);
   const longPressTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Sleep block drag state
+  const [sleepDragState, setSleepDragState] = useState<{
+    recordId: string;
+    mode: 'move' | 'resize';
+    startY: number;
+    origStartMin: number;
+    origEndMin: number;
+  } | null>(null);
+  const [sleepDragPreview, setSleepDragPreview] = useState<{ startMin: number; endMin: number } | null>(null);
+  const sleepDragMovedRef = useRef(false);
+  const [editingSleepRecord, setEditingSleepRecord] = useState<SelfCareRecord | null>(null);
+
   const createDragRef = useRef<{
     startMin: number;
     endMin: number;
@@ -1032,6 +1089,44 @@ export function DailyView() {
       window.removeEventListener('touchend', handleTouchEnd);
     };
   }, [dragState, dragPreview, tlStartHour, tlEndHour, updateTodo]);
+
+  // Sleep block drag (mouse)
+  useEffect(() => {
+    if (!sleepDragState) return;
+    const handleMouseMove = (e: MouseEvent) => {
+      sleepDragMovedRef.current = true;
+      const dy = e.clientY - sleepDragState.startY;
+      const dMin = Math.round(dy / PX_PER_MIN / 5) * 5;
+      if (sleepDragState.mode === 'move') {
+        const duration = sleepDragState.origEndMin - sleepDragState.origStartMin;
+        const newStart = sleepDragState.origStartMin + dMin;
+        setSleepDragPreview({ startMin: newStart, endMin: newStart + duration });
+      } else {
+        const newEnd = Math.max(sleepDragState.origStartMin + 5, sleepDragState.origEndMin + dMin);
+        setSleepDragPreview({ startMin: sleepDragState.origStartMin, endMin: newEnd });
+      }
+    };
+    const handleMouseUp = () => {
+      if (sleepDragPreview && sleepDragMovedRef.current) {
+        const startTime = minutesToTime(((sleepDragPreview.startMin % (24 * 60)) + 24 * 60) % (24 * 60));
+        const endTime = minutesToTime(((sleepDragPreview.endMin % (24 * 60)) + 24 * 60) % (24 * 60));
+        const duration = sleepDragPreview.endMin - sleepDragPreview.startMin;
+        updateSelfCareRecord(sleepDragState.recordId, {
+          sleepStart: startTime, sleepEnd: endTime,
+          content: `${startTime} ~ ${endTime}`, duration,
+        });
+      }
+      setSleepDragState(null);
+      setSleepDragPreview(null);
+      setTimeout(() => { sleepDragMovedRef.current = false; }, 50);
+    };
+    window.addEventListener('mousemove', handleMouseMove);
+    window.addEventListener('mouseup', handleMouseUp);
+    return () => {
+      window.removeEventListener('mousemove', handleMouseMove);
+      window.removeEventListener('mouseup', handleMouseUp);
+    };
+  }, [sleepDragState, sleepDragPreview, updateSelfCareRecord]);
 
   // PC mouse: create block by dragging empty timeline area
   useEffect(() => {
@@ -1318,6 +1413,96 @@ export function DailyView() {
     return lane === 'plan'
       ? { left: '0%', right: `calc(50% + ${halfGap}px)` }
       : { left: `calc(50% + ${halfGap}px)`, right: '0%' };
+  };
+
+  // Sleep block renderer for the DO lane
+  const renderSleepBlocks = () => {
+    const daySleepRecords = selfCareRecords.filter(
+      r => r.date === selectedDate && r.category === 'sleep' && r.sleepStart && r.sleepEnd
+    );
+    return daySleepRecords.map(record => {
+      const [sh, sm] = record.sleepStart!.split(':').map(Number);
+      const [eh, em] = record.sleepEnd!.split(':').map(Number);
+      let startMin = sh * 60 + sm;
+      let endMin = eh * 60 + em;
+      if (endMin <= startMin) endMin += 24 * 60;
+
+      const isDragging = sleepDragState?.recordId === record.id;
+      const previewStartMin = isDragging && sleepDragPreview ? sleepDragPreview.startMin : startMin;
+      const previewEndMin = isDragging && sleepDragPreview ? sleepDragPreview.endMin : endMin;
+
+      const laneBounds = getTimelineLaneBounds('do');
+      if (!laneBounds) return null;
+
+      const top = (previewStartMin / 60 - tlStartHour) * HOUR_HEIGHT;
+      const height = Math.max((previewEndMin - previewStartMin) * PX_PER_MIN, 20);
+      const displayStart = minutesToTime(((previewStartMin % (24 * 60)) + 24 * 60) % (24 * 60));
+      const displayEnd = minutesToTime(((previewEndMin % (24 * 60)) + 24 * 60) % (24 * 60));
+
+      return (
+        <div key={`sleep-${record.id}`}
+          className="absolute rounded-xl px-2 py-1.5 overflow-hidden group timeline-block"
+          style={{
+            top, height,
+            left: laneBounds.left, right: laneBounds.right,
+            backgroundColor: 'rgba(200,210,220,0.45)',
+            border: '1px solid rgba(148,163,184,0.35)',
+            borderLeft: '3px solid #94A3B8',
+            opacity: isDragging ? 0.85 : 1,
+            cursor: isDragging ? 'grabbing' : 'grab',
+            userSelect: 'none',
+            zIndex: isDragging ? 30 : 1,
+            transition: isDragging ? 'none' : 'opacity 0.15s',
+          }}
+          onMouseDown={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            sleepDragMovedRef.current = false;
+            setSleepDragState({
+              recordId: record.id, mode: 'move', startY: e.clientY,
+              origStartMin: startMin, origEndMin: endMin,
+            });
+          }}
+          onClick={() => { if (!sleepDragMovedRef.current) setEditingSleepRecord(record); }}
+        >
+          <div style={{ fontSize: 11, fontWeight: 700, color: '#64748B' }}>🌙 수면</div>
+          {height > 36 && (
+            <div style={{ fontSize: 9, color: '#64748B', opacity: 0.8, marginTop: 2 }}>
+              {displayStart} - {displayEnd}
+            </div>
+          )}
+          <div
+            className="absolute left-0 right-0 bottom-0 flex justify-center items-center opacity-0 group-hover:opacity-100 transition-opacity"
+            style={{ height: 8, cursor: 'ns-resize', backgroundColor: 'rgba(148,163,184,0.3)' }}
+            onMouseDown={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              sleepDragMovedRef.current = false;
+              setSleepDragState({
+                recordId: record.id, mode: 'resize', startY: e.clientY,
+                origStartMin: startMin, origEndMin: endMin,
+              });
+            }}
+          >
+            <div style={{ width: 20, height: 2, borderRadius: 1, backgroundColor: '#94A3B8' }} />
+          </div>
+          <div
+            className="absolute left-0 right-0 bottom-0 lg:hidden"
+            style={{ height: 44, touchAction: 'none' }}
+            onTouchStart={(e) => {
+              e.stopPropagation();
+              const touch = e.touches[0];
+              if (!touch) return;
+              sleepDragMovedRef.current = false;
+              setSleepDragState({
+                recordId: record.id, mode: 'resize', startY: touch.clientY,
+                origStartMin: startMin, origEndMin: endMin,
+              });
+            }}
+          />
+        </div>
+      );
+    });
   };
 
   // PC create-by-drag handler for the timeline background div
@@ -2207,6 +2392,7 @@ export function DailyView() {
                 {planTodos.map(todo => renderBlock(todo, 'plan'))}
                 {doTodos.map(todo => renderBlock(todo, 'do'))}
                 {renderTimerBlock()}
+                {renderSleepBlocks()}
                 {renderLogMarkers()}
                 {createPreview && (() => {
                   const lb = getTimelineLaneBounds('plan');
@@ -2291,6 +2477,25 @@ export function DailyView() {
           initialPlanStart={pendingCreateTime.start}
           initialPlanEnd={pendingCreateTime.end}
           onClose={() => setPendingCreateTime(null)}
+        />
+      )}
+      {editingSleepRecord && (
+        <SleepTimeEditModal
+          record={editingSleepRecord}
+          onClose={() => setEditingSleepRecord(null)}
+          onConfirm={(sleepStart, sleepEnd) => {
+            const [sh, sm] = sleepStart.split(':').map(Number);
+            const [eh, em] = sleepEnd.split(':').map(Number);
+            let endMin = eh * 60 + em;
+            const startMin = sh * 60 + sm;
+            if (endMin <= startMin) endMin += 24 * 60;
+            updateSelfCareRecord(editingSleepRecord.id, {
+              sleepStart, sleepEnd,
+              content: `${sleepStart} ~ ${sleepEnd}`,
+              duration: endMin - startMin,
+            });
+            setEditingSleepRecord(null);
+          }}
         />
       )}
       {focusingTodo && (

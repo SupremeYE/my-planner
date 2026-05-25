@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { ChevronDown, ChevronLeft, ChevronRight, MoreVertical } from 'lucide-react';
+import { ChevronDown, ChevronLeft, ChevronRight, MoreVertical, X } from 'lucide-react';
 import {
   addDays,
   addMonths,
@@ -13,9 +13,10 @@ import {
   subMonths,
 } from 'date-fns';
 import { ko } from 'date-fns/locale';
-import { usePlanner, PeriodRecord, Todo } from '../store';
+import { usePlanner, PeriodRecord, SelfCareRecord, Todo } from '../store';
 import { isDoOvertimeVsPlan, doElapsedTitleSuffix } from '../../lib/todoDoDuration';
 import { useTheme } from '../ThemeContext';
+import { TimePicker } from './TimePicker';
 import { TodoModal } from './TodoModal';
 import { EventModal } from './EventModal';
 import { FloatingAddFab } from './FloatingAddFab';
@@ -124,7 +125,7 @@ function MonthView({ viewDate, filter, selectedTagIds, weekStartsOn, onSelectDat
     }
     if (filter === 'all' || filter === 'selfcare') {
       selfCareRecords
-        .filter(record => record.date === dateStr)
+        .filter(record => record.date === dateStr && record.category !== 'sleep')
         .forEach(record => items.push({
           id: record.id,
           text: SELFCARE_CATEGORY_LABELS[record.category] ?? record.category,
@@ -238,6 +239,48 @@ function MonthView({ viewDate, filter, selectedTagIds, weekStartsOn, onSelectDat
   );
 }
 
+function SleepTimeEditModal({ record, onClose, onConfirm }: {
+  record: SelfCareRecord;
+  onClose: () => void;
+  onConfirm: (sleepStart: string, sleepEnd: string) => void;
+}) {
+  const { t } = useTheme();
+  const [start, setStart] = useState(record.sleepStart ?? '');
+  const [end, setEnd] = useState(record.sleepEnd ?? '');
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center" style={{ backgroundColor: 'rgba(0,0,0,0.35)' }}>
+      <div className="rounded-2xl w-[320px]" style={{ backgroundColor: t.card, boxShadow: '0 25px 50px -12px rgba(0,0,0,0.15)' }}>
+        <div className="flex items-center justify-between px-5 py-4" style={{ borderBottom: `1px solid ${t.border}` }}>
+          <h3 style={{ fontSize: 15, fontWeight: 700, color: t.text }}>🌙 수면 시간 수정</h3>
+          <button onClick={onClose} className="p-1 rounded-lg" style={{ color: t.textMuted }}><X size={18} /></button>
+        </div>
+        <div className="px-5 py-4 space-y-4">
+          <div>
+            <label style={{ fontSize: 12, color: t.textSub, fontWeight: 600, display: 'block', marginBottom: 6 }}>취침</label>
+            <TimePicker value={start} onChange={setStart} placeholder="취침 시간" />
+          </div>
+          <div>
+            <label style={{ fontSize: 12, color: t.textSub, fontWeight: 600, display: 'block', marginBottom: 6 }}>기상</label>
+            <TimePicker value={end} onChange={setEnd} placeholder="기상 시간" />
+          </div>
+        </div>
+        <div className="flex gap-2 px-5 py-4" style={{ borderTop: `1px solid ${t.border}` }}>
+          <button onClick={onClose} className="flex-1 py-2.5 rounded-xl"
+            style={{ fontSize: 13, color: t.textSub, backgroundColor: t.bgSub, border: `1px solid ${t.border}` }}>
+            취소
+          </button>
+          <button onClick={() => { if (start && end) onConfirm(start, end); }}
+            disabled={!start || !end}
+            className="flex-1 py-2.5 rounded-xl"
+            style={{ fontSize: 13, fontWeight: 600, backgroundColor: start && end ? '#94A3B8' : t.bgSub, color: start && end ? '#fff' : t.textMuted }}>
+            확인
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function WeekView({ viewDate, selectedDate, onSelectDate, viewDays, weekStartsOn }: {
   viewDate: Date;
   selectedDate: string;
@@ -245,9 +288,11 @@ function WeekView({ viewDate, selectedDate, onSelectDate, viewDays, weekStartsOn
   viewDays: 1 | 2 | 3 | 7;
   weekStartsOn: 0 | 1;
 }) {
-  const { todos, events, tags, dayStartHour: startHour, dayEndHour: endHour } = usePlanner();
+  const { todos, events, tags, selfCareRecords, updateSelfCareRecord, dayStartHour: startHour, dayEndHour: endHour } = usePlanner();
+  const { t } = useTheme();
   const [nowTime, setNowTime] = useState(new Date());
   const [windowStart, setWindowStart] = useState(0);
+  const [editingSleepRecord, setEditingSleepRecord] = useState<SelfCareRecord | null>(null);
 
   useEffect(() => {
     const interval = setInterval(() => setNowTime(new Date()), 60000);
@@ -495,6 +540,48 @@ function WeekView({ viewDate, selectedDate, onSelectDate, viewDays, weekStartsOn
                       );
                     })}
 
+                    {selfCareRecords
+                      .filter(r => r.date === dateStr && r.category === 'sleep' && r.sleepStart && r.sleepEnd)
+                      .map(record => {
+                        const [sh, sm] = record.sleepStart!.split(':').map(Number);
+                        const [eh, em] = record.sleepEnd!.split(':').map(Number);
+                        const startMin = sh * 60 + sm;
+                        let endMin = eh * 60 + em;
+                        if (endMin <= startMin) endMin += 24 * 60;
+                        const top = ((startMin / 60) - startHour) * HOUR_HEIGHT;
+                        const height = Math.max(((endMin - startMin) / 60) * HOUR_HEIGHT, 20);
+                        const displayEnd = `${String(eh).padStart(2, '0')}:${String(em).padStart(2, '0')}`;
+                        return (
+                          <button
+                            key={`sleep-${record.id}`}
+                            type="button"
+                            title={`수면\n${record.sleepStart}-${displayEnd}`}
+                            className="absolute text-left overflow-hidden"
+                            style={{
+                              top, height,
+                              left: '18%', right: '8%',
+                              backgroundColor: 'rgba(200,210,220,0.45)',
+                              border: '1px solid rgba(148,163,184,0.4)',
+                              borderLeft: '3px solid #94A3B8',
+                              borderRadius: 14,
+                              padding: '5px 8px',
+                              zIndex: 2,
+                              cursor: 'pointer',
+                            }}
+                            onClick={() => setEditingSleepRecord(record)}
+                          >
+                            <div style={{ fontSize: isMobile ? 10 : 11, fontWeight: 700, color: '#64748B', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                              🌙 수면
+                            </div>
+                            {height >= 40 && (
+                              <div style={{ fontSize: 9, color: '#64748B', opacity: 0.8, marginTop: 2, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                                {record.sleepStart}-{displayEnd}
+                              </div>
+                            )}
+                          </button>
+                        );
+                      })}
+
                     {dateStr === todayStr && (
                       <div className="absolute left-[6%] right-[6%] z-10 pointer-events-none flex items-center" style={{ top: timeToTop(nowHHMM, startHour) }}>
                         <div style={{ width: 7, height: 7, borderRadius: '50%', backgroundColor: CURRENT_TIME_COLOR, flexShrink: 0 }} />
@@ -512,11 +599,33 @@ function WeekView({ viewDate, selectedDate, onSelectDate, viewDays, weekStartsOn
   };
 
   return (
-    <div className="flex flex-col" style={{ flex: 1, minHeight: 0, overflow: 'hidden' }}>
-      <div className="flex" style={{ flex: 1, minHeight: 0 }}>
-        {renderWeekTable(visibleDays, viewDays !== 7)}
+    <>
+      <div className="flex flex-col" style={{ flex: 1, minHeight: 0, overflow: 'hidden' }}>
+        <div className="flex" style={{ flex: 1, minHeight: 0 }}>
+          {renderWeekTable(visibleDays, viewDays !== 7)}
+        </div>
       </div>
-    </div>
+
+      {editingSleepRecord && (
+        <SleepTimeEditModal
+          record={editingSleepRecord}
+          onClose={() => setEditingSleepRecord(null)}
+          onConfirm={(sleepStart, sleepEnd) => {
+            const [sh, sm] = sleepStart.split(':').map(Number);
+            const [eh, em] = sleepEnd.split(':').map(Number);
+            let endMin = eh * 60 + em;
+            const startMin = sh * 60 + sm;
+            if (endMin <= startMin) endMin += 24 * 60;
+            updateSelfCareRecord(editingSleepRecord.id, {
+              sleepStart, sleepEnd,
+              content: `${sleepStart} ~ ${sleepEnd}`,
+              duration: endMin - startMin,
+            });
+            setEditingSleepRecord(null);
+          }}
+        />
+      )}
+    </>
   );
 }
 
