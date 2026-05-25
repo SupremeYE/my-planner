@@ -311,38 +311,54 @@ function RecordCard({ record, onEdit, onDelete, compact = false }: {
 }) {
   const { t } = useTheme();
   const color = getEmotionColor(record.emotion_tags);
+  const labelColor = color?.accent ? color.accent + 'AA' : t.textMuted;
+  const dotSize = compact ? 8 : 9;
+
+  const Row = ({ label, children }: { label: string; children: React.ReactNode }) => (
+    <div className="flex items-start gap-2" style={{ minHeight: 22 }}>
+      <span style={{ width: 56, flexShrink: 0, fontSize: 11, color: labelColor, paddingTop: 2, letterSpacing: '-0.01em' }}>{label}</span>
+      <div className="flex flex-wrap items-center gap-1">{children}</div>
+    </div>
+  );
+
   return (
     <div className="rounded-xl" style={{ backgroundColor: color?.bg ?? t.card, border: `1px solid ${color ? color.accent + '33' : t.borderLight}`, padding: compact ? 12 : 16 }}>
-      <div className="flex items-start justify-between mb-2">
+      <div className="flex items-start justify-between mb-3">
         <span style={{ fontSize: compact ? 12 : 13, fontWeight: 700, color: color?.accent ?? t.accent }}>{formatKoreanTime(record.created_at)}</span>
         <div className="flex gap-1.5">
           <button onClick={() => onEdit(record)} style={{ color: t.textMuted }}><Pencil size={13} /></button>
           <button onClick={() => onDelete(record.id)} style={{ color: t.textMuted }}><Trash2 size={13} /></button>
         </div>
       </div>
-      {record.body_signals.length > 0 && (
-        <div className="flex flex-wrap gap-1 mb-1.5">
-          {record.body_signals.map(s => (
-            <span key={s} className="px-2 py-0.5 rounded-full" style={{ fontSize: 10, backgroundColor: 'rgba(255,255,255,0.7)', color: t.textSub, border: `1px solid ${t.borderLight}` }}>{s}</span>
-          ))}
-        </div>
-      )}
-      {record.emotion_tags.length > 0 && (
-        <div className="flex flex-wrap gap-1 mb-1.5">
-          {record.emotion_tags.map(tag => (
-            <span key={tag} className="px-2.5 py-0.5 rounded-full" style={{ fontSize: 11, backgroundColor: 'rgba(255,255,255,0.8)', color: color?.accent ?? t.accent, fontWeight: 600 }}>{tag}</span>
-          ))}
-        </div>
-      )}
-      <div className="flex items-center gap-2">
-        <div className="flex gap-0.5">
-          {[1, 2, 3, 4, 5].map(l => (
-            <div key={l} className="rounded-full" style={{ width: compact ? 8 : 10, height: compact ? 8 : 10, backgroundColor: l <= record.energy_level ? (color?.accent ?? t.accent) : t.borderLight }} />
-          ))}
-        </div>
-        <span style={{ fontSize: 11, color: t.textMuted }}>{ENERGY_LABELS[record.energy_level]}</span>
+      <div className="flex flex-col gap-2">
+        {record.body_signals.length > 0 && (
+          <Row label="몸 상태">
+            {record.body_signals.map(s => (
+              <span key={s} className="px-2 py-0.5 rounded-full" style={{ fontSize: 10, backgroundColor: 'rgba(255,255,255,0.7)', color: t.textSub, border: `1px solid ${t.borderLight}` }}>{s}</span>
+            ))}
+          </Row>
+        )}
+        {record.emotion_tags.length > 0 && (
+          <Row label="감정 상태">
+            {record.emotion_tags.map(tag => (
+              <span key={tag} className="px-2.5 py-0.5 rounded-full" style={{ fontSize: 11, backgroundColor: 'rgba(255,255,255,0.8)', color: color?.accent ?? t.accent, fontWeight: 600 }}>{tag}</span>
+            ))}
+          </Row>
+        )}
+        <Row label="에너지">
+          <div className="flex gap-0.5">
+            {[1, 2, 3, 4, 5].map(l => (
+              <div key={l} className="rounded-full" style={{ width: dotSize, height: dotSize, backgroundColor: l <= record.energy_level ? (color?.accent ?? t.accent) : t.borderLight }} />
+            ))}
+          </div>
+          <span style={{ fontSize: 11, color: labelColor }}>{ENERGY_LABELS[record.energy_level]}</span>
+        </Row>
+        {record.memo && (
+          <Row label="감정 원인">
+            <span style={{ fontSize: 12, color: t.textSub }}>{record.memo}</span>
+          </Row>
+        )}
       </div>
-      {record.memo && <p className="mt-1.5" style={{ fontSize: 12, color: t.textSub, fontStyle: 'italic' }}>"{record.memo}"</p>}
     </div>
   );
 }
@@ -507,8 +523,7 @@ function StatsTab({ records }: { records: MoodRecord[] }) {
 
   const tagCounts: Record<string, number> = {};
   filtered.forEach(r => r.emotion_tags.forEach(tag => { tagCounts[tag] = (tagCounts[tag] || 0) + 1; }));
-  const topTag = Object.entries(tagCounts).sort((a, b) => b[1] - a[1])[0];
-  const topTagEmoji = topTag ? getCategoryEmoji([topTag[0]]) : '—';
+  const top2Tags = Object.entries(tagCounts).sort((a, b) => b[1] - a[1]).slice(0, 2);
 
   // 감정 카테고리 분포
   const catCounts: Record<string, number> = {};
@@ -578,7 +593,6 @@ function StatsTab({ records }: { records: MoodRecord[] }) {
             {[
               { label: '기록 일수', value: `${uniqueDays}일`, sub: '기록한 날' },
               { label: '총 기록 수', value: `${totalCount}건`, sub: '감정 기록' },
-              { label: '가장 많은 감정', value: topTag ? `${topTagEmoji} ${topTag[0]}` : '-', sub: topTag ? `${topTag[1]}회` : '' },
             ].map((s, i) => (
               <div key={i} style={cardBase} className="flex flex-col items-center justify-center py-4 text-center">
                 <span style={{ fontSize: 20, fontWeight: 700, color: t.text, fontFamily: "'DM Serif Display', serif", display: 'block' }}>{s.value}</span>
@@ -586,6 +600,25 @@ function StatsTab({ records }: { records: MoodRecord[] }) {
                 <span style={{ fontSize: 10, color: t.accent, marginTop: 1 }}>{s.sub}</span>
               </div>
             ))}
+            {/* 이번 달 분위기 */}
+            <div style={cardBase} className="col-span-2 md:col-span-1 flex flex-col items-center justify-center py-4 text-center">
+              {top2Tags.length > 0 ? (
+                <div className="flex flex-wrap justify-center gap-x-3 gap-y-1 mb-1">
+                  {top2Tags.map(([tag]) => {
+                    const emoji = getCategoryEmoji([tag]);
+                    const tagColor = getEmotionColor([tag]);
+                    return (
+                      <span key={tag} style={{ fontSize: 15, fontWeight: 700, color: tagColor?.accent ?? t.text }}>
+                        {emoji} {tag}
+                      </span>
+                    );
+                  })}
+                </div>
+              ) : (
+                <span style={{ fontSize: 16, fontWeight: 700, color: t.textMuted }}>—</span>
+              )}
+              <span style={{ fontSize: 11, color: t.textMuted, marginTop: 2 }}>이번 달 분위기</span>
+            </div>
           </div>
 
           {/* 감정 분포 */}
@@ -643,33 +676,86 @@ function StatsTab({ records }: { records: MoodRecord[] }) {
             <p style={{ fontSize: 12, fontWeight: 700, color: t.text, marginBottom: 12 }}>
               에너지 레벨 추이 ({days.length}일)
             </p>
-            <div className="flex items-end gap-px overflow-x-auto pb-1" style={{ height: 72 }}>
-              {dailyEnergy.map(({ date, avg, label }) => {
-                const isToday = date === today;
-                const showLabel = dailyEnergy.length <= 14 || parseInt(label) % 5 === 1 || isToday;
-                return (
-                  <div key={date} className="flex flex-col items-center gap-1 flex-shrink-0"
-                    style={{ minWidth: dailyEnergy.length > 21 ? 10 : dailyEnergy.length > 14 ? 14 : 20, flex: dailyEnergy.length <= 14 ? '1' : 'none' }}>
-                    {avg !== null ? (
-                      <div className="w-full rounded-t-sm transition-all"
-                        style={{ height: `${(avg / 5) * 52}px`, backgroundColor: isToday ? t.accent : `${t.accent}88`, minHeight: 2 }} />
-                    ) : (
-                      <div className="w-full rounded-t-sm"
-                        style={{ height: 52, background: `repeating-linear-gradient(to bottom, ${t.borderLight} 0px, ${t.borderLight} 2px, transparent 2px, transparent 6px)` }} />
-                    )}
-                    {showLabel && (
-                      <span style={{ fontSize: 8, color: isToday ? t.accent : t.textMuted, fontWeight: isToday ? 700 : 400, whiteSpace: 'nowrap' }}>
-                        {label}
-                      </span>
-                    )}
+            {(() => {
+              const VB_W = 400;
+              const VB_H = 130;
+              const ML = 20;
+              const MR = 8;
+              const MT = 10;
+              const MB = 22;
+              const CW = VB_W - ML - MR;
+              const CH = VB_H - MT - MB;
+              const N = dailyEnergy.length;
+              const xOf = (i: number) => ML + (N <= 1 ? CW / 2 : (i / (N - 1)) * CW);
+              const yOf = (v: number) => MT + ((5 - v) / 4) * CH;
+              const nonNullIdx = dailyEnergy.map((d, i) => d.avg !== null ? i : -1).filter(i => i >= 0);
+              const segments: { x1: number; y1: number; x2: number; y2: number; dashed: boolean }[] = [];
+              for (let k = 0; k < nonNullIdx.length - 1; k++) {
+                const a = nonNullIdx[k];
+                const b = nonNullIdx[k + 1];
+                segments.push({ x1: xOf(a), y1: yOf(dailyEnergy[a].avg!), x2: xOf(b), y2: yOf(dailyEnergy[b].avg!), dashed: b > a + 1 });
+              }
+              return (
+                <>
+                  <svg viewBox={`0 0 ${VB_W} ${VB_H}`} preserveAspectRatio="none" style={{ width: '100%', height: 130, display: 'block' }}>
+                    {/* 수평 가이드라인 */}
+                    {[5, 4, 3, 2, 1].map(v => (
+                      <g key={v}>
+                        <line x1={ML} y1={yOf(v)} x2={ML + CW} y2={yOf(v)} stroke={t.borderLight} strokeWidth={0.8} strokeDasharray="3 4" />
+                        <text x={ML - 4} y={yOf(v) + 3.5} textAnchor="end" fontSize={7} fill={t.textMuted}>{v}</text>
+                      </g>
+                    ))}
+                    {/* 선 세그먼트 */}
+                    {segments.map((seg, i) => (
+                      <line key={i}
+                        x1={seg.x1} y1={seg.y1} x2={seg.x2} y2={seg.y2}
+                        stroke={t.accent}
+                        strokeWidth={seg.dashed ? 1 : 1.5}
+                        strokeDasharray={seg.dashed ? '3 3' : undefined}
+                        opacity={seg.dashed ? 0.35 : 1}
+                      />
+                    ))}
+                    {/* 데이터 포인트 + X축 레이블 */}
+                    {dailyEnergy.map(({ date, avg, label }, i) => {
+                      const isToday = date === today;
+                      const showLabel = N <= 14 || parseInt(label) % 5 === 1 || isToday;
+                      const cx = xOf(i);
+                      return (
+                        <g key={date}>
+                          {avg !== null && (
+                            isToday
+                              ? <circle cx={cx} cy={yOf(avg)} r={4} fill="none" stroke={t.accent} strokeWidth={1.5} />
+                              : <circle cx={cx} cy={yOf(avg)} r={3} fill={t.accent} opacity={0.85} />
+                          )}
+                          {showLabel && (
+                            <text x={cx} y={VB_H - 5} textAnchor="middle" fontSize={7}
+                              fill={isToday ? t.accent : t.textMuted}
+                              fontWeight={isToday ? 700 : 400}>
+                              {label}
+                            </text>
+                          )}
+                        </g>
+                      );
+                    })}
+                  </svg>
+                  {/* 범례 */}
+                  <div className="flex flex-wrap gap-x-4 gap-y-1 mt-2">
+                    <div className="flex items-center gap-1.5">
+                      <svg width={20} height={8}><line x1={0} y1={4} x2={20} y2={4} stroke={t.accent} strokeWidth={1.5} /></svg>
+                      <span style={{ fontSize: 9, color: t.textMuted }}>기록 있는 날</span>
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                      <svg width={20} height={8}><line x1={0} y1={4} x2={20} y2={4} stroke={t.accent} strokeWidth={1} strokeDasharray="3 3" opacity={0.4} /></svg>
+                      <span style={{ fontSize: 9, color: t.textMuted }}>기록 없는 날 연결</span>
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                      <svg width={10} height={10}><circle cx={5} cy={5} r={4} fill="none" stroke={t.accent} strokeWidth={1.5} /></svg>
+                      <span style={{ fontSize: 9, color: t.textMuted }}>오늘</span>
+                    </div>
                   </div>
-                );
-              })}
-            </div>
-            <div className="flex justify-between mt-1">
-              <span style={{ fontSize: 9, color: t.textMuted }}>1(낮음)</span>
-              <span style={{ fontSize: 9, color: t.textMuted }}>5(높음)</span>
-            </div>
+                </>
+              );
+            })()}
           </div>
         </>
       )}
