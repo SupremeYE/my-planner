@@ -21,13 +21,6 @@ interface MoodRecord {
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
-const TIME_OPTIONS: { value: TimeOfDay; emoji: string }[] = [
-  { value: '아침', emoji: '🌅' },
-  { value: '낮', emoji: '☀️' },
-  { value: '저녁', emoji: '🌙' },
-  { value: '지금', emoji: '⏰' },
-];
-
 const BODY_SIGNALS = ['어깨 뭉침', '가슴 답답', '배 긴장', '목 뻐근', '편안함'];
 
 const EMOTION_CATEGORIES: { emoji: string; label: string; emotions: string[] }[] = [
@@ -44,6 +37,59 @@ const EMOTION_CATEGORIES: { emoji: string; label: string; emotions: string[] }[]
 
 const ENERGY_LABELS: Record<number, string> = { 1: '매우 낮음', 2: '낮음', 3: '보통', 4: '높음', 5: '매우 높음' };
 
+// ─── 감정 카테고리 색상 ──────────────────────────────────────────────────────
+
+const CATEGORY_COLORS: Record<string, { bg: string; accent: string }> = {
+  '행복':      { bg: '#FFF0F3', accent: '#E88CA0' },
+  '사랑':      { bg: '#FFE4E8', accent: '#D4607A' },
+  '분노':      { bg: '#FDE8E8', accent: '#C45A5A' },
+  '두려움':    { bg: '#FFF4E0', accent: '#D4922A' },
+  '부러움/질투': { bg: '#F2F2F2', accent: '#888888' },
+  '슬픔':      { bg: '#E8EEF8', accent: '#6B8CC4' },
+  '혐오':      { bg: '#FDE8E8', accent: '#C45A5A' },
+  '수치/죄책감': { bg: '#E8EEF8', accent: '#6B8CC4' },
+  '기타':      { bg: '#F0EEF8', accent: '#8B7EC8' },
+};
+
+// 감정 태그 → 카테고리 레이블 매핑
+const TAG_CATEGORY: Record<string, string> = {};
+EMOTION_CATEGORIES.forEach(cat => {
+  cat.emotions.forEach(e => { TAG_CATEGORY[e] = cat.label; });
+});
+
+function getEmotionColor(tags: string[]): { bg: string; accent: string } | null {
+  for (const tag of tags) {
+    const cat = TAG_CATEGORY[tag];
+    if (cat && CATEGORY_COLORS[cat]) return CATEGORY_COLORS[cat];
+  }
+  return null;
+}
+
+function getCategoryEmoji(tags: string[]): string {
+  for (const tag of tags) {
+    const cat = EMOTION_CATEGORIES.find(c => c.emotions.includes(tag));
+    if (cat) return cat.emoji;
+  }
+  return '🌸';
+}
+
+// ─── Helpers ─────────────────────────────────────────────────────────────────
+
+function formatKoreanTime(isoStr: string): string {
+  const d = new Date(isoStr);
+  const h = d.getHours();
+  const m = d.getMinutes();
+  return `${h < 12 ? '오전' : '오후'} ${h % 12 || 12}:${String(m).padStart(2, '0')}`;
+}
+
+function autoTimeOfDay(): TimeOfDay {
+  const h = new Date().getHours();
+  if (h >= 5 && h < 12) return '아침';
+  if (h >= 12 && h < 18) return '낮';
+  if (h >= 18 && h < 23) return '저녁';
+  return '지금';
+}
+
 // ─── VoiceInputButton ─────────────────────────────────────────────────────────
 
 function VoiceInputButton({ onResult, disabled }: { onResult: (text: string) => void; disabled?: boolean }) {
@@ -55,36 +101,20 @@ function VoiceInputButton({ onResult, disabled }: { onResult: (text: string) => 
   if (!SpeechRecognitionAPI) return null;
 
   const toggle = () => {
-    if (isListening) {
-      recognitionRef.current?.stop();
-      setIsListening(false);
-      return;
-    }
+    if (isListening) { recognitionRef.current?.stop(); setIsListening(false); return; }
     const r = new SpeechRecognitionAPI();
-    r.lang = 'ko-KR';
-    r.interimResults = false;
-    r.maxAlternatives = 1;
+    r.lang = 'ko-KR'; r.interimResults = false; r.maxAlternatives = 1;
     r.onresult = (e: any) => onResult(e.results[0][0].transcript);
     r.onend = () => setIsListening(false);
     r.onerror = () => setIsListening(false);
     recognitionRef.current = r;
-    r.start();
-    setIsListening(true);
+    r.start(); setIsListening(true);
   };
 
   return (
-    <button
-      type="button"
-      onClick={toggle}
-      disabled={disabled}
+    <button type="button" onClick={toggle} disabled={disabled}
       className="flex items-center justify-center rounded-lg flex-shrink-0"
-      style={{
-        width: 30, height: 30,
-        backgroundColor: isListening ? '#fee2e2' : t.bgSub,
-        border: `1px solid ${isListening ? '#fca5a5' : t.borderLight}`,
-        color: isListening ? '#ef4444' : t.textMuted,
-      }}
-    >
+      style={{ width: 30, height: 30, backgroundColor: isListening ? '#fee2e2' : t.bgSub, border: `1px solid ${isListening ? '#fca5a5' : t.borderLight}`, color: isListening ? '#ef4444' : t.textMuted }}>
       {isListening
         ? <span className="animate-pulse rounded-full" style={{ width: 9, height: 9, backgroundColor: '#ef4444', display: 'block' }} />
         : <Mic size={13} />}
@@ -92,15 +122,16 @@ function VoiceInputButton({ onResult, disabled }: { onResult: (text: string) => 
   );
 }
 
-// ─── Step-by-step Record Sheet ────────────────────────────────────────────────
+// ─── RecordSheet (4-step form) ────────────────────────────────────────────────
 
 interface RecordSheetProps {
   onClose: () => void;
   onSave: (data: Omit<MoodRecord, 'id' | 'created_at'>) => Promise<void>;
   initialData?: MoodRecord | null;
+  defaultDate?: string;
 }
 
-function RecordSheet({ onClose, onSave, initialData }: RecordSheetProps) {
+function RecordSheet({ onClose, onSave, initialData, defaultDate }: RecordSheetProps) {
   const { t } = useTheme();
   const [step, setStep] = useState(1);
   const [bodySignals, setBodySignals] = useState<string[]>(initialData?.body_signals ?? []);
@@ -112,29 +143,18 @@ function RecordSheet({ onClose, onSave, initialData }: RecordSheetProps) {
   const today = format(new Date(), 'yyyy-MM-dd');
   const totalSteps = 4;
 
-  const autoTimeOfDay = (): TimeOfDay => {
-    const h = new Date().getHours();
-    if (h >= 5 && h < 12) return '아침';
-    if (h >= 12 && h < 18) return '낮';
-    if (h >= 18 && h < 23) return '저녁';
-    return '지금';
-  };
-
   const toggleBodySignal = (s: string) =>
     setBodySignals(prev => prev.includes(s) ? prev.filter(x => x !== s) : [...prev, s]);
 
   const toggleEmotionTag = (tag: string) => {
-    if (emotionTags.includes(tag)) {
-      setEmotionTags(prev => prev.filter(x => x !== tag));
-    } else if (emotionTags.length < 3) {
-      setEmotionTags(prev => [...prev, tag]);
-    }
+    if (emotionTags.includes(tag)) setEmotionTags(prev => prev.filter(x => x !== tag));
+    else if (emotionTags.length < 3) setEmotionTags(prev => [...prev, tag]);
   };
 
   const handleSave = async () => {
     setSaving(true);
     await onSave({
-      date: initialData?.date ?? today,
+      date: initialData?.date ?? defaultDate ?? today,
       time_of_day: initialData?.time_of_day ?? autoTimeOfDay(),
       body_signals: bodySignals,
       emotion_tags: emotionTags,
@@ -146,24 +166,17 @@ function RecordSheet({ onClose, onSave, initialData }: RecordSheetProps) {
   };
 
   const chipStyle = (active: boolean) => ({
-    padding: '6px 12px',
-    borderRadius: 20,
-    fontSize: 12,
+    padding: '6px 12px', borderRadius: 20, fontSize: 12,
     fontWeight: active ? 600 : 400,
     backgroundColor: active ? t.accentLight : t.card,
     border: `1px solid ${active ? t.accent : t.borderLight}`,
     color: active ? t.accent : t.textSub,
-    cursor: 'pointer',
-    transition: 'all 0.15s',
+    cursor: 'pointer', transition: 'all 0.15s',
   });
 
   return (
     <div className="fixed inset-0 z-50 flex flex-col justify-end" style={{ backgroundColor: 'rgba(0,0,0,0.4)' }} onClick={onClose}>
-      <div
-        className="rounded-t-2xl"
-        style={{ backgroundColor: t.bg, maxHeight: '90vh', overflowY: 'auto' }}
-        onClick={e => e.stopPropagation()}
-      >
+      <div className="rounded-t-2xl" style={{ backgroundColor: t.bg, maxHeight: '90vh', overflowY: 'auto' }} onClick={e => e.stopPropagation()}>
         {/* Handle */}
         <div className="flex justify-center pt-3 pb-1">
           <div className="w-10 h-1 rounded-full" style={{ backgroundColor: t.border }} />
@@ -172,9 +185,7 @@ function RecordSheet({ onClose, onSave, initialData }: RecordSheetProps) {
         {/* Header */}
         <div className="flex items-center justify-between px-5 pb-3 pt-1">
           <div>
-            <p style={{ fontSize: 11, color: t.textMuted }}>
-              {step} / {totalSteps}단계
-            </p>
+            <p style={{ fontSize: 11, color: t.textMuted }}>{step} / {totalSteps}단계</p>
             <h2 style={{ fontSize: 16, fontWeight: 700, color: t.text }}>
               {step === 1 && '몸 상태는 어떤가요?'}
               {step === 2 && '감정 단어를 골라보세요 (최대 3개)'}
@@ -182,19 +193,14 @@ function RecordSheet({ onClose, onSave, initialData }: RecordSheetProps) {
               {step === 4 && '이 감정이 든 이유 (선택)'}
             </h2>
           </div>
-          <button onClick={onClose} style={{ color: t.textMuted }}>
-            <X size={20} />
-          </button>
+          <button onClick={onClose} style={{ color: t.textMuted }}><X size={20} /></button>
         </div>
 
         {/* Step indicator */}
         <div className="flex gap-1.5 px-5 mb-5">
           {Array.from({ length: totalSteps }).map((_, i) => (
-            <div
-              key={i}
-              className="flex-1 h-1 rounded-full transition-all"
-              style={{ backgroundColor: i < step ? t.accent : t.borderLight }}
-            />
+            <div key={i} className="flex-1 h-1 rounded-full transition-all"
+              style={{ backgroundColor: i < step ? t.accent : t.borderLight }} />
           ))}
         </div>
 
@@ -204,11 +210,7 @@ function RecordSheet({ onClose, onSave, initialData }: RecordSheetProps) {
           {step === 1 && (
             <div className="flex flex-wrap gap-2">
               {BODY_SIGNALS.map(signal => (
-                <button
-                  key={signal}
-                  onClick={() => toggleBodySignal(signal)}
-                  style={chipStyle(bodySignals.includes(signal))}
-                >
+                <button key={signal} onClick={() => toggleBodySignal(signal)} style={chipStyle(bodySignals.includes(signal))}>
                   {signal}
                 </button>
               ))}
@@ -222,35 +224,39 @@ function RecordSheet({ onClose, onSave, initialData }: RecordSheetProps) {
           {step === 2 && (
             <div className="space-y-4">
               <p style={{ fontSize: 12, color: t.accent, fontWeight: 600 }}>
-                선택됨: {emotionTags.length}/3
-                {emotionTags.length > 0 && ` — ${emotionTags.join(', ')}`}
+                선택됨: {emotionTags.length}/3{emotionTags.length > 0 && ` — ${emotionTags.join(', ')}`}
               </p>
-              {EMOTION_CATEGORIES.map(cat => (
-                <div key={cat.label}>
-                  <p style={{ fontSize: 11, fontWeight: 700, color: t.textSub, marginBottom: 6 }}>
-                    {cat.emoji} {cat.label}
-                  </p>
-                  <div className="flex flex-wrap gap-1.5">
-                    {cat.emotions.map(emotion => {
-                      const selected = emotionTags.includes(emotion);
-                      const maxed = emotionTags.length >= 3 && !selected;
-                      return (
-                        <button
-                          key={emotion}
-                          onClick={() => toggleEmotionTag(emotion)}
-                          disabled={maxed}
-                          style={{
-                            ...chipStyle(selected),
-                            opacity: maxed ? 0.4 : 1,
-                          }}
-                        >
-                          {emotion}
-                        </button>
-                      );
-                    })}
+              {EMOTION_CATEGORIES.map(cat => {
+                const color = CATEGORY_COLORS[cat.label];
+                return (
+                  <div key={cat.label}>
+                    <p style={{ fontSize: 11, fontWeight: 700, color: color?.accent ?? t.textSub, marginBottom: 6 }}>
+                      {cat.emoji} {cat.label}
+                    </p>
+                    <div className="flex flex-wrap gap-1.5">
+                      {cat.emotions.map(emotion => {
+                        const selected = emotionTags.includes(emotion);
+                        const maxed = emotionTags.length >= 3 && !selected;
+                        return (
+                          <button key={emotion} onClick={() => toggleEmotionTag(emotion)} disabled={maxed}
+                            style={{
+                              padding: '5px 11px', borderRadius: 20, fontSize: 12,
+                              fontWeight: selected ? 600 : 400,
+                              backgroundColor: selected ? (color?.bg ?? t.accentLight) : t.card,
+                              border: `1px solid ${selected ? (color?.accent ?? t.accent) : t.borderLight}`,
+                              color: selected ? (color?.accent ?? t.accent) : t.textSub,
+                              cursor: maxed ? 'not-allowed' : 'pointer',
+                              opacity: maxed ? 0.4 : 1,
+                              transition: 'all 0.15s',
+                            }}>
+                            {emotion}
+                          </button>
+                        );
+                      })}
+                    </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           )}
 
@@ -259,21 +265,11 @@ function RecordSheet({ onClose, onSave, initialData }: RecordSheetProps) {
             <div>
               <div className="flex justify-center gap-4 mb-6">
                 {[1, 2, 3, 4, 5].map(level => (
-                  <button
-                    key={level}
-                    onClick={() => setEnergyLevel(level)}
+                  <button key={level} onClick={() => setEnergyLevel(level)}
                     className="flex flex-col items-center gap-1.5 transition-transform"
-                    style={{ transform: energyLevel === level ? 'scale(1.1)' : 'scale(1)' }}
-                  >
-                    <div
-                      className="rounded-full transition-all"
-                      style={{
-                        width: energyLevel === level ? 40 : 32,
-                        height: energyLevel === level ? 40 : 32,
-                        backgroundColor: energyLevel === level ? t.accent : t.bgSub,
-                        border: `2px solid ${energyLevel === level ? t.accent : t.borderLight}`,
-                      }}
-                    />
+                    style={{ transform: energyLevel === level ? 'scale(1.1)' : 'scale(1)' }}>
+                    <div className="rounded-full transition-all"
+                      style={{ width: energyLevel === level ? 40 : 32, height: energyLevel === level ? 40 : 32, backgroundColor: energyLevel === level ? t.accent : t.bgSub, border: `2px solid ${energyLevel === level ? t.accent : t.borderLight}` }} />
                     <span style={{ fontSize: 12, fontWeight: energyLevel === level ? 700 : 400, color: energyLevel === level ? t.accent : t.textMuted }}>
                       {level}
                     </span>
@@ -281,9 +277,7 @@ function RecordSheet({ onClose, onSave, initialData }: RecordSheetProps) {
                 ))}
               </div>
               <div className="text-center py-3 rounded-xl" style={{ backgroundColor: t.accentLight }}>
-                <span style={{ fontSize: 14, fontWeight: 700, color: t.accent }}>
-                  {ENERGY_LABELS[energyLevel]}
-                </span>
+                <span style={{ fontSize: 14, fontWeight: 700, color: t.accent }}>{ENERGY_LABELS[energyLevel]}</span>
               </div>
             </div>
           )}
@@ -292,50 +286,37 @@ function RecordSheet({ onClose, onSave, initialData }: RecordSheetProps) {
           {step === 4 && (
             <div>
               <div className="flex items-end gap-2">
-                <textarea
-                  value={memo}
-                  onChange={e => setMemo(e.target.value)}
+                <textarea value={memo} onChange={e => setMemo(e.target.value)}
                   placeholder="어떤 일이 있었나요? (선택)"
                   rows={4}
                   className="flex-1 rounded-xl px-4 py-3 border outline-none resize-none"
                   style={{ borderColor: t.border, backgroundColor: t.card, color: t.text, fontSize: 14 }}
-                  autoFocus
-                />
+                  autoFocus />
                 <VoiceInputButton onResult={text => setMemo(prev => prev ? `${prev} ${text}` : text)} />
               </div>
             </div>
           )}
         </div>
 
-        {/* Navigation Buttons */}
+        {/* Navigation */}
         <div className="flex gap-3 px-5 pb-8">
           {step > 1 ? (
-            <button
-              onClick={() => setStep(s => s - 1)}
-              className="flex items-center gap-1 px-5 py-3 rounded-xl transition-all"
-              style={{ backgroundColor: t.bgSub, color: t.textSub, fontSize: 14, fontWeight: 600, border: `1px solid ${t.borderLight}` }}
-            >
+            <button onClick={() => setStep(s => s - 1)}
+              className="flex items-center gap-1 px-5 py-3 rounded-xl"
+              style={{ backgroundColor: t.bgSub, color: t.textSub, fontSize: 14, fontWeight: 600, border: `1px solid ${t.borderLight}` }}>
               <ChevronLeft size={16} /> 이전
             </button>
-          ) : (
-            <div className="flex-shrink-0 w-2" />
-          )}
-
+          ) : <div className="w-2 flex-shrink-0" />}
           {step < totalSteps ? (
-            <button
-              onClick={() => setStep(s => s + 1)}
-              className="flex-1 flex items-center justify-center gap-1 py-3 rounded-xl transition-all"
-              style={{ backgroundColor: t.accent, color: '#fff', fontSize: 14, fontWeight: 600 }}
-            >
+            <button onClick={() => setStep(s => s + 1)}
+              className="flex-1 flex items-center justify-center gap-1 py-3 rounded-xl"
+              style={{ backgroundColor: t.accent, color: '#fff', fontSize: 14, fontWeight: 600 }}>
               다음 <ChevronRight size={16} />
             </button>
           ) : (
-            <button
-              onClick={handleSave}
-              disabled={saving}
-              className="flex-1 py-3 rounded-xl transition-all"
-              style={{ backgroundColor: t.accent, color: '#fff', fontSize: 14, fontWeight: 600, opacity: saving ? 0.7 : 1 }}
-            >
+            <button onClick={handleSave} disabled={saving}
+              className="flex-1 py-3 rounded-xl"
+              style={{ backgroundColor: t.accent, color: '#fff', fontSize: 14, fontWeight: 600, opacity: saving ? 0.7 : 1 }}>
               {saving ? '저장 중...' : '저장하기'}
             </button>
           )}
@@ -345,58 +326,224 @@ function RecordSheet({ onClose, onSave, initialData }: RecordSheetProps) {
   );
 }
 
-// ─── Main MoodView ─────────────────────────────────────────────────────────────
+// ─── Record Card ──────────────────────────────────────────────────────────────
 
-export function MoodView() {
+function RecordCard({
+  record,
+  onEdit,
+  onDelete,
+  compact = false,
+}: {
+  record: MoodRecord;
+  onEdit: (r: MoodRecord) => void;
+  onDelete: (id: string) => void;
+  compact?: boolean;
+}) {
   const { t } = useTheme();
-  const today = format(new Date(), 'yyyy-MM-dd');
+  const color = getEmotionColor(record.emotion_tags);
 
-  const [records, setRecords] = useState<MoodRecord[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [showSheet, setShowSheet] = useState(false);
-  const [editingRecord, setEditingRecord] = useState<MoodRecord | null>(null);
+  return (
+    <div className="rounded-xl" style={{ backgroundColor: color?.bg ?? t.card, border: `1px solid ${color ? color.accent + '33' : t.borderLight}`, padding: compact ? 12 : 16 }}>
+      <div className="flex items-start justify-between mb-2">
+        <span style={{ fontSize: compact ? 12 : 13, fontWeight: 700, color: color?.accent ?? t.accent }}>
+          {formatKoreanTime(record.created_at)}
+        </span>
+        <div className="flex gap-1.5">
+          <button onClick={() => onEdit(record)} style={{ color: t.textMuted }}><Pencil size={13} /></button>
+          <button onClick={() => onDelete(record.id)} style={{ color: t.textMuted }}><Trash2 size={13} /></button>
+        </div>
+      </div>
 
-  const loadRecords = async () => {
-    setLoading(true);
-    const { data } = await supabase
-      .from('mood_records')
-      .select('*')
-      .order('created_at', { ascending: false });
-    if (data) setRecords(data as MoodRecord[]);
-    setLoading(false);
+      {record.body_signals.length > 0 && (
+        <div className="flex flex-wrap gap-1 mb-1.5">
+          {record.body_signals.map(s => (
+            <span key={s} className="px-2 py-0.5 rounded-full"
+              style={{ fontSize: 10, backgroundColor: 'rgba(255,255,255,0.7)', color: t.textSub, border: `1px solid ${t.borderLight}` }}>
+              {s}
+            </span>
+          ))}
+        </div>
+      )}
+
+      {record.emotion_tags.length > 0 && (
+        <div className="flex flex-wrap gap-1 mb-1.5">
+          {record.emotion_tags.map(tag => (
+            <span key={tag} className="px-2.5 py-0.5 rounded-full"
+              style={{ fontSize: 11, backgroundColor: 'rgba(255,255,255,0.8)', color: color?.accent ?? t.accent, fontWeight: 600 }}>
+              {tag}
+            </span>
+          ))}
+        </div>
+      )}
+
+      <div className="flex items-center gap-2">
+        <div className="flex gap-0.5">
+          {[1, 2, 3, 4, 5].map(l => (
+            <div key={l} className="rounded-full"
+              style={{ width: compact ? 8 : 10, height: compact ? 8 : 10, backgroundColor: l <= record.energy_level ? (color?.accent ?? t.accent) : t.borderLight }} />
+          ))}
+        </div>
+        <span style={{ fontSize: 11, color: t.textMuted }}>{ENERGY_LABELS[record.energy_level]}</span>
+      </div>
+
+      {record.memo && (
+        <p className="mt-1.5" style={{ fontSize: 12, color: t.textSub, fontStyle: 'italic' }}>"{record.memo}"</p>
+      )}
+    </div>
+  );
+}
+
+// ─── CalendarView ─────────────────────────────────────────────────────────────
+
+function CalendarView({
+  records,
+  today,
+  onAddRecord,
+  onEdit,
+  onDelete,
+}: {
+  records: MoodRecord[];
+  today: string;
+  onAddRecord: (date: string) => void;
+  onEdit: (r: MoodRecord) => void;
+  onDelete: (id: string) => void;
+}) {
+  const { t } = useTheme();
+  const [viewYear, setViewYear] = useState(new Date().getFullYear());
+  const [viewMonth, setViewMonth] = useState(new Date().getMonth()); // 0-indexed
+  const [selectedDate, setSelectedDate] = useState<string | null>(today);
+
+  const daysInMonth = new Date(viewYear, viewMonth + 1, 0).getDate();
+  const firstDow = new Date(viewYear, viewMonth, 1).getDay();
+
+  const dateStr = (day: number) =>
+    `${viewYear}-${String(viewMonth + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+
+  const cells: (number | null)[] = [];
+  for (let i = 0; i < firstDow; i++) cells.push(null);
+  for (let d = 1; d <= daysInMonth; d++) cells.push(d);
+  while (cells.length % 7 !== 0) cells.push(null);
+
+  const prevMonth = () => {
+    if (viewMonth === 0) { setViewYear(y => y - 1); setViewMonth(11); }
+    else setViewMonth(m => m - 1);
+    setSelectedDate(null);
+  };
+  const nextMonth = () => {
+    if (viewMonth === 11) { setViewYear(y => y + 1); setViewMonth(0); }
+    else setViewMonth(m => m + 1);
+    setSelectedDate(null);
   };
 
-  useEffect(() => { loadRecords(); }, []);
+  const selectedRecords = selectedDate ? records.filter(r => r.date === selectedDate) : [];
 
-  const handleSave = async (data: Omit<MoodRecord, 'id' | 'created_at'>) => {
-    if (editingRecord) {
-      await supabase.from('mood_records').update(data).eq('id', editingRecord.id);
-    } else {
-      const id = crypto.randomUUID();
-      await supabase.from('mood_records').insert({ ...data, id });
-    }
-    setEditingRecord(null);
-    await loadRecords();
-  };
+  return (
+    <div>
+      {/* Month nav */}
+      <div className="flex items-center justify-between mb-3">
+        <button onClick={prevMonth} className="p-2 rounded-lg" style={{ color: t.textSub }}>
+          <ChevronLeft size={18} />
+        </button>
+        <span style={{ fontSize: 15, fontWeight: 700, color: t.text }}>
+          {viewYear}년 {viewMonth + 1}월
+        </span>
+        <button onClick={nextMonth} className="p-2 rounded-lg" style={{ color: t.textSub }}>
+          <ChevronRight size={18} />
+        </button>
+      </div>
 
-  const handleDelete = async (id: string) => {
-    if (!window.confirm('이 기록을 삭제할까요?')) return;
-    await supabase.from('mood_records').delete().eq('id', id);
-    setRecords(prev => prev.filter(r => r.id !== id));
-  };
+      {/* Day headers */}
+      <div className="grid grid-cols-7 mb-1">
+        {['일', '월', '화', '수', '목', '금', '토'].map((d, i) => (
+          <div key={d} style={{ textAlign: 'center', fontSize: 11, fontWeight: 600, padding: '2px 0', color: i === 0 ? '#E88CA0' : i === 6 ? '#6B8CC4' : t.textMuted }}>
+            {d}
+          </div>
+        ))}
+      </div>
 
-  const openEdit = (record: MoodRecord) => {
-    setEditingRecord(record);
-    setShowSheet(true);
-  };
+      {/* Grid */}
+      <div className="grid grid-cols-7 gap-px rounded-xl overflow-hidden" style={{ backgroundColor: t.borderLight }}>
+        {cells.map((day, i) => {
+          if (!day) return (
+            <div key={i} style={{ backgroundColor: t.bg, minHeight: 44 }} />
+          );
 
-  // ─── Stats ────────────────────────────────────────────────────────────────
-  const todayRecords = records.filter(r => r.date === today);
+          const ds = dateStr(day);
+          const dayRecs = records.filter(r => r.date === ds);
+          const isToday = ds === today;
+          const isSelected = ds === selectedDate;
+          const latestRec = dayRecs[0] ?? null;
+          const color = latestRec ? getEmotionColor(latestRec.emotion_tags) : null;
+          const hasMultiple = dayRecs.length > 1;
+
+          return (
+            <div key={i} onClick={() => setSelectedDate(isSelected ? null : ds)}
+              className="relative flex flex-col cursor-pointer select-none"
+              style={{
+                minHeight: 44,
+                backgroundColor: color ? color.bg : t.bg,
+                outline: isSelected ? `2px solid ${t.accent}` : isToday ? `2px solid ${t.accent}88` : 'none',
+                outlineOffset: -1,
+                padding: '3px 4px',
+              }}>
+              <span style={{ fontSize: 11, lineHeight: 1, color: isToday ? t.accent : color ? color.accent : t.textMuted, fontWeight: isToday ? 700 : 400 }}>
+                {day}
+              </span>
+              {latestRec && (
+                <div className="flex-1 flex items-center justify-center">
+                  <span style={{ fontSize: 18, lineHeight: 1 }}>
+                    {getCategoryEmoji(latestRec.emotion_tags)}
+                  </span>
+                </div>
+              )}
+              {hasMultiple && (
+                <div className="absolute bottom-1 right-1 rounded-full"
+                  style={{ width: 5, height: 5, backgroundColor: color?.accent ?? t.accent }} />
+              )}
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Detail panel */}
+      {selectedDate && (
+        <div className="mt-3 rounded-2xl overflow-hidden" style={{ border: `1px solid ${t.borderLight}` }}>
+          <div className="flex items-center justify-between px-4 py-3"
+            style={{ backgroundColor: t.card, borderBottom: `1px solid ${t.borderLight}` }}>
+            <span style={{ fontSize: 13, fontWeight: 700, color: t.text }}>{selectedDate}</span>
+            <button onClick={() => onAddRecord(selectedDate)}
+              className="flex items-center gap-1 px-3 py-1.5 rounded-lg"
+              style={{ backgroundColor: t.accentLight, color: t.accent, fontSize: 12, fontWeight: 600 }}>
+              <Plus size={13} /> 기록 추가
+            </button>
+          </div>
+
+          {selectedRecords.length === 0 ? (
+            <p style={{ fontSize: 13, color: t.textMuted, textAlign: 'center', padding: '20px 16px', backgroundColor: t.bg }}>
+              이 날의 기록이 없어요
+            </p>
+          ) : (
+            <div className="space-y-2 p-3" style={{ backgroundColor: t.bg }}>
+              {selectedRecords.map(record => (
+                <RecordCard key={record.id} record={record} onEdit={onEdit} onDelete={onDelete} compact />
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─── Stats Section ─────────────────────────────────────────────────────────────
+
+function StatsSection({ records, today }: { records: MoodRecord[]; today: string }) {
+  const { t } = useTheme();
 
   // 이번 주 시작 (월요일)
   const now = new Date();
-  const dayOfWeek = now.getDay();
-  const mondayOffset = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
+  const dow = now.getDay();
+  const mondayOffset = dow === 0 ? 6 : dow - 1;
   const weekStart = new Date(now);
   weekStart.setDate(now.getDate() - mondayOffset);
   const weekStartStr = format(weekStart, 'yyyy-MM-dd');
@@ -421,299 +568,256 @@ export function MoodView() {
   });
 
   // 시간대별 평균 에너지
-  const avgByTime = TIME_OPTIONS.map(opt => {
-    const recs = weekRecords.filter(r => r.time_of_day === opt.value);
+  const timeSlots: { label: string; emoji: string; key: TimeOfDay }[] = [
+    { label: '아침', emoji: '🌅', key: '아침' },
+    { label: '낮', emoji: '☀️', key: '낮' },
+    { label: '저녁', emoji: '🌙', key: '저녁' },
+    { label: '지금', emoji: '⏰', key: '지금' },
+  ];
+  const avgByTime = timeSlots.map(slot => {
+    const recs = weekRecords.filter(r => r.time_of_day === slot.key);
     const avg = recs.length ? recs.reduce((s, r) => s + r.energy_level, 0) / recs.length : null;
-    return { ...opt, avg, count: recs.length };
+    return { ...slot, avg, count: recs.length };
   });
 
-  const cardStyle = {
-    backgroundColor: t.card,
-    border: `1px solid ${t.borderLight}`,
-    borderRadius: 16,
-    padding: 16,
+  const cardStyle = { backgroundColor: t.card, border: `1px solid ${t.borderLight}`, borderRadius: 16, padding: 16, marginBottom: 12 };
+
+  return (
+    <div>
+      <p style={{ fontSize: 11, color: t.textMuted, fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase' as const, marginBottom: 10 }}>
+        이번 주 통계
+      </p>
+
+      {/* TOP3 */}
+      <div style={cardStyle}>
+        <p style={{ fontSize: 12, fontWeight: 700, color: t.text, marginBottom: 10 }}>감정 태그 TOP3</p>
+        {top3Tags.length === 0 ? (
+          <p style={{ fontSize: 12, color: t.textMuted }}>이번 주 기록이 없어요</p>
+        ) : (
+          <div className="space-y-2">
+            {top3Tags.map(([tag, count], i) => {
+              const color = getEmotionColor([tag]);
+              return (
+                <div key={tag} className="flex items-center gap-3">
+                  <span style={{ fontSize: 12, color: color?.accent ?? t.accent, fontWeight: 700, width: 16 }}>{i + 1}</span>
+                  <span style={{ fontSize: 13, color: t.text, flex: 1 }}>{tag}</span>
+                  <div className="flex items-center gap-1.5">
+                    <div className="h-2 rounded-full"
+                      style={{ width: `${Math.max(20, (count / (top3Tags[0]?.[1] || 1)) * 80)}px`, backgroundColor: color?.accent ?? t.accent, opacity: 0.7 }} />
+                    <span style={{ fontSize: 11, color: t.textMuted }}>{count}회</span>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
+
+      {/* 에너지 그래프 */}
+      <div style={cardStyle}>
+        <p style={{ fontSize: 12, fontWeight: 700, color: t.text, marginBottom: 12 }}>에너지 레벨 (최근 7일)</p>
+        <div className="flex items-end gap-1.5" style={{ height: 60 }}>
+          {dailyEnergy.map(({ date, avg, label }) => {
+            const isToday = date === today;
+            return (
+              <div key={date} className="flex flex-col items-center gap-1 flex-1">
+                <div className="w-full rounded-t-sm transition-all"
+                  style={{ height: avg !== null ? `${(avg / 5) * 100}%` : 2, backgroundColor: avg !== null ? (isToday ? t.accent : `${t.accent}88`) : t.borderLight, minHeight: 2 }} />
+                <span style={{ fontSize: 9, color: isToday ? t.accent : t.textMuted, fontWeight: isToday ? 700 : 400 }}>{label}</span>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* 시간대별 */}
+      <div style={{ ...cardStyle, marginBottom: 0 }}>
+        <p style={{ fontSize: 12, fontWeight: 700, color: t.text, marginBottom: 10 }}>시간대별 평균 에너지</p>
+        <div className="grid grid-cols-4 gap-2">
+          {avgByTime.map(({ label, emoji, avg, count }) => (
+            <div key={label} className="flex flex-col items-center gap-1 py-3 rounded-xl"
+              style={{ backgroundColor: avg !== null ? t.accentLight : t.bgSub }}>
+              <span style={{ fontSize: 20 }}>{emoji}</span>
+              <span style={{ fontSize: 10, color: t.textSub }}>{label}</span>
+              {avg !== null ? (
+                <>
+                  <span style={{ fontSize: 14, fontWeight: 700, color: t.accent }}>{avg.toFixed(1)}</span>
+                  <span style={{ fontSize: 9, color: t.textMuted }}>{count}회</span>
+                </>
+              ) : (
+                <span style={{ fontSize: 11, color: t.textMuted }}>—</span>
+              )}
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── Main MoodView ─────────────────────────────────────────────────────────────
+
+export function MoodView() {
+  const { t } = useTheme();
+  const today = format(new Date(), 'yyyy-MM-dd');
+
+  const [records, setRecords] = useState<MoodRecord[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [tab, setTab] = useState<'list' | 'calendar'>('list');
+  const [showSheet, setShowSheet] = useState(false);
+  const [editingRecord, setEditingRecord] = useState<MoodRecord | null>(null);
+  const [newRecordDate, setNewRecordDate] = useState<string | undefined>(undefined);
+
+  const loadRecords = async () => {
+    setLoading(true);
+    const { data } = await supabase
+      .from('mood_records')
+      .select('*')
+      .order('created_at', { ascending: false });
+    if (data) setRecords(data as MoodRecord[]);
+    setLoading(false);
   };
 
-  const formatKoreanTime = (isoStr: string) => {
-    const d = new Date(isoStr);
-    const h = d.getHours();
-    const m = d.getMinutes();
-    const ampm = h < 12 ? '오전' : '오후';
-    const hour = h % 12 || 12;
-    return `${ampm} ${hour}:${String(m).padStart(2, '0')}`;
+  useEffect(() => { loadRecords(); }, []);
+
+  const handleSave = async (data: Omit<MoodRecord, 'id' | 'created_at'>) => {
+    if (editingRecord) {
+      await supabase.from('mood_records').update(data).eq('id', editingRecord.id);
+    } else {
+      await supabase.from('mood_records').insert({ ...data, id: crypto.randomUUID() });
+    }
+    setEditingRecord(null);
+    setNewRecordDate(undefined);
+    await loadRecords();
   };
+
+  const handleDelete = async (id: string) => {
+    if (!window.confirm('이 기록을 삭제할까요?')) return;
+    await supabase.from('mood_records').delete().eq('id', id);
+    setRecords(prev => prev.filter(r => r.id !== id));
+  };
+
+  const openEdit = (record: MoodRecord) => {
+    setEditingRecord(record);
+    setNewRecordDate(undefined);
+    setShowSheet(true);
+  };
+
+  const openNewForDate = (date: string) => {
+    setEditingRecord(null);
+    setNewRecordDate(date);
+    setShowSheet(true);
+  };
+
+  const todayRecords = records.filter(r => r.date === today);
+  const pastRecords = records.filter(r => r.date !== today);
 
   return (
     <div className="flex-1 overflow-y-auto pb-20">
       {/* Header */}
-      <div className="px-5 pt-6 pb-4 flex items-center justify-between">
+      <div className="px-5 pt-6 pb-3 flex items-center justify-between">
         <div>
           <h1 style={{ fontSize: 22, fontWeight: 700, color: t.text, fontFamily: "'DM Serif Display', serif" }}>
             감정 기록
           </h1>
-          <p style={{ fontSize: 13, color: t.textSub, marginTop: 4 }}>
-            지금 이 순간의 감정을 기록해보세요
-          </p>
+          <p style={{ fontSize: 13, color: t.textSub, marginTop: 4 }}>지금 이 순간의 감정을 기록해보세요</p>
         </div>
         <button
-          onClick={() => { setEditingRecord(null); setShowSheet(true); }}
-          className="flex items-center gap-1.5 px-4 py-2.5 rounded-xl transition-all"
-          style={{ backgroundColor: t.accent, color: '#fff', fontSize: 13, fontWeight: 600 }}
-        >
+          onClick={() => { setEditingRecord(null); setNewRecordDate(undefined); setShowSheet(true); }}
+          className="flex items-center gap-1.5 px-4 py-2.5 rounded-xl"
+          style={{ backgroundColor: t.accent, color: '#fff', fontSize: 13, fontWeight: 600 }}>
           <Plus size={15} /> 기록
         </button>
       </div>
 
+      {/* Tabs */}
+      <div className="flex gap-1.5 px-5 mb-4">
+        {([['list', '기록'], ['calendar', '캘린더']] as const).map(([key, label]) => (
+          <button key={key} onClick={() => setTab(key)}
+            className="px-4 py-2 rounded-xl transition-all"
+            style={{ fontSize: 13, fontWeight: tab === key ? 600 : 400, backgroundColor: tab === key ? t.accent : t.bgSub, color: tab === key ? '#fff' : t.textSub }}>
+            {label}
+          </button>
+        ))}
+      </div>
+
       <div className="px-5 space-y-4">
 
-        {/* 오늘 기록 */}
-        <div>
-          <p style={{ fontSize: 11, color: t.textMuted, fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase', marginBottom: 10 }}>
-            오늘 기록 ({todayRecords.length}건)
-          </p>
-
-          {loading && (
-            <p style={{ fontSize: 13, color: t.textMuted, textAlign: 'center', padding: 24 }}>불러오는 중...</p>
-          )}
-
-          {!loading && todayRecords.length === 0 && (
-            <div
-              className="flex flex-col items-center gap-3 py-8 rounded-2xl"
-              style={{ backgroundColor: t.card, border: `1px dashed ${t.borderLight}` }}
-            >
-              <span style={{ fontSize: 36 }}>🌸</span>
-              <p style={{ fontSize: 13, color: t.textMuted }}>오늘의 첫 감정 기록을 남겨보세요</p>
-              <button
-                onClick={() => { setEditingRecord(null); setShowSheet(true); }}
-                className="px-5 py-2 rounded-xl"
-                style={{ backgroundColor: t.accentLight, color: t.accent, fontSize: 13, fontWeight: 600 }}
-              >
-                + 기록하기
-              </button>
-            </div>
-          )}
-
-          <div className="space-y-3">
-            {todayRecords.map(record => (
-              <div key={record.id} style={cardStyle}>
-                <div className="flex items-start justify-between mb-2">
-                  <div className="flex items-center gap-2">
-                    <span style={{ fontSize: 13, fontWeight: 700, color: t.text }}>
-                      {formatKoreanTime(record.created_at)}
-                    </span>
-                  </div>
-                  <div className="flex gap-1.5">
-                    <button onClick={() => openEdit(record)} style={{ color: t.textMuted }}>
-                      <Pencil size={14} />
-                    </button>
-                    <button onClick={() => handleDelete(record.id)} style={{ color: t.textMuted }}>
-                      <Trash2 size={14} />
-                    </button>
-                  </div>
+        {/* ── 기록 탭 ── */}
+        {tab === 'list' && (
+          <>
+            {/* 오늘 기록 */}
+            <div>
+              <p style={{ fontSize: 11, color: t.textMuted, fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase', marginBottom: 10 }}>
+                오늘 기록 ({todayRecords.length}건)
+              </p>
+              {loading && <p style={{ fontSize: 13, color: t.textMuted, textAlign: 'center', padding: 24 }}>불러오는 중...</p>}
+              {!loading && todayRecords.length === 0 && (
+                <div className="flex flex-col items-center gap-3 py-8 rounded-2xl"
+                  style={{ backgroundColor: t.card, border: `1px dashed ${t.borderLight}` }}>
+                  <span style={{ fontSize: 36 }}>🌸</span>
+                  <p style={{ fontSize: 13, color: t.textMuted }}>오늘의 첫 감정 기록을 남겨보세요</p>
+                  <button onClick={() => { setEditingRecord(null); setNewRecordDate(undefined); setShowSheet(true); }}
+                    className="px-5 py-2 rounded-xl"
+                    style={{ backgroundColor: t.accentLight, color: t.accent, fontSize: 13, fontWeight: 600 }}>
+                    + 기록하기
+                  </button>
                 </div>
-
-                {/* 몸 상태 */}
-                {record.body_signals.length > 0 && (
-                  <div className="flex flex-wrap gap-1 mb-2">
-                    {record.body_signals.map(s => (
-                      <span key={s} className="px-2 py-0.5 rounded-full"
-                        style={{ fontSize: 10, backgroundColor: t.bgSub, color: t.textSub, border: `1px solid ${t.borderLight}` }}>
-                        {s}
-                      </span>
-                    ))}
-                  </div>
-                )}
-
-                {/* 감정 태그 */}
-                {record.emotion_tags.length > 0 && (
-                  <div className="flex flex-wrap gap-1 mb-2">
-                    {record.emotion_tags.map(tag => (
-                      <span key={tag} className="px-2.5 py-0.5 rounded-full"
-                        style={{ fontSize: 11, backgroundColor: t.accentLight, color: t.accent, fontWeight: 600 }}>
-                        {tag}
-                      </span>
-                    ))}
-                  </div>
-                )}
-
-                {/* 에너지 + 메모 */}
-                <div className="flex items-center gap-3">
-                  <div className="flex gap-0.5">
-                    {[1, 2, 3, 4, 5].map(l => (
-                      <div
-                        key={l}
-                        className="rounded-full"
-                        style={{
-                          width: 10, height: 10,
-                          backgroundColor: l <= record.energy_level ? t.accent : t.borderLight,
-                        }}
-                      />
-                    ))}
-                  </div>
-                  <span style={{ fontSize: 11, color: t.textMuted }}>{ENERGY_LABELS[record.energy_level]}</span>
-                </div>
-
-                {record.memo && (
-                  <p className="mt-2" style={{ fontSize: 12, color: t.textSub, fontStyle: 'italic' }}>
-                    "{record.memo}"
-                  </p>
-                )}
+              )}
+              <div className="space-y-3">
+                {todayRecords.map(record => (
+                  <RecordCard key={record.id} record={record} onEdit={openEdit} onDelete={handleDelete} />
+                ))}
               </div>
-            ))}
-          </div>
-        </div>
-
-        {/* 과거 기록 (오늘 제외) */}
-        {records.filter(r => r.date !== today).length > 0 && (
-          <div>
-            <p style={{ fontSize: 11, color: t.textMuted, fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase', marginBottom: 10 }}>
-              지난 기록
-            </p>
-            <div className="space-y-3">
-              {records
-                .filter(r => r.date !== today)
-                .slice(0, 10)
-                .map(record => (
-                  <div key={record.id} style={cardStyle}>
-                    <div className="flex items-start justify-between mb-2">
-                      <div>
-                        <span style={{ fontSize: 12, color: t.textMuted }}>{record.date} </span>
-                        <span style={{ fontSize: 12, fontWeight: 600, color: t.text }}>{formatKoreanTime(record.created_at)}</span>
-                      </div>
-                      <div className="flex gap-1.5">
-                        <button onClick={() => openEdit(record)} style={{ color: t.textMuted }}>
-                          <Pencil size={13} />
-                        </button>
-                        <button onClick={() => handleDelete(record.id)} style={{ color: t.textMuted }}>
-                          <Trash2 size={13} />
-                        </button>
-                      </div>
-                    </div>
-                    {record.emotion_tags.length > 0 && (
-                      <div className="flex flex-wrap gap-1 mb-1">
-                        {record.emotion_tags.map(tag => (
-                          <span key={tag} className="px-2 py-0.5 rounded-full"
-                            style={{ fontSize: 10, backgroundColor: t.accentLight, color: t.accent }}>
-                            {tag}
-                          </span>
-                        ))}
-                      </div>
-                    )}
-                    <div className="flex gap-0.5">
-                      {[1, 2, 3, 4, 5].map(l => (
-                        <div key={l} className="rounded-full" style={{ width: 8, height: 8, backgroundColor: l <= record.energy_level ? t.accent : t.borderLight }} />
-                      ))}
-                    </div>
-                  </div>
-                ))}
             </div>
-          </div>
-        )}
 
-        {/* ── 통계 ─────────────────────────────────────────────────── */}
-        <div>
-          <p style={{ fontSize: 11, color: t.textMuted, fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase', marginBottom: 10 }}>
-            이번 주 통계
-          </p>
-
-          {/* TOP3 감정 태그 */}
-          <div style={{ ...cardStyle, marginBottom: 12 }}>
-            <p style={{ fontSize: 12, fontWeight: 700, color: t.text, marginBottom: 10 }}>
-              감정 태그 TOP3
-            </p>
-            {top3Tags.length === 0 ? (
-              <p style={{ fontSize: 12, color: t.textMuted }}>이번 주 기록이 없어요</p>
-            ) : (
-              <div className="space-y-2">
-                {top3Tags.map(([tag, count], i) => (
-                  <div key={tag} className="flex items-center gap-3">
-                    <span style={{ fontSize: 12, color: t.accent, fontWeight: 700, width: 16 }}>
-                      {i + 1}
-                    </span>
-                    <span style={{ fontSize: 13, color: t.text, flex: 1 }}>{tag}</span>
-                    <div className="flex items-center gap-1.5">
-                      <div
-                        className="h-1.5 rounded-full"
-                        style={{
-                          width: `${Math.max(20, (count / (top3Tags[0]?.[1] || 1)) * 80)}px`,
-                          backgroundColor: t.accent,
-                          opacity: 0.6 + i * -0.15,
-                        }}
-                      />
-                      <span style={{ fontSize: 11, color: t.textMuted }}>{count}회</span>
+            {/* 지난 기록 */}
+            {pastRecords.length > 0 && (
+              <div>
+                <p style={{ fontSize: 11, color: t.textMuted, fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase', marginBottom: 10 }}>
+                  지난 기록
+                </p>
+                <div className="space-y-3">
+                  {pastRecords.slice(0, 10).map(record => (
+                    <div key={record.id} className="rounded-xl overflow-hidden"
+                      style={{ backgroundColor: t.card, border: `1px solid ${t.borderLight}` }}>
+                      <div className="px-3 py-1.5" style={{ backgroundColor: t.bgSub }}>
+                        <span style={{ fontSize: 11, color: t.textMuted, fontWeight: 600 }}>{record.date}</span>
+                      </div>
+                      <div className="p-3">
+                        <RecordCard record={record} onEdit={openEdit} onDelete={handleDelete} compact />
+                      </div>
                     </div>
-                  </div>
-                ))}
+                  ))}
+                </div>
               </div>
             )}
-          </div>
 
-          {/* 에너지 레벨 주간 그래프 */}
-          <div style={{ ...cardStyle, marginBottom: 12 }}>
-            <p style={{ fontSize: 12, fontWeight: 700, color: t.text, marginBottom: 12 }}>
-              에너지 레벨 (최근 7일)
-            </p>
-            <div className="flex items-end gap-1.5" style={{ height: 60 }}>
-              {dailyEnergy.map(({ date, avg, label }) => {
-                const isToday = date === today;
-                const heightPct = avg !== null ? (avg / 5) * 100 : 0;
-                return (
-                  <div key={date} className="flex flex-col items-center gap-1 flex-1">
-                    <div
-                      className="w-full rounded-t-sm transition-all"
-                      style={{
-                        height: avg !== null ? `${heightPct}%` : 2,
-                        backgroundColor: avg !== null
-                          ? isToday ? t.accent : `${t.accent}99`
-                          : t.borderLight,
-                        minHeight: 2,
-                      }}
-                    />
-                    <span style={{ fontSize: 9, color: isToday ? t.accent : t.textMuted, fontWeight: isToday ? 700 : 400 }}>
-                      {label}
-                    </span>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
+            {/* 통계 */}
+            <StatsSection records={records} today={today} />
+          </>
+        )}
 
-          {/* 시간대별 평균 에너지 */}
-          <div style={cardStyle}>
-            <p style={{ fontSize: 12, fontWeight: 700, color: t.text, marginBottom: 10 }}>
-              시간대별 평균 에너지
-            </p>
-            <div className="grid grid-cols-4 gap-2">
-              {avgByTime.map(({ value, emoji, avg, count }) => (
-                <div
-                  key={value}
-                  className="flex flex-col items-center gap-1 py-3 rounded-xl"
-                  style={{ backgroundColor: avg !== null ? t.accentLight : t.bgSub }}
-                >
-                  <span style={{ fontSize: 20 }}>{emoji}</span>
-                  <span style={{ fontSize: 10, color: t.textSub }}>{value}</span>
-                  {avg !== null ? (
-                    <>
-                      <span style={{ fontSize: 14, fontWeight: 700, color: t.accent }}>{avg.toFixed(1)}</span>
-                      <span style={{ fontSize: 9, color: t.textMuted }}>{count}회</span>
-                    </>
-                  ) : (
-                    <span style={{ fontSize: 11, color: t.textMuted }}>—</span>
-                  )}
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
+        {/* ── 캘린더 탭 ── */}
+        {tab === 'calendar' && (
+          <CalendarView
+            records={records}
+            today={today}
+            onAddRecord={openNewForDate}
+            onEdit={openEdit}
+            onDelete={handleDelete}
+          />
+        )}
 
       </div>
 
       {/* Record Sheet */}
       {showSheet && (
         <RecordSheet
-          onClose={() => { setShowSheet(false); setEditingRecord(null); }}
+          onClose={() => { setShowSheet(false); setEditingRecord(null); setNewRecordDate(undefined); }}
           onSave={handleSave}
           initialData={editingRecord}
+          defaultDate={newRecordDate}
         />
       )}
     </div>
