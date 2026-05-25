@@ -4,7 +4,7 @@ import { useSearchParams, NavLink } from 'react-router';
 import {
   ChevronLeft, ChevronRight, Plus, Star, Play,
   Check, Clock, Trash2, X, MoreHorizontal,
-  Settings, Edit3, Pause, Ban, CalendarDays,
+  Settings, Edit3, Pause, Ban, CalendarDays, Copy,
 } from 'lucide-react';
 import { format, addDays, subDays, addMonths, subMonths, startOfMonth, getDaysInMonth, getDay as getDayOfWeek } from 'date-fns';
 import { ko } from 'date-fns/locale';
@@ -716,6 +716,142 @@ function DailyDatePickerModal({ selectedDate, onClose, onConfirm }: {
   );
 }
 
+// ─── Plan Block Context Menu ───
+function PlanBlockContextMenu({ todo, position, onClose, onClone, onEditTime }: {
+  todo: Todo;
+  position: { x: number; y: number };
+  onClose: () => void;
+  onClone: () => void;
+  onEditTime: () => void;
+}) {
+  const { updateTodo } = usePlanner();
+  const { t } = useTheme();
+  const ref = useRef<HTMLDivElement>(null);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (showDeleteConfirm) return;
+      if (ref.current && !ref.current.contains(e.target as Node)) onClose();
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [onClose, showDeleteConfirm]);
+
+  const left = Math.min(position.x, window.innerWidth - 160);
+  const top = Math.min(position.y, window.innerHeight - 120);
+
+  const btnStyle = (danger?: boolean) => ({
+    fontSize: 12,
+    color: danger ? '#DC2626' : t.text,
+  });
+
+  return (
+    <>
+      <div ref={ref} className="fixed z-50 rounded-xl py-1.5" style={{
+        top, left,
+        minWidth: 148,
+        backgroundColor: t.card,
+        border: `1px solid ${t.border}`,
+        boxShadow: '0 10px 15px -3px rgba(0,0,0,0.1), 0 4px 6px -4px rgba(0,0,0,0.1)',
+      }}>
+        <button className="w-full flex items-center gap-2 px-3 py-1.5 text-left transition-colors"
+          style={btnStyle()}
+          onMouseEnter={e => (e.currentTarget.style.backgroundColor = t.bgHover)}
+          onMouseLeave={e => (e.currentTarget.style.backgroundColor = 'transparent')}
+          onClick={onClone}>
+          <Copy size={13} />
+          <span>Do로 복제</span>
+        </button>
+        <button className="w-full flex items-center gap-2 px-3 py-1.5 text-left transition-colors"
+          style={btnStyle()}
+          onMouseEnter={e => (e.currentTarget.style.backgroundColor = t.bgHover)}
+          onMouseLeave={e => (e.currentTarget.style.backgroundColor = 'transparent')}
+          onClick={onEditTime}>
+          <Clock size={13} />
+          <span>시간 편집</span>
+        </button>
+        <div className="my-1" style={{ borderBottom: `1px solid ${t.border}` }} />
+        <button className="w-full flex items-center gap-2 px-3 py-1.5 text-left transition-colors"
+          style={btnStyle(true)}
+          onMouseEnter={e => (e.currentTarget.style.backgroundColor = '#FEE2E2')}
+          onMouseLeave={e => (e.currentTarget.style.backgroundColor = 'transparent')}
+          onClick={() => setShowDeleteConfirm(true)}>
+          <Trash2 size={13} />
+          <span>삭제</span>
+        </button>
+      </div>
+      {showDeleteConfirm && (
+        <ConfirmModal
+          message="PLAN 블록을 삭제할까요?"
+          confirmText="삭제"
+          confirmDanger
+          onConfirm={() => {
+            updateTodo(todo.id, { planStart: undefined, planEnd: undefined });
+            setShowDeleteConfirm(false);
+            onClose();
+          }}
+          onCancel={() => setShowDeleteConfirm(false)}
+        />
+      )}
+    </>
+  );
+}
+
+// ─── Plan/Do Time Edit Modal ───
+function PlanDoTimeEditModal({ todo, type, onClose, onConfirm }: {
+  todo: Todo;
+  type: 'plan' | 'do';
+  onClose: () => void;
+  onConfirm: (start: string, end: string) => void;
+}) {
+  const { t } = useTheme();
+  const [startTime, setStartTime] = useState(
+    type === 'plan' ? (todo.planStart || '') : (todo.doStart || '')
+  );
+  const [endTime, setEndTime] = useState(
+    type === 'plan' ? (todo.planEnd || '') : (todo.doEnd || '')
+  );
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center" style={{ backgroundColor: 'rgba(0,0,0,0.35)' }}>
+      <div className="rounded-2xl w-[calc(100vw-32px)] max-w-[320px] overflow-hidden"
+        style={{ backgroundColor: t.card, border: `1px solid ${t.border}`, boxShadow: '0 25px 50px -12px rgba(0,0,0,0.15)' }}>
+        <div className="flex items-center justify-between px-5 py-4" style={{ borderBottom: `1px solid ${t.border}` }}>
+          <div>
+            <h3 style={{ fontSize: 15, fontWeight: 700, color: t.text }}>시간 편집</h3>
+            <p style={{ fontSize: 12, color: t.textSub, marginTop: 2 }}>{todo.text}</p>
+          </div>
+          <button onClick={onClose} className="p-1 rounded-lg" style={{ color: t.textMuted }}><X size={16} /></button>
+        </div>
+        <div className="px-5 py-4 space-y-3">
+          <div className="flex items-center gap-3">
+            <label style={{ fontSize: 12, color: t.textSub, width: 56, flexShrink: 0 }}>시작 시간</label>
+            <TimePicker value={startTime} onChange={setStartTime} minuteStep={30} />
+          </div>
+          <div className="flex items-center gap-3">
+            <label style={{ fontSize: 12, color: t.textSub, width: 56, flexShrink: 0 }}>종료 시간</label>
+            <TimePicker value={endTime} onChange={setEndTime} minuteStep={30} />
+          </div>
+        </div>
+        <div className="flex gap-3 px-5 py-4" style={{ borderTop: `1px solid ${t.border}` }}>
+          <button onClick={onClose} className="flex-1 py-2.5 rounded-xl"
+            style={{ fontSize: 13, color: t.textSub, backgroundColor: t.bgSub, border: `1px solid ${t.border}` }}>
+            취소
+          </button>
+          <button
+            onClick={() => { if (startTime && endTime) onConfirm(startTime, endTime); }}
+            disabled={!startTime || !endTime}
+            className="flex-1 py-2.5 rounded-xl"
+            style={{ fontSize: 13, fontWeight: 600, backgroundColor: t.accent, color: '#fff', opacity: (!startTime || !endTime) ? 0.5 : 1 }}>
+            확인
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ─── Main Daily View ───
 export function DailyView() {
   const {
@@ -736,6 +872,9 @@ export function DailyView() {
   const [focusingTodo, setFocusingTodo] = useState<Todo | null>(null);
   const [snoozingTodo, setSnoozingTodo] = useState<Todo | null>(null);
   const [contextMenu, setContextMenu] = useState<{ todo: Todo; pos: { x: number; y: number } } | null>(null);
+  const [planBlockMenu, setPlanBlockMenu] = useState<{ todo: Todo; pos: { x: number; y: number } } | null>(null);
+  const [timeEditBlock, setTimeEditBlock] = useState<{ todo: Todo; type: 'plan' | 'do' } | null>(null);
+  const longPressTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [dailyMemo, setDailyMemo] = useState<Record<string, string>>({});
   const [showLogModal, setShowLogModal] = useState(false);
   const [showTimelineSettings, setShowTimelineSettings] = useState(false);
@@ -1198,8 +1337,25 @@ export function DailyView() {
         }}
         onContextMenu={e => {
           e.preventDefault();
-          setContextMenu({ todo, pos: { x: e.clientX, y: e.clientY } });
+          if (isPlan) {
+            setPlanBlockMenu({ todo, pos: { x: e.clientX, y: e.clientY } });
+          } else {
+            setContextMenu({ todo, pos: { x: e.clientX, y: e.clientY } });
+          }
         }}
+        onTouchStart={isPlan ? (e) => {
+          longPressTimerRef.current = setTimeout(() => {
+            if (navigator.vibrate) navigator.vibrate(50);
+            const touch = e.touches[0];
+            if (touch) setPlanBlockMenu({ todo, pos: { x: touch.clientX, y: touch.clientY } });
+          }, 500);
+        } : undefined}
+        onTouchEnd={isPlan ? () => {
+          if (longPressTimerRef.current) { clearTimeout(longPressTimerRef.current); longPressTimerRef.current = null; }
+        } : undefined}
+        onTouchMove={isPlan ? () => {
+          if (longPressTimerRef.current) { clearTimeout(longPressTimerRef.current); longPressTimerRef.current = null; }
+        } : undefined}
         title={titleLabel}
       >
         {isCompact ? (
@@ -1896,6 +2052,38 @@ export function DailyView() {
           position={contextMenu.pos}
           onClose={() => setContextMenu(null)}
           onFocus={setFocusingTodo}
+        />
+      )}
+      {planBlockMenu && (
+        <PlanBlockContextMenu
+          todo={planBlockMenu.todo}
+          position={planBlockMenu.pos}
+          onClose={() => setPlanBlockMenu(null)}
+          onClone={() => {
+            const td = planBlockMenu.todo;
+            updateTodo(td.id, { doStart: td.planStart, doEnd: td.planEnd });
+            setPlanBlockMenu(null);
+            setTimeEditBlock({ todo: td, type: 'do' });
+          }}
+          onEditTime={() => {
+            const td = planBlockMenu.todo;
+            setPlanBlockMenu(null);
+            setTimeEditBlock({ todo: td, type: 'plan' });
+          }}
+        />
+      )}
+      {timeEditBlock && (
+        <PlanDoTimeEditModal
+          todo={timeEditBlock.todo}
+          type={timeEditBlock.type}
+          onClose={() => setTimeEditBlock(null)}
+          onConfirm={(start, end) => {
+            const updates = timeEditBlock.type === 'plan'
+              ? { planStart: start, planEnd: end }
+              : { doStart: start, doEnd: end, doElapsedSec: undefined };
+            updateTodo(timeEditBlock.todo.id, updates);
+            setTimeEditBlock(null);
+          }}
         />
       )}
       {focusingTodo && (

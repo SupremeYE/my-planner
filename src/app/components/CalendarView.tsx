@@ -604,7 +604,7 @@ export function CalendarView() {
   useEffect(() => {
     const handleMouseMove = (event: MouseEvent) => {
       if (!isDraggingRef.current) return;
-      const delta = event.clientY - dragStartYRef.current;
+      const delta = dragStartYRef.current - event.clientY;
       const nextHeight = clampCalendarHeight(dragStartHeightRef.current + delta);
       calendarHeightRef.current = nextHeight;
       setCalendarHeight(nextHeight);
@@ -614,7 +614,7 @@ export function CalendarView() {
       event.preventDefault();
       const touch = event.touches[0];
       if (!touch) return;
-      const nextHeight = clampCalendarHeight(dragStartHeightRef.current + (touch.clientY - dragStartYRef.current));
+      const nextHeight = clampCalendarHeight(dragStartHeightRef.current + (dragStartYRef.current - touch.clientY));
       calendarHeightRef.current = nextHeight;
       setCalendarHeight(nextHeight);
     };
@@ -887,9 +887,9 @@ export function CalendarView() {
                           {panelEvents.map(event => (
                             <div key={event.id} className="rounded-xl px-3 py-2" style={{ backgroundColor: t.bgSub, border: `1px solid ${t.borderLight}` }}>
                               <div style={{ fontSize: 13, fontWeight: 600, color: t.text }}>{event.title}</div>
-                              {(event.startTime || event.endTime) && (
+                              {event.startTime && event.endTime && (
                                 <div style={{ fontSize: 11, color: t.textSub, marginTop: 2 }}>
-                                  {event.startTime || '--:--'} ~ {event.endTime || '--:--'}
+                                  {event.startTime} ~ {event.endTime}
                                 </div>
                               )}
                             </div>
