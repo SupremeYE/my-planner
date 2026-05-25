@@ -19,10 +19,12 @@ interface TodoModalProps {
   /** date prop은 기본 날짜로 사용되며, 모달 안에서 변경/해제할 수 있다. */
   date?: string;
   todo?: Todo;
+  initialPlanStart?: string;
+  initialPlanEnd?: string;
   onClose: () => void;
 }
 
-export function TodoModal({ date, todo, onClose }: TodoModalProps) {
+export function TodoModal({ date, todo, initialPlanStart, initialPlanEnd, onClose }: TodoModalProps) {
   const { addTodo, updateTodo, deleteTodo, tags: allTags, projects, addTag, updateTag, deleteTag } = usePlanner();
   const { t } = useTheme();
 
@@ -39,8 +41,8 @@ export function TodoModal({ date, todo, onClose }: TodoModalProps) {
 
   // 폼 fields
   const [text, setText] = useState(todo?.text ?? '');
-  const [planStart, setPlanStart] = useState(todo?.planStart ?? '');
-  const [planEnd, setPlanEnd] = useState(todo?.planEnd ?? '');
+  const [planStart, setPlanStart] = useState(todo?.planStart ?? initialPlanStart ?? '');
+  const [planEnd, setPlanEnd] = useState(todo?.planEnd ?? initialPlanEnd ?? '');
   const [isTop3, setIsTop3] = useState(todo?.isTop3 ?? false);
   const [selectedTags, setSelectedTags] = useState<string[]>(todo?.tags ?? []);
   const [projectId, setProjectId] = useState(todo?.projectId ?? '');

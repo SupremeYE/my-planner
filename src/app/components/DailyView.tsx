@@ -875,6 +875,16 @@ export function DailyView() {
   const [planBlockMenu, setPlanBlockMenu] = useState<{ todo: Todo; pos: { x: number; y: number } } | null>(null);
   const [timeEditBlock, setTimeEditBlock] = useState<{ todo: Todo; type: 'plan' | 'do' } | null>(null);
   const longPressTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const createDragRef = useRef<{
+    startMin: number;
+    endMin: number;
+    startClientY: number;
+    startClientX: number;
+    active: boolean;
+  } | null>(null);
+  const timelineRelativeRef = useRef<HTMLDivElement>(null);
+  const [createPreview, setCreatePreview] = useState<{ startMin: number; endMin: number } | null>(null);
+  const [pendingCreateTime, setPendingCreateTime] = useState<{ start: string; end: string } | null>(null);
   const [dailyMemo, setDailyMemo] = useState<Record<string, string>>({});
   const [showLogModal, setShowLogModal] = useState(false);
   const [showTimelineSettings, setShowTimelineSettings] = useState(false);
@@ -980,6 +990,138 @@ export function DailyView() {
       window.removeEventListener('mouseup', handleMouseUp);
     };
   }, [dragState, dragPreview, tlStartHour, tlEndHour, updateTodo]);
+
+  // Touch drag for timeline block resize (parallel to mouse drag)
+  useEffect(() => {
+    if (!dragState) return;
+    const handleTouchMove = (e: TouchEvent) => {
+      e.preventDefault();
+      dragMovedRef.current = true;
+      const touch = e.touches[0];
+      if (!touch) return;
+      const dy = touch.clientY - dragState.startY;
+      const dMin = Math.round(dy / PX_PER_MIN / 5) * 5;
+      if (dragState.mode === 'move') {
+        const newStart = Math.max(tlStartHour * 60, dragState.origStartMin + dMin);
+        const duration = dragState.origEndMin - dragState.origStartMin;
+        const newEnd = Math.min(tlEndHour * 60, newStart + duration);
+        setDragPreview({ startMin: newEnd - duration, endMin: newEnd });
+      } else {
+        const newEnd = Math.max(dragState.origStartMin + 5, dragState.origEndMin + dMin);
+        setDragPreview({ startMin: dragState.origStartMin, endMin: Math.min(tlEndHour * 60, newEnd) });
+      }
+    };
+    const handleTouchEnd = () => {
+      if (dragPreview && dragMovedRef.current) {
+        const startField = dragState.type === 'plan' ? 'planStart' : 'doStart';
+        const endField = dragState.type === 'plan' ? 'planEnd' : 'doEnd';
+        updateTodo(dragState.todoId, {
+          [startField]: minutesToTime(dragPreview.startMin),
+          [endField]: minutesToTime(dragPreview.endMin),
+          ...(dragState.type === 'do' ? { doElapsedSec: undefined } : {}),
+        });
+      }
+      setDragState(null);
+      setDragPreview(null);
+      setTimeout(() => { dragMovedRef.current = false; }, 50);
+    };
+    window.addEventListener('touchmove', handleTouchMove, { passive: false });
+    window.addEventListener('touchend', handleTouchEnd);
+    return () => {
+      window.removeEventListener('touchmove', handleTouchMove);
+      window.removeEventListener('touchend', handleTouchEnd);
+    };
+  }, [dragState, dragPreview, tlStartHour, tlEndHour, updateTodo]);
+
+  // PC mouse: create block by dragging empty timeline area
+  useEffect(() => {
+    const handleMouseMove = (e: MouseEvent) => {
+      if (!createDragRef.current?.active) return;
+      const rect = timelineRelativeRef.current?.getBoundingClientRect();
+      if (!rect) return;
+      const relY = e.clientY - rect.top;
+      const rawMin = tlStartHour * 60 + relY / PX_PER_MIN;
+      const snappedMin = Math.round(rawMin / 15) * 15;
+      const endMin = Math.max(createDragRef.current.startMin + 15, Math.min(tlEndHour * 60, snappedMin));
+      createDragRef.current.endMin = endMin;
+      setCreatePreview({ startMin: createDragRef.current.startMin, endMin });
+    };
+    const handleMouseUp = () => {
+      if (!createDragRef.current?.active) return;
+      const { startMin, endMin } = createDragRef.current;
+      createDragRef.current = null;
+      setCreatePreview(null);
+      if (endMin - startMin >= 15) {
+        setPendingCreateTime({ start: minutesToTime(startMin), end: minutesToTime(endMin) });
+      }
+    };
+    window.addEventListener('mousemove', handleMouseMove);
+    window.addEventListener('mouseup', handleMouseUp);
+    return () => {
+      window.removeEventListener('mousemove', handleMouseMove);
+      window.removeEventListener('mouseup', handleMouseUp);
+    };
+  }, [tlStartHour, tlEndHour]);
+
+  // Mobile touch: create block by dragging empty timeline area
+  useEffect(() => {
+    const el = timelineRelativeRef.current;
+    if (!el) return;
+    const handleTouchStart = (e: TouchEvent) => {
+      const touch = e.touches[0];
+      if (!touch) return;
+      if ((touch.target as HTMLElement).closest('.timeline-block')) return;
+      const rect = el.getBoundingClientRect();
+      const relX = touch.clientX - rect.left;
+      if (relX < TIMELINE_CONTENT_LEFT) return;
+      const relY = touch.clientY - rect.top;
+      const rawMin = tlStartHour * 60 + relY / PX_PER_MIN;
+      const snappedMin = Math.round(rawMin / 15) * 15;
+      const clamped = Math.max(tlStartHour * 60, Math.min(tlEndHour * 60 - 15, snappedMin));
+      createDragRef.current = {
+        startMin: clamped, endMin: clamped,
+        startClientY: touch.clientY, startClientX: touch.clientX,
+        active: false,
+      };
+    };
+    const handleTouchMove = (e: TouchEvent) => {
+      if (!createDragRef.current) return;
+      const touch = e.touches[0];
+      if (!touch) return;
+      const dy = touch.clientY - createDragRef.current.startClientY;
+      const dx = touch.clientX - createDragRef.current.startClientX;
+      if (!createDragRef.current.active) {
+        if (Math.abs(dy) < 8) return;
+        if (dy <= 0 || Math.abs(dy) < Math.abs(dx)) { createDragRef.current = null; return; }
+        createDragRef.current.active = true;
+      }
+      e.preventDefault();
+      const rect = el.getBoundingClientRect();
+      const relY = touch.clientY - rect.top;
+      const rawMin = tlStartHour * 60 + relY / PX_PER_MIN;
+      const snappedMin = Math.round(rawMin / 15) * 15;
+      const endMin = Math.max(createDragRef.current.startMin + 15, Math.min(tlEndHour * 60, snappedMin));
+      createDragRef.current.endMin = endMin;
+      setCreatePreview({ startMin: createDragRef.current.startMin, endMin });
+    };
+    const handleTouchEnd = () => {
+      if (!createDragRef.current) return;
+      const { active, startMin, endMin } = createDragRef.current;
+      createDragRef.current = null;
+      setCreatePreview(null);
+      if (active && endMin - startMin >= 15) {
+        setPendingCreateTime({ start: minutesToTime(startMin), end: minutesToTime(endMin) });
+      }
+    };
+    el.addEventListener('touchstart', handleTouchStart, { passive: true });
+    el.addEventListener('touchmove', handleTouchMove, { passive: false });
+    el.addEventListener('touchend', handleTouchEnd, { passive: true });
+    return () => {
+      el.removeEventListener('touchstart', handleTouchStart);
+      el.removeEventListener('touchmove', handleTouchMove);
+      el.removeEventListener('touchend', handleTouchEnd);
+    };
+  }, [tlStartHour, tlEndHour]);
 
   useEffect(() => {
     const clampLogOffset = (offset: number) => {
@@ -1178,6 +1320,23 @@ export function DailyView() {
       : { left: `calc(50% + ${halfGap}px)`, right: '0%' };
   };
 
+  // PC create-by-drag handler for the timeline background div
+  const handleTimelineMouseDown = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
+    if ((e.target as HTMLElement).closest('.timeline-block')) return;
+    const rect = e.currentTarget.getBoundingClientRect();
+    const relX = e.clientX - rect.left;
+    if (relX < TIMELINE_CONTENT_LEFT) return;
+    const relY = e.clientY - rect.top;
+    const rawMin = tlStartHour * 60 + relY / PX_PER_MIN;
+    const snappedMin = Math.round(rawMin / 15) * 15;
+    const clamped = Math.max(tlStartHour * 60, Math.min(tlEndHour * 60 - 15, snappedMin));
+    createDragRef.current = {
+      startMin: clamped, endMin: clamped,
+      startClientY: e.clientY, startClientX: e.clientX,
+      active: true,
+    };
+  }, [tlStartHour, tlEndHour]);
+
   // Render timeline block
   const planTodos = dateTodos.filter(td => td.planStart && td.planEnd);
   const doTodos = dateTodos.filter(td => td.doStart && td.doEnd);
@@ -1315,7 +1474,7 @@ export function DailyView() {
 
     return (
       <div key={`${todo.id}-${type}`}
-        className="absolute rounded-xl px-2 py-1.5 overflow-hidden group"
+        className="absolute rounded-xl px-2 py-1.5 overflow-hidden group timeline-block"
         style={{
           top,
           height,
@@ -1415,13 +1574,33 @@ export function DailyView() {
           </>
         )}
         {canDrag && (
-          <div
-            className="absolute left-0 right-0 bottom-0 flex justify-center items-center opacity-0 group-hover:opacity-100 transition-opacity"
-            style={{ height: 8, cursor: 'ns-resize', backgroundColor: isDragging ? 'transparent' : (isPlan ? '#515f7440' : '#00000015') }}
-            onMouseDown={(e) => handleDragStart(e, 'resize')}
-          >
-            <div style={{ width: 20, height: 2, borderRadius: 1, backgroundColor: isPlan ? PLAN_BAR_BORDER : `${textColor}80` }} />
-          </div>
+          <>
+            <div
+              className="absolute left-0 right-0 bottom-0 flex justify-center items-center opacity-0 group-hover:opacity-100 transition-opacity"
+              style={{ height: 8, cursor: 'ns-resize', backgroundColor: isDragging ? 'transparent' : (isPlan ? '#515f7440' : '#00000015') }}
+              onMouseDown={(e) => handleDragStart(e, 'resize')}
+            >
+              <div style={{ width: 20, height: 2, borderRadius: 1, backgroundColor: isPlan ? PLAN_BAR_BORDER : `${textColor}80` }} />
+            </div>
+            <div
+              className="absolute left-0 right-0 bottom-0 lg:hidden"
+              style={{ height: 44, touchAction: 'none' }}
+              onTouchStart={(e) => {
+                e.stopPropagation();
+                const touch = e.touches[0];
+                if (!touch) return;
+                dragMovedRef.current = false;
+                setDragState({
+                  todoId: todo.id,
+                  type,
+                  mode: 'resize',
+                  startY: touch.clientY,
+                  origStartMin: timeToMinutes(start),
+                  origEndMin: timeToMinutes(end),
+                });
+              }}
+            />
+          </>
         )}
       </div>
     );
@@ -1440,7 +1619,7 @@ export function DailyView() {
 
     return (
       <div key={`ev-${evt.id}`}
-        className="absolute rounded-lg px-2.5 py-1.5 overflow-hidden"
+        className="absolute rounded-lg px-2.5 py-1.5 overflow-hidden timeline-block"
         style={{
           top, height,
           left: laneBounds.left, right: laneBounds.right,
@@ -1483,7 +1662,7 @@ export function DailyView() {
     const textColor = isOvertime ? OVERTIME_BAR_BORDER : (tagColor ? getContrastTextColor(tagColor) : '#ffffff');
 
     return (
-      <div className="absolute rounded-lg px-2.5 py-1.5 animate-pulse"
+      <div className="absolute rounded-lg px-2.5 py-1.5 animate-pulse timeline-block"
         style={{
           top, height, left: laneBounds.left, right: laneBounds.right,
           backgroundColor: bgColor,
@@ -1955,7 +2134,7 @@ export function DailyView() {
           {/* Timeline body */}
           <div ref={scrollRef} className="flex-1 relative overflow-y-auto overflow-x-hidden px-3 pb-4 lg:px-4"
             style={{ minHeight: 0 }}>
-            <div className="relative" style={{ height: totalHeight + 16 }}>
+            <div ref={timelineRelativeRef} className="relative" style={{ height: totalHeight + 16 }} onMouseDown={handleTimelineMouseDown}>
               {/* Lane backgrounds */}
               <div className="absolute top-0 bottom-0 pointer-events-none"
                 style={{ left: TIMELINE_CONTENT_LEFT, right: 0 }}>
@@ -2029,6 +2208,26 @@ export function DailyView() {
                 {doTodos.map(todo => renderBlock(todo, 'do'))}
                 {renderTimerBlock()}
                 {renderLogMarkers()}
+                {createPreview && (() => {
+                  const lb = getTimelineLaneBounds('plan');
+                  if (!lb) return null;
+                  const previewTop = (createPreview.startMin / 60 - tlStartHour) * HOUR_HEIGHT;
+                  const previewHeight = Math.max((createPreview.endMin - createPreview.startMin) * PX_PER_MIN, 20);
+                  return (
+                    <div className="absolute rounded-xl pointer-events-none"
+                      style={{
+                        top: previewTop, height: previewHeight,
+                        left: lb.left, right: lb.right,
+                        backgroundColor: 'rgba(196,168,130,0.25)',
+                        border: '2px dashed #C4A882',
+                        zIndex: 50,
+                      }}>
+                      <div style={{ fontSize: 10, color: '#7D6347', padding: '2px 6px', fontWeight: 600 }}>
+                        {minutesToTime(createPreview.startMin)} - {minutesToTime(createPreview.endMin)}
+                      </div>
+                    </div>
+                  );
+                })()}
               </div>
             </div>
           </div>
@@ -2084,6 +2283,14 @@ export function DailyView() {
             updateTodo(timeEditBlock.todo.id, updates);
             setTimeEditBlock(null);
           }}
+        />
+      )}
+      {pendingCreateTime && (
+        <TodoModal
+          date={selectedDate}
+          initialPlanStart={pendingCreateTime.start}
+          initialPlanEnd={pendingCreateTime.end}
+          onClose={() => setPendingCreateTime(null)}
         />
       )}
       {focusingTodo && (
