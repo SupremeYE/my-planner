@@ -103,7 +103,6 @@ interface RecordSheetProps {
 function RecordSheet({ onClose, onSave, initialData }: RecordSheetProps) {
   const { t } = useTheme();
   const [step, setStep] = useState(1);
-  const [timeOfDay, setTimeOfDay] = useState<TimeOfDay>(initialData?.time_of_day ?? '지금');
   const [bodySignals, setBodySignals] = useState<string[]>(initialData?.body_signals ?? []);
   const [emotionTags, setEmotionTags] = useState<string[]>(initialData?.emotion_tags ?? []);
   const [energyLevel, setEnergyLevel] = useState(initialData?.energy_level ?? 3);
@@ -111,7 +110,15 @@ function RecordSheet({ onClose, onSave, initialData }: RecordSheetProps) {
   const [saving, setSaving] = useState(false);
 
   const today = format(new Date(), 'yyyy-MM-dd');
-  const totalSteps = 5;
+  const totalSteps = 4;
+
+  const autoTimeOfDay = (): TimeOfDay => {
+    const h = new Date().getHours();
+    if (h >= 5 && h < 12) return '아침';
+    if (h >= 12 && h < 18) return '낮';
+    if (h >= 18 && h < 23) return '저녁';
+    return '지금';
+  };
 
   const toggleBodySignal = (s: string) =>
     setBodySignals(prev => prev.includes(s) ? prev.filter(x => x !== s) : [...prev, s]);
@@ -128,7 +135,7 @@ function RecordSheet({ onClose, onSave, initialData }: RecordSheetProps) {
     setSaving(true);
     await onSave({
       date: initialData?.date ?? today,
-      time_of_day: timeOfDay,
+      time_of_day: initialData?.time_of_day ?? autoTimeOfDay(),
       body_signals: bodySignals,
       emotion_tags: emotionTags,
       energy_level: energyLevel,
@@ -169,11 +176,10 @@ function RecordSheet({ onClose, onSave, initialData }: RecordSheetProps) {
               {step} / {totalSteps}단계
             </p>
             <h2 style={{ fontSize: 16, fontWeight: 700, color: t.text }}>
-              {step === 1 && '지금은 언제인가요?'}
-              {step === 2 && '몸 상태는 어떤가요?'}
-              {step === 3 && '감정 단어를 골라보세요 (최대 3개)'}
-              {step === 4 && '에너지 레벨은 어느 정도인가요?'}
-              {step === 5 && '한 줄 메모 (선택)'}
+              {step === 1 && '몸 상태는 어떤가요?'}
+              {step === 2 && '감정 단어를 골라보세요 (최대 3개)'}
+              {step === 3 && '에너지 레벨은 어느 정도인가요?'}
+              {step === 4 && '이 감정이 든 이유 (선택)'}
             </h2>
           </div>
           <button onClick={onClose} style={{ color: t.textMuted }}>
@@ -194,30 +200,8 @@ function RecordSheet({ onClose, onSave, initialData }: RecordSheetProps) {
 
         {/* Step Content */}
         <div className="px-5 pb-6">
-          {/* Step 1: 시간대 */}
+          {/* Step 1: 몸 상태 */}
           {step === 1 && (
-            <div className="grid grid-cols-2 gap-3">
-              {TIME_OPTIONS.map(opt => (
-                <button
-                  key={opt.value}
-                  onClick={() => setTimeOfDay(opt.value)}
-                  className="flex flex-col items-center gap-2 py-5 rounded-2xl transition-all"
-                  style={{
-                    backgroundColor: timeOfDay === opt.value ? t.accentLight : t.card,
-                    border: `2px solid ${timeOfDay === opt.value ? t.accent : t.borderLight}`,
-                  }}
-                >
-                  <span style={{ fontSize: 32 }}>{opt.emoji}</span>
-                  <span style={{ fontSize: 14, fontWeight: timeOfDay === opt.value ? 700 : 400, color: timeOfDay === opt.value ? t.accent : t.text }}>
-                    {opt.value}
-                  </span>
-                </button>
-              ))}
-            </div>
-          )}
-
-          {/* Step 2: 몸 상태 */}
-          {step === 2 && (
             <div className="flex flex-wrap gap-2">
               {BODY_SIGNALS.map(signal => (
                 <button
@@ -234,8 +218,8 @@ function RecordSheet({ onClose, onSave, initialData }: RecordSheetProps) {
             </div>
           )}
 
-          {/* Step 3: 감정 단어 */}
-          {step === 3 && (
+          {/* Step 2: 감정 단어 */}
+          {step === 2 && (
             <div className="space-y-4">
               <p style={{ fontSize: 12, color: t.accent, fontWeight: 600 }}>
                 선택됨: {emotionTags.length}/3
@@ -270,8 +254,8 @@ function RecordSheet({ onClose, onSave, initialData }: RecordSheetProps) {
             </div>
           )}
 
-          {/* Step 4: 에너지 레벨 */}
-          {step === 4 && (
+          {/* Step 3: 에너지 레벨 */}
+          {step === 3 && (
             <div>
               <div className="flex justify-center gap-4 mb-6">
                 {[1, 2, 3, 4, 5].map(level => (
@@ -304,14 +288,14 @@ function RecordSheet({ onClose, onSave, initialData }: RecordSheetProps) {
             </div>
           )}
 
-          {/* Step 5: 메모 */}
-          {step === 5 && (
+          {/* Step 4: 이유 메모 */}
+          {step === 4 && (
             <div>
               <div className="flex items-end gap-2">
                 <textarea
                   value={memo}
                   onChange={e => setMemo(e.target.value)}
-                  placeholder="지금 이 순간을 한 줄로 남겨보세요 (선택)"
+                  placeholder="어떤 일이 있었나요? (선택)"
                   rows={4}
                   className="flex-1 rounded-xl px-4 py-3 border outline-none resize-none"
                   style={{ borderColor: t.border, backgroundColor: t.card, color: t.text, fontSize: 14 }}
@@ -450,7 +434,14 @@ export function MoodView() {
     padding: 16,
   };
 
-  const timeLabel = (tod: TimeOfDay) => TIME_OPTIONS.find(o => o.value === tod)?.emoji + ' ' + tod;
+  const formatKoreanTime = (isoStr: string) => {
+    const d = new Date(isoStr);
+    const h = d.getHours();
+    const m = d.getMinutes();
+    const ampm = h < 12 ? '오전' : '오후';
+    const hour = h % 12 || 12;
+    return `${ampm} ${hour}:${String(m).padStart(2, '0')}`;
+  };
 
   return (
     <div className="flex-1 overflow-y-auto pb-20">
@@ -508,10 +499,7 @@ export function MoodView() {
                 <div className="flex items-start justify-between mb-2">
                   <div className="flex items-center gap-2">
                     <span style={{ fontSize: 13, fontWeight: 700, color: t.text }}>
-                      {timeLabel(record.time_of_day)}
-                    </span>
-                    <span style={{ fontSize: 11, color: t.textMuted }}>
-                      {format(new Date(record.created_at), 'HH:mm')}
+                      {formatKoreanTime(record.created_at)}
                     </span>
                   </div>
                   <div className="flex gap-1.5">
@@ -590,7 +578,7 @@ export function MoodView() {
                     <div className="flex items-start justify-between mb-2">
                       <div>
                         <span style={{ fontSize: 12, color: t.textMuted }}>{record.date} </span>
-                        <span style={{ fontSize: 12, fontWeight: 600, color: t.text }}>{timeLabel(record.time_of_day)}</span>
+                        <span style={{ fontSize: 12, fontWeight: 600, color: t.text }}>{formatKoreanTime(record.created_at)}</span>
                       </div>
                       <div className="flex gap-1.5">
                         <button onClick={() => openEdit(record)} style={{ color: t.textMuted }}>
