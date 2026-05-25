@@ -486,6 +486,109 @@ function CalendarView({ records, today, onAddRecord, onEdit, onDelete }: {
 
 // ─── StatsTab ─────────────────────────────────────────────────────────────────
 
+// ─── EnergyLineChart ──────────────────────────────────────────────────────────
+
+function EnergyLineChart({ dailyEnergy, today }: {
+  dailyEnergy: { date: string; avg: number | null; label: string }[];
+  today: string;
+}) {
+  const { t } = useTheme();
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [size, setSize] = useState({ width: 320, height: 130 });
+
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+    const observer = new ResizeObserver(entries => {
+      const w = entries[0].contentRect.width;
+      if (w > 0) setSize({ width: w, height: 130 });
+    });
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, []);
+
+  const ML = 20;
+  const MR = 8;
+  const MT = 10;
+  const MB = 22;
+  const CW = size.width - ML - MR;
+  const CH = size.height - MT - MB;
+  const N = dailyEnergy.length;
+  const xOf = (i: number) => ML + (N <= 1 ? CW / 2 : (i / (N - 1)) * CW);
+  const yOf = (v: number) => MT + ((5 - v) / 4) * CH;
+
+  const nonNullIdx = dailyEnergy.map((d, i) => d.avg !== null ? i : -1).filter(i => i >= 0);
+  const segments: { x1: number; y1: number; x2: number; y2: number; dashed: boolean }[] = [];
+  for (let k = 0; k < nonNullIdx.length - 1; k++) {
+    const a = nonNullIdx[k];
+    const b = nonNullIdx[k + 1];
+    segments.push({ x1: xOf(a), y1: yOf(dailyEnergy[a].avg!), x2: xOf(b), y2: yOf(dailyEnergy[b].avg!), dashed: b > a + 1 });
+  }
+
+  return (
+    <>
+      <div ref={containerRef} style={{ width: '100%' }}>
+        <svg width={size.width} height={size.height} style={{ display: 'block', overflow: 'visible' }}>
+          {/* 수평 가이드라인 */}
+          {[5, 4, 3, 2, 1].map(v => (
+            <g key={v}>
+              <line x1={ML} y1={yOf(v)} x2={ML + CW} y2={yOf(v)} stroke={t.borderLight} strokeWidth={0.8} strokeDasharray="3 4" />
+              <text x={ML - 4} y={yOf(v) + 3.5} textAnchor="end" fontSize={7} fill={t.textMuted}>{v}</text>
+            </g>
+          ))}
+          {/* 선 세그먼트 */}
+          {segments.map((seg, i) => (
+            <line key={i}
+              x1={seg.x1} y1={seg.y1} x2={seg.x2} y2={seg.y2}
+              stroke={t.accent}
+              strokeWidth={seg.dashed ? 1 : 1.5}
+              strokeDasharray={seg.dashed ? '3 3' : undefined}
+              opacity={seg.dashed ? 0.35 : 1}
+            />
+          ))}
+          {/* 데이터 포인트 + X축 레이블 */}
+          {dailyEnergy.map(({ date, avg, label }, i) => {
+            const isToday = date === today;
+            const showLabel = N <= 14 || parseInt(label) % 5 === 1 || isToday;
+            const cx = xOf(i);
+            return (
+              <g key={date}>
+                {avg !== null && (
+                  isToday
+                    ? <circle cx={cx} cy={yOf(avg)} r={4} fill="none" stroke={t.accent} strokeWidth={1.5} />
+                    : <circle cx={cx} cy={yOf(avg)} r={3} fill={t.accent} opacity={0.85} />
+                )}
+                {showLabel && (
+                  <text x={cx} y={size.height - 5} textAnchor="middle" fontSize={7}
+                    fill={isToday ? t.accent : t.textMuted}
+                    fontWeight={isToday ? 700 : 400}>
+                    {label}
+                  </text>
+                )}
+              </g>
+            );
+          })}
+        </svg>
+      </div>
+      {/* 범례 */}
+      <div className="flex flex-wrap gap-x-4 gap-y-1 mt-2">
+        <div className="flex items-center gap-1.5">
+          <svg width={20} height={8}><line x1={0} y1={4} x2={20} y2={4} stroke={t.accent} strokeWidth={1.5} /></svg>
+          <span style={{ fontSize: 9, color: t.textMuted }}>기록 있는 날</span>
+        </div>
+        <div className="flex items-center gap-1.5">
+          <svg width={20} height={8}><line x1={0} y1={4} x2={20} y2={4} stroke={t.accent} strokeWidth={1} strokeDasharray="3 3" opacity={0.4} /></svg>
+          <span style={{ fontSize: 9, color: t.textMuted }}>기록 없는 날 연결</span>
+        </div>
+        <div className="flex items-center gap-1.5">
+          <svg width={10} height={10}><circle cx={5} cy={5} r={4} fill="none" stroke={t.accent} strokeWidth={1.5} /></svg>
+          <span style={{ fontSize: 9, color: t.textMuted }}>오늘</span>
+        </div>
+      </div>
+    </>
+  );
+}
+
 function StatsTab({ records }: { records: MoodRecord[] }) {
   const { t } = useTheme();
   const today = format(new Date(), 'yyyy-MM-dd');
@@ -676,86 +779,7 @@ function StatsTab({ records }: { records: MoodRecord[] }) {
             <p style={{ fontSize: 12, fontWeight: 700, color: t.text, marginBottom: 12 }}>
               에너지 레벨 추이 ({days.length}일)
             </p>
-            {(() => {
-              const VB_W = 400;
-              const VB_H = 130;
-              const ML = 20;
-              const MR = 8;
-              const MT = 10;
-              const MB = 22;
-              const CW = VB_W - ML - MR;
-              const CH = VB_H - MT - MB;
-              const N = dailyEnergy.length;
-              const xOf = (i: number) => ML + (N <= 1 ? CW / 2 : (i / (N - 1)) * CW);
-              const yOf = (v: number) => MT + ((5 - v) / 4) * CH;
-              const nonNullIdx = dailyEnergy.map((d, i) => d.avg !== null ? i : -1).filter(i => i >= 0);
-              const segments: { x1: number; y1: number; x2: number; y2: number; dashed: boolean }[] = [];
-              for (let k = 0; k < nonNullIdx.length - 1; k++) {
-                const a = nonNullIdx[k];
-                const b = nonNullIdx[k + 1];
-                segments.push({ x1: xOf(a), y1: yOf(dailyEnergy[a].avg!), x2: xOf(b), y2: yOf(dailyEnergy[b].avg!), dashed: b > a + 1 });
-              }
-              return (
-                <>
-                  <svg viewBox={`0 0 ${VB_W} ${VB_H}`} preserveAspectRatio="none" style={{ width: '100%', height: 130, display: 'block' }}>
-                    {/* 수평 가이드라인 */}
-                    {[5, 4, 3, 2, 1].map(v => (
-                      <g key={v}>
-                        <line x1={ML} y1={yOf(v)} x2={ML + CW} y2={yOf(v)} stroke={t.borderLight} strokeWidth={0.8} strokeDasharray="3 4" />
-                        <text x={ML - 4} y={yOf(v) + 3.5} textAnchor="end" fontSize={7} fill={t.textMuted}>{v}</text>
-                      </g>
-                    ))}
-                    {/* 선 세그먼트 */}
-                    {segments.map((seg, i) => (
-                      <line key={i}
-                        x1={seg.x1} y1={seg.y1} x2={seg.x2} y2={seg.y2}
-                        stroke={t.accent}
-                        strokeWidth={seg.dashed ? 1 : 1.5}
-                        strokeDasharray={seg.dashed ? '3 3' : undefined}
-                        opacity={seg.dashed ? 0.35 : 1}
-                      />
-                    ))}
-                    {/* 데이터 포인트 + X축 레이블 */}
-                    {dailyEnergy.map(({ date, avg, label }, i) => {
-                      const isToday = date === today;
-                      const showLabel = N <= 14 || parseInt(label) % 5 === 1 || isToday;
-                      const cx = xOf(i);
-                      return (
-                        <g key={date}>
-                          {avg !== null && (
-                            isToday
-                              ? <circle cx={cx} cy={yOf(avg)} r={4} fill="none" stroke={t.accent} strokeWidth={1.5} />
-                              : <circle cx={cx} cy={yOf(avg)} r={3} fill={t.accent} opacity={0.85} />
-                          )}
-                          {showLabel && (
-                            <text x={cx} y={VB_H - 5} textAnchor="middle" fontSize={7}
-                              fill={isToday ? t.accent : t.textMuted}
-                              fontWeight={isToday ? 700 : 400}>
-                              {label}
-                            </text>
-                          )}
-                        </g>
-                      );
-                    })}
-                  </svg>
-                  {/* 범례 */}
-                  <div className="flex flex-wrap gap-x-4 gap-y-1 mt-2">
-                    <div className="flex items-center gap-1.5">
-                      <svg width={20} height={8}><line x1={0} y1={4} x2={20} y2={4} stroke={t.accent} strokeWidth={1.5} /></svg>
-                      <span style={{ fontSize: 9, color: t.textMuted }}>기록 있는 날</span>
-                    </div>
-                    <div className="flex items-center gap-1.5">
-                      <svg width={20} height={8}><line x1={0} y1={4} x2={20} y2={4} stroke={t.accent} strokeWidth={1} strokeDasharray="3 3" opacity={0.4} /></svg>
-                      <span style={{ fontSize: 9, color: t.textMuted }}>기록 없는 날 연결</span>
-                    </div>
-                    <div className="flex items-center gap-1.5">
-                      <svg width={10} height={10}><circle cx={5} cy={5} r={4} fill="none" stroke={t.accent} strokeWidth={1.5} /></svg>
-                      <span style={{ fontSize: 9, color: t.textMuted }}>오늘</span>
-                    </div>
-                  </div>
-                </>
-              );
-            })()}
+            <EnergyLineChart dailyEnergy={dailyEnergy} today={today} />
           </div>
         </>
       )}
