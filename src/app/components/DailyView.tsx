@@ -1521,8 +1521,8 @@ export function DailyView() {
       {/* Header */}
       <div className="relative flex items-center justify-between px-3 py-3 lg:px-6 lg:py-4 flex-shrink-0" style={{ borderBottom: `1px solid ${t.border}` }}>
         <div className="w-10 lg:w-28 flex-shrink-0" />
-        <div className="absolute inset-x-0 top-1/2 -translate-y-1/2 flex justify-center px-3 lg:px-6">
-          <div className="flex items-center gap-1 lg:gap-2 max-w-full">
+        <div className="absolute inset-x-0 top-1/2 -translate-y-1/2 flex justify-center px-3 lg:px-6 pointer-events-none">
+          <div className="flex items-center gap-1 lg:gap-2 max-w-full pointer-events-auto">
             <button onClick={goPrev} className="p-1.5 rounded-lg flex-shrink-0" style={{ color: t.textSub }}>
               <ChevronLeft size={18} />
             </button>
