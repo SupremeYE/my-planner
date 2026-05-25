@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { ChevronLeft, ChevronRight, MoreVertical } from 'lucide-react';
+import { ChevronDown, ChevronLeft, ChevronRight, MoreVertical } from 'lucide-react';
 import {
   addDays,
   addMonths,
@@ -69,12 +69,20 @@ function isPeriodDate(dateStr: string, records: PeriodRecord[]) {
   });
 }
 
-function MonthView({ viewDate, filter, selectedTagIds, weekStartsOn, onSelectDate }: {
+const SELFCARE_CATEGORY_LABELS: Record<string, string> = {
+  exercise: '운동',
+  study: '공부',
+  beauty: '케어',
+  sleep: '수면',
+};
+
+function MonthView({ viewDate, filter, selectedTagIds, weekStartsOn, onSelectDate, collapsed }: {
   viewDate: Date;
   filter: FilterType;
   selectedTagIds: string[];
   weekStartsOn: 0 | 1;
   onSelectDate: (d: string) => void;
+  collapsed?: boolean;
 }) {
   const { todos, events, habits, selfCareRecords, periodRecords, selectedDate } = usePlanner();
 
@@ -117,12 +125,28 @@ function MonthView({ viewDate, filter, selectedTagIds, weekStartsOn, onSelectDat
     if (filter === 'all' || filter === 'selfcare') {
       selfCareRecords
         .filter(record => record.date === dateStr)
-        .forEach(record => items.push({ id: record.id, text: record.content, type: 'selfcare' }));
+        .forEach(record => items.push({
+          id: record.id,
+          text: SELFCARE_CATEGORY_LABELS[record.category] ?? record.category,
+          type: 'selfcare',
+        }));
     }
     return items;
   };
 
   const todayStr = format(new Date(), 'yyyy-MM-dd');
+
+  // Collapsed: show only the week row containing selectedDate (or today)
+  const activeStr = selectedDate || todayStr;
+  const activeYear = parseInt(activeStr.slice(0, 4), 10);
+  const activeMonth = parseInt(activeStr.slice(5, 7), 10) - 1;
+  const activeDay = parseInt(activeStr.slice(8, 10), 10);
+  const activeWeekRow = (activeYear === year && activeMonth === month)
+    ? Math.floor((startOffset + activeDay - 1) / 7)
+    : 0;
+  const displayCells = collapsed
+    ? cells.slice(activeWeekRow * 7, activeWeekRow * 7 + 7)
+    : cells;
 
   return (
     <div>
@@ -134,7 +158,7 @@ function MonthView({ viewDate, filter, selectedTagIds, weekStartsOn, onSelectDat
         ))}
       </div>
       <div className="grid grid-cols-7 gap-1">
-        {cells.map((day, index) => {
+        {displayCells.map((day, index) => {
           if (day === null) return <div key={index} />;
 
           const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
@@ -508,29 +532,14 @@ export function CalendarView() {
   const [weekViewDays, setWeekViewDays] = useState<1 | 2 | 3 | 7>(7);
   const [selectedTagIds, setSelectedTagIds] = useState<string[]>([]);
   const [panelDate, setPanelDate] = useState<string | null>(null);
-  const [calendarHeight, setCalendarHeight] = useState(320);
+  const [isCalendarExpanded, setIsCalendarExpanded] = useState(true);
   const calendarMenuRef = useRef<HTMLDivElement>(null);
-  const dragStartYRef = useRef(0);
-  const dragStartHeightRef = useRef(320);
-  const calendarHeightRef = useRef(320);
-  const isDraggingRef = useRef(false);
   const weekStartsOn = appSettings.weekStartsOn ?? 1;
   const showTagLayer = tab === 'month' && (filter === 'todo' || filter === 'event') && tags.length > 0;
 
   useEffect(() => {
     setViewDate(parseISO(selectedDate));
   }, [selectedDate]);
-
-  useEffect(() => {
-    const saved = window.localStorage.getItem(CALENDAR_PANEL_HEIGHT_KEY);
-    if (!saved) return;
-    const parsed = Number(saved);
-    if (!Number.isNaN(parsed)) {
-      const nextHeight = Math.min(MAX_CALENDAR_HEIGHT, Math.max(MIN_CALENDAR_HEIGHT, parsed));
-      setCalendarHeight(nextHeight);
-      calendarHeightRef.current = nextHeight;
-    }
-  }, []);
 
   useEffect(() => {
     setSelectedTagIds([]);
@@ -584,55 +593,6 @@ export function CalendarView() {
     setPanelDate(todayStr);
   };
 
-  const clampCalendarHeight = (height: number) =>
-    Math.min(MAX_CALENDAR_HEIGHT, Math.max(MIN_CALENDAR_HEIGHT, height));
-
-  const finishDrag = () => {
-    if (!isDraggingRef.current) return;
-    isDraggingRef.current = false;
-    window.localStorage.setItem(CALENDAR_PANEL_HEIGHT_KEY, String(calendarHeightRef.current));
-    document.body.style.userSelect = '';
-  };
-
-  const startDrag = (clientY: number) => {
-    dragStartYRef.current = clientY;
-    dragStartHeightRef.current = calendarHeightRef.current;
-    isDraggingRef.current = true;
-    document.body.style.userSelect = 'none';
-  };
-
-  useEffect(() => {
-    const handleMouseMove = (event: MouseEvent) => {
-      if (!isDraggingRef.current) return;
-      const delta = dragStartYRef.current - event.clientY;
-      const nextHeight = clampCalendarHeight(dragStartHeightRef.current + delta);
-      calendarHeightRef.current = nextHeight;
-      setCalendarHeight(nextHeight);
-    };
-    const handleTouchMove = (event: TouchEvent) => {
-      if (!isDraggingRef.current) return;
-      event.preventDefault();
-      const touch = event.touches[0];
-      if (!touch) return;
-      const nextHeight = clampCalendarHeight(dragStartHeightRef.current + (dragStartYRef.current - touch.clientY));
-      calendarHeightRef.current = nextHeight;
-      setCalendarHeight(nextHeight);
-    };
-    const handleMouseUp = () => finishDrag();
-    const handleTouchEnd = () => finishDrag();
-
-    window.addEventListener('mousemove', handleMouseMove);
-    window.addEventListener('mouseup', handleMouseUp);
-    window.addEventListener('touchmove', handleTouchMove, { passive: false });
-    window.addEventListener('touchend', handleTouchEnd);
-
-    return () => {
-      window.removeEventListener('mousemove', handleMouseMove);
-      window.removeEventListener('mouseup', handleMouseUp);
-      window.removeEventListener('touchmove', handleTouchMove);
-      window.removeEventListener('touchend', handleTouchEnd);
-    };
-  }, []);
 
   const panelEvents = panelDate
     ? events
@@ -818,47 +778,38 @@ export function CalendarView() {
         <div className="flex-1 px-3 pb-3 pt-2.5 lg:px-4 lg:pb-4 lg:pt-3 flex flex-col" style={{ minHeight: 0, overflow: 'hidden' }}>
           <div
             style={{
-              height: calendarHeight,
-              minHeight: MIN_CALENDAR_HEIGHT,
-              maxHeight: MAX_CALENDAR_HEIGHT,
-              flexShrink: 0,
               overflow: 'hidden',
+              maxHeight: isCalendarExpanded ? 520 : 145,
+              transition: 'max-height 0.32s ease',
+              flexShrink: 0,
             }}
           >
-            <div style={{ height: '100%', overflowY: 'auto' }}>
-              <div className="h-full">
-                <div className="bg-white rounded-2xl p-4 shadow-sm h-full" style={{ border: '1px solid #eef4fa' }}>
-                  <MonthView
-                    viewDate={viewDate}
-                    filter={filter}
-                    selectedTagIds={selectedTagIds}
-                    weekStartsOn={weekStartsOn}
-                    onSelectDate={handleSelectDate}
-                  />
-                </div>
-              </div>
+            <div className="bg-white rounded-2xl p-4 shadow-sm" style={{ border: '1px solid #eef4fa' }}>
+              <MonthView
+                viewDate={viewDate}
+                filter={filter}
+                selectedTagIds={selectedTagIds}
+                weekStartsOn={weekStartsOn}
+                onSelectDate={handleSelectDate}
+                collapsed={!isCalendarExpanded}
+              />
             </div>
           </div>
 
-          <div
-            className="flex items-center justify-center py-2 cursor-row-resize touch-none"
-            onMouseDown={(event) => startDrag(event.clientY)}
-            onTouchStart={(event) => {
-              const touch = event.touches[0];
-              if (!touch) return;
-              startDrag(touch.clientY);
-            }}
+          <button
+            onClick={() => setIsCalendarExpanded(prev => !prev)}
+            className="flex items-center justify-center py-2 w-full"
+            style={{ flexShrink: 0 }}
           >
-            <div
+            <ChevronDown
+              size={18}
+              color={t.textMuted}
               style={{
-                width: 32,
-                height: 4,
-                borderRadius: 999,
-                backgroundColor: t.border,
-                opacity: 0.9,
+                transform: isCalendarExpanded ? 'rotate(180deg)' : 'rotate(0deg)',
+                transition: 'transform 0.32s ease',
               }}
             />
-          </div>
+          </button>
 
           <div className="flex-1 min-h-0 overflow-hidden">
             <div
