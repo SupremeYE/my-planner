@@ -1158,10 +1158,16 @@ export function DailyView() {
     };
   }, [tlStartHour, tlEndHour]);
 
-  // Mobile touch: create block by dragging empty timeline area
+  // Mobile touch: create block by long-pressing empty timeline area (꾹 누르기).
+  // A plain scroll must never create a block — block creation only starts after
+  // the finger is held still for the long-press duration.
   useEffect(() => {
     const el = timelineRelativeRef.current;
     if (!el) return;
+    let longPressTimer: ReturnType<typeof setTimeout> | null = null;
+    const clearLongPress = () => {
+      if (longPressTimer) { clearTimeout(longPressTimer); longPressTimer = null; }
+    };
     const handleTouchStart = (e: TouchEvent) => {
       const touch = e.touches[0];
       if (!touch) return;
@@ -1178,18 +1184,33 @@ export function DailyView() {
         startClientY: touch.clientY, startClientX: touch.clientX,
         active: false,
       };
+      clearLongPress();
+      longPressTimer = setTimeout(() => {
+        longPressTimer = null;
+        if (!createDragRef.current) return;
+        createDragRef.current.active = true;
+        const defaultEnd = Math.min(tlEndHour * 60, createDragRef.current.startMin + 30);
+        createDragRef.current.endMin = defaultEnd;
+        if (navigator.vibrate) navigator.vibrate(50);
+        setCreatePreview({ startMin: createDragRef.current.startMin, endMin: defaultEnd });
+      }, 500);
     };
     const handleTouchMove = (e: TouchEvent) => {
       if (!createDragRef.current) return;
       const touch = e.touches[0];
       if (!touch) return;
-      const dy = touch.clientY - createDragRef.current.startClientY;
-      const dx = touch.clientX - createDragRef.current.startClientX;
       if (!createDragRef.current.active) {
-        if (Math.abs(dy) < 8) return;
-        if (dy <= 0 || Math.abs(dy) < Math.abs(dx)) { createDragRef.current = null; return; }
-        createDragRef.current.active = true;
+        // Long-press hasn't fired yet → any real movement means the user is
+        // scrolling. Cancel the pending long-press and let the page scroll.
+        const dy = touch.clientY - createDragRef.current.startClientY;
+        const dx = touch.clientX - createDragRef.current.startClientX;
+        if (Math.abs(dy) > 10 || Math.abs(dx) > 10) {
+          clearLongPress();
+          createDragRef.current = null;
+        }
+        return;
       }
+      // Create mode is active → drag to size the block (block page scroll).
       e.preventDefault();
       const rect = el.getBoundingClientRect();
       const relY = touch.clientY - rect.top;
@@ -1200,6 +1221,7 @@ export function DailyView() {
       setCreatePreview({ startMin: createDragRef.current.startMin, endMin });
     };
     const handleTouchEnd = () => {
+      clearLongPress();
       if (!createDragRef.current) return;
       const { active, startMin, endMin } = createDragRef.current;
       createDragRef.current = null;
@@ -1211,10 +1233,13 @@ export function DailyView() {
     el.addEventListener('touchstart', handleTouchStart, { passive: true });
     el.addEventListener('touchmove', handleTouchMove, { passive: false });
     el.addEventListener('touchend', handleTouchEnd, { passive: true });
+    el.addEventListener('touchcancel', handleTouchEnd, { passive: true });
     return () => {
+      clearLongPress();
       el.removeEventListener('touchstart', handleTouchStart);
       el.removeEventListener('touchmove', handleTouchMove);
       el.removeEventListener('touchend', handleTouchEnd);
+      el.removeEventListener('touchcancel', handleTouchEnd);
     };
   }, [tlStartHour, tlEndHour]);
 
