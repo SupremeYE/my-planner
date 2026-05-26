@@ -1204,7 +1204,7 @@ export function DailyView() {
         // scrolling. Cancel the pending long-press and let the page scroll.
         const dy = touch.clientY - createDragRef.current.startClientY;
         const dx = touch.clientX - createDragRef.current.startClientX;
-        if (Math.abs(dy) > 10 || Math.abs(dx) > 10) {
+        if (Math.abs(dy) > 5 || Math.abs(dx) > 5) {
           clearLongPress();
           createDragRef.current = null;
         }
@@ -2344,7 +2344,7 @@ export function DailyView() {
           {/* Timeline body */}
           <div ref={scrollRef} className="flex-1 relative overflow-y-auto overflow-x-hidden px-3 pb-4 lg:px-4"
             style={{ minHeight: 0 }}>
-            <div ref={timelineRelativeRef} className="relative" style={{ height: totalHeight + 16 }} onMouseDown={handleTimelineMouseDown}>
+            <div ref={timelineRelativeRef} className="relative" style={{ height: totalHeight + 16, WebkitTouchCallout: 'none', userSelect: 'none' }} onMouseDown={handleTimelineMouseDown}>
               {/* Lane backgrounds */}
               <div className="absolute top-0 bottom-0 pointer-events-none"
                 style={{ left: TIMELINE_CONTENT_LEFT, right: 0 }}>
