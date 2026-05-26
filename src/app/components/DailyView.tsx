@@ -280,11 +280,13 @@ function SnoozeModal({ todo, onClose }: { todo: Todo; onClose: () => void }) {
 }
 
 // ─── Context Menu ───
-function ContextMenu({ todo, position, onClose, onFocus }: {
+function ContextMenu({ todo, position, onClose, onFocus, onDelete, deleteMessage }: {
   todo: Todo;
   position: { x: number; y: number };
   onClose: () => void;
   onFocus: (todo: Todo) => void;
+  onDelete?: () => void;
+  deleteMessage?: string;
 }) {
   const { updateTodo, deleteTodo } = usePlanner();
   const { t } = useTheme();
@@ -365,11 +367,12 @@ function ContextMenu({ todo, position, onClose, onFocus }: {
       </div>
       {showDeleteConfirm && (
         <ConfirmModal
-          message="이 할일을 삭제할까요?"
+          message={deleteMessage ?? "이 할일을 삭제할까요?"}
           confirmText="삭제"
           confirmDanger
           onConfirm={() => {
-            deleteTodo(todo.id);
+            if (onDelete) onDelete();
+            else deleteTodo(todo.id);
             setShowDeleteConfirm(false);
             onClose();
           }}
@@ -916,7 +919,7 @@ export function DailyView() {
   const [editingTodo, setEditingTodo] = useState<Todo | null>(null);
   const [focusingTodo, setFocusingTodo] = useState<Todo | null>(null);
   const [snoozingTodo, setSnoozingTodo] = useState<Todo | null>(null);
-  const [contextMenu, setContextMenu] = useState<{ todo: Todo; pos: { x: number; y: number } } | null>(null);
+  const [contextMenu, setContextMenu] = useState<{ todo: Todo; pos: { x: number; y: number }; source?: 'do' } | null>(null);
   const [planBlockMenu, setPlanBlockMenu] = useState<{ todo: Todo; pos: { x: number; y: number } } | null>(null);
   const [timeEditBlock, setTimeEditBlock] = useState<{ todo: Todo; type: 'plan' | 'do' } | null>(null);
   const longPressTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -1709,22 +1712,25 @@ export function DailyView() {
           if (isPlan) {
             setPlanBlockMenu({ todo, pos: { x: e.clientX, y: e.clientY } });
           } else {
-            setContextMenu({ todo, pos: { x: e.clientX, y: e.clientY } });
+            setContextMenu({ todo, pos: { x: e.clientX, y: e.clientY }, source: 'do' });
           }
         }}
-        onTouchStart={isPlan ? (e) => {
+        onTouchStart={(e) => {
+          const touch = e.touches[0];
+          if (!touch) return;
+          const px = touch.clientX, py = touch.clientY;
           longPressTimerRef.current = setTimeout(() => {
             if (navigator.vibrate) navigator.vibrate(50);
-            const touch = e.touches[0];
-            if (touch) setPlanBlockMenu({ todo, pos: { x: touch.clientX, y: touch.clientY } });
+            if (isPlan) setPlanBlockMenu({ todo, pos: { x: px, y: py } });
+            else setContextMenu({ todo, pos: { x: px, y: py }, source: 'do' });
           }, 500);
-        } : undefined}
-        onTouchEnd={isPlan ? () => {
+        }}
+        onTouchEnd={() => {
           if (longPressTimerRef.current) { clearTimeout(longPressTimerRef.current); longPressTimerRef.current = null; }
-        } : undefined}
-        onTouchMove={isPlan ? () => {
+        }}
+        onTouchMove={() => {
           if (longPressTimerRef.current) { clearTimeout(longPressTimerRef.current); longPressTimerRef.current = null; }
-        } : undefined}
+        }}
         title={titleLabel}
       >
         {isCompact ? (
@@ -2462,6 +2468,10 @@ export function DailyView() {
           position={contextMenu.pos}
           onClose={() => setContextMenu(null)}
           onFocus={setFocusingTodo}
+          onDelete={contextMenu.source === 'do' ? () => {
+            updateTodo(contextMenu.todo.id, { doStart: undefined, doEnd: undefined, doElapsedSec: undefined });
+          } : undefined}
+          deleteMessage={contextMenu.source === 'do' ? 'DO 블록을 삭제할까요? (PLAN은 유지됩니다)' : undefined}
         />
       )}
       {planBlockMenu && (
