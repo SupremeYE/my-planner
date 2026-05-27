@@ -21,6 +21,7 @@ import { TodoModal } from './TodoModal';
 import { EventModal } from './EventModal';
 import { FloatingAddFab } from './FloatingAddFab';
 import { WeekViewPC } from './WeekViewPC';
+import { WeekViewMobile } from './WeekViewMobile';
 
 type TabType = 'month' | 'week';
 type FilterType = 'all' | 'todo' | 'event' | 'habit' | 'selfcare';
@@ -875,13 +876,12 @@ export function CalendarView() {
       {tab === 'week' ? (
         <div className="flex-1 px-3 pb-3 pt-2.5 lg:px-4 lg:pb-4 lg:pt-3 flex flex-col" style={{ minHeight: 0, overflow: 'hidden' }}>
           <div className="bg-white rounded-2xl shadow-sm h-full" style={{ border: '1px solid #eef4fa', display: 'flex', flexDirection: 'column', minHeight: 0, overflow: 'hidden' }}>
-            {/* 모바일: 기존 WeekView */}
+            {/* 모바일: 3일·일별·주간요약 탭 뷰 */}
             <div className="flex flex-col md:hidden" style={{ flex: 1, minHeight: 0, overflow: 'hidden' }}>
-              <WeekView
+              <WeekViewMobile
                 viewDate={viewDate}
                 selectedDate={selectedDate}
                 onSelectDate={handleSelectDate}
-                viewDays={weekViewDays}
                 weekStartsOn={weekStartsOn}
               />
             </div>
