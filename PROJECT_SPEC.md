@@ -1,6 +1,6 @@
 # PROJECT_SPEC.md — My Planner PWA 기능 명세서
 
-> 최종 업데이트: 2026-05-25 (식단 페이지 대규모 개선 — AI 칼로리 추정, 달력 4분할, 기간 필터, 커피 유형, 맛 메모)
+> 최종 업데이트: 2026-05-27 (모바일 타임라인 롱프레스 블록 생성, DO 삭제 버그 수정, DO 블록 모바일 메뉴 추가)
 
 ---
 
@@ -545,6 +545,8 @@ store.tsx (PlannerContext)
 - 일일 긍정 메시지 (AffirmationCard)
 - **식단 기록 페이지(`/food`)** — 3탭(오늘/달력/통계), 7단계 바텀시트 추가 흐름, 식약처 영양성분 API 자동 검색, 사진 업로드(카메라/갤러리), 음성입력, 식사유형·맛평가, 도넛·바 차트 통계 (`FoodView.tsx`)
 - **식약처 영양성분 API 프록시** — Vercel Edge Function `GET /api/food-nutrition?query=음식명` → 칼로리/탄수화물/단백질/지방 반환 (`api/food-nutrition.ts`)
+- **모바일 타임라인 블록 생성 — 롱프레스 방식** — 빈 타임라인을 0.5초 꾹 누를 때만 블록 생성 모드 활성화(기본 30분 프리뷰 + 진동), 이전 드래그 방식은 일반 스크롤과 충돌했음. `WebkitTouchCallout/WebkitUserSelect: none` 으로 iOS 시스템 텍스트 선택 메뉴 차단 (`DailyView.tsx`)
+- **DO 블록 독립 삭제** — DO 블록 삭제 시 `doStart/doEnd/doElapsedSec`만 비워 PLAN은 유지(기존: `deleteTodo`로 할일 전체 삭제됨). DO 블록도 모바일 롱프레스 컨텍스트 메뉴 지원 (`DailyView.tsx`)
 
 ---
 
@@ -557,6 +559,8 @@ store.tsx (PlannerContext)
 | `DailyView.tsx` (구 L856-861) | `timelineLogs` 로컬 state에 mock 데이터 하드코딩 | 전역 store와 무관하게 동작, 새로고침 시 목 데이터로 초기화 | ✅ 수정 완료 |
 | `DailyView.tsx` (구 L952-958) | `addTimelineLog` / `deleteTimelineLog`가 로컬 state만 업데이트 | Supabase에 저장 안 됨 (store의 전역 함수 미사용) | ✅ 수정 완료 |
 | `DailyView.tsx` (ContextMenu 삭제 플로우) | 삭제 확인 모달에서 버튼 클릭 시 컨텍스트 메뉴가 먼저 닫혀 onConfirm 누락 가능 | 팝업 "삭제" 클릭 후 할일이 삭제되지 않음 | ✅ 수정 완료 |
+| `DailyView.tsx` (모바일 타임라인) | 아래 드래그 8px 이상이면 블록 생성 → 일반 스크롤에도 블록 생성, 위 스크롤 불가 | 스크롤 시 타임블록 자동 생성 | ✅ 수정 완료 |
+| `DailyView.tsx` (DO 블록 삭제) | DO 블록 `deleteTodo(id)` → PLAN/DO 공유 todo 전체 삭제 | DO 지우면 PLAN도 사라짐 | ✅ 수정 완료 |
 
 ### ⚠️ 새로고침 시 데이터 소실 (Supabase 미연동)
 
