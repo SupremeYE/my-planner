@@ -19,7 +19,8 @@ import { FocusModal } from './FocusModal';
 import { FloatingAddFab } from './FloatingAddFab';
 import { AddEntryMenu } from './AddEntryMenu';
 import { formatDuration, formatTotalDoKo, todoDoDurationSeconds } from '../../lib/todoDoDuration';
-import { expandRecurringTodos } from '../../lib/recurrenceExpansion';
+import { expandRecurringTodos, isVirtualTodoId, parseVirtualTodoId } from '../../lib/recurrenceExpansion';
+import { RecurrenceBranchModal } from './RecurrenceBranchModal';
 
 // ─── Color Palette for tag creation ───
 const TAG_COLORS = [
@@ -903,7 +904,7 @@ function SleepTimeEditModal({ record, onClose, onConfirm }: {
 // ─── Main Daily View ───
 export function DailyView() {
   const {
-    selectedDate, setSelectedDate, todos, events, updateTodo, habits, toggleHabit,
+    selectedDate, setSelectedDate, todos, events, updateTodo, deleteRecurringTodo, habits, toggleHabit,
     activeTimer, startTimer, stopTimer, tags, projects,
     selfCareRecords, updateSelfCareRecord,
     dayStartHour: tlStartHour, dayEndHour: tlEndHour, setDayHours,
@@ -921,6 +922,7 @@ export function DailyView() {
   const [focusingTodo, setFocusingTodo] = useState<Todo | null>(null);
   const [snoozingTodo, setSnoozingTodo] = useState<Todo | null>(null);
   const [contextMenu, setContextMenu] = useState<{ todo: Todo; pos: { x: number; y: number }; source?: 'do' } | null>(null);
+  const [recurringDeleteTarget, setRecurringDeleteTarget] = useState<Todo | null>(null);
   const [planBlockMenu, setPlanBlockMenu] = useState<{ todo: Todo; pos: { x: number; y: number } } | null>(null);
   const [timeEditBlock, setTimeEditBlock] = useState<{ todo: Todo; type: 'plan' | 'do' } | null>(null);
   const longPressTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -2501,18 +2503,41 @@ export function DailyView() {
       {showAddEventModal && <EventModal date={selectedDate} onClose={() => setShowAddEventModal(false)} />}
       {editingTodo && <TodoModal date={selectedDate} todo={editingTodo} onClose={() => setEditingTodo(null)} />}
       {snoozingTodo && <SnoozeModal todo={snoozingTodo} onClose={() => setSnoozingTodo(null)} />}
-      {contextMenu && (
-        <ContextMenu
-          todo={contextMenu.todo}
-          position={contextMenu.pos}
-          onClose={() => setContextMenu(null)}
-          onFocus={setFocusingTodo}
-          onDelete={contextMenu.source === 'do' ? () => {
-            updateTodo(contextMenu.todo.id, { doStart: undefined, doEnd: undefined, doElapsedSec: undefined });
-          } : undefined}
-          deleteMessage={contextMenu.source === 'do' ? 'DO 블록을 삭제할까요? (PLAN은 유지됩니다)' : undefined}
-        />
-      )}
+      {contextMenu && (() => {
+        const MENU_W = 160;
+        const rawX = contextMenu.pos.x;
+        const adjustedX = rawX + MENU_W > window.innerWidth ? rawX - MENU_W : rawX;
+        const adjustedPos = { x: adjustedX, y: contextMenu.pos.y };
+        const isVirtual = isVirtualTodoId(contextMenu.todo.id);
+        return (
+          <ContextMenu
+            todo={contextMenu.todo}
+            position={adjustedPos}
+            onClose={() => setContextMenu(null)}
+            onFocus={setFocusingTodo}
+            onDelete={contextMenu.source === 'do'
+              ? () => { updateTodo(contextMenu.todo.id, { doStart: undefined, doEnd: undefined, doElapsedSec: undefined }); }
+              : isVirtual
+                ? () => { setRecurringDeleteTarget(contextMenu.todo); setContextMenu(null); }
+                : undefined
+            }
+            deleteMessage={contextMenu.source === 'do' ? 'DO 블록을 삭제할까요? (PLAN은 유지됩니다)' : undefined}
+          />
+        );
+      })()}
+      {recurringDeleteTarget && (() => {
+        const info = parseVirtualTodoId(recurringDeleteTarget.id);
+        return info ? (
+          <RecurrenceBranchModal
+            mode="delete"
+            onConfirm={scope => {
+              deleteRecurringTodo(info.parentId, info.instanceDate, scope);
+              setRecurringDeleteTarget(null);
+            }}
+            onCancel={() => setRecurringDeleteTarget(null)}
+          />
+        ) : null;
+      })()}
       {planBlockMenu && (
         <PlanBlockContextMenu
           todo={planBlockMenu.todo}
