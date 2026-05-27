@@ -1,10 +1,11 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { Search, X, Plus, BookOpen, ChevronRight, Tag, Trash2, BookMarked, Check, Mic, Star } from 'lucide-react';
 import { useTheme } from '../ThemeContext';
 import { format } from 'date-fns';
 import { ko } from 'date-fns/locale';
 import ConfirmModal from './ConfirmModal';
 import { supabase } from '../../lib/supabase';
+import { useRealtimeSync } from '../hooks/useRealtimeSync';
 
 // ─── 타입 ──────────────────────────────────────────────────────────────
 type BookStatus = 'reading' | 'want' | 'done';
@@ -1098,8 +1099,7 @@ export function BooksView() {
   const [selectedBook, setSelectedBook] = useState<Book | null>(null);
 
   // ── Supabase에서 불러오기 ──
-  useEffect(() => {
-    (async () => {
+  const fetchBooksData = useCallback(async () => {
       const { data: booksData, error: bErr } = await supabase
         .from('books').select('*').order('added_at', { ascending: false });
       if (bErr) { console.error('[books] fetch:', bErr.message); setLoading(false); return; }
@@ -1137,8 +1137,10 @@ export function BooksView() {
         addedAt: b.added_at,
       })));
       setLoading(false);
-    })();
   }, []);
+  useEffect(() => { fetchBooksData(); }, [fetchBooksData]);
+  useRealtimeSync('books', fetchBooksData);
+  useRealtimeSync('book_quotes', fetchBooksData);
 
   const handleAdd = (data: Omit<Book, 'id' | 'quotes' | 'addedAt'>) => {
     const book: Book = {

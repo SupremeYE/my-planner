@@ -3,6 +3,7 @@ import { Plus, X, Mic, Pencil, Trash2, ChevronLeft, ChevronRight } from 'lucide-
 import { format } from 'date-fns';
 import { useTheme } from '../ThemeContext';
 import { supabase } from '../../lib/supabase';
+import { useRealtimeSync } from '../hooks/useRealtimeSync';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -858,6 +859,7 @@ export function MoodView() {
   };
 
   useEffect(() => { loadRecords(); }, []);
+  useRealtimeSync('mood_records', loadRecords);
 
   const handleSave = async (data: Omit<MoodRecord, 'id' | 'created_at'>) => {
     if (editingRecord) await supabase.from('mood_records').update(data).eq('id', editingRecord.id);
