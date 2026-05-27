@@ -6,7 +6,7 @@ import {
   Check, Clock, Trash2, X, MoreHorizontal,
   Settings, Edit3, Pause, Ban, CalendarDays, Copy,
 } from 'lucide-react';
-import { format, addDays, subDays, addMonths, subMonths, startOfMonth, getDaysInMonth, getDay as getDayOfWeek } from 'date-fns';
+import { format, addDays, subDays, addMonths, subMonths, startOfMonth, getDaysInMonth, getDay as getDayOfWeek, parseISO } from 'date-fns';
 import { ko } from 'date-fns/locale';
 import { usePlanner, Todo, Event, Tag as TagType, TimelineLog, SelfCareRecord, getTimerElapsedSec } from '../store';
 import { useTheme } from '../ThemeContext';
@@ -19,6 +19,7 @@ import { FocusModal } from './FocusModal';
 import { FloatingAddFab } from './FloatingAddFab';
 import { AddEntryMenu } from './AddEntryMenu';
 import { formatDuration, formatTotalDoKo, todoDoDurationSeconds } from '../../lib/todoDoDuration';
+import { expandRecurringTodos } from '../../lib/recurrenceExpansion';
 
 // ─── Color Palette for tag creation ───
 const TAG_COLORS = [
@@ -1291,7 +1292,8 @@ export function DailyView() {
     };
   }, []);
 
-  const dateTodos = todos.filter(td => td.date === selectedDate && td.status !== 'backlog');
+  const dateTodos = expandRecurringTodos(todos, selectedDate, selectedDate)
+    .filter(td => td.date === selectedDate && td.status !== 'backlog');
   const importantTodos = dateTodos.filter(td => td.isTop3);
   const regularTodos = dateTodos.filter(td => !td.isTop3);
 
@@ -1443,17 +1445,47 @@ export function DailyView() {
       : { left: `calc(50% + ${halfGap}px)`, right: '0%' };
   };
 
-  // Sleep block renderer for the DO lane
+  // Sleep block renderer for the DO lane (자정 넘김 처리 포함)
   const renderSleepBlocks = () => {
-    const daySleepRecords = selfCareRecords.filter(
-      r => r.date === selectedDate && r.category === 'sleep' && r.sleepStart && r.sleepEnd
-    );
-    return daySleepRecords.map(record => {
-      const [sh, sm] = record.sleepStart!.split(':').map(Number);
-      const [eh, em] = record.sleepEnd!.split(':').map(Number);
-      let startMin = sh * 60 + sm;
-      let endMin = eh * 60 + em;
-      if (endMin <= startMin) endMin += 24 * 60;
+    // 오늘 취침 시작 기록 + 전날 취침 → 오늘 오전 연속 기록
+    type SleepSeg = { record: typeof selfCareRecords[0]; startMin: number; endMin: number; totalMin: number };
+    const segments: SleepSeg[] = [];
+
+    selfCareRecords
+      .filter(r => r.date === selectedDate && r.category === 'sleep' && r.sleepStart && r.sleepEnd)
+      .forEach(record => {
+        const [sh, sm] = record.sleepStart!.split(':').map(Number);
+        const [eh, em] = record.sleepEnd!.split(':').map(Number);
+        const sMin = sh * 60 + sm;
+        const eMinRaw = eh * 60 + em;
+        if (eMinRaw <= sMin) {
+          // 자정 넘김: 오늘 분할 (취침~자정)
+          segments.push({ record, startMin: sMin, endMin: 24 * 60, totalMin: 24 * 60 - sMin + eMinRaw });
+        } else {
+          segments.push({ record, startMin: sMin, endMin: eMinRaw, totalMin: eMinRaw - sMin });
+        }
+      });
+
+    // 전날 취침이 오늘 아침까지 이어지는 경우
+    const prevDate = format(addDays(parseISO(selectedDate), -1), 'yyyy-MM-dd');
+    selfCareRecords
+      .filter(r => r.date === prevDate && r.category === 'sleep' && r.sleepStart && r.sleepEnd)
+      .forEach(record => {
+        const [sh, sm] = record.sleepStart!.split(':').map(Number);
+        const [eh, em] = record.sleepEnd!.split(':').map(Number);
+        const sMin = sh * 60 + sm;
+        const eMinRaw = eh * 60 + em;
+        if (eMinRaw <= sMin) {
+          // 자정 넘김 → 오늘 00:00~기상 세그먼트
+          const totalMin = 24 * 60 - sMin + eMinRaw;
+          segments.push({ record, startMin: 0, endMin: eMinRaw, totalMin });
+        }
+      });
+
+    return segments.map((seg, si) => {
+      const record = seg.record;
+      let startMin = seg.startMin;
+      let endMin = seg.endMin;
 
       const isDragging = sleepDragState?.recordId === record.id;
       const previewStartMin = isDragging && sleepDragPreview ? sleepDragPreview.startMin : startMin;
@@ -1467,8 +1499,12 @@ export function DailyView() {
       const displayStart = minutesToTime(((previewStartMin % (24 * 60)) + 24 * 60) % (24 * 60));
       const displayEnd = minutesToTime(((previewEndMin % (24 * 60)) + 24 * 60) % (24 * 60));
 
+      const hh = Math.floor(seg.totalMin / 60);
+      const mm = seg.totalMin % 60;
+      const durationLabel = hh > 0 ? (mm > 0 ? `${hh}h ${mm}m` : `${hh}h`) : `${mm}m`;
+
       return (
-        <div key={`sleep-${record.id}`}
+        <div key={`sleep-${record.id}-${si}`}
           className="absolute rounded-xl px-2 py-1.5 overflow-hidden group timeline-block"
           style={{
             top, height,
@@ -1493,7 +1529,7 @@ export function DailyView() {
           }}
           onClick={() => { if (!sleepDragMovedRef.current) setEditingSleepRecord(record); }}
         >
-          <div style={{ fontSize: 11, fontWeight: 700, color: '#64748B' }}>🌙 수면</div>
+          <div style={{ fontSize: 11, fontWeight: 700, color: '#64748B' }}>🌙 수면 {durationLabel}</div>
           {height > 36 && (
             <div style={{ fontSize: 9, color: '#64748B', opacity: 0.8, marginTop: 2 }}>
               {displayStart} - {displayEnd}
