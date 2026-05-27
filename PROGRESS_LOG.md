@@ -15,8 +15,49 @@
 - [x] iOS 롱프레스 시 시스템 텍스트 선택 메뉴(파란 핸들) 제거
 - [x] DO 블록 삭제 시 PLAN 할일까지 사라지던 버그 수정
 - [x] DO 블록 모바일 롱프레스 컨텍스트 메뉴 추가
+- [x] ⋮(점 3개) 메뉴 제거 — 주간 네비게이션 바 우측 드롭다운 전체 제거
+- [x] Today 버튼 추가 — WeekViewMobile·WeekViewPC 범례 행 우측에 골드 스타일 버튼
+- [x] 수면 블록 DO 슬롯 전용 표시 — WeekViewPC·DailyView 모두 DO 컬럼에만 렌더링
+- [x] 자정 넘김 수면 블록 처리 — 취침일 하단 + 기상일 상단으로 세그먼트 분할
+- [x] 수면 블록 텍스트 → "수면 Xh Xm" 형식으로 변경
+- [x] 반복 일정 DB 마이그레이션 — todos 테이블에 recurrence 컬럼 5개 추가
+- [x] 반복 일정 타입 추가 — Todo 인터페이스 + db.ts TodoRow 확장
+- [x] recurrenceExpansion.ts 생성 — 가상 확장(Virtual expansion) 유틸리티
+- [x] RecurrenceBranchModal 생성 — 이 일정만/이후 모두/모든 반복 선택 모달
+- [x] TodoModal 반복 설정 UI — 매일/매주X요일/평일/직접설정 + 종료일 + 반복 아이콘
+- [x] store.tsx deleteRecurringTodo·updateRecurringTodo 액션 추가
+- [x] WeekViewPC·WeekViewMobile·DailyView·CalendarView 반복 일정 가상 확장 적용
+- [x] Supabase Realtime 전체 적용 — store.tsx 22개 테이블 구독 + books·mood 개별 구독
+- [x] useRealtimeSync 공통 훅 생성
 
 ### 🛠 오늘 작업 내용
+
+**⑤ 주간 뷰 ⋮ 메뉴 제거 + Today 버튼 추가 (`CalendarView.tsx`, `WeekViewPC.tsx`, `WeekViewMobile.tsx`)**
+- ⋮(MoreVertical) 버튼 + 드롭다운 전체 제거, outside-click useEffect 제거
+- 범례 행(●P ●D ●초과) 우측에 Today 버튼 추가 (골드 스타일, `#C4A882`)
+- CalendarView에서 `onToday={handleToday}` prop 양쪽에 전달
+
+**⑥ 수면 블록 DO 슬롯 전용 + 자정 넘김 처리 (`WeekViewPC.tsx`, `DailyView.tsx`)**
+- 수면 블록을 Plan 슬롯이 아닌 Do 슬롯 안에만 렌더링
+- 자정 넘김(예: 23:30~07:20): 취침일 DO 하단 + 기상일 DO 상단으로 세그먼트 분할
+- 전날 sleep_records를 조회해 오늘 오전으로 이어지는 세그먼트 자동 추가
+- 텍스트 형식: "🌙 수면 7h 20m"
+
+**⑦ 반복 일정 전체 구현 (`store.tsx`, `db.ts`, `TodoModal.tsx`, 뷰 전체)**
+- DB 마이그레이션: todos 테이블에 `recurrence_rule / recurrence_days / recurrence_end_date / recurrence_parent_id / is_exception` 컬럼 추가
+- `recurrenceExpansion.ts`: Virtual expansion — DB에 인스턴스 저장 없이 날짜 범위로 가상 생성
+  - 가상 ID: `{parentId}::{date}` 형식
+  - 예외 레코드(is_exception) 있으면 가상 인스턴스 대체, status='cancelled'이면 제외
+- `RecurrenceBranchModal.tsx`: "이 일정만 / 이후 모든 / 모든 반복" 선택 모달
+- `TodoModal.tsx` 반복 설정 UI: 반복 없음/매일/매주X요일/평일/직접설정 + 종료일
+- store 액션: `deleteRecurringTodo`, `updateRecurringTodo` (scope별 분기)
+- WeekViewPC·WeekViewMobile·DailyView·CalendarView MonthView에 `expandRecurringTodos` 적용
+
+**⑧ Supabase Realtime 전체 적용 (`store.tsx`, `BooksView.tsx`, `MoodView.tsx`)**
+- `useRealtimeSync.ts` 공통 훅: 테이블명 + 콜백만 넘기면 자동 구독/해제
+- store.tsx: 22개 테이블 Realtime 구독 (변경 감지 시 해당 테이블만 재fetch)
+- BooksView: books + book_quotes 구독, MoodView: mood_records 구독
+- 컴포넌트 언마운트 시 `supabase.removeChannel()` 자동 해제
 
 **① 모바일 타임라인 블록 생성 — 스크롤 → 롱프레스 방식으로 전환 (`DailyView.tsx`)**
 - 기존: 빈 타임라인 영역을 아래로 8px 이상 드래그하면 블록 생성 모드 활성화
