@@ -406,10 +406,14 @@ export function WeekViewPC({ viewDate, weekStartsOn, selectedDate, onSelectDate,
                         const hh = Math.floor(seg.totalMin / 60);
                         const mm = seg.totalMin % 60;
                         const durationLabel = hh > 0 ? (mm > 0 ? `${hh}h ${mm}m` : `${hh}h`) : `${mm}m`;
+                        const [sh, sm2] = seg.record.sleepStart!.split(':').map(Number);
+                        const [eh, em2] = seg.record.sleepEnd!.split(':').map(Number);
+                        const tooltipText = `수면 ${durationLabel}\n${String(sh).padStart(2,'0')}:${String(sm2).padStart(2,'0')} → ${String(eh).padStart(2,'0')}:${String(em2).padStart(2,'0')}`;
                         return (
                           <button
                             key={`sleep-${seg.record.id}-${si}`}
                             type="button"
+                            title={tooltipText}
                             onClick={() => setEditingSleepRecord(seg.record)}
                             style={{
                               position: 'absolute', top, height,
@@ -418,16 +422,24 @@ export function WeekViewPC({ viewDate, weekStartsOn, selectedDate, onSelectDate,
                               border: '1px solid rgba(148,163,184,0.4)',
                               borderLeft: '3px solid #94A3B8',
                               borderRadius: 8,
-                              padding: '3px 6px',
+                              padding: '3px 5px',
                               zIndex: 1,
                               cursor: 'pointer',
                               textAlign: 'left',
                               overflow: 'hidden',
+                              display: 'flex',
+                              flexDirection: 'column',
+                              justifyContent: 'flex-start',
                             }}
                           >
-                            <div style={{ fontSize: 10, fontWeight: 700, color: '#64748B', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                              🌙 수면 {durationLabel}
+                            <div style={{ fontSize: 10, fontWeight: 700, color: '#64748B', lineHeight: 1.3 }}>
+                              🌙 수면
                             </div>
+                            {height >= 28 && (
+                              <div style={{ fontSize: 9, fontWeight: 600, color: '#94A3B8', lineHeight: 1.3 }}>
+                                {durationLabel}
+                              </div>
+                            )}
                           </button>
                         );
                       })}

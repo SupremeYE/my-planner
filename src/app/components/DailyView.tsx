@@ -1529,12 +1529,15 @@ export function DailyView() {
           }}
           onClick={() => { if (!sleepDragMovedRef.current) setEditingSleepRecord(record); }}
         >
-          <div style={{ fontSize: 11, fontWeight: 700, color: '#64748B' }}>🌙 수면 {durationLabel}</div>
-          {height > 36 && (
-            <div style={{ fontSize: 9, color: '#64748B', opacity: 0.8, marginTop: 2 }}>
-              {displayStart} - {displayEnd}
-            </div>
-          )}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 1, overflow: 'hidden' }}>
+            <div style={{ fontSize: 11, fontWeight: 700, color: '#64748B', whiteSpace: 'nowrap' }}>🌙 수면</div>
+            <div style={{ fontSize: 10, fontWeight: 600, color: '#94A3B8', whiteSpace: 'nowrap' }}>{durationLabel}</div>
+            {height > 52 && (
+              <div style={{ fontSize: 9, color: '#94A3B8', opacity: 0.8, whiteSpace: 'nowrap' }}>
+                {displayStart}–{displayEnd}
+              </div>
+            )}
+          </div>
           <div
             className="absolute left-0 right-0 bottom-0 flex justify-center items-center opacity-0 group-hover:opacity-100 transition-opacity"
             style={{ height: 8, cursor: 'ns-resize', backgroundColor: 'rgba(148,163,184,0.3)' }}
