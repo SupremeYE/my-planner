@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { ChevronDown, ChevronLeft, ChevronRight, MoreVertical, X } from 'lucide-react';
+import { ChevronDown, ChevronLeft, ChevronRight, X } from 'lucide-react';
 import {
   addDays,
   addMonths,
@@ -15,6 +15,7 @@ import {
 import { ko } from 'date-fns/locale';
 import { usePlanner, PeriodRecord, SelfCareRecord, Todo } from '../store';
 import { isDoOvertimeVsPlan, doElapsedTitleSuffix } from '../../lib/todoDoDuration';
+import { expandRecurringTodos } from '../../lib/recurrenceExpansion';
 import { useTheme } from '../ThemeContext';
 import { TimePicker } from './TimePicker';
 import { TodoModal } from './TodoModal';
@@ -87,7 +88,7 @@ function MonthView({ viewDate, filter, selectedTagIds, weekStartsOn, onSelectDat
   onSelectDate: (d: string) => void;
   collapsed?: boolean;
 }) {
-  const { todos, events, habits, selfCareRecords, periodRecords, selectedDate } = usePlanner();
+  const { todos: rawTodos, events, habits, selfCareRecords, periodRecords, selectedDate } = usePlanner();
 
   const firstDay = startOfMonth(viewDate);
   const startOffset = (getDay(firstDay) - weekStartsOn + 7) % 7;
@@ -95,6 +96,13 @@ function MonthView({ viewDate, filter, selectedTagIds, weekStartsOn, onSelectDat
   const year = viewDate.getFullYear();
   const month = viewDate.getMonth();
   const weekdayLabels = getWeekdayLabels(weekStartsOn);
+
+  // 반복 일정 포함 확장 (해당 월 전체)
+  const todos = useMemo(() => {
+    const monthStartStr = format(firstDay, 'yyyy-MM-dd');
+    const monthEndStr = format(new Date(year, month + 1, 0), 'yyyy-MM-dd');
+    return expandRecurringTodos(rawTodos, monthStartStr, monthEndStr);
+  }, [rawTodos, firstDay, year, month]);
 
   const cells: (number | null)[] = [];
   for (let i = 0; i < startOffset; i++) cells.push(null);
@@ -639,12 +647,9 @@ export function CalendarView() {
   const [viewDate, setViewDate] = useState(parseISO(selectedDate));
   const [showAddTodoModal, setShowAddTodoModal] = useState(false);
   const [showAddEventModal, setShowAddEventModal] = useState(false);
-  const [showCalendarMenu, setShowCalendarMenu] = useState(false);
-  const [weekViewDays, setWeekViewDays] = useState<1 | 2 | 3 | 7>(7);
   const [selectedTagIds, setSelectedTagIds] = useState<string[]>([]);
   const [panelDate, setPanelDate] = useState<string | null>(null);
   const [isCalendarExpanded, setIsCalendarExpanded] = useState(true);
-  const calendarMenuRef = useRef<HTMLDivElement>(null);
   const weekStartsOn = appSettings.weekStartsOn ?? 1;
   const showTagLayer = tab === 'month' && (filter === 'todo' || filter === 'event') && tags.length > 0;
 
@@ -656,16 +661,6 @@ export function CalendarView() {
     setSelectedTagIds([]);
   }, [filter]);
 
-  useEffect(() => {
-    if (!showCalendarMenu) return;
-    const handleOutsideClick = (event: MouseEvent) => {
-      if (calendarMenuRef.current && !calendarMenuRef.current.contains(event.target as Node)) {
-        setShowCalendarMenu(false);
-      }
-    };
-    document.addEventListener('mousedown', handleOutsideClick);
-    return () => document.removeEventListener('mousedown', handleOutsideClick);
-  }, [showCalendarMenu]);
 
   const handleSelectDate = (dateStr: string) => {
     setSelectedDate(dateStr);
@@ -731,71 +726,9 @@ export function CalendarView() {
             <ChevronLeft size={18} color="#888" />
           </button>
           <span className="flex-1 text-center" style={{ fontSize: 16, fontWeight: 700, color: '#26343d' }}>{navLabel}</span>
-          <div className="flex items-center gap-2">
-            <div className="relative" ref={calendarMenuRef}>
-              <button
-                onClick={() => setShowCalendarMenu(prev => !prev)}
-                className="p-1.5 lg:p-2 rounded-xl hover:bg-[#eef4fa]"
-              >
-                <MoreVertical size={18} color="#888" />
-              </button>
-              {showCalendarMenu && (
-                <div
-                  className="absolute right-0 top-full mt-1 rounded-2xl z-20 p-1"
-                  style={{
-                    backgroundColor: '#fff',
-                    border: `1px solid ${t.border}`,
-                    boxShadow: '0 8px 18px rgba(38,52,61,0.08)',
-                    minWidth: 124,
-                  }}
-                >
-                  <button
-                    onClick={() => {
-                      handleToday();
-                      setShowCalendarMenu(false);
-                    }}
-                    className="w-full px-3 py-2 text-left transition-colors rounded-xl"
-                    style={{
-                      fontSize: 12,
-                      fontWeight: 700,
-                      color: t.accent,
-                      backgroundColor: '#fff',
-                      borderBottom: tab === 'week' ? `1px solid ${t.borderLight}` : 'none',
-                    }}
-                  >
-                    오늘
-                  </button>
-                  {tab === 'week' && [
-                    { value: 7 as const, label: '전체' },
-                    { value: 1 as const, label: '일별보기' },
-                    { value: 2 as const, label: '주 2일' },
-                    { value: 3 as const, label: '주 3일' },
-                  ].map(option => (
-                    <button
-                      key={option.value}
-                      onClick={() => {
-                        setWeekViewDays(option.value);
-                        setShowCalendarMenu(false);
-                      }}
-                      className="w-full px-3 py-2 text-left transition-colors rounded-xl"
-                      style={{
-                        fontSize: 12,
-                        fontWeight: weekViewDays === option.value ? 700 : 500,
-                        color: weekViewDays === option.value ? t.accent : t.text,
-                        backgroundColor: weekViewDays === option.value ? t.accentLight : '#fff',
-                        borderBottom: option.value !== 3 ? `1px solid ${t.borderLight}` : 'none',
-                      }}
-                    >
-                      {option.label}
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
-            <button onClick={handleNext} className="p-1.5 lg:p-2 rounded-xl hover:bg-[#eef4fa]">
-              <ChevronRight size={18} color="#888" />
-            </button>
-          </div>
+          <button onClick={handleNext} className="p-1.5 lg:p-2 rounded-xl hover:bg-[#eef4fa]">
+            <ChevronRight size={18} color="#888" />
+          </button>
         </div>
 
         <div className="flex gap-1 p-1 rounded-xl" style={{ backgroundColor: '#eef4fa', border: `1px solid ${t.border}` }}>
@@ -883,6 +816,7 @@ export function CalendarView() {
                 selectedDate={selectedDate}
                 onSelectDate={handleSelectDate}
                 weekStartsOn={weekStartsOn}
+                onToday={handleToday}
               />
             </div>
             {/* PC: Plan·Do 분할 뷰 */}
@@ -892,6 +826,7 @@ export function CalendarView() {
                 selectedDate={selectedDate}
                 onSelectDate={handleSelectDate}
                 weekStartsOn={weekStartsOn}
+                onToday={handleToday}
               />
             </div>
           </div>

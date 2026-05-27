@@ -3,6 +3,7 @@ import { addDays, format, startOfWeek } from 'date-fns';
 import { ko } from 'date-fns/locale';
 import { usePlanner, Todo } from '../store';
 import { isDoOvertimeVsPlan } from '../../lib/todoDoDuration';
+import { expandRecurringTodos } from '../../lib/recurrenceExpansion';
 
 // ─── 상수 ─────────────────────────────────────────────────────────────────────
 
@@ -637,9 +638,10 @@ interface WeekViewMobileProps {
   weekStartsOn: 0 | 1;
   selectedDate: string;
   onSelectDate: (d: string) => void;
+  onToday: () => void;
 }
 
-export function WeekViewMobile({ viewDate, weekStartsOn, selectedDate, onSelectDate }: WeekViewMobileProps) {
+export function WeekViewMobile({ viewDate, weekStartsOn, selectedDate, onSelectDate, onToday }: WeekViewMobileProps) {
   const { todos, dayStartHour: startHour, dayEndHour: endHour } = usePlanner();
   const [activeTab, setActiveTab] = useState<MobileTab>('3day');
 
@@ -650,10 +652,13 @@ export function WeekViewMobile({ viewDate, weekStartsOn, selectedDate, onSelectD
   );
   const todayStr = format(new Date(), 'yyyy-MM-dd');
 
-  // 이번 주 todo만 미리 필터
+  // 이번 주 todo (반복 일정 포함 가상 확장)
   const weekTodos = useMemo(() => {
-    const weekDates = new Set(days.map(d => format(d, 'yyyy-MM-dd')));
-    return todos.filter(t => t.date && weekDates.has(t.date));
+    const weekStartStr = format(days[0], 'yyyy-MM-dd');
+    const weekEndStr = format(days[6], 'yyyy-MM-dd');
+    return expandRecurringTodos(todos, weekStartStr, weekEndStr).filter(
+      t => t.date && t.date >= weekStartStr && t.date <= weekEndStr
+    );
   }, [days, todos]);
 
   const TABS: { key: MobileTab; label: string }[] = [
@@ -665,17 +670,29 @@ export function WeekViewMobile({ viewDate, weekStartsOn, selectedDate, onSelectD
   return (
     <div style={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0, overflow: 'hidden' }}>
       {/* 범례 */}
-      <div style={{ flexShrink: 0, display: 'flex', alignItems: 'center', gap: 10, padding: '6px 12px', borderBottom: '1px solid #F3F0EA' }}>
-        {[
-          { label: 'P', bg: '#E8F0FE', border: '#5B8FD888', color: '#5B8FD8' },
-          { label: 'D', bg: '#E8F8EE', border: '#5BAA7840', color: '#5BAA78' },
-          { label: '초과', bg: '#FEE8E8', border: '#D4735A60', color: '#D4735A' },
-        ].map(({ label, bg, border, color }) => (
-          <div key={label} style={{ display: 'flex', alignItems: 'center', gap: 3, fontSize: 9, fontWeight: 700, color }}>
-            <span style={{ display: 'inline-block', width: 6, height: 6, borderRadius: '50%', backgroundColor: bg, border: `1px solid ${border}` }} />
-            {label}
-          </div>
-        ))}
+      <div style={{ flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '6px 12px', borderBottom: '1px solid #F3F0EA' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          {[
+            { label: 'P', bg: '#E8F0FE', border: '#5B8FD888', color: '#5B8FD8' },
+            { label: 'D', bg: '#E8F8EE', border: '#5BAA7840', color: '#5BAA78' },
+            { label: '초과', bg: '#FEE8E8', border: '#D4735A60', color: '#D4735A' },
+          ].map(({ label, bg, border, color }) => (
+            <div key={label} style={{ display: 'flex', alignItems: 'center', gap: 3, fontSize: 9, fontWeight: 700, color }}>
+              <span style={{ display: 'inline-block', width: 6, height: 6, borderRadius: '50%', backgroundColor: bg, border: `1px solid ${border}` }} />
+              {label}
+            </div>
+          ))}
+        </div>
+        <button
+          onClick={onToday}
+          style={{
+            fontSize: 11, fontWeight: 700, color: '#C4A882',
+            backgroundColor: '#FDF6EC', border: '1.5px solid #C4A88260',
+            borderRadius: 8, padding: '2px 10px', lineHeight: 1.6,
+          }}
+        >
+          Today
+        </button>
       </div>
 
       {/* 뷰 전환 탭 */}

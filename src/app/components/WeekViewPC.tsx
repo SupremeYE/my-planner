@@ -4,6 +4,7 @@ import { ko } from 'date-fns/locale';
 import { usePlanner, Todo, SelfCareRecord } from '../store';
 import { useTheme } from '../ThemeContext';
 import { isDoOvertimeVsPlan } from '../../lib/todoDoDuration';
+import { expandRecurringTodos } from '../../lib/recurrenceExpansion';
 import { SleepTimeEditModal } from './CalendarView';
 
 const PC_HOUR_HEIGHT = 88;
@@ -134,9 +135,10 @@ interface WeekViewPCProps {
   weekStartsOn: 0 | 1;
   selectedDate: string;
   onSelectDate: (d: string) => void;
+  onToday: () => void;
 }
 
-export function WeekViewPC({ viewDate, weekStartsOn, selectedDate, onSelectDate }: WeekViewPCProps) {
+export function WeekViewPC({ viewDate, weekStartsOn, selectedDate, onSelectDate, onToday }: WeekViewPCProps) {
   const { todos, selfCareRecords, updateSelfCareRecord, dayStartHour: startHour, dayEndHour: endHour } = usePlanner();
   const { t } = useTheme();
   const [nowTime, setNowTime] = useState(new Date());
@@ -159,9 +161,13 @@ export function WeekViewPC({ viewDate, weekStartsOn, selectedDate, onSelectDate 
 
   // ─── per-day data ───────────────────────────────────────────────────────────
   const dayData = useMemo(() => {
+    const weekStartStr = format(days[0], 'yyyy-MM-dd');
+    const weekEndStr = format(days[6], 'yyyy-MM-dd');
+    const expandedTodos = expandRecurringTodos(todos, weekStartStr, weekEndStr);
+
     return days.map(day => {
       const dateStr = format(day, 'yyyy-MM-dd');
-      const dayTodos = todos.filter(
+      const dayTodos = expandedTodos.filter(
         todo => todo.date === dateStr && todo.status !== 'backlog' && todo.status !== 'cancelled'
       );
       const planTodos = dayTodos.filter(todo => todo.planStart && todo.planEnd);
@@ -169,10 +175,39 @@ export function WeekViewPC({ viewDate, weekStartsOn, selectedDate, onSelectDate 
       const totalPlanMin = planTodos.reduce((s, t) => s + durationMin(t.planStart!, t.planEnd!), 0);
       const totalDoMin = doTodos.reduce((s, t) => s + durationMin(t.doStart!, t.doEnd!), 0);
       const unexecutedTodos = planTodos.filter(t => !t.doStart || !t.doEnd);
-      const sleepRecords = selfCareRecords.filter(
-        r => r.date === dateStr && r.category === 'sleep' && r.sleepStart && r.sleepEnd
-      );
-      return { dateStr, planTodos, doTodos, unexecutedTodos, totalPlanMin, totalDoMin, sleepRecords };
+      // 수면 세그먼트 계산 (자정 넘김 처리)
+      type SleepSeg = { record: typeof selfCareRecords[0]; sMin: number; eMin: number; totalMin: number };
+      const sleepSegments: SleepSeg[] = [];
+      // 오늘 취침 시작 기록
+      selfCareRecords
+        .filter(r => r.date === dateStr && r.category === 'sleep' && r.sleepStart && r.sleepEnd)
+        .forEach(r => {
+          const [sh, sm] = r.sleepStart!.split(':').map(Number);
+          const [eh, em] = r.sleepEnd!.split(':').map(Number);
+          const sMin = sh * 60 + sm;
+          const eMinRaw = eh * 60 + em;
+          const totalMin = eMinRaw <= sMin ? (24 * 60 - sMin + eMinRaw) : (eMinRaw - sMin);
+          if (eMinRaw <= sMin) {
+            sleepSegments.push({ record: r, sMin, eMin: 24 * 60, totalMin });
+          } else {
+            sleepSegments.push({ record: r, sMin, eMin: eMinRaw, totalMin });
+          }
+        });
+      // 전날 취침 → 오늘 아침 연속
+      const prevDateStr = format(addDays(day, -1), 'yyyy-MM-dd');
+      selfCareRecords
+        .filter(r => r.date === prevDateStr && r.category === 'sleep' && r.sleepStart && r.sleepEnd)
+        .forEach(r => {
+          const [sh, sm] = r.sleepStart!.split(':').map(Number);
+          const [eh, em] = r.sleepEnd!.split(':').map(Number);
+          const sMin = sh * 60 + sm;
+          const eMinRaw = eh * 60 + em;
+          if (eMinRaw <= sMin) {
+            const totalMin = 24 * 60 - sMin + eMinRaw;
+            sleepSegments.push({ record: r, sMin: 0, eMin: eMinRaw, totalMin });
+          }
+        });
+      return { dateStr, planTodos, doTodos, unexecutedTodos, totalPlanMin, totalDoMin, sleepSegments };
     });
   }, [days, todos, selfCareRecords]);
 
@@ -200,23 +235,35 @@ export function WeekViewPC({ viewDate, weekStartsOn, selectedDate, onSelectDate 
     <div style={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0, overflow: 'hidden' }}>
 
       {/* ── 범례 (스크롤 밖 고정) ─────────────────────────────────────────── */}
-      <div className="px-3 py-2 flex items-center gap-4" style={{ flexShrink: 0, borderBottom: '1px solid #F3F0EA' }}>
-        <div className="flex items-center gap-1.5" style={{ fontSize: 10, fontWeight: 700, color: '#5B8FD8' }}>
-          <span style={{ display: 'inline-block', width: 8, height: 8, borderRadius: '50%', backgroundColor: '#E8F0FE', border: '1px solid #5B8FD888' }} />
-          PLAN
+      <div className="px-3 py-2 flex items-center" style={{ flexShrink: 0, borderBottom: '1px solid #F3F0EA', justifyContent: 'space-between' }}>
+        <div className="flex items-center gap-4">
+          <div className="flex items-center gap-1.5" style={{ fontSize: 10, fontWeight: 700, color: '#5B8FD8' }}>
+            <span style={{ display: 'inline-block', width: 8, height: 8, borderRadius: '50%', backgroundColor: '#E8F0FE', border: '1px solid #5B8FD888' }} />
+            PLAN
+          </div>
+          <div className="flex items-center gap-1.5" style={{ fontSize: 10, fontWeight: 700, color: '#5BAA78' }}>
+            <span style={{ display: 'inline-block', width: 8, height: 8, borderRadius: '50%', backgroundColor: '#E8F8EE', border: '1px solid #5BAA7840' }} />
+            DO
+          </div>
+          <div className="flex items-center gap-1.5" style={{ fontSize: 10, fontWeight: 700, color: '#D4735A' }}>
+            <span style={{ display: 'inline-block', width: 8, height: 8, borderRadius: '50%', backgroundColor: '#FEE8E8', border: '1px solid #D4735A60' }} />
+            초과
+          </div>
+          <div className="flex items-center gap-1.5" style={{ fontSize: 10, fontWeight: 600, color: '#9aa7b4' }}>
+            <span style={{ display: 'inline-block', width: 12, height: 8, borderRadius: 2, border: '1px dashed #C0C8D0' }} />
+            미실행
+          </div>
         </div>
-        <div className="flex items-center gap-1.5" style={{ fontSize: 10, fontWeight: 700, color: '#5BAA78' }}>
-          <span style={{ display: 'inline-block', width: 8, height: 8, borderRadius: '50%', backgroundColor: '#E8F8EE', border: '1px solid #5BAA7840' }} />
-          DO
-        </div>
-        <div className="flex items-center gap-1.5" style={{ fontSize: 10, fontWeight: 700, color: '#D4735A' }}>
-          <span style={{ display: 'inline-block', width: 8, height: 8, borderRadius: '50%', backgroundColor: '#FEE8E8', border: '1px solid #D4735A60' }} />
-          초과
-        </div>
-        <div className="flex items-center gap-1.5" style={{ fontSize: 10, fontWeight: 600, color: '#9aa7b4' }}>
-          <span style={{ display: 'inline-block', width: 12, height: 8, borderRadius: 2, border: '1px dashed #C0C8D0' }} />
-          미실행
-        </div>
+        <button
+          onClick={onToday}
+          style={{
+            fontSize: 11, fontWeight: 700, color: '#C4A882',
+            backgroundColor: '#FDF6EC', border: '1.5px solid #C4A88260',
+            borderRadius: 8, padding: '2px 12px', lineHeight: 1.6, cursor: 'pointer',
+          }}
+        >
+          Today
+        </button>
       </div>
 
       {/* ── 스크롤 컨테이너 (헤더 + 타임라인 함께) ───────────────────────── */}
@@ -329,7 +376,7 @@ export function WeekViewPC({ viewDate, weekStartsOn, selectedDate, onSelectDate 
             display: 'grid',
             gridTemplateColumns: 'repeat(14, minmax(0, 1fr))',
           }}>
-            {dayData.map(({ dateStr, planTodos, doTodos, unexecutedTodos, sleepRecords }, dayIdx) => {
+            {dayData.map(({ dateStr, planTodos, doTodos, unexecutedTodos, sleepSegments }, dayIdx) => {
               const isToday = dateStr === todayStr;
               const showNowLine = isToday && nowMin >= startHour * 60 && nowMin <= endHour * 60;
 
@@ -343,48 +390,6 @@ export function WeekViewPC({ viewDate, weekStartsOn, selectedDate, onSelectDate 
                     borderLeft: dayIdx > 0 ? '1px solid #eef4fa' : 'none',
                   }}
                 >
-                  {/* 수면 블록 — Plan/Do보다 낮은 z-index(1)로 뒤에 깔림, 전체 너비 */}
-                  {sleepRecords.map(record => {
-                    const [sh, sm] = record.sleepStart!.split(':').map(Number);
-                    const [eh, em] = record.sleepEnd!.split(':').map(Number);
-                    const sMin = sh * 60 + sm;
-                    let eMin = eh * 60 + em;
-                    if (eMin <= sMin) eMin += 24 * 60; // 자정 넘어가는 수면 처리
-                    const top = minToPx(sMin, startHour);
-                    const height = Math.max((eMin - sMin) * (PC_HOUR_HEIGHT / 60), 20);
-                    const displayEnd = `${String(eh).padStart(2, '0')}:${String(em).padStart(2, '0')}`;
-                    return (
-                      <button
-                        key={`sleep-${record.id}`}
-                        type="button"
-                        title={`수면\n${record.sleepStart}–${displayEnd}`}
-                        onClick={() => setEditingSleepRecord(record)}
-                        style={{
-                          position: 'absolute', top, height,
-                          left: 2, right: 2,
-                          backgroundColor: 'rgba(200,210,220,0.45)',
-                          border: '1px solid rgba(148,163,184,0.4)',
-                          borderLeft: '3px solid #94A3B8',
-                          borderRadius: 10,
-                          padding: '5px 8px',
-                          zIndex: 1,           // Plan/Do(z-index:2)보다 낮게
-                          cursor: 'pointer',
-                          textAlign: 'left',
-                          overflow: 'hidden',
-                        }}
-                      >
-                        <div style={{ fontSize: 11, fontWeight: 700, color: '#64748B', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                          🌙 수면
-                        </div>
-                        {height >= 40 && (
-                          <div style={{ fontSize: 9, color: '#64748B', opacity: 0.8, marginTop: 2, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                            {record.sleepStart}–{displayEnd}
-                          </div>
-                        )}
-                      </button>
-                    );
-                  })}
-
                   {/* P | D 분할: nested 1fr 1fr → span 2의 절반씩 = 헤더 P/D 컬럼 너비 */}
                   <div style={{ position: 'absolute', inset: 0, display: 'grid', gridTemplateColumns: '1fr 1fr' }}>
                     {/* Plan 슬롯 */}
@@ -393,8 +398,39 @@ export function WeekViewPC({ viewDate, weekStartsOn, selectedDate, onSelectDate 
                         <PlanBlock key={`plan-${todo.id}`} todo={todo} startHour={startHour} />
                       ))}
                     </div>
-                    {/* Do 슬롯 */}
+                    {/* Do 슬롯 — 수면 블록도 여기에 렌더링 (z-index:1로 뒤에 깔림) */}
                     <div style={{ position: 'relative' }}>
+                      {sleepSegments.map((seg, si) => {
+                        const top = minToPx(seg.sMin, startHour);
+                        const height = Math.max((seg.eMin - seg.sMin) * (PC_HOUR_HEIGHT / 60), 16);
+                        const hh = Math.floor(seg.totalMin / 60);
+                        const mm = seg.totalMin % 60;
+                        const durationLabel = hh > 0 ? (mm > 0 ? `${hh}h ${mm}m` : `${hh}h`) : `${mm}m`;
+                        return (
+                          <button
+                            key={`sleep-${seg.record.id}-${si}`}
+                            type="button"
+                            onClick={() => setEditingSleepRecord(seg.record)}
+                            style={{
+                              position: 'absolute', top, height,
+                              left: 2, right: 2,
+                              backgroundColor: 'rgba(200,210,220,0.45)',
+                              border: '1px solid rgba(148,163,184,0.4)',
+                              borderLeft: '3px solid #94A3B8',
+                              borderRadius: 8,
+                              padding: '3px 6px',
+                              zIndex: 1,
+                              cursor: 'pointer',
+                              textAlign: 'left',
+                              overflow: 'hidden',
+                            }}
+                          >
+                            <div style={{ fontSize: 10, fontWeight: 700, color: '#64748B', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                              🌙 수면 {durationLabel}
+                            </div>
+                          </button>
+                        );
+                      })}
                       {unexecutedTodos.map(todo => (
                         <UnexecutedBlock key={`unexec-${todo.id}`} todo={todo} startHour={startHour} />
                       ))}
