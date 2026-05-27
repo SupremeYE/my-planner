@@ -20,6 +20,7 @@ import { TimePicker } from './TimePicker';
 import { TodoModal } from './TodoModal';
 import { EventModal } from './EventModal';
 import { FloatingAddFab } from './FloatingAddFab';
+import { WeekViewPC } from './WeekViewPC';
 
 type TabType = 'month' | 'week';
 type FilterType = 'all' | 'todo' | 'event' | 'habit' | 'selfcare';
@@ -874,13 +875,25 @@ export function CalendarView() {
       {tab === 'week' ? (
         <div className="flex-1 px-3 pb-3 pt-2.5 lg:px-4 lg:pb-4 lg:pt-3 flex flex-col" style={{ minHeight: 0, overflow: 'hidden' }}>
           <div className="bg-white rounded-2xl shadow-sm h-full" style={{ border: '1px solid #eef4fa', display: 'flex', flexDirection: 'column', minHeight: 0, overflow: 'hidden' }}>
-            <WeekView
-              viewDate={viewDate}
-              selectedDate={selectedDate}
-              onSelectDate={handleSelectDate}
-              viewDays={weekViewDays}
-              weekStartsOn={weekStartsOn}
-            />
+            {/* 모바일: 기존 WeekView */}
+            <div className="flex flex-col md:hidden" style={{ flex: 1, minHeight: 0, overflow: 'hidden' }}>
+              <WeekView
+                viewDate={viewDate}
+                selectedDate={selectedDate}
+                onSelectDate={handleSelectDate}
+                viewDays={weekViewDays}
+                weekStartsOn={weekStartsOn}
+              />
+            </div>
+            {/* PC: Plan·Do 분할 뷰 */}
+            <div className="hidden md:flex flex-col" style={{ flex: 1, minHeight: 0, overflow: 'hidden' }}>
+              <WeekViewPC
+                viewDate={viewDate}
+                selectedDate={selectedDate}
+                onSelectDate={handleSelectDate}
+                weekStartsOn={weekStartsOn}
+              />
+            </div>
           </div>
         </div>
       ) : (
