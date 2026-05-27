@@ -241,7 +241,7 @@ function MonthView({ viewDate, filter, selectedTagIds, weekStartsOn, onSelectDat
   );
 }
 
-function SleepTimeEditModal({ record, onClose, onConfirm }: {
+export function SleepTimeEditModal({ record, onClose, onConfirm }: {
   record: SelfCareRecord;
   onClose: () => void;
   onConfirm: (sleepStart: string, sleepEnd: string) => void;
