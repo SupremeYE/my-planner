@@ -15,17 +15,13 @@ function VoiceInputButton({
   const { t } = useTheme();
   const [isListening, setIsListening] = useState(false);
   const recognitionRef = useRef<any>(null);
+  const isListeningRef = useRef(false);
 
   const SpeechRecognitionAPI =
     (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
   if (!SpeechRecognitionAPI) return null;
 
-  const toggle = () => {
-    if (isListening) {
-      recognitionRef.current?.stop();
-      setIsListening(false);
-      return;
-    }
+  const startRecognition = () => {
     const recognition = new SpeechRecognitionAPI();
     recognition.lang = 'ko-KR';
     recognition.interimResults = false;
@@ -34,11 +30,35 @@ function VoiceInputButton({
       const text: string = e.results[0][0].transcript;
       onResult(text);
     };
-    recognition.onend = () => setIsListening(false);
-    recognition.onerror = () => setIsListening(false);
+    recognition.onend = () => {
+      // 유저가 수동으로 멈추지 않았으면 iOS 마이크 해제 시간 후 자동 재시작
+      if (isListeningRef.current) {
+        setTimeout(() => {
+          if (isListeningRef.current) startRecognition();
+        }, 300);
+      } else {
+        setIsListening(false);
+      }
+    };
+    recognition.onerror = (e: any) => {
+      if (e.error === 'aborted') return; // 수동 중단 시 발생하는 정상 에러
+      isListeningRef.current = false;
+      setIsListening(false);
+    };
     recognitionRef.current = recognition;
     recognition.start();
+  };
+
+  const toggle = () => {
+    if (isListening) {
+      isListeningRef.current = false;
+      recognitionRef.current?.stop();
+      setIsListening(false);
+      return;
+    }
+    isListeningRef.current = true;
     setIsListening(true);
+    startRecognition();
   };
 
   return (
