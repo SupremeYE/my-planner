@@ -30,6 +30,11 @@ type TodoRow = {
   do_start: string | null; do_end: string | null; do_elapsed_sec: number | null;
   category: string | null;
   project_id: string | null; tags: string[];
+  recurrence_rule: string | null;
+  recurrence_days: number[] | null;
+  recurrence_end_date: string | null;
+  recurrence_parent_id: string | null;
+  is_exception: boolean | null;
 };
 
 type HabitRow = {
@@ -146,6 +151,11 @@ const toTodo = (r: TodoRow): Todo => ({
   doElapsedSec: r.do_elapsed_sec ?? undefined,
   category: r.category ?? undefined, projectId: r.project_id ?? undefined,
   tags: r.tags ?? [],
+  recurrenceRule: r.recurrence_rule as Todo['recurrenceRule'] ?? undefined,
+  recurrenceDays: r.recurrence_days ?? undefined,
+  recurrenceEndDate: r.recurrence_end_date ?? undefined,
+  recurrenceParentId: r.recurrence_parent_id ?? undefined,
+  isException: r.is_exception ?? undefined,
 });
 
 const fromTodo = (t: Todo): TodoRow => ({
@@ -156,6 +166,11 @@ const fromTodo = (t: Todo): TodoRow => ({
   do_elapsed_sec: t.doElapsedSec ?? null,
   category: t.category ?? null, project_id: t.projectId ?? null,
   tags: t.tags ?? [],
+  recurrence_rule: t.recurrenceRule ?? null,
+  recurrence_days: t.recurrenceDays ?? null,
+  recurrence_end_date: t.recurrenceEndDate ?? null,
+  recurrence_parent_id: t.recurrenceParentId ?? null,
+  is_exception: t.isException ?? null,
 });
 
 const toHabit = (r: HabitRow): Habit => ({

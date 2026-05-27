@@ -1,11 +1,13 @@
 import { useEffect, useMemo, useState } from 'react';
-import { format } from 'date-fns';
+import { format, getDay, parseISO } from 'date-fns';
 import { ko } from 'date-fns/locale';
-import { CalendarDays, Star, Trash2, X } from 'lucide-react';
+import { CalendarDays, RefreshCw, Star, Trash2, X } from 'lucide-react';
 import { usePlanner, Todo } from '../store';
 import { useTheme } from '../ThemeContext';
 import ConfirmModal from './ConfirmModal';
 import { TimePicker } from './TimePicker';
+import { RecurrenceBranchModal } from './RecurrenceBranchModal';
+import { isVirtualTodoId, parseVirtualTodoId, DOW_LABELS } from '../../lib/recurrenceExpansion';
 
 const DEFAULT_TAG_COLORS = [
   '#E0795B', '#D4735A', '#E8A87C', '#F4A261',
@@ -25,8 +27,14 @@ interface TodoModalProps {
 }
 
 export function TodoModal({ date, todo, initialPlanStart, initialPlanEnd, onClose }: TodoModalProps) {
-  const { addTodo, updateTodo, deleteTodo, tags: allTags, projects, addTag, updateTag, deleteTag } = usePlanner();
+  const { addTodo, updateTodo, deleteTodo, deleteRecurringTodo, updateRecurringTodo, tags: allTags, projects, addTag, updateTag, deleteTag } = usePlanner();
   const { t } = useTheme();
+
+  // ── 반복 관련 ───────────────────────────────────────────────────────────────
+  const isVirtual = todo ? isVirtualTodoId(todo.id) : false;
+  const virtualInfo = isVirtual && todo ? parseVirtualTodoId(todo.id) : null;
+  // 부모 or 예외 포함한 반복 인스턴스 여부
+  const isRecurringInstance = !!(isVirtual || (todo?.recurrenceRule && !todo?.isException) || todo?.recurrenceParentId);
 
   const todayStr = format(new Date(), 'yyyy-MM-dd');
 
@@ -57,6 +65,18 @@ export function TodoModal({ date, todo, initialPlanStart, initialPlanEnd, onClos
   const [editingTagPaletteColor, setEditingTagPaletteColor] = useState<string | null>(null);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [deletingTagId, setDeletingTagId] = useState<string | null>(null);
+
+  // 반복 일정 state
+  const [recurrenceRule, setRecurrenceRule] = useState<Todo['recurrenceRule']>(todo?.recurrenceRule ?? undefined);
+  const [recurrenceDays, setRecurrenceDays] = useState<number[]>(todo?.recurrenceDays ?? []);
+  const [recurrenceEndDate, setRecurrenceEndDate] = useState<string>(todo?.recurrenceEndDate ?? '');
+  const [recurrenceBranchFor, setRecurrenceBranchFor] = useState<'save' | 'delete' | null>(null);
+
+  // "매주" 선택 시 기준 요일 (편집 중인 todo의 날짜, 또는 선택한 날짜)
+  const baseDow = useMemo(() => {
+    const d = todo?.date ?? effectiveDate;
+    return d ? getDay(parseISO(d)) : getDay(new Date());
+  }, [todo?.date, effectiveDate]);
 
   const isValidHex = (value: string) => /^#[0-9A-Fa-f]{6}$/.test(value);
   const normalizeHexInput = (value: string) => `#${value.replace(/[^0-9A-Fa-f]/g, '').slice(0, 6).toUpperCase()}`;
@@ -182,31 +202,68 @@ export function TodoModal({ date, todo, initialPlanStart, initialPlanEnd, onClos
     cancelEditTag();
   };
 
-  const handleSubmit = () => {
-    if (!text.trim()) return;
-    if (todo) {
-      updateTodo(todo.id, {
-        text: text.trim(),
-        date: effectiveDate || null,
-        planStart: planStart || undefined,
-        planEnd: planEnd || undefined,
-        isTop3,
-        tags: selectedTags,
-        projectId: projectId || undefined,
-      });
+  const buildChanges = () => ({
+    text: text.trim(),
+    date: effectiveDate || null,
+    planStart: planStart || undefined,
+    planEnd: planEnd || undefined,
+    isTop3,
+    tags: selectedTags,
+    projectId: projectId || undefined,
+    recurrenceRule: recurrenceRule ?? undefined,
+    recurrenceDays: recurrenceRule === 'custom' ? recurrenceDays : undefined,
+    recurrenceEndDate: recurrenceEndDate || undefined,
+  });
+
+  const executeSubmit = (scope?: 'this' | 'future' | 'all') => {
+    const changes = buildChanges();
+    if (isVirtual && virtualInfo && scope) {
+      updateRecurringTodo(virtualInfo.parentId, virtualInfo.instanceDate, changes, scope);
+    } else if (todo?.recurrenceParentId) {
+      // 예외 레코드 - 직접 수정
+      updateTodo(todo.id, changes);
+    } else if (isRecurringInstance && todo && scope) {
+      // 부모 반복 일정 수정
+      const instanceDate = todo.date ?? format(new Date(), 'yyyy-MM-dd');
+      updateRecurringTodo(todo.id, instanceDate, changes, scope);
+    } else if (todo) {
+      updateTodo(todo.id, changes);
     } else {
-      addTodo({
-        text: text.trim(),
-        date: effectiveDate || null,
-        status: 'active',
-        isTop3,
-        planStart: planStart || undefined,
-        planEnd: planEnd || undefined,
-        tags: selectedTags,
-        projectId: projectId || undefined,
-      });
+      addTodo({ ...changes, status: 'active' });
     }
     onClose();
+  };
+
+  const handleSubmit = () => {
+    if (!text.trim()) return;
+    if (isRecurringInstance && todo && !todo.recurrenceParentId) {
+      setRecurrenceBranchFor('save');
+      return;
+    }
+    executeSubmit();
+  };
+
+  const executeDelete = (scope?: 'this' | 'future' | 'all') => {
+    if (!todo) return;
+    if (isVirtual && virtualInfo && scope) {
+      deleteRecurringTodo(virtualInfo.parentId, virtualInfo.instanceDate, scope);
+    } else if (todo.recurrenceParentId) {
+      deleteTodo(todo.id);
+    } else if (isRecurringInstance && scope) {
+      const instanceDate = todo.date ?? format(new Date(), 'yyyy-MM-dd');
+      deleteRecurringTodo(todo.id, instanceDate, scope);
+    } else {
+      deleteTodo(todo.id);
+    }
+    onClose();
+  };
+
+  const handleDelete = () => {
+    if (isRecurringInstance && todo && !todo.recurrenceParentId) {
+      setRecurrenceBranchFor('delete');
+      return;
+    }
+    setShowDeleteConfirm(true);
   };
 
   return (
@@ -310,6 +367,90 @@ export function TodoModal({ date, todo, initialPlanStart, initialPlanEnd, onClos
               </div>
             </div>
           </div>
+
+          {/* 반복 일정 — 기존 반복 인스턴스 편집 중이면 설정 UI 숨김 */}
+          {!isRecurringInstance && (
+            <div>
+              <div className="flex items-center gap-1.5 mb-2">
+                <RefreshCw size={13} color={t.accent} />
+                <label style={{ fontSize: 11, color: t.textSub, fontWeight: 600 }}>반복</label>
+              </div>
+              {/* 반복 옵션 칩 */}
+              <div className="flex flex-wrap gap-1.5 mb-2">
+                {([
+                  { value: undefined,   label: '반복 없음' },
+                  { value: 'daily',     label: '매일' },
+                  { value: 'weekly',    label: `매주 ${DOW_LABELS[baseDow]}요일` },
+                  { value: 'weekdays',  label: '평일 (월~금)' },
+                  { value: 'custom',    label: '직접 설정' },
+                ] as const).map(opt => (
+                  <button
+                    key={opt.label}
+                    type="button"
+                    onClick={() => setRecurrenceRule(opt.value)}
+                    className="px-3 py-1 rounded-full"
+                    style={{
+                      fontSize: 11, fontWeight: recurrenceRule === opt.value ? 700 : 500,
+                      backgroundColor: recurrenceRule === opt.value ? t.accent : t.bgSub,
+                      color: recurrenceRule === opt.value ? '#fff' : t.textSub,
+                      border: `1.5px solid ${recurrenceRule === opt.value ? t.accent : t.border}`,
+                    }}
+                  >
+                    {opt.label}
+                  </button>
+                ))}
+              </div>
+              {/* custom 요일 선택 */}
+              {recurrenceRule === 'custom' && (
+                <div className="flex gap-1.5 mb-2">
+                  {DOW_LABELS.map((label, dow) => (
+                    <button
+                      key={dow}
+                      type="button"
+                      onClick={() => setRecurrenceDays(prev =>
+                        prev.includes(dow) ? prev.filter(d => d !== dow) : [...prev, dow]
+                      )}
+                      className="w-8 h-8 rounded-full"
+                      style={{
+                        fontSize: 11, fontWeight: 700,
+                        backgroundColor: recurrenceDays.includes(dow) ? t.accent : t.bgSub,
+                        color: recurrenceDays.includes(dow) ? '#fff' : t.textSub,
+                        border: `1.5px solid ${recurrenceDays.includes(dow) ? t.accent : t.border}`,
+                      }}
+                    >
+                      {label}
+                    </button>
+                  ))}
+                </div>
+              )}
+              {/* 종료일 */}
+              {recurrenceRule && (
+                <div className="flex items-center gap-2">
+                  <span style={{ fontSize: 11, color: t.textSub, fontWeight: 600, whiteSpace: 'nowrap' }}>종료일</span>
+                  <input
+                    type="date"
+                    value={recurrenceEndDate}
+                    onChange={e => setRecurrenceEndDate(e.target.value)}
+                    placeholder="없으면 무기한"
+                    className="flex-1 rounded-lg px-3 py-1.5 outline-none"
+                    style={{ border: `1px solid ${t.border}`, backgroundColor: t.bgSub, color: t.text, fontSize: 12 }}
+                  />
+                  {recurrenceEndDate && (
+                    <button type="button" onClick={() => setRecurrenceEndDate('')}
+                      style={{ fontSize: 11, color: t.textMuted }}>지우기</button>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
+          {/* 기존 반복 인스턴스임을 표시 */}
+          {isRecurringInstance && (
+            <div className="flex items-center gap-1.5 px-3 py-2 rounded-xl"
+              style={{ backgroundColor: '#EEF6FF', border: '1px solid #C0D8F8' }}>
+              <RefreshCw size={12} color="#5B8FD8" />
+              <span style={{ fontSize: 11, fontWeight: 600, color: '#5B8FD8' }}>반복 일정입니다</span>
+            </div>
+          )}
 
           {/* Top3 */}
           <label className="flex items-center gap-2 cursor-pointer">
@@ -657,7 +798,7 @@ export function TodoModal({ date, todo, initialPlanStart, initialPlanEnd, onClos
         >
           {todo && (
             <button
-              onClick={() => setShowDeleteConfirm(true)}
+              onClick={handleDelete}
               className="px-4 py-2 rounded-xl transition-colors"
               style={{ fontSize: 12, color: '#DC2626', backgroundColor: '#FEE2E2' }}
             >
@@ -687,11 +828,21 @@ export function TodoModal({ date, todo, initialPlanStart, initialPlanEnd, onClos
           confirmText="삭제"
           confirmDanger
           onConfirm={() => {
-            deleteTodo(todo.id);
+            executeDelete();
             setShowDeleteConfirm(false);
-            onClose();
           }}
           onCancel={() => setShowDeleteConfirm(false)}
+        />
+      )}
+      {recurrenceBranchFor && (
+        <RecurrenceBranchModal
+          mode={recurrenceBranchFor === 'save' ? 'edit' : 'delete'}
+          onConfirm={scope => {
+            if (recurrenceBranchFor === 'save') executeSubmit(scope);
+            else executeDelete(scope);
+            setRecurrenceBranchFor(null);
+          }}
+          onCancel={() => setRecurrenceBranchFor(null)}
         />
       )}
       {deletingTagId && (

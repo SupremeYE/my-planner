@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useCallback, useEffect, useRef } from 'react';
-import { format, getISOWeek, getYear, subDays } from 'date-fns';
+import { supabase } from '../lib/supabase';
+import { format, getISOWeek, getYear, subDays, addDays, parseISO } from 'date-fns';
 import { db } from '../lib/db';
 
 // ───── Types ─────
@@ -27,6 +28,12 @@ export interface Todo {
   category?: string;
   projectId?: string;
   tags?: string[];
+  // 반복 일정 필드
+  recurrenceRule?: 'daily' | 'weekly' | 'weekdays' | 'custom';
+  recurrenceDays?: number[];       // 0=일 ~ 6=토 (custom 전용)
+  recurrenceEndDate?: string;      // yyyy-MM-dd, null이면 무기한
+  recurrenceParentId?: string;     // 원본 이벤트 ID (예외 인스턴스가 참조)
+  isException?: boolean;           // 이 인스턴스만 수정·삭제된 예외
 }
 
 export interface Event {
@@ -440,6 +447,8 @@ interface PlannerContextType {
   updateTodo: (id: string, changes: Partial<Todo>) => void;
   deleteTodo: (id: string) => void;
   toggleTop3: (id: string) => void;
+  deleteRecurringTodo: (parentId: string, instanceDate: string, scope: 'this' | 'future' | 'all') => void;
+  updateRecurringTodo: (parentId: string, instanceDate: string, changes: Partial<Todo>, scope: 'this' | 'future' | 'all') => void;
 
   // Event actions
   addEvent: (event: Omit<Event, 'id'>) => void;
@@ -672,6 +681,47 @@ export function PlannerProvider({ children }: { children: React.ReactNode }) {
     load();
   }, []);
 
+  // ── Supabase Realtime 구독 (변경 감지 → 전체 재fetch) ──────────────────────
+  useEffect(() => {
+    // 각 테이블별 재fetch 함수
+    const refetchers: Record<string, () => Promise<void>> = {
+      todos:             async () => setTodos(await db.todos.fetchAll()),
+      habits:            async () => setHabits(await db.habits.fetchAll()),
+      projects:          async () => setProjects(await db.projects.fetchAll()),
+      milestones:        async () => setMilestones(await db.milestones.fetchAll()),
+      self_care_records: async () => setSelfCareRecords(await db.selfCareRecords.fetchAll()),
+      review_records:    async () => setReviewRecords(await db.reviewRecords.fetchAll()),
+      timeline_logs:     async () => setTimelineLogs(await db.timelineLogs.fetchAll()),
+      events:            async () => setEvents(await db.events.fetchAll()),
+      weekly_goals:      async () => setWeeklyGoals(await db.weeklyGoals.fetchAll()),
+      monthly_goals:     async () => setMonthlyGoals(await db.monthlyGoals.fetchAll()),
+      brainstorm_items:  async () => setBrainstormItems(await db.brainstormItems.fetchAll()),
+      brainstorm_memos:  async () => setBrainstormMemos(await db.brainstormMemos.fetchAll()),
+      tags:              async () => setTags(await db.tags.fetchAll()),
+      routines:          async () => setRoutines(await db.routines.fetchAll()),
+      period_records:    async () => setPeriodRecords(await db.periodRecords.fetchAll()),
+      habit_monthly_memos: async () => setHabitMonthlyMemos(await db.habitMonthlyMemos.fetchAll()),
+      annual_goals:      async () => setAnnualGoals(await db.annualGoals.fetchAll()),
+      quarterly_goals:   async () => setQuarterlyGoals(await db.quarterlyGoals.fetchAll()),
+      weekly_reviews:    async () => setWeeklyReviews(await db.weeklyReviews.fetchAll()),
+      monthly_reviews:   async () => setMonthlyReviews(await db.monthlyReviews.fetchAll()),
+      food_records:      async () => setFoodRecords(await db.foodRecords.fetchAll()),
+    };
+
+    const channels = Object.entries(refetchers).map(([table, refetch]) =>
+      supabase
+        .channel(`realtime-store:${table}`)
+        .on('postgres_changes' as any, { event: '*', schema: 'public', table }, () => {
+          void refetch();
+        })
+        .subscribe()
+    );
+
+    return () => {
+      channels.forEach(ch => supabase.removeChannel(ch));
+    };
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
   const newId = () => Math.random().toString(36).slice(2, 9);
   const newEventId = () => globalThis.crypto?.randomUUID?.() ?? `${newId()}-${Date.now()}`;
 
@@ -829,6 +879,99 @@ export function PlannerProvider({ children }: { children: React.ReactNode }) {
       return prev.filter(t => t.id !== id);
     });
     db.todos.delete(id);
+  }, []);
+
+  // 반복 일정 삭제 (scope: 'this' | 'future' | 'all')
+  const deleteRecurringTodo = useCallback((parentId: string, instanceDate: string, scope: 'this' | 'future' | 'all') => {
+    if (scope === 'all') {
+      // 원본 + 모든 예외 삭제
+      setTodos(prev => {
+        const toDelete = prev.filter(t => t.id === parentId || t.recurrenceParentId === parentId);
+        toDelete.forEach(t => db.todos.delete(t.id));
+        return prev.filter(t => t.id !== parentId && t.recurrenceParentId !== parentId);
+      });
+    } else if (scope === 'future') {
+      // 원본의 recurrenceEndDate를 instanceDate 하루 전으로 설정
+      setTodos(prev => {
+        const endDate = format(addDays(parseISO(instanceDate), -1), 'yyyy-MM-dd');
+        const updated = prev.map(t => t.id === parentId ? { ...t, recurrenceEndDate: endDate } : t);
+        const parent = updated.find(t => t.id === parentId);
+        if (parent) db.todos.upsert(parent);
+        return updated;
+      });
+    } else {
+      // 이 인스턴스만 삭제: cancelled 예외 레코드 생성
+      setTodos(prev => {
+        const parent = prev.find(t => t.id === parentId);
+        if (!parent) return prev;
+        const exId = newId();
+        const exception: Todo = {
+          ...parent,
+          id: exId,
+          date: instanceDate,
+          status: 'cancelled',
+          recurrenceParentId: parentId,
+          recurrenceRule: undefined,
+          recurrenceDays: undefined,
+          recurrenceEndDate: undefined,
+          isException: true,
+        };
+        db.todos.upsert(exception);
+        return [...prev, exception];
+      });
+    }
+  }, []);
+
+  // 반복 일정 수정 (scope: 'this' | 'future' | 'all')
+  const updateRecurringTodo = useCallback((parentId: string, instanceDate: string, changes: Partial<Todo>, scope: 'this' | 'future' | 'all') => {
+    if (scope === 'all') {
+      // 원본 직접 수정
+      setTodos(prev => {
+        const updated = prev.map(t => t.id === parentId ? { ...t, ...changes } : t);
+        const parent = updated.find(t => t.id === parentId);
+        if (parent) db.todos.upsert(parent);
+        return updated;
+      });
+    } else if (scope === 'future') {
+      // 현재 날짜에서 원본 종료 + 새 반복 이벤트 생성
+      setTodos(prev => {
+        const endDate = format(addDays(parseISO(instanceDate), -1), 'yyyy-MM-dd');
+        const parent = prev.find(t => t.id === parentId);
+        if (!parent) return prev;
+        const updatedParent = { ...parent, recurrenceEndDate: endDate };
+        const newParentId = newId();
+        const newParent: Todo = {
+          ...parent, ...changes,
+          id: newParentId,
+          date: instanceDate,
+          recurrenceParentId: undefined,
+          isException: false,
+          doStart: undefined, doEnd: undefined, doElapsedSec: undefined,
+        };
+        db.todos.upsert(updatedParent);
+        db.todos.upsert(newParent);
+        return [...prev.map(t => t.id === parentId ? updatedParent : t), newParent];
+      });
+    } else {
+      // 이 인스턴스만 수정: 예외 레코드 생성
+      setTodos(prev => {
+        const parent = prev.find(t => t.id === parentId);
+        if (!parent) return prev;
+        const exId = newId();
+        const exception: Todo = {
+          ...parent, ...changes,
+          id: exId,
+          date: instanceDate,
+          recurrenceParentId: parentId,
+          recurrenceRule: undefined,
+          recurrenceDays: undefined,
+          recurrenceEndDate: undefined,
+          isException: true,
+        };
+        db.todos.upsert(exception);
+        return [...prev, exception];
+      });
+    }
   }, []);
 
   const toggleTop3 = useCallback((id: string) => {
@@ -1478,7 +1621,7 @@ export function PlannerProvider({ children }: { children: React.ReactNode }) {
       timelineLogs,
       dailyAffirmations, setDailyAffirmation,
       appSettings, updateAppSettings,
-      addTodo, updateTodo, deleteTodo, toggleTop3,
+      addTodo, updateTodo, deleteTodo, toggleTop3, deleteRecurringTodo, updateRecurringTodo,
       addEvent, updateEvent, deleteEvent,
       addHabit, addHabitFull, updateHabit, deleteHabit, toggleHabit,
       updateHabitProgress, updateHabitMemo,
