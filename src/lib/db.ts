@@ -887,6 +887,103 @@ export const db = {
     },
   },
 
+  // ── 질문일기 ─────────────────────────────────────────────────────────────────
+  questionPool: {
+    fetchAll: async (): Promise<{ id: string; content: string; is_custom: boolean; created_at: string }[]> => {
+      const { data, error } = await supabase.from('question_pool').select('*').order('created_at');
+      if (error) console.error('[db] question_pool fetch:', error.message);
+      return data ?? [];
+    },
+    create: async (content: string): Promise<string | null> => {
+      const { data, error } = await supabase
+        .from('question_pool')
+        .insert({ content, is_custom: true })
+        .select('id')
+        .single();
+      if (error) { console.error('[db] question_pool create:', error.message); return null; }
+      return data?.id ?? null;
+    },
+    delete: async (id: string) => {
+      const { error } = await supabase.from('question_pool').delete().eq('id', id);
+      if (error) console.error('[db] question_pool delete:', error.message);
+    },
+  },
+
+  questionAnswers: {
+    fetchAll: async (): Promise<{ id: string; question_id: string; answer: string; answered_at: string; created_at: string }[]> => {
+      const { data, error } = await supabase.from('question_answers').select('*').order('created_at', { ascending: false });
+      if (error) console.error('[db] question_answers fetch:', error.message);
+      return data ?? [];
+    },
+    upsertByDate: async (questionId: string, answer: string, answeredAt: string): Promise<string | null> => {
+      // 같은 날짜+질문 조합이면 UPDATE, 없으면 INSERT
+      const { data: existing } = await supabase
+        .from('question_answers')
+        .select('id')
+        .eq('question_id', questionId)
+        .eq('answered_at', answeredAt)
+        .maybeSingle();
+      if (existing?.id) {
+        const { error } = await supabase
+          .from('question_answers')
+          .update({ answer })
+          .eq('id', existing.id);
+        if (error) console.error('[db] question_answers update:', error.message);
+        return existing.id;
+      }
+      const { data, error } = await supabase
+        .from('question_answers')
+        .insert({ question_id: questionId, answer, answered_at: answeredAt })
+        .select('id')
+        .single();
+      if (error) { console.error('[db] question_answers insert:', error.message); return null; }
+      return data?.id ?? null;
+    },
+    fetchByDate: async (answeredAt: string): Promise<{ id: string; question_id: string; answer: string; answered_at: string } | null> => {
+      const { data, error } = await supabase
+        .from('question_answers')
+        .select('*')
+        .eq('answered_at', answeredAt)
+        .maybeSingle();
+      if (error) console.error('[db] question_answers fetchByDate:', error.message);
+      return data ?? null;
+    },
+    fetchByQuestionId: async (questionId: string): Promise<{ id: string; question_id: string; answer: string; answered_at: string }[]> => {
+      const { data, error } = await supabase
+        .from('question_answers')
+        .select('*')
+        .eq('question_id', questionId)
+        .order('answered_at', { ascending: false });
+      if (error) console.error('[db] question_answers fetchByQuestionId:', error.message);
+      return data ?? [];
+    },
+  },
+
+  dailyQuestion: {
+    fetchByDate: async (date: string): Promise<{ id: string; question_id: string; date: string } | null> => {
+      const { data, error } = await supabase
+        .from('daily_question')
+        .select('*')
+        .eq('date', date)
+        .maybeSingle();
+      if (error) console.error('[db] daily_question fetchByDate:', error.message);
+      return data ?? null;
+    },
+    assignRandom: async (date: string): Promise<string | null> => {
+      // question_pool에서 랜덤 1개 선택
+      const { data: pool, error: poolErr } = await supabase.from('question_pool').select('id');
+      if (poolErr || !pool || pool.length === 0) return null;
+      const randomId = pool[Math.floor(Math.random() * pool.length)].id;
+      const { data, error } = await supabase
+        .from('daily_question')
+        .insert({ question_id: randomId, date })
+        .select('question_id')
+        .single();
+      if (error) { console.error('[db] daily_question assign:', error.message); return null; }
+      return data?.question_id ?? null;
+    },
+  },
+
   moments: {
     fetchAll: async (): Promise<{ id: string; created_at: string; content: string; photos: string[]; weather_temp: number | null; weather_code: number | null }[]> => {
       const { data, error } = await supabase

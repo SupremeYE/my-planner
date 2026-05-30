@@ -28,6 +28,7 @@ const lifestyleNavItems = [
   { to: '/food', icon: () => <span style={{ fontSize: 16 }}>🍽️</span>, label: '식단' },
   { to: '/books', icon: Library, label: '독서' },
   { to: '/moments', icon: () => <span style={{ fontSize: 16 }}>📸</span>, label: '모먼트' },
+  { to: '/question-journal', icon: () => <span style={{ fontSize: 16 }}>📔</span>, label: '질문일기' },
 ];
 
 // ── Inline new project form ──
@@ -265,6 +266,7 @@ function MobileMenuOverlay({ onClose }: { onClose: () => void }) {
     { to: '/food', icon: () => <span style={{ fontSize: 16 }}>🍽️</span>, label: '식단' },
     { to: '/books', icon: Library, label: '독서' },
     { to: '/moments', icon: () => <span style={{ fontSize: 20 }}>📸</span>, label: '모먼트' },
+    { to: '/question-journal', icon: () => <span style={{ fontSize: 20 }}>📔</span>, label: '질문일기' },
     { to: '/settings', icon: Settings, label: '설정' },
   ];
 
