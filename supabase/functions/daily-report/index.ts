@@ -10,14 +10,18 @@
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.4';
 
-// KST(UTC+9) 기준 yyyy-MM-dd 문자열과 요일(0=일~6=토)을 반환
-function kstTodayInfo(): { date: string; dow: number } {
+const WEEKDAY_KR = ['일', '월', '화', '수', '목', '금', '토'];
+
+// KST(UTC+9) 기준 오늘 정보 반환
+function kstNowInfo(): { date: string; dow: number; hhmm: string } {
   const now = new Date();
   const kst = new Date(now.getTime() + 9 * 60 * 60 * 1000);
   const yyyy = kst.getUTCFullYear();
   const mm = String(kst.getUTCMonth() + 1).padStart(2, '0');
   const dd = String(kst.getUTCDate()).padStart(2, '0');
-  return { date: `${yyyy}-${mm}-${dd}`, dow: kst.getUTCDay() };
+  const hh = String(kst.getUTCHours()).padStart(2, '0');
+  const min = String(kst.getUTCMinutes()).padStart(2, '0');
+  return { date: `${yyyy}-${mm}-${dd}`, dow: kst.getUTCDay(), hhmm: `${hh}:${min}` };
 }
 
 // 앱의 isHabitApplicableOnDate 와 동일한 반복 규칙
@@ -43,7 +47,8 @@ Deno.serve(async () => {
     }
 
     const supabase = createClient(supabaseUrl, serviceKey);
-    const { date: today, dow } = kstTodayInfo();
+    const { date: today, dow, hhmm } = kstNowInfo();
+    const weekdayKr = WEEKDAY_KR[dow];
 
     // ── 할일 조회 (오늘 날짜, cancelled 제외) ──
     const { data: todos, error: todoErr } = await supabase
@@ -55,6 +60,7 @@ Deno.serve(async () => {
     const activeTodos = (todos ?? []).filter((t) => t.status !== 'cancelled');
     const doneCount = activeTodos.filter((t) => t.status === 'done').length;
     const totalCount = activeTodos.length;
+    const undoneTodos = activeTodos.filter((t) => t.status !== 'done');
 
     // ── 습관 조회 (오늘 요일에 해당하는 것만) ──
     const { data: habits, error: habitErr } = await supabase
@@ -65,28 +71,46 @@ Deno.serve(async () => {
     const todayHabits = (habits ?? []).filter((h) =>
       isHabitApplicableOnDow(h.repeat ?? null, h.repeat_days ?? null, dow),
     );
+    const habitDone = todayHabits.filter((h) => (h.checked_dates ?? []).includes(today)).length;
+    const habitTotal = todayHabits.length;
 
     // ── 메시지 조립 ──
     const lines: string[] = [];
-    lines.push(`📋 **오늘의 리포트 (${today})**`);
+    lines.push(`📋 **오늘의 리포트 (${today} ${weekdayKr})**`);
+    lines.push(`🕘 ${hhmm} 기준`);
+    lines.push('');
 
+    // 할일 요약 + 미완료 목록
     if (totalCount > 0) {
-      lines.push(`할일: ${doneCount}/${totalCount} 완료`);
-    } else {
-      lines.push('할일: 오늘 등록된 할일이 없어요');
-    }
-
-    lines.push(''); // 빈 줄
-    lines.push('**습관 체크**');
-
-    if (todayHabits.length > 0) {
-      for (const h of todayHabits) {
-        const checked = (h.checked_dates ?? []).includes(today);
-        lines.push(`${checked ? '✅' : '⬜'} ${h.name}`);
+      lines.push(`**할일** — ${doneCount}/${totalCount} 완료`);
+      if (undoneTodos.length > 0) {
+        lines.push('아직 남은 할일:');
+        for (const t of undoneTodos) {
+          lines.push(`✖️ ${t.text}`);
+        }
+      } else {
+        lines.push('오늘 할일을 모두 끝냈어요! 🎉');
       }
     } else {
-      lines.push('오늘 예정된 습관이 없어요');
+      lines.push('**할일** — 오늘 등록된 할일이 없어요');
     }
+
+    lines.push('');
+
+    // 습관 요약 + 체크 목록
+    if (habitTotal > 0) {
+      lines.push(`**습관 체크** — ${habitDone}/${habitTotal} 완료`);
+      for (const h of todayHabits) {
+        const checked = (h.checked_dates ?? []).includes(today);
+        lines.push(`${checked ? '✔️' : '✖️'} ${h.name}`);
+      }
+    } else {
+      lines.push('**습관 체크** — 오늘 예정된 습관이 없어요');
+    }
+
+    // 응원 문구
+    lines.push('');
+    lines.push('오늘도 수고했어요 🌙');
 
     const text = lines.join('\n');
 
