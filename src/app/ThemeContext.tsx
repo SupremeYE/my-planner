@@ -59,33 +59,33 @@ export const tokenA: ThemeTokens = {
   checkDone: '#006b62',
 };
 
-// ── Design B: Midnight Focus dark layout ──
+// ── Design B: Haon Sunrise — 선라이즈 코랄/피치 라이트 테마 ──
 export const tokenB: ThemeTokens = {
-  bg: '#0D0D16',
-  bgSub: '#181826',
-  bgHover: '#1E1E30',
-  card: '#13131E',
-  sidebar: '#090912',
-  text: '#E2E2F0',
-  textSub: '#6A6A8C',
-  textMuted: '#3E3E56',
-  accent: '#8B7CF8',
-  accentLight: '#25233C',
-  accentSoft: '#1C1B30',
-  border: '#232338',
-  borderLight: '#1B1B2C',
-  planBlock: '#1E2040',
-  planBorder: '#3A3870',
-  planText: '#9B8FFA',
-  doBlock: '#3730A3',
-  doText: '#E8E6FF',
-  danger: '#F87171',
-  dangerLight: '#2A1E1E',
-  success: '#34D399',
-  info: '#60A5FA',
-  font: "'Pretendard', -apple-system, BlinkMacSystemFont, sans-serif",
-  shadow: '0 1px 6px rgba(0,0,0,0.4)',
-  checkDone: '#8B7CF8',
+  bg: '#FFFFFF',
+  bgSub: '#FBF6F1',
+  bgHover: '#FFF1E8',
+  card: '#FFFFFF',
+  sidebar: '#FBF7F3',
+  text: '#2D2A3A',
+  textSub: '#6F6A80',
+  textMuted: '#ADA8BC',
+  accent: '#F4A582',      // 선라이즈 코랄
+  accentLight: '#FFE6D6', // 부드러운 피치
+  accentSoft: '#FFF5EE',
+  border: '#F0E8DE',
+  borderLight: '#F7F1E8',
+  planBlock: '#E6EEF9',   // 새벽 하늘
+  planBorder: '#C9DCF1',
+  planText: '#4A6B96',
+  doBlock: '#F4A582',
+  doText: '#FFFFFF',
+  danger: '#E07A6B',
+  dangerLight: '#FCE9E4',
+  success: '#7FB89A',
+  info: '#8FB7DA',
+  font: "'Gowun Dodum', 'Pretendard Variable', 'Pretendard', sans-serif",
+  shadow: '0 4px 20px rgba(244,165,130,0.08), 0 1px 3px rgba(45,42,58,0.04)',
+  checkDone: '#7FB89A',
 };
 
 // ── Design C: Top-Nav — Curator 팔레트 (A와 동일 톤) ──
@@ -173,7 +173,7 @@ function resolveTokens(theme: DesignTheme): ThemeTokens {
 }
 
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
-  const [theme, setTheme] = useState<DesignTheme>('D');
+  const [theme, setTheme] = useState<DesignTheme>('B');
   const t = resolveTokens(theme);
   const layoutMode = getLayoutMode(theme);
 
