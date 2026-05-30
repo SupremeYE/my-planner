@@ -54,7 +54,7 @@ export function AccountWidget() {
         >
           <div
             className="relative w-full lg:max-w-sm rounded-t-3xl lg:rounded-3xl p-6 flex flex-col gap-5"
-            style={{ background: t.background, maxHeight: '90dvh', overflowY: 'auto' }}
+            style={{ background: t.bg, maxHeight: '90dvh', overflowY: 'auto' }}
             onMouseDown={e => e.stopPropagation()}
           >
             {/* 모바일 드래그 핸들 */}
