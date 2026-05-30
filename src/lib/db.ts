@@ -886,4 +886,36 @@ export const db = {
       if (error) console.error('[db] quarterly_goals delete:', error.message);
     },
   },
+
+  moments: {
+    fetchAll: async (): Promise<{ id: string; created_at: string; content: string; photos: string[]; weather_temp: number | null; weather_code: number | null }[]> => {
+      const { data, error } = await supabase
+        .from('moments')
+        .select('*')
+        .order('created_at', { ascending: false });
+      if (error) console.error('[db] moments fetch:', error.message);
+      return data ?? [];
+    },
+    create: async (content: string, photos: string[], weatherTemp?: number, weatherCode?: number): Promise<string | null> => {
+      const { data, error } = await supabase
+        .from('moments')
+        .insert({ content, photos, weather_temp: weatherTemp ?? null, weather_code: weatherCode ?? null })
+        .select('id')
+        .single();
+      if (error) { console.error('[db] moments create:', error.message); return null; }
+      return data?.id ?? null;
+    },
+    delete: async (id: string) => {
+      const { error } = await supabase.from('moments').delete().eq('id', id);
+      if (error) console.error('[db] moments delete:', error.message);
+    },
+    uploadPhoto: async (file: File, momentId: string, index: number): Promise<string | null> => {
+      const ext = file.name.split('.').pop() ?? 'jpg';
+      const path = `${momentId}_${index}.${ext}`;
+      const { error } = await supabase.storage.from('moment-photos').upload(path, file, { upsert: true });
+      if (error) { console.error('[db] moment photo upload:', error.message); return null; }
+      const { data } = supabase.storage.from('moment-photos').getPublicUrl(path);
+      return data.publicUrl;
+    },
+  },
 };
