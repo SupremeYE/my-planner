@@ -1,7 +1,8 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Camera, ImagePlus, Trash2, X } from 'lucide-react';
 import { useTheme } from '../ThemeContext';
 import { db } from '../../lib/db';
+import { useRealtimeSync } from '../hooks/useRealtimeSync';
 import { format } from 'date-fns';
 import { ko } from 'date-fns/locale';
 
@@ -82,9 +83,14 @@ export function MomentView() {
   const cameraRef  = useRef<HTMLInputElement>(null);
   const galleryRef = useRef<HTMLInputElement>(null);
 
-  useEffect(() => {
+  const refreshMoments = useCallback(() => {
     db.moments.fetchAll().then(setMoments);
   }, []);
+
+  useEffect(() => { refreshMoments(); }, [refreshMoments]);
+
+  // 다기기 실시간 동기화 — PC에서 저장하면 모바일에도 즉시 반영
+  useRealtimeSync('moments', refreshMoments);
 
   const handleFileSelect = (files: FileList | null) => {
     if (!files) return;
