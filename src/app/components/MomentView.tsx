@@ -25,14 +25,14 @@ function weatherInfo(code: number): { emoji: string; label: string } {
 }
 
 // ── 현재 위치 → Open-Meteo 날씨 가져오기 ─────────────────────────────────────
-async function fetchCurrentWeather(): Promise<{ temp: number; code: number } | null> {
-  // 1) Geolocation
+async function fetchWeatherImpl(): Promise<{ temp: number; code: number } | null> {
+  // 1) Geolocation — maximumAge로 캐시 허용, timeout은 위치 획득 제한
   const coords = await new Promise<GeolocationCoordinates | null>(resolve => {
     if (!navigator.geolocation) { resolve(null); return; }
     navigator.geolocation.getCurrentPosition(
       pos => resolve(pos.coords),
       ()  => resolve(null),
-      { timeout: 8000 },
+      { timeout: 5000, maximumAge: 60000 },
     );
   });
   if (!coords) return null;
@@ -53,6 +53,12 @@ async function fetchCurrentWeather(): Promise<{ temp: number; code: number } | n
   } catch {
     return null;
   }
+}
+
+// 권한 다이얼로그 무한 대기 방지: 전체를 6초 타임아웃으로 감쌈
+function fetchCurrentWeather(): Promise<{ temp: number; code: number } | null> {
+  const timeout = new Promise<null>(resolve => setTimeout(() => resolve(null), 6000));
+  return Promise.race([fetchWeatherImpl(), timeout]).catch(() => null);
 }
 
 // ── 타입 ─────────────────────────────────────────────────────────────────────
@@ -98,13 +104,17 @@ export function MomentView() {
     if (!content.trim() && photoFiles.length === 0) return;
     setSaving(true);
     try {
-      // 날씨 + 사진 업로드 병렬 실행 (날씨 실패해도 계속 진행)
       const tmpId = crypto.randomUUID();
-      const [weather, ...photoResults] = await Promise.all([
+
+      // 날씨 + 사진 업로드 병렬 실행 (각각 독립 — 어느 쪽 실패해도 계속)
+      const [weather, uploadedUrls] = await Promise.all([
         fetchCurrentWeather(),
-        ...photoFiles.map((file, i) => db.moments.uploadPhoto(file, tmpId, i)),
+        Promise.all(
+          photoFiles.map((file, i) =>
+            db.moments.uploadPhoto(file, tmpId, i).catch(() => null)
+          )
+        ).then(urls => urls.filter((u): u is string => u !== null)),
       ]);
-      const uploadedUrls = (photoResults as (string | null)[]).filter((u): u is string => u !== null);
 
       const id = await db.moments.create(
         content.trim(),
@@ -120,6 +130,8 @@ export function MomentView() {
         setPhotoFiles([]);
         setPhotoPreviews([]);
       }
+    } catch (e) {
+      console.error('[MomentView] save error:', e);
     } finally {
       setSaving(false);
     }
