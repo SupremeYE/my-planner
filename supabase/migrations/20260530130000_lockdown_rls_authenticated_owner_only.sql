@@ -10,7 +10,7 @@
 
 DO $$
 DECLARE
-  uid constant text := 'e3b07a55-9c1f-4f3e-bb3c-2a0d9e7c4f1a';
+  uid constant text := '8451b11f-76ed-4dcb-a9ec-bd8283fa1cde';
   t text;
   pol record;
   tbls text[] := ARRAY[
