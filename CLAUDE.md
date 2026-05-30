@@ -80,6 +80,23 @@ Four design themes (A, B, C, D) defined in `src/styles/theme.css` as CSS custom 
 - **PC 레이아웃은 절대 건드리지 말 것** — 모바일 전용 수정은 Tailwind `lg:` prefix 사용 (e.g. `hidden lg:flex`, `px-3 lg:px-6`)
 - 모바일 기준: 375px (iPhone), 하단 네비바 56px(`pb-16` 이미 적용됨)
 
+## Supabase Realtime 필수 원칙
+- **신규 기능은 반드시 Realtime을 포함해서 구현한다.**
+- **기존 기능도 Realtime이 빠져 있으면 추가한다.**
+- 목적: PC에서 입력하면 모바일에, 모바일에서 입력하면 PC에 즉시(새로고침 없이) 반영.
+- 구현 패턴:
+  1. Supabase에서 해당 테이블을 `supabase_realtime` publication에 등록
+     ```sql
+     ALTER PUBLICATION supabase_realtime ADD TABLE 테이블명;
+     ```
+  2. 컴포넌트에서 `useRealtimeSync` 훅 사용 (`src/app/hooks/useRealtimeSync.ts`)
+     ```ts
+     const refresh = useCallback(() => { db.테이블.fetchAll().then(setState); }, []);
+     useEffect(() => { refresh(); }, [refresh]);
+     useRealtimeSync('테이블명', refresh);
+     ```
+  3. 전역 store(`store.tsx`)에 연동된 테이블은 store 내부 Realtime 구독에 추가한다.
+
 ## 단축 명령어
 
 ### "깃허브 저장해줘"
