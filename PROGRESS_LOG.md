@@ -6,6 +6,47 @@
 
 ---
 
+## 2026-05-30
+
+### 📋 TODO
+
+### ✅ 완료
+- [x] 모먼트 로그 독립 메뉴 + 저장 (사진 + 텍스트) — `/moments` 신규 라우트
+- [x] 모먼트 저장 시 날씨 자동 기록 — Geolocation + Open-Meteo 연동
+- [x] WMO 날씨 코드 → 이모지 + 한국어 매핑 헬퍼
+- [x] 모먼트 카드 날씨 배지 표시 (이모지 + 기온 + 레이블)
+- [x] 버그 수정: 저장 무한 로딩 (Geolocation 권한 다이얼로그 무한 대기 + moments RLS 정책 누락)
+
+### 🛠 오늘 작업 내용
+
+**① 모먼트 로그 독립 메뉴 추가 (`MomentView.tsx`, `routes.tsx`, `Layout.tsx`, `db.ts`)**
+- `moments` Supabase 테이블 생성: `id / created_at / content / photos text[] / weather_temp / weather_code`
+- `moment-photos` Storage 버킷 생성 (public, anon CRUD 정책)
+- `db.ts`: `moments.fetchAll / create / delete / uploadPhoto` 함수 추가
+- `MomentView.tsx` 신규 생성:
+  - 작성 카드: 사진 첨부(카메라/갤러리, 최대 5장) + 텍스트 입력 + 저장 버튼
+  - 목록: 최신순 카드 (사진 썸네일 + 텍스트 + 시각 + 삭제)
+- `routes.tsx`: `/moments` 라우트 추가
+- `Layout.tsx`: 사이드바 `lifestyleNavItems` + 모바일 `MobileMenuOverlay`에 📸 모먼트 추가
+
+**② 모먼트 저장 시 날씨 자동 기록 (`MomentView.tsx`)**
+- `weatherInfo(code)`: WMO 코드 → 이모지 + 한국어 레이블 매핑 (맑음/구름/안개/비/눈/소나기/뇌우 등 전체 범위)
+- `fetchCurrentWeather()`: Geolocation → Open-Meteo `forecast?current=temperature_2m,weather_code` 호출
+  - 위치 권한 거부 / 실패 / 타임아웃 → `null` 반환, 날씨 없이 저장 계속 진행
+- 저장 시 날씨 + 사진 업로드 `Promise.all` 병렬 실행
+- 카드 푸터에 날씨 배지(이모지 + 기온°C + 레이블), 날씨 없으면 배지 생략
+
+**③ 버그 수정: 저장 무한 로딩 (`MomentView.tsx`, Supabase)**
+- 원인1 — Geolocation 권한 다이얼로그 무한 대기:
+  iOS에서 `getCurrentPosition`의 `timeout` 옵션이 권한 응답 대기에는 적용 안 됨
+  → `fetchWeatherImpl` 분리 + 외부 `Promise.race([ impl, 6초 타임아웃 ])` 적용
+- 원인2 — moments 테이블 RLS 정책 누락:
+  마이그레이션에서 테이블만 생성하고 anon 정책이 없어 INSERT가 DB에서 차단됨
+  → `moments anon SELECT/INSERT/DELETE` 정책 추가 (Supabase 마이그레이션)
+- Promise.all 구조 개선: 스프레드 방식 → 명시적 중첩 구조, 개별 업로드 `.catch(() => null)` 격리
+
+---
+
 ## 2026-05-27
 
 ### 📋 TODO

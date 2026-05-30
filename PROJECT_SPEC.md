@@ -1,6 +1,6 @@
 # PROJECT_SPEC.md — My Planner PWA 기능 명세서
 
-> 최종 업데이트: 2026-05-27 (모바일 타임라인 롱프레스 블록 생성, DO 삭제 버그 수정, DO 블록 모바일 메뉴 추가)
+> 최종 업데이트: 2026-05-30 (모먼트 로그 독립 메뉴 추가, 날씨 자동 기록, 저장 무한 로딩 버그 수정)
 
 ---
 
@@ -22,6 +22,7 @@
 | `/selfcare` | `SelfCareView` | 운동/공부/뷰티 기록, 월간 통계 |
 | `/reviews` | `ReviewsView` | 감정·감사·KPT·데일리리뷰, 주간/월간 리뷰 |
 | `/food` | `FoodView` | 식단 기록 3탭(오늘/달력/통계), 영양성분 API 연동, 사진 업로드 |
+| `/moments` | `MomentView` | 모먼트 로그 — 사진(최대 5장)+텍스트 작성·저장, 날씨 자동 기록, 최신순 카드 목록 |
 
 > 참고: `BrainstormView.tsx`, `BacklogView.tsx` 파일은 남아 있지만 현재 `routes.tsx`에는 연결되어 있지 않다.
 
@@ -168,6 +169,7 @@
 | `weekly_reviews` | 주간 리뷰 | `week_key` DESC | ✅ |
 | `monthly_reviews` | 월간 리뷰 | `month` DESC | ✅ |
 | `food_records` | 식단 기록 | `date` DESC, `created_at` DESC | ✅ |
+| `moments` | 모먼트 로그 | `created_at` DESC | ✅ |
 
 ### 2-2. 테이블별 컬럼 상세
 
@@ -413,6 +415,17 @@ created_at   timestamptz 생성일시
 ```
 > Storage: `food-photos` 버킷 (public, anon INSERT/UPDATE/DELETE/SELECT 정책 설정) — 사진 업로드/삭제 지원
 
+#### `moments`
+```
+id              uuid        PK (gen_random_uuid())
+created_at      timestamptz 생성일시 (default now())
+content         text        짧은 텍스트 기록
+photos          text[]      사진 Public URL 배열 (Supabase Storage moment-photos 버킷)
+weather_temp    numeric     기온 (°C, nullable — 위치 권한 거부 시 null)
+weather_code    int         WMO 날씨 코드 (nullable)
+```
+> Storage: `moment-photos` 버킷 (public, anon INSERT/UPDATE/DELETE/SELECT 정책 설정)
+
 ---
 
 ## 3. 페이지간 데이터 연동 관계
@@ -495,6 +508,7 @@ store.tsx (PlannerContext)
 | 주간 리뷰 | ✅ | ✅ | ✅ | — | ✅ 연동 (weekly_reviews 테이블) |
 | 월간 리뷰 | ✅ | ✅ | ✅ | — | ✅ 연동 (monthly_reviews 테이블) |
 | 식단 기록 | ✅ | ✅ | ✅ | ✅ | ✅ 연동 (food_records 테이블) |
+| 모먼트 로그 | ✅ | ✅ | — | ✅ | ✅ 연동 (moments 테이블) |
 
 ### ✅ UI/UX 기능
 
@@ -545,6 +559,7 @@ store.tsx (PlannerContext)
 - 일일 긍정 메시지 (AffirmationCard)
 - **식단 기록 페이지(`/food`)** — 3탭(오늘/달력/통계), 7단계 바텀시트 추가 흐름, 식약처 영양성분 API 자동 검색, 사진 업로드(카메라/갤러리), 음성입력, 식사유형·맛평가, 도넛·바 차트 통계 (`FoodView.tsx`)
 - **식약처 영양성분 API 프록시** — Vercel Edge Function `GET /api/food-nutrition?query=음식명` → 칼로리/탄수화물/단백질/지방 반환 (`api/food-nutrition.ts`)
+- **모먼트 로그(`/moments`)** — 사진(카메라/갤러리, 최대 5장)+텍스트 작성·저장, 저장 시 Geolocation → Open-Meteo 날씨 자동 첨부, WMO 코드 → 이모지+한국어 매핑, 카드 날씨 배지 표시, 위치 거부 시 날씨 없이 폴백 저장 (`MomentView.tsx`)
 - **모바일 타임라인 블록 생성 — 롱프레스 방식** — 빈 타임라인을 0.5초 꾹 누를 때만 블록 생성 모드 활성화(기본 30분 프리뷰 + 진동), 이전 드래그 방식은 일반 스크롤과 충돌했음. `WebkitTouchCallout/WebkitUserSelect: none` 으로 iOS 시스템 텍스트 선택 메뉴 차단 (`DailyView.tsx`)
 - **DO 블록 독립 삭제** — DO 블록 삭제 시 `doStart/doEnd/doElapsedSec`만 비워 PLAN은 유지(기존: `deleteTodo`로 할일 전체 삭제됨). DO 블록도 모바일 롱프레스 컨텍스트 메뉴 지원 (`DailyView.tsx`)
 
@@ -689,6 +704,9 @@ App.tsx
 │   ├── BrainstormItemCard
 │   ├── ConvertToTodoModal
 │   └── ConvertToEventModal
+│
+├── MomentView (/moments)
+│   └── (단일 컴포넌트 — 작성 카드 + 목록 카드)
 │
 ├── FoodView (/food)
 │   ├── TodayTab (오늘 식단 — 요약 카드 + 식사 섹션별 기록)
