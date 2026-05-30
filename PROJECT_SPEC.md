@@ -1,6 +1,6 @@
 # PROJECT_SPEC.md — My Planner PWA 기능 명세서
 
-> 최종 업데이트: 2026-05-30 (모먼트 로그 독립 메뉴 추가, 날씨 자동 기록, 저장 무한 로딩 버그 수정)
+> 최종 업데이트: 2026-05-31 (질문일기 신규 페이지 추가, 질문별 모아보기 기능)
 
 ---
 
@@ -23,6 +23,7 @@
 | `/reviews` | `ReviewsView` | 감정·감사·KPT·데일리리뷰, 주간/월간 리뷰 |
 | `/food` | `FoodView` | 식단 기록 3탭(오늘/달력/통계), 영양성분 API 연동, 사진 업로드 |
 | `/moments` | `MomentView` | 모먼트 로그 — 사진(최대 5장)+텍스트 작성·저장, 날씨 자동 기록, 최신순 카드 목록 |
+| `/question-journal` | `QuestionJournalView` | 질문일기 — 오늘의 질문 답변, 질문 탐색, 질문별 모아보기(5년 다이어리 스타일) |
 
 > 참고: `BrainstormView.tsx`, `BacklogView.tsx` 파일은 남아 있지만 현재 `routes.tsx`에는 연결되어 있지 않다.
 
@@ -509,6 +510,9 @@ store.tsx (PlannerContext)
 | 월간 리뷰 | ✅ | ✅ | ✅ | — | ✅ 연동 (monthly_reviews 테이블) |
 | 식단 기록 | ✅ | ✅ | ✅ | ✅ | ✅ 연동 (food_records 테이블) |
 | 모먼트 로그 | ✅ | ✅ | — | ✅ | ✅ 연동 (moments 테이블) |
+| 질문일기 — 질문 풀 | ✅ | ✅ | — | ✅ | ✅ 연동 (question_pool 테이블) |
+| 질문일기 — 답변 | ✅ | ✅ | ✅ | — | ✅ 연동 (question_answers 테이블) |
+| 질문일기 — 오늘 배정 | ✅ | ✅ | — | — | ✅ 연동 (daily_question 테이블) |
 
 ### ✅ UI/UX 기능
 
@@ -560,6 +564,7 @@ store.tsx (PlannerContext)
 - **식단 기록 페이지(`/food`)** — 3탭(오늘/달력/통계), 7단계 바텀시트 추가 흐름, 식약처 영양성분 API 자동 검색, 사진 업로드(카메라/갤러리), 음성입력, 식사유형·맛평가, 도넛·바 차트 통계 (`FoodView.tsx`)
 - **식약처 영양성분 API 프록시** — Vercel Edge Function `GET /api/food-nutrition?query=음식명` → 칼로리/탄수화물/단백질/지방 반환 (`api/food-nutrition.ts`)
 - **모먼트 로그(`/moments`)** — 사진(카메라/갤러리, 최대 5장)+텍스트 작성·저장, 저장 시 Geolocation → Open-Meteo 날씨 자동 첨부, WMO 코드 → 이모지+한국어 매핑, 카드 날씨 배지 표시, 위치 거부 시 날씨 없이 폴백 저장 (`MomentView.tsx`)
+- **질문일기(`/question-journal`)** — 오늘의 질문 탭(daily_question 랜덤 배정 + 답변 저장/수정), 질문 탐색 탭(내장 15개 + 커스텀 추가/삭제), 질문별 모아보기(연도별 섹션 + 5년 다이어리 스타일 카드, 바텀시트/모달 오버레이). Realtime 3테이블 연동 (`QuestionJournalView.tsx`)
 - **모바일 타임라인 블록 생성 — 롱프레스 방식** — 빈 타임라인을 0.5초 꾹 누를 때만 블록 생성 모드 활성화(기본 30분 프리뷰 + 진동), 이전 드래그 방식은 일반 스크롤과 충돌했음. `WebkitTouchCallout/WebkitUserSelect: none` 으로 iOS 시스템 텍스트 선택 메뉴 차단 (`DailyView.tsx`)
 - **DO 블록 독립 삭제** — DO 블록 삭제 시 `doStart/doEnd/doElapsedSec`만 비워 PLAN은 유지(기존: `deleteTodo`로 할일 전체 삭제됨). DO 블록도 모바일 롱프레스 컨텍스트 메뉴 지원 (`DailyView.tsx`)
 
@@ -707,6 +712,13 @@ App.tsx
 │
 ├── MomentView (/moments)
 │   └── (단일 컴포넌트 — 작성 카드 + 목록 카드)
+│
+├── QuestionJournalView (/question-journal)
+│   ├── TodayTab (오늘의 질문 — daily_question 배정, 답변 저장/수정)
+│   ├── ExploreTab (질문 탐색 — 내장/커스텀 목록, 추가/삭제)
+│   ├── HistoryPanel (질문별 모아보기 — 바텀시트/모달, 연도별 섹션)
+│   ├── AnswerCard (날짜별 답변 카드 — 최신 배지, 골드 테두리)
+│   └── QuestionItem (질문 카드 — 기록 보기 버튼, 삭제)
 │
 ├── FoodView (/food)
 │   ├── TodayTab (오늘 식단 — 요약 카드 + 식사 섹션별 기록)

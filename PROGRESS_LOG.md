@@ -6,6 +6,40 @@
 
 ---
 
+## 2026-05-31
+
+### 📋 TODO
+
+### ✅ 완료
+- [x] 질문일기(`/question-journal`) 신규 페이지 추가
+- [x] 질문별 모아보기 기능 추가 (바텀시트/모달, 연도별 섹션, 5년 다이어리 스타일)
+
+### 🛠 오늘 작업 내용
+
+**① 질문일기 신규 페이지 (`QuestionJournalView.tsx`, `routes.tsx`, `Layout.tsx`, `db.ts`)**
+- Supabase 테이블 3개: `question_pool` / `question_answers` / `daily_question`
+- Realtime 등록: 3개 테이블 모두 `supabase_realtime` publication 추가
+- 내장 질문 15개 시드 데이터 (`is_custom=false`)
+- `db.ts` 함수 추가:
+  - `questionPool.fetchAll / create / delete`
+  - `questionAnswers.fetchAll / upsertByDate / fetchByDate / fetchByQuestionId`
+  - `dailyQuestion.fetchByDate / assignRandom`
+- **오늘의 질문 탭**: `daily_question` 테이블에서 오늘 질문 조회, 없으면 랜덤 배정 후 저장. 답변 저장/수정 가능, `useRealtimeSync` 다기기 동기화
+- **질문 탐색 탭**: 내장 15개 + 커스텀 질문 목록. 커스텀 질문 추가(Enter 지원)/삭제
+- `routes.tsx`: `/question-journal` 라우트 추가
+- `Layout.tsx`: 사이드바 `lifestyleNavItems` + 모바일 `MobileMenuOverlay`에 📔 질문일기 항목 추가
+
+**② 질문별 모아보기 (`QuestionJournalView.tsx`)**
+- 질문 탐색 탭 각 카드에 "기록" 버튼 추가 (ScrollText 아이콘, 항상 표시)
+- `HistoryPanel` 컴포넌트: 모바일 바텀시트(90dvh) / PC 중앙 모달 오버레이
+  - 배경 클릭 / ESC 키로 닫기
+  - 답변 없음: "아직 이 질문에 답한 기록이 없어요" 안내
+  - 답변 있음: 연도별 섹션(골드 pill 구분선) + 날짜별 `AnswerCard`
+  - 최신 답변: 골드 왼쪽 테두리 + "최신" 배지 (5년 다이어리 스타일)
+  - `useRealtimeSync('question_answers')` — 실시간 반영
+
+---
+
 ## 2026-05-30
 
 ### 📋 TODO
