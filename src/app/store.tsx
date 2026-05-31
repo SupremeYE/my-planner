@@ -160,6 +160,7 @@ export interface FoodRecord {
   diningType?: DiningType | null;
   tasteRating?: TasteRating | null;
   tasteMemo?: string | null;
+  isFasting?: boolean;
 }
 
 export interface PeriodRecord {

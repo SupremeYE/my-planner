@@ -31,3 +31,7 @@ export const DINING_LABELS: Record<DiningType, string> = {
   restaurant: '외식',
   coffee:     '커피',
 };
+
+// 단식(거른 끼니) 표현
+export const FASTING_ICON = '🚫';
+export const FASTING_LABEL = '단식';

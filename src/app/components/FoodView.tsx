@@ -9,7 +9,7 @@ import {
   ChevronLeft, ChevronRight, ChevronDown, X, Camera, Image as ImageIcon,
   Mic, MicOff, Trash2, Pencil,
 } from 'lucide-react';
-import { MEAL_ICONS, MEAL_LABELS, DINING_ICONS, DINING_LABELS } from '../../constants/foodIcons';
+import { MEAL_ICONS, MEAL_LABELS, DINING_ICONS, DINING_LABELS, FASTING_ICON, FASTING_LABEL } from '../../constants/foodIcons';
 import {
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer,
   PieChart, Pie, Cell, Legend,
@@ -63,10 +63,12 @@ type FormState = {
   calories: string;
   tasteRating: TasteRating | null;
   tasteMemo: string;
+  isFasting: boolean;
 };
 
 const initForm = (meal: MealType = 'breakfast'): FormState => ({
   mealType: meal,
+  isFasting: false,
   photoUrl: null,
   photoFile: null,
   foodName: '',
@@ -157,6 +159,34 @@ function FoodCard({
   const dining = DINING_TYPES.find(d => d.key === record.diningType);
 
   const meal = MEALS.find(m => m.key === record.mealType);
+
+  // 단식 레코드: 칼로리·금액·맛·식사유형 없이 간결하게 표기
+  if (record.isFasting) {
+    return (
+      <div className="flex items-center gap-3 py-2.5 px-3 rounded-xl"
+        style={{ backgroundColor: t.bgSub, border: `1px dashed ${t.border}` }}>
+        <div className="w-12 h-12 rounded-full flex items-center justify-center flex-shrink-0 text-xl"
+          style={{ backgroundColor: t.card }}>
+          {FASTING_ICON}
+        </div>
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-1.5">
+            <span style={{ fontSize: 14, fontWeight: 600, color: t.textSub }}>{FASTING_LABEL}</span>
+            {meal && (
+              <span style={{ fontSize: 11, color: t.textMuted }}>{meal.emoji} {meal.label}</span>
+            )}
+          </div>
+          <span style={{ fontSize: 11, color: t.textMuted }}>이 끼니를 걸렀어요</span>
+        </div>
+        <div className="flex gap-1 flex-shrink-0">
+          <button onClick={onDelete} className="p-1.5 rounded-lg"
+            style={{ backgroundColor: t.card }}>
+            <Trash2 size={13} color="#D4735A" />
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="flex items-center gap-3 py-2.5 px-3 rounded-xl"
@@ -363,6 +393,7 @@ function CalendarCell({
           const rec = byMeal[meal.key];
           const photo = rec?.photoUrl;
           const hasRecord = !!rec;
+          const isFasting = !!rec?.isFasting;
           const isLeft = idx % 2 === 0;
           const isTop  = idx < 2;
           return (
@@ -371,15 +402,17 @@ function CalendarCell({
               style={{
                 borderRight:  isLeft ? `1px solid ${t.border}` : 'none',
                 borderBottom: isTop  ? `1px solid ${t.border}` : 'none',
-                backgroundColor: hasRecord
+                backgroundColor: hasRecord && !isFasting
                   ? isSelected ? 'rgba(255,255,255,0.15)' : `${t.accent}18`
                   : 'transparent',
               }}>
-              {photo
-                ? <img src={photo} alt="" className="absolute inset-0 w-full h-full object-cover" />
-                : <span style={{ fontSize: 9, opacity: hasRecord ? 0.85 : 0.2, lineHeight: 1 }}>
-                    {meal.emoji}
-                  </span>
+              {isFasting
+                ? <span style={{ fontSize: 9, opacity: 0.85, lineHeight: 1 }}>{FASTING_ICON}</span>
+                : photo
+                  ? <img src={photo} alt="" className="absolute inset-0 w-full h-full object-cover" />
+                  : <span style={{ fontSize: 9, opacity: hasRecord ? 0.85 : 0.2, lineHeight: 1 }}>
+                      {meal.emoji}
+                    </span>
               }
             </div>
           );
@@ -637,6 +670,17 @@ function StatsTab({ allRecords }: { allRecords: FoodRecord[] }) {
     return allRecords.filter(r => r.date.startsWith(customMonth));
   })();
 
+  // 단식 레코드는 식비/칼로리/맛 등 일반 통계에서 제외 (foodName '단식'이 TOP5 등을 오염시키지 않도록)
+  const mealRecords = filteredRecords.filter(r => !r.isFasting);
+  const fastingRecords = filteredRecords.filter(r => r.isFasting);
+
+  // 끼니별 단식 분포
+  const fastingByMeal = MEALS.map(m => ({
+    meal: m,
+    count: fastingRecords.filter(r => r.mealType === m.key).length,
+  })).filter(x => x.count > 0);
+  const fastingMax = fastingByMeal.reduce((mx, x) => Math.max(mx, x.count), 0);
+
   // 기간 레이블
   const periodLabel = (() => {
     if (filterMode === 'thisMonth') return `${now.getMonth() + 1}월 식비 총액`;
@@ -650,26 +694,26 @@ function StatsTab({ allRecords }: { allRecords: FoodRecord[] }) {
   })();
 
   // 식비 합계
-  const periodTotal = filteredRecords.reduce((s, r) => s + (r.amount ?? 0), 0);
+  const periodTotal = mealRecords.reduce((s, r) => s + (r.amount ?? 0), 0);
 
   // 배달/외식/집밥 횟수 (항상 filterMode 기준)
-  const deliveryCnt = filteredRecords.filter(r => r.diningType === 'delivery').length;
-  const restaurantCnt = filteredRecords.filter(r => r.diningType === 'restaurant').length;
-  const homeCnt = filteredRecords.filter(r => r.diningType === 'home').length;
+  const deliveryCnt = mealRecords.filter(r => r.diningType === 'delivery').length;
+  const restaurantCnt = mealRecords.filter(r => r.diningType === 'restaurant').length;
+  const homeCnt = mealRecords.filter(r => r.diningType === 'home').length;
 
   // 도넛 차트
   const diningCounts = DINING_TYPES.map(d => ({
     name: `${d.emoji} ${d.label}`,
-    value: filteredRecords.filter(r => r.diningType === d.key).length,
+    value: mealRecords.filter(r => r.diningType === d.key).length,
   })).filter(d => d.value > 0);
 
   // 자주 먹은 음식 TOP5
   const foodFreq: Record<string, number> = {};
-  filteredRecords.forEach(r => { foodFreq[r.foodName] = (foodFreq[r.foodName] ?? 0) + 1; });
+  mealRecords.forEach(r => { foodFreq[r.foodName] = (foodFreq[r.foodName] ?? 0) + 1; });
   const top5 = Object.entries(foodFreq).sort((a, b) => b[1] - a[1]).slice(0, 5);
 
   // 맛있었던 것들
-  const delicious = filteredRecords.filter(r => r.tasteRating === 'good').slice(0, 20);
+  const delicious = mealRecords.filter(r => r.tasteRating === 'good').slice(0, 20);
 
   // 칼로리 차트 데이터
   const calByDay = (() => {
@@ -759,9 +803,33 @@ function StatsTab({ allRecords }: { allRecords: FoodRecord[] }) {
           {periodTotal > 0 ? `${periodTotal.toLocaleString()}원` : '기록 없음'}
         </p>
         <p style={{ fontSize: 11, color: t.textMuted, marginTop: 4 }}>
-          총 {filteredRecords.length}건
+          총 {mealRecords.length}건{fastingRecords.length > 0 ? ` · 단식 ${fastingRecords.length}회` : ''}
         </p>
       </div>
+
+      {/* 끼니별 단식 분포 */}
+      {fastingRecords.length > 0 && (
+        <div className="p-4 rounded-2xl" style={{ backgroundColor: t.card, border: `1px solid ${t.border}` }}>
+          <div className="flex items-center justify-between mb-3">
+            <p style={{ fontSize: 13, fontWeight: 700, color: t.text }}>{FASTING_ICON} 끼니별 단식</p>
+            <span style={{ fontSize: 12, color: t.textMuted }}>총 {fastingRecords.length}회</span>
+          </div>
+          <div className="space-y-2">
+            {fastingByMeal.map(({ meal, count }) => (
+              <div key={meal.key} className="flex items-center gap-2">
+                <span style={{ fontSize: 12, width: 52, color: t.textSub }}>{meal.emoji} {meal.label}</span>
+                <div className="flex-1 h-2 rounded-full overflow-hidden" style={{ backgroundColor: t.bgSub }}>
+                  <div className="h-full rounded-full" style={{
+                    width: `${fastingMax > 0 ? (count / fastingMax) * 100 : 0}%`,
+                    backgroundColor: t.accent,
+                  }} />
+                </div>
+                <span style={{ fontSize: 12, fontWeight: 600, color: t.text, width: 28, textAlign: 'right' }}>{count}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* 식사 유형 횟수 */}
       {(deliveryCnt + restaurantCnt + homeCnt) > 0 && (
@@ -999,8 +1067,30 @@ function AddFoodSheet({
       diningType: form.diningType,
       tasteRating: form.tasteRating,
       tasteMemo: form.tasteMemo.trim() || null,
+      isFasting: false,
     });
     setSaving(false);
+    onClose();
+  };
+
+  // 단식: 선택한 끼니를 거른 것으로 즉시 기록하고 닫는다
+  const saveFasting = (meal: MealType) => {
+    onSave({
+      date: editRecord?.date ?? format(new Date(), 'yyyy-MM-dd'),
+      mealType: meal,
+      foodName: FASTING_LABEL,
+      amount: 0,
+      photoUrl: null,
+      memo: null,
+      calories: 0,
+      carbs: null,
+      protein: null,
+      fat: null,
+      diningType: null,
+      tasteRating: null,
+      tasteMemo: null,
+      isFasting: true,
+    });
     onClose();
   };
 
@@ -1078,6 +1168,29 @@ function AddFoodSheet({
                   </button>
                 ))}
               </div>
+
+              {/* 단식: 거른 끼니를 한 번에 기록 */}
+              {!editRecord && (
+                <div className="mt-5">
+                  <div className="flex items-center gap-2 mb-2">
+                    <span style={{ fontSize: 16 }}>{FASTING_ICON}</span>
+                    <span style={{ fontSize: 12, fontWeight: 600, color: t.textSub }}>
+                      끼니를 거르셨나요? 단식으로 기록해요
+                    </span>
+                  </div>
+                  <div className="grid grid-cols-4 gap-2">
+                    {MEALS.map(m => (
+                      <button key={m.key}
+                        onClick={() => saveFasting(m.key)}
+                        className="flex flex-col items-center gap-1 py-2.5 rounded-xl transition-all"
+                        style={{ backgroundColor: t.bgSub, border: `1px dashed ${t.border}` }}>
+                        <span style={{ fontSize: 14 }}>{m.emoji}</span>
+                        <span style={{ fontSize: 11, color: t.textSub }}>{m.label} 단식</span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
           )}
 
