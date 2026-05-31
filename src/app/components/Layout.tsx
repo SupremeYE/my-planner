@@ -10,6 +10,7 @@ import { useTheme } from '../ThemeContext';
 import { format, startOfMonth, getDaysInMonth, getDay, addMonths, subMonths } from 'date-fns';
 import { PROJECT_COLORS } from './ProjectView';
 import { NotificationPermissionBanner } from './NotificationPermissionBanner';
+import { HaonLogo } from './HaonLogo';
 
 const mainNavItems = [
   { to: '/dashboard', icon: Home, label: '대시보드' },
@@ -352,12 +353,7 @@ export function Layout() {
           <div className="px-3 pt-4 pb-3 border-b flex items-center justify-between" style={{ borderColor: t.border }}>
             {leftSidebarOpen && (
               <div className="flex-1 min-w-0">
-                <h1 style={{ fontSize: 18, fontWeight: 700, color: t.text, letterSpacing: '-0.02em' }}>
-                  My Planner
-                </h1>
-                <p style={{ fontSize: 10, color: t.accent, marginTop: 2 }}>
-                  ✨ 오늘도 좋은 하루 ✨
-                </p>
+                <HaonLogo height={36} showSubtitle />
               </div>
             )}
             <button
@@ -636,7 +632,7 @@ export function Layout() {
         {/* Mobile top bar */}
         <div className="flex items-center justify-between px-4 py-3 border-b flex-shrink-0"
           style={{ backgroundColor: t.sidebar, borderColor: t.border }}>
-          <span style={{ fontSize: 16, fontWeight: 700, color: t.text }}>My Planner</span>
+          <HaonLogo height={28} />
           <button
             onClick={() => setMobileMenuOpen(true)}
             className="p-2 rounded-xl transition-colors"

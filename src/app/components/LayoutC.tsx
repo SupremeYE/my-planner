@@ -12,6 +12,7 @@ import {
   addMonths, subMonths,
 } from 'date-fns';
 import { PROJECT_COLORS } from './ProjectView';
+import { HaonLogo } from './HaonLogo';
 
 const NAV_ITEMS = [
   { to: '/dashboard', icon: Home,         label: '대시보드' },
@@ -352,13 +353,7 @@ export function LayoutC() {
       >
         {/* Logo */}
         <div className="flex items-center gap-2 px-5 flex-shrink-0" style={{ borderRight: `1px solid ${t.border}`, height: '100%' }}>
-          <div className="w-6 h-6 rounded-lg flex items-center justify-center flex-shrink-0"
-            style={{ backgroundColor: t.accent }}>
-            <span style={{ fontSize: 11, color: '#fff', fontWeight: 800 }}>P</span>
-          </div>
-          <span style={{ fontSize: 14, fontWeight: 800, color: t.text, letterSpacing: '-0.02em', whiteSpace: 'nowrap' }}>
-            My Planner
-          </span>
+          <HaonLogo height={26} />
         </div>
 
         {/* Nav tabs */}
