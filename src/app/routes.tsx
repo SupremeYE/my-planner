@@ -9,6 +9,7 @@ import { TodosView } from './components/TodosView';
 import { ProjectsView, ProjectDetailView } from './components/ProjectView';
 import { HabitsView } from './components/HabitsView';
 import { SelfCareView } from './components/SelfCareView';
+import { HealthView } from './components/HealthView';
 import { ReviewsView } from './components/ReviewsView';
 import { SettingsView } from './components/SettingsView';
 import { FoodView } from './components/FoodView';
@@ -33,7 +34,9 @@ export const router = createBrowserRouter([
       { path: 'projects/:id', Component: ProjectDetailView },
       { path: 'habits',       Component: HabitsView },
       { path: 'routines',     element: <Navigate to="/habits" replace /> },
-      { path: 'selfcare',     Component: SelfCareView },
+      { path: 'health',       Component: HealthView },
+      { path: 'time-report',  Component: SelfCareView },
+      { path: 'selfcare',     element: <Navigate to="/time-report" replace /> },
       { path: 'reviews',      Component: ReviewsView },
       { path: 'settings',     Component: SettingsView },
       { path: 'food',         Component: FoodView },

@@ -3,7 +3,7 @@ import { Outlet, NavLink, useLocation } from 'react-router';
 import {
   Sun, CalendarDays, LayoutList, BarChart2, ListTodo,
   ChevronLeft, ChevronRight, Target, FolderKanban, Plus, Home,
-  Menu, Heart, Repeat, BookOpen, Library, Settings,
+  Menu, Heart, Repeat, BookOpen, Library, Settings, BarChart3,
 } from 'lucide-react';
 import { usePlanner, getWeekKey } from '../store';
 import { useTheme } from '../ThemeContext';
@@ -22,7 +22,8 @@ const mainNavItems = [
 
 const lifestyleNavItems = [
   { to: '/habits', icon: Repeat, label: '습관 & 루틴' },
-  { to: '/selfcare', icon: Heart, label: '자기관리' },
+  { to: '/health', icon: Heart, label: '건강' },
+  { to: '/time-report', icon: BarChart3, label: '시간 리포트' },
   { to: '/mood', icon: () => <span style={{ fontSize: 16 }}>🌸</span>, label: '감정 기록' },
   { to: '/reviews', icon: BookOpen, label: '리뷰 & 기록' },
   { to: '/food', icon: () => <span style={{ fontSize: 16 }}>🍽️</span>, label: '식단' },
@@ -260,7 +261,8 @@ function MobileMenuOverlay({ onClose }: { onClose: () => void }) {
     ...mainNavItems,
     { to: '/projects', icon: FolderKanban, label: '프로젝트' },
     { to: '/habits', icon: Repeat, label: '습관&루틴' },
-    { to: '/selfcare', icon: Heart, label: '자기관리' },
+    { to: '/health', icon: Heart, label: '건강' },
+    { to: '/time-report', icon: BarChart3, label: '시간 리포트' },
     { to: '/mood', icon: () => <span style={{ fontSize: 20 }}>🌸</span>, label: '감정 기록' },
     { to: '/reviews', icon: BookOpen, label: '기록' },
     { to: '/food', icon: () => <span style={{ fontSize: 16 }}>🍽️</span>, label: '식단' },
