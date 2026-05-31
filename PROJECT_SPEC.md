@@ -1,6 +1,6 @@
 # PROJECT_SPEC.md — My Planner PWA 기능 명세서
 
-> 최종 업데이트: 2026-05-31 (질문일기 신규 페이지 추가, 질문별 모아보기 기능)
+> 최종 업데이트: 2026-05-31 (식단 단식 기록 기능, 일정 스키마 버그 수정, 캘린더 탭 색상·미루기 배지 개선, 질문일기 신규 페이지)
 
 ---
 
@@ -21,7 +21,7 @@
 | `/routines` | → `/habits` 리다이렉트 | 기존 루틴 페이지 호환용 alias |
 | `/selfcare` | `SelfCareView` | 운동/공부/뷰티 기록, 월간 통계 |
 | `/reviews` | `ReviewsView` | 감정·감사·KPT·데일리리뷰, 주간/월간 리뷰 |
-| `/food` | `FoodView` | 식단 기록 3탭(오늘/달력/통계), 영양성분 API 연동, 사진 업로드 |
+| `/food` | `FoodView` | 식단 기록 3탭(오늘/달력/통계), 영양성분 API 연동, 사진 업로드, 끼니별 단식 기록 |
 | `/moments` | `MomentView` | 모먼트 로그 — 사진(최대 5장)+텍스트 작성·저장, 날씨 자동 기록, 최신순 카드 목록 |
 | `/question-journal` | `QuestionJournalView` | 질문일기 — 오늘의 질문 답변, 질문 탐색, 질문별 모아보기(5년 다이어리 스타일) |
 
@@ -499,7 +499,7 @@ store.tsx (PlannerContext)
 | 리뷰 기록 | ✅ | ✅ | ✅ | ✅ | ✅ 연동 |
 | 타임라인 설정 | ✅ | ✅ | ✅ | — | ✅ 연동 |
 | 타임라인 로그 | ✅ | ✅ | — | ✅ | ✅ 연동 (버그 수정 완료) |
-| 일정 (Event) | ✅ | ✅ | ✅ | ✅ | ✅ 연동 |
+| 일정 (Event) | ✅ | ✅ | ✅ | ✅ | ✅ 연동 (events 스키마 버그 수정 완료) |
 | 주간 목표 | ✅ | ✅ | ✅ | ✅ | ✅ 연동 |
 | 월간 목표 | ✅ | ✅ | — | ✅ | ✅ 연동 |
 | 브레인덤프 아이템 | ✅ | ✅ | — | ✅ | ✅ 연동 |
@@ -508,7 +508,7 @@ store.tsx (PlannerContext)
 | 루틴 | ✅ | ✅ | ✅ | ✅ | ✅ 연동 |
 | 주간 리뷰 | ✅ | ✅ | ✅ | — | ✅ 연동 (weekly_reviews 테이블) |
 | 월간 리뷰 | ✅ | ✅ | ✅ | — | ✅ 연동 (monthly_reviews 테이블) |
-| 식단 기록 | ✅ | ✅ | ✅ | ✅ | ✅ 연동 (food_records 테이블) |
+| 식단 기록 | ✅ | ✅ | ✅ | ✅ | ✅ 연동 (food_records 테이블, is_fasting 단식 플래그 포함) |
 | 모먼트 로그 | ✅ | ✅ | — | ✅ | ✅ 연동 (moments 테이블) |
 | 질문일기 — 질문 풀 | ✅ | ✅ | — | ✅ | ✅ 연동 (question_pool 테이블) |
 | 질문일기 — 답변 | ✅ | ✅ | ✅ | — | ✅ 연동 (question_answers 테이블) |
@@ -567,6 +567,9 @@ store.tsx (PlannerContext)
 - **질문일기(`/question-journal`)** — 오늘의 질문 탭(daily_question 랜덤 배정 + 답변 저장/수정), 질문 탐색 탭(내장 15개 + 커스텀 추가/삭제), 질문별 모아보기(연도별 섹션 + 5년 다이어리 스타일 카드, 바텀시트/모달 오버레이). Realtime 3테이블 연동 (`QuestionJournalView.tsx`)
 - **모바일 타임라인 블록 생성 — 롱프레스 방식** — 빈 타임라인을 0.5초 꾹 누를 때만 블록 생성 모드 활성화(기본 30분 프리뷰 + 진동), 이전 드래그 방식은 일반 스크롤과 충돌했음. `WebkitTouchCallout/WebkitUserSelect: none` 으로 iOS 시스템 텍스트 선택 메뉴 차단 (`DailyView.tsx`)
 - **DO 블록 독립 삭제** — DO 블록 삭제 시 `doStart/doEnd/doElapsedSec`만 비워 PLAN은 유지(기존: `deleteTodo`로 할일 전체 삭제됨). DO 블록도 모바일 롱프레스 컨텍스트 메뉴 지원 (`DailyView.tsx`)
+- **식단 단식 기록** — 음식 추가 첫 단계(끼니 선택) 하단의 "🚫 끼니별 단식" 버튼으로 거른 끼니를 한 번에 기록(`FoodRecord.isFasting`, `food_records.is_fasting`). 기록 카드는 점선 🚫 표기, 식단 달력 셀 4분할에서 단식 끼니 🚫 표시, 통계에 "끼니별 단식" 분포 카드 추가(식비/칼로리/TOP5 등 일반 통계는 단식 제외) (`FoodView.tsx`)
+- **캘린더 월별/주별 탭 색상** — 파란 계열을 서비스 골드/베이지 톤으로 통일(베이지 컨테이너 + 골드 활성 탭) (`CalendarView.tsx`)
+- **할일 미루기 배지 정리** — 일간 미루기 시 `status`를 `snoozed`가 아닌 `active`로 저장해, 미룬 날짜 이동은 유지하되 "미루기" 상태 배지는 표시하지 않음(백로그 미루기와 동작 통일) (`DailyView.tsx`)
 
 ---
 
@@ -581,6 +584,7 @@ store.tsx (PlannerContext)
 | `DailyView.tsx` (ContextMenu 삭제 플로우) | 삭제 확인 모달에서 버튼 클릭 시 컨텍스트 메뉴가 먼저 닫혀 onConfirm 누락 가능 | 팝업 "삭제" 클릭 후 할일이 삭제되지 않음 | ✅ 수정 완료 |
 | `DailyView.tsx` (모바일 타임라인) | 아래 드래그 8px 이상이면 블록 생성 → 일반 스크롤에도 블록 생성, 위 스크롤 불가 | 스크롤 시 타임블록 자동 생성 | ✅ 수정 완료 |
 | `DailyView.tsx` (DO 블록 삭제) | DO 블록 `deleteTodo(id)` → PLAN/DO 공유 todo 전체 삭제 | DO 지우면 PLAN도 사라짐 | ✅ 수정 완료 |
+| `events` 테이블 / `api/events.ts` | 운영 DB가 옛 스키마(date/start_time/end_time)만 보유, 코드가 쓰는 start_at 등 컬럼 누락 → `GET /events` 400 | 일정 추가/조회 전면 중단 + store Promise.all reject로 태그 등 미반영 | ✅ 수정 완료 (마이그레이션) |
 
 ### ⚠️ 새로고침 시 데이터 소실 (Supabase 미연동)
 

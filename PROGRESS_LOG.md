@@ -13,10 +13,41 @@
 ### ✅ 완료
 - [x] 질문일기(`/question-journal`) 신규 페이지 추가
 - [x] 질문별 모아보기 기능 추가 (바텀시트/모달, 연도별 섹션, 5년 다이어리 스타일)
+- [x] 캘린더 월별/주별 탭 색상을 서비스 골드/베이지 톤으로 변경
+- [x] 일간 페이지 할일 미루기 시 "미루기" 상태 배지가 생기지 않도록 수정
+- [x] 일정(캘린더 events) 기능 복구 — events 테이블 스키마 불일치 버그 수정
+- [x] 식단 단식(끼니 거름) 기록 기능 추가 (끼니별 토글 + 달력 표시 + 통계)
 
 ### 🛠 오늘 작업 내용
 
-**① 질문일기 신규 페이지 (`QuestionJournalView.tsx`, `routes.tsx`, `Layout.tsx`, `db.ts`)**
+**① 캘린더 월별/주별 탭 색상 개선 (`CalendarView.tsx`)**
+- 파란 계열(`#eef4fa`/`#26343d`)이라 서비스 톤과 겉돌던 탭을 골드/베이지로 통일
+- 컨테이너 베이지 배경(`#EFE7D8`) + 활성 탭 카드색(`#FDFAF4`)·골드 테두리(`#C4A882`)·골드 텍스트(`#8D7152`)
+- PC 레이아웃 미변경, 색상만 조정
+
+**② 일간 페이지 할일 미루기 수정 (`DailyView.tsx`)**
+- `SnoozeModal.handleConfirm`의 `status: 'snoozed'` → `'active'`로 변경
+- 미룬 날짜·시간 이동은 그대로 유지하되, 주황색 "미루기" 상태 배지가 더 이상 표시되지 않도록 백로그 미루기와 동작 통일
+
+**③ 일정(events) 기능 복구 — 코드–DB 스키마 불일치 버그 (`supabase/migrations/`)**
+- 원인: 운영 DB `events` 테이블에 옛 스키마(`date`/`start_time`/`end_time`)만 있고
+  코드(`src/api/events.ts`)가 쓰는 `start_at`/`end_at`/`is_all_day`/`repeat_*` 컬럼이 없어
+  `GET /events`가 400(`column events.start_at does not exist`)으로 실패 → 일정 추가/조회 전면 중단
+- 부작용: store 초기 로딩의 `Promise.all`이 events fetch 실패로 reject되어 **태그 등 다른 상태까지 미반영**
+- 조치: 마이그레이션 `20260531000000_fix_events_schema_alignment.sql` — 누락 컬럼 추가 + `date` NOT NULL 완화 (events 0행이라 데이터 손실 없음)
+- events는 이미 `supabase_realtime`에 등록되어 있어 PC↔모바일 즉시 반영 정상
+
+**④ 식단 단식 기록 기능 (`FoodView.tsx`, `store.tsx`, `db.ts`, `constants/foodIcons.ts`, `supabase/migrations/`)**
+- 거른 끼니를 명시적으로 "단식"으로 기록 (별도 테이블 없이 `FoodRecord.isFasting` 플래그로 표현)
+- DB: 마이그레이션 `20260531010000_add_food_is_fasting.sql` — `food_records.is_fasting boolean DEFAULT false`
+- 단식 레코드 저장 형태: `food_name='단식', amount=0, calories=0, isFasting=true`
+- **입력**: 음식 추가 첫 단계(끼니 선택) 하단에 "🚫 끼니별 단식" 버튼 → 한 번 누르면 즉시 저장 후 닫힘
+- **기록 카드**: 🚫 아이콘 + "단식 / 이 끼니를 걸렀어요" 점선 카드 (수정 없이 삭제만)
+- **식단 페이지 달력**: 날짜 셀 4분할에서 단식한 끼니를 🚫로 표시
+- **통계**: "🚫 끼니별 단식" 분포 카드 신규 추가(끼니별 막대 + 총 횟수), 식비/칼로리/TOP5 등 일반 통계는 단식 제외(`mealRecords`)
+- food_records는 이미 Realtime 등록됨
+
+**⑤ 질문일기 신규 페이지 (`QuestionJournalView.tsx`, `routes.tsx`, `Layout.tsx`, `db.ts`)**
 - Supabase 테이블 3개: `question_pool` / `question_answers` / `daily_question`
 - Realtime 등록: 3개 테이블 모두 `supabase_realtime` publication 추가
 - 내장 질문 15개 시드 데이터 (`is_custom=false`)
