@@ -5,10 +5,13 @@ import { supabase } from '../lib/supabase';
 interface AuthContextValue {
   session: Session | null;
   loading: boolean;
+  recovery: boolean;
   signIn: (email: string, password: string) => Promise<{ error: string | null }>;
   signOut: () => Promise<void>;
   updateEmail: (email: string) => Promise<{ error: string | null }>;
   updatePassword: (password: string) => Promise<{ error: string | null }>;
+  resetPassword: (email: string) => Promise<{ error: string | null }>;
+  clearRecovery: () => void;
 }
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
@@ -16,6 +19,8 @@ const AuthContext = createContext<AuthContextValue | undefined>(undefined);
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
+  // 비밀번호 재설정 메일 링크로 진입한 상태 (새 비밀번호 설정 화면 표시용)
+  const [recovery, setRecovery] = useState(false);
 
   useEffect(() => {
     // 저장된 세션 복원
@@ -24,8 +29,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setLoading(false);
     });
     // 로그인/로그아웃/토큰갱신 구독
-    const { data: sub } = supabase.auth.onAuthStateChange((_event, s) => {
+    const { data: sub } = supabase.auth.onAuthStateChange((event, s) => {
       setSession(s);
+      // 재설정 메일 링크 클릭 시 Supabase가 PASSWORD_RECOVERY 이벤트 발생
+      if (event === 'PASSWORD_RECOVERY') setRecovery(true);
     });
     return () => sub.subscription.unsubscribe();
   }, []);
@@ -52,8 +59,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return { error: error?.message ?? null };
   };
 
+  // 비밀번호 찾기 — 재설정 링크를 이메일로 발송
+  const resetPassword = async (email: string) => {
+    const { error } = await supabase.auth.resetPasswordForEmail(email.trim(), {
+      redirectTo: window.location.origin,
+    });
+    return { error: error?.message ?? null };
+  };
+
+  const clearRecovery = () => setRecovery(false);
+
   return (
-    <AuthContext.Provider value={{ session, loading, signIn, signOut, updateEmail, updatePassword }}>
+    <AuthContext.Provider
+      value={{ session, loading, recovery, signIn, signOut, updateEmail, updatePassword, resetPassword, clearRecovery }}
+    >
       {children}
     </AuthContext.Provider>
   );

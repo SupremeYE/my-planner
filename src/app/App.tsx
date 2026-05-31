@@ -7,11 +7,12 @@ import { PlannerProvider } from './store';
 import { GlobalFloatingTimer } from './components/GlobalFloatingTimer';
 import { PWABanner, IOSInstallGuide } from './components/PWABanner';
 import { LoginView } from './components/LoginView';
+import { ResetPasswordView } from './components/ResetPasswordView';
 import { AccountWidget } from './components/AccountWidget';
 import SplashScreen from '../components/SplashScreen';
 
 function AppContent() {
-  const { session, loading } = useAuth();
+  const { session, loading, recovery } = useAuth();
   const [showSplash, setShowSplash] = useState(true);
   const [fadeOutSplash, setFadeOutSplash] = useState(false);
 
@@ -33,6 +34,11 @@ function AppContent() {
   // 스플래시 또는 세션 복원 중
   if (showSplash || loading) {
     return <SplashScreen isFadingOut={fadeOutSplash} />;
+  }
+
+  // 비밀번호 재설정 메일 링크로 진입 → 새 비밀번호 설정 화면
+  if (recovery) {
+    return <ResetPasswordView />;
   }
 
   // 비로그인 → 로그인 화면 (PlannerProvider 미마운트 → Supabase 조회 안 함)

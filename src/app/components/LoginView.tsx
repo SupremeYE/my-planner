@@ -53,10 +53,12 @@ function HaonLogo({ size = 88 }: { size?: number }) {
 
 export function LoginView() {
   const { t } = useTheme();
-  const { signIn } = useAuth();
+  const { signIn, resetPassword } = useAuth();
+  const [mode, setMode] = useState<'login' | 'reset'>('login');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
+  const [info, setInfo] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -67,6 +69,24 @@ export function LoginView() {
     const { error } = await signIn(email, password);
     if (error) setError('이메일 또는 비밀번호가 올바르지 않습니다.');
     setLoading(false);
+  };
+
+  const handleReset = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!email.trim() || loading) return;
+    setLoading(true);
+    setError(null);
+    setInfo(null);
+    const { error } = await resetPassword(email);
+    setLoading(false);
+    if (error) setError('재설정 메일 발송 실패: ' + error);
+    else setInfo('재설정 링크를 메일로 보냈어요. 메일함(스팸함 포함)을 확인해 주세요.');
+  };
+
+  const switchMode = (next: 'login' | 'reset') => {
+    setMode(next);
+    setError(null);
+    setInfo(null);
   };
 
   const inputStyle: React.CSSProperties = {
@@ -223,14 +243,19 @@ export function LoginView() {
                 letterSpacing: '-0.5px',
               }}
             >
-              다시 만나서 반가워요
+              {mode === 'login' ? '다시 만나서 반가워요' : '비밀번호 찾기'}
             </h2>
             <p style={{ marginTop: 8, fontSize: 13, color: t.textSub }}>
-              오늘 하루도 온전히 채워볼까요?
+              {mode === 'login'
+                ? '오늘 하루도 온전히 채워볼까요?'
+                : '가입한 이메일로 재설정 링크를 보내드려요.'}
             </p>
           </div>
 
-          <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+          <form
+            onSubmit={mode === 'login' ? handleSubmit : handleReset}
+            style={{ display: 'flex', flexDirection: 'column', gap: 14 }}
+          >
             <div>
               <label style={{ fontSize: 12, color: t.textSub, fontWeight: 500, marginBottom: 6, display: 'block' }}>
                 이메일
@@ -240,33 +265,47 @@ export function LoginView() {
                 autoComplete="username"
                 value={email}
                 onChange={e => setEmail(e.target.value)}
-                placeholder="haon@planner.com"
+                placeholder="가입한 이메일"
                 style={inputStyle}
                 required
               />
             </div>
-            <div>
-              <label style={{ fontSize: 12, color: t.textSub, fontWeight: 500, marginBottom: 6, display: 'block' }}>
-                비밀번호
-              </label>
-              <input
-                type="password"
-                autoComplete="current-password"
-                value={password}
-                onChange={e => setPassword(e.target.value)}
-                placeholder="••••••••"
-                style={inputStyle}
-                required
-              />
-            </div>
+            {mode === 'login' && (
+              <div>
+                <div className="flex items-center justify-between" style={{ marginBottom: 6 }}>
+                  <label style={{ fontSize: 12, color: t.textSub, fontWeight: 500, display: 'block' }}>
+                    비밀번호
+                  </label>
+                  <button
+                    type="button"
+                    onClick={() => switchMode('reset')}
+                    style={{ fontSize: 12, color: t.accent, fontWeight: 600, background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}
+                  >
+                    비밀번호를 잊으셨나요?
+                  </button>
+                </div>
+                <input
+                  type="password"
+                  autoComplete="current-password"
+                  value={password}
+                  onChange={e => setPassword(e.target.value)}
+                  placeholder="••••••••"
+                  style={inputStyle}
+                  required
+                />
+              </div>
+            )}
 
             {error && (
               <p style={{ fontSize: 12, color: t.danger, marginTop: 2 }}>{error}</p>
             )}
+            {info && (
+              <p style={{ fontSize: 12, color: t.success, marginTop: 2 }}>{info}</p>
+            )}
 
             <button
               type="submit"
-              disabled={loading || !email.trim() || !password}
+              disabled={loading || !email.trim() || (mode === 'login' && !password)}
               style={{
                 marginTop: 8,
                 padding: '14px 16px',
@@ -278,7 +317,7 @@ export function LoginView() {
                 fontWeight: 700,
                 letterSpacing: '-0.2px',
                 cursor: loading ? 'default' : 'pointer',
-                opacity: loading || !email.trim() || !password ? 0.6 : 1,
+                opacity: loading || !email.trim() || (mode === 'login' && !password) ? 0.6 : 1,
                 boxShadow: '0 10px 24px rgba(244,165,130,0.35)',
                 fontFamily: t.font,
                 transition: 'transform 0.1s, opacity 0.2s',
@@ -286,8 +325,20 @@ export function LoginView() {
               onMouseDown={e => (e.currentTarget.style.transform = 'scale(0.99)')}
               onMouseUp={e => (e.currentTarget.style.transform = 'scale(1)')}
             >
-              {loading ? '로그인 중...' : '로그인'}
+              {loading
+                ? (mode === 'login' ? '로그인 중...' : '발송 중...')
+                : (mode === 'login' ? '로그인' : '재설정 링크 보내기')}
             </button>
+
+            {mode === 'reset' && (
+              <button
+                type="button"
+                onClick={() => switchMode('login')}
+                style={{ fontSize: 13, color: t.textSub, fontWeight: 500, background: 'none', border: 'none', cursor: 'pointer', marginTop: 2 }}
+              >
+                ← 로그인으로 돌아가기
+              </button>
+            )}
           </form>
         </div>
       </div>
