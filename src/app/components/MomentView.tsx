@@ -158,7 +158,7 @@ export function MomentView() {
 
   return (
     <div className="h-full overflow-y-auto" style={{ backgroundColor: t.bg }}>
-      <div className="max-w-xl mx-auto px-4 py-5 lg:py-8 space-y-5">
+      <div className="px-4 py-5 lg:py-8 space-y-5">
 
         {/* 헤더 */}
         <div>

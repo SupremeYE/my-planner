@@ -265,7 +265,7 @@ function TodayTab() {
   }
 
   return (
-    <div className="flex flex-col gap-5 max-w-xl mx-auto">
+    <div className="flex flex-col gap-5">
       <p className="text-xs font-medium" style={{ color: t.subtleText }}>
         {format(new Date(), 'yyyy년 M월 d일 (EEE)', { locale: ko })}
       </p>
@@ -372,7 +372,7 @@ function ExploreTab({ onViewHistory }: { onViewHistory: (q: Question) => void })
   const customs = questions.filter(q => q.is_custom);
 
   return (
-    <div className="flex flex-col gap-6 max-w-xl mx-auto">
+    <div className="flex flex-col gap-6">
       {/* 커스텀 질문 추가 */}
       <div className="rounded-2xl p-4 shadow-sm" style={{ background: t.card }}>
         <p className="text-xs font-semibold mb-2" style={{ color: t.subtleText }}>나만의 질문 추가</p>
@@ -498,7 +498,7 @@ export function QuestionJournalView() {
   return (
     <div className="min-h-screen p-4 lg:p-6" style={{ background: t.background }}>
       {/* 헤더 */}
-      <div className="mb-6 max-w-xl mx-auto">
+      <div className="mb-6">
         <h1 className="text-2xl font-bold" style={{ color: t.text }}>질문일기</h1>
         <p className="text-sm mt-1" style={{ color: t.subtleText }}>
           매일 한 가지 질문으로 나 자신을 깊이 들여다보세요
@@ -506,7 +506,7 @@ export function QuestionJournalView() {
       </div>
 
       {/* 탭 */}
-      <div className="flex gap-1 mb-6 max-w-xl mx-auto">
+      <div className="flex gap-1 mb-6">
         {([
           { key: 'today',   label: '오늘의 질문' },
           { key: 'explore', label: '질문 탐색' },
