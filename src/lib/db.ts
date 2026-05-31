@@ -1,6 +1,6 @@
 import { supabase } from './supabase';
 import { format, addDays, subDays } from 'date-fns';
-import { createEvent as createEventApi, deleteEvent as deleteEventApi, getEvents, updateEvent as updateEventApi } from '../api/events';
+import { createEvent as createEventApi, deleteEvent as deleteEventApi, getEvents, upsertEvent as upsertEventApi } from '../api/events';
 import type {
   Todo, Habit, Project, Milestone,
   SelfCareRecord, ReviewRecord, WeeklyReview, MonthlyReview, TimelineLog,
@@ -644,7 +644,7 @@ export const db = {
     upsert: async (event: Event) => {
       const targetId = event.sourceEventId || (event.isOccurrence ? undefined : event.id);
       const saved = targetId
-        ? await updateEventApi(targetId, event)
+        ? await upsertEventApi(targetId, event)
         : await createEventApi(event);
       if (!saved) console.error('[db] events upsert: failed');
     },

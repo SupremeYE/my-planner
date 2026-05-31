@@ -201,6 +201,23 @@ export async function updateEvent(id: string, eventData: Partial<EventMutationIn
   return toLegacyEvent(data as EventRow);
 }
 
+// insert-or-update by primary key. 신규 이벤트(아직 행 없음)는 insert,
+// 기존 이벤트나 반복 일정 마스터(sourceEventId)는 update로 동작한다.
+export async function upsertEvent(id: string, eventData: Partial<EventMutationInput & Event>): Promise<Event | null> {
+  const payload = toRowPayload({ ...toEventInput(eventData as Event), id });
+  const { data, error } = await supabase
+    .from('events')
+    .upsert(payload)
+    .select('*')
+    .single();
+
+  if (error) {
+    console.error('[api/events] upsertEvent:', error.message);
+    return null;
+  }
+  return toLegacyEvent(data as EventRow);
+}
+
 export async function deleteEvent(id: string): Promise<boolean> {
   const { error } = await supabase.from('events').delete().eq('id', id);
   if (error) {
