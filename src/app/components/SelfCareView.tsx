@@ -735,8 +735,8 @@ export function SelfCareView() {
     <div className="flex-1 overflow-y-auto">
       {/* Header */}
       <div className="px-6 pt-6 pb-4">
-        <h1 style={{ fontSize: 22, fontWeight: 700, color: t.text, fontFamily: "'DM Serif Display', serif" }}>자기관리</h1>
-        <p style={{ fontSize: 13, color: t.textSub, marginTop: 4 }}>운동, 공부, 케어 활동을 기록하고 추적하세요</p>
+        <h1 style={{ fontSize: 22, fontWeight: 700, color: t.text, fontFamily: "'DM Serif Display', serif" }}>시간 리포트</h1>
+        <p style={{ fontSize: 13, color: t.textSub, marginTop: 4 }}>운동, 공부, 케어 등 카테고리별 시간 사용을 확인하세요</p>
       </div>
 
       <div className="px-6 pb-8">
@@ -756,12 +756,6 @@ export function SelfCareView() {
             </div>
           ))}
         </div>
-
-        {/* 생리 기록 섹션 */}
-        <PeriodSection />
-
-        {/* 수면 섹션 */}
-        <SleepSection />
 
         {/* Category sections */}
         {CATEGORIES.map(cat => {
