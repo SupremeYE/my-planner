@@ -179,6 +179,14 @@ export interface WeightGoal {
   targetMuscleMass?: number | null;
 }
 
+export interface ConditionRecord {
+  id: string;
+  date: string;             // yyyy-MM-dd
+  stress: number;           // 1~5
+  symptoms: string[];
+  memo?: string | null;
+}
+
 export interface PeriodRecord {
   id: string;
   startDate: string;        // yyyy-MM-dd

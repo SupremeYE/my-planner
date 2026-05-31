@@ -2,6 +2,7 @@ import { useSearchParams } from 'react-router';
 import { useTheme } from '../ThemeContext';
 import { SleepSection, PeriodSection } from './SelfCareView';
 import { WeightTab } from './WeightTab';
+import { ConditionTab } from './ConditionTab';
 
 type HealthTab = 'sleep' | 'condition' | 'weight' | 'period';
 
@@ -11,21 +12,6 @@ const TABS: { key: HealthTab; label: string }[] = [
   { key: 'weight',    label: '몸무게' },
   { key: 'period',    label: '생리' },
 ];
-
-function ComingSoon({ label }: { label: string }) {
-  const { t } = useTheme();
-  return (
-    <div
-      className="rounded-2xl py-16 flex flex-col items-center justify-center"
-      style={{ backgroundColor: t.card, border: `1px solid ${t.border}` }}
-    >
-      <span style={{ fontSize: 32 }}>🛠️</span>
-      <p style={{ fontSize: 14, color: t.textMuted, marginTop: 12 }}>
-        {label} 기능은 준비 중입니다
-      </p>
-    </div>
-  );
-}
 
 export function HealthView() {
   const { t } = useTheme();
@@ -85,7 +71,7 @@ export function HealthView() {
       {/* 탭 콘텐츠 */}
       <div className="px-4 pt-4 pb-8 lg:px-6">
         {activeTab === 'sleep' && <SleepSection />}
-        {activeTab === 'condition' && <ComingSoon label="컨디션" />}
+        {activeTab === 'condition' && <ConditionTab />}
         {activeTab === 'weight' && <WeightTab />}
         {activeTab === 'period' && <PeriodSection />}
       </div>

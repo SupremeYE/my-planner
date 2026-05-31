@@ -6,7 +6,7 @@ import type {
   SelfCareRecord, ReviewRecord, WeeklyReview, MonthlyReview, TimelineLog,
   FoodRecord, DiningType, TasteRating, Event, WeeklyGoal, MonthlyGoal, BrainstormItem, Tag, Routine,
   PeriodRecord, HabitMonthlyMemo, AnnualGoal, QuarterlyGoal,
-  WeightRecord, WeightGoal,
+  WeightRecord, WeightGoal, ConditionRecord,
 } from '../app/store';
 
 function parseAnnualProfilesFromDb(raw: unknown): Record<string, { identity: string; values: string[] }> {
@@ -1073,6 +1073,35 @@ export const db = {
         updated_at: new Date().toISOString(),
       });
       if (error) console.error('[db] weight_goals upsert:', error.message);
+    },
+  },
+
+  conditionRecords: {
+    fetchAll: async (): Promise<ConditionRecord[]> => {
+      const { data, error } = await supabase
+        .from('condition_records').select('*').order('date', { ascending: false });
+      if (error) console.error('[db] condition_records fetch:', error.message);
+      return (data ?? []).map((r: any): ConditionRecord => ({
+        id: r.id,
+        date: r.date,
+        stress: r.stress,
+        symptoms: r.symptoms ?? [],
+        memo: r.memo ?? null,
+      }));
+    },
+    upsert: async (record: ConditionRecord) => {
+      const { error } = await supabase.from('condition_records').upsert({
+        id: record.id,
+        date: record.date,
+        stress: record.stress,
+        symptoms: record.symptoms ?? [],
+        memo: record.memo ?? null,
+      }, { onConflict: 'date' });
+      if (error) console.error('[db] condition_records upsert:', error.message);
+    },
+    delete: async (id: string) => {
+      const { error } = await supabase.from('condition_records').delete().eq('id', id);
+      if (error) console.error('[db] condition_records delete:', error.message);
     },
   },
 };
