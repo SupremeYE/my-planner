@@ -731,7 +731,7 @@ export function CalendarView() {
           </button>
         </div>
 
-        <div className="flex gap-1 p-1 rounded-xl" style={{ backgroundColor: '#eef4fa', border: `1px solid ${t.border}` }}>
+        <div className="flex gap-1 p-1 rounded-xl" style={{ backgroundColor: '#EFE7D8', border: '1px solid #E2D5BF' }}>
           {(['month', 'week'] as TabType[]).map(value => (
             <button
               key={value}
@@ -742,11 +742,11 @@ export function CalendarView() {
               className="flex-1 py-1.5 rounded-lg transition-all"
               style={{
                 fontSize: 12,
-                fontWeight: tab === value ? 600 : 400,
-                backgroundColor: tab === value ? '#fff' : 'transparent',
-                color: tab === value ? '#26343d' : '#888',
-                border: tab === value ? `1px solid ${t.border}` : '1px solid transparent',
-                boxShadow: tab === value ? '0 1px 3px rgba(0,0,0,0.08)' : 'none',
+                fontWeight: tab === value ? 700 : 500,
+                backgroundColor: tab === value ? '#FDFAF4' : 'transparent',
+                color: tab === value ? '#8D7152' : '#B0A188',
+                border: tab === value ? '1px solid #C4A882' : '1px solid transparent',
+                boxShadow: tab === value ? '0 1px 3px rgba(196,168,130,0.25)' : 'none',
               }}
             >
               {value === 'month' ? '월별' : '주별'}
