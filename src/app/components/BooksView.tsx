@@ -411,6 +411,21 @@ function BookDetailModal({
     }).then(({ error }) => {
       if (error) console.error('[books] upsert:', error.message);
     });
+    // 독서 이력: current_page 가 실제로 바뀐 경우에만 reading_logs 에 스냅샷 기록
+    // (변경 없이 저장 버튼을 눌렀을 때 중복 로그가 쌓이지 않도록)
+    // user_id 는 reading_logs.user_id 컬럼의 DEFAULT auth.uid() 로 자동 채워진다 (클라이언트가 따로 보낼 필요 없음)
+    // INSERT 실패가 현재 페이지 저장 자체를 막지 않도록 fire-and-forget + 에러 로깅만 한다
+    if (updated.currentPage !== book.currentPage) {
+      supabase.from('reading_logs').insert({
+        book_id: updated.id,
+        page: updated.currentPage,
+        date: format(new Date(), 'yyyy-MM-dd'),
+        duration_minutes: null,
+        note: null,
+      }).then(({ error }) => {
+        if (error) console.error('[reading_logs] insert:', error.message);
+      });
+    }
     onUpdate(updated);
   };
 
