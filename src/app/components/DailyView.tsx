@@ -911,6 +911,7 @@ export function DailyView() {
     timelineLogs,
     addTimelineLog: storeAddTimelineLog,
     deleteTimelineLog: storeDeleteTimelineLog,
+    brainstormMemos, setBrainstormMemo,
   } = usePlanner();
   const { t } = useTheme();
   const { scheduleAlerts } = useNotification();
@@ -948,7 +949,6 @@ export function DailyView() {
   const timelineRelativeRef = useRef<HTMLDivElement>(null);
   const [createPreview, setCreatePreview] = useState<{ startMin: number; endMin: number } | null>(null);
   const [pendingCreateTime, setPendingCreateTime] = useState<{ start: string; end: string } | null>(null);
-  const [dailyMemo, setDailyMemo] = useState<Record<string, string>>({});
   const [showLogModal, setShowLogModal] = useState(false);
   const [showTimelineSettings, setShowTimelineSettings] = useState(false);
   const [showDatePicker, setShowDatePicker] = useState(false);
@@ -2298,8 +2298,8 @@ export function DailyView() {
               </span>
             </div>
             <textarea
-              value={dailyMemo[selectedDate] || ''}
-              onChange={e => setDailyMemo(prev => ({ ...prev, [selectedDate]: e.target.value }))}
+              value={brainstormMemos[selectedDate] || ''}
+              onChange={e => setBrainstormMemo(selectedDate, e.target.value)}
               placeholder="오늘의 메모..."
               className="w-full rounded-xl px-4 py-3 outline-none resize-none"
               style={{
