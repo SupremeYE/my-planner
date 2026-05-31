@@ -4,6 +4,7 @@ import {
   Sun, CalendarDays, LayoutList, BarChart2, ListTodo,
   ChevronLeft, ChevronRight, Target, FolderKanban, Plus, Home,
   Menu, Heart, Repeat, BookOpen, Library, Settings, BarChart3,
+  Smile, Utensils, Camera, NotebookPen,
 } from 'lucide-react';
 import { usePlanner, getWeekKey } from '../store';
 import { useTheme } from '../ThemeContext';
@@ -25,12 +26,12 @@ const lifestyleNavItems = [
   { to: '/habits', icon: Repeat, label: '습관 & 루틴' },
   { to: '/health', icon: Heart, label: '건강' },
   { to: '/time-report', icon: BarChart3, label: '시간 리포트' },
-  { to: '/mood', icon: () => <span style={{ fontSize: 16 }}>🌸</span>, label: '감정 기록' },
+  { to: '/mood', icon: Smile, label: '감정 기록' },
   { to: '/reviews', icon: BookOpen, label: '리뷰 & 기록' },
-  { to: '/food', icon: () => <span style={{ fontSize: 16 }}>🍽️</span>, label: '식단' },
+  { to: '/food', icon: Utensils, label: '식단' },
   { to: '/books', icon: Library, label: '독서' },
-  { to: '/moments', icon: () => <span style={{ fontSize: 16 }}>📸</span>, label: '모먼트' },
-  { to: '/question-journal', icon: () => <span style={{ fontSize: 16 }}>📔</span>, label: '질문일기' },
+  { to: '/moments', icon: Camera, label: '모먼트' },
+  { to: '/question-journal', icon: NotebookPen, label: '질문일기' },
 ];
 
 // ── Inline new project form ──
@@ -264,12 +265,12 @@ function MobileMenuOverlay({ onClose }: { onClose: () => void }) {
     { to: '/habits', icon: Repeat, label: '습관&루틴' },
     { to: '/health', icon: Heart, label: '건강' },
     { to: '/time-report', icon: BarChart3, label: '시간 리포트' },
-    { to: '/mood', icon: () => <span style={{ fontSize: 20 }}>🌸</span>, label: '감정 기록' },
+    { to: '/mood', icon: Smile, label: '감정 기록' },
     { to: '/reviews', icon: BookOpen, label: '기록' },
-    { to: '/food', icon: () => <span style={{ fontSize: 16 }}>🍽️</span>, label: '식단' },
+    { to: '/food', icon: Utensils, label: '식단' },
     { to: '/books', icon: Library, label: '독서' },
-    { to: '/moments', icon: () => <span style={{ fontSize: 20 }}>📸</span>, label: '모먼트' },
-    { to: '/question-journal', icon: () => <span style={{ fontSize: 20 }}>📔</span>, label: '질문일기' },
+    { to: '/moments', icon: Camera, label: '모먼트' },
+    { to: '/question-journal', icon: NotebookPen, label: '질문일기' },
     { to: '/settings', icon: Settings, label: '설정' },
   ];
 
@@ -304,8 +305,8 @@ function MobileMenuOverlay({ onClose }: { onClose: () => void }) {
                   backgroundColor: isActive ? t.accentLight : 'transparent',
                 }}
               >
-                <Icon size={20} color={isActive ? t.accent : t.textMuted} />
-                <span style={{ fontSize: 10, color: isActive ? t.accent : t.textSub, fontWeight: isActive ? 700 : 400, textAlign: 'center' as const, whiteSpace: 'nowrap' }}>
+                <Icon size={20} color={isActive ? t.text : t.textMuted} />
+                <span style={{ fontSize: 10, color: isActive ? t.text : t.textSub, fontWeight: isActive ? 700 : 400, textAlign: 'center' as const, whiteSpace: 'nowrap' }}>
                   {label}
                 </span>
               </NavLink>
@@ -382,7 +383,7 @@ export function Layout() {
               >
                 {({ isActive }) => (
                   <>
-                    <Icon size={18} color={isActive ? t.accent : t.textMuted} />
+                    <Icon size={18} color={isActive ? t.text : t.textMuted} />
                     {leftSidebarOpen && <span>{label}</span>}
                   </>
                 )}
@@ -410,7 +411,7 @@ export function Layout() {
                     >
                       {({ isActive }) => (
                         <>
-                          <Icon size={18} color={isActive ? t.accent : t.textMuted} />
+                          <Icon size={18} color={isActive ? t.text : t.textMuted} />
                           <span>{label}</span>
                         </>
                       )}
@@ -430,7 +431,7 @@ export function Layout() {
                     end
                     style={({ isActive }) => ({
                       fontSize: 10,
-                      color: isActive ? t.accent : t.textSub,
+                      color: isActive ? t.text : t.textSub,
                       fontWeight: 700,
                       letterSpacing: '0.06em',
                       textTransform: 'uppercase' as const,
@@ -508,7 +509,7 @@ export function Layout() {
                 >
                   {({ isActive }) => (
                     <>
-                      <Settings size={18} color={isActive ? t.accent : t.textMuted} />
+                      <Settings size={18} color={isActive ? t.text : t.textMuted} />
                       <span>설정</span>
                     </>
                   )}
@@ -537,7 +538,7 @@ export function Layout() {
                     title={label}
                   >
                     {({ isActive }) => (
-                      <Icon size={18} color={isActive ? t.accent : t.textMuted} />
+                      <Icon size={18} color={isActive ? t.text : t.textMuted} />
                     )}
                   </NavLink>
                 ))}
@@ -554,7 +555,7 @@ export function Layout() {
                   title="프로젝트"
                 >
                   {({ isActive }) => (
-                    <FolderKanban size={18} color={isActive ? t.accent : t.textMuted} />
+                    <FolderKanban size={18} color={isActive ? t.text : t.textMuted} />
                   )}
                 </NavLink>
               </div>
@@ -569,7 +570,7 @@ export function Layout() {
                   title="설정"
                 >
                   {({ isActive }) => (
-                    <Settings size={18} color={isActive ? t.accent : t.textMuted} />
+                    <Settings size={18} color={isActive ? t.text : t.textMuted} />
                   )}
                 </NavLink>
               </div>
@@ -673,9 +674,9 @@ export function Layout() {
                       padding: '4px 12px',
                     }}
                   >
-                    <Icon size={18} color={isActive ? t.accent : t.textMuted} />
+                    <Icon size={18} color={isActive ? t.text : t.textMuted} />
                   </div>
-                  <span style={{ fontSize: 9, color: isActive ? t.accent : t.textMuted, fontWeight: isActive ? 700 : 400 }}>
+                  <span style={{ fontSize: 9, color: isActive ? t.text : t.textMuted, fontWeight: isActive ? 700 : 400 }}>
                     {label}
                   </span>
                 </>
