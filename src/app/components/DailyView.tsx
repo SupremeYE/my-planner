@@ -2304,7 +2304,7 @@ export function DailyView() {
               className="w-full rounded-xl px-4 py-3 outline-none resize-none"
               style={{
                 border: `1px solid ${t.border}`, backgroundColor: t.bgSub, color: t.text,
-                fontSize: 13, minHeight: 80,
+                fontSize: 13, minHeight: 180,
               }}
             />
           </div>
