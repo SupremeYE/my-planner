@@ -36,7 +36,7 @@ function fmtSleep(min: number): string {
   return m === 0 ? `${h}시간` : `${h}시간 ${m}분`;
 }
 
-function PeriodSection() {
+export function PeriodSection() {
   const { periodRecords, addPeriodRecord, updatePeriodRecord, deletePeriodRecord } = usePlanner();
   const { t } = useTheme();
 
@@ -335,7 +335,7 @@ function TimeEditInput({ value, onChange, onDone }: {
   );
 }
 
-function SleepSection() {
+export function SleepSection() {
   const { selfCareRecords, addSelfCareRecord, deleteSelfCareRecord } = usePlanner();
   const { t } = useTheme();
   const [date, setDate] = useState(format(new Date(), 'yyyy-MM-dd'));
