@@ -1,13 +1,13 @@
-import { useState, useEffect } from 'react';
-import { RefreshCw, Edit3, Check, ChevronDown, ChevronUp, Sparkles } from 'lucide-react';
+import { useState } from 'react';
+import { RefreshCw, Edit3, Check, X, Sparkles } from 'lucide-react';
 import { usePlanner, DEFAULT_AFFIRMATIONS } from '../store';
 import { useTheme } from '../ThemeContext';
 
-// Deterministic pick based on date string
-function pickAffirmation(date: string): string {
+function pickAffirmation(date: string, offset: number): string {
   let hash = 0;
-  for (let i = 0; i < date.length; i++) {
-    hash = (hash * 31 + date.charCodeAt(i)) >>> 0;
+  const key = date + String(offset);
+  for (let i = 0; i < key.length; i++) {
+    hash = (hash * 31 + key.charCodeAt(i)) >>> 0;
   }
   return DEFAULT_AFFIRMATIONS[hash % DEFAULT_AFFIRMATIONS.length];
 }
@@ -16,174 +16,144 @@ export function AffirmationCard({ date }: { date: string }) {
   const { dailyAffirmations, setDailyAffirmation, appSettings } = usePlanner();
   const { t, theme } = useTheme();
 
-  const [collapsed, setCollapsed] = useState(false);
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState('');
   const [randomOffset, setRandomOffset] = useState(0);
 
-  const customText = dailyAffirmations[date];
-  const baseAffirmation = appSettings.globalAffirmation || pickAffirmation(date + randomOffset);
-  const displayText = customText || baseAffirmation;
-
-  const handleEdit = () => {
-    setDraft(displayText);
-    setEditing(true);
-  };
-
-  const handleSave = () => {
-    if (draft.trim()) setDailyAffirmation(date, draft.trim());
-    setEditing(false);
-  };
-
-  const handleRandom = () => {
-    setDailyAffirmation(date, ''); // clear custom
-    setRandomOffset(prev => prev + 1);
-  };
-
-  const handleClearCustom = () => {
-    setDailyAffirmation(date, '');
-  };
-
-  // Design B gets a distinct glassy/gradient treatment
   const isB = theme === 'B';
+  const customText = dailyAffirmations[date];
+  const displayText = customText || appSettings.globalAffirmation || pickAffirmation(date, randomOffset);
 
-  if (collapsed) {
+  // 테마별 색상 — B 테마는 피치 코랄 계열, 그 외는 디자인 시스템 accent
+  const accentColor = isB ? '#E89568' : t.accent;
+  const textColor = isB ? '#A0541E' : t.accent;
+  const borderColor = isB ? 'rgba(244,165,130,0.22)' : t.planBorder;
+  // 은은한 그라데이션 배경 (단색 → 입체감)
+  const cardBg = isB
+    ? 'linear-gradient(135deg, rgba(244,165,130,0.14) 0%, rgba(244,165,130,0.05) 100%)'
+    : `linear-gradient(135deg, ${t.accentLight} 0%, ${t.card} 120%)`;
+  const badgeBg = isB ? 'rgba(244,165,130,0.18)' : t.accentLight;
+
+  if (editing) {
     return (
-      <button
-        onClick={() => setCollapsed(false)}
-        className="w-full flex items-center gap-2 px-4 py-2 rounded-xl transition-all"
+      <div
+        className="flex items-center gap-2.5 rounded-2xl pl-2.5 pr-2 py-2"
         style={{
-          backgroundColor: t.accentLight,
-          border: `1px solid ${t.border}`,
+          background: cardBg,
+          border: `1px solid ${borderColor}`,
+          boxShadow: `0 1px 3px ${isB ? 'rgba(160,84,30,0.08)' : 'rgba(196,168,130,0.12)'}`,
+          fontFamily: "'Gowun Dodum', 'Pretendard', sans-serif",
         }}
       >
-        <Sparkles size={12} color={t.accent} />
-        <span style={{ fontSize: 12, color: t.accent, flex: 1, textAlign: 'left', fontStyle: 'italic', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-          {displayText}
+        <span
+          className="flex items-center justify-center rounded-full"
+          style={{ width: 24, height: 24, background: badgeBg, flexShrink: 0 }}
+        >
+          <Sparkles size={13} color={accentColor} />
         </span>
-        <ChevronDown size={12} color={t.textMuted} />
-      </button>
+        <input
+          autoFocus
+          value={draft}
+          onChange={e => setDraft(e.target.value)}
+          onKeyDown={e => {
+            if (e.key === 'Enter') {
+              if (draft.trim()) setDailyAffirmation(date, draft.trim());
+              setEditing(false);
+            }
+            if (e.key === 'Escape') setEditing(false);
+          }}
+          placeholder="나만의 확언을 적어보세요..."
+          className="flex-1 outline-none bg-transparent"
+          style={{
+            fontSize: 13,
+            color: t.text,
+            fontFamily: "'Gowun Dodum', 'Pretendard', sans-serif",
+          }}
+        />
+        <button
+          onClick={() => {
+            if (draft.trim()) setDailyAffirmation(date, draft.trim());
+            setEditing(false);
+          }}
+          className="flex items-center justify-center rounded-full transition-transform active:scale-90"
+          style={{ width: 26, height: 26, background: accentColor, color: '#fff', flexShrink: 0 }}
+        >
+          <Check size={13} />
+        </button>
+        <button
+          onClick={() => setEditing(false)}
+          className="flex items-center justify-center rounded-full transition-colors"
+          style={{ width: 26, height: 26, color: t.textMuted, flexShrink: 0 }}
+        >
+          <X size={14} />
+        </button>
+      </div>
     );
   }
 
   return (
     <div
-      className="rounded-2xl px-5 py-4 relative"
+      className="flex items-center gap-2.5 rounded-2xl pl-2.5 pr-2 py-2 group transition-all duration-200 hover:-translate-y-px"
       style={{
-        background: isB
-          ? `linear-gradient(135deg, #1C1B30 0%, #252350 100%)`
-          : `linear-gradient(135deg, ${t.accentLight} 0%, ${t.accentSoft} 100%)`,
-        border: `1px solid ${isB ? '#3A3870' : t.planBorder}`,
+        background: cardBg,
+        border: `1px solid ${borderColor}`,
+        boxShadow: `0 1px 3px ${isB ? 'rgba(160,84,30,0.08)' : 'rgba(196,168,130,0.12)'}`,
+        fontFamily: "'Gowun Dodum', 'Pretendard', sans-serif",
+        minWidth: 0,
       }}
     >
-      {/* Header */}
-      <div className="flex items-center justify-between mb-2.5">
-        <div className="flex items-center gap-1.5">
-          <Sparkles size={13} color={t.accent} />
-          <span style={{
-            fontSize: 10,
-            color: t.accent,
-            fontWeight: 700,
-            textTransform: 'uppercase',
-            letterSpacing: '0.08em',
-          }}>
-            오늘의 확언
-          </span>
-          {customText && (
-            <span className="px-1.5 py-0.5 rounded"
-              style={{ fontSize: 9, backgroundColor: t.accentLight, color: t.accent }}>
-              나만의
-            </span>
-          )}
-        </div>
-        <div className="flex items-center gap-1">
-          {!editing && (
-            <>
-              {customText && (
-                <button
-                  onClick={handleClearCustom}
-                  title="랜덤으로 초기화"
-                  className="p-1 rounded-lg transition-colors"
-                  style={{ color: t.textMuted }}
-                >
-                  <RefreshCw size={11} />
-                </button>
-              )}
-              <button
-                onClick={handleRandom}
-                title="다른 확언 보기"
-                className="p-1.5 rounded-lg transition-colors"
-                style={{ backgroundColor: t.accentLight, color: t.accent }}
-              >
-                <RefreshCw size={12} />
-              </button>
-              <button
-                onClick={handleEdit}
-                className="p-1.5 rounded-lg transition-colors"
-                style={{ backgroundColor: t.accentLight, color: t.accent }}
-                title="직접 쓰기"
-              >
-                <Edit3 size={12} />
-              </button>
-              <button
-                onClick={() => setCollapsed(true)}
-                className="p-1.5 rounded-lg"
-                style={{ color: t.textMuted }}
-              >
-                <ChevronUp size={12} />
-              </button>
-            </>
-          )}
-        </div>
-      </div>
+      {/* 포인트 배지 안의 Sparkles 아이콘 */}
+      <span
+        className="flex items-center justify-center rounded-full transition-transform duration-200 group-hover:scale-105"
+        style={{ width: 24, height: 24, background: badgeBg, flexShrink: 0 }}
+      >
+        <Sparkles size={13} color={accentColor} />
+      </span>
 
-      {/* Content */}
-      {editing ? (
-        <div className="space-y-2">
-          <textarea
-            autoFocus
-            value={draft}
-            onChange={e => setDraft(e.target.value)}
-            rows={2}
-            placeholder="나만의 확언을 적어보세요..."
-            className="w-full rounded-xl px-3 py-2.5 border outline-none resize-none"
-            style={{
-              borderColor: t.border,
-              fontSize: 14,
-              backgroundColor: t.card,
-              color: t.text,
-              lineHeight: 1.6,
-            }}
-          />
-          <div className="flex gap-2">
-            <button
-              onClick={handleSave}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg"
-              style={{ backgroundColor: t.accent, color: '#fff', fontSize: 12, fontWeight: 600 }}
-            >
-              <Check size={11} /> 저장
-            </button>
-            <button
-              onClick={() => setEditing(false)}
-              className="px-3 py-1.5 rounded-lg"
-              style={{ backgroundColor: t.bgSub, color: t.textSub, fontSize: 12 }}
-            >
-              취소
-            </button>
-          </div>
-        </div>
-      ) : (
-        <p style={{
-          fontSize: 14,
-          color: isB ? '#C8C5F8' : '#8B6B3D',
-          lineHeight: 1.65,
-          fontStyle: 'italic',
-          fontWeight: 500,
-          letterSpacing: '0.01em',
-        }}>
-          "{displayText}"
-        </p>
-      )}
+      <span
+        style={{
+          flex: 1,
+          fontSize: 13,
+          color: textColor,
+          whiteSpace: 'nowrap',
+          overflow: 'hidden',
+          textOverflow: 'ellipsis',
+          fontFamily: "'Gowun Dodum', 'Pretendard', sans-serif",
+          letterSpacing: '-0.005em',
+        }}
+        title={displayText}
+      >
+        {displayText}
+      </span>
+
+      {/* action buttons — visible on hover */}
+      <div
+        className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity duration-200"
+        style={{ flexShrink: 0 }}
+      >
+        <button
+          onClick={() => {
+            setDailyAffirmation(date, '');
+            setRandomOffset(p => p + 1);
+          }}
+          title="다른 확언 보기"
+          className="flex items-center justify-center rounded-full transition-colors hover:bg-black/5 active:scale-90"
+          style={{ width: 26, height: 26, color: accentColor }}
+        >
+          <RefreshCw size={13} />
+        </button>
+        <button
+          onClick={() => {
+            setDraft(displayText);
+            setEditing(true);
+          }}
+          title="직접 쓰기"
+          className="flex items-center justify-center rounded-full transition-colors hover:bg-black/5 active:scale-90"
+          style={{ width: 26, height: 26, color: accentColor }}
+        >
+          <Edit3 size={13} />
+        </button>
+      </div>
     </div>
   );
 }
