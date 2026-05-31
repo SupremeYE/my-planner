@@ -1574,7 +1574,7 @@ export function FoodView() {
       <div className="flex-shrink-0 px-4 pt-5 pb-3 lg:px-6 lg:pt-6"
         style={{ borderBottom: `1px solid ${t.border}` }}>
         <div className="flex items-center justify-between mb-3">
-          <h1 style={{ fontSize: 20, fontWeight: 700, color: t.text }}>🍽️ 식단 기록</h1>
+          <h1 style={{ fontSize: 20, fontWeight: 700, color: t.text, fontFamily: 'var(--font-gmarket)' }}>🍽️ 식단 기록</h1>
           <button
             onClick={() => openAdd('breakfast')}
             className="flex items-center gap-1.5 px-3 py-2 rounded-xl"

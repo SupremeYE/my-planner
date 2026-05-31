@@ -440,7 +440,7 @@ export function SettingsView() {
     <div className="flex-1 overflow-y-auto">
       {/* 헤더 */}
       <div className="px-4 lg:px-6 pt-6 pb-4">
-        <h1 style={{ fontSize: 22, fontWeight: 700, color: t.text, fontFamily: "'DM Serif Display', serif" }}>설정</h1>
+        <h1 style={{ fontSize: 22, fontWeight: 700, color: t.text, fontFamily: 'var(--font-gmarket)' }}>설정</h1>
         <p style={{ fontSize: 13, color: t.textSub, marginTop: 4 }}>앱 환경을 내 취향에 맞게 설정하세요</p>
       </div>
 

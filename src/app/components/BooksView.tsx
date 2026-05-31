@@ -1236,7 +1236,7 @@ export function BooksView() {
       {/* 헤더 */}
       <div className="flex-shrink-0 px-4 pt-5 pb-3 flex items-center justify-between">
         <div>
-          <h1 style={{ fontSize: 20, fontWeight: 800, color: t.text }}>독서 기록</h1>
+          <h1 style={{ fontSize: 20, fontWeight: 800, color: t.text, fontFamily: 'var(--font-gmarket)' }}>독서 기록</h1>
           <p style={{ fontSize: 12, color: t.textMuted, marginTop: 2 }}>
             총 {books.length}권 · 완독 {books.filter(b => b.status === 'done').length}권
           </p>

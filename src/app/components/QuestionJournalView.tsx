@@ -499,7 +499,7 @@ export function QuestionJournalView() {
     <div className="min-h-screen p-4 lg:p-6" style={{ background: t.background }}>
       {/* 헤더 */}
       <div className="mb-6">
-        <h1 className="text-2xl font-bold" style={{ color: t.text }}>질문일기</h1>
+        <h1 className="text-2xl font-bold" style={{ color: t.text, fontFamily: 'var(--font-gmarket)' }}>질문일기</h1>
         <p className="text-sm mt-1" style={{ color: t.subtleText }}>
           매일 한 가지 질문으로 나 자신을 깊이 들여다보세요
         </p>

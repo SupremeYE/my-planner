@@ -236,7 +236,7 @@ export function ReviewsView() {
     <div className="flex-1 overflow-y-auto">
       {/* Header */}
       <div className="px-6 pt-6 pb-4">
-        <h1 style={{ fontSize: 22, fontWeight: 700, color: t.text, fontFamily: "'DM Serif Display', serif" }}>리뷰 & 기록</h1>
+        <h1 style={{ fontSize: 22, fontWeight: 700, color: t.text, fontFamily: 'var(--font-gmarket)' }}>리뷰 & 기록</h1>
         <p style={{ fontSize: 13, color: t.textSub, marginTop: 4 }}>매일의 기록이 성장의 발판이 됩니다</p>
       </div>
 
@@ -405,7 +405,7 @@ export function ReviewsView() {
                 { label: '평균 감정', value: String(emotionAvg), sub: '전체' },
               ].map((s, i) => (
                 <div key={i} className="p-3 rounded-xl text-center" style={{ backgroundColor: t.card, border: `1px solid ${t.borderLight}` }}>
-                  <span style={{ fontSize: 18, fontWeight: 700, color: t.text, fontFamily: "'DM Serif Display', serif", display: 'block' }}>{s.value}</span>
+                  <span style={{ fontSize: 18, fontWeight: 700, color: t.text, fontFamily: 'var(--font-gmarket)', display: 'block' }}>{s.value}</span>
                   <span style={{ fontSize: 10, color: t.textMuted, display: 'block', marginTop: 2 }}>{s.label}</span>
                   <span style={{ fontSize: 9, color: t.accent }}>{s.sub}</span>
                 </div>

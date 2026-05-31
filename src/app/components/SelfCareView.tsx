@@ -146,7 +146,7 @@ export function PeriodSection() {
               style={{ backgroundColor: PERIOD_COLOR + '12', border: `1px solid ${PERIOD_COLOR}30` }}>
               <div className="flex-1 text-center">
                 <div style={{ fontSize: 10, color: t.textMuted, fontWeight: 600, marginBottom: 2 }}>평균 주기</div>
-                <div style={{ fontSize: 20, fontWeight: 700, color: cycleLabelColor(prediction.avgCycle), fontFamily: "'DM Serif Display', serif" }}>
+                <div style={{ fontSize: 20, fontWeight: 700, color: cycleLabelColor(prediction.avgCycle), fontFamily: 'var(--font-gmarket)' }}>
                   {prediction.avgCycle}일
                 </div>
               </div>
@@ -533,14 +533,14 @@ export function SleepSection() {
           <div className="flex gap-4 mb-4">
             <div className="flex-1 text-center">
               <div style={{ fontSize: 10, color: t.textMuted, fontWeight: 600, marginBottom: 2 }}>이번주 평균</div>
-              <div style={{ fontSize: 18, fontWeight: 700, color: t.text, fontFamily: "'DM Serif Display', serif" }}>
+              <div style={{ fontSize: 18, fontWeight: 700, color: t.text, fontFamily: 'var(--font-gmarket)' }}>
                 {weekAvg > 0 ? fmtSleep(weekAvg) : '—'}
               </div>
             </div>
             <div style={{ width: 1, backgroundColor: t.borderLight, flexShrink: 0 }} />
             <div className="flex-1 text-center">
               <div style={{ fontSize: 10, color: t.textMuted, fontWeight: 600, marginBottom: 2 }}>이번달 평균</div>
-              <div style={{ fontSize: 18, fontWeight: 700, color: t.text, fontFamily: "'DM Serif Display', serif" }}>
+              <div style={{ fontSize: 18, fontWeight: 700, color: t.text, fontFamily: 'var(--font-gmarket)' }}>
                 {monthAvg > 0 ? fmtSleep(monthAvg) : '—'}
               </div>
             </div>
@@ -735,7 +735,7 @@ export function SelfCareView() {
     <div className="flex-1 overflow-y-auto">
       {/* Header */}
       <div className="px-6 pt-6 pb-4">
-        <h1 style={{ fontSize: 22, fontWeight: 700, color: t.text, fontFamily: "'DM Serif Display', serif" }}>시간 리포트</h1>
+        <h1 style={{ fontSize: 22, fontWeight: 700, color: t.text, fontFamily: 'var(--font-gmarket)' }}>시간 리포트</h1>
         <p style={{ fontSize: 13, color: t.textSub, marginTop: 4 }}>운동, 공부, 케어 등 카테고리별 시간 사용을 확인하세요</p>
       </div>
 
@@ -752,7 +752,7 @@ export function SelfCareView() {
                 <s.icon size={14} color={s.color} />
                 <span style={{ fontSize: 10, color: t.textMuted, fontWeight: 600 }}>{s.label}</span>
               </div>
-              <span style={{ fontSize: 22, fontWeight: 700, color: t.text, fontFamily: "'DM Serif Display', serif" }}>{s.value}</span>
+              <span style={{ fontSize: 22, fontWeight: 700, color: t.text, fontFamily: 'var(--font-gmarket)' }}>{s.value}</span>
             </div>
           ))}
         </div>

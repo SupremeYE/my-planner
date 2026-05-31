@@ -14,7 +14,7 @@ import { ko } from 'date-fns/locale';
 import { AffirmationCard } from './AffirmationCard';
 import { todoDoDurationSeconds, formatTotalDoKo, formatDoElapsedKo } from '../../lib/todoDoDuration';
 
-const SERIF = "'DM Serif Display', serif";
+const SERIF = 'var(--font-gmarket)';
 
 function isHabitApplicableOnDate(habit: any, date: Date) {
   const dow = date.getDay();
