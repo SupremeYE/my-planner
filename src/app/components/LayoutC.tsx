@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Outlet, NavLink, useNavigate } from 'react-router';
 import {
-  Sun, CalendarDays, LayoutList, BarChart2, FolderKanban, ListTodo,
+  Sun, CalendarDays, BarChart2, FolderKanban, ListTodo,
   ChevronLeft, ChevronRight, Calendar, Plus, Target, CheckCircle2,
   ChevronDown, X, Home, Menu, Settings,
 } from 'lucide-react';
@@ -19,7 +19,6 @@ const NAV_ITEMS = [
   { to: '/daily',     icon: Sun,          label: '일간' },
   { to: '/calendar',  icon: CalendarDays, label: '캘린더' },
   { to: '/todos',     icon: ListTodo,     label: '할일' },
-  { to: '/weekly',    icon: LayoutList,   label: '주간' },
   { to: '/goals',     icon: BarChart2,    label: '목표관리' },
   { to: '/projects',  icon: FolderKanban, label: '프로젝트' },
 ];

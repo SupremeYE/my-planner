@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Outlet, NavLink, useLocation } from 'react-router';
 import {
-  Sun, CalendarDays, LayoutList, BarChart2, ListTodo,
+  Sun, CalendarDays, BarChart2, ListTodo,
   ChevronLeft, ChevronRight, Target, FolderKanban, Plus, Home,
   Menu, Heart, Repeat, BookOpen, Library, Settings, BarChart3,
   Smile, Utensils, Camera, NotebookPen,
@@ -18,7 +18,6 @@ const mainNavItems = [
   { to: '/daily', icon: Sun, label: '일간' },
   { to: '/calendar', icon: CalendarDays, label: '캘린더' },
   { to: '/todos', icon: ListTodo, label: '할일' },
-  { to: '/weekly', icon: LayoutList, label: '주간' },
   { to: '/goals', icon: BarChart2, label: '목표관리' },
 ];
 
