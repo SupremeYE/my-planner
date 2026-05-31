@@ -131,7 +131,7 @@ function SnoozeModal({ todo, onClose }: { todo: Todo; onClose: () => void }) {
     if (!selectedSnoozeDate) return;
     updateTodo(todo.id, {
       date: selectedSnoozeDate,
-      status: 'snoozed',
+      status: 'active',
       planStart: snoozeTime || undefined,
       planEnd: undefined,
       doStart: undefined,
