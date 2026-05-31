@@ -1,6 +1,7 @@
 import { useSearchParams } from 'react-router';
 import { useTheme } from '../ThemeContext';
 import { SleepSection, PeriodSection } from './SelfCareView';
+import { WeightTab } from './WeightTab';
 
 type HealthTab = 'sleep' | 'condition' | 'weight' | 'period';
 
@@ -85,7 +86,7 @@ export function HealthView() {
       <div className="px-4 pt-4 pb-8 lg:px-6">
         {activeTab === 'sleep' && <SleepSection />}
         {activeTab === 'condition' && <ComingSoon label="컨디션" />}
-        {activeTab === 'weight' && <ComingSoon label="몸무게" />}
+        {activeTab === 'weight' && <WeightTab />}
         {activeTab === 'period' && <PeriodSection />}
       </div>
     </div>

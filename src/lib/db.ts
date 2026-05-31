@@ -6,6 +6,7 @@ import type {
   SelfCareRecord, ReviewRecord, WeeklyReview, MonthlyReview, TimelineLog,
   FoodRecord, DiningType, TasteRating, Event, WeeklyGoal, MonthlyGoal, BrainstormItem, Tag, Routine,
   PeriodRecord, HabitMonthlyMemo, AnnualGoal, QuarterlyGoal,
+  WeightRecord, WeightGoal,
 } from '../app/store';
 
 function parseAnnualProfilesFromDb(raw: unknown): Record<string, { identity: string; values: string[] }> {
@@ -1015,6 +1016,63 @@ export const db = {
       if (error) { console.error('[db] moment photo upload:', error.message); return null; }
       const { data } = supabase.storage.from('moment-photos').getPublicUrl(path);
       return data.publicUrl;
+    },
+  },
+
+  weightRecords: {
+    fetchAll: async (): Promise<WeightRecord[]> => {
+      const { data, error } = await supabase
+        .from('weight_records').select('*').order('date', { ascending: false });
+      if (error) console.error('[db] weight_records fetch:', error.message);
+      return (data ?? []).map((r: any): WeightRecord => ({
+        id: r.id,
+        date: r.date,
+        weight: Number(r.weight),
+        bodyFat: r.body_fat != null ? Number(r.body_fat) : null,
+        muscleMass: r.muscle_mass != null ? Number(r.muscle_mass) : null,
+        memo: r.memo ?? null,
+      }));
+    },
+    upsert: async (record: WeightRecord) => {
+      const { error } = await supabase.from('weight_records').upsert({
+        id: record.id,
+        date: record.date,
+        weight: record.weight,
+        body_fat: record.bodyFat ?? null,
+        muscle_mass: record.muscleMass ?? null,
+        memo: record.memo ?? null,
+      }, { onConflict: 'date' });
+      if (error) console.error('[db] weight_records upsert:', error.message);
+    },
+    delete: async (id: string) => {
+      const { error } = await supabase.from('weight_records').delete().eq('id', id);
+      if (error) console.error('[db] weight_records delete:', error.message);
+    },
+  },
+
+  weightGoal: {
+    fetch: async (): Promise<WeightGoal | null> => {
+      const { data, error } = await supabase
+        .from('weight_goals').select('*').eq('id', 'default').maybeSingle();
+      if (error) console.error('[db] weight_goals fetch:', error.message);
+      if (!data) return null;
+      return {
+        startWeight: Number(data.start_weight),
+        targetWeight: Number(data.target_weight),
+        targetBodyFat: data.target_body_fat != null ? Number(data.target_body_fat) : null,
+        targetMuscleMass: data.target_muscle_mass != null ? Number(data.target_muscle_mass) : null,
+      };
+    },
+    upsert: async (goal: WeightGoal) => {
+      const { error } = await supabase.from('weight_goals').upsert({
+        id: 'default',
+        start_weight: goal.startWeight,
+        target_weight: goal.targetWeight,
+        target_body_fat: goal.targetBodyFat ?? null,
+        target_muscle_mass: goal.targetMuscleMass ?? null,
+        updated_at: new Date().toISOString(),
+      });
+      if (error) console.error('[db] weight_goals upsert:', error.message);
     },
   },
 };

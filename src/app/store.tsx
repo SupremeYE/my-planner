@@ -163,6 +163,22 @@ export interface FoodRecord {
   isFasting?: boolean;
 }
 
+export interface WeightRecord {
+  id: string;
+  date: string;             // yyyy-MM-dd
+  weight: number;           // kg
+  bodyFat?: number | null;  // %
+  muscleMass?: number | null; // kg
+  memo?: string | null;
+}
+
+export interface WeightGoal {
+  startWeight: number;
+  targetWeight: number;
+  targetBodyFat?: number | null;
+  targetMuscleMass?: number | null;
+}
+
 export interface PeriodRecord {
   id: string;
   startDate: string;        // yyyy-MM-dd
