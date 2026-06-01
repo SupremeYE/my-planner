@@ -404,6 +404,60 @@ function ContextMenu({ todo, position, onClose, onFocus, onDelete, deleteMessage
 }
 
 // ─── Timeline Log Modal (생각/감정 로그) ───
+// 일간 메모 — 입력 중 Realtime 동기화로 글자가 지워지던 문제 방지용 컴포넌트.
+// (기존엔 textarea value 를 store 값에 직접 바인딩 → 키 입력마다 upsert→Realtime 재조회가
+//  store 전체를 덮어써, 모바일에서 왕복 지연 동안 방금 친 글자가 사라졌다.)
+// 해결: 입력은 로컬 상태로 받고, 저장은 디바운스 + blur 에만 store/DB 로 반영한다.
+//       포커스 중에는 외부(다른 기기) 값으로 덮어쓰지 않는다. 최상위 컴포넌트로 정의해 리마운트 방지.
+function DailyMemo({ date, value, onChange }: {
+  date: string;
+  value: string;
+  onChange: (date: string, text: string) => void;
+}) {
+  const { t } = useTheme();
+  const [local, setLocal] = useState(value);
+  const focusedRef = useRef(false);
+  const dateRef = useRef(date);
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // 날짜 변경 시엔 무조건 해당 날짜 메모로 교체, 같은 날짜의 외부 변경은 입력 중이 아닐 때만 반영
+  useEffect(() => {
+    if (dateRef.current !== date) {
+      dateRef.current = date;
+      setLocal(value);
+    } else if (!focusedRef.current) {
+      setLocal(value);
+    }
+  }, [value, date]);
+
+  useEffect(() => () => { if (timerRef.current) clearTimeout(timerRef.current); }, []);
+
+  const handleChange = (text: string) => {
+    setLocal(text);
+    if (timerRef.current) clearTimeout(timerRef.current);
+    timerRef.current = setTimeout(() => onChange(date, text), 500);
+  };
+
+  return (
+    <textarea
+      value={local}
+      onChange={e => handleChange(e.target.value)}
+      onFocus={() => { focusedRef.current = true; }}
+      onBlur={() => {
+        focusedRef.current = false;
+        if (timerRef.current) { clearTimeout(timerRef.current); timerRef.current = null; }
+        onChange(date, local); // blur 시 확실히 저장
+      }}
+      placeholder="오늘의 메모..."
+      className="w-full rounded-xl px-4 py-3 outline-none resize-none"
+      style={{
+        border: `1px solid ${t.border}`, backgroundColor: t.bgSub, color: t.text,
+        fontSize: 13, minHeight: 180,
+      }}
+    />
+  );
+}
+
 function TimelineLogModal({ date, logs, onAdd, onDelete, onClose }: {
   date: string; logs: TimelineLog[]; onAdd: (log: TimelineLog) => void; onDelete: (id: string) => void; onClose: () => void;
 }) {
@@ -2320,15 +2374,10 @@ export function DailyView() {
                 메모
               </span>
             </div>
-            <textarea
+            <DailyMemo
+              date={selectedDate}
               value={brainstormMemos[selectedDate] || ''}
-              onChange={e => setBrainstormMemo(selectedDate, e.target.value)}
-              placeholder="오늘의 메모..."
-              className="w-full rounded-xl px-4 py-3 outline-none resize-none"
-              style={{
-                border: `1px solid ${t.border}`, backgroundColor: t.bgSub, color: t.text,
-                fontSize: 13, minHeight: 180,
-              }}
+              onChange={setBrainstormMemo}
             />
           </div>
         </div>
