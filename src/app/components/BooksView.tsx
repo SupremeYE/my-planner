@@ -427,6 +427,7 @@ function BookDetailModal({
       });
     }
     onUpdate(updated);
+    onClose(); // 저장 후 모달 닫기 — 기존엔 onUpdate(값 반영)만 하고 모달을 안 닫아 "저장 버튼 눌러도 반응 없음"으로 보였음
   };
 
   const toggleRecording = () => {
