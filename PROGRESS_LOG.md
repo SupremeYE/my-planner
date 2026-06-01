@@ -6,6 +6,37 @@
 
 ---
 
+## 2026-06-01
+
+### 📋 TODO
+
+### ✅ 완료
+- [x] 독서 진행 이력(`reading_logs`) 테이블 추가 + 현재 페이지 저장 시 자동 스냅샷 로깅
+- [x] reading_logs 마이그레이션 타임스탬프 충돌 수정 (add_weight_tracking 과 동일 prefix 였음)
+
+### 🛠 오늘 작업 내용
+
+**① 독서 진행 이력 reading_logs 테이블·자동 로깅 (`supabase/migrations/`, `BooksView.tsx`)**
+- 목적: `books.current_page` 는 누적값만 가져 "오늘 몇 페이지 읽었는지" 알 수 없었음 → 변경 이력 보존
+- DB: 마이그레이션 `20260531025000_create_reading_logs.sql`
+  - 컬럼: `id uuid PK / user_id uuid DEFAULT auth.uid() FK→auth.users / book_id text FK→books(id) ON DELETE CASCADE / page int / date text(yyyy-MM-dd) / duration_minutes int null / note text null / created_at timestamptz`
+  - `book_id` 는 스펙의 uuid 가 아니라 실제 `books.id` 타입(text, nanoid)에 맞춰 text 로 정의 (FK 타입 불일치 방지)
+  - 인덱스: `(user_id, date)` 데일리 리포트용 · `(book_id, date)` 책별 이력용
+  - RLS: owner-only (`FOR ALL / TO authenticated`, `auth.uid() = user_id`)
+  - Realtime: `supabase_realtime` publication 등록 (PC↔모바일 즉시 반영)
+- 저장 로직 (`BooksView.handleSaveProgress`):
+  - `current_page` 가 **실제로 바뀐 경우에만**(`updated.currentPage !== book.currentPage`) INSERT → 변경 없이 저장 시 중복 로그 방지
+  - `date` 는 기존 패턴(`format(new Date(),'yyyy-MM-dd')`) 재사용, `duration_minutes`·`note` 는 null, `user_id` 는 DB DEFAULT `auth.uid()` 가 채움
+  - INSERT 는 books 저장과 독립된 fire-and-forget → 실패해도 현재 페이지 저장은 정상 처리, 콘솔 에러만 남김
+- 독서 페이지 시각적 UI/PC 레이아웃 변경 없음 (이력 표시 UI 는 별도 작업)
+
+**② 마이그레이션 타임스탬프 충돌 수정 (`supabase/migrations/`)**
+- `create_reading_logs` 와 `add_weight_tracking` 이 동일 버전 prefix `20260531020000` 를 사용 → `supabase db push` 시 버전 중복으로 적용 실패/순서 모호 위험
+- `git mv` 로 `20260531020000_create_reading_logs.sql` → `20260531025000_create_reading_logs.sql` (내용 동일)
+- books(20260530130000) 이후·condition_records(030000) 이전으로 정렬돼 FK 의존성 그대로 충족, 전체 마이그레이션 버전 모두 유일 확인
+
+---
+
 ## 2026-05-31
 
 ### 📋 TODO

@@ -1,6 +1,6 @@
 # PROJECT_SPEC.md — My Planner PWA 기능 명세서
 
-> 최종 업데이트: 2026-05-31 (식단 단식 기록 기능, 일정 스키마 버그 수정, 캘린더 탭 색상·미루기 배지 개선, 질문일기 신규 페이지)
+> 최종 업데이트: 2026-06-01 (독서 진행 이력 reading_logs 테이블·자동 로깅 추가, 마이그레이션 타임스탬프 충돌 수정)
 
 ---
 
@@ -171,6 +171,7 @@
 | `monthly_reviews` | 월간 리뷰 | `month` DESC | ✅ |
 | `food_records` | 식단 기록 | `date` DESC, `created_at` DESC | ✅ |
 | `moments` | 모먼트 로그 | `created_at` DESC | ✅ |
+| `reading_logs` | 독서 진행 이력 (current_page 스냅샷) | `date` ASC | ✅ |
 
 ### 2-2. 테이블별 컬럼 상세
 
