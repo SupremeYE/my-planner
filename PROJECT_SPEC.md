@@ -1,6 +1,6 @@
 # PROJECT_SPEC.md — My Planner PWA 기능 명세서
 
-> 최종 업데이트: 2026-06-01 (독서 진행 이력 reading_logs 추가, 식단 카페 저장 버그 수정, 일간 할일 체크박스 모바일 탭 유실 수정, 반복 할일 인스턴스 동작 복구·수정 모달 개선)
+> 최종 업데이트: 2026-06-01 (독서 진행 이력 reading_logs 테이블·자동 로깅 추가, 마이그레이션 타임스탬프 충돌 수정, 식단 카페 저장 버그 수정, 일간 할일 체크박스 모바일 탭 유실 수정, 반복 할일 인스턴스 동작 복구·수정 모달 개선, daily-report Edge Function에 일정·식단·감정·독서 섹션 추가)
 
 ---
 
@@ -564,6 +564,7 @@ store.tsx (PlannerContext)
 - 일일 긍정 메시지 (AffirmationCard)
 - **식단 기록 페이지(`/food`)** — 3탭(오늘/달력/통계), 7단계 바텀시트 추가 흐름, 식약처 영양성분 API 자동 검색, 사진 업로드(카메라/갤러리), 음성입력, 식사유형·맛평가, 도넛·바 차트 통계 (`FoodView.tsx`)
 - **식약처 영양성분 API 프록시** — Vercel Edge Function `GET /api/food-nutrition?query=음식명` → 칼로리/탄수화물/단백질/지방 반환 (`api/food-nutrition.ts`)
+- **일일 리포트(daily-report) Supabase Edge Function** — pg_cron이 KST 지정 시각에 호출 → 오늘(KST) 기준 **할일·습관·일정·식단·감정·독서** 6개 섹션을 조립해 Discord Webhook으로 전송. 섹션별 try/catch로 한 섹션 실패가 전체 전송을 막지 않음. events.start_at은 KST 벽시계 text라 동일 형식 문자열 범위로 조회(반복 일정 전개는 TODO) (`supabase/functions/daily-report/index.ts`)
 - **모먼트 로그(`/moments`)** — 사진(카메라/갤러리, 최대 5장)+텍스트 작성·저장, 저장 시 Geolocation → Open-Meteo 날씨 자동 첨부, WMO 코드 → 이모지+한국어 매핑, 카드 날씨 배지 표시, 위치 거부 시 날씨 없이 폴백 저장 (`MomentView.tsx`)
 - **질문일기(`/question-journal`)** — 오늘의 질문 탭(daily_question 랜덤 배정 + 답변 저장/수정), 질문 탐색 탭(내장 15개 + 커스텀 추가/삭제), 질문별 모아보기(연도별 섹션 + 5년 다이어리 스타일 카드, 바텀시트/모달 오버레이). Realtime 3테이블 연동 (`QuestionJournalView.tsx`)
 - **모바일 타임라인 블록 생성 — 롱프레스 방식** — 빈 타임라인을 0.5초 꾹 누를 때만 블록 생성 모드 활성화(기본 30분 프리뷰 + 진동), 이전 드래그 방식은 일반 스크롤과 충돌했음. `WebkitTouchCallout/WebkitUserSelect: none` 으로 iOS 시스템 텍스트 선택 메뉴 차단 (`DailyView.tsx`)

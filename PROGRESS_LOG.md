@@ -17,6 +17,8 @@
 - [x] 일간 페이지 할일 체크박스 모바일 탭 유실 버그 수정
 - [x] 반복 할일 인스턴스 완료/실행/미루기/수정/삭제 동작 복구
 - [x] 반복 할일 수정 모달에서 주기 변경·반복 해제 가능하도록 수정
+- [x] reading_logs 테이블 운영 DB에 실제 적용(MCP)
+- [x] daily-report Edge Function에 일정·식단·감정·독서 4개 섹션 추가
 
 ### 🛠 오늘 작업 내용
 
@@ -72,6 +74,19 @@
 - 조치: 반복에서 분리된 단일 예외 레코드(`recurrenceParentId`)만 배너 유지, 그 외(가상 인스턴스·
   부모 반복)는 현재 값으로 채워진 반복 설정 UI 노출 → 주기 변경/반복 해제 가능.
   저장은 기존 scope(이 일정만/이후/전체) 모달 → `updateRecurringTodo`로 Supabase 갱신
+
+**⑦ reading_logs 테이블 운영 DB 실제 생성 (Supabase MCP)**
+- 마이그레이션 파일만으로는 운영 DB에 테이블이 안 생기는 상태였음 → MCP `apply_migration` 으로 `my-planner`(kfvijixulsvxelmmqzpm) 프로젝트에 직접 적용
+- 검증: 컬럼 8개·인덱스 3개(pkey 포함)·RLS 활성+owner-only 정책 1개·`supabase_realtime` 등록 모두 확인
+- 참고: `create table if not exists` 라 추후 `supabase db push` 와 충돌 없음
+
+**⑧ daily-report Edge Function 카테고리 확장 (`supabase/functions/daily-report/index.ts` 단일 파일)**
+- 기존 todos/habits 만 담던 일일 리포트에 **오늘 일정(events) / 식단(food_records) / 감정(mood_records) / 독서(reading_logs+books)** 4개 섹션 추가 (헤더-할일-습관 다음, 마무리 멘트 앞)
+- 섹션별 빌더 함수로 분리(`buildEventsSection`/`buildFoodSection`/`buildMoodSection`/`buildReadingSection`), 각자 try/catch 로 감싸 한 섹션 실패가 다른 섹션·전체 전송을 막지 않게 함(실패 시 "… 데이터 불러오기 실패" 한 줄)
+- **events.start_at 지시-실제 스키마 불일치 처리**: 작업 지시는 timestamptz 전제(UTC 범위 쿼리)였으나 실제 DB·`src/api/events.ts`는 `start_at`이 `"yyyy-MM-ddTHH:mm:ss"` 형태의 KST 벽시계 **text** → 동일 고정폭 ISO 문자열 범위로 KST 하루를 조회하도록 구현(주석 명시), 반복 일정 전개는 TODO 주석만 남김
+- 독서: 오늘 로그의 book_id별 max page − 이전(date<today) max page = delta, delta>0인 책만 books와 조인해 "오늘 +Np / 📖 〈제목〉 cur/total p" 표시
+- 의존성 추가 없음, 프론트엔드/마이그레이션 미수정, 기존 kstNowInfo·헤더·마무리·todos/habits·Discord POST 로직 유지
+- ⚠️ 아직 **배포(`supabase functions deploy daily-report`) 안 함** — 운영은 여전히 v2(구 코드). 배포해야 새 섹션 반영됨
 
 ---
 
