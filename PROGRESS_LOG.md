@@ -6,6 +6,52 @@
 
 ---
 
+## 2026-06-01
+
+### ✅ 완료
+- [x] 식단 페이지 데이터 사라짐 버그 수정 (카페 식사유형 저장 실패)
+- [x] 일간 페이지 할일 체크박스 모바일 탭 유실 버그 수정
+- [x] 반복 할일 인스턴스 완료/실행/미루기/수정/삭제 동작 복구
+- [x] 반복 할일 수정 모달에서 주기 변경·반복 해제 가능하도록 수정
+
+### 🛠 오늘 작업 내용
+
+**① 식단 데이터 사라짐 버그 — `food_records` dining_type CHECK 제약 (`supabase/migrations/`)**
+- 증상: 모바일에서 식단 추가 후 앱을 다시 열면 사라짐 (특히 "카페" 선택 시)
+- 원인: 앱 코드(`DiningType`, `FoodView`)는 집밥/배달/외식/**카페(coffee)** 4종을 제공하나,
+  DB 제약 `food_records_dining_type_check`는 home/delivery/restaurant 3종만 허용 → 카페 저장 시
+  INSERT가 CHECK 위반으로 400, 낙관적 업데이트로 화면엔 보였다가 재조회 시 사라짐
+- 진단 근거: DB 마지막 식단 05-26이 끝, 인증 컨텍스트로 `dining_type='coffee'` insert 시
+  `ERROR 23514 violates check constraint` 재현, API 로그에 `POST /food_records 400` 확인
+- 조치: 마이그레이션 `20260601000000_fix_food_dining_type_allow_coffee.sql` — 제약에 'coffee' 추가,
+  운영 DB 적용 완료
+
+**② 일간 할일 체크박스 모바일 탭 유실 (`DailyView.tsx`)**
+- 증상: 일간 페이지 할일(top3로 본 것 포함)의 원형 완료 체크박스가 모바일에서 토글 안 됨
+- 원인: `TodoRow`가 `DailyView` 내부에 정의된 채 `<TodoRow/>` 엘리먼트로 렌더 → 매 렌더마다
+  새 컴포넌트 타입이 되어 행 전체가 unmount/remount. 포커스 타이머 1초 틱·Realtime 갱신 등으로
+  리렌더가 겹치면 iOS Safari에서 touch→click 사이 노드 교체로 클릭이 유실됨
+  (top3/일반 구분 없이 동일 — 두 영역 모두 같은 `TodoRow` 사용, top3 전용 로직 차이 없음)
+- 조치: `TodoRow`를 엘리먼트가 아닌 **함수 호출(인라인 렌더)** 로 변경해 리마운트 제거, 루트 div에 key 유지
+
+**③ 반복 할일 인스턴스 동작 복구 (`store.tsx`, `DailyView.tsx`)**
+- 원인: 일간뷰는 반복 할일을 가상 id(`parentId::date`)로 전개하는데, 체크박스·미루기·상태변경·
+  DO편집·드래그·포커스 타이머가 `updateTodo(가상id)`를 호출 → DB에 없는 id라 no-op
+- 조치: store에 `ensureMaterializedTodoId` 추가 — 가상 인스턴스를 그 날짜의 실제 예외 레코드로
+  구체화한 뒤 실제 id로 변경 적용 (`updateTodo`·`startTimer`가 사용). 미루기는 원래 occurrence 취소 +
+  선택 날짜에 단일 할일 생성으로 처리
+- 반복 할일을 top3로 지정하면 `expandRecurringTodos`가 `isTop3`를 각 날짜 인스턴스에 복사 →
+  다른 날짜 페이지 top3 영역에도 표시 (강제 top3 아님)
+
+**④ 반복 할일 수정 모달 — 주기 수정/해제 (`TodoModal.tsx`)**
+- 증상: 반복 할일 수정 모달이 "반복 일정입니다" 배너만 보이고 주기 변경·해제 불가
+- 원인: 가상 인스턴스면 반복 설정 UI를 숨기고 배너만 노출(`isRecurringInstanceUI`)
+- 조치: 반복에서 분리된 단일 예외 레코드(`recurrenceParentId`)만 배너 유지, 그 외(가상 인스턴스·
+  부모 반복)는 현재 값으로 채워진 반복 설정 UI 노출 → 주기 변경/반복 해제 가능.
+  저장은 기존 scope(이 일정만/이후/전체) 모달 → `updateRecurringTodo`로 Supabase 갱신
+
+---
+
 ## 2026-05-31
 
 ### 📋 TODO

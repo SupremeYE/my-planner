@@ -1,6 +1,6 @@
 # PROJECT_SPEC.md — My Planner PWA 기능 명세서
 
-> 최종 업데이트: 2026-05-31 (식단 단식 기록 기능, 일정 스키마 버그 수정, 캘린더 탭 색상·미루기 배지 개선, 질문일기 신규 페이지)
+> 최종 업데이트: 2026-06-01 (식단 카페 저장 버그 수정, 일간 할일 체크박스 모바일 탭 유실 수정, 반복 할일 인스턴스 동작 복구·수정 모달 개선)
 
 ---
 
@@ -585,6 +585,10 @@ store.tsx (PlannerContext)
 | `DailyView.tsx` (모바일 타임라인) | 아래 드래그 8px 이상이면 블록 생성 → 일반 스크롤에도 블록 생성, 위 스크롤 불가 | 스크롤 시 타임블록 자동 생성 | ✅ 수정 완료 |
 | `DailyView.tsx` (DO 블록 삭제) | DO 블록 `deleteTodo(id)` → PLAN/DO 공유 todo 전체 삭제 | DO 지우면 PLAN도 사라짐 | ✅ 수정 완료 |
 | `events` 테이블 / `api/events.ts` | 운영 DB가 옛 스키마(date/start_time/end_time)만 보유, 코드가 쓰는 start_at 등 컬럼 누락 → `GET /events` 400 | 일정 추가/조회 전면 중단 + store Promise.all reject로 태그 등 미반영 | ✅ 수정 완료 (마이그레이션) |
+| `food_records` 테이블 | dining_type CHECK 제약에 'coffee' 누락 (코드는 home/delivery/restaurant/coffee 제공) | 카페 식단 저장 시 400 → 화면엔 보였다가 재접속 시 사라짐 | ✅ 수정 완료 (마이그레이션 `20260601000000`) |
+| `DailyView.tsx` (TodoRow) | `TodoRow`를 컴포넌트 내부에서 `<TodoRow/>` 엘리먼트로 렌더 → 매 렌더 새 타입 → 행 unmount/remount | 모바일(iOS)에서 할일 체크박스 탭이 유실되어 토글 안 됨 | ✅ 수정 완료 (함수 호출 인라인 렌더) |
+| `store.tsx` / `DailyView.tsx` (반복 인스턴스) | 가상 id(`parentId::date`)에 `updateTodo`/`startTimer` 호출 → DB에 없는 id라 no-op | 반복 할일 인스턴스의 완료·실행·미루기·상태변경이 안 됨 | ✅ 수정 완료 (`ensureMaterializedTodoId`로 예외 레코드 구체화) |
+| `TodoModal.tsx` (반복 수정) | 가상 인스턴스 편집 시 "반복 일정입니다" 배너만 노출, 설정 숨김 | 반복 주기 변경·반복 해제 불가 | ✅ 수정 완료 (분리 예외만 배너, 그 외 설정 UI 노출) |
 
 ### ⚠️ 새로고침 시 데이터 소실 (Supabase 미연동)
 
