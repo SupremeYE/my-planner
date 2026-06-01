@@ -90,7 +90,7 @@ function getContrastTextColor(hex: string): string {
 
 // ─── Snooze Date Picker Modal ───
 function SnoozeModal({ todo, onClose }: { todo: Todo; onClose: () => void }) {
-  const { updateTodo } = usePlanner();
+  const { updateTodo, addTodo, deleteRecurringTodo } = usePlanner();
   const { t } = useTheme();
   const [viewMonth, setViewMonth] = useState(new Date());
   const [selectedSnoozeDate, setSelectedSnoozeDate] = useState('');
@@ -129,6 +129,24 @@ function SnoozeModal({ todo, onClose }: { todo: Todo; onClose: () => void }) {
 
   const handleConfirm = () => {
     if (!selectedSnoozeDate) return;
+    // 반복 가상 인스턴스 미루기: 이 occurrence를 원래 날짜에서 취소하고 선택 날짜에 단일 할일로 옮긴다.
+    if (isVirtualTodoId(todo.id)) {
+      const info = parseVirtualTodoId(todo.id);
+      if (info) {
+        deleteRecurringTodo(info.parentId, info.instanceDate, 'this');
+        addTodo({
+          text: todo.text,
+          date: selectedSnoozeDate,
+          status: 'active',
+          isTop3: todo.isTop3,
+          planStart: snoozeTime || undefined,
+          tags: todo.tags,
+          projectId: todo.projectId,
+        });
+        onClose();
+        return;
+      }
+    }
     updateTodo(todo.id, {
       date: selectedSnoozeDate,
       status: 'active',
@@ -2009,6 +2027,10 @@ export function DailyView() {
   };
 
   // Todo row for list
+  // 주의: DailyView 안에서 정의하되 JSX 엘리먼트(<TodoRow/>)가 아니라 함수로 호출해 렌더한다.
+  // 엘리먼트로 쓰면 매 렌더마다 새 컴포넌트 타입이 되어 행 전체가 unmount/remount → 모바일에서
+  // 탭(touch) 도중 노드가 교체되며 체크박스 클릭이 유실되는 문제가 있었다. 함수 호출은 부모 트리에
+  // 인라인되어 리마운트가 없다(키는 루트 div의 key로 유지).
   const TodoRow = ({ todo }: { todo: Todo }) => {
     const project = todo.projectId ? projects.find(p => p.id === todo.projectId) : null;
     const firstTag = (todo.tags && todo.tags.length > 0) ? tags.find(tg => tg.id === todo.tags![0]) : null;
@@ -2018,6 +2040,7 @@ export function DailyView() {
     const isHighlighted = highlightTodoId === todo.id;
     return (
       <div
+        key={todo.id}
         id={`todo-row-${todo.id}`}
         className="group flex items-start gap-3 py-2.5 px-3 rounded-xl transition-all"
         style={{
@@ -2203,7 +2226,7 @@ export function DailyView() {
                 </span>
               </div>
               <div className="space-y-2">
-                {importantTodos.map(todo => <TodoRow key={todo.id} todo={todo} />)}
+                {importantTodos.map(todo => TodoRow({ todo }))}
               </div>
             </div>
           )}
@@ -2221,7 +2244,7 @@ export function DailyView() {
               />
             </div>
             <div className="space-y-2">
-              {regularTodos.map(todo => <TodoRow key={todo.id} todo={todo} />)}
+              {regularTodos.map(todo => TodoRow({ todo }))}
               {regularTodos.length === 0 && (
                 <div className="py-8 text-center">
                   <p style={{ fontSize: 13, color: t.textMuted }}>아직 할일이 없습니다</p>

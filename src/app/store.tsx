@@ -2,6 +2,7 @@ import React, { createContext, useContext, useState, useCallback, useEffect, use
 import { supabase } from '../lib/supabase';
 import { format, getISOWeek, getYear, subDays, addDays, parseISO } from 'date-fns';
 import { db } from '../lib/db';
+import { isVirtualTodoId, parseVirtualTodoId } from '../lib/recurrenceExpansion';
 
 // ───── Types ─────
 export type TodoStatus = 'active' | 'done' | 'cancelled' | 'snoozed' | 'backlog' | 'inProgress';
@@ -603,6 +604,9 @@ export function PlannerProvider({ children }: { children: React.ReactNode }) {
 
   // ── Supabase 연동 상태 ──
   const [todos, setTodos] = useState<Todo[]>([]);
+  // 최신 todos 스냅샷 (반복 가상 인스턴스 → 실제 예외 레코드 동기 변환 시 참조)
+  const todosRef = useRef<Todo[]>([]);
+  useEffect(() => { todosRef.current = todos; }, [todos]);
   const [habits, setHabits] = useState<Habit[]>([]);
   const [habitMonthlyMemos, setHabitMonthlyMemos] = useState<HabitMonthlyMemo[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
@@ -890,14 +894,47 @@ export function PlannerProvider({ children }: { children: React.ReactNode }) {
     db.todos.upsert(newTodo);
   }, []);
 
+  // 반복 가상 인스턴스(`parentId::date`)를 실제 예외 레코드로 구체화하고 실제 todo id를 반환한다.
+  // - 비반복 id: 그대로 반환
+  // - 이미 해당 날짜 예외가 존재: 그 실제 id 반환
+  // - 처음 변경: 부모를 복제한 예외 레코드를 생성(state+ref 즉시 반영, DB 저장은 호출자가 수행)
+  // 이로써 체크박스 완료·미루기·상태변경·DO 편집·드래그·타이머가 가상 id에서도 동작한다.
+  const ensureMaterializedTodoId = useCallback((id: string): string => {
+    if (!isVirtualTodoId(id)) return id;
+    const info = parseVirtualTodoId(id);
+    if (!info) return id;
+    const { parentId, instanceDate } = info;
+    const list = todosRef.current;
+    const existing = list.find(t => t.recurrenceParentId === parentId && t.date === instanceDate);
+    if (existing) return existing.id;
+    const parent = list.find(t => t.id === parentId);
+    if (!parent) return id;
+    const exId = newId();
+    const exception: Todo = {
+      ...parent,
+      doStart: undefined, doEnd: undefined, doElapsedSec: undefined,
+      id: exId,
+      date: instanceDate,
+      recurrenceParentId: parentId,
+      recurrenceRule: undefined,
+      recurrenceDays: undefined,
+      recurrenceEndDate: undefined,
+      isException: true,
+    };
+    todosRef.current = [...list, exception];
+    setTodos(prev => [...prev, exception]);
+    return exId;
+  }, []);
+
   const updateTodo = useCallback((id: string, changes: Partial<Todo>) => {
+    const realId = ensureMaterializedTodoId(id);
     setTodos(prev => {
-      const updated = prev.map(t => t.id === id ? { ...t, ...changes } : t);
-      const todo = updated.find(t => t.id === id);
+      const updated = prev.map(t => t.id === realId ? { ...t, ...changes } : t);
+      const todo = updated.find(t => t.id === realId);
       if (todo) db.todos.upsert(todo);
       return updated;
     });
-  }, []);
+  }, [ensureMaterializedTodoId]);
 
   const deleteTodo = useCallback((id: string) => {
     setTodos(prev => {
@@ -1480,13 +1517,15 @@ export function PlannerProvider({ children }: { children: React.ReactNode }) {
     const mode = options?.mode ?? 'stopwatch';
     const pomoDurationSec = mode === 'pomodoro' ? Math.max(60, options?.pomoDurationSec ?? 25 * 60) : 0;
 
+    // 반복 가상 인스턴스면 실제 예외 레코드로 구체화한 뒤 그 실제 id로 타이머를 건다.
+    const realId = ensureMaterializedTodoId(todoId);
     setTodos(prev => {
       const updated = prev.map(t =>
-        t.id === todoId
+        t.id === realId
           ? { ...t, status: 'inProgress' as TodoStatus, doStart: undefined, doEnd: undefined, doElapsedSec: undefined }
           : t
       );
-      const todo = updated.find(t => t.id === todoId);
+      const todo = updated.find(t => t.id === realId);
       if (todo) db.todos.upsert(todo);
       return updated;
     });
@@ -1494,7 +1533,7 @@ export function PlannerProvider({ children }: { children: React.ReactNode }) {
       if (prev) return prev;
       const now = new Date();
       return {
-        todoId,
+        todoId: realId,
         mode,
         startedAt: now.getTime(),
         startHHMM: format(now, 'HH:mm'),
@@ -1504,7 +1543,7 @@ export function PlannerProvider({ children }: { children: React.ReactNode }) {
         pomoDurationSec,
       };
     });
-  }, [activeTimer]);
+  }, [activeTimer, ensureMaterializedTodoId]);
 
   const pauseTimer = useCallback(() => {
     setActiveTimer(prev => {
