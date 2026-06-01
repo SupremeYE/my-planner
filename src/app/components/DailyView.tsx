@@ -90,7 +90,7 @@ function getContrastTextColor(hex: string): string {
 
 // ─── Snooze Date Picker Modal ───
 function SnoozeModal({ todo, onClose }: { todo: Todo; onClose: () => void }) {
-  const { updateTodo } = usePlanner();
+  const { updateTodo, addTodo, deleteRecurringTodo } = usePlanner();
   const { t } = useTheme();
   const [viewMonth, setViewMonth] = useState(new Date());
   const [selectedSnoozeDate, setSelectedSnoozeDate] = useState('');
@@ -129,6 +129,24 @@ function SnoozeModal({ todo, onClose }: { todo: Todo; onClose: () => void }) {
 
   const handleConfirm = () => {
     if (!selectedSnoozeDate) return;
+    // 반복 가상 인스턴스 미루기: 이 occurrence를 원래 날짜에서 취소하고 선택 날짜에 단일 할일로 옮긴다.
+    if (isVirtualTodoId(todo.id)) {
+      const info = parseVirtualTodoId(todo.id);
+      if (info) {
+        deleteRecurringTodo(info.parentId, info.instanceDate, 'this');
+        addTodo({
+          text: todo.text,
+          date: selectedSnoozeDate,
+          status: 'active',
+          isTop3: todo.isTop3,
+          planStart: snoozeTime || undefined,
+          tags: todo.tags,
+          projectId: todo.projectId,
+        });
+        onClose();
+        return;
+      }
+    }
     updateTodo(todo.id, {
       date: selectedSnoozeDate,
       status: 'active',

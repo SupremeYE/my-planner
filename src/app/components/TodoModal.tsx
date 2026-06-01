@@ -35,8 +35,8 @@ export function TodoModal({ date, todo, initialPlanStart, initialPlanEnd, onClos
   const virtualInfo = isVirtual && todo ? parseVirtualTodoId(todo.id) : null;
   // 반복 편집/삭제 로직 분기 트리거 (부모 포함)
   const isRecurringInstance = !!(isVirtual || (todo?.recurrenceRule && !todo?.isException) || todo?.recurrenceParentId);
-  // UI: "반복 일정입니다" 배너 + 설정 숨김 — 부모는 설정 그대로 노출
-  const isRecurringInstanceUI = !!(isVirtual || todo?.recurrenceParentId);
+  // 반복에서 분리된 단일 예외 레코드(이 날짜만의 일정) — 반복 주기 설정이 의미 없으므로 안내 배너만 표시
+  const isDetachedException = !!todo?.recurrenceParentId;
 
   const todayStr = format(new Date(), 'yyyy-MM-dd');
 
@@ -370,8 +370,9 @@ export function TodoModal({ date, todo, initialPlanStart, initialPlanEnd, onClos
             </div>
           </div>
 
-          {/* 반복 일정 — 가상 인스턴스·예외 레코드 편집 중이면 설정 UI 숨김; 부모 반복 todo는 설정 표시 */}
-          {!isRecurringInstanceUI && (
+          {/* 반복 일정 — 신규/일반/부모 반복/반복 인스턴스 모두 현재 값으로 채워 편집 가능;
+              반복에서 분리된 단일 예외 레코드만 설정 UI 숨김 */}
+          {!isDetachedException && (
             <div>
               <div className="flex items-center gap-1.5 mb-2">
                 <RefreshCw size={13} color={t.accent} />
@@ -445,12 +446,12 @@ export function TodoModal({ date, todo, initialPlanStart, initialPlanEnd, onClos
               )}
             </div>
           )}
-          {/* 가상 인스턴스 / 예외 레코드임을 표시 */}
-          {isRecurringInstanceUI && (
+          {/* 반복에서 분리된 단일 예외 레코드임을 표시 */}
+          {isDetachedException && (
             <div className="flex items-center gap-1.5 px-3 py-2 rounded-xl"
               style={{ backgroundColor: '#EEF6FF', border: '1px solid #C0D8F8' }}>
               <RefreshCw size={12} color="#5B8FD8" />
-              <span style={{ fontSize: 11, fontWeight: 600, color: '#5B8FD8' }}>반복 일정입니다</span>
+              <span style={{ fontSize: 11, fontWeight: 600, color: '#5B8FD8' }}>이 날짜만 분리된 일정입니다</span>
             </div>
           )}
 
