@@ -711,6 +711,22 @@ export function CalendarView() {
     setPanelDate(todayStr);
   };
 
+  // 모바일 월별 좌우 스와이프 → 이전/다음 달 (PC는 마우스라 터치 이벤트 미발생 → 영향 없음)
+  const monthTouchRef = useRef<{ x: number; y: number } | null>(null);
+  const handleMonthTouchStart = (e: React.TouchEvent) => {
+    monthTouchRef.current = { x: e.touches[0].clientX, y: e.touches[0].clientY };
+  };
+  const handleMonthTouchEnd = (e: React.TouchEvent) => {
+    if (!monthTouchRef.current) return;
+    const dx = e.changedTouches[0].clientX - monthTouchRef.current.x;
+    const dy = e.changedTouches[0].clientY - monthTouchRef.current.y;
+    monthTouchRef.current = null;
+    // 가로 이동이 세로보다 크고 충분히 길 때만 달 전환 (탭/세로 스크롤 오인 방지)
+    if (Math.abs(dx) <= Math.abs(dy) || Math.abs(dx) <= 50) return;
+    if (dx < 0) handleNext();
+    else handlePrev();
+  };
+
 
   const panelEvents = panelDate
     ? events
@@ -1049,7 +1065,12 @@ export function CalendarView() {
               flexShrink: 0,
             }}
           >
-            <div className="bg-white rounded-2xl p-4 shadow-sm" style={{ border: '1px solid #eef4fa' }}>
+            <div
+              className="bg-white rounded-2xl p-4 shadow-sm"
+              style={{ border: '1px solid #eef4fa' }}
+              onTouchStart={handleMonthTouchStart}
+              onTouchEnd={handleMonthTouchEnd}
+            >
               <MonthView
                 viewDate={viewDate}
                 filter={filter}

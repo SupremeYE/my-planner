@@ -143,11 +143,12 @@ function computeSleepSegs(dateStr: string, selfCareRecords: SelfCareRecord[]): S
   return segs;
 }
 
-function ThreeDayView({ days, startHour, endHour, todayStr, todos, selfCareRecords }: {
+function ThreeDayView({ days, startHour, endHour, todayStr, selectedDate, todos, selfCareRecords }: {
   days: Date[];
   startHour: number;
   endHour: number;
   todayStr: string;
+  selectedDate: string;
   todos: Todo[];
   selfCareRecords: SelfCareRecord[];
 }) {
@@ -157,8 +158,11 @@ function ThreeDayView({ days, startHour, endHour, todayStr, todos, selfCareRecor
   const totalH = (endHour - startHour) * HOUR_3DAY + 8;
   const nowMin = new Date().getHours() * 60 + new Date().getMinutes();
 
-  // 주 변경 시 페이지 초기화
-  useEffect(() => { setPage(0); }, [days[0]?.getTime()]);
+  // 주/선택 날짜 변경 시 선택 날짜(=Today 클릭 시 오늘)가 포함된 페이지로 이동
+  useEffect(() => {
+    const idx = days.findIndex(d => format(d, 'yyyy-MM-dd') === selectedDate);
+    setPage(idx >= 0 ? Math.floor(idx / 3) : 0);
+  }, [days, selectedDate]);
 
   const pages = [
     [days[0], days[1], days[2]],
@@ -803,6 +807,7 @@ export function WeekViewMobile({ viewDate, weekStartsOn, selectedDate, onSelectD
             startHour={startHour}
             endHour={endHour}
             todayStr={todayStr}
+            selectedDate={selectedDate}
             todos={weekTodos}
             selfCareRecords={selfCareRecords}
           />
