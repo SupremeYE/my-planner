@@ -4,7 +4,7 @@ import {
   Sun, CalendarDays, BarChart2, ListTodo,
   ChevronLeft, ChevronRight, Target, FolderKanban, Plus, Home,
   Menu, Heart, Repeat, BookOpen, Library, Settings, BarChart3,
-  Smile, Utensils, Camera, NotebookPen,
+  Smile, Utensils, Camera, NotebookPen, Clapperboard,
 } from 'lucide-react';
 import { usePlanner, getWeekKey } from '../store';
 import { useTheme } from '../ThemeContext';
@@ -30,6 +30,7 @@ const lifestyleNavItems = [
   { to: '/food', icon: Utensils, label: '식단' },
   { to: '/books', icon: Library, label: '독서' },
   { to: '/moments', icon: Camera, label: '모먼트' },
+  { to: '/culture', icon: Clapperboard, label: '문화 기록' },
   { to: '/question-journal', icon: NotebookPen, label: '질문일기' },
 ];
 
@@ -269,6 +270,7 @@ function MobileMenuOverlay({ onClose }: { onClose: () => void }) {
     { to: '/food', icon: Utensils, label: '식단' },
     { to: '/books', icon: Library, label: '독서' },
     { to: '/moments', icon: Camera, label: '모먼트' },
+    { to: '/culture', icon: Clapperboard, label: '문화 기록' },
     { to: '/question-journal', icon: NotebookPen, label: '질문일기' },
     { to: '/settings', icon: Settings, label: '설정' },
   ];
