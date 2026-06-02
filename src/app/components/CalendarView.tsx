@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { ChevronDown, ChevronLeft, ChevronRight, X } from 'lucide-react';
+import { ArrowRight, Check, ChevronDown, ChevronLeft, ChevronRight, Star, X } from 'lucide-react';
 import {
   addDays,
   addMonths,
@@ -13,13 +13,15 @@ import {
   subMonths,
 } from 'date-fns';
 import { ko } from 'date-fns/locale';
-import { usePlanner, PeriodRecord, SelfCareRecord, Todo } from '../store';
+import { usePlanner, Event, PeriodRecord, SelfCareRecord, Todo } from '../store';
 import { isDoOvertimeVsPlan, doElapsedTitleSuffix } from '../../lib/todoDoDuration';
-import { expandRecurringTodos } from '../../lib/recurrenceExpansion';
+import { expandRecurringTodos, isVirtualTodoId, parseVirtualTodoId } from '../../lib/recurrenceExpansion';
 import { useTheme } from '../ThemeContext';
 import { TimePicker } from './TimePicker';
 import { TodoModal } from './TodoModal';
 import { EventModal } from './EventModal';
+import ConfirmModal from './ConfirmModal';
+import { RecurrenceBranchModal } from './RecurrenceBranchModal';
 import { FloatingAddFab } from './FloatingAddFab';
 import { WeekViewPC } from './WeekViewPC';
 import { WeekViewMobile } from './WeekViewMobile';
@@ -640,7 +642,12 @@ function WeekView({ viewDate, selectedDate, onSelectDate, viewDays, weekStartsOn
 }
 
 export function CalendarView() {
-  const { selectedDate, setSelectedDate, appSettings, tags, events, todos, habits, brainstormMemos } = usePlanner();
+  const {
+    selectedDate, setSelectedDate, appSettings, tags, events, todos, habits, brainstormMemos,
+    projects, selfCareRecords,
+    updateTodo, deleteTodo, deleteRecurringTodo, addTodo,
+    updateEvent, deleteEvent,
+  } = usePlanner();
   const { t } = useTheme();
   const [tab, setTab] = useState<TabType>('month');
   const [filter, setFilter] = useState<FilterType>('all');
@@ -650,6 +657,11 @@ export function CalendarView() {
   const [selectedTagIds, setSelectedTagIds] = useState<string[]>([]);
   const [panelDate, setPanelDate] = useState<string | null>(null);
   const [isCalendarExpanded, setIsCalendarExpanded] = useState(true);
+  // 하단 상세 패널 — 일간 페이지와 동일한 직접 관리(수정/삭제/미루기)용 상태
+  const [editingTodo, setEditingTodo] = useState<Todo | null>(null);
+  const [editingEvent, setEditingEvent] = useState<Event | null>(null);
+  const [recurringDeleteTarget, setRecurringDeleteTarget] = useState<Todo | null>(null);
+  const [confirmDelete, setConfirmDelete] = useState<{ kind: 'todo' | 'event'; id: string; message: string } | null>(null);
   const weekStartsOn = appSettings.weekStartsOn ?? 1;
   const showTagLayer = tab === 'month' && (filter === 'todo' || filter === 'event') && tags.length > 0;
 
@@ -706,17 +718,213 @@ export function CalendarView() {
       .slice()
       .sort((a, b) => (a.startTime ?? '').localeCompare(b.startTime ?? ''))
     : [];
+  // 반복 할일 가상 인스턴스 포함 — 그 날짜에 존재하는 할일을 모두 표시
   const panelTodos = panelDate
-    ? todos
-      .filter(todo => todo.date === panelDate && todo.status !== 'backlog' && todo.status !== 'cancelled')
+    ? expandRecurringTodos(todos, panelDate, panelDate)
+      .filter(todo => todo.status !== 'backlog' && todo.status !== 'cancelled')
       .slice()
       .sort((a, b) => (a.planStart ?? a.doStart ?? '').localeCompare(b.planStart ?? b.doStart ?? ''))
     : [];
   const panelHabits = panelDate ? habits : [];
+  const panelSelfCare = panelDate
+    ? selfCareRecords.filter(record => record.date === panelDate && record.category !== 'sleep')
+    : [];
   const panelMemo = panelDate ? brainstormMemos[panelDate]?.trim() ?? '' : '';
 
+  // 상단 필터 탭과 일관: '전체'면 모든 섹션, 특정 탭이면 해당 섹션만
+  const showTodoSection = filter === 'all' || filter === 'todo';
+  const showEventSection = filter === 'all' || filter === 'event';
+  const showHabitSection = filter === 'all' || filter === 'habit';
+  const showSelfcareSection = filter === 'all' || filter === 'selfcare';
+  const showMemoSection = filter === 'all';
+
   const getTagName = (tagId: string) => tags.find(tag => tag.id === tagId);
-  const hasPanelContent = panelEvents.length > 0 || panelTodos.length > 0 || panelHabits.length > 0 || !!panelMemo;
+  const hasPanelContent =
+    (showEventSection && panelEvents.length > 0) ||
+    (showTodoSection && panelTodos.length > 0) ||
+    (showHabitSection && panelHabits.length > 0) ||
+    (showSelfcareSection && panelSelfCare.length > 0) ||
+    (showMemoSection && !!panelMemo);
+
+  // ── 할일 동작 (일간 페이지 로직 재사용) ──
+  const handleToggleTodo = (todo: Todo) => {
+    if (todo.status === 'done') {
+      updateTodo(todo.id, { status: 'active', doStart: undefined, doEnd: undefined, doElapsedSec: undefined });
+      return;
+    }
+    const doneAt = format(new Date(), 'HH:mm');
+    updateTodo(todo.id, { status: 'done', doStart: doneAt, doEnd: doneAt, doElapsedSec: 0 });
+  };
+
+  // 미루기: 다음 날짜로 이동 (반복 인스턴스는 이 날짜만 취소 후 단일 할일로 이동 — SnoozeModal과 동일)
+  const handleSnoozeTodo = (todo: Todo) => {
+    if (!todo.date) return;
+    const next = format(addDays(parseISO(todo.date), 1), 'yyyy-MM-dd');
+    if (isVirtualTodoId(todo.id)) {
+      const info = parseVirtualTodoId(todo.id);
+      if (info) {
+        deleteRecurringTodo(info.parentId, info.instanceDate, 'this');
+        addTodo({
+          text: todo.text,
+          date: next,
+          status: 'active',
+          isTop3: todo.isTop3,
+          planStart: todo.planStart || undefined,
+          tags: todo.tags,
+          projectId: todo.projectId,
+        });
+        return;
+      }
+    }
+    updateTodo(todo.id, {
+      date: next,
+      status: 'active',
+      planEnd: undefined,
+      doStart: undefined,
+      doEnd: undefined,
+    });
+  };
+
+  // 삭제: 반복 인스턴스는 "이 항목만/이후/전체" 분기 모달, 일반 할일은 확인 팝업
+  const handleDeleteTodo = (todo: Todo) => {
+    if (isVirtualTodoId(todo.id)) {
+      setRecurringDeleteTarget(todo);
+      return;
+    }
+    setConfirmDelete({ kind: 'todo', id: todo.id, message: `"${todo.text}"을(를) 삭제할까요?` });
+  };
+
+  // ── 일정 동작 (완료 개념 없음 → 수정/미루기/삭제) ──
+  const handleSnoozeEvent = (event: Event) => {
+    const base = event.date || panelDate;
+    if (!base) return;
+    updateEvent(event.id, { date: format(addDays(parseISO(base), 1), 'yyyy-MM-dd') });
+  };
+  const handleDeleteEvent = (event: Event) => {
+    setConfirmDelete({ kind: 'event', id: event.id, message: `"${event.title}" 일정을 삭제할까요?` });
+  };
+
+  const renderTagChips = (tagIds?: string[]) =>
+    (tagIds ?? []).map(tagId => {
+      const tag = getTagName(tagId);
+      if (!tag) return null;
+      return (
+        <span
+          key={tagId}
+          className="inline-flex items-center px-1.5 py-px rounded-full"
+          style={{ fontSize: 9, fontWeight: 600, color: tag.color, backgroundColor: `${tag.color}18`, border: `1px solid ${tag.color}33`, lineHeight: '14px' }}
+        >
+          {tag.name}
+        </span>
+      );
+    });
+
+  // 할일 카드 — 일간 TodoRow 스타일(원형 체크박스 + 태그 + 미루기/삭제). 리마운트 방지 위해 함수 호출로 렌더.
+  const renderTodoCard = (todo: Todo) => {
+    const firstTag = todo.tags?.length ? tags.find(tg => tg.id === todo.tags![0]) : null;
+    const accentColor = firstTag?.color || t.border;
+    const isDone = todo.status === 'done';
+    const project = todo.projectId ? projects.find(p => p.id === todo.projectId) : null;
+    return (
+      <div
+        key={todo.id}
+        className="flex items-start gap-2.5 py-2 px-3 rounded-xl"
+        style={{
+          backgroundColor: isDone ? t.bgSub + '80' : t.card,
+          border: `1px solid ${accentColor}20`,
+          borderLeft: `3px solid ${accentColor}${isDone ? '40' : ''}`,
+        }}
+      >
+        <button
+          onClick={() => handleToggleTodo(todo)}
+          className="w-5 h-5 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5 transition-all"
+          style={{
+            border: isDone ? 'none' : `2px solid ${(todo.status === 'inProgress' ? t.success : accentColor)}60`,
+            backgroundColor: isDone ? t.checkDone : (todo.status === 'inProgress' ? `${t.success}12` : 'transparent'),
+          }}
+          aria-label="완료 토글"
+        >
+          {isDone && <Check size={11} color="#fff" strokeWidth={3} />}
+        </button>
+
+        <div className="flex-1 min-w-0 cursor-pointer" onClick={() => setEditingTodo(todo)}>
+          <div className="flex items-center gap-1.5">
+            {todo.isTop3 && <Star size={11} fill={t.accent} color={t.accent} className="flex-shrink-0" />}
+            <span style={{
+              fontSize: 13, fontWeight: 600,
+              color: isDone ? t.textMuted : t.text,
+              textDecoration: isDone ? 'line-through' : 'none',
+              overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+            }}>
+              {todo.text}
+            </span>
+          </div>
+          <div className="flex items-center gap-1.5 mt-1 flex-wrap">
+            {todo.planStart && (
+              <span style={{ fontSize: 10, color: t.textMuted }}>
+                {todo.planStart}{todo.planEnd ? ` - ${todo.planEnd}` : ''}
+              </span>
+            )}
+            {project && (
+              <span className="inline-flex items-center px-1.5 py-px rounded-full" style={{ fontSize: 9, backgroundColor: project.color + '18', color: project.color, lineHeight: '14px' }}>
+                {project.name}
+              </span>
+            )}
+            {renderTagChips(todo.tags)}
+          </div>
+        </div>
+
+        <div className="flex items-center gap-1 flex-shrink-0 mt-0.5">
+          <button onClick={() => handleSnoozeTodo(todo)} title="다음 날로 미루기"
+            className="p-1.5 rounded-lg transition-colors" style={{ color: t.textMuted, backgroundColor: t.bgSub }}>
+            <ArrowRight size={13} />
+          </button>
+          <button onClick={() => handleDeleteTodo(todo)} title="삭제"
+            className="p-1.5 rounded-lg transition-colors" style={{ color: t.danger, backgroundColor: t.bgSub }}>
+            <X size={13} />
+          </button>
+        </div>
+      </div>
+    );
+  };
+
+  // 일정 카드 — 완료 체크 없음. 항목 탭 → 수정, → 미루기, x 삭제.
+  const renderEventCard = (event: Event) => {
+    const eventColor = event.color || t.info;
+    return (
+      <div
+        key={event.id}
+        className="flex items-start gap-2.5 py-2 px-3 rounded-xl"
+        style={{ backgroundColor: t.card, border: `1px solid ${eventColor}20`, borderLeft: `3px solid ${eventColor}` }}
+      >
+        <span className="w-1.5 h-1.5 rounded-full flex-shrink-0 mt-2" style={{ backgroundColor: eventColor }} />
+        <div className="flex-1 min-w-0 cursor-pointer" onClick={() => setEditingEvent(event)}>
+          <div style={{ fontSize: 13, fontWeight: 600, color: t.text, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+            {event.title}
+          </div>
+          <div className="flex items-center gap-1.5 mt-1 flex-wrap">
+            {event.startTime && event.endTime && (
+              <span style={{ fontSize: 10, color: t.textMuted }}>{event.startTime} ~ {event.endTime}</span>
+            )}
+            {event.location && (
+              <span style={{ fontSize: 10, color: t.textMuted }}>📍 {event.location}</span>
+            )}
+            {renderTagChips(event.tags)}
+          </div>
+        </div>
+        <div className="flex items-center gap-1 flex-shrink-0 mt-0.5">
+          <button onClick={() => handleSnoozeEvent(event)} title="다음 날로 미루기"
+            className="p-1.5 rounded-lg transition-colors" style={{ color: t.textMuted, backgroundColor: t.bgSub }}>
+            <ArrowRight size={13} />
+          </button>
+          <button onClick={() => handleDeleteEvent(event)} title="삭제"
+            className="p-1.5 rounded-lg transition-colors" style={{ color: t.danger, backgroundColor: t.bgSub }}>
+            <X size={13} />
+          </button>
+        </div>
+      </div>
+    );
+  };
 
   return (
     <div className="relative" style={{ height: '100%', display: 'flex', flexDirection: 'column', backgroundColor: t.bg }}>
@@ -888,80 +1096,25 @@ export function CalendarView() {
                       </p>
                     </div>
 
-                    {panelEvents.length > 0 && (
-                      <section>
-                        <h3 style={{ fontSize: 13, fontWeight: 700, color: t.text, marginBottom: 8 }}>일정</h3>
-                        <div className="space-y-2">
-                          {panelEvents.map(event => (
-                            <div key={event.id} className="rounded-xl px-3 py-2" style={{ backgroundColor: t.bgSub, border: `1px solid ${t.borderLight}` }}>
-                              <div style={{ fontSize: 13, fontWeight: 600, color: t.text }}>{event.title}</div>
-                              {event.startTime && event.endTime && (
-                                <div style={{ fontSize: 11, color: t.textSub, marginTop: 2 }}>
-                                  {event.startTime} ~ {event.endTime}
-                                </div>
-                              )}
-                            </div>
-                          ))}
-                        </div>
-                      </section>
-                    )}
-
-                    {panelTodos.length > 0 && (
+                    {showTodoSection && panelTodos.length > 0 && (
                       <section>
                         <h3 style={{ fontSize: 13, fontWeight: 700, color: t.text, marginBottom: 8 }}>할일</h3>
                         <div className="space-y-2">
-                          {panelTodos.map(todo => (
-                            <div key={todo.id} className="rounded-xl px-3 py-2" style={{ backgroundColor: t.bgSub, border: `1px solid ${t.borderLight}` }}>
-                              <div
-                                style={{
-                                  fontSize: 13,
-                                  fontWeight: 600,
-                                  color: todo.status === 'done' ? t.textMuted : t.text,
-                                  textDecoration: todo.status === 'done' ? 'line-through' : 'none',
-                                }}
-                              >
-                                {todo.text}
-                              </div>
-                              <div className="flex gap-1.5 flex-wrap mt-2">
-                                <span
-                                  className="inline-flex items-center px-2 py-0.5 rounded-full"
-                                  style={{
-                                    fontSize: 10,
-                                    fontWeight: 600,
-                                    backgroundColor: todo.status === 'done' ? t.checkDone : t.card,
-                                    color: todo.status === 'done' ? '#fff' : t.textSub,
-                                    border: `1px solid ${todo.status === 'done' ? t.checkDone : t.border}`,
-                                  }}
-                                >
-                                  {todo.status === 'done' ? '완료' : '미완료'}
-                                </span>
-                                {(todo.tags ?? []).map(tagId => {
-                                  const tag = getTagName(tagId);
-                                  if (!tag) return null;
-                                  return (
-                                    <span
-                                      key={tagId}
-                                      className="inline-flex items-center px-2 py-0.5 rounded-full"
-                                      style={{
-                                        fontSize: 10,
-                                        fontWeight: 600,
-                                        color: tag.color,
-                                        backgroundColor: `${tag.color}18`,
-                                        border: `1px solid ${tag.color}33`,
-                                      }}
-                                    >
-                                      {tag.name}
-                                    </span>
-                                  );
-                                })}
-                              </div>
-                            </div>
-                          ))}
+                          {panelTodos.map(todo => renderTodoCard(todo))}
                         </div>
                       </section>
                     )}
 
-                    {panelHabits.length > 0 && (
+                    {showEventSection && panelEvents.length > 0 && (
+                      <section>
+                        <h3 style={{ fontSize: 13, fontWeight: 700, color: t.text, marginBottom: 8 }}>일정</h3>
+                        <div className="space-y-2">
+                          {panelEvents.map(event => renderEventCard(event))}
+                        </div>
+                      </section>
+                    )}
+
+                    {showHabitSection && panelHabits.length > 0 && (
                       <section>
                         <h3 style={{ fontSize: 13, fontWeight: 700, color: t.text, marginBottom: 8 }}>습관</h3>
                         <div className="flex flex-wrap gap-2">
@@ -988,7 +1141,30 @@ export function CalendarView() {
                       </section>
                     )}
 
-                    {panelMemo && (
+                    {showSelfcareSection && panelSelfCare.length > 0 && (
+                      <section>
+                        <h3 style={{ fontSize: 13, fontWeight: 700, color: t.text, marginBottom: 8 }}>자기관리</h3>
+                        <div className="space-y-2">
+                          {panelSelfCare.map(record => (
+                            <div key={record.id} className="rounded-xl px-3 py-2" style={{ backgroundColor: t.bgSub, border: `1px solid ${t.borderLight}` }}>
+                              <div className="flex items-center gap-1.5">
+                                <span className="inline-flex items-center px-2 py-0.5 rounded-full" style={{ fontSize: 10, fontWeight: 600, color: t.textSub, backgroundColor: t.card, border: `1px solid ${t.border}` }}>
+                                  {SELFCARE_CATEGORY_LABELS[record.category] ?? record.category}
+                                </span>
+                                <span style={{ fontSize: 13, fontWeight: 600, color: t.text, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                  {record.content}
+                                </span>
+                              </div>
+                              {record.duration > 0 && (
+                                <div style={{ fontSize: 11, color: t.textMuted, marginTop: 2 }}>{record.duration}분</div>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      </section>
+                    )}
+
+                    {showMemoSection && panelMemo && (
                       <section>
                         <h3 style={{ fontSize: 13, fontWeight: 700, color: t.text, marginBottom: 8 }}>메모</h3>
                         <div className="rounded-xl px-3 py-3" style={{ backgroundColor: t.bgSub, border: `1px solid ${t.borderLight}` }}>
@@ -1017,6 +1193,40 @@ export function CalendarView() {
 
       {showAddTodoModal && <TodoModal date={selectedDate} onClose={() => setShowAddTodoModal(false)} />}
       {showAddEventModal && <EventModal date={selectedDate} onClose={() => setShowAddEventModal(false)} />}
+
+      {/* 하단 패널 항목 직접 관리 모달 — 일간 페이지와 동일 컴포넌트 재사용 */}
+      {editingTodo && (
+        <TodoModal date={editingTodo.date ?? selectedDate} todo={editingTodo} onClose={() => setEditingTodo(null)} />
+      )}
+      {editingEvent && (
+        <EventModal date={editingEvent.date ?? selectedDate} event={editingEvent} onClose={() => setEditingEvent(null)} />
+      )}
+      {recurringDeleteTarget && (() => {
+        const info = parseVirtualTodoId(recurringDeleteTarget.id);
+        return info ? (
+          <RecurrenceBranchModal
+            mode="delete"
+            onConfirm={scope => {
+              deleteRecurringTodo(info.parentId, info.instanceDate, scope);
+              setRecurringDeleteTarget(null);
+            }}
+            onCancel={() => setRecurringDeleteTarget(null)}
+          />
+        ) : null;
+      })()}
+      {confirmDelete && (
+        <ConfirmModal
+          message={confirmDelete.message}
+          confirmText="삭제"
+          confirmDanger
+          onConfirm={() => {
+            if (confirmDelete.kind === 'todo') deleteTodo(confirmDelete.id);
+            else deleteEvent(confirmDelete.id);
+            setConfirmDelete(null);
+          }}
+          onCancel={() => setConfirmDelete(null)}
+        />
+      )}
     </div>
   );
 }
