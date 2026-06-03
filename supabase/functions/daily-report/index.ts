@@ -319,10 +319,10 @@ function formatCultureSection(
     return ['🎬 **오늘의 문화 기록** — 오늘은 기록된 문화 활동이 없습니다'];
   }
 
-  const lines: string[] = [`🎬 **오늘의 문화 기록 (${rows.length}개)**`];
+  const lines: string[] = [`🎬 **오늘의 문화 기록 (${rows.length}개)**`, ''];
   const shown = rows.slice(0, CULTURE_MAX_ITEMS);
   shown.forEach((r, idx) => {
-    if (idx > 0) lines.push('');
+    if (idx > 0) lines.push('', ''); // 항목 사이 빈 줄 2개로 여백 확보
     const icon = CULTURE_STATUS_ICON[r.status] ?? '•';
     const platform = CULTURE_PLATFORM_KR[r.platform] ?? r.platform;
     let head = `${icon} ${platform} ${r.title}`;
@@ -338,7 +338,7 @@ function formatCultureSection(
     }
   });
   if (rows.length > CULTURE_MAX_ITEMS) {
-    lines.push('');
+    lines.push('', '');
     lines.push(`… 외 ${rows.length - CULTURE_MAX_ITEMS}개 더`);
   }
   return lines;
