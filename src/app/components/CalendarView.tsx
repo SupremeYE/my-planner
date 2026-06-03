@@ -741,7 +741,8 @@ export function CalendarView() {
       .slice()
       .sort((a, b) => (a.planStart ?? a.doStart ?? '').localeCompare(b.planStart ?? b.doStart ?? ''))
     : [];
-  const panelHabits = panelDate ? habits : [];
+  // 그 날짜에 완료(체크)한 습관만 표시 — 월별 달력 셀과 동일 기준, 빈 날짜 판정에도 반영
+  const panelHabits = panelDate ? habits.filter(habit => habit.checkedDates.includes(panelDate)) : [];
   const panelSelfCare = panelDate
     ? selfCareRecords.filter(record => record.date === panelDate && record.category !== 'sleep')
     : [];
