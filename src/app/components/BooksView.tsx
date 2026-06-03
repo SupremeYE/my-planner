@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
-import { Search, X, Plus, BookOpen, ChevronRight, Tag, Trash2, BookMarked, Check, Mic, Star } from 'lucide-react';
+import { Search, X, Plus, BookOpen, ChevronRight, Tag, Trash2, BookMarked, Mic, Star } from 'lucide-react';
 import { useTheme } from '../ThemeContext';
 import { format } from 'date-fns';
 import { ko } from 'date-fns/locale';
@@ -72,6 +72,452 @@ function nanoid() {
 function progressPct(book: Book) {
   if (!book.totalPages || book.totalPages === 0) return 0;
   return Math.min(100, Math.round((book.currentPage / book.totalPages) * 100));
+}
+
+// ─── 마라톤 트랙 ────────────────────────────────────────────────────────
+function MarathonTrack({ currentPage, totalPages, t }: { currentPage: number; totalPages: number; t: any }) {
+  const pct = totalPages > 0 ? Math.min(100, Math.round((currentPage / totalPages) * 100)) : 0;
+  const runnerLeft = Math.max(2, Math.min(97, pct));
+
+  return (
+    <div style={{ marginTop: 8 }}>
+      <div style={{ position: 'relative', height: 30 }}>
+        {/* 배경 트랙 */}
+        <div style={{
+          position: 'absolute', top: '50%', left: 0, right: 0,
+          height: 5, borderRadius: 3,
+          backgroundColor: t.bgSub,
+          transform: 'translateY(-50%)',
+        }} />
+        {/* 진행 그라데이션 */}
+        <div style={{
+          position: 'absolute', top: '50%', left: 0,
+          height: 5, borderRadius: 3,
+          width: `${Math.max(pct, 2)}%`,
+          background: 'linear-gradient(to right, #FFD89A, #F4A582)',
+          transform: 'translateY(-50%)',
+          transition: 'width 0.5s ease',
+        }} />
+        {/* 마일스톤 점 */}
+        {[25, 50, 75].map(m => (
+          <div key={m} style={{
+            position: 'absolute', top: '50%',
+            left: `${m}%`,
+            transform: 'translate(-50%, -50%)',
+            width: 6, height: 6, borderRadius: '50%',
+            backgroundColor: pct >= m ? '#F4A582' : t.bgSub,
+            border: `1.5px solid ${pct >= m ? 'rgba(255,255,255,0.9)' : t.border}`,
+            zIndex: 1,
+          }} />
+        ))}
+        {/* 러너 🏃‍♀️ */}
+        <div style={{
+          position: 'absolute', top: '50%',
+          left: `${runnerLeft}%`,
+          transform: 'translate(-50%, -165%)',
+          fontSize: 14, lineHeight: 1,
+          transition: 'left 0.5s ease',
+          zIndex: 2,
+          filter: 'drop-shadow(0 1px 2px rgba(0,0,0,0.15))',
+        }}>
+          🏃‍♀️
+        </div>
+        {/* 완독 플래그 */}
+        <div style={{
+          position: 'absolute', top: '50%', right: -2,
+          transform: 'translateY(-150%)',
+          fontSize: 12, lineHeight: 1,
+        }}>
+          📖
+        </div>
+      </div>
+      {/* 수치 */}
+      <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 1 }}>
+        <span style={{ fontSize: 9, color: t.textMuted }}>{currentPage}p 읽음</span>
+        <span style={{ fontSize: 9, fontWeight: 700, color: '#F4A582' }}>{pct}%</span>
+        <span style={{ fontSize: 9, color: t.textMuted }}>
+          {totalPages > 0 ? `${totalPages - currentPage}p 남음` : ''}
+        </span>
+      </div>
+    </div>
+  );
+}
+
+// ─── 공용 팔레트 & 헬퍼 ────────────────────────────────────────────────
+const SPINE_PALETTE = [
+  '#F2A98A', '#A9CBE8', '#F7D49A', '#C8DDB8', '#E8C4B8',
+  '#B8CCE0', '#DDD0B8', '#C8B8D8', '#B8D8C8', '#E8D4B0',
+  '#D4B8C0', '#B8C8B8',
+];
+
+function getSpineProps(title: string, idx: number) {
+  let hash = idx * 137 + 42;
+  for (let i = 0; i < title.length; i++) {
+    hash = (hash * 31 + title.charCodeAt(i)) & 0xffffffff;
+  }
+  const colorIdx = Math.abs(hash) % SPINE_PALETTE.length;
+  const height = 60 + (Math.abs((hash * 7) >>> 0) % 28);
+  return { color: SPINE_PALETTE[colorIdx], height };
+}
+
+function shadeColor(hex: string, amount: number): string {
+  const num = parseInt(hex.replace('#', ''), 16);
+  const r = Math.max(0, Math.min(255, (num >> 16) + amount));
+  const g = Math.max(0, Math.min(255, ((num >> 8) & 0xff) + amount));
+  const b = Math.max(0, Math.min(255, (num & 0xff) + amount));
+  return `#${((r << 16) | (g << 8) | b).toString(16).padStart(6, '0')}`;
+}
+
+// ─── 책탑 채우기 ─────────────────────────────────────────────────────────
+function BookTower({ books, onSelect, t }: { books: Book[]; onSelect: (b: Book) => void; t: any }) {
+  const monthMap = new Map<string, Book[]>();
+  [...books]
+    .sort((a, b) => (a.finishDate ?? a.addedAt).localeCompare(b.finishDate ?? b.addedAt))
+    .forEach(book => {
+      const key = (book.finishDate ?? book.addedAt).slice(0, 7);
+      if (!monthMap.has(key)) monthMap.set(key, []);
+      monthMap.get(key)!.push(book);
+    });
+
+  const months = Array.from(monthMap.entries());
+
+  return (
+    <div style={{ overflowX: 'auto', scrollbarWidth: 'none', paddingBottom: 4 }}>
+      <div style={{ display: 'flex', gap: 16, alignItems: 'flex-end', minWidth: 'min-content', padding: '0 2px 0 2px' }}>
+        {months.map(([monthKey, monthBooks]) => {
+          const label = `${parseInt(monthKey.split('-')[1])}월`;
+          return (
+            <div key={monthKey} style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start' }}>
+              <div style={{ display: 'flex', flexDirection: 'column-reverse', gap: 2 }}>
+                {monthBooks.map((book) => {
+                  const idx = books.indexOf(book);
+                  const { color } = getSpineProps(book.title, idx);
+                  const pages = book.totalPages || 200;
+                  const barW = Math.min(160, Math.max(72, Math.round(pages / 3.5)));
+                  return (
+                    <button
+                      key={book.id}
+                      onClick={() => onSelect(book)}
+                      title={`${book.title} (${book.totalPages ? book.totalPages + 'p' : '?'})`}
+                      style={{
+                        width: barW, height: 22,
+                        backgroundColor: color,
+                        borderRadius: 4,
+                        border: 'none', cursor: 'pointer',
+                        display: 'flex', alignItems: 'center',
+                        paddingLeft: 7, paddingRight: 7, overflow: 'hidden',
+                        flexShrink: 0,
+                        boxShadow: '0 1px 4px rgba(0,0,0,0.1)',
+                        transition: 'transform 0.13s, filter 0.13s',
+                      }}
+                      onMouseEnter={e => {
+                        (e.currentTarget as HTMLButtonElement).style.transform = 'translateX(3px)';
+                        (e.currentTarget as HTMLButtonElement).style.filter = 'brightness(1.08)';
+                      }}
+                      onMouseLeave={e => {
+                        (e.currentTarget as HTMLButtonElement).style.transform = 'translateX(0)';
+                        (e.currentTarget as HTMLButtonElement).style.filter = 'brightness(1)';
+                      }}
+                    >
+                      <span style={{
+                        fontSize: 9, color: 'rgba(0,0,0,0.52)', fontWeight: 700,
+                        whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+                        pointerEvents: 'none',
+                      }}>
+                        {book.title}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+              {/* 선반 */}
+              <div style={{ width: '100%', height: 3, backgroundColor: '#C4A882', marginTop: 3, borderRadius: 1, minWidth: 72 }} />
+              <span style={{ fontSize: 9, color: t.textMuted, marginTop: 3, fontWeight: 600 }}>{label}</span>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+// ─── 독서 마을 채우기 ─────────────────────────────────────────────────────
+function BookVillage({ books, onSelect, t }: { books: Book[]; onSelect: (b: Book) => void; t: any }) {
+  const [hovered, setHovered] = useState<string | null>(null);
+
+  return (
+    <div>
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, padding: '4px 0 2px' }}>
+        {books.map((book, idx) => {
+          const { color } = getSpineProps(book.title, idx);
+          const roofColor = shadeColor(color, -22);
+          const isHov = hovered === book.id;
+          return (
+            <div key={book.id} style={{ position: 'relative', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+              <button
+                onClick={() => onSelect(book)}
+                onMouseEnter={() => setHovered(book.id)}
+                onMouseLeave={() => setHovered(null)}
+                style={{
+                  border: 'none', background: 'none', cursor: 'pointer', padding: 0,
+                  display: 'flex', flexDirection: 'column', alignItems: 'center',
+                  transform: isHov ? 'translateY(-4px)' : 'translateY(0)',
+                  transition: 'transform 0.15s',
+                }}
+              >
+                {/* 지붕 */}
+                <div style={{
+                  width: 0, height: 0,
+                  borderLeft: '20px solid transparent',
+                  borderRight: '20px solid transparent',
+                  borderBottom: `15px solid ${roofColor}`,
+                  filter: 'drop-shadow(0 -1px 2px rgba(0,0,0,0.08))',
+                }} />
+                {/* 벽 */}
+                <div style={{
+                  width: 32, height: 28,
+                  backgroundColor: color,
+                  borderRadius: '0 0 4px 4px',
+                  display: 'flex', alignItems: 'flex-end', justifyContent: 'center',
+                  boxShadow: '0 2px 5px rgba(0,0,0,0.1)',
+                }}>
+                  {/* 문 */}
+                  <div style={{
+                    width: 9, height: 13,
+                    backgroundColor: 'rgba(0,0,0,0.14)',
+                    borderRadius: '3px 3px 0 0',
+                  }} />
+                </div>
+              </button>
+              {/* 호버 툴팁 */}
+              {isHov && (
+                <div style={{
+                  position: 'absolute', bottom: '110%', left: '50%',
+                  transform: 'translateX(-50%)',
+                  backgroundColor: 'rgba(40,30,20,0.82)',
+                  color: '#fff', fontSize: 9, fontWeight: 600,
+                  padding: '3px 7px', borderRadius: 6,
+                  whiteSpace: 'nowrap', maxWidth: 120, overflow: 'hidden', textOverflow: 'ellipsis',
+                  pointerEvents: 'none', zIndex: 10,
+                }}>
+                  {book.title}
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
+      {/* 잔디 */}
+      <div style={{
+        height: 4, marginTop: 6,
+        background: 'linear-gradient(to right, #C8DDB8, #B8D8C8, #C8DDB8)',
+        borderRadius: 2,
+      }} />
+    </div>
+  );
+}
+
+// ─── 완독 뷰 래퍼 (토글) ─────────────────────────────────────────────────
+function DoneBookshelf({ books, onSelect, t }: { books: Book[]; onSelect: (b: Book) => void; t: any }) {
+  const [view, setView] = useState<'tower' | 'village'>('tower');
+  if (books.length === 0) return null;
+
+  return (
+    <div style={{
+      backgroundColor: t.card,
+      border: `1px solid ${t.border}`,
+      borderRadius: 16,
+      padding: '14px 14px 12px 14px',
+      marginBottom: 12,
+    }}>
+      {/* 헤더 */}
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+        <p style={{ fontSize: 12, fontWeight: 700, color: t.textSub }}>
+          {view === 'tower' ? '📚 책탑 채우기' : '🏘 독서 마을 채우기'}
+        </p>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <span style={{ fontSize: 11, color: '#F4A582', fontWeight: 700 }}>{books.length}권</span>
+          {/* 뷰 토글 */}
+          <div style={{ display: 'flex', borderRadius: 8, overflow: 'hidden', border: `1px solid ${t.border}` }}>
+            {(['tower', 'village'] as const).map(v => (
+              <button
+                key={v}
+                onClick={() => setView(v)}
+                style={{
+                  padding: '3px 9px', fontSize: 10, fontWeight: 600,
+                  backgroundColor: view === v ? '#F4A582' : 'transparent',
+                  color: view === v ? '#fff' : t.textSub,
+                  border: 'none', cursor: 'pointer',
+                  transition: 'background-color 0.15s',
+                }}
+              >
+                {v === 'tower' ? '책탑' : '마을'}
+              </button>
+            ))}
+          </div>
+        </div>
+      </div>
+      {view === 'tower'
+        ? <BookTower books={books} onSelect={onSelect} t={t} />
+        : <BookVillage books={books} onSelect={onSelect} t={t} />
+      }
+    </div>
+  );
+}
+
+// ─── 독서밭 채우기 히트맵 ──────────────────────────────────────────────
+function getReadingActivityCounts(books: Book[]): Map<string, number> {
+  const counts = new Map<string, number>();
+  const add = (date: string) => {
+    const d = date.slice(0, 10);
+    counts.set(d, (counts.get(d) ?? 0) + 1);
+  };
+  for (const b of books) {
+    if (b.startDate) add(b.startDate);
+    if (b.finishDate) add(b.finishDate);
+    for (const q of b.quotes) add(q.createdAt);
+  }
+  return counts;
+}
+
+function pulseColor(count: number, bgSub: string): string {
+  if (count === 0) return bgSub;
+  if (count === 1) return 'rgba(244,165,130,0.28)';
+  if (count === 2) return 'rgba(244,165,130,0.55)';
+  if (count === 3) return '#F4A582';
+  return '#D4603A';
+}
+
+function ReadingPulse({ books, t }: { books: Book[]; t: any }) {
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const counts = getReadingActivityCounts(books);
+
+  const today = new Date();
+  const todayStr = format(today, 'yyyy-MM-dd');
+  const thisYear = todayStr.slice(0, 4);
+
+  // 52주 그리드 — 오늘 포함, 일요일 기준 정렬
+  const startDate = new Date(today);
+  startDate.setDate(startDate.getDate() - 51 * 7 - today.getDay());
+
+  const weeks: { date: string; count: number; monthLabel?: string }[][] = [];
+  const cur = new Date(startDate);
+  let prevMonth = -1;
+
+  for (let w = 0; w < 52; w++) {
+    const week: { date: string; count: number; monthLabel?: string }[] = [];
+    for (let dow = 0; dow < 7; dow++) {
+      const dateStr = format(cur, 'yyyy-MM-dd');
+      const m = cur.getMonth();
+      week.push({
+        date: dateStr,
+        count: counts.get(dateStr) ?? 0,
+        monthLabel: dow === 0 && m !== prevMonth ? `${m + 1}월` : undefined,
+      });
+      if (dow === 0) prevMonth = m;
+      cur.setDate(cur.getDate() + 1);
+    }
+    weeks.push(week);
+  }
+
+  // 연속 읽기 스트릭
+  let streak = 0;
+  const sc = new Date(today);
+  while (counts.has(format(sc, 'yyyy-MM-dd'))) {
+    streak++;
+    sc.setDate(sc.getDate() - 1);
+  }
+  const yearActive = Array.from(counts.keys()).filter(d => d.startsWith(thisYear)).length;
+
+  useEffect(() => {
+    if (scrollRef.current) scrollRef.current.scrollLeft = scrollRef.current.scrollWidth;
+  }, []);
+
+  const CELL = 10, GAP = 2;
+
+  return (
+    <div style={{
+      backgroundColor: t.card,
+      border: `1px solid ${t.borderLight ?? t.border}`,
+      borderRadius: 16,
+      padding: 14,
+    }}>
+      {/* 헤더 */}
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+        <span style={{ fontSize: 12, fontWeight: 700, color: t.textSub }}>🌱 독서밭 채우기</span>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+          <span style={{ fontSize: 10, color: t.textMuted }}>
+            올해 <span style={{ color: t.accent, fontWeight: 700 }}>{yearActive}</span>일
+          </span>
+          {streak > 0 && (
+            <span style={{
+              fontSize: 10, fontWeight: 700, color: '#F4A582',
+              backgroundColor: 'rgba(244,165,130,0.12)',
+              padding: '1px 6px', borderRadius: 99,
+            }}>
+              🔥 {streak}일 연속
+            </span>
+          )}
+        </div>
+      </div>
+
+      {/* 1년 그리드 — 가로 스크롤 */}
+      <div ref={scrollRef} style={{ overflowX: 'auto', scrollbarWidth: 'none' }}>
+        <div style={{ display: 'flex', gap: GAP, minWidth: 'min-content' }}>
+          {/* 요일 레이블 */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: GAP, paddingTop: 14, flexShrink: 0 }}>
+            {['일', '월', '화', '수', '목', '금', '토'].map((label, i) => (
+              <div key={i} style={{ height: CELL, display: 'flex', alignItems: 'center' }}>
+                <span style={{ fontSize: 7, color: t.textMuted, width: 10, textAlign: 'right' }}>
+                  {i % 2 === 1 ? label : ''}
+                </span>
+              </div>
+            ))}
+          </div>
+
+          {/* 주 컬럼 */}
+          {weeks.map((week, wi) => (
+            <div key={wi} style={{ display: 'flex', flexDirection: 'column', gap: GAP, flexShrink: 0 }}>
+              {/* 월 레이블 */}
+              <div style={{ height: 12, display: 'flex', alignItems: 'center' }}>
+                {week[0].monthLabel && (
+                  <span style={{ fontSize: 7, color: t.textMuted, whiteSpace: 'nowrap', lineHeight: 1 }}>
+                    {week[0].monthLabel}
+                  </span>
+                )}
+              </div>
+              {/* 날짜 셀 */}
+              {week.map(day => (
+                <div
+                  key={day.date}
+                  title={day.date + (day.count > 0 ? ` · ${day.count}회 활동` : '')}
+                  style={{
+                    width: CELL, height: CELL, borderRadius: 2, flexShrink: 0,
+                    backgroundColor: day.date > todayStr ? t.bgSub : pulseColor(day.count, t.bgSub),
+                    opacity: day.date > todayStr ? 0.15 : day.count === 0 ? 0.38 : 1,
+                    cursor: day.count > 0 ? 'pointer' : 'default',
+                  }}
+                />
+              ))}
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* 범례 */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 3, marginTop: 7, justifyContent: 'flex-end' }}>
+        <span style={{ fontSize: 8, color: t.textMuted, marginRight: 2 }}>적음</span>
+        {[0, 1, 2, 3, 4].map(v => (
+          <div key={v} style={{
+            width: 9, height: 9, borderRadius: 2,
+            backgroundColor: pulseColor(v, t.bgSub),
+            opacity: v === 0 ? 0.38 : 1,
+          }} />
+        ))}
+        <span style={{ fontSize: 8, color: t.textMuted, marginLeft: 2 }}>많음</span>
+      </div>
+    </div>
+  );
 }
 
 // ─── 카카오 도서 검색 ──────────────────────────────────────────────────
@@ -1010,6 +1456,9 @@ function StatsPanel({ books }: { books: Book[] }) {
 
   return (
     <div className="space-y-4">
+      {/* 꾸준함 히트맵 */}
+      <ReadingPulse books={books} t={t} />
+
       {/* 요약 카드 */}
       <div className="grid grid-cols-3 gap-3">
         {[
@@ -1321,6 +1770,9 @@ export function BooksView() {
           </div>
         ) : (
           <div className="space-y-3">
+            {activeTab === 'done' && (
+              <DoneBookshelf books={filteredBooks} onSelect={setSelectedBook} t={t} />
+            )}
             {filteredBooks.map(book => {
               const pct = progressPct(book);
               return (
@@ -1353,24 +1805,20 @@ export function BooksView() {
                       {book.publisher ? ` · ${book.publisher}` : ''}
                     </p>
 
-                    {/* 진도 바 (읽는 중만) */}
+                    {/* 마라톤 트랙 (읽는 중만) */}
                     {book.status === 'reading' && book.totalPages > 0 && (
-                      <div className="mt-2">
-                        <div className="h-1.5 rounded-full overflow-hidden" style={{ backgroundColor: t.bgSub }}>
-                          <div className="h-full rounded-full"
-                            style={{ width: `${pct}%`, backgroundColor: STATUS_COLORS.reading }} />
-                        </div>
-                        <p style={{ fontSize: 10, color: t.textMuted, marginTop: 3 }}>
-                          {book.currentPage}p / {book.totalPages}p · {pct}%
-                        </p>
-                      </div>
+                      <MarathonTrack
+                        currentPage={book.currentPage}
+                        totalPages={book.totalPages}
+                        t={t}
+                      />
                     )}
 
                     {/* 완독 날짜 */}
                     {book.status === 'done' && (
                       <div className="flex items-center gap-1 mt-1.5">
-                        <Check size={11} color={STATUS_COLORS.done} />
-                        <p style={{ fontSize: 11, color: STATUS_COLORS.done }}>
+                        <span style={{ fontSize: 11 }}>🏆</span>
+                        <p style={{ fontSize: 11, color: STATUS_COLORS.done, fontWeight: 600 }}>
                           {book.finishDate ?? book.addedAt} 완독
                         </p>
                       </div>
