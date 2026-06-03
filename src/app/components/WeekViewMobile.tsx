@@ -4,7 +4,7 @@ import { ko } from 'date-fns/locale';
 import { usePlanner, Todo, SelfCareRecord } from '../store';
 import { isDoOvertimeVsPlan } from '../../lib/todoDoDuration';
 import { expandRecurringTodos } from '../../lib/recurrenceExpansion';
-import { placeSleepSegment } from '../../lib/sleepTimeline';
+import { sleepRectsForColumn } from '../../lib/sleepTimeline';
 
 // ─── 상수 ─────────────────────────────────────────────────────────────────────
 
@@ -107,42 +107,6 @@ function UnexecBlock({ todo, startHour, hourH }: { todo: Todo; startHour: number
 }
 
 // ─── 3일 뷰 ───────────────────────────────────────────────────────────────────
-
-type SleepSeg = { record: SelfCareRecord; sMin: number; eMin: number; totalMin: number };
-
-function computeSleepSegs(dateStr: string, selfCareRecords: SelfCareRecord[]): SleepSeg[] {
-  const segs: SleepSeg[] = [];
-  // same-day sleep records
-  selfCareRecords
-    .filter(r => r.date === dateStr && r.category === 'sleep' && r.sleepStart && r.sleepEnd)
-    .forEach(r => {
-      const [sh, sm] = r.sleepStart!.split(':').map(Number);
-      const [eh, em] = r.sleepEnd!.split(':').map(Number);
-      const sMin = sh * 60 + sm;
-      const eMinRaw = eh * 60 + em;
-      const totalMin = eMinRaw <= sMin ? (24 * 60 - sMin + eMinRaw) : (eMinRaw - sMin);
-      if (eMinRaw <= sMin) {
-        segs.push({ record: r, sMin, eMin: 24 * 60, totalMin });
-      } else {
-        segs.push({ record: r, sMin, eMin: eMinRaw, totalMin });
-      }
-    });
-  // prev-day sleep spilling into this day
-  const prev = format(addDays(new Date(`${dateStr}T12:00:00`), -1), 'yyyy-MM-dd');
-  selfCareRecords
-    .filter(r => r.date === prev && r.category === 'sleep' && r.sleepStart && r.sleepEnd)
-    .forEach(r => {
-      const [sh, sm] = r.sleepStart!.split(':').map(Number);
-      const [eh, em] = r.sleepEnd!.split(':').map(Number);
-      const sMin = sh * 60 + sm;
-      const eMinRaw = eh * 60 + em;
-      if (eMinRaw <= sMin) {
-        const totalMin = 24 * 60 - sMin + eMinRaw;
-        segs.push({ record: r, sMin: 0, eMin: eMinRaw, totalMin });
-      }
-    });
-  return segs;
-}
 
 function ThreeDayView({ days, startHour, endHour, todayStr, selectedDate, todos, selfCareRecords }: {
   days: Date[];
@@ -271,7 +235,7 @@ function ThreeDayView({ days, startHour, endHour, todayStr, selectedDate, todos,
               const doTs = dayTodos.filter(t => t.doStart && t.doEnd);
               const unexTs = planTs.filter(t => !t.doStart || !t.doEnd);
               const showNow = isToday && nowMin >= startHour * 60 && nowMin <= endHour * 60;
-              const sleepSegs = computeSleepSegs(ds, selfCareRecords);
+              const sleepRects = sleepRectsForColumn(ds, selfCareRecords, startHour, endHour);
 
               return (
                 <div key={ds} style={{ position: 'relative', borderLeft: ci > 0 ? '1px solid #eef4fa' : 'none' }}>
@@ -281,27 +245,25 @@ function ThreeDayView({ days, startHour, endHour, todayStr, selectedDate, todos,
                       {planTs.map(t => <PlanBlock key={t.id} todo={t} startHour={startHour} hourH={HOUR_3DAY} />)}
                     </div>
                     <div style={{ position: 'relative' }}>
-                      {sleepSegs.map((seg, si) => {
-                        const hh = Math.floor(seg.totalMin / 60);
-                        const mm = seg.totalMin % 60;
+                      {sleepRects.map((rect, ri) => {
+                        const hh = Math.floor(rect.totalMin / 60);
+                        const mm = rect.totalMin % 60;
                         const dur = hh > 0 ? (mm > 0 ? `${hh}h ${mm}m` : `${hh}h`) : `${mm}m`;
-                        return placeSleepSegment(seg.sMin, seg.eMin, startHour, endHour).map((rect, ri) => {
-                          const top = rect.offsetMin * (HOUR_3DAY / 60);
-                          const h = Math.max(rect.lengthMin * (HOUR_3DAY / 60), 10);
-                          return (
-                            <div key={`sleep-${seg.record.id}-${si}-${ri}`}
-                              title={`수면 ${dur}`}
-                              style={{
-                                position: 'absolute', top, height: h, left: 1, right: 1, zIndex: 1,
-                                backgroundColor: '#EEF4FF', borderLeft: '2px solid #8BAAD8',
-                                borderRadius: 3, overflow: 'hidden', display: 'flex', flexDirection: 'column',
-                                alignItems: 'flex-start', padding: '1px 2px',
-                              }}>
-                              <span style={{ fontSize: 7, fontWeight: 700, color: '#5B8FD8', lineHeight: 1.2 }}>🌙</span>
-                              {rect.primary && h >= 20 && <span style={{ fontSize: 7, color: '#5B8FD8', lineHeight: 1.2 }}>{dur}</span>}
-                            </div>
-                          );
-                        });
+                        const top = rect.offsetMin * (HOUR_3DAY / 60);
+                        const h = Math.max(rect.lengthMin * (HOUR_3DAY / 60), 10);
+                        return (
+                          <div key={`sleep-${rect.record.id}-${ri}`}
+                            title={`수면 ${dur}`}
+                            style={{
+                              position: 'absolute', top, height: h, left: 1, right: 1, zIndex: 1,
+                              backgroundColor: '#EEF4FF', borderLeft: '2px solid #8BAAD8',
+                              borderRadius: 3, overflow: 'hidden', display: 'flex', flexDirection: 'column',
+                              alignItems: 'flex-start', padding: '1px 2px',
+                            }}>
+                            <span style={{ fontSize: 7, fontWeight: 700, color: '#5B8FD8', lineHeight: 1.2 }}>🌙</span>
+                            {h >= 20 && <span style={{ fontSize: 7, color: '#5B8FD8', lineHeight: 1.2 }}>{dur}</span>}
+                          </div>
+                        );
                       })}
                       {unexTs.map(t => <UnexecBlock key={t.id} todo={t} startHour={startHour} hourH={HOUR_3DAY} />)}
                       {doTs.map(t => <DoBlock key={t.id} todo={t} startHour={startHour} hourH={HOUR_3DAY} />)}
@@ -373,7 +335,7 @@ function DailyView({ days, startHour, endHour, todayStr, selectedDate, onSelectD
   const unexTs = planTs.filter(t => !t.doStart || !t.doEnd);
   const isToday = activeDateStr === todayStr;
   const showNow = isToday && nowMin >= startHour * 60 && nowMin <= endHour * 60;
-  const sleepSegs = computeSleepSegs(activeDateStr, selfCareRecords);
+  const sleepRects = sleepRectsForColumn(activeDateStr, selfCareRecords, startHour, endHour);
 
   // 선택 탭 자동 스크롤
   useEffect(() => {
@@ -510,15 +472,14 @@ function DailyView({ days, startHour, endHour, todayStr, selectedDate, onSelectD
             </div>
             {/* Do */}
             <div style={{ position: 'relative' }}>
-              {sleepSegs.map((seg, si) => {
-                const hh = Math.floor(seg.totalMin / 60);
-                const mm = seg.totalMin % 60;
+              {sleepRects.map((rect, ri) => {
+                const hh = Math.floor(rect.totalMin / 60);
+                const mm = rect.totalMin % 60;
                 const dur = hh > 0 ? (mm > 0 ? `${hh}h ${mm}m` : `${hh}h`) : `${mm}m`;
-                return placeSleepSegment(seg.sMin, seg.eMin, startHour, endHour).map((rect, ri) => {
-                  const top = rect.offsetMin * (HOUR_DAILY / 60);
-                  const h = Math.max(rect.lengthMin * (HOUR_DAILY / 60), 14);
-                  return (
-                  <div key={`sleep-${seg.record.id}-${si}-${ri}`}
+                const top = rect.offsetMin * (HOUR_DAILY / 60);
+                const h = Math.max(rect.lengthMin * (HOUR_DAILY / 60), 14);
+                return (
+                  <div key={`sleep-${rect.record.id}-${ri}`}
                     title={`수면 ${dur}`}
                     style={{
                       position: 'absolute', top, height: h, left: 2, right: 2, zIndex: 1,
@@ -527,10 +488,9 @@ function DailyView({ days, startHour, endHour, todayStr, selectedDate, onSelectD
                       alignItems: 'flex-start', padding: '2px 4px',
                     }}>
                     <span style={{ fontSize: 9, fontWeight: 700, color: '#5B8FD8', lineHeight: 1.3 }}>🌙 수면</span>
-                    {rect.primary && h >= 28 && <span style={{ fontSize: 9, color: '#5B8FD8', lineHeight: 1.3 }}>{dur}</span>}
+                    {h >= 28 && <span style={{ fontSize: 9, color: '#5B8FD8', lineHeight: 1.3 }}>{dur}</span>}
                   </div>
-                  );
-                });
+                );
               })}
               {unexTs.map(todo => {
                 const top = minToPx(hhmmToMin(todo.planStart!), startHour, HOUR_DAILY);
