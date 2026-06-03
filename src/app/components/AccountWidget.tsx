@@ -1,17 +1,20 @@
-import { useState } from 'react';
-import { UserRound, LogOut, X, Check, Mail, Lock } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { LogOut, X, Check, Mail, Lock } from 'lucide-react';
 import { useTheme } from '../ThemeContext';
 import { useAuth } from '../AuthContext';
 
-export function AccountWidget() {
+// 계정 정보 수정 모달 — 트리거(아바타 메뉴 "프로필")에서 open/onClose로 제어
+export function AccountWidget({ open, onClose }: { open: boolean; onClose: () => void }) {
   const { t } = useTheme();
   const { session, signOut, updateEmail, updatePassword } = useAuth();
-  const [open, setOpen] = useState(false);
 
   const [newEmail, setNewEmail] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [msg, setMsg] = useState<{ kind: 'ok' | 'err'; text: string } | null>(null);
   const [busy, setBusy] = useState(false);
+
+  // 모달 열 때 이전 메시지 초기화
+  useEffect(() => { if (open) setMsg(null); }, [open]);
 
   const currentEmail = session?.user?.email ?? '';
 
@@ -33,24 +36,14 @@ export function AccountWidget() {
     else { setMsg({ kind: 'ok', text: '비밀번호가 변경되었어요.' }); setNewPassword(''); }
   };
 
+  if (!open) return null;
+
   return (
     <>
-      {/* 플로팅 계정 버튼 — 좌측(우측은 타이머), 모바일 하단 네비 위 */}
-      <button
-        onClick={() => { setOpen(true); setMsg(null); }}
-        className="fixed z-30 left-3 bottom-20 lg:bottom-3 w-10 h-10 rounded-full flex items-center justify-center shadow-md"
-        style={{ background: t.card, border: `1.5px solid ${t.border}`, color: t.textSub }}
-        title="계정"
-        aria-label="계정"
-      >
-        <UserRound size={18} />
-      </button>
-
-      {open && (
         <div
           className="fixed inset-0 z-50 flex items-end lg:items-center justify-center"
           style={{ background: 'rgba(0,0,0,0.35)' }}
-          onMouseDown={() => setOpen(false)}
+          onMouseDown={onClose}
         >
           <div
             className="relative w-full lg:max-w-sm rounded-t-3xl lg:rounded-3xl p-6 flex flex-col gap-5"
@@ -67,7 +60,7 @@ export function AccountWidget() {
                 <p className="text-xs font-semibold mb-1" style={{ color: t.accent }}>계정</p>
                 <p className="text-sm font-semibold break-all" style={{ color: t.text }}>{currentEmail}</p>
               </div>
-              <button onClick={() => setOpen(false)} className="p-1.5 rounded-lg" style={{ color: t.textSub }}>
+              <button onClick={onClose} className="p-1.5 rounded-lg" style={{ color: t.textSub }}>
                 <X size={18} />
               </button>
             </div>
@@ -141,7 +134,6 @@ export function AccountWidget() {
             </button>
           </div>
         </div>
-      )}
     </>
   );
 }
