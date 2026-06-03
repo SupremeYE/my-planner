@@ -20,7 +20,7 @@ import { FloatingAddFab } from './FloatingAddFab';
 import { AddEntryMenu } from './AddEntryMenu';
 import { formatDuration, formatTotalDoKo, todoDoDurationSeconds } from '../../lib/todoDoDuration';
 import { expandRecurringTodos, isVirtualTodoId, parseVirtualTodoId } from '../../lib/recurrenceExpansion';
-import { placeSleepSegment } from '../../lib/sleepTimeline';
+import { sleepRectsForColumn } from '../../lib/sleepTimeline';
 import { RecurrenceBranchModal } from './RecurrenceBranchModal';
 
 // ─── Color Palette for tag creation ───
@@ -1520,66 +1520,42 @@ export function DailyView() {
       : { left: `calc(50% + ${halfGap}px)`, right: '0%' };
   };
 
-  // Sleep block renderer for the DO lane (자정 넘김 처리 포함)
+  // Sleep block renderer for the DO lane — 절대 시간축 기준으로 이 날짜 컬럼에 들어오는 조각만 렌더.
+  // 취침 시작(isStart)을 포함하는 조각만 이동/리사이즈 가능, 다음날로 이어지는 조각은 표시 전용(탭 시 편집).
   const renderSleepBlocks = () => {
-    // 오늘 취침 시작 기록 + 전날 취침 → 오늘 오전 연속 기록
-    type SleepSeg = { record: typeof selfCareRecords[0]; startMin: number; endMin: number; totalMin: number };
-    const segments: SleepSeg[] = [];
+    const laneBounds = getTimelineLaneBounds('do');
+    if (!laneBounds) return null;
 
-    selfCareRecords
-      .filter(r => r.date === selectedDate && r.category === 'sleep' && r.sleepStart && r.sleepEnd)
-      .forEach(record => {
-        const [sh, sm] = record.sleepStart!.split(':').map(Number);
-        const [eh, em] = record.sleepEnd!.split(':').map(Number);
-        const sMin = sh * 60 + sm;
-        const eMinRaw = eh * 60 + em;
-        if (eMinRaw <= sMin) {
-          // 자정 넘김: 오늘 분할 (취침~자정)
-          segments.push({ record, startMin: sMin, endMin: 24 * 60, totalMin: 24 * 60 - sMin + eMinRaw });
-        } else {
-          segments.push({ record, startMin: sMin, endMin: eMinRaw, totalMin: eMinRaw - sMin });
-        }
-      });
+    const rects = sleepRectsForColumn(selectedDate, selfCareRecords, tlStartHour, tlEndHour);
 
-    // 전날 취침이 오늘 아침까지 이어지는 경우
-    const prevDate = format(addDays(parseISO(selectedDate), -1), 'yyyy-MM-dd');
-    selfCareRecords
-      .filter(r => r.date === prevDate && r.category === 'sleep' && r.sleepStart && r.sleepEnd)
-      .forEach(record => {
-        const [sh, sm] = record.sleepStart!.split(':').map(Number);
-        const [eh, em] = record.sleepEnd!.split(':').map(Number);
-        const sMin = sh * 60 + sm;
-        const eMinRaw = eh * 60 + em;
-        if (eMinRaw <= sMin) {
-          // 자정 넘김 → 오늘 00:00~기상 세그먼트
-          const totalMin = 24 * 60 - sMin + eMinRaw;
-          segments.push({ record, startMin: 0, endMin: eMinRaw, totalMin });
-        }
-      });
+    return rects.map((rect, ri) => {
+      const record = rect.record;
+      const interactive = rect.isStart; // 취침 시작을 포함하는 조각만 드래그/리사이즈
+      const isDragging = interactive && sleepDragState?.recordId === record.id;
 
-    return segments.map((seg, si) => {
-      const record = seg.record;
-      const startMin = seg.startMin;
-      const endMin = seg.endMin;
-
-      const isDragging = sleepDragState?.recordId === record.id;
-      const previewStartMin = isDragging && sleepDragPreview ? sleepDragPreview.startMin : startMin;
-      const previewEndMin = isDragging && sleepDragPreview ? sleepDragPreview.endMin : endMin;
-
-      const laneBounds = getTimelineLaneBounds('do');
-      if (!laneBounds) return null;
+      // 드래그 origin/preview는 컬럼 자정 기준 자연 좌표(naturalStart/End, 자정 넘김 시 24:00+ 가능)
+      const naturalStart = rect.naturalStartMin;
+      const naturalEnd = rect.naturalEndMin;
+      const previewStartMin = isDragging && sleepDragPreview ? sleepDragPreview.startMin : naturalStart;
+      const previewEndMin = isDragging && sleepDragPreview ? sleepDragPreview.endMin : naturalEnd;
 
       const displayStart = minutesToTime(((previewStartMin % (24 * 60)) + 24 * 60) % (24 * 60));
       const displayEnd = minutesToTime(((previewEndMin % (24 * 60)) + 24 * 60) % (24 * 60));
 
-      const hh = Math.floor(seg.totalMin / 60);
-      const mm = seg.totalMin % 60;
+      const hh = Math.floor(rect.totalMin / 60);
+      const mm = rect.totalMin % 60;
       const durationLabel = hh > 0 ? (mm > 0 ? `${hh}h ${mm}m` : `${hh}h`) : `${mm}m`;
 
-      // 하나의 수면 세그먼트를 하나의 사각형으로 그린다.
-      // interactive(=primary) 사각형만 이동/리사이즈 핸들을 갖고, 보조 사각형은 표시 전용(탭 시 편집).
-      const renderPiece = (top: number, height: number, interactive: boolean, keySuffix: string) => (
-        <div key={`sleep-${record.id}-${si}-${keySuffix}`}
+      // 드래그 중에는 연속 이동감을 위해 전체 블록(컬럼 밖으로 넘침 허용)을, 아니면 클립된 조각을 그린다.
+      const top = isDragging
+        ? (previewStartMin - tlStartHour * 60) * PX_PER_MIN
+        : rect.offsetMin * PX_PER_MIN;
+      const height = isDragging
+        ? Math.max((previewEndMin - previewStartMin) * PX_PER_MIN, 20)
+        : Math.max(rect.lengthMin * PX_PER_MIN, 20);
+
+      return (
+        <div key={`sleep-${record.id}-${ri}`}
           className={`absolute rounded-xl px-2 py-1.5 overflow-hidden timeline-block${interactive ? ' group' : ''}`}
           style={{
             top, height,
@@ -1599,14 +1575,14 @@ export function DailyView() {
             sleepDragMovedRef.current = false;
             setSleepDragState({
               recordId: record.id, mode: 'move', startY: e.clientY,
-              origStartMin: startMin, origEndMin: endMin,
+              origStartMin: naturalStart, origEndMin: naturalEnd,
             });
           } : undefined}
           onClick={() => { if (!sleepDragMovedRef.current) setEditingSleepRecord(record); }}
         >
           <div style={{ display: 'flex', flexDirection: 'column', gap: 1, overflow: 'hidden' }}>
             <div style={{ fontSize: 11, fontWeight: 700, color: '#64748B', whiteSpace: 'nowrap' }}>🌙 수면</div>
-            {interactive && <div style={{ fontSize: 10, fontWeight: 600, color: '#94A3B8', whiteSpace: 'nowrap' }}>{durationLabel}</div>}
+            {height > 32 && <div style={{ fontSize: 10, fontWeight: 600, color: '#94A3B8', whiteSpace: 'nowrap' }}>{durationLabel}</div>}
             {interactive && height > 52 && (
               <div style={{ fontSize: 9, color: '#94A3B8', opacity: 0.8, whiteSpace: 'nowrap' }}>
                 {displayStart}–{displayEnd}
@@ -1624,7 +1600,7 @@ export function DailyView() {
                   sleepDragMovedRef.current = false;
                   setSleepDragState({
                     recordId: record.id, mode: 'resize', startY: e.clientY,
-                    origStartMin: startMin, origEndMin: endMin,
+                    origStartMin: naturalStart, origEndMin: naturalEnd,
                   });
                 }}
               >
@@ -1640,7 +1616,7 @@ export function DailyView() {
                   sleepDragMovedRef.current = false;
                   setSleepDragState({
                     recordId: record.id, mode: 'resize', startY: touch.clientY,
-                    origStartMin: startMin, origEndMin: endMin,
+                    origStartMin: naturalStart, origEndMin: naturalEnd,
                   });
                 }}
               />
@@ -1648,20 +1624,6 @@ export function DailyView() {
           )}
         </div>
       );
-
-      // 드래그 중에는 연속적인 이동감을 위해 단일 블록(음수 top 허용)으로 그린다.
-      if (isDragging) {
-        const top = (previewStartMin / 60 - tlStartHour) * HOUR_HEIGHT;
-        const height = Math.max((previewEndMin - previewStartMin) * PX_PER_MIN, 20);
-        return renderPiece(top, height, true, 'drag');
-      }
-
-      // 비드래그: startHour보다 이른 새벽 시각을 타임라인 아래로 감싸 분할 렌더.
-      return placeSleepSegment(startMin, endMin, tlStartHour, tlEndHour).map(rect => {
-        const top = rect.offsetMin * PX_PER_MIN;
-        const height = Math.max(rect.lengthMin * PX_PER_MIN, 20);
-        return renderPiece(top, height, rect.primary, rect.primary ? 'p' : 's');
-      });
     });
   };
 

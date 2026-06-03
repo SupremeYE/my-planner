@@ -5,7 +5,7 @@ import { usePlanner, Todo, SelfCareRecord } from '../store';
 import { useTheme } from '../ThemeContext';
 import { isDoOvertimeVsPlan } from '../../lib/todoDoDuration';
 import { expandRecurringTodos } from '../../lib/recurrenceExpansion';
-import { placeSleepSegment } from '../../lib/sleepTimeline';
+import { sleepRectsForColumn } from '../../lib/sleepTimeline';
 import { SleepTimeEditModal } from './CalendarView';
 
 const PC_HOUR_HEIGHT = 88;
@@ -176,41 +176,11 @@ export function WeekViewPC({ viewDate, weekStartsOn, selectedDate, onSelectDate,
       const totalPlanMin = planTodos.reduce((s, t) => s + durationMin(t.planStart!, t.planEnd!), 0);
       const totalDoMin = doTodos.reduce((s, t) => s + durationMin(t.doStart!, t.doEnd!), 0);
       const unexecutedTodos = planTodos.filter(t => !t.doStart || !t.doEnd);
-      // 수면 세그먼트 계산 (자정 넘김 처리)
-      type SleepSeg = { record: typeof selfCareRecords[0]; sMin: number; eMin: number; totalMin: number };
-      const sleepSegments: SleepSeg[] = [];
-      // 오늘 취침 시작 기록
-      selfCareRecords
-        .filter(r => r.date === dateStr && r.category === 'sleep' && r.sleepStart && r.sleepEnd)
-        .forEach(r => {
-          const [sh, sm] = r.sleepStart!.split(':').map(Number);
-          const [eh, em] = r.sleepEnd!.split(':').map(Number);
-          const sMin = sh * 60 + sm;
-          const eMinRaw = eh * 60 + em;
-          const totalMin = eMinRaw <= sMin ? (24 * 60 - sMin + eMinRaw) : (eMinRaw - sMin);
-          if (eMinRaw <= sMin) {
-            sleepSegments.push({ record: r, sMin, eMin: 24 * 60, totalMin });
-          } else {
-            sleepSegments.push({ record: r, sMin, eMin: eMinRaw, totalMin });
-          }
-        });
-      // 전날 취침 → 오늘 아침 연속
-      const prevDateStr = format(addDays(day, -1), 'yyyy-MM-dd');
-      selfCareRecords
-        .filter(r => r.date === prevDateStr && r.category === 'sleep' && r.sleepStart && r.sleepEnd)
-        .forEach(r => {
-          const [sh, sm] = r.sleepStart!.split(':').map(Number);
-          const [eh, em] = r.sleepEnd!.split(':').map(Number);
-          const sMin = sh * 60 + sm;
-          const eMinRaw = eh * 60 + em;
-          if (eMinRaw <= sMin) {
-            const totalMin = 24 * 60 - sMin + eMinRaw;
-            sleepSegments.push({ record: r, sMin: 0, eMin: eMinRaw, totalMin });
-          }
-        });
-      return { dateStr, planTodos, doTodos, unexecutedTodos, totalPlanMin, totalDoMin, sleepSegments };
+      // 수면: 절대 시간축 기준으로 이 컬럼 윈도우에 들어오는 조각 계산 (전날/당일/다음날 새벽 포함)
+      const sleepRects = sleepRectsForColumn(dateStr, selfCareRecords, startHour, endHour);
+      return { dateStr, planTodos, doTodos, unexecutedTodos, totalPlanMin, totalDoMin, sleepRects };
     });
-  }, [days, todos, selfCareRecords]);
+  }, [days, todos, selfCareRecords, startHour, endHour]);
 
   // ─── weekly totals ──────────────────────────────────────────────────────────
   const weeklyStats = useMemo(() => {
@@ -377,7 +347,7 @@ export function WeekViewPC({ viewDate, weekStartsOn, selectedDate, onSelectDate,
             display: 'grid',
             gridTemplateColumns: 'repeat(14, minmax(0, 1fr))',
           }}>
-            {dayData.map(({ dateStr, planTodos, doTodos, unexecutedTodos, sleepSegments }, dayIdx) => {
+            {dayData.map(({ dateStr, planTodos, doTodos, unexecutedTodos, sleepRects }, dayIdx) => {
               const isToday = dateStr === todayStr;
               const showNowLine = isToday && nowMin >= startHour * 60 && nowMin <= endHour * 60;
 
@@ -401,22 +371,21 @@ export function WeekViewPC({ viewDate, weekStartsOn, selectedDate, onSelectDate,
                     </div>
                     {/* Do 슬롯 — 수면 블록도 여기에 렌더링 (z-index:1로 뒤에 깔림) */}
                     <div style={{ position: 'relative' }}>
-                      {sleepSegments.map((seg, si) => {
-                        const hh = Math.floor(seg.totalMin / 60);
-                        const mm = seg.totalMin % 60;
+                      {sleepRects.map((rect, ri) => {
+                        const hh = Math.floor(rect.totalMin / 60);
+                        const mm = rect.totalMin % 60;
                         const durationLabel = hh > 0 ? (mm > 0 ? `${hh}h ${mm}m` : `${hh}h`) : `${mm}m`;
-                        const [sh, sm2] = seg.record.sleepStart!.split(':').map(Number);
-                        const [eh, em2] = seg.record.sleepEnd!.split(':').map(Number);
+                        const [sh, sm2] = rect.record.sleepStart!.split(':').map(Number);
+                        const [eh, em2] = rect.record.sleepEnd!.split(':').map(Number);
                         const tooltipText = `수면 ${durationLabel}\n${String(sh).padStart(2,'0')}:${String(sm2).padStart(2,'0')} → ${String(eh).padStart(2,'0')}:${String(em2).padStart(2,'0')}`;
-                        return placeSleepSegment(seg.sMin, seg.eMin, startHour, endHour).map((rect, ri) => {
-                          const top = rect.offsetMin * (PC_HOUR_HEIGHT / 60);
-                          const height = Math.max(rect.lengthMin * (PC_HOUR_HEIGHT / 60), 16);
-                          return (
+                        const top = rect.offsetMin * (PC_HOUR_HEIGHT / 60);
+                        const height = Math.max(rect.lengthMin * (PC_HOUR_HEIGHT / 60), 16);
+                        return (
                           <button
-                            key={`sleep-${seg.record.id}-${si}-${ri}`}
+                            key={`sleep-${rect.record.id}-${ri}`}
                             type="button"
                             title={tooltipText}
-                            onClick={() => setEditingSleepRecord(seg.record)}
+                            onClick={() => setEditingSleepRecord(rect.record)}
                             style={{
                               position: 'absolute', top, height,
                               left: 2, right: 2,
@@ -437,14 +406,13 @@ export function WeekViewPC({ viewDate, weekStartsOn, selectedDate, onSelectDate,
                             <div style={{ fontSize: 10, fontWeight: 700, color: '#64748B', lineHeight: 1.3 }}>
                               🌙 수면
                             </div>
-                            {rect.primary && height >= 28 && (
+                            {height >= 28 && (
                               <div style={{ fontSize: 9, fontWeight: 600, color: '#94A3B8', lineHeight: 1.3 }}>
                                 {durationLabel}
                               </div>
                             )}
                           </button>
-                          );
-                        });
+                        );
                       })}
                       {unexecutedTodos.map(todo => (
                         <UnexecutedBlock key={`unexec-${todo.id}`} todo={todo} startHour={startHour} />
