@@ -43,6 +43,7 @@ export function CultureFormModal({ record, onSave, onDelete, onClose, notify, on
   const [externalId, setExternalId] = useState<string | null>(record?.externalId ?? null);
   const [ytLoading, setYtLoading] = useState(false);
   const [tmdbOpen, setTmdbOpen] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
 
   // ESC 닫기
   useEffect(() => {
@@ -97,7 +98,8 @@ export function CultureFormModal({ record, onSave, onDelete, onClose, notify, on
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!title.trim()) return;
+    if (!title.trim() || submitting) return;
+    setSubmitting(true);
     const tags = tagsInput.split(',').map(s => s.trim()).filter(Boolean);
     onSave({
       id: record?.id ?? (globalThis.crypto?.randomUUID?.() ?? String(Date.now())),
@@ -157,9 +159,9 @@ export function CultureFormModal({ record, onSave, onDelete, onClose, notify, on
             {isEdit ? '문화 기록 수정' : '문화 기록 추가'}
           </h2>
           {/* 모바일 저장 (form 제출) */}
-          <button type="submit" form="culture-form"
-            className="lg:hidden px-3 py-1.5 rounded-lg" style={{ fontSize: 14, fontWeight: 700, color: t.accent }}>
-            저장
+          <button type="submit" form="culture-form" disabled={submitting}
+            className="lg:hidden px-3 py-1.5 rounded-lg" style={{ fontSize: 14, fontWeight: 700, color: submitting ? t.textMuted : t.accent, opacity: submitting ? 0.5 : 1 }}>
+            {submitting ? '저장 중…' : '저장'}
           </button>
           {/* PC 닫기 */}
           <button type="button" onClick={onClose} className="hidden lg:block p-1.5 rounded-lg" style={{ color: t.textMuted }}>
@@ -336,10 +338,10 @@ export function CultureFormModal({ record, onSave, onDelete, onClose, notify, on
               style={{ backgroundColor: t.bgSub, color: t.textSub, fontSize: 13, fontWeight: 500, border: `1px solid ${t.border}` }}>
               취소
             </button>
-            <button type="submit"
+            <button type="submit" disabled={submitting}
               className="hidden lg:block px-5 py-2 rounded-xl transition-colors"
-              style={{ backgroundColor: t.accent, color: '#fff', fontSize: 13, fontWeight: 600 }}>
-              저장
+              style={{ backgroundColor: submitting ? t.bgSub : t.accent, color: submitting ? t.textMuted : '#fff', fontSize: 13, fontWeight: 600 }}>
+              {submitting ? '저장 중…' : '저장'}
             </button>
           </div>
         </form>
