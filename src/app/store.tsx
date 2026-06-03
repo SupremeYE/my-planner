@@ -194,6 +194,7 @@ export type CulturePlatform =
 export type CultureContentType =
   'movie' | 'drama' | 'variety' | 'documentary' | 'anime' | 'youtube_video' | 'lecture' | 'other';
 export type CultureStatus = 'watchlist' | 'watching' | 'completed' | 'dropped';
+export type CultureExternalSource = 'tmdb_movie' | 'tmdb_tv' | 'youtube' | 'manual';
 
 export interface CultureRecord {
   id: string;
@@ -202,6 +203,8 @@ export interface CultureRecord {
   contentType: CultureContentType;
   url?: string | null;
   thumbnailUrl?: string | null;
+  externalSource?: CultureExternalSource | null; // Stage 1: 'manual', Stage 2: tmdb/youtube 자동
+  externalId?: string | null;                    // 외부 출처 콘텐츠 ID (TMDB id, YouTube video id 등)
   status: CultureStatus;
   rating?: number | null;     // 0~5, 0.5 단위
   review?: string | null;

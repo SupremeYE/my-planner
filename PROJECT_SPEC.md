@@ -458,6 +458,8 @@ platform        text        netflix|youtube|disney_plus|coupang_play|tving|watch
 content_type    text        movie|drama|variety|documentary|anime|youtube_video|lecture|other
 url             text|null   콘텐츠 URL
 thumbnail_url   text|null   썸네일 이미지 URL (Stage 2 유튜브 자동 fetch 예정)
+external_source text|null   tmdb_movie|tmdb_tv|youtube|manual (Stage 1=manual, Stage 2 자동 검색 시 채움)
+external_id     text|null   외부 출처 콘텐츠 ID (TMDB id, YouTube video id 등)
 status          text        watchlist|watching|completed|dropped (기본값 completed)
 rating          numeric(2,1)|null  별점 0~5 (0.5 단위)
 review          text|null   리뷰

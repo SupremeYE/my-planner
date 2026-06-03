@@ -15,6 +15,7 @@
 ### ✅ 완료
 - [x] 문화 기록 페이지(`/culture`) 신규 추가 — Stage 1 PC 레이아웃
 - [x] `culture_records` 테이블 마이그레이션 작성 + Supabase(my-planner) 적용
+- [x] `culture_records` 에 `external_source`/`external_id` 컬럼 추가 (Stage 2 TMDB/유튜브 자동검색 대비, Stage 1=manual)
 - [x] 사이드바/모바일 오버레이/탑네비에 "문화 기록" 메뉴 추가
 - [x] 캘린더 주별 Today 버튼 동작 안 함 수정 (모바일 3일 탭이 오늘 페이지로 이동)
 - [x] 캘린더 월별 뷰 모바일 좌우 스와이프로 이전/다음 달 전환 추가
@@ -41,6 +42,9 @@
 - `src/app/components/Layout.tsx` / `LayoutC.tsx`: "문화 기록"(Clapperboard) 메뉴 추가
 - 디자인 시스템 토큰만 사용, 기존 페이지 PC 레이아웃 미변경
 - 메모: 작업 지시서의 `.jsx`/`src/pages/` 대신, 저장소 규칙(TS·`src/app/components/XxxView.tsx`)에 맞춰 `.tsx`로 구현
+- 추가(같은 날): `external_source`(`tmdb_movie|tmdb_tv|youtube|manual`)·`external_id` 컬럼 추가
+  - `20260603000000_add_culture_external_source.sql` 신규 ALTER 마이그레이션 + create 마이그레이션 정의에도 반영, Supabase MCP 로 운영 DB 적용
+  - `db.ts` upsert 시 출처 미지정이면 `'manual'` 저장 → Stage 2 자동검색이 출처/ID 채움
 
 **② 주별 Today 버튼 수정 (`WeekViewMobile.tsx`)**
 - 증상: 주별 화면에서 Today 버튼을 눌러도 동작하지 않는 것처럼 보임

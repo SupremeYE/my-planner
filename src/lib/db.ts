@@ -1117,6 +1117,8 @@ export const db = {
         contentType: r.content_type,
         url: r.url ?? null,
         thumbnailUrl: r.thumbnail_url ?? null,
+        externalSource: r.external_source ?? null,
+        externalId: r.external_id ?? null,
         status: r.status,
         rating: r.rating != null ? Number(r.rating) : null,
         review: r.review ?? null,
@@ -1136,6 +1138,9 @@ export const db = {
         content_type: record.contentType,
         url: record.url ?? null,
         thumbnail_url: record.thumbnailUrl ?? null,
+        // Stage 1: 출처를 명시하지 않으면 'manual' 로 저장 (Stage 2에서 tmdb/youtube 자동)
+        external_source: record.externalSource ?? 'manual',
+        external_id: record.externalId ?? null,
         status: record.status,
         rating: record.rating ?? null,
         review: record.review ?? null,

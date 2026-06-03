@@ -15,6 +15,8 @@ create table if not exists public.culture_records (
   content_type text not null check (content_type in ('movie','drama','variety','documentary','anime','youtube_video','lecture','other')),
   url text,
   thumbnail_url text,
+  external_source text check (external_source in ('tmdb_movie','tmdb_tv','youtube','manual')),
+  external_id text,
   status text not null default 'completed' check (status in ('watchlist','watching','completed','dropped')),
   rating numeric(2,1) check (rating >= 0 and rating <= 5),
   review text,
