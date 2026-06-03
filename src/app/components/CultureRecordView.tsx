@@ -6,6 +6,7 @@ import { useRealtimeSync } from '../hooks/useRealtimeSync';
 import type { CultureRecord, CulturePlatform, CultureContentType, CultureStatus } from '../store';
 import { CultureFormModal } from './culture/CultureFormModal';
 import { StarRating } from './culture/StarRating';
+import { useToasts, ToastHost } from './culture/CultureToast';
 import ConfirmModal from './ConfirmModal';
 import {
   PLATFORM_META, PLATFORM_ORDER, CONTENT_TYPE_META, CONTENT_TYPE_ORDER, STATUS_META, STATUS_ORDER,
@@ -31,6 +32,7 @@ export function CultureRecordView() {
   const [modalOpen, setModalOpen] = useState(false);
   const [editing, setEditing] = useState<CultureRecord | null>(null);
   const [deleteId, setDeleteId] = useState<string | null>(null);
+  const { toasts, notify } = useToasts();
 
   // ── 데이터 로드 + Realtime 동기화 ──
   const refresh = useCallback(() => { db.cultureRecords.fetchAll().then(setRecords); }, []);
@@ -76,6 +78,16 @@ export function CultureRecordView() {
     setModalOpen(false);
     setEditing(null);
     refresh();
+  };
+  // 카드 레벨 빠른 상태 변경 — optimistic update + 실패 시 롤백
+  const handleQuickStatus = async (id: string, newStatus: CultureStatus) => {
+    const prev = records;
+    setRecords(rs => rs.map(r => (r.id === id ? { ...r, status: newStatus } : r)));
+    const ok = await db.cultureRecords.updateStatus(id, newStatus);
+    if (!ok) {
+      setRecords(prev);
+      notify('상태 변경 실패 — 다시 시도해주세요', 'error');
+    }
   };
 
   // ── 필터 칩 렌더러 ──
@@ -183,11 +195,14 @@ export function CultureRecordView() {
         ) : (
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4">
             {visible.map(r => (
-              <CultureCard key={r.id} record={r} onClick={() => openEdit(r)} />
+              <CultureCard key={r.id} record={r} onClick={() => openEdit(r)} onStatusChange={handleQuickStatus} />
             ))}
           </div>
         )}
       </div>
+
+      {/* 토스트 */}
+      <ToastHost toasts={toasts} />
 
       {/* 모달 */}
       {modalOpen && (
@@ -196,6 +211,7 @@ export function CultureRecordView() {
           onSave={handleSave}
           onDelete={editing ? (id) => setDeleteId(id) : undefined}
           onClose={() => { setModalOpen(false); setEditing(null); }}
+          notify={notify}
         />
       )}
 
@@ -215,19 +231,27 @@ export function CultureRecordView() {
 }
 
 // ── 포스터 카드 ──
-function CultureCard({ record, onClick }: { record: CultureRecord; onClick: () => void }) {
+function CultureCard({ record, onClick, onStatusChange }: {
+  record: CultureRecord;
+  onClick: () => void;
+  onStatusChange: (id: string, status: CultureStatus) => void;
+}) {
   const { t } = useTheme();
   const [hover, setHover] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
   const platform = PLATFORM_META[record.platform];
   const TypeIcon = CONTENT_TYPE_META[record.contentType].icon;
   const StatusIcon = STATUS_META[record.status].icon;
 
   return (
-    <button
+    <div
+      role="button"
+      tabIndex={0}
       onClick={onClick}
+      onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onClick(); } }}
       onMouseEnter={() => setHover(true)}
       onMouseLeave={() => setHover(false)}
-      className="text-left flex flex-col"
+      className="text-left flex flex-col cursor-pointer relative"
       style={{ transform: hover ? 'translateY(-4px)' : 'none', transition: 'transform 0.18s ease' }}
     >
       {/* 포스터 (2:3) */}
@@ -253,13 +277,53 @@ function CultureCard({ record, onClick }: { record: CultureRecord; onClick: () =
             backgroundColor: 'rgba(0,0,0,0.55)', backdropFilter: 'blur(2px)' }}>
           {platform.label}
         </span>
+      </div>
 
-        {/* 상태 아이콘 (우상단) */}
-        <span className="absolute top-1.5 right-1.5 flex items-center justify-center rounded-full"
-          style={{ width: 22, height: 22, backgroundColor: 'rgba(0,0,0,0.55)', backdropFilter: 'blur(2px)' }}
+      {/* 상태 컨트롤 (우상단) — 카드 루트 기준 absolute 로 두어 드롭다운이 포스터 overflow에 잘리지 않게 함 */}
+      <div className="absolute top-1.5 right-1.5 flex items-center gap-1"
+        onClick={e => e.stopPropagation()}>
+        {/* hover 또는 메뉴 열림 시 chevron 노출 */}
+        {(hover || menuOpen) && (
+          <button type="button" title="상태 변경"
+            onClick={e => { e.stopPropagation(); setMenuOpen(v => !v); }}
+            className="flex items-center justify-center rounded-full"
+            style={{ width: 20, height: 20, backgroundColor: 'rgba(0,0,0,0.6)' }}>
+            <ChevronDown size={12} color="#fff" />
+          </button>
+        )}
+        <span className="flex items-center justify-center rounded-full"
+          style={{ width: 22, height: 22, backgroundColor: 'rgba(0,0,0,0.55)' }}
           title={STATUS_META[record.status].label}>
           <StatusIcon size={13} color="#fff" />
         </span>
+
+        {menuOpen && (
+          <>
+            <div className="fixed inset-0 z-10"
+              onClick={e => { e.stopPropagation(); setMenuOpen(false); }} />
+            <div className="absolute right-0 z-20 rounded-xl overflow-hidden shadow-lg"
+              style={{ top: 26, minWidth: 116, backgroundColor: t.card, border: `1px solid ${t.border}` }}>
+              {STATUS_ORDER.map(s => {
+                const Icon = STATUS_META[s].icon;
+                const active = record.status === s;
+                return (
+                  <button key={s} type="button"
+                    onClick={e => {
+                      e.stopPropagation();
+                      setMenuOpen(false);
+                      if (s !== record.status) onStatusChange(record.id, s);
+                    }}
+                    className="flex items-center gap-2 w-full px-3 py-2 transition-colors"
+                    style={{ fontSize: 12, color: active ? t.accent : t.text,
+                      fontWeight: active ? 600 : 400, backgroundColor: active ? t.bgSub : 'transparent' }}>
+                    <Icon size={13} color={active ? t.accent : t.textSub} />
+                    {STATUS_META[s].label}
+                  </button>
+                );
+              })}
+            </div>
+          </>
+        )}
       </div>
 
       {/* 제목 + 별점 */}
@@ -275,7 +339,7 @@ function CultureCard({ record, onClick }: { record: CultureRecord; onClick: () =
           </div>
         )}
       </div>
-    </button>
+    </div>
   );
 }
 

@@ -1,6 +1,6 @@
 # PROJECT_SPEC.md — My Planner PWA 기능 명세서
 
-> 최종 업데이트: 2026-06-02 (문화 기록 페이지 `/culture` 신규 추가 — Stage 1 PC 레이아웃: 영화/드라마/예능/유튜브 등 시청 콘텐츠 기록. culture_records 테이블·RLS·Realtime, 포스터 그리드(6열 2:3), 플랫폼/유형/상태 칩 필터·검색·정렬, 0.5단위 별점, 추가/수정 모달. 이하 동일 2026-06-02: 캘린더 하단 상세 패널을 조회 전용 → 일간 동일 CRUD로 확장: 할일·일정 직접 관리(체크/수정/미루기/삭제), 반복 할일 표시·분기 삭제, 상단 필터 탭 연동. 이하 2026-06-01: 독서 진행 이력 reading_logs 테이블·자동 로깅 추가, 마이그레이션 타임스탬프 충돌 수정, 식단 카페 저장 버그 수정, 일간 할일 체크박스 모바일 탭 유실 수정, 반복 할일 인스턴스 동작 복구·수정 모달 개선, daily-report Edge Function에 일정·식단·감정·독서 섹션 추가)
+> 최종 업데이트: 2026-06-03 (문화 기록 Stage 2: YouTube oEmbed 자동 채움(제목·썸네일·플랫폼/유형), TMDB 영화·드라마 검색 통합(`VITE_TMDB_API_TOKEN`), 카드 hover 상태 빠른 변경(optimistic+롤백+토스트), `external_source`/`external_id` 기록. 이하 2026-06-02: 문화 기록 페이지 `/culture` 신규 추가 — Stage 1 PC 레이아웃: 영화/드라마/예능/유튜브 등 시청 콘텐츠 기록. culture_records 테이블·RLS·Realtime, 포스터 그리드(6열 2:3), 플랫폼/유형/상태 칩 필터·검색·정렬, 0.5단위 별점, 추가/수정 모달. 이하 동일 2026-06-02: 캘린더 하단 상세 패널을 조회 전용 → 일간 동일 CRUD로 확장: 할일·일정 직접 관리(체크/수정/미루기/삭제), 반복 할일 표시·분기 삭제, 상단 필터 탭 연동. 이하 2026-06-01: 독서 진행 이력 reading_logs 테이블·자동 로깅 추가, 마이그레이션 타임스탬프 충돌 수정, 식단 카페 저장 버그 수정, 일간 할일 체크박스 모바일 탭 유실 수정, 반복 할일 인스턴스 동작 복구·수정 모달 개선, daily-report Edge Function에 일정·식단·감정·독서 섹션 추가)
 
 ---
 
@@ -143,20 +143,40 @@
   - 식사유형 도넛 차트, 자주 먹은 음식 TOP5, ⭐ 맛있었던 것 모아보기
   - 칼로리 막대 그래프 (최근14일: 14개 / 월별: 해당 달 전체 일별)
 
-#### `/culture` — 문화 기록 (Stage 1, PC 전용)
+#### `/culture` — 문화 기록 (Stage 1·2, PC 전용)
 - 영화/드라마/예능/다큐/애니/유튜브/강의 등 시청 콘텐츠 기록
 - 헤더: 제목 + 제목·태그 검색 인풋 + 정렬 드롭다운(기록일/본 날짜/별점 높은순) + `+ 추가하기`
 - 칩 필터 3줄(다중): 플랫폼 / 유형 / 상태 — active 시 골드(accent) 배경
 - 포스터 그리드: PC 6열(`lg:grid-cols-6`), 카드 2:3 비율
   - 썸네일 이미지(있으면) / 없으면 플랫폼 그라데이션 + 유형 아이콘 placeholder
   - 좌상단 플랫폼 미니 뱃지, 우상단 상태 아이콘(보고싶음=북마크/보는중=재생/완료=체크/중단=X)
+  - **(Stage 2) 카드 hover 시 우상단 chevron(▼) → 상태 빠른 변경 드롭다운**(보고싶음/보는중/완료/중단), 선택 시 optimistic update + 실패 롤백 + 토스트. 카드 클릭(모달)과 `stopPropagation`으로 분리
   - 하단 제목 + 골드 별점(read-only), hover 시 위로 살짝 + 그림자 강조
   - 카드 클릭 → 상세/수정 모달
 - 추가/수정 모달(`CultureFormModal`): 제목*·URL·플랫폼*·유형*·상태*·본 날짜·썸네일 URL·별점(completed/dropped 시)·리뷰·인사이트·태그(콤마 구분), 저장/취소/삭제(수정 시)
+  - **(Stage 2) YouTube URL 자동 채움**: URL 입력 onBlur/onPaste 시 YouTube면 oEmbed로 제목·썸네일(비어있을 때만)·플랫폼=youtube·유형=youtube_video·external_source=youtube·external_id 자동 채움, 로딩 스피너, 실패 시 토스트
+  - **(Stage 2) TMDB 검색**: 상단 "🎬 TMDB에서 검색" 토글 → 패널(300ms debounce, 포스터·제목·원제·연도·영화/TV 뱃지). 결과 선택 시 제목·썸네일·유형(movie→movie, tv→drama)·external_source(tmdb_movie/tmdb_tv)·external_id 채움. **platform은 자동 설정 안 함**(사용자 선택). 토큰 없음/401/네트워크 오류는 안내·토스트, 수동 입력 병행 가능
+  - 자동 채움은 편의 기능 — 채워진 값도 사용자가 모두 수정 가능, `external_source`는 마지막 자동 채움 출처(`youtube`/`tmdb_movie`/`tmdb_tv`/`manual`)를 기록
 - 별점(`StarRating`): 0.5 단위 반쪽 별, read-only/인터랙티브 모드
 - 빈 상태: 아이콘 + "첫 문화 기록을 남겨보세요" + `+ 추가하기`
+- 토스트(`CultureToast`): 페이지 자체 호스팅 경량 토스트(전역 인프라 없음) — 자동 채움/상태 변경 결과 알림
 - Realtime: `culture_records` 테이블 구독(PC↔모바일 즉시 반영)
-- **모바일 레이아웃은 Stage 2 예정** (현재 그리드는 모바일에서 2열로 동작하지만 전용 UI 미완)
+- **모바일 전용 레이아웃은 Stage 3 예정** (현재 그리드는 모바일에서 2열로 동작하지만 전용 UI 미완)
+
+##### 문화 기록 외부 연동 명세 (Stage 2)
+- **YouTube oEmbed** (`src/lib/youtube.ts`, API 키 불필요)
+  - URL: `GET https://www.youtube.com/oembed?url={URL}&format=json`
+  - 반환 사용 필드: `title`, `author_name`, `thumbnail_url`
+  - `extractYouTubeVideoId(url)`: `watch?v=` / `youtu.be/` / `shorts/` / `embed/` 패턴에서 11자 video ID 추출(미매치 null)
+  - `fetchYouTubeMetadata(url)`: 비-YouTube URL·실패 시 null
+- **TMDB** (`src/lib/tmdb.ts`)
+  - 환경변수: `VITE_TMDB_API_TOKEN` (Vercel Production/Preview 등록 → 배포본 동작, 로컬은 `.env` 추가 필요)
+  - 인증: `Authorization: Bearer ${VITE_TMDB_API_TOKEN}`
+  - 검색: `GET https://api.themoviedb.org/3/search/multi?query=...&language=ko-KR&include_adult=false` — `media_type`가 `movie`/`tv`인 결과만 사용
+  - 반환 매핑: `{ id, type:'movie'|'tv', title, original_title, year, poster_path }`
+  - 포스터: `getPosterUrl(path)` → `https://image.tmdb.org/t/p/w500{path}` (없으면 null)
+  - `hasTMDBToken()`로 토큰 유무 판단 → 검색 패널 활성/비활성, 401은 "토큰 유효하지 않음" 안내
+  - 한계: 한국 예능·개인 유튜브 촬영물 등은 TMDB에 없을 수 있음 → 수동 입력 병행
 
 #### 비라우팅 컴포넌트 (현재 `routes.tsx` 미연결)
 - `BrainstormView`: 브레인스토밍 입력/할일·일정 변환 UI 컴포넌트 파일은 존재
@@ -612,7 +632,8 @@ store.tsx (PlannerContext)
 - **일일 리포트(daily-report) Supabase Edge Function** — pg_cron이 KST 지정 시각에 호출 → 오늘(KST) 기준 **할일·습관·일정·식단·감정·독서** 6개 섹션을 조립해 Discord Webhook으로 전송. 섹션별 try/catch로 한 섹션 실패가 전체 전송을 막지 않음. events.start_at은 KST 벽시계 text라 동일 형식 문자열 범위로 조회(반복 일정 전개는 TODO) (`supabase/functions/daily-report/index.ts`)
 - **모먼트 로그(`/moments`)** — 사진(카메라/갤러리, 최대 5장)+텍스트 작성·저장, 저장 시 Geolocation → Open-Meteo 날씨 자동 첨부, WMO 코드 → 이모지+한국어 매핑, 카드 날씨 배지 표시, 위치 거부 시 날씨 없이 폴백 저장 (`MomentView.tsx`)
 - **질문일기(`/question-journal`)** — 오늘의 질문 탭(daily_question 랜덤 배정 + 답변 저장/수정), 질문 탐색 탭(내장 15개 + 커스텀 추가/삭제), 질문별 모아보기(연도별 섹션 + 5년 다이어리 스타일 카드, 바텀시트/모달 오버레이). Realtime 3테이블 연동 (`QuestionJournalView.tsx`)
-- **문화 기록(`/culture`) — Stage 1 PC 레이아웃** — 영화/드라마/예능/유튜브 등 시청 콘텐츠 기록. 포스터 그리드(PC 6열, 2:3, 썸네일 또는 플랫폼 그라데이션+유형 아이콘 placeholder, 플랫폼 미니뱃지+상태 아이콘, hover 리프트), 플랫폼/유형/상태 칩 다중 필터 + 제목·태그 검색 + 정렬(기록일/본 날짜/별점), 0.5단위 인터랙티브 별점(`StarRating`), 추가/수정 모달(`CultureFormModal`, 리뷰·인사이트·태그·삭제), 빈 상태 UI, `culture_records` Realtime 구독. db.ts `cultureRecords` 레이어, store.tsx `CultureRecord` 타입. **모바일 전용 UI는 Stage 2 예정** (`CultureRecordView.tsx`, `culture/` 폴더)
+- **문화 기록(`/culture`) — Stage 1 PC 레이아웃** — 영화/드라마/예능/유튜브 등 시청 콘텐츠 기록. 포스터 그리드(PC 6열, 2:3, 썸네일 또는 플랫폼 그라데이션+유형 아이콘 placeholder, 플랫폼 미니뱃지+상태 아이콘, hover 리프트), 플랫폼/유형/상태 칩 다중 필터 + 제목·태그 검색 + 정렬(기록일/본 날짜/별점), 0.5단위 인터랙티브 별점(`StarRating`), 추가/수정 모달(`CultureFormModal`, 리뷰·인사이트·태그·삭제), 빈 상태 UI, `culture_records` Realtime 구독. db.ts `cultureRecords` 레이어, store.tsx `CultureRecord` 타입. **모바일 전용 UI는 Stage 3 예정** (`CultureRecordView.tsx`, `culture/` 폴더)
+- **문화 기록(`/culture`) — Stage 2 자동 fetch + 상태 관리** — YouTube oEmbed 자동 채움(`src/lib/youtube.ts`: URL onBlur/onPaste → 제목·썸네일·플랫폼=youtube·유형=youtube_video·external 채움, 비어있을 때만 덮어쓰지 않음), TMDB 검색 통합(`src/lib/tmdb.ts` + `culture/TMDBSearchPanel.tsx`: `VITE_TMDB_API_TOKEN` Bearer, `/search/multi` ko-KR, 300ms debounce, 포스터 그리드, 선택 시 제목·썸네일·유형·external 채움·platform 제외), 카드 hover 상태 빠른 변경(chevron 드롭다운, optimistic update + 롤백, `db.cultureRecords.updateStatus`), 경량 토스트(`culture/CultureToast.tsx`). 자동 채움 출처를 `external_source`로 기록(youtube/tmdb_movie/tmdb_tv/manual)
 - **모바일 타임라인 블록 생성 — 롱프레스 방식** — 빈 타임라인을 0.5초 꾹 누를 때만 블록 생성 모드 활성화(기본 30분 프리뷰 + 진동), 이전 드래그 방식은 일반 스크롤과 충돌했음. `WebkitTouchCallout/WebkitUserSelect: none` 으로 iOS 시스템 텍스트 선택 메뉴 차단 (`DailyView.tsx`)
 - **DO 블록 독립 삭제** — DO 블록 삭제 시 `doStart/doEnd/doElapsedSec`만 비워 PLAN은 유지(기존: `deleteTodo`로 할일 전체 삭제됨). DO 블록도 모바일 롱프레스 컨텍스트 메뉴 지원 (`DailyView.tsx`)
 - **식단 단식 기록** — 음식 추가 첫 단계(끼니 선택) 하단의 "🚫 끼니별 단식" 버튼으로 거른 끼니를 한 번에 기록(`FoodRecord.isFasting`, `food_records.is_fasting`). 기록 카드는 점선 🚫 표기, 식단 달력 셀 4분할에서 단식 끼니 🚫 표시, 통계에 "끼니별 단식" 분포 카드 추가(식비/칼로리/TOP5 등 일반 통계는 단식 제외) (`FoodView.tsx`)
@@ -654,12 +675,13 @@ store.tsx (PlannerContext)
 | PWA 오프라인 모드 | 기본 service worker 캐시(`network-first + cache fallback`)는 있으나 정교한 오프라인 동기화/캐시 정책은 미구현 |
 | 데이터 내보내기/가져오기 | 미구현 |
 | 사용자 인증 (멀티유저) | 현재 단일 사용자 구조 |
-| 문화 기록 모바일 레이아웃 | Stage 2 예정 — 현재 그리드는 모바일에서 2열로 동작하나 전용 UI(하단 네비 탭/모바일 카드·필터) 미완 |
+| 문화 기록 모바일 레이아웃 | Stage 3 예정 — 현재 그리드는 모바일에서 2열로 동작하나 전용 UI(하단 네비 탭/모바일 카드·필터) 미완 |
 
 #### 문화 기록(`/culture`) 향후 Stage 로드맵
-- **Stage 2** — 모바일 전용 레이아웃 + 유튜브/플랫폼 URL 입력 시 썸네일·제목 자동 fetch(oEmbed/메타 스크래핑), 상태 관리 고도화(드래그로 상태 전환 등)
-- **Stage 3** — 통계/대시보드(플랫폼·유형별 시청량, 별점 분포, 월별 시청 추이), 모먼트/리뷰 연동
-- **Stage 4** — 추천/위시리스트 공유, 외부 메타 API(TMDB 등) 연동으로 포스터·출연진 자동 채움
+- **Stage 1** ✅ — PC 포스터 그리드, 칩 필터·검색·정렬, 별점, 추가/수정 모달, Realtime
+- **Stage 2** ✅ — YouTube oEmbed 자동 채움 + TMDB 영화·드라마 검색 통합 + 카드 빠른 상태 변경
+- **Stage 3** — 모바일 전용 레이아웃(모바일 카드·필터·하단 네비 연계)
+- **Stage 4** — 통계/대시보드(플랫폼·유형별 시청량, 별점 분포, 월별 추이), 모먼트/리뷰 연동, 위시리스트 공유
 
 ---
 
@@ -794,12 +816,16 @@ App.tsx
 │   ├── StatsTab (식비·도넛차트·TOP5·맛있었던것·칼로리바차트)
 │   └── AddFoodSheet (7단계 바텀시트 — 시간대/사진/음식명+영양검색/식사유형/금액/칼로리/맛평가)
 │
-├── CultureRecordView (/culture) — Stage 1 PC 전용
-│   ├── CultureCard (포스터 카드 — 썸네일/그라데이션 placeholder, 플랫폼 뱃지, 상태 아이콘, 별점)
+├── CultureRecordView (/culture) — Stage 1·2 PC 전용
+│   ├── CultureCard (포스터 카드 — 썸네일/그라데이션 placeholder, 플랫폼 뱃지, 상태 아이콘 + hover 상태 빠른변경 드롭다운)
 │   ├── EmptyState (빈 상태 — 첫 기록 유도)
-│   ├── culture/CultureFormModal (추가/수정 모달 — 필드 + 삭제)
+│   ├── culture/CultureFormModal (추가/수정 모달 — 필드 + 삭제 + YouTube 자동채움 + TMDB 검색 토글)
+│   ├── culture/TMDBSearchPanel (TMDB 검색 패널 — debounce, 포스터 결과 그리드)
 │   ├── culture/StarRating (0.5단위 별점 — read-only/인터랙티브)
-│   └── culture/cultureMeta (플랫폼/유형/상태 라벨·색상·아이콘 메타)
+│   ├── culture/CultureToast (경량 토스트 — useToasts/ToastHost)
+│   ├── culture/cultureMeta (플랫폼/유형/상태 라벨·색상·아이콘 메타)
+│   ├── lib/youtube (oEmbed — extractYouTubeVideoId/fetchYouTubeMetadata)
+│   └── lib/tmdb (TMDB search/multi — searchTMDB/getPosterUrl/hasTMDBToken)
 │
 └── 공통 컴포넌트
     ├── AddEntryMenu — `+ 추가` 버튼 드롭다운 (할일 추가 / 일정 추가)

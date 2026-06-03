@@ -9,13 +9,15 @@
 ## 2026-06-03
 
 ### 📋 TODO
-- [ ] 문화 기록 Stage 2: 모바일 전용 레이아웃 + 유튜브/플랫폼 썸네일 자동 fetch
+- [ ] 문화 기록 Stage 3: 모바일 전용 레이아웃 (모바일 카드·필터·하단 네비 연계)
+- [ ] 로컬 `.env` 에 `VITE_TMDB_API_TOKEN` 추가 (Vercel엔 이미 등록, 로컬 개발 시 필요)
 - [ ] (선택) 캘린더 `CalendarView.tsx` 미사용 `WeekView` 함수(약 350줄)·미사용 상수 3개 제거
 
 ### ✅ 완료
 - [x] 문화 기록 페이지(`/culture`) 신규 추가 — Stage 1 PC 레이아웃
 - [x] `culture_records` 테이블 마이그레이션 작성 + Supabase(my-planner) 적용
 - [x] `culture_records` 에 `external_source`/`external_id` 컬럼 추가 (Stage 2 TMDB/유튜브 자동검색 대비, Stage 1=manual)
+- [x] 문화 기록 Stage 2 — YouTube oEmbed 자동 채움 + TMDB 검색 통합 + 카드 빠른 상태 변경
 - [x] 사이드바/모바일 오버레이/탑네비에 "문화 기록" 메뉴 추가
 - [x] 캘린더 주별 Today 버튼 동작 안 함 수정 (모바일 3일 탭이 오늘 페이지로 이동)
 - [x] 캘린더 월별 뷰 모바일 좌우 스와이프로 이전/다음 달 전환 추가
@@ -23,6 +25,17 @@
 - [x] 새벽 수면(시작 시각 이전, 예 00:30~07:27)이 타임라인에서 잘리던 버그 수정 (주별·일간 공용 유틸)
 
 ### 🛠 오늘 작업 내용
+
+**①-2 문화 기록 Stage 2 — 자동 fetch + 상태 관리 강화**
+- `src/lib/youtube.ts`: `extractYouTubeVideoId`(watch/youtu.be/shorts/embed) + `fetchYouTubeMetadata`(oEmbed, 키 불필요)
+- `src/lib/tmdb.ts`: `searchTMDB`(`/search/multi` ko-KR, Bearer `VITE_TMDB_API_TOKEN`, movie/tv 필터) + `getPosterUrl` + `hasTMDBToken`
+- `culture/TMDBSearchPanel.tsx`: 모달 상단 "🎬 TMDB에서 검색" 토글, 300ms debounce, 포스터 결과 그리드, 토큰 없음/401/네트워크 오류 안내
+- `CultureFormModal.tsx`: URL onBlur/onPaste → YouTube 자동 채움(제목·썸네일은 비어있을 때만, platform/유형/external는 갱신), TMDB 선택 시 채움(platform 제외), 로딩 스피너, `external_source`/`external_id` 저장
+- `CultureRecordView.tsx`: 카드 hover chevron → 상태 빠른 변경 드롭다운(optimistic update + 실패 롤백), 카드 클릭과 `stopPropagation` 분리. `CultureCard` `<button>`→`<div role=button>` (중첩 버튼 방지)
+- `culture/CultureToast.tsx`: 페이지 자체 호스팅 경량 토스트(전역 인프라 미사용)
+- `db.ts`: `cultureRecords.updateStatus(id,status)` 추가(성공여부 반환), fetch/upsert에 external 매핑(미지정 시 'manual')
+- 원칙: 자동 채움은 편의 기능 — 모든 필드 수정 가능, `external_source`는 마지막 자동 채움 출처 기록
+- 비고: 로컬 `.env` 없음 → TMDB는 토큰 추가 전까지 패널 비활성(YouTube·수동 입력은 정상)
 
 **① 문화 기록 페이지 신규 추가 — Stage 1 (PC 전용)**
 - 목적: 영화/드라마/예능/다큐/애니/유튜브/강의 등 시청 콘텐츠 기록

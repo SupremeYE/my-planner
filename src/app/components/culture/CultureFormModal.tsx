@@ -1,8 +1,14 @@
 import React, { useEffect, useState } from 'react';
-import { X, Trash2 } from 'lucide-react';
+import { X, Trash2, Youtube, Film, Loader2 } from 'lucide-react';
 import { useTheme } from '../../ThemeContext';
-import type { CultureRecord, CulturePlatform, CultureContentType, CultureStatus } from '../../store';
+import type {
+  CultureRecord, CulturePlatform, CultureContentType, CultureStatus, CultureExternalSource,
+} from '../../store';
 import { StarRating } from './StarRating';
+import { TMDBSearchPanel } from './TMDBSearchPanel';
+import type { Notify } from './CultureToast';
+import { extractYouTubeVideoId, fetchYouTubeMetadata } from '../../../lib/youtube';
+import { getPosterUrl, type TMDBResult } from '../../../lib/tmdb';
 import {
   PLATFORM_META, PLATFORM_ORDER, CONTENT_TYPE_META, CONTENT_TYPE_ORDER, STATUS_META, STATUS_ORDER,
 } from './cultureMeta';
@@ -12,9 +18,10 @@ interface CultureFormModalProps {
   onSave: (record: CultureRecord) => void;
   onDelete?: (id: string) => void;
   onClose: () => void;
+  notify?: Notify;
 }
 
-export function CultureFormModal({ record, onSave, onDelete, onClose }: CultureFormModalProps) {
+export function CultureFormModal({ record, onSave, onDelete, onClose, notify }: CultureFormModalProps) {
   const { t } = useTheme();
   const isEdit = !!record;
 
@@ -29,6 +36,11 @@ export function CultureFormModal({ record, onSave, onDelete, onClose }: CultureF
   const [review, setReview] = useState(record?.review ?? '');
   const [insight, setInsight] = useState(record?.insight ?? '');
   const [tagsInput, setTagsInput] = useState((record?.tags ?? []).join(', '));
+  // 자동 채움 출처 추적 (마지막 자동 채움 출처를 정확히 기록, 기본 manual)
+  const [externalSource, setExternalSource] = useState<CultureExternalSource | null>(record?.externalSource ?? null);
+  const [externalId, setExternalId] = useState<string | null>(record?.externalId ?? null);
+  const [ytLoading, setYtLoading] = useState(false);
+  const [tmdbOpen, setTmdbOpen] = useState(false);
 
   // ESC 닫기
   useEffect(() => {
@@ -38,6 +50,48 @@ export function CultureFormModal({ record, onSave, onDelete, onClose }: CultureF
   }, [onClose]);
 
   const showRating = status === 'completed' || status === 'dropped';
+
+  // ── YouTube URL 자동 채움 (편의 기능 — 사용자 입력은 덮어쓰지 않음) ──
+  const tryYouTubeAutofill = async (rawUrl: string) => {
+    const value = rawUrl.trim();
+    if (!extractYouTubeVideoId(value)) return; // 비-YouTube URL 이면 조용히 무시
+    setYtLoading(true);
+    const meta = await fetchYouTubeMetadata(value);
+    setYtLoading(false);
+    if (!meta) {
+      notify?.('자동 채움 실패 — 수동으로 입력하세요', 'error');
+      return;
+    }
+    // 출처 식별 정보는 항상 갱신
+    setPlatform('youtube');
+    setContentType('youtube_video');
+    setExternalSource('youtube');
+    setExternalId(extractYouTubeVideoId(value));
+    // title·thumbnail 은 비어있을 때만 채워 사용자 입력 보존
+    setTitle(prev => (prev.trim() ? prev : meta.title));
+    setThumbnailUrl(prev => (prev.trim() ? prev : meta.thumbnail_url));
+    notify?.('유튜브 정보를 불러왔어요', 'success');
+  };
+
+  const handleUrlPaste = (e: React.ClipboardEvent<HTMLInputElement>) => {
+    const pasted = e.clipboardData.getData('text');
+    if (pasted) {
+      setUrl(pasted);
+      tryYouTubeAutofill(pasted);
+    }
+  };
+
+  // ── TMDB 검색 결과 선택 → form 채움 (명시적 선택이므로 덮어씀, platform 은 사용자 선택) ──
+  const handleTMDBSelect = (r: TMDBResult) => {
+    setTitle(r.title || r.original_title);
+    const poster = getPosterUrl(r.poster_path);
+    if (poster) setThumbnailUrl(poster);
+    setContentType(r.type === 'movie' ? 'movie' : 'drama');
+    setExternalSource(r.type === 'movie' ? 'tmdb_movie' : 'tmdb_tv');
+    setExternalId(String(r.id));
+    setTmdbOpen(false);
+    notify?.('TMDB 정보를 불러왔어요 — 플랫폼을 선택하세요', 'success');
+  };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -50,6 +104,8 @@ export function CultureFormModal({ record, onSave, onDelete, onClose }: CultureF
       contentType,
       url: url.trim() || null,
       thumbnailUrl: thumbnailUrl.trim() || null,
+      externalSource: externalSource ?? 'manual',
+      externalId: externalId || null,
       status,
       rating: showRating && rating > 0 ? rating : null,
       review: review.trim() || null,
@@ -89,6 +145,25 @@ export function CultureFormModal({ record, onSave, onDelete, onClose }: CultureF
         </div>
 
         <form onSubmit={handleSubmit} className="px-5 pb-5 space-y-4">
+          {/* TMDB 검색 토글 */}
+          <div>
+            <button type="button" onClick={() => setTmdbOpen(v => !v)}
+              className="flex items-center gap-1.5 px-3 py-2 rounded-xl transition-colors w-full justify-center"
+              style={{
+                fontSize: 13, fontWeight: 600,
+                backgroundColor: tmdbOpen ? t.accent : t.bgSub,
+                color: tmdbOpen ? '#fff' : t.textSub,
+                border: `1px solid ${tmdbOpen ? t.accent : t.border}`,
+              }}>
+              <Film size={15} /> {tmdbOpen ? 'TMDB 검색 닫기' : '🎬 TMDB에서 검색'}
+            </button>
+            {tmdbOpen && (
+              <div className="mt-2">
+                <TMDBSearchPanel onSelect={handleTMDBSelect} notify={notify} />
+              </div>
+            )}
+          </div>
+
           {/* 제목 */}
           <div>
             <label style={labelStyle}>제목 *</label>
@@ -99,8 +174,22 @@ export function CultureFormModal({ record, onSave, onDelete, onClose }: CultureF
           {/* URL */}
           <div>
             <label style={labelStyle}>URL (선택)</label>
-            <input value={url} onChange={e => setUrl(e.target.value)}
-              placeholder="https://..." style={fieldStyle} />
+            <div className="relative">
+              <input value={url}
+                onChange={e => setUrl(e.target.value)}
+                onBlur={e => tryYouTubeAutofill(e.target.value)}
+                onPaste={handleUrlPaste}
+                placeholder="https://... (YouTube 링크는 자동 채움)" style={fieldStyle} />
+              {ytLoading && (
+                <Loader2 size={15} color={t.accent} className="animate-spin"
+                  style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)' }} />
+              )}
+            </div>
+            {externalSource === 'youtube' && (
+              <span className="flex items-center gap-1 mt-1" style={{ fontSize: 11, color: t.textMuted }}>
+                <Youtube size={12} color={t.accent} /> YouTube에서 자동으로 불러왔어요
+              </span>
+            )}
           </div>
 
           {/* 플랫폼 / 유형 */}

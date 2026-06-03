@@ -1151,6 +1151,13 @@ export const db = {
       });
       if (error) console.error('[db] culture_records upsert:', error.message);
     },
+    // 카드 레벨 빠른 상태 변경용 — 상태만 갱신, 성공 여부 반환(optimistic rollback 판단)
+    updateStatus: async (id: string, status: CultureRecord['status']): Promise<boolean> => {
+      const { error } = await supabase.from('culture_records')
+        .update({ status, updated_at: new Date().toISOString() }).eq('id', id);
+      if (error) { console.error('[db] culture_records updateStatus:', error.message); return false; }
+      return true;
+    },
     delete: async (id: string) => {
       const { error } = await supabase.from('culture_records').delete().eq('id', id);
       if (error) console.error('[db] culture_records delete:', error.message);
