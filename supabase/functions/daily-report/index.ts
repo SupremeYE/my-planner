@@ -248,6 +248,102 @@ async function buildReadingSection(supabase: SupabaseLike, today: string): Promi
   }
 }
 
+// ── 문화 기록 (culture_records) ──
+// 주의: culture_records.created_at 은 진짜 timestamptz(UTC) 이므로 date-keyed 섹션과 달리
+//       KST 하루 경계(오늘 00:00 ~ 내일 00:00 KST)를 UTC ISO 로 변환해 범위 조회한다.
+type CultureRow = {
+  title: string;
+  platform: string;
+  status: string;
+  rating: number | string | null;
+  review: string | null;
+  insight: string | null;
+};
+
+const CULTURE_STATUS_ICON: Record<string, string> = {
+  watchlist: '🔖',
+  watching: '▶️',
+  completed: '✅',
+  dropped: '❌',
+};
+
+const CULTURE_PLATFORM_KR: Record<string, string> = {
+  netflix: '넷플릭스',
+  youtube: '유튜브',
+  disney_plus: '디즈니+',
+  coupang_play: '쿠팡플레이',
+  tving: '티빙',
+  watcha: '왓챠',
+  theater: '극장',
+  other: '기타',
+};
+
+const CULTURE_MAX_ITEMS = 8;
+
+function cultureExcerpt(text: string, limit: number): string {
+  const t = text.trim();
+  if (t.length <= limit) return t;
+  return `${t.slice(0, limit)}…`;
+}
+
+async function fetchCultureRows(
+  supabase: SupabaseLike,
+  today: string,
+): Promise<{ rows: CultureRow[]; failed: boolean }> {
+  try {
+    // KST 하루 경계를 UTC 순간으로 변환 (created_at 은 UTC timestamptz)
+    const startUtc = new Date(`${today}T00:00:00+09:00`).toISOString();
+    const endUtc = new Date(`${kstTomorrow(today)}T00:00:00+09:00`).toISOString();
+    const { data, error } = await supabase
+      .from('culture_records')
+      .select('title, platform, status, rating, review, insight')
+      .gte('created_at', startUtc)
+      .lt('created_at', endUtc)
+      .order('created_at', { ascending: true });
+    if (error) throw error;
+    return { rows: (data ?? []) as CultureRow[], failed: false };
+  } catch (err) {
+    console.error('culture section error:', err);
+    return { rows: [], failed: true };
+  }
+}
+
+// excerptLimit 으로 리뷰/인사이트 발췌 길이를 제어(0 이하면 발췌 줄 생략 — 길이 방어용)
+function formatCultureSection(
+  result: { rows: CultureRow[]; failed: boolean },
+  excerptLimit: number,
+): string[] {
+  if (result.failed) return ['🎬 **오늘의 문화 기록** — 데이터 불러오기 실패'];
+  const { rows } = result;
+  if (rows.length === 0) {
+    return ['🎬 **오늘의 문화 기록** — 오늘은 기록된 문화 활동이 없습니다'];
+  }
+
+  const lines: string[] = [`🎬 **오늘의 문화 기록 (${rows.length}개)**`];
+  const shown = rows.slice(0, CULTURE_MAX_ITEMS);
+  shown.forEach((r, idx) => {
+    if (idx > 0) lines.push('');
+    const icon = CULTURE_STATUS_ICON[r.status] ?? '•';
+    const platform = CULTURE_PLATFORM_KR[r.platform] ?? r.platform;
+    let head = `${icon} ${platform} ${r.title}`;
+    // 별점은 completed / dropped 일 때만 표시
+    if ((r.status === 'completed' || r.status === 'dropped') && r.rating != null) {
+      const ratingNum = Number(r.rating);
+      if (!Number.isNaN(ratingNum)) head += `  ⭐ ${ratingNum.toFixed(1)}`;
+    }
+    lines.push(head);
+    if (excerptLimit > 0) {
+      if (r.review && r.review.trim()) lines.push(`  💬 ${cultureExcerpt(r.review, excerptLimit)}`);
+      if (r.insight && r.insight.trim()) lines.push(`  💡 ${cultureExcerpt(r.insight, excerptLimit)}`);
+    }
+  });
+  if (rows.length > CULTURE_MAX_ITEMS) {
+    lines.push('');
+    lines.push(`… 외 ${rows.length - CULTURE_MAX_ITEMS}개 더`);
+  }
+  return lines;
+}
+
 Deno.serve(async () => {
   try {
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
@@ -321,11 +417,12 @@ Deno.serve(async () => {
     }
 
     // ── 신규 카테고리 섹션 (각 섹션 내부에서 try/catch — 한 섹션 실패가 다른 섹션에 영향 없음) ──
-    const [eventLines, foodLines, moodLines, readingLines] = await Promise.all([
+    const [eventLines, foodLines, moodLines, readingLines, cultureResult] = await Promise.all([
       buildEventsSection(supabase, today),
       buildFoodSection(supabase, today),
       buildMoodSection(supabase, today),
       buildReadingSection(supabase, today),
+      fetchCultureRows(supabase, today),
     ]);
 
     lines.push('');
@@ -337,11 +434,16 @@ Deno.serve(async () => {
     lines.push('');
     lines.push(...readingLines);
 
-    // 응원 문구
-    lines.push('');
-    lines.push('오늘도 수고했어요 🌙');
+    // 문화 기록은 독서 다음에 배치(둘 다 "오늘 인풋된 콘텐츠" 성격).
+    // 응원 문구는 항상 마지막. 문화 섹션은 발췌 길이로 메시지 총량을 방어한다.
+    const closing = ['', '오늘도 수고했어요 🌙'];
+    const compose = (excerptLimit: number): string =>
+      [...lines, '', ...formatCultureSection(cultureResult, excerptLimit), ...closing].join('\n');
 
-    const text = lines.join('\n');
+    // Discord 2000자 한도 방어: 80자 → 40자 → 발췌 생략(0) 순으로 단계적 축소
+    let text = compose(80);
+    if (text.length > 1900) text = compose(40);
+    if (text.length > 1900) text = compose(0);
 
     // ── Discord 전송 ──
     const res = await fetch(webhookUrl, {

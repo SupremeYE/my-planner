@@ -14,6 +14,8 @@
 - [ ] (선택) 캘린더 `CalendarView.tsx` 미사용 `WeekView` 함수(약 350줄)·미사용 상수 3개 제거
 
 ### ✅ 완료
+- [x] 문화 기록 Stage 4 — 저녁 Discord 리포트(daily-report)에 "오늘의 문화 기록" 섹션 추가
+- [x] `DAILY_REPORT_SCHEMA.md` 신규 작성 (저녁 리포트 전체 명세 + 문화 섹션)
 - [x] 문화 기록 페이지(`/culture`) 신규 추가 — Stage 1 PC 레이아웃
 - [x] `culture_records` 테이블 마이그레이션 작성 + Supabase(my-planner) 적용
 - [x] `culture_records` 에 `external_source`/`external_id` 컬럼 추가 (Stage 2 TMDB/유튜브 자동검색 대비, Stage 1=manual)
@@ -28,6 +30,17 @@
 - [x] 수면 블록을 타임라인 설정에 맞춰 두 날짜 컬럼에 걸쳐 표시 (절대 시간축 기준 컬럼 분할로 전환)
 
 ### 🛠 오늘 작업 내용
+
+**①-4 문화 기록 Stage 4 — 저녁 Discord 리포트 연동 (백엔드)**
+- 분석: Edge Function은 `daily-report` **단일** 함수. 아침/저녁 별도 함수 없음 — 저녁 cron `daily-report-evening`(`59 14 * * *` UTC = 23:59 KST)이 이 함수를 호출(아침 cron은 README 주석 처리). plain text 1 메시지, 섹션별 try/catch, 빈 상태는 "기록 없음" 표시(섹션 생략 X)
+- `supabase/functions/daily-report/index.ts`: `fetchCultureRows` + `formatCultureSection` + 매핑 상수 추가
+  - `culture_records.created_at`(UTC timestamptz)을 KST 하루 경계(`+09:00`→`toISOString()`)로 범위 조회, `created_at ASC`, 상태 필터 없음
+  - 상태 아이콘(🔖▶️✅❌)·플랫폼 한글·별점(completed/dropped만 `⭐ N.N`)·리뷰💬/인사이트💡 발췌(80자 `…`)
+  - 최대 8개 + `… 외 N개 더`, 1900자 초과 시 발췌 80→40→0 단계 축소(`compose(limit)`)
+  - **독서 다음**에 배치(둘 다 "오늘 인풋된 콘텐츠"), 응원 문구 앞. Promise.all에 합류(에러 격리)
+  - 빈 상태: `🎬 오늘의 문화 기록 — 오늘은 기록된 문화 활동이 없습니다`
+- `DAILY_REPORT_SCHEMA.md`(신규): 리포트 전체 명세 + 문화 섹션(쿼리/포맷/매핑/길이규칙/빈상태/예시/배포)
+- **아침 리포트 미수정**(별도 함수 없음), 프론트엔드 무변경. ⚠️ 운영 반영은 `supabase functions deploy daily-report` 필요(미배포)
 
 **①-3 문화 기록 Stage 3 — 모바일 레이아웃 (lg: 미만 전용, PC 무변경)**
 - 구조: `CultureRecordView`를 PC 트리(`hidden lg:block`) / 모바일 트리(`lg:hidden`)로 분리 → 상태·핸들러는 부모 공유, PC 마크업은 그대로 보존

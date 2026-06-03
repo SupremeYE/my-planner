@@ -1,6 +1,6 @@
 # PROJECT_SPEC.md — My Planner PWA 기능 명세서
 
-> 최종 업데이트: 2026-06-03 (문화 기록 Stage 3 모바일 레이아웃: 햄버거 진입(기존), sticky 헤더(검색 토글·상태 가로탭·필터 트리거), 3열 포스터 그리드, 필터 bottom sheet(플랫폼/유형/정렬), full-screen 슬라이드업 추가/수정 모달(헤더 ←·저장, 상단 빠른 상태칩 즉시반영, TMDB 1열 리스트), 골드 FAB(safe-area), 로딩 스켈레톤 — 모두 `lg:` 미만 전용, PC 미변경. 이하 Stage 2: YouTube oEmbed 자동 채움(제목·썸네일·플랫폼/유형), TMDB 영화·드라마 검색 통합(`VITE_TMDB_API_TOKEN`), 카드 hover 상태 빠른 변경(optimistic+롤백+토스트), `external_source`/`external_id` 기록. 이하 2026-06-02: 문화 기록 페이지 `/culture` 신규 추가 — Stage 1 PC 레이아웃: 영화/드라마/예능/유튜브 등 시청 콘텐츠 기록. culture_records 테이블·RLS·Realtime, 포스터 그리드(6열 2:3), 플랫폼/유형/상태 칩 필터·검색·정렬, 0.5단위 별점, 추가/수정 모달. 이하 동일 2026-06-02: 캘린더 하단 상세 패널을 조회 전용 → 일간 동일 CRUD로 확장: 할일·일정 직접 관리(체크/수정/미루기/삭제), 반복 할일 표시·분기 삭제, 상단 필터 탭 연동. 이하 2026-06-01: 독서 진행 이력 reading_logs 테이블·자동 로깅 추가, 마이그레이션 타임스탬프 충돌 수정, 식단 카페 저장 버그 수정, 일간 할일 체크박스 모바일 탭 유실 수정, 반복 할일 인스턴스 동작 복구·수정 모달 개선, daily-report Edge Function에 일정·식단·감정·독서 섹션 추가)
+> 최종 업데이트: 2026-06-03 (문화 기록 Stage 4: 저녁 daily-report Discord 리포트에 "오늘의 문화 기록" 섹션 추가 — 독서 다음, 상태 아이콘·플랫폼 한글·별점(completed/dropped)·리뷰/인사이트 발췌(80자·최대 8개·1900자 방어), KST 경계 UTC 변환 조회, 빈 상태 섹션 유지. 명세는 `DAILY_REPORT_SCHEMA.md`. 이하 Stage 3 모바일 레이아웃: 햄버거 진입(기존), sticky 헤더(검색 토글·상태 가로탭·필터 트리거), 3열 포스터 그리드, 필터 bottom sheet(플랫폼/유형/정렬), full-screen 슬라이드업 추가/수정 모달(헤더 ←·저장, 상단 빠른 상태칩 즉시반영, TMDB 1열 리스트), 골드 FAB(safe-area), 로딩 스켈레톤 — 모두 `lg:` 미만 전용, PC 미변경. 이하 Stage 2: YouTube oEmbed 자동 채움(제목·썸네일·플랫폼/유형), TMDB 영화·드라마 검색 통합(`VITE_TMDB_API_TOKEN`), 카드 hover 상태 빠른 변경(optimistic+롤백+토스트), `external_source`/`external_id` 기록. 이하 2026-06-02: 문화 기록 페이지 `/culture` 신규 추가 — Stage 1 PC 레이아웃: 영화/드라마/예능/유튜브 등 시청 콘텐츠 기록. culture_records 테이블·RLS·Realtime, 포스터 그리드(6열 2:3), 플랫폼/유형/상태 칩 필터·검색·정렬, 0.5단위 별점, 추가/수정 모달. 이하 동일 2026-06-02: 캘린더 하단 상세 패널을 조회 전용 → 일간 동일 CRUD로 확장: 할일·일정 직접 관리(체크/수정/미루기/삭제), 반복 할일 표시·분기 삭제, 상단 필터 탭 연동. 이하 2026-06-01: 독서 진행 이력 reading_logs 테이블·자동 로깅 추가, 마이그레이션 타임스탬프 충돌 수정, 식단 카페 저장 버그 수정, 일간 할일 체크박스 모바일 탭 유실 수정, 반복 할일 인스턴스 동작 복구·수정 모달 개선, daily-report Edge Function에 일정·식단·감정·독서 섹션 추가)
 
 ---
 
@@ -644,7 +644,7 @@ store.tsx (PlannerContext)
 - 일일 긍정 메시지 (AffirmationCard)
 - **식단 기록 페이지(`/food`)** — 3탭(오늘/달력/통계), 7단계 바텀시트 추가 흐름, 식약처 영양성분 API 자동 검색, 사진 업로드(카메라/갤러리), 음성입력, 식사유형·맛평가, 도넛·바 차트 통계 (`FoodView.tsx`)
 - **식약처 영양성분 API 프록시** — Vercel Edge Function `GET /api/food-nutrition?query=음식명` → 칼로리/탄수화물/단백질/지방 반환 (`api/food-nutrition.ts`)
-- **일일 리포트(daily-report) Supabase Edge Function** — pg_cron이 KST 지정 시각에 호출 → 오늘(KST) 기준 **할일·습관·일정·식단·감정·독서** 6개 섹션을 조립해 Discord Webhook으로 전송. 섹션별 try/catch로 한 섹션 실패가 전체 전송을 막지 않음. events.start_at은 KST 벽시계 text라 동일 형식 문자열 범위로 조회(반복 일정 전개는 TODO) (`supabase/functions/daily-report/index.ts`)
+- **일일 리포트(daily-report) Supabase Edge Function** — pg_cron이 KST 지정 시각(저녁 23:59 KST, `daily-report-evening`)에 호출 → 오늘(KST) 기준 **할일·습관·일정·식단·감정·독서·문화 기록** 7개 섹션을 조립해 Discord Webhook으로 전송. 섹션별 try/catch로 한 섹션 실패가 전체 전송을 막지 않음. events.start_at은 KST 벽시계 text라 동일 형식 문자열 범위로 조회(반복 일정 전개는 TODO). **문화 기록 섹션(Stage 4)**: `culture_records.created_at`(UTC timestamptz)을 KST 하루 경계(UTC ISO 변환)로 조회, 상태 아이콘+플랫폼 한글+별점(completed/dropped)·리뷰/인사이트 발췌(80자, 최대 8개, 1900자 방어 시 80→40→0 축소), 독서 다음 배치, 빈 상태는 섹션 유지+안내 문구 (`supabase/functions/daily-report/index.ts`, 명세: `DAILY_REPORT_SCHEMA.md`)
 - **모먼트 로그(`/moments`)** — 사진(카메라/갤러리, 최대 5장)+텍스트 작성·저장, 저장 시 Geolocation → Open-Meteo 날씨 자동 첨부, WMO 코드 → 이모지+한국어 매핑, 카드 날씨 배지 표시, 위치 거부 시 날씨 없이 폴백 저장 (`MomentView.tsx`)
 - **질문일기(`/question-journal`)** — 오늘의 질문 탭(daily_question 랜덤 배정 + 답변 저장/수정), 질문 탐색 탭(내장 15개 + 커스텀 추가/삭제), 질문별 모아보기(연도별 섹션 + 5년 다이어리 스타일 카드, 바텀시트/모달 오버레이). Realtime 3테이블 연동 (`QuestionJournalView.tsx`)
 - **문화 기록(`/culture`) — Stage 1 PC 레이아웃** — 영화/드라마/예능/유튜브 등 시청 콘텐츠 기록. 포스터 그리드(PC 6열, 2:3, 썸네일 또는 플랫폼 그라데이션+유형 아이콘 placeholder, 플랫폼 미니뱃지+상태 아이콘, hover 리프트), 플랫폼/유형/상태 칩 다중 필터 + 제목·태그 검색 + 정렬(기록일/본 날짜/별점), 0.5단위 인터랙티브 별점(`StarRating`), 추가/수정 모달(`CultureFormModal`, 리뷰·인사이트·태그·삭제), 빈 상태 UI, `culture_records` Realtime 구독. db.ts `cultureRecords` 레이어, store.tsx `CultureRecord` 타입. **모바일 전용 UI는 Stage 3 예정** (`CultureRecordView.tsx`, `culture/` 폴더)
@@ -695,7 +695,8 @@ store.tsx (PlannerContext)
 - **Stage 1** ✅ — PC 포스터 그리드, 칩 필터·검색·정렬, 별점, 추가/수정 모달, Realtime
 - **Stage 2** ✅ — YouTube oEmbed 자동 채움 + TMDB 영화·드라마 검색 통합 + 카드 빠른 상태 변경
 - **Stage 3** ✅ — 모바일 전용 레이아웃(sticky 헤더, 3열 그리드, 필터 bottom sheet, full-screen 모달, FAB)
-- **Stage 4** — daily-report Edge Function 연동(오늘 본 콘텐츠 섹션), 통계/대시보드(플랫폼·유형별 시청량·별점 분포·월별 추이), 모먼트/리뷰 연동
+- **Stage 4** ✅ — 저녁 daily-report Discord 리포트에 "오늘의 문화 기록" 섹션 연동(독서 다음, 상태/플랫폼/별점/발췌, 길이 방어)
+  - 향후: 통계/대시보드(플랫폼·유형별 시청량·별점 분포·월별 추이), 모먼트/리뷰 연동, Claude API 인사이트(별점 4+ 하이라이트, 주간/월간 문화 통계)
 
 ---
 
