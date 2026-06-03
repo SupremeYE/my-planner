@@ -10,6 +10,7 @@ interface AuthContextValue {
   signOut: () => Promise<void>;
   updateEmail: (email: string) => Promise<{ error: string | null }>;
   updatePassword: (password: string) => Promise<{ error: string | null }>;
+  updateName: (name: string) => Promise<{ error: string | null }>;
   resetPassword: (email: string) => Promise<{ error: string | null }>;
   clearRecovery: () => void;
 }
@@ -59,6 +60,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return { error: error?.message ?? null };
   };
 
+  // 표시 이름 변경 — Supabase 계정 메타데이터(user_metadata.name)에 영구 저장
+  const updateName = async (name: string) => {
+    const { data, error } = await supabase.auth.updateUser({ data: { name: name.trim() } });
+    // updateUser 성공 시 갱신된 user를 즉시 세션에 반영 (다른 화면도 새 이름 사용)
+    if (!error && data.user) {
+      setSession(prev => (prev ? { ...prev, user: data.user } : prev));
+    }
+    return { error: error?.message ?? null };
+  };
+
   // 비밀번호 찾기 — 재설정 링크를 이메일로 발송
   const resetPassword = async (email: string) => {
     const { error } = await supabase.auth.resetPasswordForEmail(email.trim(), {
@@ -71,7 +82,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   return (
     <AuthContext.Provider
-      value={{ session, loading, recovery, signIn, signOut, updateEmail, updatePassword, resetPassword, clearRecovery }}
+      value={{ session, loading, recovery, signIn, signOut, updateEmail, updatePassword, updateName, resetPassword, clearRecovery }}
     >
       {children}
     </AuthContext.Provider>

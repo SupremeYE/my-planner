@@ -257,12 +257,14 @@ function formatDate(d: Date): string {
 // ── Main ProfileView ──
 export function ProfileView() {
   const { t } = useTheme();
-  const { session } = useAuth();
+  const { session, updateName } = useAuth();
   const { todos, habits } = usePlanner();
 
   const [isEditingName, setIsEditingName] = useState(false);
   const [displayName, setDisplayName] = useState('');
   const [editNameVal, setEditNameVal] = useState('');
+  const [savingName, setSavingName] = useState(false);
+  const [nameError, setNameError] = useState<string | null>(null);
   const [charHovered, setCharHovered] = useState(false);
   const nameInputRef = useRef<HTMLInputElement>(null);
 
@@ -361,8 +363,20 @@ export function ProfileView() {
     return false;
   });
 
-  const handleSaveName = () => {
-    if (editNameVal.trim()) setDisplayName(editNameVal.trim());
+  const handleSaveName = async () => {
+    const next = editNameVal.trim();
+    if (!next || savingName) return;
+    // 변경 없으면 그냥 닫기
+    if (next === displayName) { setIsEditingName(false); return; }
+    setSavingName(true);
+    setNameError(null);
+    const { error } = await updateName(next);
+    setSavingName(false);
+    if (error) {
+      setNameError('이름 저장 실패: ' + error);
+      return;
+    }
+    setDisplayName(next);
     setIsEditingName(false);
   };
 
@@ -430,6 +444,7 @@ export function ProfileView() {
                   <input
                     ref={nameInputRef}
                     value={editNameVal}
+                    disabled={savingName}
                     onChange={e => setEditNameVal(e.target.value)}
                     onKeyDown={e => { if (e.key === 'Enter') handleSaveName(); if (e.key === 'Escape') setIsEditingName(false); }}
                     style={{
@@ -443,12 +458,13 @@ export function ProfileView() {
                       padding: '2px 10px',
                       outline: 'none',
                       width: 180,
+                      opacity: savingName ? 0.6 : 1,
                     }}
                   />
-                  <button onClick={handleSaveName} style={{ padding: 6, borderRadius: 8, background: t.accentLight, color: t.accent, border: 'none', cursor: 'pointer' }}>
+                  <button onClick={handleSaveName} disabled={savingName} style={{ padding: 6, borderRadius: 8, background: t.accentLight, color: t.accent, border: 'none', cursor: savingName ? 'default' : 'pointer', opacity: savingName ? 0.6 : 1 }}>
                     <Check size={14} />
                   </button>
-                  <button onClick={() => setIsEditingName(false)} style={{ padding: 6, borderRadius: 8, background: t.bgSub, color: t.textMuted, border: 'none', cursor: 'pointer' }}>
+                  <button onClick={() => { setIsEditingName(false); setNameError(null); }} disabled={savingName} style={{ padding: 6, borderRadius: 8, background: t.bgSub, color: t.textMuted, border: 'none', cursor: savingName ? 'default' : 'pointer', opacity: savingName ? 0.6 : 1 }}>
                     <X size={14} />
                   </button>
                 </div>
@@ -482,6 +498,10 @@ export function ProfileView() {
                 Lv.{level}
               </span>
             </div>
+
+            {nameError && (
+              <p style={{ fontSize: 12, color: t.danger, marginTop: 6 }}>{nameError}</p>
+            )}
 
             <p style={{ fontSize: 13, color: t.textSub, marginTop: 4 }}>
               {levelTitles[level]} · {email}
