@@ -357,7 +357,7 @@ function MobileMenuOverlay({ onClose }: { onClose: () => void }) {
     { to: '/moments', icon: Camera, label: '모먼트' },
     { to: '/culture', icon: Clapperboard, label: '문화 기록' },
     { to: '/question-journal', icon: NotebookPen, label: '질문일기' },
-    { to: '/settings', icon: Settings, label: '설정' },
+    // 설정은 상단 아바타 메뉴로 이동
   ];
 
   return (
