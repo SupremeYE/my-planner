@@ -1,5 +1,5 @@
 // My Planner - Service Worker
-const CACHE_NAME = 'my-planner-v1';
+const CACHE_NAME = 'my-planner-v2';
 const STATIC_ASSETS = [
   '/',
   '/daily',
