@@ -33,6 +33,14 @@
 
 ### 🛠 오늘 작업 내용
 
+**② 아침 어젠다 morning-report Edge Function 신규 생성**
+- `supabase/functions/morning-report/index.ts` + `README.md` 신규 (daily-report 미변경, 프론트/마이그레이션 미변경, 의존성 추가 없음)
+- 저녁(회고)과 분리된 어젠다 톤 + **별도 웹훅 `DISCORD_MORNING_WEBHOOK_URL`**(없으면 500)
+- 섹션: 헤더(☀️ 좋은 아침이에요) → 오늘 일정(events) → 오늘 할일(todos, top3 우선·done ✔️/그외 □) → 오늘 체크할 습관(habits, 오늘 요일 해당분) → 마무리(오늘도 화이팅 ✨), 섹션 사이 빈 줄 1개
+- 헬퍼(kstNowInfo/isHabitApplicableOnDow/WEEKDAY_KR/kstTomorrow)·events 처리(KST 벽시계 text 범위)·전체/섹션별 try/catch는 daily-report 패턴 그대로
+- README: Discord 새 채널·웹훅, secrets 등록, 배포, curl, pg_cron(KST 07:30=`30 22 * * *`, job 'morning-report'), 확인/삭제 SQL
+- 미배포 상태 — 사용자가 시크릿 등록 + `supabase functions deploy morning-report` + cron 등록 필요
+
 **①-5 Stage 4 배포·검증 + 리포트 여백 조정**
 - Supabase MCP `deploy_edge_function`으로 `daily-report` 배포(v5→v6, verify_jwt 유지)
 - 컨테이너 egress가 `*.supabase.co` 차단(`host_not_allowed`) → cron과 동일한 **서버사이드 `pg_net`(`net.http_post`)**으로 함수 호출
