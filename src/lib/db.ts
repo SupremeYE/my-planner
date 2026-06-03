@@ -1138,7 +1138,6 @@ export const db = {
         content_type: record.contentType,
         url: record.url ?? null,
         thumbnail_url: record.thumbnailUrl ?? null,
-        // Stage 1: 출처를 명시하지 않으면 'manual' 로 저장 (Stage 2에서 tmdb/youtube 자동)
         external_source: record.externalSource ?? 'manual',
         external_id: record.externalId ?? null,
         status: record.status,
@@ -1148,7 +1147,7 @@ export const db = {
         tags: record.tags ?? [],
         watched_date: record.watchedDate ?? null,
         updated_at: new Date().toISOString(),
-      });
+      }, { onConflict: 'id' });
       if (error) console.error('[db] culture_records upsert:', error.message);
     },
     // 카드 레벨 빠른 상태 변경용 — 상태만 갱신, 성공 여부 반환(optimistic rollback 판단)
