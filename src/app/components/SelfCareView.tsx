@@ -1,8 +1,8 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Plus, X, Dumbbell, BookOpen, Sparkles, Moon, ChevronDown, ChevronRight, Heart, Trash2, Pencil, Sun } from 'lucide-react';
+import { Plus, X, Dumbbell, BookOpen, Sparkles, Moon, ChevronDown, ChevronLeft, ChevronRight, Heart, Trash2, Pencil, Sun } from 'lucide-react';
 import { usePlanner, SelfCareRecord } from '../store';
 import { useTheme } from '../ThemeContext';
-import { format, subDays, differenceInDays, parseISO, addDays } from 'date-fns';
+import { format, subDays, differenceInDays, parseISO, addDays, startOfWeek } from 'date-fns';
 
 const CATEGORIES = [
   { key: 'exercise' as const, label: '운동 & 피트니스', icon: Dumbbell, color: '#D4735A' },
@@ -342,6 +342,8 @@ export function SleepSection() {
   const [sleepStart, setSleepStart] = useState('');
   const [sleepEnd, setSleepEnd] = useState('');
   const [editingField, setEditingField] = useState<'start' | 'end' | null>(null);
+  const [inputOpen, setInputOpen] = useState(false);
+  const [weekOffset, setWeekOffset] = useState(0); // 0=이번주, -1=지난주 ...
 
   const nowHHMM = () => format(new Date(), 'HH:mm');
 
@@ -364,35 +366,48 @@ export function SleepSection() {
     setSleepStart('');
     setSleepEnd('');
     setEditingField(null);
+    setInputOpen(false);
+    // 방금 기록한 날짜가 속한 주로 차트를 이동해 바로 확인 가능하게
+    const recMonday = startOfWeek(parseISO(date), { weekStartsOn: 1 });
+    const curMonday = startOfWeek(new Date(), { weekStartsOn: 1 });
+    setWeekOffset(Math.round(differenceInDays(recMonday, curMonday) / 7));
   };
 
   // 통계
   const today = new Date();
+  const todayStr = format(today, 'yyyy-MM-dd');
   const currentMonth = format(today, 'yyyy-MM');
   const monthRecords = sleepRecords.filter(r => r.date.startsWith(currentMonth));
   const monthAvg = monthRecords.length
     ? Math.round(monthRecords.reduce((s, r) => s + r.duration, 0) / monthRecords.length)
     : 0;
 
-  // 최근 7일 데이터
-  const last7Days = Array.from({ length: 7 }, (_, i) => format(subDays(today, 6 - i), 'yyyy-MM-dd'));
+  // 선택된 주(월~일) 데이터 — weekOffset: 0=이번주, -1=지난주 ...
+  const weekStart = addDays(startOfWeek(today, { weekStartsOn: 1 }), weekOffset * 7);
+  const weekEnd = addDays(weekStart, 6);
+  const weekDays = Array.from({ length: 7 }, (_, i) => format(addDays(weekStart, i), 'yyyy-MM-dd'));
+  const WEEK_LABELS = ['월', '화', '수', '목', '금', '토', '일'];
   const sleepByDate: Record<string, { duration: number; start?: string; end?: string }> = {};
   sleepRecords.forEach(r => {
     if (!sleepByDate[r.date]) sleepByDate[r.date] = { duration: r.duration, start: r.sleepStart, end: r.sleepEnd };
   });
-  const last7Data = last7Days.map(d => ({
+  const weekData = weekDays.map((d, i) => ({
     date: d,
-    label: d === format(today, 'yyyy-MM-dd') ? '오늘' : ['일','월','화','수','목','금','토'][new Date(d + 'T12:00:00').getDay()],
+    label: WEEK_LABELS[i],
+    isToday: d === todayStr,
     duration: sleepByDate[d]?.duration ?? 0,
     start: sleepByDate[d]?.start,
     end: sleepByDate[d]?.end,
   }));
-  const weekWithData = last7Data.filter(d => d.duration > 0);
+  const weekWithData = weekData.filter(d => d.duration > 0);
   const weekAvg = weekWithData.length
     ? Math.round(weekWithData.reduce((s, d) => s + d.duration, 0) / weekWithData.length)
     : 0;
   // 그래프 기준: 최대 10시간(600분) 또는 실제 최대값
-  const maxBar = Math.max(...last7Data.map(d => d.duration), 10 * 60);
+  const maxBar = Math.max(...weekData.map(d => d.duration), 10 * 60);
+
+  const weekRangeLabel = `${format(weekStart, 'M.d')} – ${format(weekEnd, 'M.d')}`;
+  const weekTitle = weekOffset === 0 ? '이번주' : weekOffset === -1 ? '지난주' : weekRangeLabel;
 
   const hasStats = sleepRecords.length > 0;
 
@@ -478,8 +493,32 @@ export function SleepSection() {
         )}
       </div>
 
-      {/* 입력 카드 */}
+      {/* 입력 폼 토글 버튼 (기본 접힘) */}
+      {!inputOpen && (
+        <button
+          onClick={() => setInputOpen(true)}
+          className="w-full flex items-center justify-center gap-1.5 py-2.5 rounded-2xl mb-3 transition-colors"
+          style={{ fontSize: 13, fontWeight: 700, color: '#fff', backgroundColor: SLEEP_COLOR }}
+        >
+          <Plus size={15} /> 수면 기록하기
+        </button>
+      )}
+
+      {/* 입력 카드 (펼침 상태에서만) */}
+      {inputOpen && (
       <div className="p-3 lg:p-4 rounded-2xl mb-3" style={{ backgroundColor: t.card, border: `1px solid ${t.borderLight}` }}>
+        {/* 입력 헤더 + 닫기 */}
+        <div className="flex items-center justify-between mb-3">
+          <span style={{ fontSize: 12, fontWeight: 700, color: SLEEP_COLOR }}>수면 기록</span>
+          <button
+            onClick={() => { setInputOpen(false); setEditingField(null); }}
+            className="p-1 rounded"
+            style={{ color: t.textMuted, background: 'none', border: 'none', cursor: 'pointer' }}
+            aria-label="닫기"
+          >
+            <X size={15} />
+          </button>
+        </div>
         {/* 날짜 */}
         <div className="mb-3">
           <input
@@ -525,6 +564,7 @@ export function SleepSection() {
           기록하기
         </button>
       </div>
+      )}
 
       {/* 통계 + 주간 그래프 */}
       {hasStats && (
@@ -532,7 +572,9 @@ export function SleepSection() {
           {/* 통계 카드 */}
           <div className="flex gap-4 mb-4">
             <div className="flex-1 text-center">
-              <div style={{ fontSize: 10, color: t.textMuted, fontWeight: 600, marginBottom: 2 }}>이번주 평균</div>
+              <div style={{ fontSize: 10, color: t.textMuted, fontWeight: 600, marginBottom: 2 }}>
+                {weekOffset === 0 ? '이번주 평균' : '주간 평균'}
+              </div>
               <div style={{ fontSize: 18, fontWeight: 700, color: t.text, fontFamily: 'var(--font-gmarket)' }}>
                 {weekAvg > 0 ? fmtSleep(weekAvg) : '—'}
               </div>
@@ -546,11 +588,33 @@ export function SleepSection() {
             </div>
           </div>
 
-          {/* 최근 7일 바 차트 */}
+          {/* 주간 바 차트 + 주 이동 */}
           <div>
-            <div style={{ fontSize: 10, color: t.textMuted, fontWeight: 600, marginBottom: 8 }}>최근 7일 수면</div>
+            <div className="flex items-center justify-between mb-2">
+              <button
+                onClick={() => setWeekOffset(o => o - 1)}
+                className="p-1 rounded-lg transition-colors"
+                style={{ color: t.textMuted, background: 'none', border: 'none', cursor: 'pointer' }}
+                aria-label="이전 주"
+              >
+                <ChevronLeft size={16} />
+              </button>
+              <div className="text-center">
+                <div style={{ fontSize: 12, fontWeight: 700, color: t.text }}>{weekTitle} 수면</div>
+                <div style={{ fontSize: 9, color: t.textMuted, marginTop: 1 }}>{weekRangeLabel}</div>
+              </div>
+              <button
+                onClick={() => setWeekOffset(o => Math.min(0, o + 1))}
+                disabled={weekOffset >= 0}
+                className="p-1 rounded-lg transition-colors"
+                style={{ color: weekOffset >= 0 ? t.borderLight : t.textMuted, background: 'none', border: 'none', cursor: weekOffset >= 0 ? 'default' : 'pointer' }}
+                aria-label="다음 주"
+              >
+                <ChevronRight size={16} />
+              </button>
+            </div>
             <div className="flex items-end justify-between gap-1.5" style={{ height: 96 }}>
-              {last7Data.map(d => {
+              {weekData.map(d => {
                 const isGood = d.duration >= 7 * 60;
                 const barColor = d.duration === 0
                   ? t.borderLight
@@ -580,7 +644,7 @@ export function SleepSection() {
                       }}
                     />
                     {/* 요일 레이블 */}
-                    <span style={{ fontSize: 9, color: t.textMuted, marginTop: 4, fontWeight: d.date === format(today, 'yyyy-MM-dd') ? 700 : 400 }}>
+                    <span style={{ fontSize: 9, color: d.isToday ? SLEEP_COLOR : t.textMuted, marginTop: 4, fontWeight: d.isToday ? 700 : 400 }}>
                       {d.label}
                     </span>
                   </div>
