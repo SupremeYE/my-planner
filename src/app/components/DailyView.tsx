@@ -20,6 +20,7 @@ import { FloatingAddFab } from './FloatingAddFab';
 import { AddEntryMenu } from './AddEntryMenu';
 import { formatDuration, formatTotalDoKo, todoDoDurationSeconds } from '../../lib/todoDoDuration';
 import { expandRecurringTodos, isVirtualTodoId, parseVirtualTodoId } from '../../lib/recurrenceExpansion';
+import { placeSleepSegment } from '../../lib/sleepTimeline';
 import { RecurrenceBranchModal } from './RecurrenceBranchModal';
 
 // ─── Color Palette for tag creation ───
@@ -1558,8 +1559,8 @@ export function DailyView() {
 
     return segments.map((seg, si) => {
       const record = seg.record;
-      let startMin = seg.startMin;
-      let endMin = seg.endMin;
+      const startMin = seg.startMin;
+      const endMin = seg.endMin;
 
       const isDragging = sleepDragState?.recordId === record.id;
       const previewStartMin = isDragging && sleepDragPreview ? sleepDragPreview.startMin : startMin;
@@ -1568,8 +1569,6 @@ export function DailyView() {
       const laneBounds = getTimelineLaneBounds('do');
       if (!laneBounds) return null;
 
-      const top = (previewStartMin / 60 - tlStartHour) * HOUR_HEIGHT;
-      const height = Math.max((previewEndMin - previewStartMin) * PX_PER_MIN, 20);
       const displayStart = minutesToTime(((previewStartMin % (24 * 60)) + 24 * 60) % (24 * 60));
       const displayEnd = minutesToTime(((previewEndMin % (24 * 60)) + 24 * 60) % (24 * 60));
 
@@ -1577,9 +1576,11 @@ export function DailyView() {
       const mm = seg.totalMin % 60;
       const durationLabel = hh > 0 ? (mm > 0 ? `${hh}h ${mm}m` : `${hh}h`) : `${mm}m`;
 
-      return (
-        <div key={`sleep-${record.id}-${si}`}
-          className="absolute rounded-xl px-2 py-1.5 overflow-hidden group timeline-block"
+      // 하나의 수면 세그먼트를 하나의 사각형으로 그린다.
+      // interactive(=primary) 사각형만 이동/리사이즈 핸들을 갖고, 보조 사각형은 표시 전용(탭 시 편집).
+      const renderPiece = (top: number, height: number, interactive: boolean, keySuffix: string) => (
+        <div key={`sleep-${record.id}-${si}-${keySuffix}`}
+          className={`absolute rounded-xl px-2 py-1.5 overflow-hidden timeline-block${interactive ? ' group' : ''}`}
           style={{
             top, height,
             left: laneBounds.left, right: laneBounds.right,
@@ -1587,12 +1588,12 @@ export function DailyView() {
             border: '1px solid rgba(148,163,184,0.35)',
             borderLeft: '3px solid #94A3B8',
             opacity: isDragging ? 0.85 : 1,
-            cursor: isDragging ? 'grabbing' : 'grab',
+            cursor: interactive ? (isDragging ? 'grabbing' : 'grab') : 'pointer',
             userSelect: 'none',
             zIndex: isDragging ? 30 : 1,
             transition: isDragging ? 'none' : 'opacity 0.15s',
           }}
-          onMouseDown={(e) => {
+          onMouseDown={interactive ? (e) => {
             e.preventDefault();
             e.stopPropagation();
             sleepDragMovedRef.current = false;
@@ -1600,49 +1601,67 @@ export function DailyView() {
               recordId: record.id, mode: 'move', startY: e.clientY,
               origStartMin: startMin, origEndMin: endMin,
             });
-          }}
+          } : undefined}
           onClick={() => { if (!sleepDragMovedRef.current) setEditingSleepRecord(record); }}
         >
           <div style={{ display: 'flex', flexDirection: 'column', gap: 1, overflow: 'hidden' }}>
             <div style={{ fontSize: 11, fontWeight: 700, color: '#64748B', whiteSpace: 'nowrap' }}>🌙 수면</div>
-            <div style={{ fontSize: 10, fontWeight: 600, color: '#94A3B8', whiteSpace: 'nowrap' }}>{durationLabel}</div>
-            {height > 52 && (
+            {interactive && <div style={{ fontSize: 10, fontWeight: 600, color: '#94A3B8', whiteSpace: 'nowrap' }}>{durationLabel}</div>}
+            {interactive && height > 52 && (
               <div style={{ fontSize: 9, color: '#94A3B8', opacity: 0.8, whiteSpace: 'nowrap' }}>
                 {displayStart}–{displayEnd}
               </div>
             )}
           </div>
-          <div
-            className="absolute left-0 right-0 bottom-0 flex justify-center items-center opacity-0 group-hover:opacity-100 transition-opacity"
-            style={{ height: 8, cursor: 'ns-resize', backgroundColor: 'rgba(148,163,184,0.3)' }}
-            onMouseDown={(e) => {
-              e.preventDefault();
-              e.stopPropagation();
-              sleepDragMovedRef.current = false;
-              setSleepDragState({
-                recordId: record.id, mode: 'resize', startY: e.clientY,
-                origStartMin: startMin, origEndMin: endMin,
-              });
-            }}
-          >
-            <div style={{ width: 20, height: 2, borderRadius: 1, backgroundColor: '#94A3B8' }} />
-          </div>
-          <div
-            className="absolute left-0 right-0 bottom-0 lg:hidden"
-            style={{ height: 44, touchAction: 'none' }}
-            onTouchStart={(e) => {
-              e.stopPropagation();
-              const touch = e.touches[0];
-              if (!touch) return;
-              sleepDragMovedRef.current = false;
-              setSleepDragState({
-                recordId: record.id, mode: 'resize', startY: touch.clientY,
-                origStartMin: startMin, origEndMin: endMin,
-              });
-            }}
-          />
+          {interactive && (
+            <>
+              <div
+                className="absolute left-0 right-0 bottom-0 flex justify-center items-center opacity-0 group-hover:opacity-100 transition-opacity"
+                style={{ height: 8, cursor: 'ns-resize', backgroundColor: 'rgba(148,163,184,0.3)' }}
+                onMouseDown={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  sleepDragMovedRef.current = false;
+                  setSleepDragState({
+                    recordId: record.id, mode: 'resize', startY: e.clientY,
+                    origStartMin: startMin, origEndMin: endMin,
+                  });
+                }}
+              >
+                <div style={{ width: 20, height: 2, borderRadius: 1, backgroundColor: '#94A3B8' }} />
+              </div>
+              <div
+                className="absolute left-0 right-0 bottom-0 lg:hidden"
+                style={{ height: 44, touchAction: 'none' }}
+                onTouchStart={(e) => {
+                  e.stopPropagation();
+                  const touch = e.touches[0];
+                  if (!touch) return;
+                  sleepDragMovedRef.current = false;
+                  setSleepDragState({
+                    recordId: record.id, mode: 'resize', startY: touch.clientY,
+                    origStartMin: startMin, origEndMin: endMin,
+                  });
+                }}
+              />
+            </>
+          )}
         </div>
       );
+
+      // 드래그 중에는 연속적인 이동감을 위해 단일 블록(음수 top 허용)으로 그린다.
+      if (isDragging) {
+        const top = (previewStartMin / 60 - tlStartHour) * HOUR_HEIGHT;
+        const height = Math.max((previewEndMin - previewStartMin) * PX_PER_MIN, 20);
+        return renderPiece(top, height, true, 'drag');
+      }
+
+      // 비드래그: startHour보다 이른 새벽 시각을 타임라인 아래로 감싸 분할 렌더.
+      return placeSleepSegment(startMin, endMin, tlStartHour, tlEndHour).map(rect => {
+        const top = rect.offsetMin * PX_PER_MIN;
+        const height = Math.max(rect.lengthMin * PX_PER_MIN, 20);
+        return renderPiece(top, height, rect.primary, rect.primary ? 'p' : 's');
+      });
     });
   };
 

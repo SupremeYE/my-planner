@@ -4,6 +4,7 @@ import { ko } from 'date-fns/locale';
 import { usePlanner, Todo, SelfCareRecord } from '../store';
 import { isDoOvertimeVsPlan } from '../../lib/todoDoDuration';
 import { expandRecurringTodos } from '../../lib/recurrenceExpansion';
+import { placeSleepSegment } from '../../lib/sleepTimeline';
 
 // ─── 상수 ─────────────────────────────────────────────────────────────────────
 
@@ -228,7 +229,7 @@ function ThreeDayView({ days, startHour, endHour, todayStr, selectedDate, todos,
 
       {/* 타임라인 */}
       <div
-        style={{ flex: 1, overflowY: 'auto', minHeight: 0 }}
+        style={{ flex: 1, overflowY: 'auto', minHeight: 0, overscrollBehavior: 'contain', touchAction: 'pan-y' }}
         onTouchStart={onTouchStart}
         onTouchEnd={onTouchEnd}
       >
@@ -281,24 +282,26 @@ function ThreeDayView({ days, startHour, endHour, todayStr, selectedDate, todos,
                     </div>
                     <div style={{ position: 'relative' }}>
                       {sleepSegs.map((seg, si) => {
-                        const top = minToPx(seg.sMin, startHour, HOUR_3DAY);
-                        const h = Math.max((seg.eMin - seg.sMin) * (HOUR_3DAY / 60), 10);
                         const hh = Math.floor(seg.totalMin / 60);
                         const mm = seg.totalMin % 60;
                         const dur = hh > 0 ? (mm > 0 ? `${hh}h ${mm}m` : `${hh}h`) : `${mm}m`;
-                        return (
-                          <div key={`sleep-${seg.record.id}-${si}`}
-                            title={`수면 ${dur}`}
-                            style={{
-                              position: 'absolute', top, height: h, left: 1, right: 1, zIndex: 1,
-                              backgroundColor: '#EEF4FF', borderLeft: '2px solid #8BAAD8',
-                              borderRadius: 3, overflow: 'hidden', display: 'flex', flexDirection: 'column',
-                              alignItems: 'flex-start', padding: '1px 2px',
-                            }}>
-                            <span style={{ fontSize: 7, fontWeight: 700, color: '#5B8FD8', lineHeight: 1.2 }}>🌙</span>
-                            {h >= 20 && <span style={{ fontSize: 7, color: '#5B8FD8', lineHeight: 1.2 }}>{dur}</span>}
-                          </div>
-                        );
+                        return placeSleepSegment(seg.sMin, seg.eMin, startHour, endHour).map((rect, ri) => {
+                          const top = rect.offsetMin * (HOUR_3DAY / 60);
+                          const h = Math.max(rect.lengthMin * (HOUR_3DAY / 60), 10);
+                          return (
+                            <div key={`sleep-${seg.record.id}-${si}-${ri}`}
+                              title={`수면 ${dur}`}
+                              style={{
+                                position: 'absolute', top, height: h, left: 1, right: 1, zIndex: 1,
+                                backgroundColor: '#EEF4FF', borderLeft: '2px solid #8BAAD8',
+                                borderRadius: 3, overflow: 'hidden', display: 'flex', flexDirection: 'column',
+                                alignItems: 'flex-start', padding: '1px 2px',
+                              }}>
+                              <span style={{ fontSize: 7, fontWeight: 700, color: '#5B8FD8', lineHeight: 1.2 }}>🌙</span>
+                              {rect.primary && h >= 20 && <span style={{ fontSize: 7, color: '#5B8FD8', lineHeight: 1.2 }}>{dur}</span>}
+                            </div>
+                          );
+                        });
                       })}
                       {unexTs.map(t => <UnexecBlock key={t.id} todo={t} startHour={startHour} hourH={HOUR_3DAY} />)}
                       {doTs.map(t => <DoBlock key={t.id} todo={t} startHour={startHour} hourH={HOUR_3DAY} />)}
@@ -460,7 +463,7 @@ function DailyView({ days, startHour, endHour, todayStr, selectedDate, onSelectD
 
       {/* 타임라인 */}
       <div
-        style={{ flex: 1, overflowY: 'auto', minHeight: 0 }}
+        style={{ flex: 1, overflowY: 'auto', minHeight: 0, overscrollBehavior: 'contain', touchAction: 'pan-y' }}
         onTouchStart={onTouchStart}
         onTouchEnd={onTouchEnd}
       >
@@ -508,13 +511,14 @@ function DailyView({ days, startHour, endHour, todayStr, selectedDate, onSelectD
             {/* Do */}
             <div style={{ position: 'relative' }}>
               {sleepSegs.map((seg, si) => {
-                const top = minToPx(seg.sMin, startHour, HOUR_DAILY);
-                const h = Math.max((seg.eMin - seg.sMin) * (HOUR_DAILY / 60), 14);
                 const hh = Math.floor(seg.totalMin / 60);
                 const mm = seg.totalMin % 60;
                 const dur = hh > 0 ? (mm > 0 ? `${hh}h ${mm}m` : `${hh}h`) : `${mm}m`;
-                return (
-                  <div key={`sleep-${seg.record.id}-${si}`}
+                return placeSleepSegment(seg.sMin, seg.eMin, startHour, endHour).map((rect, ri) => {
+                  const top = rect.offsetMin * (HOUR_DAILY / 60);
+                  const h = Math.max(rect.lengthMin * (HOUR_DAILY / 60), 14);
+                  return (
+                  <div key={`sleep-${seg.record.id}-${si}-${ri}`}
                     title={`수면 ${dur}`}
                     style={{
                       position: 'absolute', top, height: h, left: 2, right: 2, zIndex: 1,
@@ -523,9 +527,10 @@ function DailyView({ days, startHour, endHour, todayStr, selectedDate, onSelectD
                       alignItems: 'flex-start', padding: '2px 4px',
                     }}>
                     <span style={{ fontSize: 9, fontWeight: 700, color: '#5B8FD8', lineHeight: 1.3 }}>🌙 수면</span>
-                    {h >= 28 && <span style={{ fontSize: 9, color: '#5B8FD8', lineHeight: 1.3 }}>{dur}</span>}
+                    {rect.primary && h >= 28 && <span style={{ fontSize: 9, color: '#5B8FD8', lineHeight: 1.3 }}>{dur}</span>}
                   </div>
-                );
+                  );
+                });
               })}
               {unexTs.map(todo => {
                 const top = minToPx(hhmmToMin(todo.planStart!), startHour, HOUR_DAILY);
@@ -608,7 +613,7 @@ function WeeklySummaryView({ days, todayStr, todos }: {
   return (
     <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0 }}>
       {/* 날짜 카드 목록 */}
-      <div style={{ flex: 1, overflowY: 'auto', padding: '8px 12px', display: 'flex', flexDirection: 'column', gap: 8 }}>
+      <div style={{ flex: 1, overflowY: 'auto', overscrollBehavior: 'contain', padding: '8px 12px', display: 'flex', flexDirection: 'column', gap: 8 }}>
         {dayData.map(({ day, ds, allItems, planTs, doTs, totalPlanM, totalDoM, pct }) => {
           const isToday = ds === todayStr;
           const hasData = allItems.length > 0;

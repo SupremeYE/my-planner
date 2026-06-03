@@ -5,6 +5,7 @@ import { usePlanner, Todo, SelfCareRecord } from '../store';
 import { useTheme } from '../ThemeContext';
 import { isDoOvertimeVsPlan } from '../../lib/todoDoDuration';
 import { expandRecurringTodos } from '../../lib/recurrenceExpansion';
+import { placeSleepSegment } from '../../lib/sleepTimeline';
 import { SleepTimeEditModal } from './CalendarView';
 
 const PC_HOUR_HEIGHT = 88;
@@ -268,7 +269,7 @@ export function WeekViewPC({ viewDate, weekStartsOn, selectedDate, onSelectDate,
 
       {/* ── 스크롤 컨테이너 (헤더 + 타임라인 함께) ───────────────────────── */}
       {/* 헤더를 스크롤 안으로 넣어야 scrollbar 너비를 동일하게 반영 → 컬럼 정렬 정확 */}
-      <div style={{ flex: 1, overflowY: 'auto', minHeight: 0 }}>
+      <div style={{ flex: 1, overflowY: 'auto', minHeight: 0, overscrollBehavior: 'contain' }}>
 
         {/* ── Sticky 헤더 (날짜 행 + P/D 서브헤더 행) ──────────────────── */}
         <div style={{ position: 'sticky', top: 0, zIndex: 20, backgroundColor: '#fff', borderBottom: '1px solid #dbe6ee' }}>
@@ -401,17 +402,18 @@ export function WeekViewPC({ viewDate, weekStartsOn, selectedDate, onSelectDate,
                     {/* Do 슬롯 — 수면 블록도 여기에 렌더링 (z-index:1로 뒤에 깔림) */}
                     <div style={{ position: 'relative' }}>
                       {sleepSegments.map((seg, si) => {
-                        const top = minToPx(seg.sMin, startHour);
-                        const height = Math.max((seg.eMin - seg.sMin) * (PC_HOUR_HEIGHT / 60), 16);
                         const hh = Math.floor(seg.totalMin / 60);
                         const mm = seg.totalMin % 60;
                         const durationLabel = hh > 0 ? (mm > 0 ? `${hh}h ${mm}m` : `${hh}h`) : `${mm}m`;
                         const [sh, sm2] = seg.record.sleepStart!.split(':').map(Number);
                         const [eh, em2] = seg.record.sleepEnd!.split(':').map(Number);
                         const tooltipText = `수면 ${durationLabel}\n${String(sh).padStart(2,'0')}:${String(sm2).padStart(2,'0')} → ${String(eh).padStart(2,'0')}:${String(em2).padStart(2,'0')}`;
-                        return (
+                        return placeSleepSegment(seg.sMin, seg.eMin, startHour, endHour).map((rect, ri) => {
+                          const top = rect.offsetMin * (PC_HOUR_HEIGHT / 60);
+                          const height = Math.max(rect.lengthMin * (PC_HOUR_HEIGHT / 60), 16);
+                          return (
                           <button
-                            key={`sleep-${seg.record.id}-${si}`}
+                            key={`sleep-${seg.record.id}-${si}-${ri}`}
                             type="button"
                             title={tooltipText}
                             onClick={() => setEditingSleepRecord(seg.record)}
@@ -435,13 +437,14 @@ export function WeekViewPC({ viewDate, weekStartsOn, selectedDate, onSelectDate,
                             <div style={{ fontSize: 10, fontWeight: 700, color: '#64748B', lineHeight: 1.3 }}>
                               🌙 수면
                             </div>
-                            {height >= 28 && (
+                            {rect.primary && height >= 28 && (
                               <div style={{ fontSize: 9, fontWeight: 600, color: '#94A3B8', lineHeight: 1.3 }}>
                                 {durationLabel}
                               </div>
                             )}
                           </button>
-                        );
+                          );
+                        });
                       })}
                       {unexecutedTodos.map(todo => (
                         <UnexecutedBlock key={`unexec-${todo.id}`} todo={todo} startHour={startHour} />
