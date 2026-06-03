@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useLayoutEffect } from 'react';
 import { Outlet, NavLink, useLocation, useNavigate } from 'react-router';
 import {
   Sun, CalendarDays, BarChart2, ListTodo,
@@ -23,6 +23,7 @@ function UserAvatarMenu() {
   const navigate = useNavigate();
   const [open, setOpen] = useState(false);
   const [accountOpen, setAccountOpen] = useState(false);
+  const [menuPos, setMenuPos] = useState<{ top: number; left: number; width: number }>({ top: 0, left: 0, width: 220 });
   const ref = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -32,6 +33,26 @@ function UserAvatarMenu() {
     document.addEventListener('mousedown', onClick);
     return () => document.removeEventListener('mousedown', onClick);
   }, []);
+
+  // 드롭다운 위치 계산 — 아바타 우측에 정렬하되 화면(좌/우/하단) 밖으로 잘리지 않게 클램프
+  // PC: 사이드바 아바타 아래, 모바일: 상단바 아바타 아래 (둘 다 뷰포트 안에 안전하게)
+  useLayoutEffect(() => {
+    if (!open) return;
+    const update = () => {
+      const rect = ref.current?.getBoundingClientRect();
+      if (!rect) return;
+      const margin = 8;
+      const width = Math.min(220, window.innerWidth - margin * 2);
+      // 아바타 우측 끝에 메뉴 우측을 맞춤 → 좌측으로 펼침
+      let left = rect.right - width;
+      left = Math.max(margin, Math.min(left, window.innerWidth - width - margin));
+      const top = rect.bottom + 6;
+      setMenuPos({ top, left, width });
+    };
+    update();
+    window.addEventListener('resize', update);
+    return () => window.removeEventListener('resize', update);
+  }, [open]);
 
   const email = session?.user?.email || '';
   const name = (session?.user?.user_metadata as any)?.name || email.split('@')[0] || '게스트';
@@ -60,18 +81,17 @@ function UserAvatarMenu() {
         <div
           className="fixed rounded-xl py-1.5 z-50"
           style={{
-            top: (ref.current?.getBoundingClientRect().bottom ?? 0) + 6,
-            right: Math.max(8, window.innerWidth - (ref.current?.getBoundingClientRect().right ?? 0)),
-            minWidth: 200,
-            maxWidth: 'calc(100vw - 16px)',
+            top: menuPos.top,
+            left: menuPos.left,
+            width: menuPos.width,
             backgroundColor: t.card,
             border: `1px solid ${t.border}`,
             boxShadow: '0 10px 25px rgba(0,0,0,0.12)',
           }}
         >
           <div className="px-3 py-2 border-b" style={{ borderColor: t.border }}>
-            <p style={{ fontSize: 12, color: t.text, fontWeight: 700 }}>{name}</p>
-            {email && <p style={{ fontSize: 10, color: t.textMuted, marginTop: 2 }}>{email}</p>}
+            <p style={{ fontSize: 12, color: t.text, fontWeight: 700, wordBreak: 'break-all' }}>{name}</p>
+            {email && <p style={{ fontSize: 10, color: t.textMuted, marginTop: 2, wordBreak: 'break-all' }}>{email}</p>}
           </div>
           <button
             onClick={() => { setOpen(false); navigate('/profile'); }}
