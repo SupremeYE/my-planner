@@ -14,6 +14,7 @@ import { format, startOfMonth, getDaysInMonth, getDay, addMonths, subMonths } fr
 import { PROJECT_COLORS } from './ProjectView';
 import { NotificationPermissionBanner } from './NotificationPermissionBanner';
 import { HaonLogo } from './HaonLogo';
+import { AccountWidget } from './AccountWidget';
 
 // ── User Avatar with Dropdown (계정 정보 + 프로필/설정/로그아웃) ──
 function UserAvatarMenu() {
@@ -21,6 +22,7 @@ function UserAvatarMenu() {
   const { session, signOut } = useAuth();
   const navigate = useNavigate();
   const [open, setOpen] = useState(false);
+  const [accountOpen, setAccountOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -71,7 +73,7 @@ function UserAvatarMenu() {
             {email && <p style={{ fontSize: 10, color: t.textMuted, marginTop: 2 }}>{email}</p>}
           </div>
           <button
-            onClick={() => { setOpen(false); navigate('/settings'); }}
+            onClick={() => { setOpen(false); setAccountOpen(true); }}
             className="w-full text-left px-3 py-2 flex items-center gap-2 hover:bg-opacity-80 transition-colors"
             style={{ fontSize: 12, color: t.text }}
           >
@@ -94,6 +96,7 @@ function UserAvatarMenu() {
           </button>
         </div>
       )}
+      <AccountWidget open={accountOpen} onClose={() => setAccountOpen(false)} />
     </div>
   );
 }

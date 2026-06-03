@@ -8,7 +8,6 @@ import { GlobalFloatingTimer } from './components/GlobalFloatingTimer';
 import { PWABanner, IOSInstallGuide } from './components/PWABanner';
 import { LoginView } from './components/LoginView';
 import { ResetPasswordView } from './components/ResetPasswordView';
-import { AccountWidget } from './components/AccountWidget';
 import SplashScreen from '../components/SplashScreen';
 
 function AppContent() {
@@ -53,7 +52,6 @@ function AppContent() {
       <GlobalFloatingTimer />
       <PWABanner />
       <IOSInstallGuide />
-      <AccountWidget />
     </PlannerProvider>
   );
 }
