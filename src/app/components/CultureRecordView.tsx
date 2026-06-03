@@ -7,17 +7,14 @@ import type { CultureRecord, CulturePlatform, CultureContentType, CultureStatus 
 import { CultureFormModal } from './culture/CultureFormModal';
 import { StarRating } from './culture/StarRating';
 import { useToasts, ToastHost } from './culture/CultureToast';
+import { CultureFilterSheet, type CultureFilterValue } from './culture/CultureFilterSheet';
 import ConfirmModal from './ConfirmModal';
 import {
   PLATFORM_META, PLATFORM_ORDER, CONTENT_TYPE_META, CONTENT_TYPE_ORDER, STATUS_META, STATUS_ORDER,
+  SORT_LABELS, type CultureSortKey,
 } from './culture/cultureMeta';
 
-type SortKey = 'created' | 'watched' | 'rating';
-const SORT_LABELS: Record<SortKey, string> = {
-  created: '기록일 순',
-  watched: '본 날짜 순',
-  rating: '별점 높은순',
-};
+type SortKey = CultureSortKey;
 
 export function CultureRecordView() {
   const { t } = useTheme();
@@ -32,10 +29,16 @@ export function CultureRecordView() {
   const [modalOpen, setModalOpen] = useState(false);
   const [editing, setEditing] = useState<CultureRecord | null>(null);
   const [deleteId, setDeleteId] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
+  // 모바일 전용 UI 상태
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [filterSheetOpen, setFilterSheetOpen] = useState(false);
   const { toasts, notify } = useToasts();
 
   // ── 데이터 로드 + Realtime 동기화 ──
-  const refresh = useCallback(() => { db.cultureRecords.fetchAll().then(setRecords); }, []);
+  const refresh = useCallback(() => {
+    db.cultureRecords.fetchAll().then(rs => { setRecords(rs); setLoading(false); });
+  }, []);
   useEffect(() => { refresh(); }, [refresh]);
   useRealtimeSync('culture_records', refresh);
 
@@ -115,8 +118,12 @@ export function CultureRecordView() {
     </div>
   );
 
+  const mobileFiltersActive = platformFilter !== 'all' || typeFilter !== 'all';
+
   return (
-    <div className="h-full overflow-y-auto" style={{ backgroundColor: t.bg }}>
+    <>
+    {/* ════════ PC (lg 이상) — Stage 1·2 레이아웃 그대로 유지 ════════ */}
+    <div className="hidden lg:block h-full overflow-y-auto" style={{ backgroundColor: t.bg }}>
       <div className="max-w-[1400px] mx-auto px-4 lg:px-8 py-5 lg:py-7">
 
         {/* ── 헤더 ── */}
@@ -200,32 +207,194 @@ export function CultureRecordView() {
           </div>
         )}
       </div>
+    </div>
 
-      {/* 토스트 */}
-      <ToastHost toasts={toasts} />
+    {/* ════════ 모바일 (lg 미만) — 부모 main이 스크롤 컨테이너, 헤더 sticky ════════ */}
+    <div className="lg:hidden" style={{ minHeight: '100%', backgroundColor: t.bg }}>
+      {/* sticky 헤더 */}
+      <div className="sticky top-0 z-20"
+        style={{ backgroundColor: t.bg, borderBottom: `1px solid ${t.border}` }}>
+        {/* 1행: 제목 + 검색 토글 */}
+        {!searchOpen ? (
+          <div className="flex items-center justify-between px-4 py-3">
+            <h1 className="flex items-center gap-1.5" style={{ fontSize: 18, fontWeight: 700, color: t.text }}>
+              <Clapperboard size={20} color={t.accent} /> 문화 기록
+            </h1>
+            <button onClick={() => setSearchOpen(true)} aria-label="검색"
+              className="flex items-center justify-center rounded-lg" style={{ width: 40, height: 40, color: t.textSub }}>
+              <Search size={20} />
+            </button>
+          </div>
+        ) : (
+          <div className="flex items-center gap-2 px-4 py-2.5">
+            <div className="relative flex-1">
+              <Search size={15} color={t.textMuted}
+                style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)' }} />
+              <input autoFocus value={search} onChange={e => setSearch(e.target.value)}
+                placeholder="제목·태그 검색" className="w-full rounded-xl outline-none"
+                style={{ padding: '9px 10px 9px 32px', fontSize: 14,
+                  border: `1px solid ${t.border}`, backgroundColor: t.card, color: t.text }} />
+            </div>
+            <button onClick={() => { setSearchOpen(false); setSearch(''); }}
+              style={{ fontSize: 14, fontWeight: 600, color: t.accent, padding: '4px 4px' }}>취소</button>
+          </div>
+        )}
 
-      {/* 모달 */}
-      {modalOpen && (
-        <CultureFormModal
-          record={editing}
-          onSave={handleSave}
-          onDelete={editing ? (id) => setDeleteId(id) : undefined}
-          onClose={() => { setModalOpen(false); setEditing(null); }}
-          notify={notify}
-        />
+        {/* 2행: 상태 탭 (가로 스크롤) */}
+        <div className="flex gap-1.5 px-4 pb-2 overflow-x-auto" style={{ WebkitOverflowScrolling: 'touch' }}>
+          {([{ value: 'all' as const, label: '전체' },
+             ...STATUS_ORDER.map(s => ({ value: s, label: STATUS_META[s].label }))]).map(opt => {
+            const active = statusFilter === opt.value;
+            return (
+              <button key={opt.value} onClick={() => setStatusFilter(opt.value)}
+                className="flex-shrink-0 px-3 rounded-full transition-all"
+                style={{ minHeight: 34, fontSize: 13, fontWeight: active ? 600 : 400,
+                  backgroundColor: active ? t.accent : t.bgSub, color: active ? '#fff' : t.textSub,
+                  border: `1px solid ${active ? t.accent : t.border}` }}>
+                {opt.label}
+              </button>
+            );
+          })}
+        </div>
+
+        {/* 3행: 필터 트리거 */}
+        <div className="flex items-center gap-2 px-4 pb-2.5">
+          <button onClick={() => setFilterSheetOpen(true)}
+            className="flex items-center gap-1 px-3 rounded-full"
+            style={{ minHeight: 34, fontSize: 13, color: mobileFiltersActive ? t.accent : t.textSub,
+              fontWeight: mobileFiltersActive ? 600 : 400,
+              backgroundColor: mobileFiltersActive ? t.accentLight : t.bgSub,
+              border: `1px solid ${mobileFiltersActive ? t.accent : t.border}` }}>
+            플랫폼·유형 <ChevronDown size={14} />
+          </button>
+          <div className="flex-1" />
+          <button onClick={() => setFilterSheetOpen(true)}
+            className="flex items-center gap-1 px-3 rounded-full"
+            style={{ minHeight: 34, fontSize: 13, color: t.textSub,
+              backgroundColor: t.bgSub, border: `1px solid ${t.border}` }}>
+            {SORT_LABELS[sortKey]} <ChevronDown size={14} />
+          </button>
+        </div>
+      </div>
+
+      {/* 본문 */}
+      <div className="px-4 pt-3"
+        style={{ paddingBottom: 'calc(96px + env(safe-area-inset-bottom))' }}>
+        {loading ? (
+          <SkeletonGrid />
+        ) : visible.length === 0 ? (
+          <EmptyState hasRecords={records.length > 0} onAdd={openAdd} />
+        ) : (
+          <div className="grid grid-cols-3 gap-2">
+            {visible.map(r => (
+              <CultureCardMobile key={r.id} record={r} onClick={() => openEdit(r)} />
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* FAB — 하단 탭바 위, safe-area 고려 */}
+      <button onClick={openAdd} aria-label="문화 기록 추가"
+        className="fixed right-4 z-30 flex items-center justify-center rounded-full active:scale-95 transition-transform"
+        style={{ bottom: 'calc(72px + env(safe-area-inset-bottom))', width: 56, height: 56,
+          backgroundColor: t.accent, color: '#fff', boxShadow: '0 6px 20px rgba(0,0,0,0.28)' }}>
+        <Plus size={26} />
+      </button>
+    </div>
+
+    {/* ════════ 공용 오버레이 ════════ */}
+    <ToastHost toasts={toasts} />
+
+    {modalOpen && (
+      <CultureFormModal
+        record={editing}
+        onSave={handleSave}
+        onDelete={editing ? (id) => setDeleteId(id) : undefined}
+        onClose={() => { setModalOpen(false); setEditing(null); }}
+        notify={notify}
+        onQuickStatus={handleQuickStatus}
+      />
+    )}
+
+    {deleteId && (
+      <ConfirmModal
+        message="이 문화 기록을 삭제할까요?"
+        description="삭제하면 되돌릴 수 없습니다."
+        confirmText="삭제"
+        confirmDanger
+        onConfirm={handleDelete}
+        onCancel={() => setDeleteId(null)}
+      />
+    )}
+
+    {filterSheetOpen && (
+      <CultureFilterSheet
+        value={{ platform: platformFilter, type: typeFilter, sort: sortKey }}
+        onApply={(next: CultureFilterValue) => {
+          setPlatformFilter(next.platform);
+          setTypeFilter(next.type);
+          setSortKey(next.sort);
+        }}
+        onClose={() => setFilterSheetOpen(false)}
+      />
+    )}
+    </>
+  );
+}
+
+// ── 모바일 포스터 카드 (hover 없음, 탭 → 수정 모달) ──
+function CultureCardMobile({ record, onClick }: { record: CultureRecord; onClick: () => void }) {
+  const { t } = useTheme();
+  const platform = PLATFORM_META[record.platform];
+  const TypeIcon = CONTENT_TYPE_META[record.contentType].icon;
+  const StatusIcon = STATUS_META[record.status].icon;
+
+  return (
+    <button onClick={onClick} className="text-left flex flex-col active:opacity-80 transition-opacity">
+      <div className="relative rounded-lg overflow-hidden"
+        style={{ aspectRatio: '2 / 3', boxShadow: t.shadow }}>
+        {record.thumbnailUrl ? (
+          <img src={record.thumbnailUrl} alt={record.title} className="w-full h-full object-cover" />
+        ) : (
+          <div className="w-full h-full flex items-center justify-center"
+            style={{ background: `linear-gradient(135deg, ${platform.gradient[0]}, ${platform.gradient[1]})` }}>
+            <TypeIcon size={30} color="rgba(255,255,255,0.85)" />
+          </div>
+        )}
+        {/* 플랫폼 아이콘만 (좌상단) */}
+        <span className="absolute top-1 left-1 flex items-center justify-center rounded-md"
+          style={{ width: 18, height: 18, backgroundColor: 'rgba(0,0,0,0.55)' }} title={platform.label}>
+          <TypeIcon size={10} color="#fff" />
+        </span>
+        {/* 상태 아이콘 (우상단) */}
+        <span className="absolute top-1 right-1 flex items-center justify-center rounded-full"
+          style={{ width: 18, height: 18, backgroundColor: 'rgba(0,0,0,0.55)' }} title={STATUS_META[record.status].label}>
+          <StatusIcon size={10} color="#fff" />
+        </span>
+      </div>
+      <p className="mt-1.5" style={{ fontSize: 12, fontWeight: 600, color: t.text, lineHeight: 1.3,
+        overflow: 'hidden', textOverflow: 'ellipsis', display: '-webkit-box',
+        WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' as const }}>
+        {record.title}
+      </p>
+      {record.rating != null && record.rating > 0 && (
+        <div className="mt-0.5"><StarRating value={record.rating} readOnly size={11} /></div>
       )}
+    </button>
+  );
+}
 
-      {/* 삭제 확인 */}
-      {deleteId && (
-        <ConfirmModal
-          message="이 문화 기록을 삭제할까요?"
-          description="삭제하면 되돌릴 수 없습니다."
-          confirmText="삭제"
-          confirmDanger
-          onConfirm={handleDelete}
-          onCancel={() => setDeleteId(null)}
-        />
-      )}
+// ── 모바일 로딩 스켈레톤 (3열 × 2행) ──
+function SkeletonGrid() {
+  const { t } = useTheme();
+  return (
+    <div className="grid grid-cols-3 gap-2">
+      {Array.from({ length: 6 }).map((_, i) => (
+        <div key={i} className="flex flex-col">
+          <div className="rounded-lg animate-pulse" style={{ aspectRatio: '2 / 3', backgroundColor: t.bgSub }} />
+          <div className="mt-1.5 h-3 rounded animate-pulse" style={{ width: '85%', backgroundColor: t.bgSub }} />
+        </div>
+      ))}
     </div>
   );
 }

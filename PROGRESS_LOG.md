@@ -9,7 +9,7 @@
 ## 2026-06-03
 
 ### 📋 TODO
-- [ ] 문화 기록 Stage 3: 모바일 전용 레이아웃 (모바일 카드·필터·하단 네비 연계)
+- [ ] 문화 기록 Stage 4: daily-report Edge Function 연동(오늘 본 콘텐츠) + 통계/대시보드
 - [ ] 로컬 `.env` 에 `VITE_TMDB_API_TOKEN` 추가 (Vercel엔 이미 등록, 로컬 개발 시 필요)
 - [ ] (선택) 캘린더 `CalendarView.tsx` 미사용 `WeekView` 함수(약 350줄)·미사용 상수 3개 제거
 
@@ -18,6 +18,7 @@
 - [x] `culture_records` 테이블 마이그레이션 작성 + Supabase(my-planner) 적용
 - [x] `culture_records` 에 `external_source`/`external_id` 컬럼 추가 (Stage 2 TMDB/유튜브 자동검색 대비, Stage 1=manual)
 - [x] 문화 기록 Stage 2 — YouTube oEmbed 자동 채움 + TMDB 검색 통합 + 카드 빠른 상태 변경
+- [x] 문화 기록 Stage 3 — 모바일 전용 레이아웃(sticky 헤더·3열 그리드·필터 시트·full-screen 모달·FAB)
 - [x] 사이드바/모바일 오버레이/탑네비에 "문화 기록" 메뉴 추가
 - [x] 캘린더 주별 Today 버튼 동작 안 함 수정 (모바일 3일 탭이 오늘 페이지로 이동)
 - [x] 캘린더 월별 뷰 모바일 좌우 스와이프로 이전/다음 달 전환 추가
@@ -27,6 +28,19 @@
 - [x] 수면 블록을 타임라인 설정에 맞춰 두 날짜 컬럼에 걸쳐 표시 (절대 시간축 기준 컬럼 분할로 전환)
 
 ### 🛠 오늘 작업 내용
+
+**①-3 문화 기록 Stage 3 — 모바일 레이아웃 (lg: 미만 전용, PC 무변경)**
+- 구조: `CultureRecordView`를 PC 트리(`hidden lg:block`) / 모바일 트리(`lg:hidden`)로 분리 → 상태·핸들러는 부모 공유, PC 마크업은 그대로 보존
+- 모바일 sticky 헤더: 제목+검색 토글(헤더 자리 input 펼침/취소), 상태 가로 스크롤 탭, 필터 트리거(플랫폼·유형/정렬)
+- 본문: 3열 포스터 그리드 + 로딩 스켈레톤(`SkeletonGrid`) + 빈 상태
+- `CultureCardMobile`: hover/드롭다운 없이 아이콘만, 탭 → 수정 모달
+- `culture/CultureFilterSheet.tsx`(신규): 필터 bottom sheet — 드래그 핸들, 플랫폼/유형/정렬 섹션, 초기화/적용(임시 상태→적용 커밋), safe-area
+- `CultureFormModal`: 컨테이너 반응형(모바일 full-screen 슬라이드업/PC 센터), 헤더 모바일 ←·저장(form 제출)·PC 제목·X, 상단 빠른 상태칩(`lg:hidden`, 수정 모드 즉시 DB 반영) + 기존 인폼 상태 섹션 `hidden lg:block`, 하단 버튼 반응형(모바일 삭제만), `max-lg` 키프레임 슬라이드업, safe-area
+- `TMDBSearchPanel`: 결과를 PC 3열 그리드(`hidden lg:grid`) + 모바일 1열 리스트(`lg:hidden`)로 분기
+- `cultureMeta.ts`: 공용 `CultureSortKey`/`SORT_LABELS` 분리(뷰·시트 공유)
+- 골드 FAB: `fixed` 우하단, `bottom: calc(72px + safe-area)`, 하단 탭바 위, 탭 → 추가
+- 진입점(햄버거 메뉴 "문화 기록")은 Stage 1에서 이미 추가됨 → 변경 없음
+- 확인: 수정 파일 모두 `lg:` 이상 영역 변경 없음(PC 트리는 `hidden lg:block`으로 감싸기만, 기존 마크업·클래스 보존)
 
 **①-2 문화 기록 Stage 2 — 자동 fetch + 상태 관리 강화**
 - `src/lib/youtube.ts`: `extractYouTubeVideoId`(watch/youtu.be/shorts/embed) + `fetchYouTubeMetadata`(oEmbed, 키 불필요)

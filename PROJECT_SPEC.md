@@ -1,6 +1,6 @@
 # PROJECT_SPEC.md — My Planner PWA 기능 명세서
 
-> 최종 업데이트: 2026-06-03 (문화 기록 Stage 2: YouTube oEmbed 자동 채움(제목·썸네일·플랫폼/유형), TMDB 영화·드라마 검색 통합(`VITE_TMDB_API_TOKEN`), 카드 hover 상태 빠른 변경(optimistic+롤백+토스트), `external_source`/`external_id` 기록. 이하 2026-06-02: 문화 기록 페이지 `/culture` 신규 추가 — Stage 1 PC 레이아웃: 영화/드라마/예능/유튜브 등 시청 콘텐츠 기록. culture_records 테이블·RLS·Realtime, 포스터 그리드(6열 2:3), 플랫폼/유형/상태 칩 필터·검색·정렬, 0.5단위 별점, 추가/수정 모달. 이하 동일 2026-06-02: 캘린더 하단 상세 패널을 조회 전용 → 일간 동일 CRUD로 확장: 할일·일정 직접 관리(체크/수정/미루기/삭제), 반복 할일 표시·분기 삭제, 상단 필터 탭 연동. 이하 2026-06-01: 독서 진행 이력 reading_logs 테이블·자동 로깅 추가, 마이그레이션 타임스탬프 충돌 수정, 식단 카페 저장 버그 수정, 일간 할일 체크박스 모바일 탭 유실 수정, 반복 할일 인스턴스 동작 복구·수정 모달 개선, daily-report Edge Function에 일정·식단·감정·독서 섹션 추가)
+> 최종 업데이트: 2026-06-03 (문화 기록 Stage 3 모바일 레이아웃: 햄버거 진입(기존), sticky 헤더(검색 토글·상태 가로탭·필터 트리거), 3열 포스터 그리드, 필터 bottom sheet(플랫폼/유형/정렬), full-screen 슬라이드업 추가/수정 모달(헤더 ←·저장, 상단 빠른 상태칩 즉시반영, TMDB 1열 리스트), 골드 FAB(safe-area), 로딩 스켈레톤 — 모두 `lg:` 미만 전용, PC 미변경. 이하 Stage 2: YouTube oEmbed 자동 채움(제목·썸네일·플랫폼/유형), TMDB 영화·드라마 검색 통합(`VITE_TMDB_API_TOKEN`), 카드 hover 상태 빠른 변경(optimistic+롤백+토스트), `external_source`/`external_id` 기록. 이하 2026-06-02: 문화 기록 페이지 `/culture` 신규 추가 — Stage 1 PC 레이아웃: 영화/드라마/예능/유튜브 등 시청 콘텐츠 기록. culture_records 테이블·RLS·Realtime, 포스터 그리드(6열 2:3), 플랫폼/유형/상태 칩 필터·검색·정렬, 0.5단위 별점, 추가/수정 모달. 이하 동일 2026-06-02: 캘린더 하단 상세 패널을 조회 전용 → 일간 동일 CRUD로 확장: 할일·일정 직접 관리(체크/수정/미루기/삭제), 반복 할일 표시·분기 삭제, 상단 필터 탭 연동. 이하 2026-06-01: 독서 진행 이력 reading_logs 테이블·자동 로깅 추가, 마이그레이션 타임스탬프 충돌 수정, 식단 카페 저장 버그 수정, 일간 할일 체크박스 모바일 탭 유실 수정, 반복 할일 인스턴스 동작 복구·수정 모달 개선, daily-report Edge Function에 일정·식단·감정·독서 섹션 추가)
 
 ---
 
@@ -142,6 +142,21 @@
   - 식비 총액, 배달·외식 목표 대비 횟수 (설정에서 목표 설정 가능)
   - 식사유형 도넛 차트, 자주 먹은 음식 TOP5, ⭐ 맛있었던 것 모아보기
   - 칼로리 막대 그래프 (최근14일: 14개 / 월별: 해당 달 전체 일별)
+
+#### `/culture` — 문화 기록 (Stage 1·2 PC / Stage 3 모바일)
+
+##### 모바일 레이아웃 (Stage 3, `lg:` 미만 전용)
+- 진입점: 모바일 하단 5탭은 그대로, **상단 햄버거 메뉴**에 "문화 기록"(`Clapperboard`) 항목 (Stage 1에서 추가됨)
+- 구조: PC 트리(`hidden lg:block`)와 모바일 트리(`lg:hidden`)를 **완전히 분리** → PC 레이아웃 무변경 보장. 상태/핸들러는 부모에서 공유
+- sticky 헤더(부모 `main`이 스크롤 컨테이너): ① 제목 + 검색 아이콘(탭 시 헤더 자리에 input 펼침, 취소로 닫기) ② 상태 가로 스크롤 탭(전체/보고싶음/보는중/완료/중단) ③ 필터 트리거(플랫폼·유형 / 정렬 → bottom sheet)
+- 본문: **3열 포스터 그리드**(2:3, gap 8px, padding 16px), 로딩 시 스켈레톤 6장(3×2), 빈 상태 동일 컴포넌트
+- 모바일 카드(`CultureCardMobile`): hover/드롭다운 없음, 플랫폼·상태 아이콘만, 제목 2줄·작은 별점, 탭 → 수정 모달
+- **FAB**: 우하단 골드 원형(56×56), `bottom: calc(72px + safe-area-inset-bottom)`(하단 탭바 위), 탭 → 추가 모달
+- 필터 bottom sheet(`CultureFilterSheet`): 드래그 핸들 + 플랫폼/유형/정렬 섹션 + 초기화/적용(임시 상태→적용 시 커밋), safe-area 하단 패딩
+- 추가/수정 모달(모바일): **full-screen 슬라이드업**(`max-lg` 미디어쿼리 키프레임), 헤더 ←(취소)/제목/저장(`form` 제출), safe-area-inset-top. 폼 순서: TMDB 토글 → URL → 제목 → 플랫폼/유형 → **상단 빠른 상태칩(수정 모드 즉시 DB 반영)** → 본날짜/썸네일 → 별점 → 리뷰 → 인사이트 → 태그 → (수정 시) 삭제. PC용 인폼 상태 섹션은 `hidden lg:block`
+- TMDB 검색 결과: 모바일은 **썸네일 좌측 1열 리스트**(`lg:hidden`), PC는 3열 그리드(`hidden lg:grid`) 그대로
+- 터치 영역 ≥ 약 40~46px, iOS 모멘텀 스크롤(`-webkit-overflow-scrolling: touch`)
+- 360px(소형)에서도 3열 그리드·칩 가로 스크롤로 깨지지 않게 설계
 
 #### `/culture` — 문화 기록 (Stage 1·2, PC 전용)
 - 영화/드라마/예능/다큐/애니/유튜브/강의 등 시청 콘텐츠 기록
@@ -634,6 +649,7 @@ store.tsx (PlannerContext)
 - **질문일기(`/question-journal`)** — 오늘의 질문 탭(daily_question 랜덤 배정 + 답변 저장/수정), 질문 탐색 탭(내장 15개 + 커스텀 추가/삭제), 질문별 모아보기(연도별 섹션 + 5년 다이어리 스타일 카드, 바텀시트/모달 오버레이). Realtime 3테이블 연동 (`QuestionJournalView.tsx`)
 - **문화 기록(`/culture`) — Stage 1 PC 레이아웃** — 영화/드라마/예능/유튜브 등 시청 콘텐츠 기록. 포스터 그리드(PC 6열, 2:3, 썸네일 또는 플랫폼 그라데이션+유형 아이콘 placeholder, 플랫폼 미니뱃지+상태 아이콘, hover 리프트), 플랫폼/유형/상태 칩 다중 필터 + 제목·태그 검색 + 정렬(기록일/본 날짜/별점), 0.5단위 인터랙티브 별점(`StarRating`), 추가/수정 모달(`CultureFormModal`, 리뷰·인사이트·태그·삭제), 빈 상태 UI, `culture_records` Realtime 구독. db.ts `cultureRecords` 레이어, store.tsx `CultureRecord` 타입. **모바일 전용 UI는 Stage 3 예정** (`CultureRecordView.tsx`, `culture/` 폴더)
 - **문화 기록(`/culture`) — Stage 2 자동 fetch + 상태 관리** — YouTube oEmbed 자동 채움(`src/lib/youtube.ts`: URL onBlur/onPaste → 제목·썸네일·플랫폼=youtube·유형=youtube_video·external 채움, 비어있을 때만 덮어쓰지 않음), TMDB 검색 통합(`src/lib/tmdb.ts` + `culture/TMDBSearchPanel.tsx`: `VITE_TMDB_API_TOKEN` Bearer, `/search/multi` ko-KR, 300ms debounce, 포스터 그리드, 선택 시 제목·썸네일·유형·external 채움·platform 제외), 카드 hover 상태 빠른 변경(chevron 드롭다운, optimistic update + 롤백, `db.cultureRecords.updateStatus`), 경량 토스트(`culture/CultureToast.tsx`). 자동 채움 출처를 `external_source`로 기록(youtube/tmdb_movie/tmdb_tv/manual)
+- **문화 기록(`/culture`) — Stage 3 모바일 레이아웃** — PC/모바일 트리 분리(`hidden lg:block` / `lg:hidden`)로 PC 무변경. 모바일 sticky 헤더(검색 토글·상태 가로탭·필터 트리거), 3열 포스터 그리드, 모바일 전용 카드(`CultureCardMobile`), 필터 bottom sheet(`culture/CultureFilterSheet.tsx` — 플랫폼/유형/정렬, 초기화/적용), full-screen 슬라이드업 모달(`max-lg` 키프레임, 헤더 ←·저장, 상단 빠른 상태칩 즉시반영), 골드 FAB(safe-area), 로딩 스켈레톤. TMDB 결과 모바일 1열 리스트. 햄버거 메뉴 진입점은 Stage 1에서 추가됨
 - **모바일 타임라인 블록 생성 — 롱프레스 방식** — 빈 타임라인을 0.5초 꾹 누를 때만 블록 생성 모드 활성화(기본 30분 프리뷰 + 진동), 이전 드래그 방식은 일반 스크롤과 충돌했음. `WebkitTouchCallout/WebkitUserSelect: none` 으로 iOS 시스템 텍스트 선택 메뉴 차단 (`DailyView.tsx`)
 - **DO 블록 독립 삭제** — DO 블록 삭제 시 `doStart/doEnd/doElapsedSec`만 비워 PLAN은 유지(기존: `deleteTodo`로 할일 전체 삭제됨). DO 블록도 모바일 롱프레스 컨텍스트 메뉴 지원 (`DailyView.tsx`)
 - **식단 단식 기록** — 음식 추가 첫 단계(끼니 선택) 하단의 "🚫 끼니별 단식" 버튼으로 거른 끼니를 한 번에 기록(`FoodRecord.isFasting`, `food_records.is_fasting`). 기록 카드는 점선 🚫 표기, 식단 달력 셀 4분할에서 단식 끼니 🚫 표시, 통계에 "끼니별 단식" 분포 카드 추가(식비/칼로리/TOP5 등 일반 통계는 단식 제외) (`FoodView.tsx`)
@@ -675,13 +691,11 @@ store.tsx (PlannerContext)
 | PWA 오프라인 모드 | 기본 service worker 캐시(`network-first + cache fallback`)는 있으나 정교한 오프라인 동기화/캐시 정책은 미구현 |
 | 데이터 내보내기/가져오기 | 미구현 |
 | 사용자 인증 (멀티유저) | 현재 단일 사용자 구조 |
-| 문화 기록 모바일 레이아웃 | Stage 3 예정 — 현재 그리드는 모바일에서 2열로 동작하나 전용 UI(하단 네비 탭/모바일 카드·필터) 미완 |
-
 #### 문화 기록(`/culture`) 향후 Stage 로드맵
 - **Stage 1** ✅ — PC 포스터 그리드, 칩 필터·검색·정렬, 별점, 추가/수정 모달, Realtime
 - **Stage 2** ✅ — YouTube oEmbed 자동 채움 + TMDB 영화·드라마 검색 통합 + 카드 빠른 상태 변경
-- **Stage 3** — 모바일 전용 레이아웃(모바일 카드·필터·하단 네비 연계)
-- **Stage 4** — 통계/대시보드(플랫폼·유형별 시청량, 별점 분포, 월별 추이), 모먼트/리뷰 연동, 위시리스트 공유
+- **Stage 3** ✅ — 모바일 전용 레이아웃(sticky 헤더, 3열 그리드, 필터 bottom sheet, full-screen 모달, FAB)
+- **Stage 4** — daily-report Edge Function 연동(오늘 본 콘텐츠 섹션), 통계/대시보드(플랫폼·유형별 시청량·별점 분포·월별 추이), 모먼트/리뷰 연동
 
 ---
 
@@ -816,14 +830,17 @@ App.tsx
 │   ├── StatsTab (식비·도넛차트·TOP5·맛있었던것·칼로리바차트)
 │   └── AddFoodSheet (7단계 바텀시트 — 시간대/사진/음식명+영양검색/식사유형/금액/칼로리/맛평가)
 │
-├── CultureRecordView (/culture) — Stage 1·2 PC 전용
-│   ├── CultureCard (포스터 카드 — 썸네일/그라데이션 placeholder, 플랫폼 뱃지, 상태 아이콘 + hover 상태 빠른변경 드롭다운)
-│   ├── EmptyState (빈 상태 — 첫 기록 유도)
-│   ├── culture/CultureFormModal (추가/수정 모달 — 필드 + 삭제 + YouTube 자동채움 + TMDB 검색 토글)
-│   ├── culture/TMDBSearchPanel (TMDB 검색 패널 — debounce, 포스터 결과 그리드)
+├── CultureRecordView (/culture) — PC(Stage 1·2) + 모바일(Stage 3) 트리 분리
+│   ├── CultureCard (PC 포스터 카드 — 플랫폼 뱃지, 상태 아이콘 + hover 상태 빠른변경 드롭다운)
+│   ├── CultureCardMobile (모바일 카드 — 아이콘만, 탭→수정 모달, hover 없음)
+│   ├── SkeletonGrid (모바일 로딩 스켈레톤 3×2)
+│   ├── EmptyState (빈 상태 — 첫 기록 유도, PC·모바일 공용)
+│   ├── culture/CultureFormModal (추가/수정 모달 — PC 센터 / 모바일 full-screen 슬라이드업, YouTube 자동채움 + TMDB 토글 + 빠른 상태칩)
+│   ├── culture/TMDBSearchPanel (TMDB 검색 — PC 3열 그리드 / 모바일 1열 리스트)
+│   ├── culture/CultureFilterSheet (모바일 필터 bottom sheet — 플랫폼/유형/정렬)
 │   ├── culture/StarRating (0.5단위 별점 — read-only/인터랙티브)
 │   ├── culture/CultureToast (경량 토스트 — useToasts/ToastHost)
-│   ├── culture/cultureMeta (플랫폼/유형/상태 라벨·색상·아이콘 메타)
+│   ├── culture/cultureMeta (플랫폼/유형/상태/정렬 라벨·색상·아이콘 메타)
 │   ├── lib/youtube (oEmbed — extractYouTubeVideoId/fetchYouTubeMetadata)
 │   └── lib/tmdb (TMDB search/multi — searchTMDB/getPosterUrl/hasTMDBToken)
 │

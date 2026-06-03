@@ -43,3 +43,11 @@ export const STATUS_META: Record<CultureStatus, { label: string; icon: LucideIco
 };
 
 export const STATUS_ORDER: CultureStatus[] = ['watchlist', 'watching', 'completed', 'dropped'];
+
+// 정렬 (PC·모바일 공용)
+export type CultureSortKey = 'created' | 'watched' | 'rating';
+export const SORT_LABELS: Record<CultureSortKey, string> = {
+  created: '기록일 순',
+  watched: '본 날짜 순',
+  rating: '별점 높은순',
+};

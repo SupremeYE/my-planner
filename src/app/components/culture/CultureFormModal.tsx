@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { X, Trash2, Youtube, Film, Loader2 } from 'lucide-react';
+import { X, Trash2, Youtube, Film, Loader2, ChevronLeft } from 'lucide-react';
 import { useTheme } from '../../ThemeContext';
 import type {
   CultureRecord, CulturePlatform, CultureContentType, CultureStatus, CultureExternalSource,
@@ -19,9 +19,11 @@ interface CultureFormModalProps {
   onDelete?: (id: string) => void;
   onClose: () => void;
   notify?: Notify;
+  // 모바일 빠른 상태 변경 — 수정 모드에서 상태 칩 탭 시 즉시 DB 반영(모달 유지)
+  onQuickStatus?: (id: string, status: CultureStatus) => void;
 }
 
-export function CultureFormModal({ record, onSave, onDelete, onClose, notify }: CultureFormModalProps) {
+export function CultureFormModal({ record, onSave, onDelete, onClose, notify, onQuickStatus }: CultureFormModalProps) {
   const { t } = useTheme();
   const isEdit = !!record;
 
@@ -116,6 +118,12 @@ export function CultureFormModal({ record, onSave, onDelete, onClose, notify }: 
     });
   };
 
+  // 상태 칩 탭: 로컬 state 갱신 + (수정 모드) 즉시 DB 반영
+  const handleStatusChip = (s: CultureStatus) => {
+    setStatus(s);
+    if (record && onQuickStatus) onQuickStatus(record.id, s);
+  };
+
   const labelStyle: React.CSSProperties = { fontSize: 12, fontWeight: 600, color: t.textSub, marginBottom: 6, display: 'block' };
   const fieldStyle: React.CSSProperties = {
     width: '100%', borderRadius: 10, padding: '8px 10px', fontSize: 13,
@@ -124,27 +132,66 @@ export function CultureFormModal({ record, onSave, onDelete, onClose, notify }: 
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-4"
+      className="fixed inset-0 z-50 flex justify-center items-end p-0 lg:items-center lg:p-4"
       style={{ backgroundColor: 'rgba(0,0,0,0.35)' }}
       onClick={onClose}
     >
+      {/* 모바일 슬라이드업 애니메이션 (lg 미만에만 적용 — PC 무영향) */}
+      <style>{`@keyframes cultureSheetUp{from{transform:translateY(100%)}to{transform:translateY(0)}}
+        @media (max-width:1023px){.culture-form-sheet{animation:cultureSheetUp .26s ease-out}}`}</style>
       <div
-        className="rounded-2xl shadow-2xl w-[480px] max-w-full max-h-[90vh] overflow-y-auto"
-        style={{ backgroundColor: t.bg, border: `1px solid ${t.border}` }}
+        className="culture-form-sheet shadow-2xl overflow-y-auto w-full max-w-full h-[100dvh] rounded-t-2xl
+          lg:w-[480px] lg:h-auto lg:max-h-[90vh] lg:rounded-2xl"
+        style={{ backgroundColor: t.bg, border: `1px solid ${t.border}`, WebkitOverflowScrolling: 'touch' }}
         onClick={e => e.stopPropagation()}
       >
-        {/* 헤더 */}
-        <div className="flex items-center justify-between px-5 pt-5 pb-3 sticky top-0 z-10"
-          style={{ backgroundColor: t.bg }}>
-          <h2 style={{ fontSize: 17, fontWeight: 700, color: t.text }}>
+        {/* 헤더 — 모바일: ←/제목/저장, PC: 제목/X (lg 이상 기존과 동일) */}
+        <div className="flex items-center justify-between gap-2 px-4 lg:px-5 pb-3 sticky top-0 z-10"
+          style={{ backgroundColor: t.bg, paddingTop: 'max(env(safe-area-inset-top), 16px)' }}>
+          {/* 모바일 뒤로(취소) */}
+          <button type="button" onClick={onClose} className="lg:hidden p-1.5 -ml-1.5 rounded-lg" style={{ color: t.textSub }} aria-label="취소">
+            <ChevronLeft size={22} />
+          </button>
+          <h2 className="flex-1 text-center lg:flex-none lg:text-left"
+            style={{ fontSize: 17, fontWeight: 700, color: t.text }}>
             {isEdit ? '문화 기록 수정' : '문화 기록 추가'}
           </h2>
-          <button onClick={onClose} className="p-1.5 rounded-lg" style={{ color: t.textMuted }}>
+          {/* 모바일 저장 (form 제출) */}
+          <button type="submit" form="culture-form"
+            className="lg:hidden px-3 py-1.5 rounded-lg" style={{ fontSize: 14, fontWeight: 700, color: t.accent }}>
+            저장
+          </button>
+          {/* PC 닫기 */}
+          <button type="button" onClick={onClose} className="hidden lg:block p-1.5 rounded-lg" style={{ color: t.textMuted }}>
             <X size={18} />
           </button>
         </div>
 
-        <form onSubmit={handleSubmit} className="px-5 pb-5 space-y-4">
+        <form id="culture-form" onSubmit={handleSubmit}
+          className="px-4 lg:px-5 pb-5 space-y-4"
+          style={{ paddingBottom: 'calc(20px + env(safe-area-inset-bottom))' }}>
+          {/* 모바일 전용 빠른 상태 칩 (수정 모드는 즉시 반영) */}
+          <div className="lg:hidden">
+            <label style={labelStyle}>상태 *</label>
+            <div className="flex gap-1.5 overflow-x-auto pb-1" style={{ WebkitOverflowScrolling: 'touch' }}>
+              {STATUS_ORDER.map(s => {
+                const active = status === s;
+                const Icon = STATUS_META[s].icon;
+                return (
+                  <button key={s} type="button" onClick={() => handleStatusChip(s)}
+                    className="flex items-center gap-1.5 px-3 rounded-full flex-shrink-0 transition-all"
+                    style={{
+                      minHeight: 40, fontSize: 13, fontWeight: active ? 600 : 400,
+                      backgroundColor: active ? t.accent : t.bgSub,
+                      color: active ? '#fff' : t.textSub,
+                      border: `1px solid ${active ? t.accent : t.border}`,
+                    }}>
+                    <Icon size={14} /> {STATUS_META[s].label}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
           {/* TMDB 검색 토글 */}
           <div>
             <button type="button" onClick={() => setTmdbOpen(v => !v)}
@@ -208,8 +255,8 @@ export function CultureFormModal({ record, onSave, onDelete, onClose, notify }: 
             </div>
           </div>
 
-          {/* 상태 (라디오 4개) */}
-          <div>
+          {/* 상태 (라디오 4개) — PC 전용. 모바일은 상단 빠른 상태 칩 사용 */}
+          <div className="hidden lg:block">
             <label style={labelStyle}>상태 *</label>
             <div className="flex flex-wrap gap-2">
               {STATUS_ORDER.map(s => {
@@ -274,23 +321,23 @@ export function CultureFormModal({ record, onSave, onDelete, onClose, notify }: 
               placeholder="예: 스릴러, 정주행, 추천" style={fieldStyle} />
           </div>
 
-          {/* 버튼 */}
+          {/* 버튼 — 모바일은 삭제만(저장/취소는 헤더), PC는 삭제+취소+저장 */}
           <div className="flex items-center gap-2 pt-1">
             {isEdit && onDelete && (
               <button type="button" onClick={() => onDelete(record!.id)}
-                className="flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl transition-colors"
-                style={{ backgroundColor: t.dangerLight, color: t.danger, fontSize: 13, fontWeight: 600 }}>
-                <Trash2 size={14} /> 삭제
+                className="flex items-center justify-center gap-1.5 flex-1 lg:flex-none px-3 rounded-xl transition-colors"
+                style={{ backgroundColor: t.dangerLight, color: t.danger, fontSize: 14, fontWeight: 600, minHeight: 46 }}>
+                <Trash2 size={15} /> 삭제
               </button>
             )}
-            <div className="flex-1" />
+            <div className="flex-1 hidden lg:block" />
             <button type="button" onClick={onClose}
-              className="px-4 py-2 rounded-xl transition-colors"
+              className="hidden lg:block px-4 py-2 rounded-xl transition-colors"
               style={{ backgroundColor: t.bgSub, color: t.textSub, fontSize: 13, fontWeight: 500, border: `1px solid ${t.border}` }}>
               취소
             </button>
             <button type="submit"
-              className="px-5 py-2 rounded-xl transition-colors"
+              className="hidden lg:block px-5 py-2 rounded-xl transition-colors"
               style={{ backgroundColor: t.accent, color: '#fff', fontSize: 13, fontWeight: 600 }}>
               저장
             </button>
