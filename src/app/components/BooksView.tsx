@@ -1,8 +1,7 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
-import { Search, X, Plus, BookOpen, ChevronRight, Tag, Trash2, BookMarked, Mic, Star } from 'lucide-react';
+import { Search, X, Plus, BookOpen, ChevronRight, ChevronLeft, Tag, Trash2, BookMarked, Mic, Star } from 'lucide-react';
 import { useTheme } from '../ThemeContext';
 import { format } from 'date-fns';
-import { ko } from 'date-fns/locale';
 import ConfirmModal from './ConfirmModal';
 import { supabase } from '../../lib/supabase';
 import { useRealtimeSync } from '../hooks/useRealtimeSync';
@@ -160,207 +159,94 @@ function getSpineProps(title: string, idx: number) {
   return { color: SPINE_PALETTE[colorIdx], height };
 }
 
-function shadeColor(hex: string, amount: number): string {
-  const num = parseInt(hex.replace('#', ''), 16);
-  const r = Math.max(0, Math.min(255, (num >> 16) + amount));
-  const g = Math.max(0, Math.min(255, ((num >> 8) & 0xff) + amount));
-  const b = Math.max(0, Math.min(255, (num & 0xff) + amount));
-  return `#${((r << 16) | (g << 8) | b).toString(16).padStart(6, '0')}`;
-}
-
-// ─── 책탑 채우기 ─────────────────────────────────────────────────────────
-function BookTower({ books, onSelect, t }: { books: Book[]; onSelect: (b: Book) => void; t: any }) {
-  const monthMap = new Map<string, Book[]>();
-  [...books]
+// ─── 월별 책탑 (연도별) ───────────────────────────────────────────────────
+function MonthlyTower({
+  books,
+  year,
+  onSelect,
+  t,
+}: {
+  books: Book[];
+  year: number;
+  onSelect: (b: Book) => void;
+  t: any;
+}) {
+  // 선택 연도의 완독 책을 월별로 그룹화 (읽은 달만)
+  const monthMap = new Map<number, Book[]>();
+  books
+    .filter(b => b.status === 'done')
+    .filter(b => (b.finishDate ?? b.addedAt).startsWith(String(year)))
     .sort((a, b) => (a.finishDate ?? a.addedAt).localeCompare(b.finishDate ?? b.addedAt))
     .forEach(book => {
-      const key = (book.finishDate ?? book.addedAt).slice(0, 7);
-      if (!monthMap.has(key)) monthMap.set(key, []);
-      monthMap.get(key)!.push(book);
+      const m = parseInt((book.finishDate ?? book.addedAt).slice(5, 7), 10);
+      if (!monthMap.has(m)) monthMap.set(m, []);
+      monthMap.get(m)!.push(book);
     });
 
-  const months = Array.from(monthMap.entries());
+  const entries = Array.from(monthMap.entries()).sort((a, b) => a[0] - b[0]);
 
-  return (
-    <div style={{ overflowX: 'auto', scrollbarWidth: 'none', paddingBottom: 4 }}>
-      <div style={{ display: 'flex', gap: 16, alignItems: 'flex-end', minWidth: 'min-content', padding: '0 2px 0 2px' }}>
-        {months.map(([monthKey, monthBooks]) => {
-          const label = `${parseInt(monthKey.split('-')[1])}월`;
-          return (
-            <div key={monthKey} style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start' }}>
-              <div style={{ display: 'flex', flexDirection: 'column-reverse', gap: 2 }}>
-                {monthBooks.map((book) => {
-                  const idx = books.indexOf(book);
-                  const { color } = getSpineProps(book.title, idx);
-                  const pages = book.totalPages || 200;
-                  const barW = Math.min(160, Math.max(72, Math.round(pages / 3.5)));
-                  return (
-                    <button
-                      key={book.id}
-                      onClick={() => onSelect(book)}
-                      title={`${book.title} (${book.totalPages ? book.totalPages + 'p' : '?'})`}
-                      style={{
-                        width: barW, height: 22,
-                        backgroundColor: color,
-                        borderRadius: 4,
-                        border: 'none', cursor: 'pointer',
-                        display: 'flex', alignItems: 'center',
-                        paddingLeft: 7, paddingRight: 7, overflow: 'hidden',
-                        flexShrink: 0,
-                        boxShadow: '0 1px 4px rgba(0,0,0,0.1)',
-                        transition: 'transform 0.13s, filter 0.13s',
-                      }}
-                      onMouseEnter={e => {
-                        (e.currentTarget as HTMLButtonElement).style.transform = 'translateX(3px)';
-                        (e.currentTarget as HTMLButtonElement).style.filter = 'brightness(1.08)';
-                      }}
-                      onMouseLeave={e => {
-                        (e.currentTarget as HTMLButtonElement).style.transform = 'translateX(0)';
-                        (e.currentTarget as HTMLButtonElement).style.filter = 'brightness(1)';
-                      }}
-                    >
-                      <span style={{
-                        fontSize: 9, color: 'rgba(0,0,0,0.52)', fontWeight: 700,
-                        whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
-                        pointerEvents: 'none',
-                      }}>
-                        {book.title}
-                      </span>
-                    </button>
-                  );
-                })}
-              </div>
-              {/* 선반 */}
-              <div style={{ width: '100%', height: 3, backgroundColor: '#C4A882', marginTop: 3, borderRadius: 1, minWidth: 72 }} />
-              <span style={{ fontSize: 9, color: t.textMuted, marginTop: 3, fontWeight: 600 }}>{label}</span>
-            </div>
-          );
-        })}
-      </div>
-    </div>
-  );
-}
-
-// ─── 독서 마을 채우기 ─────────────────────────────────────────────────────
-function BookVillage({ books, onSelect, t }: { books: Book[]; onSelect: (b: Book) => void; t: any }) {
-  const [hovered, setHovered] = useState<string | null>(null);
-
-  return (
-    <div>
-      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, padding: '4px 0 2px' }}>
-        {books.map((book, idx) => {
-          const { color } = getSpineProps(book.title, idx);
-          const roofColor = shadeColor(color, -22);
-          const isHov = hovered === book.id;
-          return (
-            <div key={book.id} style={{ position: 'relative', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-              <button
-                onClick={() => onSelect(book)}
-                onMouseEnter={() => setHovered(book.id)}
-                onMouseLeave={() => setHovered(null)}
-                style={{
-                  border: 'none', background: 'none', cursor: 'pointer', padding: 0,
-                  display: 'flex', flexDirection: 'column', alignItems: 'center',
-                  transform: isHov ? 'translateY(-4px)' : 'translateY(0)',
-                  transition: 'transform 0.15s',
-                }}
-              >
-                {/* 지붕 */}
-                <div style={{
-                  width: 0, height: 0,
-                  borderLeft: '20px solid transparent',
-                  borderRight: '20px solid transparent',
-                  borderBottom: `15px solid ${roofColor}`,
-                  filter: 'drop-shadow(0 -1px 2px rgba(0,0,0,0.08))',
-                }} />
-                {/* 벽 */}
-                <div style={{
-                  width: 32, height: 28,
-                  backgroundColor: color,
-                  borderRadius: '0 0 4px 4px',
-                  display: 'flex', alignItems: 'flex-end', justifyContent: 'center',
-                  boxShadow: '0 2px 5px rgba(0,0,0,0.1)',
-                }}>
-                  {/* 문 */}
-                  <div style={{
-                    width: 9, height: 13,
-                    backgroundColor: 'rgba(0,0,0,0.14)',
-                    borderRadius: '3px 3px 0 0',
-                  }} />
-                </div>
-              </button>
-              {/* 호버 툴팁 */}
-              {isHov && (
-                <div style={{
-                  position: 'absolute', bottom: '110%', left: '50%',
-                  transform: 'translateX(-50%)',
-                  backgroundColor: 'rgba(40,30,20,0.82)',
-                  color: '#fff', fontSize: 9, fontWeight: 600,
-                  padding: '3px 7px', borderRadius: 6,
-                  whiteSpace: 'nowrap', maxWidth: 120, overflow: 'hidden', textOverflow: 'ellipsis',
-                  pointerEvents: 'none', zIndex: 10,
-                }}>
-                  {book.title}
-                </div>
-              )}
-            </div>
-          );
-        })}
-      </div>
-      {/* 잔디 */}
-      <div style={{
-        height: 4, marginTop: 6,
-        background: 'linear-gradient(to right, #C8DDB8, #B8D8C8, #C8DDB8)',
-        borderRadius: 2,
-      }} />
-    </div>
-  );
-}
-
-// ─── 완독 뷰 래퍼 (토글) ─────────────────────────────────────────────────
-function DoneBookshelf({ books, onSelect, t }: { books: Book[]; onSelect: (b: Book) => void; t: any }) {
-  const [view, setView] = useState<'tower' | 'village'>('tower');
-  if (books.length === 0) return null;
+  if (entries.length === 0) {
+    return (
+      <p style={{ fontSize: 12, color: t.textMuted, textAlign: 'center', padding: '24px 0' }}>
+        {year}년 완독 기록이 없어요
+      </p>
+    );
+  }
 
   return (
     <div style={{
-      backgroundColor: t.card,
-      border: `1px solid ${t.border}`,
-      borderRadius: 16,
-      padding: '14px 14px 12px 14px',
-      marginBottom: 12,
+      display: 'grid',
+      gridTemplateColumns: 'repeat(6, minmax(0, 1fr))',
+      rowGap: 16,
+      columnGap: 6,
+      alignItems: 'end',
     }}>
-      {/* 헤더 */}
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
-        <p style={{ fontSize: 12, fontWeight: 700, color: t.textSub }}>
-          {view === 'tower' ? '📚 책탑 채우기' : '🏘 독서 마을 채우기'}
-        </p>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          <span style={{ fontSize: 11, color: '#F4A582', fontWeight: 700 }}>{books.length}권</span>
-          {/* 뷰 토글 */}
-          <div style={{ display: 'flex', borderRadius: 8, overflow: 'hidden', border: `1px solid ${t.border}` }}>
-            {(['tower', 'village'] as const).map(v => (
-              <button
-                key={v}
-                onClick={() => setView(v)}
-                style={{
-                  padding: '3px 9px', fontSize: 10, fontWeight: 600,
-                  backgroundColor: view === v ? '#F4A582' : 'transparent',
-                  color: view === v ? '#fff' : t.textSub,
-                  border: 'none', cursor: 'pointer',
-                  transition: 'background-color 0.15s',
-                }}
-              >
-                {v === 'tower' ? '책탑' : '마을'}
-              </button>
-            ))}
+      {entries.map(([m, monthBooks]) => {
+        // 6칸 줄바꿈 — 7월이 1월 아래(같은 열)에 오도록 고정 배치
+        const col = ((m - 1) % 6) + 1;
+        const row = Math.floor((m - 1) / 6) + 1;
+        return (
+          <div key={m} style={{ gridColumn: col, gridRow: row, display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+            {/* 쌓인 책들 (삐뚤빼뚤) */}
+            <div style={{ display: 'flex', flexDirection: 'column-reverse', alignItems: 'center', gap: 2, width: '100%' }}>
+              {monthBooks.map(book => {
+                const idx = books.indexOf(book);
+                const { color, height } = getSpineProps(book.title, idx);
+                const widthPct = 64 + (height % 30);   // 64~93%
+                const dx = (height % 7) - 3;            // -3 ~ +3 px
+                const rot = ((height % 5) - 2) * 0.6;   // -1.2 ~ +1.2deg
+                return (
+                  <button
+                    key={book.id}
+                    onClick={() => onSelect(book)}
+                    title={`${book.title}${book.totalPages ? ` (${book.totalPages}p)` : ''}`}
+                    style={{
+                      width: `${widthPct}%`,
+                      height: 14,
+                      backgroundColor: color,
+                      borderRadius: 3,
+                      border: 'none',
+                      cursor: 'pointer',
+                      flexShrink: 0,
+                      transform: `translateX(${dx}px) rotate(${rot}deg)`,
+                      boxShadow: '0 1px 3px rgba(0,0,0,0.12)',
+                      transition: 'filter 0.13s',
+                    }}
+                    onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.filter = 'brightness(1.08)'; }}
+                    onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.filter = 'brightness(1)'; }}
+                  />
+                );
+              })}
+            </div>
+            {/* 선반 */}
+            <div style={{ width: '100%', height: 3, backgroundColor: '#C4A882', marginTop: 4, borderRadius: 1 }} />
+            {/* 월 · 권수 */}
+            <span style={{ fontSize: 9, color: t.textSub, marginTop: 3, fontWeight: 600, whiteSpace: 'nowrap' }}>
+              {m}월 · {monthBooks.length}권
+            </span>
           </div>
-        </div>
-      </div>
-      {view === 'tower'
-        ? <BookTower books={books} onSelect={onSelect} t={t} />
-        : <BookVillage books={books} onSelect={onSelect} t={t} />
-      }
+        );
+      })}
     </div>
   );
 }
@@ -1407,7 +1293,7 @@ function QuotesPanel({
 }
 
 // ─── 통계 패널 ──────────────────────────────────────────────────────────
-function StatsPanel({ books }: { books: Book[] }) {
+function StatsPanel({ books, onSelect }: { books: Book[]; onSelect: (b: Book) => void }) {
   // 이달의 문장
   const currentMonth = format(new Date(), 'yyyy-MM');
   const allFavQuotes = books.flatMap(b =>
@@ -1423,6 +1309,7 @@ function StatsPanel({ books }: { books: Book[] }) {
       : null;
   const { t } = useTheme();
   const currentYear = new Date().getFullYear();
+  const [viewYear, setViewYear] = useState(currentYear);
 
   const doneBooks = books.filter(b => b.status === 'done');
   const yearDone = doneBooks.filter(b =>
@@ -1432,20 +1319,10 @@ function StatsPanel({ books }: { books: Book[] }) {
     (b.finishDate ?? b.addedAt).startsWith(currentMonth)
   );
 
-  // 월별 독서량 (최근 6개월)
-  const monthlyData: { label: string; count: number }[] = [];
-  for (let i = 5; i >= 0; i--) {
-    const d = new Date();
-    d.setMonth(d.getMonth() - i);
-    const key = format(d, 'yyyy-MM');
-    const label = format(d, 'M월', { locale: ko });
-    const count = doneBooks.filter(b =>
-      (b.finishDate ?? b.addedAt).startsWith(key)
-    ).length;
-    monthlyData.push({ label, count });
-  }
-
-  const maxCount = Math.max(...monthlyData.map(d => d.count), 1);
+  // 선택 연도 완독 권수 (책탑 헤더 표시용)
+  const viewYearDoneCount = doneBooks.filter(b =>
+    (b.finishDate ?? b.addedAt).startsWith(String(viewYear))
+  ).length;
 
   const panel = {
     backgroundColor: t.card,
@@ -1474,56 +1351,39 @@ function StatsPanel({ books }: { books: Book[] }) {
         ))}
       </div>
 
-      {/* 월별 바 차트 */}
+      {/* 월별 책탑 (연도별) */}
       <div style={panel}>
-        <p style={{ fontSize: 12, fontWeight: 700, color: t.textSub, marginBottom: 12 }}>
-          월별 완독 현황
-        </p>
-        <div className="flex items-end gap-2" style={{ height: 80 }}>
-          {monthlyData.map(d => (
-            <div key={d.label} className="flex-1 flex flex-col items-center gap-1">
-              <span style={{ fontSize: 10, color: t.accent, fontWeight: 700, minHeight: 14 }}>
-                {d.count > 0 ? d.count : ''}
-              </span>
-              <div className="w-full rounded-t-md transition-all"
-                style={{
-                  height: d.count === 0 ? 4 : Math.max(8, (d.count / maxCount) * 56),
-                  backgroundColor: d.count > 0 ? t.accent : t.bgSub,
-                }}
-              />
-              <span style={{ fontSize: 10, color: t.textMuted }}>{d.label}</span>
-            </div>
-          ))}
-        </div>
-      </div>
-
-      {/* 읽는 중 */}
-      {books.filter(b => b.status === 'reading').length > 0 && (
-        <div style={panel}>
-          <p style={{ fontSize: 12, fontWeight: 700, color: t.textSub, marginBottom: 10 }}>
-            현재 읽는 중 ({books.filter(b => b.status === 'reading').length}권)
+        <div className="flex items-center justify-between" style={{ marginBottom: 14 }}>
+          <p style={{ fontSize: 12, fontWeight: 700, color: t.textSub }}>
+            월별 완독 현황
           </p>
-          <div className="space-y-3">
-            {books.filter(b => b.status === 'reading').map(b => (
-              <div key={b.id}>
-                <div className="flex justify-between items-center mb-1">
-                  <span style={{ fontSize: 12, color: t.text }} className="truncate flex-1 mr-2">
-                    {b.title}
-                  </span>
-                  <span style={{ fontSize: 11, color: t.accent, fontWeight: 700 }}>
-                    {progressPct(b)}%
-                  </span>
-                </div>
-                <div className="h-1.5 rounded-full overflow-hidden" style={{ backgroundColor: t.bgSub }}>
-                  <div className="h-full rounded-full"
-                    style={{ width: `${progressPct(b)}%`, backgroundColor: STATUS_COLORS.reading }}
-                  />
-                </div>
-              </div>
-            ))}
+          {/* 연도 네비게이션 */}
+          <div className="flex items-center gap-1.5">
+            <button
+              onClick={() => setViewYear(y => y - 1)}
+              className="p-1 rounded-lg transition-colors"
+              style={{ color: t.textSub }}
+              title="이전 해"
+            >
+              <ChevronLeft size={15} />
+            </button>
+            <span style={{ fontSize: 12, fontWeight: 700, color: t.text, minWidth: 64, textAlign: 'center' }}>
+              {viewYear}년
+              <span style={{ fontSize: 10, color: t.accent, fontWeight: 700, marginLeft: 4 }}>{viewYearDoneCount}권</span>
+            </span>
+            <button
+              onClick={() => setViewYear(y => Math.min(currentYear, y + 1))}
+              disabled={viewYear >= currentYear}
+              className="p-1 rounded-lg transition-colors"
+              style={{ color: viewYear >= currentYear ? t.textMuted : t.textSub, opacity: viewYear >= currentYear ? 0.35 : 1 }}
+              title="다음 해"
+            >
+              <ChevronRight size={15} />
+            </button>
           </div>
         </div>
-      )}
+        <MonthlyTower books={books} year={viewYear} onSelect={onSelect} t={t} />
+      </div>
 
       {/* 이달의 문장 */}
       {featuredQuote && (
@@ -1749,7 +1609,7 @@ export function BooksView() {
             <p style={{ fontSize: 13, color: t.textMuted }}>불러오는 중...</p>
           </div>
         ) : activeTab === 'stats' ? (
-          <StatsPanel books={books} />
+          <StatsPanel books={books} onSelect={setSelectedBook} />
         ) : activeTab === 'quotes' ? (
           <QuotesPanel books={books} onToggleFavorite={handleToggleFavoriteGlobal} />
         ) : filteredBooks.length === 0 ? (
@@ -1770,9 +1630,6 @@ export function BooksView() {
           </div>
         ) : (
           <div className="space-y-3">
-            {activeTab === 'done' && (
-              <DoneBookshelf books={filteredBooks} onSelect={setSelectedBook} t={t} />
-            )}
             {filteredBooks.map(book => {
               const pct = progressPct(book);
               return (
