@@ -117,40 +117,41 @@ export function TMDBSearchPanel({ onSelect, notify }: TMDBSearchPanelProps) {
         </div>
       )}
 
-      {/* 모바일: 썸네일 좌측 1열 리스트 */}
+      {/* 모바일: 3열 포스터 그리드 */}
       {results.length > 0 && (
-        <div className="lg:hidden flex flex-col gap-2 max-h-[46vh] overflow-y-auto"
+        <div className="lg:hidden grid grid-cols-3 gap-2 max-h-[46vh] overflow-y-auto"
           style={{ WebkitOverflowScrolling: 'touch' }}>
           {results.map(r => {
             const poster = getPosterUrl(r.poster_path);
             return (
               <button key={`${r.type}-${r.id}`} type="button"
                 onClick={() => onSelect(r)}
-                className="flex items-stretch gap-3 text-left rounded-xl overflow-hidden"
-                style={{ backgroundColor: t.card, border: `1px solid ${t.border}` }}>
-                <div className="relative flex-shrink-0" style={{ width: 64, backgroundColor: t.bgSub }}>
+                className="text-left flex flex-col active:opacity-70 transition-opacity">
+                {/* 포스터 (2:3 비율) */}
+                <div className="relative rounded-lg overflow-hidden w-full"
+                  style={{ aspectRatio: '2 / 3', backgroundColor: t.bgSub }}>
                   {poster
-                    ? <img src={poster} alt={r.title} className="w-full h-full object-cover" style={{ aspectRatio: '2 / 3' }} />
+                    ? <img src={poster} alt={r.title || r.original_title}
+                        className="w-full h-full object-cover" />
                     : <div className="w-full h-full flex items-center justify-center"
-                        style={{ aspectRatio: '2 / 3', fontSize: 9, color: t.textMuted }}>없음</div>}
+                        style={{ fontSize: 9, color: t.textMuted }}>없음</div>}
+                  {/* 유형 뱃지 */}
+                  <span className="absolute top-1 left-1 px-1.5 py-0.5 rounded"
+                    style={{ fontSize: 9, fontWeight: 700, color: '#fff',
+                      backgroundColor: r.type === 'movie' ? 'rgba(196,168,130,0.9)' : 'rgba(107,170,122,0.9)' }}>
+                    {r.type === 'movie' ? '영화' : 'TV'}
+                  </span>
                 </div>
-                <div className="flex-1 min-w-0 py-2 pr-3 flex flex-col justify-center">
-                  <p style={{ fontSize: 13, fontWeight: 600, color: t.text, lineHeight: 1.3,
+                {/* 제목 + 연도 */}
+                <div className="mt-1 px-0.5">
+                  <p style={{ fontSize: 11, fontWeight: 600, color: t.text, lineHeight: 1.3,
                     overflow: 'hidden', textOverflow: 'ellipsis', display: '-webkit-box',
                     WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' as const }}>
                     {r.title || r.original_title}
                   </p>
-                  {r.original_title && r.original_title !== r.title && (
-                    <p style={{ fontSize: 11, color: t.textMuted, overflow: 'hidden',
-                      textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.original_title}</p>
+                  {r.year && (
+                    <p style={{ fontSize: 10, color: t.textMuted, marginTop: 1 }}>{r.year}</p>
                   )}
-                  <span className="flex items-center gap-1.5 mt-0.5" style={{ fontSize: 11, color: t.textMuted }}>
-                    <span className="px-1.5 py-0.5 rounded"
-                      style={{ fontSize: 9, fontWeight: 600, color: '#fff', backgroundColor: t.accent }}>
-                      {r.type === 'movie' ? '영화' : 'TV'}
-                    </span>
-                    {r.year}
-                  </span>
                 </div>
               </button>
             );
