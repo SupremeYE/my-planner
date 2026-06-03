@@ -61,8 +61,9 @@ function UserAvatarMenu() {
           className="fixed rounded-xl py-1.5 z-50"
           style={{
             top: (ref.current?.getBoundingClientRect().bottom ?? 0) + 6,
-            left: (ref.current?.getBoundingClientRect().left ?? 0),
+            right: Math.max(8, window.innerWidth - (ref.current?.getBoundingClientRect().right ?? 0)),
             minWidth: 200,
+            maxWidth: 'calc(100vw - 16px)',
             backgroundColor: t.card,
             border: `1px solid ${t.border}`,
             boxShadow: '0 10px 25px rgba(0,0,0,0.12)',
