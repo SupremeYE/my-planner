@@ -5,7 +5,7 @@ import {
   ChevronLeft, ChevronRight, Target, FolderKanban, Plus, Home,
   Menu, Heart, Repeat, BookOpen, Library, Settings, BarChart3,
   Smile, Utensils, Camera, NotebookPen, Clapperboard,
-  User, LogOut,
+  User, LogOut, Mail,
 } from 'lucide-react';
 import { usePlanner, getWeekKey } from '../store';
 import { useTheme } from '../ThemeContext';
@@ -74,11 +74,18 @@ function UserAvatarMenu() {
             {email && <p style={{ fontSize: 10, color: t.textMuted, marginTop: 2 }}>{email}</p>}
           </div>
           <button
-            onClick={() => { setOpen(false); setAccountOpen(true); }}
+            onClick={() => { setOpen(false); navigate('/profile'); }}
             className="w-full text-left px-3 py-2 flex items-center gap-2 hover:bg-opacity-80 transition-colors"
             style={{ fontSize: 12, color: t.text }}
           >
             <User size={14} color={t.textMuted} /> 프로필
+          </button>
+          <button
+            onClick={() => { setOpen(false); setAccountOpen(true); }}
+            className="w-full text-left px-3 py-2 flex items-center gap-2 hover:bg-opacity-80 transition-colors"
+            style={{ fontSize: 12, color: t.text }}
+          >
+            <Mail size={14} color={t.textMuted} /> 계정 설정
           </button>
           <button
             onClick={() => { setOpen(false); navigate('/settings'); }}
