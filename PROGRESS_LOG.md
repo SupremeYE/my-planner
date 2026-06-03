@@ -9,12 +9,14 @@
 ## 2026-06-03
 
 ### 📋 TODO
-- [ ] 문화 기록 Stage 4: daily-report Edge Function 연동(오늘 본 콘텐츠) + 통계/대시보드
+- [ ] (향후) 문화 기록 통계/대시보드 + Claude API 인사이트(별점 4+ 하이라이트, 주간/월간 통계)
 - [ ] 로컬 `.env` 에 `VITE_TMDB_API_TOKEN` 추가 (Vercel엔 이미 등록, 로컬 개발 시 필요)
 - [ ] (선택) 캘린더 `CalendarView.tsx` 미사용 `WeekView` 함수(약 350줄)·미사용 상수 3개 제거
 
 ### ✅ 완료
 - [x] 문화 기록 Stage 4 — 저녁 Discord 리포트(daily-report)에 "오늘의 문화 기록" 섹션 추가
+- [x] daily-report Edge Function 배포(v6) + pg_net 수동호출로 0/2/9 케이스 실제 Discord 검증(모두 200)
+- [x] 문화 기록 리포트 섹션 항목 간 세로 여백 확대(헤더 아래 1줄·항목 사이 2줄)
 - [x] `DAILY_REPORT_SCHEMA.md` 신규 작성 (저녁 리포트 전체 명세 + 문화 섹션)
 - [x] 문화 기록 페이지(`/culture`) 신규 추가 — Stage 1 PC 레이아웃
 - [x] `culture_records` 테이블 마이그레이션 작성 + Supabase(my-planner) 적용
@@ -30,6 +32,13 @@
 - [x] 수면 블록을 타임라인 설정에 맞춰 두 날짜 컬럼에 걸쳐 표시 (절대 시간축 기준 컬럼 분할로 전환)
 
 ### 🛠 오늘 작업 내용
+
+**①-5 Stage 4 배포·검증 + 리포트 여백 조정**
+- Supabase MCP `deploy_edge_function`으로 `daily-report` 배포(v5→v6, verify_jwt 유지)
+- 컨테이너 egress가 `*.supabase.co` 차단(`host_not_allowed`) → cron과 동일한 **서버사이드 `pg_net`(`net.http_post`)**으로 함수 호출
+- 0개/2개/9개 케이스 전송 → `net._http_response` 모두 **200 ok**, Discord 정상 수신 확인(8개+`외 N개`, 80자 `…` 발췌, watchlist 별점 생략)
+- 테스트 데이터는 `tags @> '{stage4-test}'`로만 삽입/삭제 → 실데이터 무영향, 검증 후 전량 정리(오늘 KST 0건 복구)
+- 피드백 반영: 문화 섹션 항목 간 간격이 빽빽 → 헤더 아래 1줄·항목 사이 2줄로 여백 확대 후 재배포·재검증
 
 **①-4 문화 기록 Stage 4 — 저녁 Discord 리포트 연동 (백엔드)**
 - 분석: Edge Function은 `daily-report` **단일** 함수. 아침/저녁 별도 함수 없음 — 저녁 cron `daily-report-evening`(`59 14 * * *` UTC = 23:59 KST)이 이 함수를 호출(아침 cron은 README 주석 처리). plain text 1 메시지, 섹션별 try/catch, 빈 상태는 "기록 없음" 표시(섹션 생략 X)
