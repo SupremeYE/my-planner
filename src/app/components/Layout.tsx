@@ -630,7 +630,7 @@ export function Layout() {
       </div>
 
       {/* ── Mobile ── */}
-      <div className="lg:hidden flex flex-col min-h-screen">
+      <div className="lg:hidden flex flex-col h-[100dvh]">
         {/* Mobile top bar */}
         <div className="flex items-center justify-between px-4 py-3 border-b flex-shrink-0"
           style={{ backgroundColor: t.sidebar, borderColor: t.border }}>
@@ -644,7 +644,7 @@ export function Layout() {
           </button>
         </div>
 
-        <main className="flex-1 overflow-y-auto overflow-x-hidden pb-16" style={{ backgroundColor: t.bg }}>
+        <main className="flex-1 overflow-y-auto overflow-x-hidden overscroll-contain pb-16" style={{ backgroundColor: t.bg }}>
           <NotificationPermissionBanner />
           <Outlet />
         </main>

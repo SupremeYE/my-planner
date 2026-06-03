@@ -124,8 +124,19 @@
     @apply border-border outline-ring/50;
   }
 
+  /* 앱 셸을 뷰포트에 고정 → 문서 자체 스크롤/바운스 제거.
+     모든 스크롤은 내부 overflow 컨테이너에서만 발생한다. */
+  html,
+  body,
+  #root {
+    height: 100%;
+  }
+
   body {
     @apply bg-background text-foreground;
+    overflow: hidden;
+    /* iOS 고무줄(rubber-band) 오버스크롤·스크롤 체이닝 차단 (가로 스와이프 시 화면 퉁퉁거림 방지) */
+    overscroll-behavior: none;
   }
 
   /**
