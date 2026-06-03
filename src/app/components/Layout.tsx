@@ -1,17 +1,102 @@
-import React, { useState } from 'react';
-import { Outlet, NavLink, useLocation } from 'react-router';
+import React, { useState, useRef, useEffect } from 'react';
+import { Outlet, NavLink, useLocation, useNavigate } from 'react-router';
 import {
   Sun, CalendarDays, BarChart2, ListTodo,
   ChevronLeft, ChevronRight, Target, FolderKanban, Plus, Home,
   Menu, Heart, Repeat, BookOpen, Library, Settings, BarChart3,
   Smile, Utensils, Camera, NotebookPen, Clapperboard,
+  User, LogOut,
 } from 'lucide-react';
 import { usePlanner, getWeekKey } from '../store';
 import { useTheme } from '../ThemeContext';
+import { useAuth } from '../AuthContext';
 import { format, startOfMonth, getDaysInMonth, getDay, addMonths, subMonths } from 'date-fns';
 import { PROJECT_COLORS } from './ProjectView';
 import { NotificationPermissionBanner } from './NotificationPermissionBanner';
 import { HaonLogo } from './HaonLogo';
+
+// ── User Avatar with Dropdown (계정 정보 + 프로필/설정/로그아웃) ──
+function UserAvatarMenu() {
+  const { t } = useTheme();
+  const { session, signOut } = useAuth();
+  const navigate = useNavigate();
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const onClick = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    };
+    document.addEventListener('mousedown', onClick);
+    return () => document.removeEventListener('mousedown', onClick);
+  }, []);
+
+  const email = session?.user?.email || '';
+  const name = (session?.user?.user_metadata as any)?.name || email.split('@')[0] || '게스트';
+  const initial = name.charAt(0).toUpperCase();
+
+  const size = 30;
+
+  return (
+    <div ref={ref} className="relative flex-shrink-0">
+      <button
+        onClick={() => setOpen(v => !v)}
+        className="rounded-full transition-transform hover:scale-105 flex items-center justify-center"
+        style={{
+          width: size, height: size,
+          background: 'linear-gradient(135deg, #FFD89A 0%, #F4A582 55%, #A8C8E8 100%)',
+          color: '#fff',
+          fontSize: 12,
+          fontWeight: 700,
+          boxShadow: '0 1px 3px rgba(244,165,130,0.35)',
+        }}
+        title={name}
+      >
+        {initial}
+      </button>
+      {open && (
+        <div
+          className="fixed rounded-xl py-1.5 z-50"
+          style={{
+            top: (ref.current?.getBoundingClientRect().bottom ?? 0) + 6,
+            left: (ref.current?.getBoundingClientRect().left ?? 0),
+            minWidth: 200,
+            backgroundColor: t.card,
+            border: `1px solid ${t.border}`,
+            boxShadow: '0 10px 25px rgba(0,0,0,0.12)',
+          }}
+        >
+          <div className="px-3 py-2 border-b" style={{ borderColor: t.border }}>
+            <p style={{ fontSize: 12, color: t.text, fontWeight: 700 }}>{name}</p>
+            {email && <p style={{ fontSize: 10, color: t.textMuted, marginTop: 2 }}>{email}</p>}
+          </div>
+          <button
+            onClick={() => { setOpen(false); navigate('/settings'); }}
+            className="w-full text-left px-3 py-2 flex items-center gap-2 hover:bg-opacity-80 transition-colors"
+            style={{ fontSize: 12, color: t.text }}
+          >
+            <User size={14} color={t.textMuted} /> 프로필
+          </button>
+          <button
+            onClick={() => { setOpen(false); navigate('/settings'); }}
+            className="w-full text-left px-3 py-2 flex items-center gap-2 hover:bg-opacity-80 transition-colors"
+            style={{ fontSize: 12, color: t.text }}
+          >
+            <Settings size={14} color={t.textMuted} /> 설정
+          </button>
+          <div className="border-t my-1" style={{ borderColor: t.border }} />
+          <button
+            onClick={async () => { setOpen(false); await signOut(); }}
+            className="w-full text-left px-3 py-2 flex items-center gap-2 hover:bg-opacity-80 transition-colors"
+            style={{ fontSize: 12, color: t.text }}
+          >
+            <LogOut size={14} color={t.textMuted} /> 로그아웃
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
 
 const mainNavItems = [
   { to: '/dashboard', icon: Home, label: '대시보드' },
@@ -351,21 +436,38 @@ export function Layout() {
             backgroundColor: t.sidebar,
           }}
         >
-          {/* Logo + Toggle Button */}
-          <div className="px-3 pt-4 pb-3 border-b flex items-center justify-between" style={{ borderColor: t.border }}>
-            {leftSidebarOpen && (
-              <div className="flex-1 min-w-0">
-                <HaonLogo height={36} showSubtitle />
+          {/* Logo + Avatar + Toggle Button */}
+          <div className="px-3 pt-4 pb-3 border-b" style={{ borderColor: t.border }}>
+            {leftSidebarOpen ? (
+              <div className="flex items-center justify-between gap-2">
+                <div className="flex-1 min-w-0">
+                  <HaonLogo height={36} showSubtitle />
+                </div>
+                <div className="flex items-center gap-1.5 flex-shrink-0">
+                  <UserAvatarMenu />
+                  <button
+                    onClick={() => setLeftSidebarOpen(false)}
+                    className="p-2 rounded-lg transition-colors hover:bg-opacity-80"
+                    style={{ backgroundColor: t.accentLight, color: t.accent }}
+                    title="사이드바 접기"
+                  >
+                    <Menu size={16} />
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <div className="flex flex-col items-center gap-2">
+                <UserAvatarMenu />
+                <button
+                  onClick={() => setLeftSidebarOpen(true)}
+                  className="p-2 rounded-lg transition-colors hover:bg-opacity-80"
+                  style={{ backgroundColor: t.accentLight, color: t.accent }}
+                  title="사이드바 펼치기"
+                >
+                  <Menu size={16} />
+                </button>
               </div>
             )}
-            <button
-              onClick={() => setLeftSidebarOpen(!leftSidebarOpen)}
-              className="p-2 rounded-lg transition-colors hover:bg-opacity-80 flex-shrink-0"
-              style={{ backgroundColor: t.accentLight, color: t.accent }}
-              title={leftSidebarOpen ? '사이드바 접기' : '사이드바 펼치기'}
-            >
-              <Menu size={16} />
-            </button>
           </div>
 
           {/* Main Nav */}
@@ -498,27 +600,8 @@ export function Layout() {
                 </div>
               </div>
 
-              {/* Settings — 하단 고정 */}
-              <div className="mt-auto border-t px-2 py-2" style={{ borderColor: t.border }}>
-                <NavLink
-                  to="/settings"
-                  className="flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all"
-                  style={({ isActive }) => ({
-                    ...(isActive ? navActiveStyle : navInactiveStyle),
-                    fontSize: 13,
-                  })}
-                >
-                  {({ isActive }) => (
-                    <>
-                      <Settings size={18} color={isActive ? t.text : t.textMuted} />
-                      <span>설정</span>
-                    </>
-                  )}
-                </NavLink>
-              </div>
-
-              {/* Mini Calendar — pushed to bottom */}
-              <div className="border-t" style={{ borderColor: t.border }}>
+              {/* Mini Calendar — pushed to bottom (설정은 상단 아바타 메뉴로 이동) */}
+              <div className="mt-auto border-t" style={{ borderColor: t.border }}>
                 <MiniCalendar />
               </div>
             </>
@@ -544,7 +627,7 @@ export function Layout() {
                   </NavLink>
                 ))}
               </div>
-              {/* Collapsed state - show projects icon */}
+              {/* Collapsed state - show projects icon (설정은 상단 아바타 메뉴로 이동) */}
               <div className="px-2 py-2">
                 <NavLink
                   to="/projects"
@@ -557,21 +640,6 @@ export function Layout() {
                 >
                   {({ isActive }) => (
                     <FolderKanban size={18} color={isActive ? t.text : t.textMuted} />
-                  )}
-                </NavLink>
-              </div>
-              {/* Collapsed state - settings icon */}
-              <div className="px-2 mt-auto border-t pt-2" style={{ borderColor: t.border }}>
-                <NavLink
-                  to="/settings"
-                  className="flex items-center justify-center p-3 rounded-xl transition-all"
-                  style={({ isActive }) => ({
-                    backgroundColor: isActive ? t.accentLight : 'transparent',
-                  })}
-                  title="설정"
-                >
-                  {({ isActive }) => (
-                    <Settings size={18} color={isActive ? t.text : t.textMuted} />
                   )}
                 </NavLink>
               </div>
@@ -635,13 +703,16 @@ export function Layout() {
         <div className="flex items-center justify-between px-4 py-3 border-b flex-shrink-0"
           style={{ backgroundColor: t.sidebar, borderColor: t.border }}>
           <HaonLogo height={28} />
-          <button
-            onClick={() => setMobileMenuOpen(true)}
-            className="p-2 rounded-xl transition-colors"
-            style={{ backgroundColor: t.accentLight, color: t.accent }}
-          >
-            <Menu size={16} />
-          </button>
+          <div className="flex items-center gap-2">
+            <UserAvatarMenu />
+            <button
+              onClick={() => setMobileMenuOpen(true)}
+              className="p-2 rounded-xl transition-colors"
+              style={{ backgroundColor: t.accentLight, color: t.accent }}
+            >
+              <Menu size={16} />
+            </button>
+          </div>
         </div>
 
         <main className="flex-1 overflow-y-auto overflow-x-hidden overscroll-contain pb-16" style={{ backgroundColor: t.bg }}>
