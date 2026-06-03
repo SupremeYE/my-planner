@@ -9,15 +9,40 @@
 ## 2026-06-03
 
 ### 📋 TODO
+- [ ] 문화 기록 Stage 2: 모바일 전용 레이아웃 + 유튜브/플랫폼 썸네일 자동 fetch
 - [ ] (선택) 캘린더 `CalendarView.tsx` 미사용 `WeekView` 함수(약 350줄)·미사용 상수 3개 제거
 
 ### ✅ 완료
+- [x] 문화 기록 페이지(`/culture`) 신규 추가 — Stage 1 PC 레이아웃
+- [x] `culture_records` 테이블 마이그레이션 작성 + Supabase(my-planner) 적용
+- [x] 사이드바/모바일 오버레이/탑네비에 "문화 기록" 메뉴 추가
 - [x] 캘린더 주별 Today 버튼 동작 안 함 수정 (모바일 3일 탭이 오늘 페이지로 이동)
 - [x] 캘린더 월별 뷰 모바일 좌우 스와이프로 이전/다음 달 전환 추가
 
 ### 🛠 오늘 작업 내용
 
-**① 주별 Today 버튼 수정 (`WeekViewMobile.tsx`)**
+**① 문화 기록 페이지 신규 추가 — Stage 1 (PC 전용)**
+- 목적: 영화/드라마/예능/다큐/애니/유튜브/강의 등 시청 콘텐츠 기록
+- `supabase/migrations/20260602000000_create_culture_records.sql`: `culture_records` 테이블
+  - `user_id uuid DEFAULT auth.uid()` + per-row RLS(`auth.uid() = user_id`) — `reading_logs` 패턴
+  - `supabase_realtime` publication 등록 (PC↔모바일 즉시 반영)
+  - Supabase MCP `apply_migration` 으로 운영 DB(my-planner) 적용 완료
+- `src/lib/db.ts`: `db.cultureRecords` CRUD 레이어 (user_id 미전송 → DB 기본값으로 충전)
+- `src/app/store.tsx`: `CultureRecord` 타입 + 플랫폼/유형/상태 유니온 타입 추가
+- `src/app/components/CultureRecordView.tsx`: 페이지
+  - 포스터 그리드(PC 6열, 2:3), 썸네일 또는 플랫폼 그라데이션+유형 아이콘 placeholder
+  - 좌상단 플랫폼 미니뱃지 / 우상단 상태 아이콘 / 하단 제목+골드 별점, hover 리프트
+  - 플랫폼·유형·상태 칩 다중 필터 + 제목/태그 검색 + 정렬(기록일/본날짜/별점)
+  - 빈 상태 UI, `useRealtimeSync('culture_records', refresh)` 구독
+- `src/app/components/culture/CultureFormModal.tsx`: 추가/수정 모달 (제목·URL·플랫폼·유형·상태·본날짜·썸네일·별점·리뷰·인사이트·태그, 저장/취소/삭제)
+- `src/app/components/culture/StarRating.tsx`: 0.5단위 반쪽 별, read-only/인터랙티브
+- `src/app/components/culture/cultureMeta.ts`: 플랫폼/유형/상태 라벨·색상·아이콘 메타
+- `src/app/routes.tsx`: `/culture` 라우트 연결
+- `src/app/components/Layout.tsx` / `LayoutC.tsx`: "문화 기록"(Clapperboard) 메뉴 추가
+- 디자인 시스템 토큰만 사용, 기존 페이지 PC 레이아웃 미변경
+- 메모: 작업 지시서의 `.jsx`/`src/pages/` 대신, 저장소 규칙(TS·`src/app/components/XxxView.tsx`)에 맞춰 `.tsx`로 구현
+
+**② 주별 Today 버튼 수정 (`WeekViewMobile.tsx`)**
 - 증상: 주별 화면에서 Today 버튼을 눌러도 동작하지 않는 것처럼 보임
 - 원인: 모바일 주별 기본 탭인 **3일 탭(`ThreeDayView`)** 은 내부 `page`(0/1/2) 상태를 가지는데,
   Today 클릭 시 `viewDate` 는 오늘 주로 바뀌어도 페이지가 **항상 0(주의 첫 3일)으로만 리셋** 되어
@@ -26,12 +51,14 @@
   `days[0]` 변경 → `[days, selectedDate]` 기준으로 변경하여 **선택 날짜(=오늘)가 포함된 페이지로 이동**
 - 부수효과: 화면 첫 진입 시에도 오늘이 보이는 페이지로 열림
 
-**② 월별 모바일 좌우 스와이프 추가 (`CalendarView.tsx`)**
+**③ 월별 모바일 좌우 스와이프 추가 (`CalendarView.tsx`)**
 - 월별 캘린더 카드에 `onTouchStart/onTouchEnd` 추가 → 왼쪽 스와이프=다음 달 / 오른쪽 스와이프=이전 달
 - 가로 이동이 세로보다 크고 50px 초과일 때만 발동 → 날짜 탭/세로 스크롤과 오인 방지
 - PC 는 마우스라 터치 이벤트 미발생 → PC 레이아웃·동작 영향 없음 (모바일 전용 보완)
 
 ---
+
+## 2026-06-02
 
 ### 📋 TODO
 

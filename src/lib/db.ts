@@ -6,7 +6,7 @@ import type {
   SelfCareRecord, ReviewRecord, WeeklyReview, MonthlyReview, TimelineLog,
   FoodRecord, DiningType, TasteRating, Event, WeeklyGoal, MonthlyGoal, BrainstormItem, Tag, Routine,
   PeriodRecord, HabitMonthlyMemo, AnnualGoal, QuarterlyGoal,
-  WeightRecord, WeightGoal, ConditionRecord,
+  WeightRecord, WeightGoal, ConditionRecord, CultureRecord,
 } from '../app/store';
 
 function parseAnnualProfilesFromDb(raw: unknown): Record<string, { identity: string; values: string[] }> {
@@ -1102,6 +1102,53 @@ export const db = {
     delete: async (id: string) => {
       const { error } = await supabase.from('condition_records').delete().eq('id', id);
       if (error) console.error('[db] condition_records delete:', error.message);
+    },
+  },
+
+  cultureRecords: {
+    fetchAll: async (): Promise<CultureRecord[]> => {
+      const { data, error } = await supabase
+        .from('culture_records').select('*').order('created_at', { ascending: false });
+      if (error) console.error('[db] culture_records fetch:', error.message);
+      return (data ?? []).map((r: any): CultureRecord => ({
+        id: r.id,
+        title: r.title,
+        platform: r.platform,
+        contentType: r.content_type,
+        url: r.url ?? null,
+        thumbnailUrl: r.thumbnail_url ?? null,
+        status: r.status,
+        rating: r.rating != null ? Number(r.rating) : null,
+        review: r.review ?? null,
+        insight: r.insight ?? null,
+        tags: r.tags ?? [],
+        watchedDate: r.watched_date ?? null,
+        createdAt: r.created_at ?? undefined,
+        updatedAt: r.updated_at ?? undefined,
+      }));
+    },
+    // user_id 는 DB 기본값 auth.uid() 로 자동 채워지므로 클라이언트에서 보내지 않는다.
+    upsert: async (record: CultureRecord) => {
+      const { error } = await supabase.from('culture_records').upsert({
+        id: record.id,
+        title: record.title,
+        platform: record.platform,
+        content_type: record.contentType,
+        url: record.url ?? null,
+        thumbnail_url: record.thumbnailUrl ?? null,
+        status: record.status,
+        rating: record.rating ?? null,
+        review: record.review ?? null,
+        insight: record.insight ?? null,
+        tags: record.tags ?? [],
+        watched_date: record.watchedDate ?? null,
+        updated_at: new Date().toISOString(),
+      });
+      if (error) console.error('[db] culture_records upsert:', error.message);
+    },
+    delete: async (id: string) => {
+      const { error } = await supabase.from('culture_records').delete().eq('id', id);
+      if (error) console.error('[db] culture_records delete:', error.message);
     },
   },
 };

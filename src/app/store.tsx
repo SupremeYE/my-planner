@@ -188,6 +188,30 @@ export interface ConditionRecord {
   memo?: string | null;
 }
 
+// ── 문화 기록 (영화/드라마/예능/유튜브 등 시청 콘텐츠) ──
+export type CulturePlatform =
+  'netflix' | 'youtube' | 'disney_plus' | 'coupang_play' | 'tving' | 'watcha' | 'theater' | 'other';
+export type CultureContentType =
+  'movie' | 'drama' | 'variety' | 'documentary' | 'anime' | 'youtube_video' | 'lecture' | 'other';
+export type CultureStatus = 'watchlist' | 'watching' | 'completed' | 'dropped';
+
+export interface CultureRecord {
+  id: string;
+  title: string;
+  platform: CulturePlatform;
+  contentType: CultureContentType;
+  url?: string | null;
+  thumbnailUrl?: string | null;
+  status: CultureStatus;
+  rating?: number | null;     // 0~5, 0.5 단위
+  review?: string | null;
+  insight?: string | null;
+  tags: string[];
+  watchedDate?: string | null; // yyyy-MM-dd
+  createdAt?: string;
+  updatedAt?: string;
+}
+
 export interface PeriodRecord {
   id: string;
   startDate: string;        // yyyy-MM-dd
