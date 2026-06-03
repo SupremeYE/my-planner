@@ -377,16 +377,22 @@ export function SleepSection() {
   const today = new Date();
   const todayStr = format(today, 'yyyy-MM-dd');
   const currentMonth = format(today, 'yyyy-MM');
-  const monthRecords = sleepRecords.filter(r => r.date.startsWith(currentMonth));
-  const monthAvg = monthRecords.length
-    ? Math.round(monthRecords.reduce((s, r) => s + r.duration, 0) / monthRecords.length)
-    : 0;
 
   // 선택된 주(월~일) 데이터 — weekOffset: 0=이번주, -1=지난주 ...
   const weekStart = addDays(startOfWeek(today, { weekStartsOn: 1 }), weekOffset * 7);
   const weekEnd = addDays(weekStart, 6);
   const weekDays = Array.from({ length: 7 }, (_, i) => format(addDays(weekStart, i), 'yyyy-MM-dd'));
   const WEEK_LABELS = ['월', '화', '수', '목', '금', '토', '일'];
+
+  // 보고 있는 주가 가장 많이 걸쳐 있는 달 기준으로 월간 통계 집계
+  const monthCounts: Record<string, number> = {};
+  weekDays.forEach(d => { const m = d.slice(0, 7); monthCounts[m] = (monthCounts[m] ?? 0) + 1; });
+  const viewMonth = Object.entries(monthCounts).sort((a, b) => b[1] - a[1])[0][0];
+  const monthRecords = sleepRecords.filter(r => r.date.startsWith(viewMonth));
+  const monthAvg = monthRecords.length
+    ? Math.round(monthRecords.reduce((s, r) => s + r.duration, 0) / monthRecords.length)
+    : 0;
+  const monthLabel = viewMonth === currentMonth ? '이번달 평균' : `${parseInt(viewMonth.slice(5), 10)}월 평균`;
   const sleepByDate: Record<string, { duration: number; start?: string; end?: string }> = {};
   sleepRecords.forEach(r => {
     if (!sleepByDate[r.date]) sleepByDate[r.date] = { duration: r.duration, start: r.sleepStart, end: r.sleepEnd };
@@ -488,7 +494,7 @@ export function SleepSection() {
         {monthRecords.length > 0 && (
           <span className="ml-auto px-2.5 py-0.5 rounded-full"
             style={{ fontSize: 10, backgroundColor: SLEEP_COLOR + '20', color: SLEEP_COLOR }}>
-            {monthRecords.length}회 &middot; 이번달 평균 {fmtSleep(monthAvg)}
+            {monthRecords.length}회 &middot; {monthLabel} {fmtSleep(monthAvg)}
           </span>
         )}
       </div>
@@ -581,7 +587,7 @@ export function SleepSection() {
             </div>
             <div style={{ width: 1, backgroundColor: t.borderLight, flexShrink: 0 }} />
             <div className="flex-1 text-center">
-              <div style={{ fontSize: 10, color: t.textMuted, fontWeight: 600, marginBottom: 2 }}>이번달 평균</div>
+              <div style={{ fontSize: 10, color: t.textMuted, fontWeight: 600, marginBottom: 2 }}>{monthLabel}</div>
               <div style={{ fontSize: 18, fontWeight: 700, color: t.text, fontFamily: 'var(--font-gmarket)' }}>
                 {monthAvg > 0 ? fmtSleep(monthAvg) : '—'}
               </div>

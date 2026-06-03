@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { format, subDays, subYears, parseISO } from 'date-fns';
-import { Trash2 } from 'lucide-react';
+import { Trash2, Plus, X } from 'lucide-react';
 import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine,
 } from 'recharts';
@@ -125,6 +125,7 @@ export function WeightTab() {
   const [showFat, setShowFat] = useState(false);
   const [showMuscle, setShowMuscle] = useState(false);
   const [listLimit, setListLimit] = useState(10);
+  const [inputOpen, setInputOpen] = useState(false); // 입력 폼 기본 접힘
 
   // ── fetch + realtime ──
   const refresh = useCallback(() => {
@@ -157,6 +158,7 @@ export function WeightTab() {
   const saveRecord = (rec: WeightRecord) => {
     db.weightRecords.upsert(rec).then(() => db.weightRecords.fetchAll().then(setRecords));
     resetForm();
+    setInputOpen(false);
   };
 
   const handleSubmit = () => {
@@ -249,8 +251,23 @@ export function WeightTab() {
 
   return (
     <div className="space-y-5">
-      {/* (A) 입력 영역 */}
+      {/* (A) 입력 영역 — 기본 접힘 */}
+      {!inputOpen && (
+        <button onClick={() => setInputOpen(true)}
+          className="w-full flex items-center justify-center gap-1.5 py-2.5 rounded-2xl"
+          style={{ fontSize: 14, fontWeight: 600, color: '#fff', backgroundColor: t.accent }}>
+          <Plus size={16} /> 몸무게 기록하기
+        </button>
+      )}
+      {inputOpen && (
       <div className="p-4 rounded-2xl" style={{ backgroundColor: t.card, border: `1px solid ${t.border}` }}>
+        <div className="flex items-center justify-between mb-3">
+          <span style={{ fontSize: 13, fontWeight: 700, color: t.text }}>몸무게 기록</span>
+          <button onClick={() => { setInputOpen(false); resetForm(); }} className="p-1 rounded"
+            style={{ color: t.textMuted, background: 'none', border: 'none', cursor: 'pointer' }} aria-label="닫기">
+            <X size={15} />
+          </button>
+        </div>
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
           <div>
             <label style={{ fontSize: 12, color: t.textSub }}>날짜</label>
@@ -293,6 +310,7 @@ export function WeightTab() {
             color: canSubmit ? '#fff' : t.textMuted, fontSize: 14, fontWeight: 600,
           }}>기록하기</button>
       </div>
+      )}
 
       {/* (B) 목표 영역 */}
       {goal ? (
