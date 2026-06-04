@@ -7,6 +7,7 @@ import type {
   FoodRecord, DiningType, TasteRating, Event, WeeklyGoal, MonthlyGoal, BrainstormItem, Tag, Routine,
   PeriodRecord, HabitMonthlyMemo, AnnualGoal, QuarterlyGoal,
   WeightRecord, WeightGoal, ConditionRecord, CultureRecord,
+  Recipe, RecipeIngredient, RecipeStep,
 } from '../app/store';
 
 function parseAnnualProfilesFromDb(raw: unknown): Record<string, { identity: string; values: string[] }> {
@@ -1160,6 +1161,122 @@ export const db = {
     delete: async (id: string) => {
       const { error } = await supabase.from('culture_records').delete().eq('id', id);
       if (error) console.error('[db] culture_records delete:', error.message);
+    },
+  },
+
+  // ── 레시피 모듈 (Phase 1) — recipes + 자식 테이블(ingredients/steps) ──
+  recipes: {
+    fetchAll: async (): Promise<Recipe[]> => {
+      const { data, error } = await supabase
+        .from('recipes')
+        .select('*, recipe_ingredients(*), recipe_steps(*)')
+        .order('created_at', { ascending: false });
+      if (error) console.error('[db] recipes fetch:', error.message);
+      return (data ?? []).map((r: any): Recipe => ({
+        id: r.id,
+        title: r.title,
+        sourceType: r.source_type,
+        sourceUrl: r.source_url ?? null,
+        thumbnailUrl: r.thumbnail_url ?? null,
+        totalMinutes: r.total_minutes ?? null,
+        baseServings: r.base_servings ?? 2,
+        rating: r.rating != null ? Number(r.rating) : null,
+        memo: r.memo ?? null,
+        ingredients: ((r.recipe_ingredients ?? []) as any[])
+          .map((g): RecipeIngredient => ({
+            id: g.id,
+            name: g.name,
+            amount: g.amount != null ? Number(g.amount) : null,
+            unit: g.unit ?? null,
+            sortOrder: g.sort_order ?? 0,
+          }))
+          .sort((a, b) => a.sortOrder - b.sortOrder),
+        steps: ((r.recipe_steps ?? []) as any[])
+          .map((s): RecipeStep => ({
+            id: s.id,
+            stepNo: s.step_no,
+            instruction: s.instruction,
+            timerSeconds: s.timer_seconds ?? null,
+            sortOrder: s.sort_order ?? 0,
+          }))
+          .sort((a, b) => a.sortOrder - b.sortOrder),
+        createdAt: r.created_at ?? undefined,
+        updatedAt: r.updated_at ?? undefined,
+      }));
+    },
+
+    // 레시피 본체 + 재료/단계를 3개 테이블에 분해 저장.
+    // user_id 는 DB 기본값 auth.uid() 로 자동 채워지므로 클라이언트에서 보내지 않는다.
+    // 자식(ingredients/steps)은 전량 교체 방식: 해당 recipe_id 의 기존 행을 모두 지우고 다시 삽입.
+    upsert: async (recipe: Recipe) => {
+      const { error: rErr } = await supabase.from('recipes').upsert({
+        id: recipe.id,
+        title: recipe.title,
+        source_type: recipe.sourceType ?? 'manual',
+        source_url: recipe.sourceUrl ?? null,
+        thumbnail_url: recipe.thumbnailUrl ?? null,
+        total_minutes: recipe.totalMinutes ?? null,
+        base_servings: recipe.baseServings ?? 2,
+        rating: recipe.rating ?? null,
+        memo: recipe.memo ?? null,
+        updated_at: new Date().toISOString(),
+      }, { onConflict: 'id' });
+      if (rErr) { console.error('[db] recipes upsert:', rErr.message); return; }
+
+      // 자식 전량 교체
+      const { error: delIngErr } = await supabase
+        .from('recipe_ingredients').delete().eq('recipe_id', recipe.id);
+      if (delIngErr) console.error('[db] recipe_ingredients clear:', delIngErr.message);
+      const { error: delStepErr } = await supabase
+        .from('recipe_steps').delete().eq('recipe_id', recipe.id);
+      if (delStepErr) console.error('[db] recipe_steps clear:', delStepErr.message);
+
+      if (recipe.ingredients.length > 0) {
+        const { error } = await supabase.from('recipe_ingredients').insert(
+          recipe.ingredients.map((g, i) => ({
+            recipe_id: recipe.id,
+            name: g.name,
+            amount: g.amount ?? null,
+            unit: g.unit ?? null,
+            sort_order: g.sortOrder ?? i,
+          })),
+        );
+        if (error) console.error('[db] recipe_ingredients insert:', error.message);
+      }
+      if (recipe.steps.length > 0) {
+        const { error } = await supabase.from('recipe_steps').insert(
+          recipe.steps.map((s, i) => ({
+            recipe_id: recipe.id,
+            step_no: s.stepNo ?? i + 1,
+            instruction: s.instruction,
+            timer_seconds: s.timerSeconds ?? null,
+            sort_order: s.sortOrder ?? i,
+          })),
+        );
+        if (error) console.error('[db] recipe_steps insert:', error.message);
+      }
+    },
+
+    // 별점만 갱신 (상세 화면 별점 탭) — 성공 여부 반환
+    updateRating: async (id: string, rating: number | null): Promise<boolean> => {
+      const { error } = await supabase.from('recipes')
+        .update({ rating, updated_at: new Date().toISOString() }).eq('id', id);
+      if (error) { console.error('[db] recipes updateRating:', error.message); return false; }
+      return true;
+    },
+
+    // 메모만 갱신 (상세 화면 메모)
+    updateMemo: async (id: string, memo: string | null): Promise<boolean> => {
+      const { error } = await supabase.from('recipes')
+        .update({ memo, updated_at: new Date().toISOString() }).eq('id', id);
+      if (error) { console.error('[db] recipes updateMemo:', error.message); return false; }
+      return true;
+    },
+
+    delete: async (id: string) => {
+      // recipe_ingredients / recipe_steps 는 ON DELETE CASCADE 로 함께 삭제됨
+      const { error } = await supabase.from('recipes').delete().eq('id', id);
+      if (error) console.error('[db] recipes delete:', error.message);
     },
   },
 };

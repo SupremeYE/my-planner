@@ -4,7 +4,7 @@ import {
   Sun, CalendarDays, BarChart2, ListTodo,
   ChevronLeft, ChevronRight, Target, FolderKanban, Plus, Home,
   Menu, Heart, Repeat, BookOpen, Library, Settings, BarChart3,
-  Smile, Utensils, Camera, NotebookPen, Clapperboard,
+  Smile, Utensils, Camera, NotebookPen, Clapperboard, ChefHat,
   User, LogOut, Mail,
 } from 'lucide-react';
 import { usePlanner, getWeekKey } from '../store';
@@ -147,6 +147,7 @@ const lifestyleNavItems = [
   { to: '/books', icon: Library, label: '독서' },
   { to: '/moments', icon: Camera, label: '모먼트' },
   { to: '/culture', icon: Clapperboard, label: '문화 기록' },
+  { to: '/recipes', icon: ChefHat, label: '레시피' },
   { to: '/question-journal', icon: NotebookPen, label: '질문일기' },
 ];
 
@@ -387,6 +388,7 @@ function MobileMenuOverlay({ onClose }: { onClose: () => void }) {
     { to: '/books', icon: Library, label: '독서' },
     { to: '/moments', icon: Camera, label: '모먼트' },
     { to: '/culture', icon: Clapperboard, label: '문화 기록' },
+    { to: '/recipes', icon: ChefHat, label: '레시피' },
     { to: '/question-journal', icon: NotebookPen, label: '질문일기' },
     // 설정은 상단 아바타 메뉴로 이동
   ];

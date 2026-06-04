@@ -215,6 +215,41 @@ export interface CultureRecord {
   updatedAt?: string;
 }
 
+// ── 레시피 모듈 (Phase 1) ───────────────────────────────────────────────────
+export type RecipeSourceType = 'manual' | 'link' | 'reels' | 'receipt' | 'ai';
+
+export interface RecipeIngredient {
+  id: string;
+  name: string;
+  amount?: number | null;   // 분량 수치 (인분 환산 대상)
+  unit?: string | null;     // 단위 (g, 개, 큰술 등)
+  sortOrder: number;
+}
+
+export interface RecipeStep {
+  id: string;
+  stepNo: number;           // 1부터 시작하는 단계 번호
+  instruction: string;
+  timerSeconds?: number | null; // 단계 타이머 (초), 없으면 null
+  sortOrder: number;
+}
+
+export interface Recipe {
+  id: string;
+  title: string;
+  sourceType: RecipeSourceType; // Phase 1 직접입력은 'manual'
+  sourceUrl?: string | null;
+  thumbnailUrl?: string | null;
+  totalMinutes?: number | null;
+  baseServings: number;     // 기준 인분 (기본 2) — 인분 환산 기준
+  rating?: number | null;   // 0~5, 0.5 단위
+  memo?: string | null;
+  ingredients: RecipeIngredient[];
+  steps: RecipeStep[];
+  createdAt?: string;
+  updatedAt?: string;
+}
+
 export interface PeriodRecord {
   id: string;
   startDate: string;        // yyyy-MM-dd
