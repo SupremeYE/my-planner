@@ -84,8 +84,12 @@ export function MomentView() {
   const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
   // 모바일 뷰 전환: 피드 / 모아보기(월별 그리드)
   const [mobileView, setMobileView]   = useState<'feed' | 'grid'>('feed');
+  // 아카이브 기준 연도 (기본 = 현재 연도). 칩으로 과거 연도 선택 가능
+  const [selectedYear, setSelectedYear] = useState<number>(() => new Date().getFullYear());
   const cameraRef  = useRef<HTMLInputElement>(null);
   const galleryRef = useRef<HTMLInputElement>(null);
+
+  const currentYear = new Date().getFullYear();
 
   const toggleExpand = (id: string) => {
     setExpandedIds(prev => {
@@ -95,16 +99,36 @@ export function MomentView() {
     });
   };
 
-  // 모아보기용 월별 그룹 (기존 데이터를 렌더링만 — 새 쿼리/스키마 없음, 최신월 우선)
+  // 기록이 존재하는 연도 목록(distinct, 최신순) + 현재 연도는 항상 포함
+  const availableYears = useMemo(() => {
+    const set = new Set<number>([currentYear]);
+    for (const m of moments) set.add(new Date(m.created_at).getFullYear());
+    return Array.from(set).sort((a, b) => b - a);
+  }, [moments, currentYear]);
+
+  // 선택 연도에 속한 모먼트 (created_at 기준, 최신순 유지)
+  const yearMoments = useMemo(
+    () => moments.filter(m => new Date(m.created_at).getFullYear() === selectedYear),
+    [moments, selectedYear],
+  );
+
+  // 모아보기/피드용 월별 그룹 (선택 연도 안에서 최신월 우선)
   const monthGroups = useMemo(() => {
     const map = new Map<string, Moment[]>();
-    for (const m of moments) {
+    for (const m of yearMoments) {
       const key = format(new Date(m.created_at), 'yyyy-MM');
       if (!map.has(key)) map.set(key, []);
       map.get(key)!.push(m);
     }
-    return Array.from(map.entries()); // moments가 created_at DESC라 자연히 최신월 우선
+    return Array.from(map.entries()); // yearMoments가 created_at DESC라 자연히 최신월 우선
+  }, [yearMoments]);
+
+  // 스탯: 이번 달 개수(현재 연도일 때만 의미) / 선택 연도 총 개수
+  const monthCount = useMemo(() => {
+    const key = format(new Date(), 'yyyy-MM');
+    return moments.filter(m => format(new Date(m.created_at), 'yyyy-MM') === key).length;
   }, [moments]);
+  const yearCount = yearMoments.length;
 
   const refreshMoments = useCallback(() => {
     db.moments.fetchAll().then(setMoments);
@@ -384,8 +408,33 @@ export function MomentView() {
           })}
         </div>
 
-        {/* 모먼트 목록 — 모바일 전용 (피드 / 모아보기 토글) */}
+        {/* 모먼트 목록 — 모바일 전용 (연도 스코프 + 피드/모아보기 토글) */}
         <div className="lg:hidden space-y-3">
+          {/* 연도 선택 칩 (가로 스크롤) */}
+          <div className="flex gap-2 overflow-x-auto -mx-1 px-1" style={{ scrollbarWidth: 'none' }}>
+            {availableYears.map(y => {
+              const sel = y === selectedYear;
+              return (
+                <button
+                  key={y}
+                  onClick={() => setSelectedYear(y)}
+                  className="shrink-0 flex flex-col items-center justify-center rounded-xl px-3.5 py-1.5"
+                  style={{
+                    backgroundColor: sel ? t.text : 'transparent',
+                    border: `1px solid ${sel ? t.text : t.border}`,
+                    color: sel ? '#fff' : t.textSub,
+                    minWidth: 54,
+                  }}
+                >
+                  <span style={{ fontFamily: "'DM Serif Display', serif", fontSize: 15, lineHeight: 1.1 }}>{y}</span>
+                  {y === currentYear && (
+                    <span style={{ fontSize: 9, marginTop: 1, opacity: 0.85 }}>올해</span>
+                  )}
+                </button>
+              );
+            })}
+          </div>
+
           {/* 세그먼트 토글: 피드 / 모아보기 */}
           <div className="flex p-1 rounded-xl" style={{ backgroundColor: t.bgSub }}>
             {([['feed', '피드'], ['grid', '모아보기']] as const).map(([v, label]) => (
@@ -405,23 +454,40 @@ export function MomentView() {
             ))}
           </div>
 
-          {/* 빈 상태 (두 뷰 공통) */}
-          {moments.length === 0 && (
+          {/* 스탯 행 (토글 아래) — 현재 연도: 2칸 / 과거 연도: 1칸 (하이라이트 칸은 Phase 3) */}
+          <div
+            className="grid gap-2"
+            style={{ gridTemplateColumns: selectedYear === currentYear ? '1fr 1fr' : '1fr' }}
+          >
+            {selectedYear === currentYear ? (
+              <>
+                <StatCard label="이번 달" value={monthCount} t={t} />
+                <StatCard label="올해" value={yearCount} t={t} />
+              </>
+            ) : (
+              <StatCard label={`${selectedYear}년`} value={yearCount} t={t} />
+            )}
+          </div>
+
+          {/* 빈 상태 (선택 연도 기준) */}
+          {yearMoments.length === 0 && (
             <div
               className="rounded-2xl p-8 flex flex-col items-center gap-2"
               style={{ backgroundColor: t.card, border: `1px solid ${t.border}` }}
             >
               <span style={{ fontSize: 32 }}>📸</span>
               <p style={{ fontSize: 14, color: t.textMuted, textAlign: 'center' }}>
-                아직 기록된 순간이 없어요.<br />첫 번째 모먼트를 남겨보세요!
+                {moments.length === 0
+                  ? <>아직 기록된 순간이 없어요.<br />첫 번째 모먼트를 남겨보세요!</>
+                  : <>{selectedYear}년에는 기록된 순간이 없어요.</>}
               </p>
             </div>
           )}
 
-          {/* 피드 뷰 */}
-          {mobileView === 'feed' && moments.length > 0 && (
+          {/* 피드 뷰 (선택 연도) */}
+          {mobileView === 'feed' && yearMoments.length > 0 && (
             <div className="space-y-2.5">
-              {moments.map(moment => (
+              {yearMoments.map(moment => (
                 <MomentCardMobile
                   key={moment.id}
                   moment={moment}
@@ -435,14 +501,14 @@ export function MomentView() {
             </div>
           )}
 
-          {/* 모아보기 뷰 (월별 3열 정사각 그리드) */}
-          {mobileView === 'grid' && moments.length > 0 && (
+          {/* 모아보기 뷰 (선택 연도 안에서 월별 3열 정사각 그리드) */}
+          {mobileView === 'grid' && yearMoments.length > 0 && (
             <div className="space-y-5">
               {monthGroups.map(([key, group]) => (
                 <div key={key} className="space-y-2">
                   {/* 월별 그룹 헤더 (예: June 2026 · 12개) */}
                   <div className="flex items-baseline gap-1.5">
-                    <span style={{ fontSize: 14, fontWeight: 700, color: t.text, fontFamily: 'var(--font-gmarket)' }}>
+                    <span style={{ fontFamily: "'DM Serif Display', serif", fontSize: 16, color: t.text, lineHeight: 1.1 }}>
                       {format(new Date(`${key}-01T00:00:00`), 'MMMM yyyy')}
                     </span>
                     <span style={{ fontSize: 12, color: t.textMuted }}>· {group.length}개</span>
@@ -473,6 +539,19 @@ export function MomentView() {
             </div>
           )}
         </div>
+      </div>
+    </div>
+  );
+}
+
+// ── 스탯 카드 (숫자는 DM Serif Display) ─────────────────────────────────────
+function StatCard({ label, value, t, valueColor }: { label: string; value: number; t: ThemeTokens; valueColor?: string }) {
+  return (
+    <div className="rounded-xl px-3 py-2.5" style={{ backgroundColor: t.card, border: `1px solid ${t.border}` }}>
+      <div style={{ fontSize: 11, color: t.textSub }}>{label}</div>
+      <div style={{ fontFamily: "'DM Serif Display', serif", fontSize: 22, color: valueColor ?? t.text, lineHeight: 1.15, marginTop: 1 }}>
+        {value}
+        <span style={{ fontSize: 12, color: t.textMuted, marginLeft: 2, fontFamily: 'var(--font-gowun)' }}>개</span>
       </div>
     </div>
   );
