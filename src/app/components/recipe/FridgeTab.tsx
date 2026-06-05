@@ -1,10 +1,13 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { Plus, Refrigerator, Snowflake, Package, Minus } from 'lucide-react';
+import { Plus, Refrigerator, Snowflake, Package, Minus, Mic, MicOff, Sparkles } from 'lucide-react';
 import { useTheme } from '../../ThemeContext';
 import { db } from '../../../lib/db';
 import { useRealtimeSync } from '../../hooks/useRealtimeSync';
+import { useSpeechRecognition } from '../../hooks/useSpeechRecognition';
 import type { FridgeItem, FridgeCategory } from '../../store';
 import { FridgeItemSheet } from './FridgeItemSheet';
+import { FridgeQuickAddSheet, draftsFromParsed } from './FridgeQuickAddSheet';
+import { parseFridgeQuickInput } from './recipeUtils';
 import ConfirmModal from '../ConfirmModal';
 
 const CATEGORY_ORDER: FridgeCategory[] = ['냉장', '냉동', '실온'];
@@ -104,11 +107,41 @@ export function FridgeTab() {
   const [editing, setEditing] = useState<FridgeItem | null>(null);
   const [deleteId, setDeleteId] = useState<string | null>(null);
 
+  // 빠른 입력 상태
+  const [quickText, setQuickText] = useState('');
+  const [quickDrafts, setQuickDrafts] = useState<ReturnType<typeof draftsFromParsed> | null>(null);
+  const [speechError, setSpeechError] = useState<string | null>(null);
+  const speech = useSpeechRecognition(
+    (text) => setQuickText(prev => (prev.trim() ? `${prev.trim()}, ${text}` : text)),
+    (code) => {
+      // not-allowed: 마이크 권한 거부, audio-capture: 마이크 없음 등
+      setSpeechError(code === 'not-allowed' ? '마이크 권한이 필요해요' : '음성 인식 오류');
+      setTimeout(() => setSpeechError(null), 2500);
+    },
+  );
+
   const refresh = useCallback(() => {
     db.fridgeItems.fetchAll().then(rs => { setItems(rs); setLoading(false); });
   }, []);
   useEffect(() => { refresh(); }, [refresh]);
   useRealtimeSync('fridge_items', refresh);
+
+  // 빠른 입력 → 파싱 → 확인 시트 오픈
+  const handleQuickParse = () => {
+    const parsed = parseFridgeQuickInput(quickText);
+    if (parsed.length === 0) return;
+    setQuickDrafts(draftsFromParsed(parsed));
+  };
+  const handleQuickSave = async (newItems: FridgeItem[]) => {
+    if (newItems.length === 0) {
+      setQuickDrafts(null);
+      return;
+    }
+    await db.fridgeItems.insertMany(newItems);
+    setQuickDrafts(null);
+    setQuickText('');
+    refresh();
+  };
 
   // 요약
   const summary = useMemo(() => {
@@ -159,6 +192,51 @@ export function FridgeTab() {
   return (
     <>
       <div className="max-w-[1200px] mx-auto px-4 lg:px-8 py-4 lg:py-6">
+        {/* 빠른 입력 — 텍스트 + 음성 */}
+        <div className="mb-4 rounded-2xl p-3"
+          style={{ backgroundColor: t.card, border: `1px solid ${t.border}` }}>
+          <div className="flex items-center justify-between mb-2">
+            <h3 className="flex items-center gap-1.5" style={{ fontSize: 13, fontWeight: 700, color: t.text }}>
+              <Sparkles size={14} color={t.accent} />
+              빠른 입력
+            </h3>
+            <span style={{ fontSize: 11, color: t.textMuted }}>예: 계란 12, 사과 3개</span>
+          </div>
+          <div className="flex items-start gap-2">
+            <textarea value={quickText} onChange={e => setQuickText(e.target.value)}
+              rows={2} placeholder={speech.isListening ? '🎙️ 듣고 있어요…' : '쉼표로 구분해서 적어주세요'}
+              className="flex-1 rounded-xl outline-none"
+              style={{ padding: '9px 11px', fontSize: 14, lineHeight: 1.4, resize: 'none',
+                border: `1px solid ${speech.isListening ? t.accent : t.border}`,
+                backgroundColor: t.bg, color: t.text }} />
+            {speech.supported && (
+              <button type="button" onClick={() => (speech.isListening ? speech.stop() : speech.start())}
+                aria-label={speech.isListening ? '음성 인식 정지' : '음성 입력 시작'}
+                className="flex-shrink-0 rounded-xl flex items-center justify-center active:scale-95 transition-all"
+                style={{ width: 44, height: 44,
+                  backgroundColor: speech.isListening ? t.danger : t.bgSub,
+                  color: speech.isListening ? '#fff' : t.textSub,
+                  border: `1px solid ${speech.isListening ? t.danger : t.border}` }}>
+                {speech.isListening ? <MicOff size={18} /> : <Mic size={18} />}
+              </button>
+            )}
+          </div>
+          <div className="flex items-center justify-between mt-2 gap-2">
+            <span style={{ fontSize: 11, color: speechError ? t.danger : t.textMuted, minHeight: 14 }}>
+              {speechError ?? (speech.isListening ? '말씀이 끝나면 자동으로 멈춰요' : '')}
+            </span>
+            <button type="button" onClick={handleQuickParse}
+              disabled={!quickText.trim()}
+              className="px-3 py-1.5 rounded-lg active:scale-95 transition-transform"
+              style={{ fontSize: 13, fontWeight: 700,
+                color: quickText.trim() ? '#fff' : t.textMuted,
+                backgroundColor: quickText.trim() ? t.accent : t.bgSub,
+                opacity: quickText.trim() ? 1 : 0.6 }}>
+              확인하기
+            </button>
+          </div>
+        </div>
+
         {/* 요약 */}
         <div className="flex gap-2 mb-5">
           <SummaryCard label="전체 품목" value={summary.total} />
@@ -223,6 +301,13 @@ export function FridgeTab() {
           onSave={handleSave}
           onDelete={editing ? (id) => setDeleteId(id) : undefined}
           onClose={() => { setSheetOpen(false); setEditing(null); }}
+        />
+      )}
+      {quickDrafts && (
+        <FridgeQuickAddSheet
+          initialDrafts={quickDrafts}
+          onSave={handleQuickSave}
+          onClose={() => setQuickDrafts(null)}
         />
       )}
       {deleteId && (

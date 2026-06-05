@@ -46,6 +46,31 @@ export function formatTimerLabel(totalSec: number): string {
   return `${m}:${String(s).padStart(2, '0')}`;
 }
 
+// 냉장고 빠른 입력 — 쉼표·줄바꿈으로 분리 후 각 항목에서 끝의 "수량+단위" 추출.
+//  - 예: "계란 12" → { name:'계란', quantity:12, unit:null }
+//        "사과 3개" → { name:'사과', quantity:3, unit:'개' }
+//        "우유" → { name:'우유', quantity:1, unit:null }
+//  - 자연어("한 판"→30 등)는 Phase 3 AI 고도화 범위로 두고, 여기선 숫자 기반 기본 파싱만.
+export function parseFridgeQuickInput(
+  text: string,
+): Array<{ name: string; quantity: number; unit: string | null }> {
+  return text
+    .split(/[,，\n]/)           // 쉼표(반각/전각)·줄바꿈으로 분리
+    .map(s => s.trim())
+    .filter(Boolean)
+    .map(line => {
+      const m = line.match(/(\d+(?:\.\d+)?)\s*([^\d\s]+)?\s*$/);
+      if (m && (m.index ?? 0) > 0) {
+        return {
+          name: line.slice(0, m.index).trim(),
+          quantity: parseFloat(m[1]),
+          unit: (m[2] ?? '').trim() || null,
+        };
+      }
+      return { name: line, quantity: 1, unit: null };
+    });
+}
+
 // 초 → 사람이 읽는 한국어 ("5분", "1분 30초", "45초")
 export function formatDurationKo(totalSec: number): string {
   const m = Math.floor(totalSec / 60);
