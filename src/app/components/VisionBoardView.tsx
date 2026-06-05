@@ -3,6 +3,8 @@ import { Plus, Image as ImageIcon } from 'lucide-react';
 import { useTheme } from '../ThemeContext';
 import { db } from '../../lib/db';
 import { useRealtimeSync } from '../hooks/useRealtimeSync';
+import VisionFormModal from './vision/VisionFormModal';
+import ConfirmModal from './ConfirmModal';
 
 // ── 토큰 hex → rgba (Layout.tsx의 withAlpha와 동일 패턴, 토큰 기반 투명도 표현)
 function withAlpha(hex: string, alpha: number): string {
@@ -168,6 +170,10 @@ export function VisionBoardView() {
   const [items, setItems] = useState<Item[]>([]);
   const [activeCategoryId, setActiveCategoryId] = useState<string | null>(null); // null = 전체
   const [loading, setLoading] = useState(true);
+  // 모달 상태 (Phase 3)
+  const [editingItem, setEditingItem] = useState<Item | null>(null);
+  const [modalOpen, setModalOpen] = useState(false);
+  const [pendingDelete, setPendingDelete] = useState<Item | null>(null);
 
   const refresh = useCallback(async () => {
     const [cats, its] = await Promise.all([
@@ -190,8 +196,27 @@ export function VisionBoardView() {
   }, [items, activeCategoryId]);
 
   const handleAddClick = useCallback(() => {
-    // Phase 3에서 모달 연결 예정 (현재는 자리만)
+    setEditingItem(null);
+    setModalOpen(true);
   }, []);
+
+  const handleCardClick = useCallback((item: Item) => {
+    setEditingItem(item);
+    setModalOpen(true);
+  }, []);
+
+  const handleRequestDelete = useCallback((item: Item) => {
+    setPendingDelete(item);
+  }, []);
+
+  const handleConfirmDelete = useCallback(async () => {
+    if (!pendingDelete) return;
+    await db.visionItems.delete(pendingDelete.id);
+    setPendingDelete(null);
+    setModalOpen(false);
+    setEditingItem(null);
+    refresh();
+  }, [pendingDelete, refresh]);
 
   return (
     <div
@@ -278,7 +303,7 @@ export function VisionBoardView() {
               key={item.id}
               item={item}
               rotation={PIN_ROTATIONS[idx % PIN_ROTATIONS.length]}
-              onClick={handleAddClick} // Phase 3에서 상세/편집 모달 연결
+              onClick={() => handleCardClick(item)}
             />
           ))
         )}
@@ -310,6 +335,29 @@ export function VisionBoardView() {
           비전 추가하기
         </button>
       </div>
+
+      {/* 추가/편집 모달 */}
+      {modalOpen && (
+        <VisionFormModal
+          item={editingItem}
+          categories={categories}
+          onClose={() => { setModalOpen(false); setEditingItem(null); }}
+          onSaved={refresh}
+          onRequestDelete={handleRequestDelete}
+        />
+      )}
+
+      {/* 삭제 확인 */}
+      {pendingDelete && (
+        <ConfirmModal
+          message="이 비전을 삭제할까요?"
+          description="삭제하면 되돌릴 수 없어요."
+          confirmText="삭제"
+          confirmDanger
+          onConfirm={handleConfirmDelete}
+          onCancel={() => setPendingDelete(null)}
+        />
+      )}
     </div>
   );
 }
