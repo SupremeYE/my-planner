@@ -250,17 +250,17 @@ export function MomentView() {
 
   return (
     <div className="h-full overflow-y-auto" style={{ backgroundColor: t.bg }}>
-      <div className="px-4 py-5 lg:py-8 space-y-5">
+      <div className="px-4 py-5 space-y-5 lg:p-0 lg:space-y-0">
 
-        {/* 헤더 */}
-        <div>
+        {/* 헤더 (모바일 전용) */}
+        <div className="lg:hidden">
           <h1 style={{ fontSize: 22, fontWeight: 700, color: t.text, fontFamily: 'var(--font-gmarket)' }}>모먼트</h1>
           <p style={{ fontSize: 13, color: t.textSub, marginTop: 2 }}>순간을 짧게 기록해요</p>
         </div>
 
-        {/* 작성 카드 */}
+        {/* 작성 카드 (모바일 전용) */}
         <div
-          className="rounded-2xl p-4 space-y-3"
+          className="rounded-2xl p-4 space-y-3 lg:hidden"
           style={{ backgroundColor: t.card, border: `1px solid ${t.border}` }}
         >
           {/* 사진 미리보기 */}
@@ -368,89 +368,63 @@ export function MomentView() {
           </div>
         </div>
 
-        {/* 모먼트 목록 — PC 전용 (기존 레이아웃 유지) */}
-        <div className="hidden lg:block space-y-3">
-          {moments.length === 0 && (
-            <div
-              className="rounded-2xl p-8 flex flex-col items-center gap-2"
-              style={{ backgroundColor: t.card, border: `1px solid ${t.border}` }}
-            >
-              <span style={{ fontSize: 32 }}>📸</span>
-              <p style={{ fontSize: 14, color: t.textMuted, textAlign: 'center' }}>
-                아직 기록된 순간이 없어요.<br />첫 번째 모먼트를 남겨보세요!
-              </p>
-            </div>
-          )}
-
-          {moments.map(moment => {
-            const weather = moment.weather_code != null
-              ? weatherInfo(moment.weather_code)
-              : null;
-
-            return (
-              <div
-                key={moment.id}
-                className="rounded-2xl p-4 space-y-3"
-                style={{ backgroundColor: t.card, border: `1px solid ${t.border}` }}
-              >
-                {/* 사진 썸네일 */}
-                {moment.photos.length > 0 && (
-                  <div className="flex gap-2 flex-wrap">
-                    {moment.photos.map((url, i) => (
-                      <img
-                        key={i}
-                        src={url}
-                        alt=""
-                        className="rounded-xl object-cover"
-                        style={{
-                          width:  moment.photos.length === 1 ? '100%' : 96,
-                          height: moment.photos.length === 1 ? 220  : 96,
-                          border: `1px solid ${t.border}`,
-                        }}
-                      />
-                    ))}
-                  </div>
-                )}
-
-                {/* 텍스트 */}
-                {moment.content && (
-                  <p style={{ fontSize: 15, color: t.text, lineHeight: 1.6, whiteSpace: 'pre-wrap' }}>
-                    {moment.content}
-                  </p>
-                )}
-
-                {/* 푸터: 날씨 + 시각 + 삭제 */}
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    {/* 날씨 배지 */}
-                    {weather && (
-                      <span
-                        className="flex items-center gap-1 px-2 py-0.5 rounded-lg"
-                        style={{ backgroundColor: t.bgSub, fontSize: 11, color: t.textSub }}
-                      >
-                        <span>{weather.emoji}</span>
-                        {moment.weather_temp != null && (
-                          <span>{moment.weather_temp}°C</span>
-                        )}
-                        <span>{weather.label}</span>
-                      </span>
-                    )}
-                    <span style={{ fontSize: 11, color: t.textMuted }}>
-                      {formatTime(moment.created_at)}
-                    </span>
-                  </div>
-
-                  <button
-                    onClick={() => handleDelete(moment.id)}
-                    className="p-1.5 rounded-lg transition-colors"
-                    style={{ color: t.textMuted }}
-                  >
-                    <Trash2 size={13} />
-                  </button>
-                </div>
+        {/* ===== PC 전용 레이아웃 (lg: 이상) ===== */}
+        <div className="hidden lg:block px-8 py-8">
+          {/* 페이지 헤더: 좌측 타이틀 / 우측 스탯 스트립 */}
+          <div className="flex items-end justify-between gap-6">
+            <div>
+              <div style={{ fontFamily: 'var(--font-gaegu)', fontSize: 16, color: t.textSub }}>
+                오늘 하루, 기억하고 싶은 순간
               </div>
-            );
-          })}
+              <h1 style={{ fontFamily: "'DM Serif Display', serif", fontSize: 40, color: t.text, lineHeight: 1.1, marginTop: 2 }}>
+                모먼트
+              </h1>
+              <p style={{ fontSize: 14, color: t.textSub, marginTop: 4 }}>순간을 모아 한 해를 돌아봐요</p>
+            </div>
+
+            {/* 스탯 스트립 — 현재 연도 3칸 / 과거 연도 2칸 */}
+            <div className="flex gap-3 shrink-0">
+              {selectedYear === currentYear ? (
+                <>
+                  <StatCard label="이번 달" value={monthCount} t={t} />
+                  <StatCard label="올해" value={yearCount} t={t} />
+                  <StatCard label="✦ 하이라이트" value={highlightCount} t={t} valueColor={t.danger} />
+                </>
+              ) : (
+                <>
+                  <StatCard label={`${selectedYear}년`} value={yearCount} t={t} />
+                  <StatCard label="✦ 하이라이트" value={highlightCount} t={t} valueColor={t.danger} />
+                </>
+              )}
+            </div>
+          </div>
+
+          {/* 연도 선택 칩 행 */}
+          <div className="flex gap-2 flex-wrap mt-6">
+            {availableYears.map(y => {
+              const sel = y === selectedYear;
+              return (
+                <button
+                  key={y}
+                  onClick={() => setSelectedYear(y)}
+                  className="flex flex-col items-center justify-center rounded-xl px-4 py-1.5 transition-all"
+                  style={{
+                    backgroundColor: sel ? t.text : 'transparent',
+                    border: `1px solid ${sel ? t.text : t.border}`,
+                    color: sel ? '#fff' : t.textSub,
+                    minWidth: 60,
+                  }}
+                >
+                  <span style={{ fontFamily: "'DM Serif Display', serif", fontSize: 16, lineHeight: 1.1 }}>{y}</span>
+                  {y === currentYear && (
+                    <span style={{ fontSize: 9, marginTop: 1, opacity: 0.85 }}>올해</span>
+                  )}
+                </button>
+              );
+            })}
+          </div>
+
+          {/* 본문(좌측 레일 + 메인 콘텐츠)은 Phase 2~3에서 추가 */}
         </div>
 
         {/* 모먼트 목록 — 모바일 전용 (연도 스코프 + 피드/모아보기 토글) */}
