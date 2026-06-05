@@ -31,6 +31,7 @@ interface FridgeQuickAddSheetProps {
 export function FridgeQuickAddSheet({ initialDrafts, onSave, onClose }: FridgeQuickAddSheetProps) {
   const { t } = useTheme();
   const [rows, setRows] = useState<DraftRow[]>(initialDrafts);
+  const [submitting, setSubmitting] = useState(false);
 
   const updateRow = (key: string, patch: Partial<DraftRow>) =>
     setRows(prev => prev.map(r => (r.key === key ? { ...r, ...patch } : r)));
@@ -39,6 +40,8 @@ export function FridgeQuickAddSheet({ initialDrafts, onSave, onClose }: FridgeQu
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    if (submitting) return;
+    setSubmitting(true);
     const items: FridgeItem[] = rows
       .filter(r => r.name.trim())
       .map(r => ({
@@ -78,9 +81,9 @@ export function FridgeQuickAddSheet({ initialDrafts, onSave, onClose }: FridgeQu
             <h2 style={{ fontSize: 17, fontWeight: 700, color: t.text }}>입력 내용 확인</h2>
             <p style={{ fontSize: 11, color: t.textSub, marginTop: 1 }}>저장 전에 수정할 수 있어요</p>
           </div>
-          <button type="submit" form="fridge-quick-form"
+          <button type="submit" form="fridge-quick-form" disabled={submitting}
             className="lg:hidden px-3 py-1.5 rounded-lg"
-            style={{ fontSize: 14, fontWeight: 700, color: t.accent }}>저장</button>
+            style={{ fontSize: 14, fontWeight: 700, color: submitting ? t.textMuted : t.accent, opacity: submitting ? 0.5 : 1 }}>{submitting ? '저장 중…' : '저장'}</button>
           <button type="button" onClick={onClose} className="hidden lg:block p-1.5 rounded-lg" style={{ color: t.textMuted }}>
             <X size={18} />
           </button>
@@ -159,9 +162,9 @@ export function FridgeQuickAddSheet({ initialDrafts, onSave, onClose }: FridgeQu
               style={{ fontSize: 14, fontWeight: 600, color: t.textSub, backgroundColor: t.bgSub, border: `1px solid ${t.border}` }}>
               취소
             </button>
-            <button type="submit" className="px-5 py-2.5 rounded-xl"
-              style={{ fontSize: 14, fontWeight: 700, color: '#fff', backgroundColor: t.accent }}>
-              모두 저장
+            <button type="submit" disabled={submitting} className="px-5 py-2.5 rounded-xl"
+              style={{ fontSize: 14, fontWeight: 700, color: '#fff', backgroundColor: t.accent, opacity: submitting ? 0.6 : 1 }}>
+              {submitting ? '저장 중…' : '모두 저장'}
             </button>
           </div>
         </form>

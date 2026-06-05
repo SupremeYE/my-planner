@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { Plus, Refrigerator, Snowflake, Package, Minus, Mic, MicOff, Sparkles } from 'lucide-react';
+import { Plus, Refrigerator, Snowflake, Package, Minus, Mic, MicOff, Sparkles, Check, Trash2, X } from 'lucide-react';
 import { useTheme } from '../../ThemeContext';
 import { db } from '../../../lib/db';
 import { useRealtimeSync } from '../../hooks/useRealtimeSync';
@@ -33,10 +33,13 @@ function dDayLabel(days: number): string {
 }
 
 // 품목 행
-function FridgeRow({ item, onEdit, onQty }: {
+function FridgeRow({ item, onEdit, onQty, selectMode, selected, onToggleSelect }: {
   item: FridgeItem;
   onEdit: () => void;
   onQty: (delta: number) => void;
+  selectMode?: boolean;
+  selected?: boolean;
+  onToggleSelect?: () => void;
 }) {
   const { t } = useTheme();
   const days = daysUntil(item.expiryDate);
@@ -46,12 +49,23 @@ function FridgeRow({ item, onEdit, onQty }: {
   return (
     <div className="flex items-center gap-3 rounded-xl px-3 py-2.5"
       style={{
-        backgroundColor: urgent ? t.dangerLight : t.card,
-        border: `1px solid ${urgent ? t.danger : t.border}`,
-        opacity: empty ? 0.6 : 1,
+        backgroundColor: selectMode && selected ? t.accentLight : urgent ? t.dangerLight : t.card,
+        border: `1px solid ${selectMode && selected ? t.accent : urgent ? t.danger : t.border}`,
+        opacity: empty && !(selectMode && selected) ? 0.6 : 1,
       }}>
-      {/* 이름 + D-day (탭 → 수정) */}
-      <button onClick={onEdit} className="flex-1 text-left min-w-0">
+      {/* 선택 모드 체크박스 */}
+      {selectMode && (
+        <button onClick={onToggleSelect} aria-label={selected ? '선택 해제' : '선택'}
+          className="flex-shrink-0 rounded-full flex items-center justify-center"
+          style={{ width: 24, height: 24,
+            backgroundColor: selected ? t.accent : 'transparent',
+            border: `2px solid ${selected ? t.accent : t.border}` }}>
+          {selected && <Check size={14} color="#fff" />}
+        </button>
+      )}
+
+      {/* 이름 + D-day (탭 → 선택 모드면 선택 토글, 아니면 수정) */}
+      <button onClick={selectMode ? onToggleSelect : onEdit} className="flex-1 text-left min-w-0">
         <div className="flex items-center gap-2">
           <span className="truncate" style={{ fontSize: 15, fontWeight: 600, color: t.text,
             textDecoration: empty ? 'line-through' : 'none' }}>{item.name}</span>
@@ -69,20 +83,22 @@ function FridgeRow({ item, onEdit, onQty }: {
         </div>
       </button>
 
-      {/* 수량 스테퍼 */}
-      <div className="flex items-center gap-1.5 flex-shrink-0">
-        <button onClick={() => onQty(-1)} className="rounded-lg flex items-center justify-center active:scale-95"
-          style={{ width: 32, height: 32, border: `1px solid ${t.border}`, backgroundColor: t.bg, color: t.text }}
-          aria-label="수량 감소">
-          <Minus size={15} />
-        </button>
-        <span style={{ minWidth: 24, textAlign: 'center', fontSize: 14, fontWeight: 600, color: t.text }}>{item.quantity}</span>
-        <button onClick={() => onQty(1)} className="rounded-lg flex items-center justify-center active:scale-95"
-          style={{ width: 32, height: 32, border: `1px solid ${t.border}`, backgroundColor: t.bg, color: t.text }}
-          aria-label="수량 증가">
-          <Plus size={15} />
-        </button>
-      </div>
+      {/* 수량 스테퍼 (선택 모드에서는 숨김) */}
+      {!selectMode && (
+        <div className="flex items-center gap-1.5 flex-shrink-0">
+          <button onClick={() => onQty(-1)} className="rounded-lg flex items-center justify-center active:scale-95"
+            style={{ width: 32, height: 32, border: `1px solid ${t.border}`, backgroundColor: t.bg, color: t.text }}
+            aria-label="수량 감소">
+            <Minus size={15} />
+          </button>
+          <span style={{ minWidth: 24, textAlign: 'center', fontSize: 14, fontWeight: 600, color: t.text }}>{item.quantity}</span>
+          <button onClick={() => onQty(1)} className="rounded-lg flex items-center justify-center active:scale-95"
+            style={{ width: 32, height: 32, border: `1px solid ${t.border}`, backgroundColor: t.bg, color: t.text }}
+            aria-label="수량 증가">
+            <Plus size={15} />
+          </button>
+        </div>
+      )}
     </div>
   );
 }
@@ -106,6 +122,18 @@ export function FridgeTab() {
   const [sheetOpen, setSheetOpen] = useState(false);
   const [editing, setEditing] = useState<FridgeItem | null>(null);
   const [deleteId, setDeleteId] = useState<string | null>(null);
+
+  // 다중 선택 삭제
+  const [selectMode, setSelectMode] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [bulkConfirm, setBulkConfirm] = useState(false);
+
+  // 토스트 피드백
+  const [toast, setToast] = useState<string | null>(null);
+  const notify = useCallback((msg: string) => {
+    setToast(msg);
+    window.setTimeout(() => setToast(null), 2000);
+  }, []);
 
   // 빠른 입력 상태
   const [quickText, setQuickText] = useState('');
@@ -141,6 +169,7 @@ export function FridgeTab() {
     setQuickDrafts(null);
     setQuickText('');
     refresh();
+    notify(`${newItems.length}개 품목을 저장했어요`);
   };
 
   // 요약
@@ -180,13 +209,40 @@ export function FridgeTab() {
     db.fridgeItems.updateQuantity(it.id, next);
   };
   const handleSave = async (item: FridgeItem) => {
+    const wasEdit = !!editing;
     await db.fridgeItems.upsert(item);
     setSheetOpen(false); setEditing(null); refresh();
+    notify(wasEdit ? '수정했어요' : '저장했어요');
   };
   const handleDelete = async () => {
     if (!deleteId) return;
     await db.fridgeItems.delete(deleteId);
     setDeleteId(null); setSheetOpen(false); setEditing(null); refresh();
+    notify('삭제했어요');
+  };
+
+  // ── 다중 선택 ──
+  const toggleSelect = (id: string) => {
+    setSelectedIds(prev => {
+      const next = new Set(prev);
+      next.has(id) ? next.delete(id) : next.add(id);
+      return next;
+    });
+  };
+  const exitSelectMode = () => { setSelectMode(false); setSelectedIds(new Set()); };
+  const allSelected = items.length > 0 && selectedIds.size === items.length;
+  const toggleSelectAll = () => {
+    setSelectedIds(allSelected ? new Set() : new Set(items.map(i => i.id)));
+  };
+  const handleBulkDelete = async () => {
+    const ids = Array.from(selectedIds);
+    if (ids.length === 0) return;
+    setItems(prev => prev.filter(p => !selectedIds.has(p.id))); // optimistic
+    await db.fridgeItems.deleteMany(ids);
+    setBulkConfirm(false);
+    exitSelectMode();
+    refresh();
+    notify(`${ids.length}개 삭제했어요`);
   };
 
   return (
@@ -238,11 +294,55 @@ export function FridgeTab() {
         </div>
 
         {/* 요약 */}
-        <div className="flex gap-2 mb-5">
+        <div className="flex gap-2 mb-4">
           <SummaryCard label="전체 품목" value={summary.total} />
           <SummaryCard label="임박 (D-2 이내)" value={summary.near} danger />
           <SummaryCard label="다 떨어짐" value={summary.out} danger />
         </div>
+
+        {/* 선택/액션 바 */}
+        {!loading && items.length > 0 && (
+          <div className="flex items-center justify-between mb-3" style={{ minHeight: 34 }}>
+            {selectMode ? (
+              <>
+                <button onClick={toggleSelectAll}
+                  className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg"
+                  style={{ fontSize: 13, fontWeight: 600, color: t.textSub, backgroundColor: t.bgSub, border: `1px solid ${t.border}` }}>
+                  <span className="rounded-full flex items-center justify-center"
+                    style={{ width: 18, height: 18, backgroundColor: allSelected ? t.accent : 'transparent', border: `2px solid ${allSelected ? t.accent : t.border}` }}>
+                    {allSelected && <Check size={11} color="#fff" />}
+                  </span>
+                  전체 선택
+                </button>
+                <div className="flex items-center gap-1.5">
+                  <span style={{ fontSize: 13, color: t.textSub }}>{selectedIds.size}개 선택</span>
+                  <button onClick={() => selectedIds.size > 0 && setBulkConfirm(true)} disabled={selectedIds.size === 0}
+                    className="flex items-center gap-1 px-3 py-1.5 rounded-lg"
+                    style={{ fontSize: 13, fontWeight: 700,
+                      color: selectedIds.size > 0 ? '#fff' : t.textMuted,
+                      backgroundColor: selectedIds.size > 0 ? t.danger : t.bgSub,
+                      opacity: selectedIds.size > 0 ? 1 : 0.6 }}>
+                    <Trash2 size={14} /> 삭제
+                  </button>
+                  <button onClick={exitSelectMode}
+                    className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg"
+                    style={{ fontSize: 13, fontWeight: 600, color: t.textSub, backgroundColor: t.bgSub, border: `1px solid ${t.border}` }}>
+                    <X size={14} /> 취소
+                  </button>
+                </div>
+              </>
+            ) : (
+              <>
+                <span style={{ fontSize: 12, color: t.textMuted }}>탭하면 수정 · 길게 모아 삭제하려면 선택</span>
+                <button onClick={() => setSelectMode(true)}
+                  className="px-3 py-1.5 rounded-lg"
+                  style={{ fontSize: 13, fontWeight: 600, color: t.textSub, backgroundColor: t.bgSub, border: `1px solid ${t.border}` }}>
+                  선택
+                </button>
+              </>
+            )}
+          </div>
+        )}
 
         {loading ? (
           <div className="space-y-2">
@@ -278,7 +378,8 @@ export function FridgeTab() {
                   </div>
                   <div className="space-y-2">
                     {list.map(it => (
-                      <FridgeRow key={it.id} item={it} onEdit={() => openEdit(it)} onQty={(d) => handleQty(it, d)} />
+                      <FridgeRow key={it.id} item={it} onEdit={() => openEdit(it)} onQty={(d) => handleQty(it, d)}
+                        selectMode={selectMode} selected={selectedIds.has(it.id)} onToggleSelect={() => toggleSelect(it.id)} />
                     ))}
                   </div>
                 </section>
@@ -288,12 +389,22 @@ export function FridgeTab() {
         )}
       </div>
 
-      {/* FAB */}
-      <button onClick={openAdd} aria-label="냉장고 품목 추가"
-        className="recipe-mod-fab fixed right-4 z-40 flex items-center justify-center rounded-full active:scale-95 transition-transform"
-        style={{ width: 56, height: 56, backgroundColor: t.accent, color: '#fff', boxShadow: '0 6px 20px rgba(0,0,0,0.28)' }}>
-        <Plus size={26} />
-      </button>
+      {/* FAB (선택 모드에서는 숨김) */}
+      {!selectMode && (
+        <button onClick={openAdd} aria-label="냉장고 품목 추가"
+          className="recipe-mod-fab fixed right-4 z-40 flex items-center justify-center rounded-full active:scale-95 transition-transform"
+          style={{ width: 56, height: 56, backgroundColor: t.accent, color: '#fff', boxShadow: '0 6px 20px rgba(0,0,0,0.28)' }}>
+          <Plus size={26} />
+        </button>
+      )}
+
+      {/* 토스트 */}
+      {toast && (
+        <div className="recipe-mod-fab fixed left-1/2 z-50 px-4 py-2.5 rounded-xl shadow-lg pointer-events-none"
+          style={{ transform: 'translateX(-50%)', backgroundColor: t.text, color: t.bg, fontSize: 13, fontWeight: 600, whiteSpace: 'nowrap' }}>
+          {toast}
+        </div>
+      )}
 
       {sheetOpen && (
         <FridgeItemSheet
@@ -317,6 +428,15 @@ export function FridgeTab() {
           confirmDanger
           onConfirm={handleDelete}
           onCancel={() => setDeleteId(null)}
+        />
+      )}
+      {bulkConfirm && (
+        <ConfirmModal
+          message={`선택한 ${selectedIds.size}개 품목을 삭제할까요?`}
+          confirmText="삭제"
+          confirmDanger
+          onConfirm={handleBulkDelete}
+          onCancel={() => setBulkConfirm(false)}
         />
       )}
     </>

@@ -1352,6 +1352,11 @@ export const db = {
       const { error } = await supabase.from('fridge_items').delete().eq('id', id);
       if (error) console.error('[db] fridge_items delete:', error.message);
     },
+    deleteMany: async (ids: string[]) => {
+      if (ids.length === 0) return;
+      const { error } = await supabase.from('fridge_items').delete().in('id', ids);
+      if (error) console.error('[db] fridge_items deleteMany:', error.message);
+    },
   },
 
   // ── 장보기 (Phase 2) — shopping_items ──

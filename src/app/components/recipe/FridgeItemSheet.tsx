@@ -26,6 +26,7 @@ export function FridgeItemSheet({ item, onSave, onDelete, onClose }: FridgeItemS
   const [quantity, setQuantity] = useState<number>(item?.quantity ?? 1);
   const [unit, setUnit] = useState(item?.unit ?? '');
   const [expiryDate, setExpiryDate] = useState(item?.expiryDate ?? '');
+  const [submitting, setSubmitting] = useState(false);
 
   const labelStyle: React.CSSProperties = { display: 'block', fontSize: 12, fontWeight: 600, color: t.textSub, marginBottom: 6 };
   const fieldStyle: React.CSSProperties = {
@@ -35,7 +36,8 @@ export function FridgeItemSheet({ item, onSave, onDelete, onClose }: FridgeItemS
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!name.trim()) return;
+    if (!name.trim() || submitting) return;
+    setSubmitting(true);
     onSave({
       id: item?.id ?? newId(),
       name: name.trim(),
@@ -66,7 +68,7 @@ export function FridgeItemSheet({ item, onSave, onDelete, onClose }: FridgeItemS
           <h2 className="flex-1 text-center lg:flex-none lg:text-left" style={{ fontSize: 17, fontWeight: 700, color: t.text }}>
             {isEdit ? '냉장고 품목 수정' : '냉장고 품목 추가'}
           </h2>
-          <button type="submit" form="fridge-item-form" className="lg:hidden px-3 py-1.5 rounded-lg" style={{ fontSize: 14, fontWeight: 700, color: t.accent }}>저장</button>
+          <button type="submit" form="fridge-item-form" disabled={submitting} className="lg:hidden px-3 py-1.5 rounded-lg" style={{ fontSize: 14, fontWeight: 700, color: submitting ? t.textMuted : t.accent, opacity: submitting ? 0.5 : 1 }}>{submitting ? '저장 중…' : '저장'}</button>
           <button type="button" onClick={onClose} className="hidden lg:block p-1.5 rounded-lg" style={{ color: t.textMuted }}>
             <X size={18} />
           </button>
@@ -141,8 +143,8 @@ export function FridgeItemSheet({ item, onSave, onDelete, onClose }: FridgeItemS
             <div className="flex-1" />
             <button type="button" onClick={onClose} className="hidden lg:block px-4 py-2.5 rounded-xl"
               style={{ fontSize: 14, fontWeight: 600, color: t.textSub, backgroundColor: t.bgSub, border: `1px solid ${t.border}` }}>취소</button>
-            <button type="submit" className="px-5 py-2.5 rounded-xl"
-              style={{ fontSize: 14, fontWeight: 700, color: '#fff', backgroundColor: t.accent }}>저장</button>
+            <button type="submit" disabled={submitting} className="px-5 py-2.5 rounded-xl"
+              style={{ fontSize: 14, fontWeight: 700, color: '#fff', backgroundColor: t.accent, opacity: submitting ? 0.6 : 1 }}>{submitting ? '저장 중…' : '저장'}</button>
           </div>
         </form>
       </div>
