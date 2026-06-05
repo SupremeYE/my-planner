@@ -16,6 +16,17 @@ import { NotificationPermissionBanner } from './NotificationPermissionBanner';
 import { HaonLogo } from './HaonLogo';
 import { AccountWidget } from './AccountWidget';
 
+// 디자인 토큰(hex)에 투명도를 입혀 rgba 로 변환 — 글래스 배경을 토큰 기반으로 생성
+// (색상값을 새로 하드코딩하지 않고 t.card 등 기존 토큰의 알파 변형만 만든다)
+function withAlpha(hex: string, alpha: number): string {
+  const h = hex.replace('#', '');
+  const full = h.length === 3 ? h.split('').map(c => c + c).join('') : h;
+  const r = parseInt(full.slice(0, 2), 16);
+  const g = parseInt(full.slice(2, 4), 16);
+  const b = parseInt(full.slice(4, 6), 16);
+  return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+}
+
 // ── User Avatar with Dropdown (계정 정보 + 프로필/설정/로그아웃) ──
 function UserAvatarMenu() {
   const { t } = useTheme();
@@ -748,15 +759,26 @@ export function Layout() {
           </div>
         </div>
 
-        <main className="flex-1 overflow-y-auto overflow-x-hidden overscroll-contain" style={{ backgroundColor: t.bg, paddingBottom: 'calc(4rem + env(safe-area-inset-bottom))' }}>
+        <main className="flex-1 overflow-y-auto overflow-x-hidden overscroll-contain" style={{ backgroundColor: t.bg, paddingBottom: 'calc(5.5rem + env(safe-area-inset-bottom))' }}>
           <NotificationPermissionBanner />
           <Outlet />
         </main>
 
-        {/* Bottom Nav - 5 fixed tabs */}
+        {/* Bottom Nav — 바닥에서 떠 있는 반투명 유리 알약 (5 fixed tabs) */}
         <nav
-          className="fixed bottom-0 left-0 right-0 flex border-t z-40"
-          style={{ backgroundColor: t.sidebar, borderColor: t.border, minHeight: 56, paddingBottom: 'env(safe-area-inset-bottom)' }}
+          className="fixed left-4 right-4 flex z-40 overflow-hidden"
+          style={{
+            // 홈 인디케이터 위로 띄우기 (좌우 left-4/right-4 여백 + 하단 safe-area)
+            bottom: 'calc(env(safe-area-inset-bottom) + 12px)',
+            minHeight: 56,
+            borderRadius: 30,                                  // 알약 형태
+            backgroundColor: withAlpha(t.card, 0.55),          // 카드 토큰 + 투명도 → 유리 배경
+            backdropFilter: 'blur(24px) saturate(1.7)',        // 강한 블러 + 채도 보정
+            WebkitBackdropFilter: 'blur(24px) saturate(1.7)',
+            border: '1px solid rgba(255,255,255,0.5)',         // 위쪽 밝은 하이라이트 테두리
+            // 위쪽 inset 하이라이트 + 아래쪽 부드러운 그림자(떠 있는 느낌)
+            boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.55), 0 10px 30px rgba(0,0,0,0.16)',
+          }}
         >
           {[
             { to: '/dashboard', icon: Home, label: '대시보드' },
@@ -773,15 +795,16 @@ export function Layout() {
               {({ isActive }) => (
                 <>
                   <div
-                    className="flex items-center justify-center rounded-xl transition-all"
+                    className="flex items-center justify-center rounded-full transition-all"
                     style={{
+                      // 활성 탭: 아이콘 뒤 옅은 알약형 하이라이트 (코랄 계열 토큰)
                       backgroundColor: isActive ? t.accentLight : 'transparent',
-                      padding: '4px 12px',
+                      padding: '4px 14px',
                     }}
                   >
-                    <Icon size={18} color={isActive ? t.text : t.textMuted} />
+                    <Icon size={18} color={isActive ? t.accent : t.textMuted} />
                   </div>
-                  <span style={{ fontSize: 9, color: isActive ? t.text : t.textMuted, fontWeight: isActive ? 700 : 400 }}>
+                  <span style={{ fontSize: 9, color: isActive ? t.accent : t.textMuted, fontWeight: isActive ? 700 : 400 }}>
                     {label}
                   </span>
                 </>
