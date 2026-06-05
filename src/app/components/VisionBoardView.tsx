@@ -1,5 +1,10 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Plus, Image as ImageIcon, Settings2 } from 'lucide-react';
+import {
+  DndContext, useDraggable, useDroppable,
+  PointerSensor, TouchSensor, useSensor, useSensors,
+  DragOverlay, type DragEndEvent, type DragStartEvent,
+} from '@dnd-kit/core';
 import { useTheme } from '../ThemeContext';
 import { db } from '../../lib/db';
 import { useRealtimeSync } from '../hooks/useRealtimeSync';
@@ -31,24 +36,50 @@ type Item = {
 const PIN_ROTATIONS = ['-1.6deg', '1.4deg', '-0.6deg'];
 
 // ── 카드(폴라로이드) ────────────────────────────────────────────────
-function VisionCard({ item, rotation, onClick }: { item: Item; rotation: string; onClick?: () => void }) {
+// Phase 5: draggable + droppable 동시 등록 (id는 item.id).
+//   PC PointerSensor distance:8px → 8px 미만 움직이면 onClick(편집)
+//   모바일 TouchSensor delay:250ms → 길게 눌러야 드래그 시작 (스크롤 충돌 회피)
+function VisionCard({
+  item, rotation, onClick, isDragSource, isDropTarget, dragging,
+}: {
+  item: Item;
+  rotation: string;
+  onClick?: () => void;
+  isDragSource?: boolean;
+  isDropTarget?: boolean;
+  dragging?: boolean;
+}) {
   const { t } = useTheme();
   const hasImage = !!item.image_url;
+  const { setNodeRef: setDragRef, attributes, listeners } = useDraggable({ id: item.id });
+  const { setNodeRef: setDropRef, isOver } = useDroppable({ id: item.id });
+
+  const setRefs = useCallback((node: HTMLElement | null) => {
+    setDragRef(node);
+    setDropRef(node);
+  }, [setDragRef, setDropRef]);
 
   return (
     <div
+      ref={setRefs}
       onClick={onClick}
+      {...listeners}
+      {...attributes}
       style={{
         breakInside: 'avoid',
         marginBottom: 18,
         background: t.card,                                  // 폴라로이드 흰 프레임 = 카드 토큰
         padding: '8px 8px 0',
         borderRadius: 3,
-        boxShadow: '0 6px 18px rgba(0,0,0,0.14), 0 1px 3px rgba(0,0,0,0.10)',
+        boxShadow: isOver
+          ? `0 0 0 2px ${t.accent}, 0 6px 18px rgba(0,0,0,0.18)`
+          : '0 6px 18px rgba(0,0,0,0.14), 0 1px 3px rgba(0,0,0,0.10)',
         position: 'relative',
         transform: `rotate(${rotation})`,
-        transition: 'transform .25s ease, box-shadow .25s ease',
+        transition: dragging ? 'none' : 'transform .25s ease, box-shadow .25s ease',
         cursor: onClick ? 'pointer' : 'default',
+        opacity: isDragSource ? 0.35 : 1,
+        touchAction: 'none', // dnd-kit TouchSensor 권장
       }}
       className="vision-pin"
     >
@@ -176,6 +207,14 @@ export function VisionBoardView() {
   const [modalOpen, setModalOpen] = useState(false);
   const [pendingDelete, setPendingDelete] = useState<Item | null>(null);
   const [catManagerOpen, setCatManagerOpen] = useState(false);
+  // Phase 5 — 드래그 상태 (DragOverlay 표시는 생략, 원본 카드 opacity로 처리)
+  const [activeDragId, setActiveDragId] = useState<string | null>(null);
+
+  // PC: 즉시 드래그 (8px 이동), 모바일: 길게 눌러 집기(250ms)
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
+    useSensor(TouchSensor,   { activationConstraint: { delay: 250, tolerance: 5 } }),
+  );
 
   const refresh = useCallback(async () => {
     const [cats, its] = await Promise.all([
@@ -219,6 +258,42 @@ export function VisionBoardView() {
     setEditingItem(null);
     refresh();
   }, [pendingDelete, refresh]);
+
+  // 드래그 종료 — filteredItems(보고 있는 그 부분집합) 내에서 reorder
+  // sort_order 슬롯은 원래 보고 있던 카드들의 sort_order 값만 재할당 → 다른 카테고리 항목 위치 보존
+  const handleDragStart = useCallback((e: DragStartEvent) => {
+    setActiveDragId(String(e.active.id));
+  }, []);
+
+  const handleDragEnd = useCallback(async (e: DragEndEvent) => {
+    setActiveDragId(null);
+    const activeId = String(e.active.id);
+    const overId = e.over ? String(e.over.id) : null;
+    if (!overId || activeId === overId) return;
+
+    const fromIdx = filteredItems.findIndex(i => i.id === activeId);
+    const toIdx = filteredItems.findIndex(i => i.id === overId);
+    if (fromIdx < 0 || toIdx < 0) return;
+
+    // 부분집합 안에서만 순서 변경
+    const reordered = [...filteredItems];
+    const [moved] = reordered.splice(fromIdx, 1);
+    reordered.splice(toIdx, 0, moved);
+
+    // 원래 슬롯(sort_order)을 그대로 재사용 → 다른 카테고리 항목 위치 영향 없음
+    const slots = filteredItems.map(i => i.sort_order);
+    const updates = reordered.map((item, i) => ({ id: item.id, sort_order: slots[i] }));
+
+    // 낙관적 업데이트: items 배열을 같은 id의 sort_order로 patch
+    const patchMap = new Map(updates.map(u => [u.id, u.sort_order]));
+    setItems(prev =>
+      [...prev]
+        .map(it => patchMap.has(it.id) ? { ...it, sort_order: patchMap.get(it.id)! } : it)
+        .sort((a, b) => a.sort_order - b.sort_order || b.created_at.localeCompare(a.created_at))
+    );
+
+    await db.visionItems.setSortOrders(updates);
+  }, [filteredItems]);
 
   return (
     <div
@@ -315,20 +390,27 @@ export function VisionBoardView() {
       </div>
 
       {/* ── 보드(메이슨리) ── */}
-      <div className="vision-board" style={{ paddingBottom: 130 }}>
-        {loading ? null : filteredItems.length === 0 ? (
-          <VisionEmpty />
-        ) : (
-          filteredItems.map((item, idx) => (
-            <VisionCard
-              key={item.id}
-              item={item}
-              rotation={PIN_ROTATIONS[idx % PIN_ROTATIONS.length]}
-              onClick={() => handleCardClick(item)}
-            />
-          ))
-        )}
-      </div>
+      <DndContext sensors={sensors} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
+        <div className="vision-board" style={{ paddingBottom: 130 }}>
+          {loading ? null : filteredItems.length === 0 ? (
+            <VisionEmpty />
+          ) : (
+            filteredItems.map((item, idx) => (
+              <VisionCard
+                key={item.id}
+                item={item}
+                rotation={PIN_ROTATIONS[idx % PIN_ROTATIONS.length]}
+                onClick={() => handleCardClick(item)}
+                isDragSource={activeDragId === item.id}
+                dragging={!!activeDragId}
+              />
+            ))
+          )}
+        </div>
+        {/* DragOverlay 미사용 — 원본 카드 opacity 0.35로 드래그 시각화.
+            메이슨리 회전·column-flow와 충돌하지 않게 단순 처리. */}
+        <DragOverlay />
+      </DndContext>
 
       {/* ── FAB (코랄 토큰) ── */}
       <div
