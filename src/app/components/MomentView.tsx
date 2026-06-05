@@ -86,6 +86,8 @@ export function MomentView() {
   const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
   // 모바일 뷰 전환: 피드 / 모아보기(월별 그리드)
   const [mobileView, setMobileView]   = useState<'feed' | 'grid'>('feed');
+  // PC 뷰 전환 — 모바일과 독립
+  const [pcView, setPcView]           = useState<'feed' | 'grid'>('feed');
   // 아카이브 기준 연도 (기본 = 현재 연도). 칩으로 과거 연도 선택 가능
   const [selectedYear, setSelectedYear] = useState<number>(() => new Date().getFullYear());
   // 모아보기 순서 편집 — 어느 월 키가 편집 중인지(한 번에 하나만)
@@ -250,17 +252,17 @@ export function MomentView() {
 
   return (
     <div className="h-full overflow-y-auto" style={{ backgroundColor: t.bg }}>
-      <div className="px-4 py-5 lg:py-8 space-y-5">
+      <div className="px-4 py-5 space-y-5 lg:p-0 lg:space-y-0">
 
-        {/* 헤더 */}
-        <div>
+        {/* 헤더 (모바일 전용) */}
+        <div className="lg:hidden">
           <h1 style={{ fontSize: 22, fontWeight: 700, color: t.text, fontFamily: 'var(--font-gmarket)' }}>모먼트</h1>
           <p style={{ fontSize: 13, color: t.textSub, marginTop: 2 }}>순간을 짧게 기록해요</p>
         </div>
 
-        {/* 작성 카드 */}
+        {/* 작성 카드 (모바일 전용) */}
         <div
-          className="rounded-2xl p-4 space-y-3"
+          className="rounded-2xl p-4 space-y-3 lg:hidden"
           style={{ backgroundColor: t.card, border: `1px solid ${t.border}` }}
         >
           {/* 사진 미리보기 */}
@@ -368,89 +370,298 @@ export function MomentView() {
           </div>
         </div>
 
-        {/* 모먼트 목록 — PC 전용 (기존 레이아웃 유지) */}
-        <div className="hidden lg:block space-y-3">
-          {moments.length === 0 && (
-            <div
-              className="rounded-2xl p-8 flex flex-col items-center gap-2"
-              style={{ backgroundColor: t.card, border: `1px solid ${t.border}` }}
-            >
-              <span style={{ fontSize: 32 }}>📸</span>
-              <p style={{ fontSize: 14, color: t.textMuted, textAlign: 'center' }}>
-                아직 기록된 순간이 없어요.<br />첫 번째 모먼트를 남겨보세요!
-              </p>
+        {/* ===== PC 전용 레이아웃 (lg: 이상) ===== */}
+        <div className="hidden lg:block px-8 py-8">
+          {/* 페이지 헤더: 좌측 타이틀 / 우측 스탯 스트립 */}
+          <div className="flex items-end justify-between gap-6">
+            <div>
+              <div style={{ fontFamily: 'var(--font-gaegu)', fontSize: 16, color: t.textSub }}>
+                오늘 하루, 기억하고 싶은 순간
+              </div>
+              <h1 style={{ fontFamily: "'DM Serif Display', serif", fontSize: 40, color: t.text, lineHeight: 1.1, marginTop: 2 }}>
+                모먼트
+              </h1>
+              <p style={{ fontSize: 14, color: t.textSub, marginTop: 4 }}>순간을 모아 한 해를 돌아봐요</p>
             </div>
-          )}
 
-          {moments.map(moment => {
-            const weather = moment.weather_code != null
-              ? weatherInfo(moment.weather_code)
-              : null;
+            {/* 스탯 스트립 — 현재 연도 3칸 / 과거 연도 2칸 */}
+            <div className="flex gap-3 shrink-0">
+              {selectedYear === currentYear ? (
+                <>
+                  <StatCard label="이번 달" value={monthCount} t={t} />
+                  <StatCard label="올해" value={yearCount} t={t} />
+                  <StatCard label="✦ 하이라이트" value={highlightCount} t={t} valueColor={t.danger} />
+                </>
+              ) : (
+                <>
+                  <StatCard label={`${selectedYear}년`} value={yearCount} t={t} />
+                  <StatCard label="✦ 하이라이트" value={highlightCount} t={t} valueColor={t.danger} />
+                </>
+              )}
+            </div>
+          </div>
 
-            return (
+          {/* 연도 선택 칩 행 */}
+          <div className="flex gap-2 flex-wrap mt-6">
+            {availableYears.map(y => {
+              const sel = y === selectedYear;
+              return (
+                <button
+                  key={y}
+                  onClick={() => setSelectedYear(y)}
+                  className="flex flex-col items-center justify-center rounded-xl px-4 py-1.5 transition-all"
+                  style={{
+                    backgroundColor: sel ? t.text : 'transparent',
+                    border: `1px solid ${sel ? t.text : t.border}`,
+                    color: sel ? '#fff' : t.textSub,
+                    minWidth: 60,
+                  }}
+                >
+                  <span style={{ fontFamily: "'DM Serif Display', serif", fontSize: 16, lineHeight: 1.1 }}>{y}</span>
+                  {y === currentYear && (
+                    <span style={{ fontSize: 9, marginTop: 1, opacity: 0.85 }}>올해</span>
+                  )}
+                </button>
+              );
+            })}
+          </div>
+
+          {/* 본문 2열: 좌측 sticky 레일 + 우측 메인 */}
+          <div className="mt-8" style={{ display: 'grid', gridTemplateColumns: '330px 1fr', gap: 24, alignItems: 'start' }}>
+            {/* ── 좌측 레일 (sticky) ───────────────────────────────────── */}
+            <aside className="space-y-4" style={{ position: 'sticky', top: 24 }}>
+              {/* 빠른 기록 카드 (PC 전용 폼 — 동일 핸들러 재사용) */}
               <div
-                key={moment.id}
                 className="rounded-2xl p-4 space-y-3"
                 style={{ backgroundColor: t.card, border: `1px solid ${t.border}` }}
               >
-                {/* 사진 썸네일 */}
-                {moment.photos.length > 0 && (
+                <div style={{ fontSize: 13, fontWeight: 700, color: t.text }}>지금 이 순간을 기록해보세요</div>
+
+                {/* 사진 미리보기 */}
+                {photoPreviews.length > 0 && (
                   <div className="flex gap-2 flex-wrap">
-                    {moment.photos.map((url, i) => (
-                      <img
-                        key={i}
-                        src={url}
-                        alt=""
-                        className="rounded-xl object-cover"
-                        style={{
-                          width:  moment.photos.length === 1 ? '100%' : 96,
-                          height: moment.photos.length === 1 ? 220  : 96,
-                          border: `1px solid ${t.border}`,
-                        }}
-                      />
+                    {photoPreviews.map((src, i) => (
+                      <div key={i} className="relative">
+                        <img
+                          src={src}
+                          alt=""
+                          className="w-16 h-16 rounded-lg object-cover"
+                          style={{ border: `1px solid ${t.border}` }}
+                        />
+                        <button
+                          onClick={() => removePhoto(i)}
+                          className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full flex items-center justify-center"
+                          style={{ backgroundColor: t.text, color: t.bg }}
+                        >
+                          <X size={11} />
+                        </button>
+                      </div>
                     ))}
                   </div>
                 )}
 
-                {/* 텍스트 */}
-                {moment.content && (
-                  <p style={{ fontSize: 15, color: t.text, lineHeight: 1.6, whiteSpace: 'pre-wrap' }}>
-                    {moment.content}
-                  </p>
-                )}
+                {/* 텍스트 입력 — PC는 min-height 96px */}
+                <textarea
+                  value={content}
+                  onChange={e => setContent(e.target.value)}
+                  placeholder="짧게 한 줄, 길게 한 단락 — 그 순간을 그대로."
+                  className="w-full resize-none outline-none bg-transparent"
+                  style={{ fontSize: 14, color: t.text, lineHeight: 1.6, minHeight: 96 }}
+                />
 
-                {/* 푸터: 날씨 + 시각 + 삭제 */}
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    {/* 날씨 배지 */}
-                    {weather && (
-                      <span
-                        className="flex items-center gap-1 px-2 py-0.5 rounded-lg"
-                        style={{ backgroundColor: t.bgSub, fontSize: 11, color: t.textSub }}
-                      >
-                        <span>{weather.emoji}</span>
-                        {moment.weather_temp != null && (
-                          <span>{moment.weather_temp}°C</span>
-                        )}
-                        <span>{weather.label}</span>
+                {/* 하단 버튼 행 */}
+                <div className="flex items-center justify-between pt-1">
+                  <div className="flex gap-1.5 items-center">
+                    <button
+                      onClick={() => cameraRef.current?.click()}
+                      disabled={photoFiles.length >= 5}
+                      className="flex items-center justify-center w-8 h-8 rounded-lg transition-all"
+                      style={{
+                        backgroundColor: t.bgSub,
+                        color: photoFiles.length >= 5 ? t.textMuted : t.textSub,
+                      }}
+                      aria-label="카메라"
+                    >
+                      <Camera size={15} />
+                    </button>
+                    <button
+                      onClick={() => galleryRef.current?.click()}
+                      disabled={photoFiles.length >= 5}
+                      className="flex items-center justify-center w-8 h-8 rounded-lg transition-all"
+                      style={{
+                        backgroundColor: t.bgSub,
+                        color: photoFiles.length >= 5 ? t.textMuted : t.textSub,
+                      }}
+                      aria-label="갤러리"
+                    >
+                      <ImagePlus size={15} />
+                    </button>
+                    {photoFiles.length > 0 && (
+                      <span style={{ fontSize: 11, color: t.textMuted, marginLeft: 2 }}>
+                        {photoFiles.length}/5
                       </span>
                     )}
-                    <span style={{ fontSize: 11, color: t.textMuted }}>
-                      {formatTime(moment.created_at)}
-                    </span>
                   </div>
 
                   <button
-                    onClick={() => handleDelete(moment.id)}
-                    className="p-1.5 rounded-lg transition-colors"
-                    style={{ color: t.textMuted }}
+                    onClick={handleSave}
+                    disabled={saving || (!content.trim() && photoFiles.length === 0)}
+                    className="px-4 py-1.5 rounded-lg font-semibold transition-all"
+                    style={{
+                      backgroundColor: t.accent,
+                      color: '#fff',
+                      fontSize: 13,
+                      opacity: saving || (!content.trim() && photoFiles.length === 0) ? 0.5 : 1,
+                    }}
                   >
-                    <Trash2 size={13} />
+                    {saving ? '저장 중...' : '기록하기'}
                   </button>
                 </div>
               </div>
-            );
-          })}
+
+              {/* 하이라이트 카드 (선택 연도, 0개면 카드 자체 숨김) */}
+              {highlightCount > 0 && (
+                <div
+                  className="rounded-2xl p-4 space-y-3"
+                  style={{ backgroundColor: t.card, border: `1px solid ${t.border}` }}
+                >
+                  <div className="flex items-baseline justify-between">
+                    <div style={{ fontSize: 13, fontWeight: 700, color: t.text }}>
+                      <span style={{ color: t.danger, marginRight: 4 }}>✦</span>
+                      {selectedYear} 하이라이트
+                    </div>
+                    <span style={{ fontSize: 11, color: t.textMuted }}>{highlightCount}개</span>
+                  </div>
+                  {/* 3열 미니 썸네일 갤러리 (gold 링 + 제목 오버레이) */}
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 6 }}>
+                    {yearHighlights.map(m => (
+                      <HighlightMiniTile key={m.id} moment={m} t={t} />
+                    ))}
+                  </div>
+                </div>
+              )}
+            </aside>
+
+            {/* ── 우측 메인 콘텐츠 ──────────────────────────────────── */}
+            <main className="min-w-0 space-y-6">
+              {/* 세그먼트 토글: 피드 / 모아보기 */}
+              <div className="flex p-1 rounded-xl w-fit" style={{ backgroundColor: t.bgSub }}>
+                {([['feed', '피드'], ['grid', '모아보기']] as const).map(([v, label]) => (
+                  <button
+                    key={v}
+                    onClick={() => setPcView(v)}
+                    className="px-5 py-1.5 rounded-lg text-center transition-all"
+                    style={{
+                      backgroundColor: pcView === v ? t.accent : 'transparent',
+                      color: pcView === v ? '#fff' : t.textSub,
+                      fontSize: 13,
+                      fontWeight: pcView === v ? 700 : 500,
+                    }}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+
+              {/* 빈 상태 */}
+              {yearMoments.length === 0 && (
+                <div
+                  className="rounded-2xl p-10 flex flex-col items-center gap-2"
+                  style={{ backgroundColor: t.card, border: `1px solid ${t.border}` }}
+                >
+                  <span style={{ fontSize: 36 }}>📸</span>
+                  <p style={{ fontSize: 14, color: t.textMuted, textAlign: 'center' }}>
+                    {moments.length === 0
+                      ? <>아직 기록된 순간이 없어요.<br />첫 번째 모먼트를 남겨보세요!</>
+                      : <>{selectedYear}년에는 기록된 순간이 없어요.</>}
+                  </p>
+                </div>
+              )}
+
+              {/* 월별 섹션 (피드/모아보기 공통 — 모바일과 일관) */}
+              {yearMoments.length > 0 && monthGroups.map(([key, group]) => {
+                const editing = reorderMonth === key;
+                return (
+                  <section key={key} className="space-y-3">
+                    {/* 월 그룹 헤더: 영문 월(DM Serif) + 'YYYY · N개의 순간' + 우측 순서 편집 pill */}
+                    <div className="flex items-baseline justify-between gap-3">
+                      <div className="flex items-baseline gap-2 min-w-0">
+                        <span style={{ fontFamily: "'DM Serif Display', serif", fontSize: 24, color: t.text, lineHeight: 1.1 }}>
+                          {format(new Date(`${key}-01T00:00:00`), 'MMMM')}
+                        </span>
+                        <span style={{ fontFamily: "'DM Serif Display', serif", fontSize: 18, color: t.textSub, lineHeight: 1.1 }}>
+                          {format(new Date(`${key}-01T00:00:00`), 'yyyy')}
+                        </span>
+                        <span style={{ fontSize: 13, color: t.textMuted }}>· {group.length}개의 순간</span>
+                      </div>
+                      {pcView === 'grid' && group.length > 1 && (
+                        <button
+                          onClick={() => setReorderMonth(editing ? null : key)}
+                          className="shrink-0 rounded-full px-3 py-1 transition-all"
+                          style={{
+                            fontSize: 12,
+                            backgroundColor: editing ? t.accent : 'transparent',
+                            color: editing ? '#fff' : t.textSub,
+                            border: `1px solid ${editing ? t.accent : t.border}`,
+                          }}
+                        >
+                          {editing ? '완료' : '↕ 순서 편집'}
+                        </button>
+                      )}
+                    </div>
+
+                    {/* 피드 뷰 — 3열 메이슨리(CSS columns) */}
+                    {pcView === 'feed' && (
+                      <div style={{ columnCount: 3, columnGap: 16 }}>
+                        {group.map(m => (
+                          <MomentFeedCardPC
+                            key={m.id}
+                            moment={m}
+                            t={t}
+                            onToggleHighlight={() => handleToggleHighlight(m.id)}
+                            onDelete={() => handleDelete(m.id)}
+                            formatTime={formatTime}
+                          />
+                        ))}
+                      </div>
+                    )}
+
+                    {/* 모아보기 뷰 — 5열 정사각 그리드 */}
+                    {pcView === 'grid' && (
+                      editing ? (
+                        <ReorderGrid
+                          monthKey={key}
+                          items={group}
+                          t={t}
+                          dragId={dragId}
+                          setDragId={setDragId}
+                          onCommit={ids => handleReorderCommit(key, ids)}
+                          columns={5}
+                          gap={10}
+                        />
+                      ) : (
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 10 }}>
+                          {group.map(m => (
+                            <div
+                              key={m.id}
+                              className="transition-transform duration-200 hover:scale-[1.03]"
+                              style={{ transformOrigin: 'center' }}
+                            >
+                              <MomentGridTile
+                                moment={m}
+                                t={t}
+                                onToggleHighlight={() => handleToggleHighlight(m.id)}
+                              />
+                            </div>
+                          ))}
+                        </div>
+                      )
+                    )}
+                  </section>
+                );
+              })}
+            </main>
+          </div>
         </div>
 
         {/* 모먼트 목록 — 모바일 전용 (연도 스코프 + 피드/모아보기 토글) */}
@@ -633,7 +844,7 @@ export function MomentView() {
 
 // ── 모아보기 순서 편집 그리드 (드래그로 같은 월 안에서 재배치) ────────────
 function ReorderGrid({
-  monthKey: _monthKey, items, t, dragId, setDragId, onCommit,
+  monthKey: _monthKey, items, t, dragId, setDragId, onCommit, columns = 3, gap = 6,
 }: {
   monthKey: string;
   items: Moment[];
@@ -641,6 +852,8 @@ function ReorderGrid({
   dragId: string | null;
   setDragId: (id: string | null) => void;
   onCommit: (orderedIds: string[]) => void;
+  columns?: number;
+  gap?: number;
 }) {
   // 편집 중에는 로컬 ids 상태로 즉시 시각 반영. 완료(편집 종료) 시 onCommit으로 저장.
   const [ids, setIds] = useState<string[]>(() => items.map(i => i.id));
@@ -668,7 +881,7 @@ function ReorderGrid({
 
   const map = new Map(items.map(i => [i.id, i]));
   return (
-    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 6 }}>
+    <div style={{ display: 'grid', gridTemplateColumns: `repeat(${columns}, 1fr)`, gap }}>
       {ids.map(id => {
         const m = map.get(id);
         if (!m) return null;
@@ -819,6 +1032,153 @@ function MomentGridTile({
             {date}
           </div>
         )}
+      </div>
+    </div>
+  );
+}
+
+// ── 하이라이트 미니 썸네일 (PC 레일 3열 — 정사각, gold 링, 제목 오버레이) ─
+function HighlightMiniTile({ moment, t }: { moment: Moment; t: ThemeTokens }) {
+  const title = moment.content.trim() || '오늘의 순간';
+  const hasPhoto = !!moment.photos[0];
+  return (
+    <div
+      className="relative overflow-hidden"
+      style={{
+        aspectRatio: '1 / 1',
+        borderRadius: 10,
+        background: hasPhoto ? t.bgSub : `linear-gradient(135deg, ${t.bgSub} 0%, ${t.accentSoft} 100%)`,
+        boxShadow: `0 0 0 2px ${t.accent}`,
+      }}
+    >
+      {hasPhoto ? (
+        <img src={moment.photos[0]} alt="" className="w-full h-full object-cover" />
+      ) : (
+        <div
+          className="absolute inset-0 flex items-center justify-center text-center p-1"
+          style={{ fontFamily: 'var(--font-gaegu)', fontSize: 12, color: t.textSub }}
+        >
+          📝
+        </div>
+      )}
+      <div
+        className="absolute inset-x-0 bottom-0 pointer-events-none"
+        style={{ height: '55%', background: 'linear-gradient(to top, rgba(0,0,0,0.55), rgba(0,0,0,0))' }}
+      />
+      <div className="absolute inset-x-0 bottom-0 px-1.5 pb-1">
+        <div className="truncate" style={{ fontFamily: 'var(--font-gaegu)', fontSize: 10.5, color: '#fff', lineHeight: 1.2 }}>
+          {title}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── PC 피드 카드 (메이슨리용 — 원본 비율 사진 + 별 토글 + Gaegu 제목 + 메타) ─
+function MomentFeedCardPC({
+  moment, t, onToggleHighlight, onDelete, formatTime,
+}: {
+  moment: Moment;
+  t: ThemeTokens;
+  onToggleHighlight: () => void;
+  onDelete: () => void;
+  formatTime: (iso: string) => string;
+}) {
+  const weather = moment.weather_code != null ? weatherInfo(moment.weather_code) : null;
+  const cover   = moment.photos[0];
+  const title   = moment.content.trim() || '오늘의 순간';
+  const hi      = moment.is_highlight;
+
+  return (
+    <div
+      className="rounded-2xl overflow-hidden transition-all duration-200 hover:-translate-y-0.5 group"
+      style={{
+        backgroundColor: t.card,
+        border: `1px solid ${t.border}`,
+        breakInside: 'avoid',
+        marginBottom: 16,
+        boxShadow: 'none',
+      }}
+      onMouseEnter={e => { e.currentTarget.style.boxShadow = '0 8px 20px rgba(0,0,0,0.06)'; }}
+      onMouseLeave={e => { e.currentTarget.style.boxShadow = 'none'; }}
+    >
+      {/* 사진(원본 비율 유지) */}
+      {cover && (
+        <div className="relative">
+          <img src={cover} alt="" className="w-full h-auto block" />
+          {/* 우상단 별 토글 */}
+          <button
+            onClick={e => { e.stopPropagation(); onToggleHighlight(); }}
+            className="absolute top-2 right-2 flex items-center justify-center rounded-full"
+            style={{
+              width: 26, height: 26,
+              backgroundColor: hi ? '#fff' : 'rgba(0,0,0,0.35)',
+              color: hi ? t.danger : '#fff',
+              boxShadow: hi ? '0 1px 3px rgba(0,0,0,0.25)' : 'none',
+            }}
+            aria-label={hi ? '하이라이트 해제' : '하이라이트 지정'}
+          >
+            <Star size={14} fill={hi ? t.danger : 'none'} strokeWidth={hi ? 0 : 2} />
+          </button>
+        </div>
+      )}
+
+      <div className="p-3.5 space-y-2">
+        {/* 사진 없는 경우 — 카드 상단 자리에 별 토글만 띄움 */}
+        {!cover && (
+          <div className="flex justify-end">
+            <button
+              onClick={e => { e.stopPropagation(); onToggleHighlight(); }}
+              className="flex items-center justify-center rounded-full"
+              style={{
+                width: 26, height: 26,
+                backgroundColor: hi ? t.accentSoft : t.bgSub,
+                color: hi ? t.danger : t.textMuted,
+              }}
+              aria-label={hi ? '하이라이트 해제' : '하이라이트 지정'}
+            >
+              <Star size={14} fill={hi ? t.danger : 'none'} strokeWidth={hi ? 0 : 2} />
+            </button>
+          </div>
+        )}
+
+        {/* 제목 (Gaegu) */}
+        <p
+          style={{
+            fontFamily: 'var(--font-gaegu)',
+            fontSize: 17,
+            color: t.text,
+            lineHeight: 1.45,
+            whiteSpace: 'pre-wrap',
+            wordBreak: 'break-word',
+          }}
+        >
+          {title}
+        </p>
+
+        {/* 메타: 날씨 칩 + 날짜·시간 + 삭제 */}
+        <div className="flex items-center justify-between gap-2">
+          <div className="flex items-center gap-1.5 flex-wrap min-w-0">
+            {weather && (
+              <span
+                className="flex items-center gap-1 px-1.5 py-0.5 rounded-md"
+                style={{ backgroundColor: t.bgSub, fontSize: 11, color: t.textSub }}
+              >
+                <span>{weather.emoji}</span>
+                {moment.weather_temp != null && <span>{moment.weather_temp}°C</span>}
+              </span>
+            )}
+            <span style={{ fontSize: 11, color: t.textMuted }}>{formatTime(moment.created_at)}</span>
+          </div>
+          <button
+            onClick={e => { e.stopPropagation(); onDelete(); }}
+            className="p-1 rounded-md opacity-0 group-hover:opacity-100 transition-opacity"
+            style={{ color: t.textMuted }}
+            aria-label="삭제"
+          >
+            <Trash2 size={13} />
+          </button>
+        </div>
       </div>
     </div>
   );
