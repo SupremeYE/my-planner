@@ -86,6 +86,8 @@ export function MomentView() {
   const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
   // 모바일 뷰 전환: 피드 / 모아보기(월별 그리드)
   const [mobileView, setMobileView]   = useState<'feed' | 'grid'>('feed');
+  // PC 뷰 전환 — 모바일과 독립
+  const [pcView, setPcView]           = useState<'feed' | 'grid'>('feed');
   // 아카이브 기준 연도 (기본 = 현재 연도). 칩으로 과거 연도 선택 가능
   const [selectedYear, setSelectedYear] = useState<number>(() => new Date().getFullYear());
   // 모아보기 순서 편집 — 어느 월 키가 편집 중인지(한 번에 하나만)
@@ -540,9 +542,124 @@ export function MomentView() {
               )}
             </aside>
 
-            {/* ── 우측 메인 콘텐츠 자리 (Phase 3에서 채움) ────────────── */}
-            <main>
-              {/* placeholder — Phase 3에서 세그먼트 토글 + 메이슨리/그리드 추가 */}
+            {/* ── 우측 메인 콘텐츠 ──────────────────────────────────── */}
+            <main className="min-w-0 space-y-6">
+              {/* 세그먼트 토글: 피드 / 모아보기 */}
+              <div className="flex p-1 rounded-xl w-fit" style={{ backgroundColor: t.bgSub }}>
+                {([['feed', '피드'], ['grid', '모아보기']] as const).map(([v, label]) => (
+                  <button
+                    key={v}
+                    onClick={() => setPcView(v)}
+                    className="px-5 py-1.5 rounded-lg text-center transition-all"
+                    style={{
+                      backgroundColor: pcView === v ? t.accent : 'transparent',
+                      color: pcView === v ? '#fff' : t.textSub,
+                      fontSize: 13,
+                      fontWeight: pcView === v ? 700 : 500,
+                    }}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+
+              {/* 빈 상태 */}
+              {yearMoments.length === 0 && (
+                <div
+                  className="rounded-2xl p-10 flex flex-col items-center gap-2"
+                  style={{ backgroundColor: t.card, border: `1px solid ${t.border}` }}
+                >
+                  <span style={{ fontSize: 36 }}>📸</span>
+                  <p style={{ fontSize: 14, color: t.textMuted, textAlign: 'center' }}>
+                    {moments.length === 0
+                      ? <>아직 기록된 순간이 없어요.<br />첫 번째 모먼트를 남겨보세요!</>
+                      : <>{selectedYear}년에는 기록된 순간이 없어요.</>}
+                  </p>
+                </div>
+              )}
+
+              {/* 월별 섹션 (피드/모아보기 공통 — 모바일과 일관) */}
+              {yearMoments.length > 0 && monthGroups.map(([key, group]) => {
+                const editing = reorderMonth === key;
+                return (
+                  <section key={key} className="space-y-3">
+                    {/* 월 그룹 헤더: 영문 월(DM Serif) + 'YYYY · N개의 순간' + 우측 순서 편집 pill */}
+                    <div className="flex items-baseline justify-between gap-3">
+                      <div className="flex items-baseline gap-2 min-w-0">
+                        <span style={{ fontFamily: "'DM Serif Display', serif", fontSize: 24, color: t.text, lineHeight: 1.1 }}>
+                          {format(new Date(`${key}-01T00:00:00`), 'MMMM')}
+                        </span>
+                        <span style={{ fontFamily: "'DM Serif Display', serif", fontSize: 18, color: t.textSub, lineHeight: 1.1 }}>
+                          {format(new Date(`${key}-01T00:00:00`), 'yyyy')}
+                        </span>
+                        <span style={{ fontSize: 13, color: t.textMuted }}>· {group.length}개의 순간</span>
+                      </div>
+                      {pcView === 'grid' && group.length > 1 && (
+                        <button
+                          onClick={() => setReorderMonth(editing ? null : key)}
+                          className="shrink-0 rounded-full px-3 py-1 transition-all"
+                          style={{
+                            fontSize: 12,
+                            backgroundColor: editing ? t.accent : 'transparent',
+                            color: editing ? '#fff' : t.textSub,
+                            border: `1px solid ${editing ? t.accent : t.border}`,
+                          }}
+                        >
+                          {editing ? '완료' : '↕ 순서 편집'}
+                        </button>
+                      )}
+                    </div>
+
+                    {/* 피드 뷰 — 3열 메이슨리(CSS columns) */}
+                    {pcView === 'feed' && (
+                      <div style={{ columnCount: 3, columnGap: 16 }}>
+                        {group.map(m => (
+                          <MomentFeedCardPC
+                            key={m.id}
+                            moment={m}
+                            t={t}
+                            onToggleHighlight={() => handleToggleHighlight(m.id)}
+                            onDelete={() => handleDelete(m.id)}
+                            formatTime={formatTime}
+                          />
+                        ))}
+                      </div>
+                    )}
+
+                    {/* 모아보기 뷰 — 5열 정사각 그리드 */}
+                    {pcView === 'grid' && (
+                      editing ? (
+                        <ReorderGrid
+                          monthKey={key}
+                          items={group}
+                          t={t}
+                          dragId={dragId}
+                          setDragId={setDragId}
+                          onCommit={ids => handleReorderCommit(key, ids)}
+                          columns={5}
+                          gap={10}
+                        />
+                      ) : (
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 10 }}>
+                          {group.map(m => (
+                            <div
+                              key={m.id}
+                              className="transition-transform duration-200 hover:scale-[1.03]"
+                              style={{ transformOrigin: 'center' }}
+                            >
+                              <MomentGridTile
+                                moment={m}
+                                t={t}
+                                onToggleHighlight={() => handleToggleHighlight(m.id)}
+                              />
+                            </div>
+                          ))}
+                        </div>
+                      )
+                    )}
+                  </section>
+                );
+              })}
             </main>
           </div>
         </div>
@@ -727,7 +844,7 @@ export function MomentView() {
 
 // ── 모아보기 순서 편집 그리드 (드래그로 같은 월 안에서 재배치) ────────────
 function ReorderGrid({
-  monthKey: _monthKey, items, t, dragId, setDragId, onCommit,
+  monthKey: _monthKey, items, t, dragId, setDragId, onCommit, columns = 3, gap = 6,
 }: {
   monthKey: string;
   items: Moment[];
@@ -735,6 +852,8 @@ function ReorderGrid({
   dragId: string | null;
   setDragId: (id: string | null) => void;
   onCommit: (orderedIds: string[]) => void;
+  columns?: number;
+  gap?: number;
 }) {
   // 편집 중에는 로컬 ids 상태로 즉시 시각 반영. 완료(편집 종료) 시 onCommit으로 저장.
   const [ids, setIds] = useState<string[]>(() => items.map(i => i.id));
@@ -762,7 +881,7 @@ function ReorderGrid({
 
   const map = new Map(items.map(i => [i.id, i]));
   return (
-    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 6 }}>
+    <div style={{ display: 'grid', gridTemplateColumns: `repeat(${columns}, 1fr)`, gap }}>
       {ids.map(id => {
         const m = map.get(id);
         if (!m) return null;
@@ -949,6 +1068,116 @@ function HighlightMiniTile({ moment, t }: { moment: Moment; t: ThemeTokens }) {
       <div className="absolute inset-x-0 bottom-0 px-1.5 pb-1">
         <div className="truncate" style={{ fontFamily: 'var(--font-gaegu)', fontSize: 10.5, color: '#fff', lineHeight: 1.2 }}>
           {title}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── PC 피드 카드 (메이슨리용 — 원본 비율 사진 + 별 토글 + Gaegu 제목 + 메타) ─
+function MomentFeedCardPC({
+  moment, t, onToggleHighlight, onDelete, formatTime,
+}: {
+  moment: Moment;
+  t: ThemeTokens;
+  onToggleHighlight: () => void;
+  onDelete: () => void;
+  formatTime: (iso: string) => string;
+}) {
+  const weather = moment.weather_code != null ? weatherInfo(moment.weather_code) : null;
+  const cover   = moment.photos[0];
+  const title   = moment.content.trim() || '오늘의 순간';
+  const hi      = moment.is_highlight;
+
+  return (
+    <div
+      className="rounded-2xl overflow-hidden transition-all duration-200 hover:-translate-y-0.5 group"
+      style={{
+        backgroundColor: t.card,
+        border: `1px solid ${t.border}`,
+        breakInside: 'avoid',
+        marginBottom: 16,
+        boxShadow: 'none',
+      }}
+      onMouseEnter={e => { e.currentTarget.style.boxShadow = '0 8px 20px rgba(0,0,0,0.06)'; }}
+      onMouseLeave={e => { e.currentTarget.style.boxShadow = 'none'; }}
+    >
+      {/* 사진(원본 비율 유지) */}
+      {cover && (
+        <div className="relative">
+          <img src={cover} alt="" className="w-full h-auto block" />
+          {/* 우상단 별 토글 */}
+          <button
+            onClick={e => { e.stopPropagation(); onToggleHighlight(); }}
+            className="absolute top-2 right-2 flex items-center justify-center rounded-full"
+            style={{
+              width: 26, height: 26,
+              backgroundColor: hi ? '#fff' : 'rgba(0,0,0,0.35)',
+              color: hi ? t.danger : '#fff',
+              boxShadow: hi ? '0 1px 3px rgba(0,0,0,0.25)' : 'none',
+            }}
+            aria-label={hi ? '하이라이트 해제' : '하이라이트 지정'}
+          >
+            <Star size={14} fill={hi ? t.danger : 'none'} strokeWidth={hi ? 0 : 2} />
+          </button>
+        </div>
+      )}
+
+      <div className="p-3.5 space-y-2">
+        {/* 사진 없는 경우 — 카드 상단 자리에 별 토글만 띄움 */}
+        {!cover && (
+          <div className="flex justify-end">
+            <button
+              onClick={e => { e.stopPropagation(); onToggleHighlight(); }}
+              className="flex items-center justify-center rounded-full"
+              style={{
+                width: 26, height: 26,
+                backgroundColor: hi ? t.accentSoft : t.bgSub,
+                color: hi ? t.danger : t.textMuted,
+              }}
+              aria-label={hi ? '하이라이트 해제' : '하이라이트 지정'}
+            >
+              <Star size={14} fill={hi ? t.danger : 'none'} strokeWidth={hi ? 0 : 2} />
+            </button>
+          </div>
+        )}
+
+        {/* 제목 (Gaegu) */}
+        <p
+          style={{
+            fontFamily: 'var(--font-gaegu)',
+            fontSize: 17,
+            color: t.text,
+            lineHeight: 1.45,
+            whiteSpace: 'pre-wrap',
+            wordBreak: 'break-word',
+          }}
+        >
+          {title}
+        </p>
+
+        {/* 메타: 날씨 칩 + 날짜·시간 + 삭제 */}
+        <div className="flex items-center justify-between gap-2">
+          <div className="flex items-center gap-1.5 flex-wrap min-w-0">
+            {weather && (
+              <span
+                className="flex items-center gap-1 px-1.5 py-0.5 rounded-md"
+                style={{ backgroundColor: t.bgSub, fontSize: 11, color: t.textSub }}
+              >
+                <span>{weather.emoji}</span>
+                {moment.weather_temp != null && <span>{moment.weather_temp}°C</span>}
+              </span>
+            )}
+            <span style={{ fontSize: 11, color: t.textMuted }}>{formatTime(moment.created_at)}</span>
+          </div>
+          <button
+            onClick={e => { e.stopPropagation(); onDelete(); }}
+            className="p-1 rounded-md opacity-0 group-hover:opacity-100 transition-opacity"
+            style={{ color: t.textMuted }}
+            aria-label="삭제"
+          >
+            <Trash2 size={13} />
+          </button>
         </div>
       </div>
     </div>
