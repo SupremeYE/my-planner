@@ -1,9 +1,10 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { Plus, Image as ImageIcon } from 'lucide-react';
+import { Plus, Image as ImageIcon, Settings2 } from 'lucide-react';
 import { useTheme } from '../ThemeContext';
 import { db } from '../../lib/db';
 import { useRealtimeSync } from '../hooks/useRealtimeSync';
 import VisionFormModal from './vision/VisionFormModal';
+import CategoryManagerModal from './vision/CategoryManagerModal';
 import ConfirmModal from './ConfirmModal';
 
 // ── 토큰 hex → rgba (Layout.tsx의 withAlpha와 동일 패턴, 토큰 기반 투명도 표현)
@@ -174,6 +175,7 @@ export function VisionBoardView() {
   const [editingItem, setEditingItem] = useState<Item | null>(null);
   const [modalOpen, setModalOpen] = useState(false);
   const [pendingDelete, setPendingDelete] = useState<Item | null>(null);
+  const [catManagerOpen, setCatManagerOpen] = useState(false);
 
   const refresh = useCallback(async () => {
     const [cats, its] = await Promise.all([
@@ -291,6 +293,25 @@ export function VisionBoardView() {
             onClick={() => setActiveCategoryId(c.id)}
           />
         ))}
+        {/* 카테고리 편집 진입점 */}
+        <button
+          onClick={() => setCatManagerOpen(true)}
+          className="flex items-center gap-1"
+          style={{
+            flex: '0 0 auto',
+            fontSize: 13,
+            fontWeight: 500,
+            padding: '8px 12px',
+            borderRadius: 999,
+            backgroundColor: 'transparent',
+            color: t.textSub,
+            border: `1px dashed ${withAlpha(t.textMuted, 0.5)}`,
+            whiteSpace: 'nowrap' as const,
+          }}
+          aria-label="카테고리 편집"
+        >
+          <Settings2 size={12} /> 편집
+        </button>
       </div>
 
       {/* ── 보드(메이슨리) ── */}
@@ -356,6 +377,15 @@ export function VisionBoardView() {
           confirmDanger
           onConfirm={handleConfirmDelete}
           onCancel={() => setPendingDelete(null)}
+        />
+      )}
+
+      {/* 카테고리 관리 모달 */}
+      {catManagerOpen && (
+        <CategoryManagerModal
+          categories={categories}
+          onClose={() => setCatManagerOpen(false)}
+          onChanged={refresh}
         />
       )}
     </div>
