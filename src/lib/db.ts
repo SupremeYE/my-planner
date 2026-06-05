@@ -1436,4 +1436,145 @@ export const db = {
       if (error) console.error('[db] shopping_items deleteMany:', error.message);
     },
   },
+
+  // ── 비전보드 — vision_categories / vision_items / Storage(vision-board) ──
+  // 단일 사용자 컨벤션: user_id 는 DB DEFAULT auth.uid() 로 자동 충전 → 클라이언트 미전송.
+  // 기본 카테고리("올해의 나"/"여행"/"공간"/"습관"/"마음")는 마이그레이션 시점에 user_id를
+  // 알 수 없으므로 첫 fetchAll 결과가 빈 배열일 때 이 레이어에서 자동 시드한다.
+  visionCategories: {
+    fetchAll: async (): Promise<{ id: string; name: string; sort_order: number; created_at: string }[]> => {
+      const { data, error } = await supabase
+        .from('vision_categories')
+        .select('id, name, sort_order, created_at')
+        .order('sort_order', { ascending: true })
+        .order('created_at', { ascending: true });
+      if (error) { console.error('[db] vision_categories fetch:', error.message); return []; }
+      // 빈 배열이면 기본 카테고리 시드 후 다시 조회 (멱등 — 이후 호출에선 시드 안 함)
+      if (!data || data.length === 0) {
+        const seeded = await db.visionCategories.ensureSeed();
+        return seeded;
+      }
+      return data;
+    },
+    ensureSeed: async (): Promise<{ id: string; name: string; sort_order: number; created_at: string }[]> => {
+      const DEFAULTS = ['올해의 나', '여행', '공간', '습관', '마음'];
+      // race condition 방어: 시드 직전 한 번 더 확인
+      const { data: existing } = await supabase
+        .from('vision_categories')
+        .select('id')
+        .limit(1);
+      if (existing && existing.length > 0) {
+        // 이미 다른 호출/탭이 시드했음 → 그냥 정렬해서 반환
+        const { data } = await supabase
+          .from('vision_categories')
+          .select('id, name, sort_order, created_at')
+          .order('sort_order', { ascending: true })
+          .order('created_at', { ascending: true });
+        return data ?? [];
+      }
+      const rows = DEFAULTS.map((name, i) => ({ name, sort_order: i }));
+      const { data, error } = await supabase
+        .from('vision_categories')
+        .insert(rows)
+        .select('id, name, sort_order, created_at');
+      if (error) { console.error('[db] vision_categories seed:', error.message); return []; }
+      return data ?? [];
+    },
+    create: async (name: string, sortOrder: number): Promise<{ id: string; name: string; sort_order: number; created_at: string } | null> => {
+      const { data, error } = await supabase
+        .from('vision_categories')
+        .insert({ name, sort_order: sortOrder })
+        .select('id, name, sort_order, created_at')
+        .single();
+      if (error) { console.error('[db] vision_categories create:', error.message); return null; }
+      return data;
+    },
+    rename: async (id: string, name: string) => {
+      const { error } = await supabase.from('vision_categories').update({ name }).eq('id', id);
+      if (error) console.error('[db] vision_categories rename:', error.message);
+    },
+    delete: async (id: string) => {
+      // vision_items.category_id ON DELETE SET NULL → 항목은 "미분류"로 보존
+      const { error } = await supabase.from('vision_categories').delete().eq('id', id);
+      if (error) console.error('[db] vision_categories delete:', error.message);
+    },
+    setSortOrders: async (entries: { id: string; sort_order: number }[]) => {
+      if (entries.length === 0) return true;
+      const results = await Promise.all(
+        entries.map(({ id, sort_order }) =>
+          supabase.from('vision_categories').update({ sort_order }).eq('id', id)
+        )
+      );
+      const errors = results.filter(r => r.error);
+      if (errors.length) console.error('[db] vision_categories setSortOrders:', errors[0].error?.message);
+      return errors.length === 0;
+    },
+  },
+
+  visionItems: {
+    fetchAll: async (): Promise<{ id: string; image_url: string | null; caption: string | null; category_id: string | null; sort_order: number; created_at: string }[]> => {
+      const { data, error } = await supabase
+        .from('vision_items')
+        .select('id, image_url, caption, category_id, sort_order, created_at')
+        .order('sort_order', { ascending: true })
+        .order('created_at', { ascending: false });
+      if (error) console.error('[db] vision_items fetch:', error.message);
+      return data ?? [];
+    },
+    nextSortOrder: async (): Promise<number> => {
+      const { data, error } = await supabase
+        .from('vision_items')
+        .select('sort_order')
+        .order('sort_order', { ascending: false })
+        .limit(1);
+      if (error) { console.error('[db] vision_items nextSortOrder:', error.message); return 0; }
+      const max = data?.[0]?.sort_order ?? -1;
+      return max + 1;
+    },
+    create: async (params: { imageUrl: string | null; caption: string | null; categoryId: string | null; sortOrder: number }): Promise<string | null> => {
+      const { data, error } = await supabase
+        .from('vision_items')
+        .insert({
+          image_url: params.imageUrl,
+          caption: params.caption,
+          category_id: params.categoryId,
+          sort_order: params.sortOrder,
+        })
+        .select('id')
+        .single();
+      if (error) { console.error('[db] vision_items create:', error.message); return null; }
+      return data?.id ?? null;
+    },
+    update: async (id: string, patch: { imageUrl?: string | null; caption?: string | null; categoryId?: string | null }) => {
+      const row: Record<string, unknown> = {};
+      if ('imageUrl' in patch) row.image_url = patch.imageUrl ?? null;
+      if ('caption' in patch) row.caption = patch.caption ?? null;
+      if ('categoryId' in patch) row.category_id = patch.categoryId ?? null;
+      const { error } = await supabase.from('vision_items').update(row).eq('id', id);
+      if (error) console.error('[db] vision_items update:', error.message);
+    },
+    delete: async (id: string) => {
+      const { error } = await supabase.from('vision_items').delete().eq('id', id);
+      if (error) console.error('[db] vision_items delete:', error.message);
+    },
+    setSortOrders: async (entries: { id: string; sort_order: number }[]) => {
+      if (entries.length === 0) return true;
+      const results = await Promise.all(
+        entries.map(({ id, sort_order }) =>
+          supabase.from('vision_items').update({ sort_order }).eq('id', id)
+        )
+      );
+      const errors = results.filter(r => r.error);
+      if (errors.length) console.error('[db] vision_items setSortOrders:', errors[0].error?.message);
+      return errors.length === 0;
+    },
+    uploadImage: async (file: File, itemKey: string): Promise<string | null> => {
+      const ext = (file.name.split('.').pop() ?? 'jpg').toLowerCase();
+      const path = `${itemKey}.${ext}`;
+      const { error } = await supabase.storage.from('vision-board').upload(path, file, { upsert: true, contentType: file.type });
+      if (error) { console.error('[db] vision-board upload:', error.message); return null; }
+      const { data } = supabase.storage.from('vision-board').getPublicUrl(path);
+      return data.publicUrl;
+    },
+  },
 };
