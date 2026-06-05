@@ -1398,5 +1398,10 @@ export const db = {
       const { error } = await supabase.from('shopping_items').delete().eq('id', id);
       if (error) console.error('[db] shopping_items delete:', error.message);
     },
+    deleteMany: async (ids: string[]) => {
+      if (ids.length === 0) return;
+      const { error } = await supabase.from('shopping_items').delete().in('id', ids);
+      if (error) console.error('[db] shopping_items deleteMany:', error.message);
+    },
   },
 };
