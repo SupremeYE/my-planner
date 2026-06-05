@@ -1199,10 +1199,16 @@ export const db = {
         sourceType: r.source_type,
         sourceUrl: r.source_url ?? null,
         thumbnailUrl: r.thumbnail_url ?? null,
+        myPhotoUrl: r.my_photo_url ?? null,
+        coverSource: (r.cover_source ?? 'thumbnail') as Recipe['coverSource'],
         totalMinutes: r.total_minutes ?? null,
         baseServings: r.base_servings ?? 2,
         rating: r.rating != null ? Number(r.rating) : null,
         memo: r.memo ?? null,
+        tags: r.tags ?? [],
+        mainIngredients: r.main_ingredients ?? [],
+        cookCount: r.cook_count ?? 0,
+        lastCookedAt: r.last_cooked_at ?? null,
         ingredients: ((r.recipe_ingredients ?? []) as any[])
           .map((g): RecipeIngredient => ({
             id: g.id,
@@ -1236,10 +1242,14 @@ export const db = {
         source_type: recipe.sourceType ?? 'manual',
         source_url: recipe.sourceUrl ?? null,
         thumbnail_url: recipe.thumbnailUrl ?? null,
+        my_photo_url: recipe.myPhotoUrl ?? null,
+        cover_source: recipe.coverSource ?? 'thumbnail',
         total_minutes: recipe.totalMinutes ?? null,
         base_servings: recipe.baseServings ?? 2,
         rating: recipe.rating ?? null,
         memo: recipe.memo ?? null,
+        tags: recipe.tags ?? [],
+        main_ingredients: recipe.mainIngredients ?? [],
         updated_at: new Date().toISOString(),
       }, { onConflict: 'id' });
       if (rErr) { console.error('[db] recipes upsert:', rErr.message); return; }
@@ -1292,6 +1302,28 @@ export const db = {
         .update({ memo, updated_at: new Date().toISOString() }).eq('id', id);
       if (error) { console.error('[db] recipes updateMemo:', error.message); return false; }
       return true;
+    },
+
+    // 조리 1회 기록 (릴스 뷰 '완성' 화면 등에서 호출 예정)
+    markCooked: async (id: string, currentCount: number): Promise<boolean> => {
+      const { error } = await supabase.from('recipes')
+        .update({
+          cook_count: currentCount + 1,
+          last_cooked_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        }).eq('id', id);
+      if (error) { console.error('[db] recipes markCooked:', error.message); return false; }
+      return true;
+    },
+
+    // 내가 만든 사진 업로드 → publicUrl 반환 (앱의 food-photos/moment-photos 패턴 동일)
+    uploadPhoto: async (recipeId: string, file: File): Promise<string | null> => {
+      const ext = (file.name.split('.').pop() ?? 'jpg').toLowerCase();
+      const path = `${recipeId}/${crypto.randomUUID()}.${ext}`;
+      const { error } = await supabase.storage.from('recipe-photos').upload(path, file, { upsert: true });
+      if (error) { console.error('[db] recipe-photos upload:', error.message); return null; }
+      const { data } = supabase.storage.from('recipe-photos').getPublicUrl(path);
+      return data.publicUrl ?? null;
     },
 
     delete: async (id: string) => {

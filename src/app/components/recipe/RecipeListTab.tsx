@@ -7,22 +7,35 @@ import type { Recipe } from '../../store';
 import { RecipeFormSheet } from './RecipeFormSheet';
 import ConfirmModal from '../ConfirmModal';
 
+// 대표 이미지 결정 — coverSource 기준, 비어 있으면 다른 쪽 폴백
+function coverImage(r: Recipe): string | null {
+  if (r.coverSource === 'my_photo' && r.myPhotoUrl) return r.myPhotoUrl;
+  if (r.coverSource === 'thumbnail' && r.thumbnailUrl) return r.thumbnailUrl;
+  return r.myPhotoUrl || r.thumbnailUrl || null;
+}
+
 // ── 레시피 카드 (PC·모바일 공용) ──
 function RecipeCard({ recipe, onClick }: { recipe: Recipe; onClick: () => void }) {
   const { t } = useTheme();
+  const cover = coverImage(recipe);
+  const isMyPhoto = recipe.coverSource === 'my_photo' && !!recipe.myPhotoUrl;
   return (
     <button onClick={onClick}
       className="text-left rounded-2xl overflow-hidden transition-transform active:scale-[0.98] hover:-translate-y-0.5"
       style={{ backgroundColor: t.card, border: `1px solid ${t.border}`, boxShadow: t.shadow }}>
       {/* 썸네일 / placeholder */}
       <div className="relative w-full" style={{ aspectRatio: '4 / 3', backgroundColor: t.bgSub }}>
-        {recipe.thumbnailUrl ? (
-          <img src={recipe.thumbnailUrl} alt="" className="w-full h-full object-cover"
+        {cover ? (
+          <img src={cover} alt="" className="w-full h-full object-cover"
             onError={e => { (e.currentTarget as HTMLImageElement).style.visibility = 'hidden'; }} />
         ) : (
           <div className="w-full h-full flex items-center justify-center">
             <ChefHat size={34} color={t.textMuted} />
           </div>
+        )}
+        {isMyPhoto && (
+          <span className="absolute top-2 left-2 px-1.5 py-0.5 rounded-md"
+            style={{ fontSize: 10, fontWeight: 700, backgroundColor: 'rgba(0,0,0,0.55)', color: '#fff' }}>📸 내 사진</span>
         )}
         {recipe.totalMinutes != null && (
           <span className="absolute left-2 bottom-2 flex items-center gap-1 px-2 py-0.5 rounded-full"

@@ -239,11 +239,17 @@ export interface Recipe {
   title: string;
   sourceType: RecipeSourceType; // Phase 1 직접입력은 'manual'
   sourceUrl?: string | null;
-  thumbnailUrl?: string | null;
+  thumbnailUrl?: string | null;  // 자동 썸네일(URL/oEmbed)
+  myPhotoUrl?: string | null;    // 내가 만든 사진(Storage)
+  coverSource: 'thumbnail' | 'my_photo'; // 대표 이미지 선택
   totalMinutes?: number | null;
   baseServings: number;     // 기준 인분 (기본 2) — 인분 환산 기준
   rating?: number | null;   // 0~5, 0.5 단위
   memo?: string | null;
+  tags: string[];                 // 의도/상황 (해보고 싶음·혼밥·10분컷 등)
+  mainIngredients: string[];      // 주재료 (두부·계란·닭 등) — 냉장고 연결용 별도 배열
+  cookCount: number;              // 조리 횟수
+  lastCookedAt?: string | null;   // 마지막 조리(timestamp)
   ingredients: RecipeIngredient[];
   steps: RecipeStep[];
   createdAt?: string;
