@@ -19,6 +19,7 @@ import { QuestionJournalView } from './components/QuestionJournalView';
 import { CultureRecordView } from './components/CultureRecordView';
 import { RecipeView } from './components/RecipeView';
 import { ProfileView } from './components/ProfileView';
+import { VisionBoardView } from './components/VisionBoardView';
 
 export const router = createBrowserRouter([
   {
@@ -47,6 +48,7 @@ export const router = createBrowserRouter([
       { path: 'question-journal', Component: QuestionJournalView },
       { path: 'culture',          Component: CultureRecordView },
       { path: 'recipes',          Component: RecipeView },
+      { path: 'vision',           Component: VisionBoardView },
       { path: 'profile',          Component: ProfileView },
     ],
   },
