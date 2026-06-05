@@ -250,6 +250,30 @@ export interface Recipe {
   updatedAt?: string;
 }
 
+// ── 냉장고 / 장보기 (Phase 2) ────────────────────────────────────────────────
+export type FridgeCategory = '냉장' | '냉동' | '실온';
+
+export interface FridgeItem {
+  id: string;
+  name: string;
+  category: FridgeCategory;
+  quantity: number;
+  unit?: string | null;
+  expiryDate?: string | null;   // yyyy-MM-dd
+  createdAt?: string;
+}
+
+export interface ShoppingItem {
+  id: string;
+  name: string;
+  quantity: number;
+  unit?: string | null;
+  sourceRecipeId?: string | null;  // Phase 3 부족 재료 자동 담기 대비
+  sourceLabel?: string | null;     // 레시피명 또는 '직접 추가'
+  isChecked: boolean;
+  createdAt?: string;
+}
+
 export interface PeriodRecord {
   id: string;
   startDate: string;        // yyyy-MM-dd

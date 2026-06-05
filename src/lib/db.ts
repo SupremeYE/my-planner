@@ -8,6 +8,7 @@ import type {
   PeriodRecord, HabitMonthlyMemo, AnnualGoal, QuarterlyGoal,
   WeightRecord, WeightGoal, ConditionRecord, CultureRecord,
   Recipe, RecipeIngredient, RecipeStep,
+  FridgeItem, ShoppingItem,
 } from '../app/store';
 
 function parseAnnualProfilesFromDb(raw: unknown): Record<string, { identity: string; values: string[] }> {
@@ -1277,6 +1278,100 @@ export const db = {
       // recipe_ingredients / recipe_steps 는 ON DELETE CASCADE 로 함께 삭제됨
       const { error } = await supabase.from('recipes').delete().eq('id', id);
       if (error) console.error('[db] recipes delete:', error.message);
+    },
+  },
+
+  // ── 냉장고 (Phase 2) — fridge_items ──
+  fridgeItems: {
+    fetchAll: async (): Promise<FridgeItem[]> => {
+      const { data, error } = await supabase
+        .from('fridge_items').select('*').order('created_at', { ascending: false });
+      if (error) console.error('[db] fridge_items fetch:', error.message);
+      return (data ?? []).map((r: any): FridgeItem => ({
+        id: r.id,
+        name: r.name,
+        category: r.category,
+        quantity: r.quantity != null ? Number(r.quantity) : 1,
+        unit: r.unit ?? null,
+        expiryDate: r.expiry_date ?? null,
+        createdAt: r.created_at ?? undefined,
+      }));
+    },
+    // user_id 는 DB 기본값 auth.uid() 로 자동 채워지므로 클라이언트에서 보내지 않는다.
+    upsert: async (item: FridgeItem) => {
+      const { error } = await supabase.from('fridge_items').upsert({
+        id: item.id,
+        name: item.name,
+        category: item.category,
+        quantity: item.quantity,
+        unit: item.unit ?? null,
+        expiry_date: item.expiryDate ?? null,
+      }, { onConflict: 'id' });
+      if (error) console.error('[db] fridge_items upsert:', error.message);
+    },
+    // 빠른 입력(2b) — 여러 항목 일괄 저장
+    insertMany: async (items: FridgeItem[]) => {
+      if (items.length === 0) return;
+      const { error } = await supabase.from('fridge_items').insert(
+        items.map(item => ({
+          id: item.id,
+          name: item.name,
+          category: item.category,
+          quantity: item.quantity,
+          unit: item.unit ?? null,
+          expiry_date: item.expiryDate ?? null,
+        })),
+      );
+      if (error) console.error('[db] fridge_items insertMany:', error.message);
+    },
+    updateQuantity: async (id: string, quantity: number) => {
+      const { error } = await supabase.from('fridge_items').update({ quantity }).eq('id', id);
+      if (error) console.error('[db] fridge_items updateQuantity:', error.message);
+    },
+    delete: async (id: string) => {
+      const { error } = await supabase.from('fridge_items').delete().eq('id', id);
+      if (error) console.error('[db] fridge_items delete:', error.message);
+    },
+  },
+
+  // ── 장보기 (Phase 2) — shopping_items ──
+  shoppingItems: {
+    fetchAll: async (): Promise<ShoppingItem[]> => {
+      const { data, error } = await supabase
+        .from('shopping_items').select('*')
+        .order('is_checked', { ascending: true })
+        .order('created_at', { ascending: false });
+      if (error) console.error('[db] shopping_items fetch:', error.message);
+      return (data ?? []).map((r: any): ShoppingItem => ({
+        id: r.id,
+        name: r.name,
+        quantity: r.quantity != null ? Number(r.quantity) : 1,
+        unit: r.unit ?? null,
+        sourceRecipeId: r.source_recipe_id ?? null,
+        sourceLabel: r.source_label ?? null,
+        isChecked: !!r.is_checked,
+        createdAt: r.created_at ?? undefined,
+      }));
+    },
+    upsert: async (item: ShoppingItem) => {
+      const { error } = await supabase.from('shopping_items').upsert({
+        id: item.id,
+        name: item.name,
+        quantity: item.quantity,
+        unit: item.unit ?? null,
+        source_recipe_id: item.sourceRecipeId ?? null,
+        source_label: item.sourceLabel ?? null,
+        is_checked: item.isChecked,
+      }, { onConflict: 'id' });
+      if (error) console.error('[db] shopping_items upsert:', error.message);
+    },
+    setChecked: async (id: string, isChecked: boolean) => {
+      const { error } = await supabase.from('shopping_items').update({ is_checked: isChecked }).eq('id', id);
+      if (error) console.error('[db] shopping_items setChecked:', error.message);
+    },
+    delete: async (id: string) => {
+      const { error } = await supabase.from('shopping_items').delete().eq('id', id);
+      if (error) console.error('[db] shopping_items delete:', error.message);
     },
   },
 };
