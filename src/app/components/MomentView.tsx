@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Camera, ChevronRight, ImagePlus, Trash2, X } from 'lucide-react';
 import { useTheme, type ThemeTokens } from '../ThemeContext';
 import { db } from '../../lib/db';
@@ -82,6 +82,8 @@ export function MomentView() {
   const [saving, setSaving]           = useState(false);
   // 모바일 피드: 탭한 카드만 펼침 (기본 전부 접힘)
   const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
+  // 모바일 뷰 전환: 피드 / 모아보기(월별 그리드)
+  const [mobileView, setMobileView]   = useState<'feed' | 'grid'>('feed');
   const cameraRef  = useRef<HTMLInputElement>(null);
   const galleryRef = useRef<HTMLInputElement>(null);
 
@@ -92,6 +94,17 @@ export function MomentView() {
       return next;
     });
   };
+
+  // 모아보기용 월별 그룹 (기존 데이터를 렌더링만 — 새 쿼리/스키마 없음, 최신월 우선)
+  const monthGroups = useMemo(() => {
+    const map = new Map<string, Moment[]>();
+    for (const m of moments) {
+      const key = format(new Date(m.created_at), 'yyyy-MM');
+      if (!map.has(key)) map.set(key, []);
+      map.get(key)!.push(m);
+    }
+    return Array.from(map.entries()); // moments가 created_at DESC라 자연히 최신월 우선
+  }, [moments]);
 
   const refreshMoments = useCallback(() => {
     db.moments.fetchAll().then(setMoments);
@@ -371,8 +384,28 @@ export function MomentView() {
           })}
         </div>
 
-        {/* 모먼트 목록 — 모바일 전용 (컴팩트 가로 카드, 탭하면 펼침) */}
-        <div className="lg:hidden space-y-2.5">
+        {/* 모먼트 목록 — 모바일 전용 (피드 / 모아보기 토글) */}
+        <div className="lg:hidden space-y-3">
+          {/* 세그먼트 토글: 피드 / 모아보기 */}
+          <div className="flex p-1 rounded-xl" style={{ backgroundColor: t.bgSub }}>
+            {([['feed', '피드'], ['grid', '모아보기']] as const).map(([v, label]) => (
+              <button
+                key={v}
+                onClick={() => setMobileView(v)}
+                className="flex-1 py-1.5 rounded-lg text-center transition-all"
+                style={{
+                  backgroundColor: mobileView === v ? t.accent : 'transparent',
+                  color: mobileView === v ? '#fff' : t.textSub,
+                  fontSize: 13,
+                  fontWeight: mobileView === v ? 700 : 500,
+                }}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+
+          {/* 빈 상태 (두 뷰 공통) */}
           {moments.length === 0 && (
             <div
               className="rounded-2xl p-8 flex flex-col items-center gap-2"
@@ -385,17 +418,60 @@ export function MomentView() {
             </div>
           )}
 
-          {moments.map(moment => (
-            <MomentCardMobile
-              key={moment.id}
-              moment={moment}
-              expanded={expandedIds.has(moment.id)}
-              onToggle={() => toggleExpand(moment.id)}
-              onDelete={() => handleDelete(moment.id)}
-              t={t}
-              formatTime={formatTime}
-            />
-          ))}
+          {/* 피드 뷰 */}
+          {mobileView === 'feed' && moments.length > 0 && (
+            <div className="space-y-2.5">
+              {moments.map(moment => (
+                <MomentCardMobile
+                  key={moment.id}
+                  moment={moment}
+                  expanded={expandedIds.has(moment.id)}
+                  onToggle={() => toggleExpand(moment.id)}
+                  onDelete={() => handleDelete(moment.id)}
+                  t={t}
+                  formatTime={formatTime}
+                />
+              ))}
+            </div>
+          )}
+
+          {/* 모아보기 뷰 (월별 3열 정사각 그리드) */}
+          {mobileView === 'grid' && moments.length > 0 && (
+            <div className="space-y-5">
+              {monthGroups.map(([key, group]) => (
+                <div key={key} className="space-y-2">
+                  {/* 월별 그룹 헤더 (예: June 2026 · 12개) */}
+                  <div className="flex items-baseline gap-1.5">
+                    <span style={{ fontSize: 14, fontWeight: 700, color: t.text, fontFamily: 'var(--font-gmarket)' }}>
+                      {format(new Date(`${key}-01T00:00:00`), 'MMMM yyyy')}
+                    </span>
+                    <span style={{ fontSize: 12, color: t.textMuted }}>· {group.length}개</span>
+                  </div>
+                  {/* 3열 정사각 사진 그리드 (gap 6, radius 9) */}
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 6 }}>
+                    {group.map(m => (
+                      <div
+                        key={m.id}
+                        className="overflow-hidden"
+                        style={{ aspectRatio: '1 / 1', borderRadius: 9, backgroundColor: t.bgSub }}
+                      >
+                        {m.photos[0] ? (
+                          <img src={m.photos[0]} alt="" className="w-full h-full object-cover" />
+                        ) : (
+                          <div
+                            className="w-full h-full flex items-center justify-center p-1.5 text-center"
+                            style={{ fontFamily: 'var(--font-gaegu)', fontSize: 12, color: t.textSub, lineHeight: 1.3, overflow: 'hidden' }}
+                          >
+                            {m.content.trim() || '📝'}
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       </div>
     </div>
