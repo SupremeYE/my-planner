@@ -732,9 +732,9 @@ export function Layout() {
 
       {/* ── Mobile ── */}
       <div className="lg:hidden flex flex-col h-[100dvh]">
-        {/* Mobile top bar */}
+        {/* Mobile top bar — PWA standalone 시 노치/상태바 영역 회피 (safe-area-inset-top) */}
         <div className="flex items-center justify-between px-4 py-3 border-b flex-shrink-0"
-          style={{ backgroundColor: t.sidebar, borderColor: t.border }}>
+          style={{ backgroundColor: t.sidebar, borderColor: t.border, paddingTop: 'calc(0.75rem + env(safe-area-inset-top))' }}>
           <HaonLogo height={28} />
           <div className="flex items-center gap-2">
             <UserAvatarMenu />
@@ -748,7 +748,7 @@ export function Layout() {
           </div>
         </div>
 
-        <main className="flex-1 overflow-y-auto overflow-x-hidden overscroll-contain pb-16" style={{ backgroundColor: t.bg }}>
+        <main className="flex-1 overflow-y-auto overflow-x-hidden overscroll-contain" style={{ backgroundColor: t.bg, paddingBottom: 'calc(4rem + env(safe-area-inset-bottom))' }}>
           <NotificationPermissionBanner />
           <Outlet />
         </main>
@@ -756,7 +756,7 @@ export function Layout() {
         {/* Bottom Nav - 5 fixed tabs */}
         <nav
           className="fixed bottom-0 left-0 right-0 flex border-t z-40"
-          style={{ backgroundColor: t.sidebar, borderColor: t.border, height: 56 }}
+          style={{ backgroundColor: t.sidebar, borderColor: t.border, minHeight: 56, paddingBottom: 'env(safe-area-inset-bottom)' }}
         >
           {[
             { to: '/dashboard', icon: Home, label: '대시보드' },
