@@ -9,11 +9,17 @@
 ## 2026-06-05
 
 ### 📋 TODO
-- [ ] 모먼트 모바일 UI Phase 2 — 피드 ↔ 모아보기 세그먼트 토글 + 월별 3열 사진 그리드
 - [ ] 모먼트 모바일 UI Phase 3 — 누적 카운트("이번 달 N개 · 올해 M개")
+- [ ] 레시피 Phase 1b — 레시피 상세(히어로/별점/인분 환산/메모/요리 시작)
+- [ ] 레시피 Phase 1c — 공용 타이머(별도 실행 + 단계 연동) + 릴스형 요리 뷰
+- [ ] 레시피 Phase 2b — 빠른 입력(텍스트 + 음성 webkitSpeechRecognition)
+- [ ] 레시피 Phase 2c — 장보기 페이지(체크 → 냉장고 이동, 직접 추가)
 
 ### ✅ 완료
 - [x] 모먼트 모바일 UI Phase 1 — 컴팩트 가로 카드 + 탭하면 펼침
+- [x] 모먼트 모바일 UI Phase 2 — 피드 ↔ 모아보기 세그먼트 토글 + 월별 3열 사진 그리드
+- [x] 레시피 모듈 Phase 1a — 데이터 + 목록/입력 (`recipes`/`recipe_ingredients`/`recipe_steps` 3개 테이블, 소유자 RLS, Realtime, `/recipes` 목록 페이지 + 직접입력 추가/수정 시트)
+- [x] 레시피 모듈 Phase 2a — 냉장고 + 모듈 내부 하단 탭 네비(`fridge_items`/`shopping_items` 테이블, RLS, Realtime, 레시피/냉장고/장보기 탭 도입, 냉장고 요약·카테고리 섹션·D-day·수량 스테퍼)
 
 ### 🛠 오늘 작업 내용
 
@@ -25,6 +31,34 @@
   - 탭 시 해당 카드만 펼침: 썸네일이 가로 full(`aspect 1.25`)로 확대, 제목/메타 아래로, 삭제 버튼 노출, chevron 90° 회전. 다시 탭하면 접힘
   - 기본 전부 접힘, 펼침 상태는 `Set<id>`로 독립 토글, 썸네일 크기 전환 `0.3s ease`
 - 데이터 흐름·Supabase 스키마·상단 입력 박스 모두 유지(렌더링만 교체), `npm run build` 통과
+
+**모먼트 페이지 모바일 UI Phase 2 — 피드 ↔ 모아보기 세그먼트 토글**
+- (origin/main에서 머지된 작업) 모먼트 모바일 상단에 피드 ↔ 모아보기 세그먼트 토글 + 월별 3열 사진 그리드 추가
+
+**① 레시피 모듈 Phase 1a — 데이터 + 목록/입력**
+- 마이그레이션 `20260604000000_create_recipes.sql`: `recipes`(user_id DEFAULT auth.uid, base_servings·rating·thumbnail_url·source_type 등) + `recipe_ingredients`(name/amount/unit/sort_order, ON DELETE CASCADE) + `recipe_steps`(step_no/instruction/timer_seconds, ON DELETE CASCADE). RLS는 본인 소유; 자식 테이블은 소속 recipe 소유권(EXISTS) 기반. 3개 테이블 모두 `supabase_realtime` publication 등록
+- `store.tsx`: `Recipe`/`RecipeIngredient`/`RecipeStep` 타입 정의(전역 state엔 미보유, self-contained + `useRealtimeSync` 패턴 — culture_records와 동일)
+- `db.ts` `recipes` 레이어: 중첩 select(`recipe_ingredients(*), recipe_steps(*)`)로 `fetchAll`, `upsert`는 본체 upsert + 자식 전량 교체(delete-then-insert), `updateRating`/`updateMemo`/`delete`
+- nav 진입점 "레시피"(`ChefHat`): `Layout.tsx`(사이드바·모바일 메뉴)·`LayoutC.tsx`(테마 C 탑네비) 추가, `routes.tsx` `/recipes` 라우트 추가
+- `RecipeView` 목록 페이지: "저장한 레시피" 카드 그리드(2열/lg:4열), 검색, 우하단 골드 FAB, 빈 상태 UI, 카드는 썸네일(없으면 ChefHat placeholder)+조리시간 배지+별점+재료/단계 수
+- `RecipeFormSheet` 추가/수정 시트: 모바일 full-screen 슬라이드업 / PC 센터 모달(culture 패턴). 이름·기준 인분 스테퍼·조리시간·재료(한 줄에 하나, "이름 수량 단위" 자동 파싱)·단계별 선택 타이머(분)·출처 링크·썸네일 URL
+- `recipeUtils`: `parseIngredientLine`(끝의 수량+단위 추출)·`parseQuantity`(분수/소수 지원)·`formatScaledAmount`(인분 환산)·`formatTimerLabel`·`formatDurationKo`
+
+**② 레시피 모듈 Phase 2a — 냉장고 + 모듈 하단 탭 네비**
+- 마이그레이션 `20260605000000_create_fridge_shopping.sql`: `fridge_items`(category check '냉장'/'냉동'/'실온', quantity numeric, expiry_date date) + `shopping_items`(`source_recipe_id` → recipes, ON DELETE SET NULL — Phase 3 대비 컬럼만 미리 둠, `is_checked` boolean). 소유자 RLS, 두 테이블 모두 Realtime publication 등록
+- `store.tsx`: `FridgeItem`/`FridgeCategory`/`ShoppingItem` 타입 추가
+- `db.ts` `fridgeItems` 레이어: `fetchAll`/`upsert`/`insertMany`(2b 빠른 입력 대비)/`updateQuantity`(낙관적 업데이트용)/`delete`. `shoppingItems` 레이어: `fetchAll`(체크 안 됨 → 체크됨 순)·`upsert`·`setChecked`·`delete`
+- `RecipeView`를 모듈 셸로 재구성: 내부 탭 **레시피 / 냉장고 / 장보기**(라우트 변경 없이 상태로 전환). Phase 1 목록은 `recipe/RecipeListTab.tsx`로 분리. 모듈 sticky 헤더에 활성 탭 아이콘·제목 표시
+- 모바일 하단 탭바: `lg:hidden fixed`, **글로벌 5탭 네비(56px) 바로 위**(`bottom:56px`), 높이 54px. 스크롤 padding-bottom과 FAB `bottom`을 124px+safe-area로 통일해 가림 방지. PC는 헤더 우측 **세그먼트 컨트롤**로 전환
+- `FridgeTab`: 상단 요약(전체/임박 D-2 이내/다 떨어짐 — 위험 토큰 강조), 카테고리 섹션(냉장·냉동·실온, 섹션 내 유통기한 빠른 순; 기한 없는 건 뒤로), 행별 D-day(클라이언트 자정 기준 일수 계산, `D-day`/`D-n`/`D+n`)·수량 +/− 스테퍼(낙관적 업데이트). D-2 이내 강조 배경·테두리, 수량 0은 dim+취소선+"다 떨어짐"
+- `FridgeItemSheet` 직접 추가/수정 시트: 이름·카테고리 3택·수량 스테퍼·단위·유통기한(date)
+- `ShoppingTab`은 2c 전까지 "곧 추가됩니다" 플레이스홀더
+
+**원칙 준수**
+- 모든 색은 기존 디자인 토큰(`t.*`)만 사용 — 하드코딩 색 없음
+- PC 레이아웃 영향 0: 모듈 내부 탭바·FAB 위치값은 모두 `@media (min-width:1024px)`에서 재설정, 모듈 외 페이지 미변경
+- Figma 디렉터리(`src/app/components/figma/`) 미수정
+- `npm run build` 통과 (1a·2a 각각)
 
 ---
 

@@ -1,6 +1,6 @@
 # PROJECT_SPEC.md — My Planner PWA 기능 명세서
 
-> 최종 업데이트: 2026-06-03 (문화 기록 Stage 4: 저녁 daily-report Discord 리포트에 "오늘의 문화 기록" 섹션 추가 — 독서 다음, 상태 아이콘·플랫폼 한글·별점(completed/dropped)·리뷰/인사이트 발췌(80자·최대 8개·1900자 방어), KST 경계 UTC 변환 조회, 빈 상태 섹션 유지. 명세는 `DAILY_REPORT_SCHEMA.md`. 이하 Stage 3 모바일 레이아웃: 햄버거 진입(기존), sticky 헤더(검색 토글·상태 가로탭·필터 트리거), 3열 포스터 그리드, 필터 bottom sheet(플랫폼/유형/정렬), full-screen 슬라이드업 추가/수정 모달(헤더 ←·저장, 상단 빠른 상태칩 즉시반영, TMDB 1열 리스트), 골드 FAB(safe-area), 로딩 스켈레톤 — 모두 `lg:` 미만 전용, PC 미변경. 이하 Stage 2: YouTube oEmbed 자동 채움(제목·썸네일·플랫폼/유형), TMDB 영화·드라마 검색 통합(`VITE_TMDB_API_TOKEN`), 카드 hover 상태 빠른 변경(optimistic+롤백+토스트), `external_source`/`external_id` 기록. 이하 2026-06-02: 문화 기록 페이지 `/culture` 신규 추가 — Stage 1 PC 레이아웃: 영화/드라마/예능/유튜브 등 시청 콘텐츠 기록. culture_records 테이블·RLS·Realtime, 포스터 그리드(6열 2:3), 플랫폼/유형/상태 칩 필터·검색·정렬, 0.5단위 별점, 추가/수정 모달. 이하 동일 2026-06-02: 캘린더 하단 상세 패널을 조회 전용 → 일간 동일 CRUD로 확장: 할일·일정 직접 관리(체크/수정/미루기/삭제), 반복 할일 표시·분기 삭제, 상단 필터 탭 연동. 이하 2026-06-01: 독서 진행 이력 reading_logs 테이블·자동 로깅 추가, 마이그레이션 타임스탬프 충돌 수정, 식단 카페 저장 버그 수정, 일간 할일 체크박스 모바일 탭 유실 수정, 반복 할일 인스턴스 동작 복구·수정 모달 개선, daily-report Edge Function에 일정·식단·감정·독서 섹션 추가)
+> 최종 업데이트: 2026-06-05 (레시피 모듈 Phase 1a + 2a 추가 — Phase 1a: `recipes`/`recipe_ingredients`/`recipe_steps` 3개 테이블(소유자 RLS, 자식은 EXISTS 기반, Realtime publication), `/recipes` 목록 페이지 + 직접입력 추가/수정 시트(이름·기준 인분·조리 시간·재료 한 줄에 하나·단계별 선택 타이머·출처/썸네일), 인분 환산·재료 라인 파싱 유틸. Phase 2a: `fridge_items`/`shopping_items` 테이블(소유자 RLS, Realtime; `source_recipe_id`는 Phase 3 대비 ON DELETE SET NULL로만 미리 둠), `RecipeView`를 모듈 셸로 재구성하고 모듈 내부 하단 탭 네비(레시피/냉장고/장보기) 도입 — 모바일은 글로벌 5탭 네비 위 `bottom:56px` 별도 탭바, PC는 헤더 우측 세그먼트 컨트롤. 냉장고 페이지: 요약(전체/임박 D-2/다 떨어짐), 카테고리 섹션(냉장·냉동·실온, 유통기한 빠른 순), 행별 D-day·수량 +/− 스테퍼(낙관적 업데이트, D-2 강조). PC 레이아웃 무영향, 색 토큰만 사용. 이하 2026-06-03: 문화 기록 Stage 4: 저녁 daily-report Discord 리포트에 "오늘의 문화 기록" 섹션 추가 — 독서 다음, 상태 아이콘·플랫폼 한글·별점(completed/dropped)·리뷰/인사이트 발췌(80자·최대 8개·1900자 방어), KST 경계 UTC 변환 조회, 빈 상태 섹션 유지. 명세는 `DAILY_REPORT_SCHEMA.md`. 이하 Stage 3 모바일 레이아웃: 햄버거 진입(기존), sticky 헤더(검색 토글·상태 가로탭·필터 트리거), 3열 포스터 그리드, 필터 bottom sheet(플랫폼/유형/정렬), full-screen 슬라이드업 추가/수정 모달(헤더 ←·저장, 상단 빠른 상태칩 즉시반영, TMDB 1열 리스트), 골드 FAB(safe-area), 로딩 스켈레톤 — 모두 `lg:` 미만 전용, PC 미변경. 이하 Stage 2: YouTube oEmbed 자동 채움(제목·썸네일·플랫폼/유형), TMDB 영화·드라마 검색 통합(`VITE_TMDB_API_TOKEN`), 카드 hover 상태 빠른 변경(optimistic+롤백+토스트), `external_source`/`external_id` 기록. 이하 2026-06-02: 문화 기록 페이지 `/culture` 신규 추가 — Stage 1 PC 레이아웃: 영화/드라마/예능/유튜브 등 시청 콘텐츠 기록. culture_records 테이블·RLS·Realtime, 포스터 그리드(6열 2:3), 플랫폼/유형/상태 칩 필터·검색·정렬, 0.5단위 별점, 추가/수정 모달. 이하 동일 2026-06-02: 캘린더 하단 상세 패널을 조회 전용 → 일간 동일 CRUD로 확장: 할일·일정 직접 관리(체크/수정/미루기/삭제), 반복 할일 표시·분기 삭제, 상단 필터 탭 연동. 이하 2026-06-01: 독서 진행 이력 reading_logs 테이블·자동 로깅 추가, 마이그레이션 타임스탬프 충돌 수정, 식단 카페 저장 버그 수정, 일간 할일 체크박스 모바일 탭 유실 수정, 반복 할일 인스턴스 동작 복구·수정 모달 개선, daily-report Edge Function에 일정·식단·감정·독서 섹션 추가)
 
 ---
 
@@ -25,6 +25,7 @@
 | `/moments` | `MomentView` | 모먼트 로그 — 사진(최대 5장)+텍스트 작성·저장, 날씨 자동 기록, 최신순 카드 목록 |
 | `/question-journal` | `QuestionJournalView` | 질문일기 — 오늘의 질문 답변, 질문 탐색, 질문별 모아보기(5년 다이어리 스타일) |
 | `/culture` | `CultureRecordView` | 문화 기록 — 영화/드라마/예능/유튜브 등 시청 콘텐츠 기록(포스터 그리드, 칩 필터, 별점, 리뷰/인사이트). **Stage 1: PC 레이아웃만** |
+| `/recipes` | `RecipeView` (모듈 셸) | 레시피 모듈 — 내부 탭 네비(레시피/냉장고/장보기). **Phase 1a + 2a**: 레시피 직접입력 CRUD + 냉장고(요약·카테고리 섹션·D-day·수량 스테퍼). 장보기 탭은 Phase 2c 예정 |
 
 > 참고: `BrainstormView.tsx`, `BacklogView.tsx` 파일은 남아 있지만 현재 `routes.tsx`에는 연결되어 있지 않다.
 
@@ -228,6 +229,11 @@
 | `moments` | 모먼트 로그 | `created_at` DESC | ✅ |
 | `reading_logs` | 독서 진행 이력 (current_page 스냅샷) | `date` ASC | ✅ |
 | `culture_records` | 문화 기록 (영화/드라마/예능/유튜브 등 시청 콘텐츠) | `created_at` DESC | ✅ |
+| `recipes` | 레시피 본체 (직접입력) | `created_at` DESC | ✅ |
+| `recipe_ingredients` | 레시피 재료 (recipe_id, name/amount/unit/sort_order) | `sort_order` ASC | ✅ |
+| `recipe_steps` | 레시피 요리 순서 (step_no, instruction, timer_seconds) | `sort_order` ASC | ✅ |
+| `fridge_items` | 냉장고 재고 (name, category, quantity, expiry_date) | `created_at` DESC | ✅ |
+| `shopping_items` | 장보기 목록 (Phase 2c 본 구현 예정) | `is_checked` ASC, `created_at` DESC | ✅ (db 레이어 완료) |
 
 ### 2-2. 테이블별 컬럼 상세
 
@@ -507,6 +513,72 @@ updated_at      timestamptz 수정일시 (default now())
 > RLS: "Users can {view,insert,update,delete} their own records" — `auth.uid() = user_id` (per-row 소유자 정책). user_id 는 INSERT 시 DB 기본값 auth.uid() 로 자동 충전(클라이언트 미전송).
 > Realtime: `supabase_realtime` publication 등록 완료
 
+#### `recipes` (Phase 1)
+```
+id              uuid        PK (gen_random_uuid())
+user_id         uuid        FK → auth.users.id (DEFAULT auth.uid(), on delete cascade)
+title           text        레시피 이름
+source_type     text        manual|link|reels|receipt|ai (기본값 'manual'; Phase 1=manual만)
+source_url      text|null   출처 URL
+thumbnail_url   text|null   썸네일 URL
+total_minutes   int|null    조리 시간(분)
+base_servings   int         기준 인분 (기본값 2, 인분 환산 기준)
+rating          numeric(2,1)|null  별점 0~5 (0.5 단위)
+memo            text|null   메모
+created_at      timestamptz 생성일시 (default now())
+updated_at      timestamptz 수정일시 (default now())
+```
+> RLS: 본인 소유자만. Realtime: 등록 완료
+
+#### `recipe_ingredients` (Phase 1)
+```
+id          uuid        PK
+recipe_id   uuid        FK → recipes.id (ON DELETE CASCADE)
+name        text        재료 이름
+amount      numeric|null 분량 수치 (인분 환산 대상)
+unit        text|null   단위 (g, 개, 큰술 등)
+sort_order  int         정렬 순서 (기본값 0)
+```
+> RLS: 소속 recipe 소유권(EXISTS) 기반. Realtime: 등록 완료
+
+#### `recipe_steps` (Phase 1)
+```
+id              uuid        PK
+recipe_id       uuid        FK → recipes.id (ON DELETE CASCADE)
+step_no         int         1부터 시작하는 단계 번호
+instruction     text        단계 설명
+timer_seconds   int|null    단계 타이머(초), 없으면 null
+sort_order      int         정렬 순서 (기본값 0)
+```
+> RLS: 소속 recipe 소유권(EXISTS) 기반. Realtime: 등록 완료
+
+#### `fridge_items` (Phase 2)
+```
+id           uuid        PK
+user_id      uuid        FK → auth.users.id (DEFAULT auth.uid(), on delete cascade)
+name         text        품목 이름
+category     text        '냉장'|'냉동'|'실온' (CHECK, 기본값 '냉장')
+quantity     numeric     수량 (기본값 1)
+unit         text|null   단위
+expiry_date  date|null   유통기한 (D-day 계산용)
+created_at   timestamptz 생성일시
+```
+> RLS: 본인 소유자만. Realtime: 등록 완료
+
+#### `shopping_items` (Phase 2)
+```
+id                uuid        PK
+user_id           uuid        FK → auth.users.id (DEFAULT auth.uid(), on delete cascade)
+name              text        품목 이름
+quantity          numeric     수량 (기본값 1)
+unit              text|null   단위
+source_recipe_id  uuid|null   FK → recipes.id (ON DELETE SET NULL) — Phase 3 부족 재료 자동 담기 대비 컬럼만 미리 둠
+source_label      text|null   레시피명 또는 '직접 추가' (Phase 2c)
+is_checked        boolean     체크 여부 (기본값 false)
+created_at        timestamptz 생성일시
+```
+> RLS: 본인 소유자만. Realtime: 등록 완료. db 레이어(`shoppingItems.fetchAll`/`upsert`/`setChecked`/`delete`) 완료, UI 본 구현은 Phase 2c
+
 ---
 
 ## 3. 페이지간 데이터 연동 관계
@@ -594,6 +666,9 @@ store.tsx (PlannerContext)
 | 질문일기 — 답변 | ✅ | ✅ | ✅ | — | ✅ 연동 (question_answers 테이블) |
 | 질문일기 — 오늘 배정 | ✅ | ✅ | — | — | ✅ 연동 (daily_question 테이블) |
 | 문화 기록 (Culture) | ✅ | ✅ | ✅ | ✅ | ✅ 연동 (culture_records 테이블, Realtime) |
+| 레시피 (Recipe — Phase 1a) | ✅ | ✅ | ✅ | ✅ | ✅ 연동 (recipes + recipe_ingredients + recipe_steps, Realtime 3개) |
+| 냉장고 (Fridge — Phase 2a) | ✅ | ✅ | ✅ | ✅ | ✅ 연동 (fridge_items, Realtime) |
+| 장보기 (Shopping — Phase 2c 예정) | ✅(db) | ✅(db) | ✅(db) | ✅(db) | ✅ 테이블·db 레이어 완료, UI 본 구현은 Phase 2c |
 
 ### ✅ UI/UX 기능
 
@@ -656,6 +731,8 @@ store.tsx (PlannerContext)
 - **식단 단식 기록** — 음식 추가 첫 단계(끼니 선택) 하단의 "🚫 끼니별 단식" 버튼으로 거른 끼니를 한 번에 기록(`FoodRecord.isFasting`, `food_records.is_fasting`). 기록 카드는 점선 🚫 표기, 식단 달력 셀 4분할에서 단식 끼니 🚫 표시, 통계에 "끼니별 단식" 분포 카드 추가(식비/칼로리/TOP5 등 일반 통계는 단식 제외) (`FoodView.tsx`)
 - **캘린더 월별/주별 탭 색상** — 파란 계열을 서비스 골드/베이지 톤으로 통일(베이지 컨테이너 + 골드 활성 탭) (`CalendarView.tsx`)
 - **할일 미루기 배지 정리** — 일간 미루기 시 `status`를 `snoozed`가 아닌 `active`로 저장해, 미룬 날짜 이동은 유지하되 "미루기" 상태 배지는 표시하지 않음(백로그 미루기와 동작 통일) (`DailyView.tsx`)
+- **레시피 모듈(`/recipes`) — Phase 1a (직접입력 CRUD)** — `recipes`/`recipe_ingredients`/`recipe_steps` 3개 테이블(소유자 RLS, 자식은 소속 recipe EXISTS 기반, Realtime publication 3개 등록). `RecipeView` 목록 페이지(저장한 레시피 카드 그리드, 검색, 우하단 골드 FAB, 빈 상태 UI, 썸네일 placeholder=ChefHat+조리시간 배지+별점+재료/단계 수). `RecipeFormSheet` 추가/수정 시트(모바일 full-screen 슬라이드업 / PC 센터 모달): 이름·기준 인분 스테퍼·조리시간·재료(한 줄에 하나, "이름 수량 단위" 자동 파싱)·단계별 선택 타이머(분)·출처 링크·썸네일. `recipe/recipeUtils`: 재료 라인 파싱(분수/소수 지원)·인분 환산·타이머 포맷 (`recipe/RecipeListTab.tsx`, `recipe/RecipeFormSheet.tsx`, `recipe/recipeUtils.ts`)
+- **레시피 모듈(`/recipes`) — Phase 2a (냉장고 + 모듈 하단 탭 네비)** — `RecipeView`를 모듈 셸로 재구성: 내부 탭 **레시피 / 냉장고 / 장보기**(라우트 변경 없이 상태로 전환), Phase 1 목록은 `RecipeListTab`으로 분리. 모바일은 글로벌 5탭 네비(56px) 바로 위 `bottom:56px` 별도 탭바(높이 54px), 스크롤 padding-bottom·FAB `bottom`을 124px+safe-area로 통일해 가림 방지; PC는 헤더 우측 세그먼트 컨트롤. `fridge_items`/`shopping_items` 테이블(소유자 RLS, Realtime; `source_recipe_id`는 Phase 3 대비 `ON DELETE SET NULL`로만 미리 둠). **냉장고 페이지**(`FridgeTab`): 요약(전체/임박 D-2 이내/다 떨어짐 — 위험 토큰 강조), 카테고리 섹션(냉장·냉동·실온, 섹션 내 유통기한 빠른 순; 기한 없는 건 뒤로), 행별 D-day(클라이언트 자정 기준 일수 계산, `D-day`/`D-n`/`D+n`)·수량 +/− 스테퍼(낙관적 업데이트), D-2 이내 강조 배경·테두리, 수량 0은 dim+취소선+"다 떨어짐". `FridgeItemSheet` 직접 추가/수정(이름·카테고리 3택·수량 스테퍼·단위·유통기한). `ShoppingTab`은 2c 전까지 플레이스홀더 (`RecipeView.tsx`, `recipe/FridgeTab.tsx`, `recipe/FridgeItemSheet.tsx`, `recipe/ShoppingTab.tsx`)
 - **캘린더 하단 상세 패널 직접 관리** — 조회 전용이던 패널을 일간 페이지와 동일한 CRUD로 확장 (`CalendarView.tsx`)
   - 섹션: 할일/일정/습관/자기관리/메모 (divider 구분), 상단 필터 탭(전체/할일/일정/습관/자기관리)과 일관 동작
   - 할일: 원형 완료 체크박스 토글, 항목 탭 → `TodoModal` 수정, → 다음날 미루기, x 삭제. `expandRecurringTodos`로 반복 할일 인스턴스 포함 표시
@@ -831,6 +908,19 @@ App.tsx
 │   ├── CalendarTab (월별 그리드 + 날짜별 기록 목록)
 │   ├── StatsTab (식비·도넛차트·TOP5·맛있었던것·칼로리바차트)
 │   └── AddFoodSheet (7단계 바텀시트 — 시간대/사진/음식명+영양검색/식사유형/금액/칼로리/맛평가)
+│
+├── RecipeView (/recipes) — Phase 1a + 2a 모듈 셸 (내부 탭 네비)
+│   ├── 모듈 sticky 헤더 (활성 탭 아이콘+제목, PC 우측 세그먼트 컨트롤)
+│   ├── 모바일 하단 탭바 (lg:hidden, glob nav 위 bottom:56px, 높이 54)
+│   ├── RecipeListTab (Phase 1a — 저장한 레시피 카드 그리드 + 검색 + FAB)
+│   │   ├── RecipeCard
+│   │   └── recipe/RecipeFormSheet (full-screen 슬라이드업 / PC 모달, 재료·단계·타이머 입력)
+│   ├── FridgeTab (Phase 2a — 요약 + 카테고리 섹션 + 수량 스테퍼 + FAB)
+│   │   ├── FridgeRow (D-day·수량 +/−, D-2 강조, 수량 0 dim+취소선)
+│   │   ├── SummaryCard (전체/임박/다 떨어짐)
+│   │   └── recipe/FridgeItemSheet (이름·카테고리·수량·단위·유통기한)
+│   ├── ShoppingTab (Phase 2c 본 구현 예정, 현재 플레이스홀더)
+│   └── recipe/recipeUtils (parseIngredientLine / parseQuantity / formatScaledAmount / formatTimerLabel)
 │
 ├── CultureRecordView (/culture) — PC(Stage 1·2) + 모바일(Stage 3) 트리 분리
 │   ├── CultureCard (PC 포스터 카드 — 플랫폼 뱃지, 상태 아이콘 + hover 상태 빠른변경 드롭다운)
