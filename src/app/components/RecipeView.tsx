@@ -25,9 +25,9 @@ export function RecipeView() {
     <div className="recipe-mod-scroll" style={{ backgroundColor: t.bg, minHeight: '100%' }}>
       {/* 모듈 chrome 위치값 — 모바일: 글로벌 네비(56) + 모듈 탭바(54) 위 / PC: 일반 */}
       <style>{`
-        .recipe-mod-scroll{padding-bottom:calc(124px + env(safe-area-inset-bottom));}
-        .recipe-mod-fab{bottom:calc(124px + env(safe-area-inset-bottom));}
-        .recipe-mod-tabbar{bottom:56px;}
+        .recipe-mod-scroll{padding-bottom:calc(150px + env(safe-area-inset-bottom));}
+        .recipe-mod-fab{bottom:calc(142px + env(safe-area-inset-bottom));}
+        .recipe-mod-tabbar{bottom:calc(76px + env(safe-area-inset-bottom));}
         @media (min-width:1024px){
           .recipe-mod-scroll{padding-bottom:40px;}
           .recipe-mod-fab{bottom:28px;}
@@ -66,19 +66,20 @@ export function RecipeView() {
       {tab === 'fridge' && <FridgeTab />}
       {tab === 'shopping' && <ShoppingTab />}
 
-      {/* 모바일 하단 탭바 — 글로벌 네비(56px) 바로 위 */}
-      <nav className="recipe-mod-tabbar lg:hidden fixed left-0 right-0 z-30 flex border-t"
-        style={{ backgroundColor: t.sidebar, borderColor: t.border, height: 54 }}>
+      {/* 모바일 모듈 탭바 — 떠 있는 글로벌 글래스 알약 바로 위에 뜨는 둥근 바 */}
+      <nav className="recipe-mod-tabbar lg:hidden fixed left-4 right-4 z-30 flex overflow-hidden"
+        style={{ minHeight: 52, borderRadius: 26, backgroundColor: t.card,
+          border: `1px solid ${t.border}`, boxShadow: '0 6px 18px rgba(0,0,0,0.12)' }}>
         {TABS.map(({ key, label, icon: Icon }) => {
           const isActive = tab === key;
           return (
             <button key={key} onClick={() => setTab(key)}
-              className="flex-1 flex flex-col items-center justify-center gap-0.5">
-              <div className="flex items-center justify-center rounded-xl transition-all"
+              className="flex-1 flex flex-col items-center justify-center gap-0.5 py-1.5">
+              <div className="flex items-center justify-center rounded-full transition-all"
                 style={{ backgroundColor: isActive ? t.accentLight : 'transparent', padding: '3px 14px' }}>
-                <Icon size={18} color={isActive ? t.text : t.textMuted} />
+                <Icon size={18} color={isActive ? t.accent : t.textMuted} />
               </div>
-              <span style={{ fontSize: 10, color: isActive ? t.text : t.textMuted, fontWeight: isActive ? 700 : 400 }}>
+              <span style={{ fontSize: 10, color: isActive ? t.accent : t.textMuted, fontWeight: isActive ? 700 : 400 }}>
                 {label}
               </span>
             </button>
