@@ -1,6 +1,7 @@
 @import url('https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css');
 @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;600;700&family=DM+Serif+Display:ital@0;1&display=swap');
 @import url('https://fonts.googleapis.com/css2?family=Gowun+Batang:wght@400;700&family=Gowun+Dodum&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Gaegu:wght@400;700&display=swap');
 @import url('https://cdn.jsdelivr.net/gh/webfontworld/gmarket/GmarketSans.css');
 
 :root {
@@ -9,6 +10,8 @@
   --font-gowun-serif: 'Gowun Batang', serif;
   /* 페이지 제목·강조 텍스트용. GmarketSans 미로드 시 Pretendard로 폴백 */
   --font-gmarket: 'GmarketSansBold', 'GmarketSans', var(--font-pretendard);
+  /* 손글씨 느낌 — 모먼트 카드 제목 등. 미로드 시 Gowun으로 폴백 */
+  --font-gaegu: 'Gaegu', var(--font-gowun);
 }
 
 body {

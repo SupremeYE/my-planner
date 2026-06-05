@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { Camera, ImagePlus, Trash2, X } from 'lucide-react';
-import { useTheme } from '../ThemeContext';
+import { Camera, ChevronRight, ImagePlus, Trash2, X } from 'lucide-react';
+import { useTheme, type ThemeTokens } from '../ThemeContext';
 import { db } from '../../lib/db';
 import { useRealtimeSync } from '../hooks/useRealtimeSync';
 import { format } from 'date-fns';
@@ -80,8 +80,18 @@ export function MomentView() {
   const [photoFiles, setPhotoFiles]   = useState<File[]>([]);
   const [photoPreviews, setPhotoPreviews] = useState<string[]>([]);
   const [saving, setSaving]           = useState(false);
+  // 모바일 피드: 탭한 카드만 펼침 (기본 전부 접힘)
+  const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
   const cameraRef  = useRef<HTMLInputElement>(null);
   const galleryRef = useRef<HTMLInputElement>(null);
+
+  const toggleExpand = (id: string) => {
+    setExpandedIds(prev => {
+      const next = new Set(prev);
+      next.has(id) ? next.delete(id) : next.add(id);
+      return next;
+    });
+  };
 
   const refreshMoments = useCallback(() => {
     db.moments.fetchAll().then(setMoments);
@@ -276,8 +286,8 @@ export function MomentView() {
           </div>
         </div>
 
-        {/* 모먼트 목록 */}
-        <div className="space-y-3">
+        {/* 모먼트 목록 — PC 전용 (기존 레이아웃 유지) */}
+        <div className="hidden lg:block space-y-3">
           {moments.length === 0 && (
             <div
               className="rounded-2xl p-8 flex flex-col items-center gap-2"
@@ -360,7 +370,140 @@ export function MomentView() {
             );
           })}
         </div>
+
+        {/* 모먼트 목록 — 모바일 전용 (컴팩트 가로 카드, 탭하면 펼침) */}
+        <div className="lg:hidden space-y-2.5">
+          {moments.length === 0 && (
+            <div
+              className="rounded-2xl p-8 flex flex-col items-center gap-2"
+              style={{ backgroundColor: t.card, border: `1px solid ${t.border}` }}
+            >
+              <span style={{ fontSize: 32 }}>📸</span>
+              <p style={{ fontSize: 14, color: t.textMuted, textAlign: 'center' }}>
+                아직 기록된 순간이 없어요.<br />첫 번째 모먼트를 남겨보세요!
+              </p>
+            </div>
+          )}
+
+          {moments.map(moment => (
+            <MomentCardMobile
+              key={moment.id}
+              moment={moment}
+              expanded={expandedIds.has(moment.id)}
+              onToggle={() => toggleExpand(moment.id)}
+              onDelete={() => handleDelete(moment.id)}
+              t={t}
+              formatTime={formatTime}
+            />
+          ))}
+        </div>
       </div>
+    </div>
+  );
+}
+
+// ── 모바일 전용 컴팩트 카드 ─────────────────────────────────────────────────
+interface MomentCardMobileProps {
+  moment: Moment;
+  expanded: boolean;
+  onToggle: () => void;
+  onDelete: () => void;
+  t: ThemeTokens;
+  formatTime: (iso: string) => string;
+}
+
+function MomentCardMobile({ moment, expanded, onToggle, onDelete, t, formatTime }: MomentCardMobileProps) {
+  const weather = moment.weather_code != null ? weatherInfo(moment.weather_code) : null;
+  const cover   = moment.photos[0];
+  const title   = moment.content.trim() || '오늘의 순간';
+
+  // 날씨 칩 + 날짜·시간 메타
+  const Meta = (
+    <div className="flex items-center gap-1.5 flex-wrap" style={{ marginTop: 4 }}>
+      {weather && (
+        <span
+          className="flex items-center gap-1 px-1.5 py-0.5 rounded-md"
+          style={{ backgroundColor: t.bgSub, fontSize: 10.5, color: t.textSub }}
+        >
+          <span>{weather.emoji}</span>
+          {moment.weather_temp != null && <span>{moment.weather_temp}°C</span>}
+        </span>
+      )}
+      <span style={{ fontSize: 11, color: t.textMuted }}>{formatTime(moment.created_at)}</span>
+    </div>
+  );
+
+  const Thumb = (
+    <div
+      className="shrink-0 overflow-hidden"
+      style={{
+        width: expanded ? '100%' : 64,
+        height: expanded ? undefined : 64,
+        aspectRatio: expanded ? '1.25 / 1' : undefined,
+        borderRadius: 11,
+        backgroundColor: t.bgSub,
+        transition: 'width 0.3s ease, height 0.3s ease',
+      }}
+    >
+      {cover ? (
+        <img src={cover} alt="" className="w-full h-full object-cover" style={{ borderRadius: 11 }} />
+      ) : (
+        <div className="w-full h-full flex items-center justify-center" style={{ fontSize: expanded ? 34 : 22 }}>
+          📝
+        </div>
+      )}
+    </div>
+  );
+
+  return (
+    <div
+      onClick={onToggle}
+      className="rounded-2xl p-3 cursor-pointer select-none"
+      style={{ backgroundColor: t.card, border: `1px solid ${t.border}` }}
+    >
+      {expanded ? (
+        <div className="space-y-3">
+          {Thumb}
+          <div className="flex items-start justify-between gap-2">
+            <div className="min-w-0 flex-1">
+              <p style={{ fontFamily: 'var(--font-gaegu)', fontSize: 18, color: t.text, lineHeight: 1.5, whiteSpace: 'pre-wrap' }}>
+                {title}
+              </p>
+              {Meta}
+            </div>
+            <ChevronRight
+              size={18}
+              style={{ color: t.textMuted, flexShrink: 0, transition: 'transform 0.3s ease', transform: 'rotate(90deg)' }}
+            />
+          </div>
+          <div className="flex justify-end">
+            <button
+              onClick={e => { e.stopPropagation(); onDelete(); }}
+              className="p-1.5 rounded-lg transition-colors"
+              style={{ color: t.textMuted }}
+            >
+              <Trash2 size={14} />
+            </button>
+          </div>
+        </div>
+      ) : (
+        <div className="flex items-center gap-3">
+          {Thumb}
+          <div className="min-w-0 flex-1">
+            <p
+              className="truncate"
+              style={{ fontFamily: 'var(--font-gaegu)', fontSize: 17, color: t.text }}
+            >
+              {title}
+            </p>
+            {Meta}
+          </div>
+          <ChevronRight
+            size={18}
+            style={{ color: t.textMuted, flexShrink: 0, transition: 'transform 0.3s ease', transform: 'none' }}
+          />
+        </div>
+      )}
     </div>
   );
 }

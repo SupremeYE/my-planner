@@ -6,6 +6,28 @@
 
 ---
 
+## 2026-06-05
+
+### 📋 TODO
+- [ ] 모먼트 모바일 UI Phase 2 — 피드 ↔ 모아보기 세그먼트 토글 + 월별 3열 사진 그리드
+- [ ] 모먼트 모바일 UI Phase 3 — 누적 카운트("이번 달 N개 · 올해 M개")
+
+### ✅ 완료
+- [x] 모먼트 모바일 UI Phase 1 — 컴팩트 가로 카드 + 탭하면 펼침
+
+### 🛠 오늘 작업 내용
+
+**모먼트 페이지 모바일 UI 리디자인 — Phase 1 (컴팩트 카드 + 탭 펼침)**
+- 디자인 시스템에 손글씨 폰트 토큰 추가: `src/styles/fonts.css`에 Google Fonts `Gaegu` import + `--font-gaegu`(미로드 시 `--font-gowun` 폴백). 색/팔레트는 미변경
+- `MomentView.tsx` 모먼트 목록을 PC/모바일 트리로 분리
+  - PC: 기존 큰 세로 카드 그대로 `hidden lg:block`으로 보존 → PC 레이아웃 무변경
+  - 모바일(`lg:hidden`): 신규 `MomentCardMobile` — 왼쪽 64px 정사각 썸네일(radius 11, 사진 없으면 `bgSub`+📝), 오른쪽 제목(Gaegu, 1줄 truncate)+메타(날씨 칩+날짜·시간), 끝에 ▸ chevron
+  - 탭 시 해당 카드만 펼침: 썸네일이 가로 full(`aspect 1.25`)로 확대, 제목/메타 아래로, 삭제 버튼 노출, chevron 90° 회전. 다시 탭하면 접힘
+  - 기본 전부 접힘, 펼침 상태는 `Set<id>`로 독립 토글, 썸네일 크기 전환 `0.3s ease`
+- 데이터 흐름·Supabase 스키마·상단 입력 박스 모두 유지(렌더링만 교체), `npm run build` 통과
+
+---
+
 ## 2026-06-03
 
 ### 📋 TODO
