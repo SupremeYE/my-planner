@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Camera, ChevronRight, ImagePlus, Trash2, X } from 'lucide-react';
+import { Camera, ChevronRight, ImagePlus, Star, Trash2, X } from 'lucide-react';
 import { useTheme, type ThemeTokens } from '../ThemeContext';
 import { db } from '../../lib/db';
 import { useRealtimeSync } from '../hooks/useRealtimeSync';
@@ -70,6 +70,8 @@ interface Moment {
   photos: string[];
   weather_temp: number | null;
   weather_code: number | null;
+  is_highlight: boolean;
+  sort_order: number | null;
 }
 
 // ── 컴포넌트 ──────────────────────────────────────────────────────────────────
@@ -86,6 +88,9 @@ export function MomentView() {
   const [mobileView, setMobileView]   = useState<'feed' | 'grid'>('feed');
   // 아카이브 기준 연도 (기본 = 현재 연도). 칩으로 과거 연도 선택 가능
   const [selectedYear, setSelectedYear] = useState<number>(() => new Date().getFullYear());
+  // 모아보기 순서 편집 — 어느 월 키가 편집 중인지(한 번에 하나만)
+  const [reorderMonth, setReorderMonth] = useState<string | null>(null);
+  const [dragId, setDragId] = useState<string | null>(null);
   const cameraRef  = useRef<HTMLInputElement>(null);
   const galleryRef = useRef<HTMLInputElement>(null);
 
@@ -113,12 +118,22 @@ export function MomentView() {
   );
 
   // 모아보기/피드용 월별 그룹 (선택 연도 안에서 최신월 우선)
+  // 같은 월 내 정렬: sort_order(있으면 ASC) → created_at DESC
   const monthGroups = useMemo(() => {
     const map = new Map<string, Moment[]>();
     for (const m of yearMoments) {
       const key = format(new Date(m.created_at), 'yyyy-MM');
       if (!map.has(key)) map.set(key, []);
       map.get(key)!.push(m);
+    }
+    for (const list of map.values()) {
+      list.sort((a, b) => {
+        const ao = a.sort_order, bo = b.sort_order;
+        if (ao != null && bo != null) return ao - bo;
+        if (ao != null) return -1;
+        if (bo != null) return 1;
+        return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+      });
     }
     return Array.from(map.entries()); // yearMoments가 created_at DESC라 자연히 최신월 우선
   }, [yearMoments]);
@@ -193,6 +208,36 @@ export function MomentView() {
   const handleDelete = async (id: string) => {
     await db.moments.delete(id);
     setMoments(prev => prev.filter(m => m.id !== id));
+  };
+
+  // 하이라이트 토글 (낙관적 업데이트, 실패 시 롤백)
+  const handleToggleHighlight = async (id: string) => {
+    const target = moments.find(m => m.id === id);
+    if (!target) return;
+    const next = !target.is_highlight;
+    setMoments(prev => prev.map(m => m.id === id ? { ...m, is_highlight: next } : m));
+    const ok = await db.moments.setHighlight(id, next);
+    if (!ok) {
+      setMoments(prev => prev.map(m => m.id === id ? { ...m, is_highlight: !next } : m));
+    }
+  };
+
+  // 선택 연도 하이라이트만
+  const yearHighlights = useMemo(
+    () => yearMoments.filter(m => m.is_highlight),
+    [yearMoments],
+  );
+  const highlightCount = yearHighlights.length;
+
+  // 같은 월 안에서 드래그로 재배치된 순서를 sort_order로 저장 (낙관적 + 실패 시 새로고침)
+  const handleReorderCommit = async (monthKey: string, orderedIds: string[]) => {
+    const entries = orderedIds.map((id, idx) => ({ id, sort_order: idx }));
+    setMoments(prev => prev.map(m => {
+      const idx = orderedIds.indexOf(m.id);
+      return idx >= 0 ? { ...m, sort_order: idx } : m;
+    }));
+    const ok = await db.moments.setSortOrders(entries);
+    if (!ok) refreshMoments();
   };
 
   const formatTime = (iso: string) => {
@@ -454,20 +499,42 @@ export function MomentView() {
             ))}
           </div>
 
-          {/* 스탯 행 (토글 아래) — 현재 연도: 2칸 / 과거 연도: 1칸 (하이라이트 칸은 Phase 3) */}
+          {/* 스탯 행 (토글 아래) — 현재 연도: 3칸 / 과거 연도: 2칸 (연도 순간 + 하이라이트) */}
           <div
             className="grid gap-2"
-            style={{ gridTemplateColumns: selectedYear === currentYear ? '1fr 1fr' : '1fr' }}
+            style={{ gridTemplateColumns: selectedYear === currentYear ? '1fr 1fr 1fr' : '1fr 1fr' }}
           >
             {selectedYear === currentYear ? (
               <>
                 <StatCard label="이번 달" value={monthCount} t={t} />
                 <StatCard label="올해" value={yearCount} t={t} />
+                <StatCard label="✦ 하이라이트" value={highlightCount} t={t} valueColor={t.danger} />
               </>
             ) : (
-              <StatCard label={`${selectedYear}년`} value={yearCount} t={t} />
+              <>
+                <StatCard label={`${selectedYear}년`} value={yearCount} t={t} />
+                <StatCard label="✦ 하이라이트" value={highlightCount} t={t} valueColor={t.danger} />
+              </>
             )}
           </div>
+
+          {/* 하이라이트 행 (선택 연도, 0개면 숨김) — 가로 스크롤 카드 */}
+          {highlightCount > 0 && (
+            <div className="space-y-2">
+              <div style={{ fontSize: 13, fontWeight: 700, color: t.text }}>
+                <span style={{ color: t.danger, marginRight: 4 }}>✦</span>
+                {selectedYear} 하이라이트
+              </div>
+              <div
+                className="flex gap-2 overflow-x-auto -mx-1 px-1 pb-1"
+                style={{ scrollbarWidth: 'none' }}
+              >
+                {yearHighlights.map(m => (
+                  <HighlightCard key={m.id} moment={m} t={t} />
+                ))}
+              </div>
+            </div>
+          )}
 
           {/* 빈 상태 (선택 연도 기준) */}
           {yearMoments.length === 0 && (
@@ -504,40 +571,293 @@ export function MomentView() {
           {/* 모아보기 뷰 (선택 연도 안에서 월별 3열 정사각 그리드) */}
           {mobileView === 'grid' && yearMoments.length > 0 && (
             <div className="space-y-5">
-              {monthGroups.map(([key, group]) => (
-                <div key={key} className="space-y-2">
-                  {/* 월별 그룹 헤더 (예: June 2026 · 12개) */}
-                  <div className="flex items-baseline gap-1.5">
-                    <span style={{ fontFamily: "'DM Serif Display', serif", fontSize: 16, color: t.text, lineHeight: 1.1 }}>
-                      {format(new Date(`${key}-01T00:00:00`), 'MMMM yyyy')}
-                    </span>
-                    <span style={{ fontSize: 12, color: t.textMuted }}>· {group.length}개</span>
-                  </div>
-                  {/* 3열 정사각 사진 그리드 (gap 6, radius 9) */}
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 6 }}>
-                    {group.map(m => (
-                      <div
-                        key={m.id}
-                        className="overflow-hidden"
-                        style={{ aspectRatio: '1 / 1', borderRadius: 9, backgroundColor: t.bgSub }}
-                      >
-                        {m.photos[0] ? (
-                          <img src={m.photos[0]} alt="" className="w-full h-full object-cover" />
-                        ) : (
-                          <div
-                            className="w-full h-full flex items-center justify-center p-1.5 text-center"
-                            style={{ fontFamily: 'var(--font-gaegu)', fontSize: 12, color: t.textSub, lineHeight: 1.3, overflow: 'hidden' }}
-                          >
-                            {m.content.trim() || '📝'}
-                          </div>
-                        )}
+              {monthGroups.map(([key, group]) => {
+                const editing = reorderMonth === key;
+                return (
+                  <div key={key} className="space-y-2">
+                    {/* 월별 그룹 헤더 (예: June 2026 · 12개) + 순서 편집 pill */}
+                    <div className="flex items-baseline justify-between gap-2">
+                      <div className="flex items-baseline gap-1.5 min-w-0">
+                        <span style={{ fontFamily: "'DM Serif Display', serif", fontSize: 16, color: t.text, lineHeight: 1.1 }}>
+                          {format(new Date(`${key}-01T00:00:00`), 'MMMM yyyy')}
+                        </span>
+                        <span style={{ fontSize: 12, color: t.textMuted }}>· {group.length}개</span>
                       </div>
-                    ))}
+                      {group.length > 1 && (
+                        <button
+                          onClick={() => setReorderMonth(editing ? null : key)}
+                          className="shrink-0 rounded-full px-2.5 py-0.5"
+                          style={{
+                            fontSize: 11,
+                            backgroundColor: editing ? t.accent : 'transparent',
+                            color: editing ? '#fff' : t.textSub,
+                            border: `1px solid ${editing ? t.accent : t.border}`,
+                          }}
+                        >
+                          {editing ? '완료' : '↕ 순서 편집'}
+                        </button>
+                      )}
+                    </div>
+                    {/* 3열 정사각 사진 그리드 (gap 6, radius 10) */}
+                    {editing ? (
+                      <ReorderGrid
+                        monthKey={key}
+                        items={group}
+                        t={t}
+                        dragId={dragId}
+                        setDragId={setDragId}
+                        onCommit={ids => handleReorderCommit(key, ids)}
+                      />
+                    ) : (
+                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 6 }}>
+                        {group.map(m => (
+                          <MomentGridTile
+                            key={m.id}
+                            moment={m}
+                            t={t}
+                            onToggleHighlight={() => handleToggleHighlight(m.id)}
+                          />
+                        ))}
+                      </div>
+                    )}
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── 모아보기 순서 편집 그리드 (드래그로 같은 월 안에서 재배치) ────────────
+function ReorderGrid({
+  monthKey: _monthKey, items, t, dragId, setDragId, onCommit,
+}: {
+  monthKey: string;
+  items: Moment[];
+  t: ThemeTokens;
+  dragId: string | null;
+  setDragId: (id: string | null) => void;
+  onCommit: (orderedIds: string[]) => void;
+}) {
+  // 편집 중에는 로컬 ids 상태로 즉시 시각 반영. 완료(편집 종료) 시 onCommit으로 저장.
+  const [ids, setIds] = useState<string[]>(() => items.map(i => i.id));
+
+  // 외부 items가 바뀌면(다른 월·새 데이터) 로컬 ids 동기화
+  useEffect(() => {
+    setIds(items.map(i => i.id));
+  }, [items]);
+
+  // 드롭 시점에 저장
+  const handleDrop = (overId: string) => {
+    if (!dragId || dragId === overId) { setDragId(null); return; }
+    setIds(prev => {
+      const from = prev.indexOf(dragId);
+      const to   = prev.indexOf(overId);
+      if (from < 0 || to < 0) return prev;
+      const next = prev.slice();
+      next.splice(from, 1);
+      next.splice(to, 0, dragId);
+      onCommit(next);
+      return next;
+    });
+    setDragId(null);
+  };
+
+  const map = new Map(items.map(i => [i.id, i]));
+  return (
+    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 6 }}>
+      {ids.map(id => {
+        const m = map.get(id);
+        if (!m) return null;
+        const isDragging = dragId === id;
+        const title = m.content.trim() || '오늘의 순간';
+        const hasPhoto = !!m.photos[0];
+        return (
+          <div
+            key={id}
+            draggable
+            onDragStart={() => setDragId(id)}
+            onDragOver={e => e.preventDefault()}
+            onDrop={() => handleDrop(id)}
+            onDragEnd={() => setDragId(null)}
+            // 터치(모바일): 길게 눌러 들기 → 손가락 이동으로 다른 타일 위에서 떼면 드롭
+            onTouchStart={() => setDragId(id)}
+            onTouchMove={e => {
+              const t0 = e.touches[0];
+              const el = document.elementFromPoint(t0.clientX, t0.clientY) as HTMLElement | null;
+              const overId = el?.closest<HTMLElement>('[data-reorder-id]')?.dataset.reorderId;
+              if (overId && overId !== dragId) {
+                setIds(prev => {
+                  const from = prev.indexOf(dragId!);
+                  const to   = prev.indexOf(overId);
+                  if (from < 0 || to < 0 || from === to) return prev;
+                  const next = prev.slice();
+                  next.splice(from, 1);
+                  next.splice(to, 0, dragId!);
+                  return next;
+                });
+              }
+            }}
+            onTouchEnd={() => { onCommit(ids); setDragId(null); }}
+            data-reorder-id={id}
+            className="relative overflow-hidden"
+            style={{
+              aspectRatio: '1 / 1',
+              borderRadius: 10,
+              background: hasPhoto ? t.bgSub : `linear-gradient(135deg, ${t.bgSub} 0%, ${t.accentSoft} 100%)`,
+              opacity: isDragging ? 0.5 : 1,
+              boxShadow: isDragging ? `0 0 0 2px ${t.accent}` : 'none',
+              cursor: 'grab',
+              touchAction: 'none',
+            }}
+          >
+            {hasPhoto ? (
+              <img src={m.photos[0]} alt="" draggable={false} className="w-full h-full object-cover pointer-events-none" />
+            ) : (
+              <div
+                className="absolute inset-0 flex items-center justify-center"
+                style={{ fontFamily: 'var(--font-gaegu)', fontSize: 13, color: t.textSub }}
+              >
+                📝
+              </div>
+            )}
+            <div
+              className="absolute inset-x-0 bottom-0 pointer-events-none"
+              style={{ height: '55%', background: 'linear-gradient(to top, rgba(0,0,0,0.5), rgba(0,0,0,0))' }}
+            />
+            <div className="absolute inset-x-0 bottom-0 px-1.5 pb-1 pointer-events-none">
+              <div className="truncate" style={{ fontFamily: 'var(--font-gaegu)', fontSize: 11, color: '#fff', lineHeight: 1.2 }}>
+                {title}
+              </div>
+            </div>
+            {/* 편집 모드 표시용 그립 아이콘 */}
+            <div
+              className="absolute top-1 left-1 rounded-full px-1.5 py-0.5 pointer-events-none"
+              style={{ fontSize: 9, backgroundColor: 'rgba(0,0,0,0.45)', color: '#fff' }}
+            >
+              ↕
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+// ── 모아보기 사진 타일 (scrim + 제목·날짜 오버레이 + 별 토글) ─────────────
+function MomentGridTile({
+  moment, t, onToggleHighlight,
+}: {
+  moment: Moment;
+  t: ThemeTokens;
+  onToggleHighlight: () => void;
+}) {
+  const title = moment.content.trim() || '오늘의 순간';
+  const date  = (() => {
+    try { return format(new Date(moment.created_at), 'M.d (EEE)', { locale: ko }); }
+    catch { return ''; }
+  })();
+  const hasPhoto = !!moment.photos[0];
+  const hi = moment.is_highlight;
+
+  return (
+    <div
+      className="relative overflow-hidden"
+      style={{
+        aspectRatio: '1 / 1',
+        borderRadius: 10,
+        // 사진 없는 모먼트: 연한 그라데이션 placeholder (디자인 토큰 기반)
+        background: hasPhoto ? t.bgSub : `linear-gradient(135deg, ${t.bgSub} 0%, ${t.accentSoft} 100%)`,
+      }}
+    >
+      {hasPhoto ? (
+        <img src={moment.photos[0]} alt="" className="w-full h-full object-cover" />
+      ) : (
+        <div
+          className="absolute inset-0 flex items-center justify-center p-1.5 text-center"
+          style={{ fontFamily: 'var(--font-gaegu)', fontSize: 13, color: t.textSub, lineHeight: 1.3 }}
+        >
+          📝
+        </div>
+      )}
+
+      {/* 가독성용 검정 그라데이션 scrim (브랜드 색 아님 — 예외 허용) */}
+      <div
+        className="absolute inset-x-0 bottom-0 pointer-events-none"
+        style={{ height: '55%', background: 'linear-gradient(to top, rgba(0,0,0,0.5), rgba(0,0,0,0))' }}
+      />
+
+      {/* 우상단 별 토글 (탭 이벤트 격리) */}
+      <button
+        onClick={e => { e.stopPropagation(); onToggleHighlight(); }}
+        onPointerDown={e => e.stopPropagation()}
+        className="absolute top-1 right-1 flex items-center justify-center rounded-full"
+        style={{
+          width: 22, height: 22,
+          backgroundColor: hi ? '#fff' : 'rgba(0,0,0,0.35)',
+          color: hi ? t.danger : '#fff',
+          boxShadow: hi ? '0 1px 3px rgba(0,0,0,0.25)' : 'none',
+        }}
+        aria-label={hi ? '하이라이트 해제' : '하이라이트 지정'}
+      >
+        <Star size={12} fill={hi ? t.danger : 'none'} strokeWidth={hi ? 0 : 2} />
+      </button>
+
+      {/* 제목·날짜 오버레이 */}
+      <div className="absolute inset-x-0 bottom-0 px-1.5 pb-1">
+        <div
+          className="truncate"
+          style={{ fontFamily: 'var(--font-gaegu)', fontSize: 11, color: '#fff', lineHeight: 1.2 }}
+        >
+          {title}
+        </div>
+        {date && (
+          <div style={{ fontSize: 9, color: 'rgba(255,255,255,0.85)', lineHeight: 1.2 }}>
+            {date}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ── 하이라이트 가로 스크롤 카드 (108×132, gold 링) ─────────────────────────
+function HighlightCard({ moment, t }: { moment: Moment; t: ThemeTokens }) {
+  const title = moment.content.trim() || '오늘의 순간';
+  const hasPhoto = !!moment.photos[0];
+  return (
+    <div
+      className="relative shrink-0 overflow-hidden"
+      style={{
+        width: 108, height: 132,
+        borderRadius: 13,
+        background: hasPhoto ? t.bgSub : `linear-gradient(135deg, ${t.bgSub} 0%, ${t.accentSoft} 100%)`,
+        boxShadow: `0 0 0 2px ${t.accent}`,
+      }}
+    >
+      {hasPhoto ? (
+        <img src={moment.photos[0]} alt="" className="w-full h-full object-cover" />
+      ) : (
+        <div
+          className="absolute inset-0 flex items-center justify-center text-center p-1.5"
+          style={{ fontFamily: 'var(--font-gaegu)', fontSize: 13, color: t.textSub }}
+        >
+          📝
+        </div>
+      )}
+      <div
+        className="absolute inset-x-0 bottom-0 pointer-events-none"
+        style={{ height: '55%', background: 'linear-gradient(to top, rgba(0,0,0,0.55), rgba(0,0,0,0))' }}
+      />
+      <div className="absolute inset-x-0 bottom-0 px-2 pb-1.5">
+        <div
+          className="truncate"
+          style={{ fontFamily: 'var(--font-gaegu)', fontSize: 12, color: '#fff', lineHeight: 1.2 }}
+        >
+          {title}
         </div>
       </div>
     </div>

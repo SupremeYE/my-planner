@@ -988,13 +988,17 @@ export const db = {
   },
 
   moments: {
-    fetchAll: async (): Promise<{ id: string; created_at: string; content: string; photos: string[]; weather_temp: number | null; weather_code: number | null }[]> => {
+    fetchAll: async (): Promise<{ id: string; created_at: string; content: string; photos: string[]; weather_temp: number | null; weather_code: number | null; is_highlight: boolean; sort_order: number | null }[]> => {
       const { data, error } = await supabase
         .from('moments')
         .select('*')
         .order('created_at', { ascending: false });
       if (error) console.error('[db] moments fetch:', error.message);
-      return data ?? [];
+      return (data ?? []).map((r: any) => ({
+        ...r,
+        is_highlight: !!r.is_highlight,
+        sort_order: r.sort_order ?? null,
+      }));
     },
     create: async (content: string, photos: string[], weatherTemp?: number, weatherCode?: number): Promise<string | null> => {
       const { data, error } = await supabase
@@ -1008,6 +1012,22 @@ export const db = {
     delete: async (id: string) => {
       const { error } = await supabase.from('moments').delete().eq('id', id);
       if (error) console.error('[db] moments delete:', error.message);
+    },
+    setHighlight: async (id: string, value: boolean) => {
+      const { error } = await supabase.from('moments').update({ is_highlight: value }).eq('id', id);
+      if (error) console.error('[db] moments setHighlight:', error.message);
+      return !error;
+    },
+    setSortOrders: async (entries: { id: string; sort_order: number }[]) => {
+      // 같은 월 안에서 재정렬된 항목들을 개별 UPDATE로 저장. 항목 수가 적어 단순 병렬.
+      const results = await Promise.all(
+        entries.map(({ id, sort_order }) =>
+          supabase.from('moments').update({ sort_order }).eq('id', id)
+        )
+      );
+      const errors = results.filter(r => r.error);
+      if (errors.length) console.error('[db] moments setSortOrders:', errors[0].error?.message);
+      return errors.length === 0;
     },
     uploadPhoto: async (file: File, momentId: string, index: number): Promise<string | null> => {
       const ext = file.name.split('.').pop() ?? 'jpg';
