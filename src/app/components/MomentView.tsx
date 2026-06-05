@@ -424,7 +424,127 @@ export function MomentView() {
             })}
           </div>
 
-          {/* 본문(좌측 레일 + 메인 콘텐츠)은 Phase 2~3에서 추가 */}
+          {/* 본문 2열: 좌측 sticky 레일 + 우측 메인 */}
+          <div className="mt-8" style={{ display: 'grid', gridTemplateColumns: '330px 1fr', gap: 24, alignItems: 'start' }}>
+            {/* ── 좌측 레일 (sticky) ───────────────────────────────────── */}
+            <aside className="space-y-4" style={{ position: 'sticky', top: 24 }}>
+              {/* 빠른 기록 카드 (PC 전용 폼 — 동일 핸들러 재사용) */}
+              <div
+                className="rounded-2xl p-4 space-y-3"
+                style={{ backgroundColor: t.card, border: `1px solid ${t.border}` }}
+              >
+                <div style={{ fontSize: 13, fontWeight: 700, color: t.text }}>지금 이 순간을 기록해보세요</div>
+
+                {/* 사진 미리보기 */}
+                {photoPreviews.length > 0 && (
+                  <div className="flex gap-2 flex-wrap">
+                    {photoPreviews.map((src, i) => (
+                      <div key={i} className="relative">
+                        <img
+                          src={src}
+                          alt=""
+                          className="w-16 h-16 rounded-lg object-cover"
+                          style={{ border: `1px solid ${t.border}` }}
+                        />
+                        <button
+                          onClick={() => removePhoto(i)}
+                          className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full flex items-center justify-center"
+                          style={{ backgroundColor: t.text, color: t.bg }}
+                        >
+                          <X size={11} />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {/* 텍스트 입력 — PC는 min-height 96px */}
+                <textarea
+                  value={content}
+                  onChange={e => setContent(e.target.value)}
+                  placeholder="짧게 한 줄, 길게 한 단락 — 그 순간을 그대로."
+                  className="w-full resize-none outline-none bg-transparent"
+                  style={{ fontSize: 14, color: t.text, lineHeight: 1.6, minHeight: 96 }}
+                />
+
+                {/* 하단 버튼 행 */}
+                <div className="flex items-center justify-between pt-1">
+                  <div className="flex gap-1.5 items-center">
+                    <button
+                      onClick={() => cameraRef.current?.click()}
+                      disabled={photoFiles.length >= 5}
+                      className="flex items-center justify-center w-8 h-8 rounded-lg transition-all"
+                      style={{
+                        backgroundColor: t.bgSub,
+                        color: photoFiles.length >= 5 ? t.textMuted : t.textSub,
+                      }}
+                      aria-label="카메라"
+                    >
+                      <Camera size={15} />
+                    </button>
+                    <button
+                      onClick={() => galleryRef.current?.click()}
+                      disabled={photoFiles.length >= 5}
+                      className="flex items-center justify-center w-8 h-8 rounded-lg transition-all"
+                      style={{
+                        backgroundColor: t.bgSub,
+                        color: photoFiles.length >= 5 ? t.textMuted : t.textSub,
+                      }}
+                      aria-label="갤러리"
+                    >
+                      <ImagePlus size={15} />
+                    </button>
+                    {photoFiles.length > 0 && (
+                      <span style={{ fontSize: 11, color: t.textMuted, marginLeft: 2 }}>
+                        {photoFiles.length}/5
+                      </span>
+                    )}
+                  </div>
+
+                  <button
+                    onClick={handleSave}
+                    disabled={saving || (!content.trim() && photoFiles.length === 0)}
+                    className="px-4 py-1.5 rounded-lg font-semibold transition-all"
+                    style={{
+                      backgroundColor: t.accent,
+                      color: '#fff',
+                      fontSize: 13,
+                      opacity: saving || (!content.trim() && photoFiles.length === 0) ? 0.5 : 1,
+                    }}
+                  >
+                    {saving ? '저장 중...' : '기록하기'}
+                  </button>
+                </div>
+              </div>
+
+              {/* 하이라이트 카드 (선택 연도, 0개면 카드 자체 숨김) */}
+              {highlightCount > 0 && (
+                <div
+                  className="rounded-2xl p-4 space-y-3"
+                  style={{ backgroundColor: t.card, border: `1px solid ${t.border}` }}
+                >
+                  <div className="flex items-baseline justify-between">
+                    <div style={{ fontSize: 13, fontWeight: 700, color: t.text }}>
+                      <span style={{ color: t.danger, marginRight: 4 }}>✦</span>
+                      {selectedYear} 하이라이트
+                    </div>
+                    <span style={{ fontSize: 11, color: t.textMuted }}>{highlightCount}개</span>
+                  </div>
+                  {/* 3열 미니 썸네일 갤러리 (gold 링 + 제목 오버레이) */}
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 6 }}>
+                    {yearHighlights.map(m => (
+                      <HighlightMiniTile key={m.id} moment={m} t={t} />
+                    ))}
+                  </div>
+                </div>
+              )}
+            </aside>
+
+            {/* ── 우측 메인 콘텐츠 자리 (Phase 3에서 채움) ────────────── */}
+            <main>
+              {/* placeholder — Phase 3에서 세그먼트 토글 + 메이슨리/그리드 추가 */}
+            </main>
+          </div>
         </div>
 
         {/* 모먼트 목록 — 모바일 전용 (연도 스코프 + 피드/모아보기 토글) */}
@@ -793,6 +913,43 @@ function MomentGridTile({
             {date}
           </div>
         )}
+      </div>
+    </div>
+  );
+}
+
+// ── 하이라이트 미니 썸네일 (PC 레일 3열 — 정사각, gold 링, 제목 오버레이) ─
+function HighlightMiniTile({ moment, t }: { moment: Moment; t: ThemeTokens }) {
+  const title = moment.content.trim() || '오늘의 순간';
+  const hasPhoto = !!moment.photos[0];
+  return (
+    <div
+      className="relative overflow-hidden"
+      style={{
+        aspectRatio: '1 / 1',
+        borderRadius: 10,
+        background: hasPhoto ? t.bgSub : `linear-gradient(135deg, ${t.bgSub} 0%, ${t.accentSoft} 100%)`,
+        boxShadow: `0 0 0 2px ${t.accent}`,
+      }}
+    >
+      {hasPhoto ? (
+        <img src={moment.photos[0]} alt="" className="w-full h-full object-cover" />
+      ) : (
+        <div
+          className="absolute inset-0 flex items-center justify-center text-center p-1"
+          style={{ fontFamily: 'var(--font-gaegu)', fontSize: 12, color: t.textSub }}
+        >
+          📝
+        </div>
+      )}
+      <div
+        className="absolute inset-x-0 bottom-0 pointer-events-none"
+        style={{ height: '55%', background: 'linear-gradient(to top, rgba(0,0,0,0.55), rgba(0,0,0,0))' }}
+      />
+      <div className="absolute inset-x-0 bottom-0 px-1.5 pb-1">
+        <div className="truncate" style={{ fontFamily: 'var(--font-gaegu)', fontSize: 10.5, color: '#fff', lineHeight: 1.2 }}>
+          {title}
+        </div>
       </div>
     </div>
   );
