@@ -65,8 +65,19 @@ export function RecipeFormSheet({ recipe, onSave, onDelete, onClose }: RecipeFor
   const platform = detectRecipeSourcePlatform(sourceUrl);
 
   // 태그
+  // 구조: "후보 칩(프리셋 + 직접 추가)" 과 "선택된 것(Set)" 을 분리.
+  //  - 탭 = 선택/해제만(칩은 사라지지 않음), 저장 시 선택된 것만 tags/main_ingredients 에 저장.
+  //  - 직접 추가 = 후보에 등록 + 자동 선택. 커스텀 칩은 ✕ 로 후보에서 삭제.
+  const presetIntents = INTENT_TAG_PRESETS;
+  const presetMainNames = MAIN_INGREDIENT_PRESETS.map(p => p.name);
   const [intentTags, setIntentTags] = useState<Set<string>>(new Set(recipe?.tags ?? []));
   const [mainIngs, setMainIngs] = useState<Set<string>>(new Set(recipe?.mainIngredients ?? []));
+  const [customIntentOptions, setCustomIntentOptions] = useState<string[]>(
+    (recipe?.tags ?? []).filter(x => !presetIntents.includes(x)),
+  );
+  const [customMainOptions, setCustomMainOptions] = useState<string[]>(
+    (recipe?.mainIngredients ?? []).filter(x => !presetMainNames.includes(x)),
+  );
   const [customIntentInput, setCustomIntentInput] = useState('');
   const [customMainInput, setCustomMainInput] = useState('');
 
@@ -126,22 +137,40 @@ export function RecipeFormSheet({ recipe, onSave, onDelete, onClose }: RecipeFor
     }
   };
 
-  // 태그 토글
+  // 태그 토글(선택/해제만 — 칩은 사라지지 않음)
   const toggleIntent = (tag: string) =>
     setIntentTags(prev => { const next = new Set(prev); next.has(tag) ? next.delete(tag) : next.add(tag); return next; });
   const toggleMain = (name: string) =>
     setMainIngs(prev => { const next = new Set(prev); next.has(name) ? next.delete(name) : next.add(name); return next; });
+
+  // 직접 추가 = 후보 등록 + 자동 선택
   const addCustomIntent = () => {
     const v = customIntentInput.trim();
     if (!v) return;
+    if (!presetIntents.includes(v) && !customIntentOptions.includes(v)) {
+      setCustomIntentOptions(prev => [...prev, v]);
+    }
     setIntentTags(prev => new Set([...prev, v]));
     setCustomIntentInput('');
   };
   const addCustomMain = () => {
     const v = customMainInput.trim();
     if (!v) return;
+    if (!presetMainNames.includes(v) && !customMainOptions.includes(v)) {
+      setCustomMainOptions(prev => [...prev, v]);
+    }
     setMainIngs(prev => new Set([...prev, v]));
     setCustomMainInput('');
+  };
+
+  // 커스텀 칩 후보 삭제(✕) — 후보·선택에서 모두 제거
+  const removeCustomIntent = (tag: string) => {
+    setCustomIntentOptions(prev => prev.filter(x => x !== tag));
+    setIntentTags(prev => { const next = new Set(prev); next.delete(tag); return next; });
+  };
+  const removeCustomMain = (name: string) => {
+    setCustomMainOptions(prev => prev.filter(x => x !== name));
+    setMainIngs(prev => { const next = new Set(prev); next.delete(name); return next; });
   };
 
   // 붙여넣기 → '줄 단위로 정리' (AI 아님): 빈 줄 기준으로 위/아래 두 블록이면 위는 재료, 아래는 단계.
@@ -222,6 +251,7 @@ export function RecipeFormSheet({ recipe, onSave, onDelete, onClose }: RecipeFor
     border: `1px solid ${t.border}`, backgroundColor: t.card, color: t.text, outline: 'none',
   };
   const chip = (active: boolean): React.CSSProperties => ({
+    display: 'inline-flex', alignItems: 'center', flexShrink: 0, whiteSpace: 'nowrap',
     padding: '6px 11px', borderRadius: 999, fontSize: 12, fontWeight: active ? 700 : 500,
     backgroundColor: active ? t.accent : t.bgSub,
     color: active ? '#fff' : t.textSub,
@@ -406,26 +436,32 @@ export function RecipeFormSheet({ recipe, onSave, onDelete, onClose }: RecipeFor
           <div>
             <label style={labelStyle}>의도 · 상황</label>
             <div className="flex flex-wrap gap-1.5">
-              {INTENT_TAG_PRESETS.map(tag => {
-                const active = intentTags.has(tag);
-                return (
-                  <button key={tag} type="button" onClick={() => toggleIntent(tag)} style={chip(active)}>
-                    {tag}
-                  </button>
-                );
-              })}
-              {Array.from(intentTags).filter(x => !INTENT_TAG_PRESETS.includes(x)).map(tag => (
-                <button key={tag} type="button" onClick={() => toggleIntent(tag)} style={chip(true)}>
+              {presetIntents.map(tag => (
+                <button key={tag} type="button" onClick={() => toggleIntent(tag)} style={chip(intentTags.has(tag))}>
                   {tag}
                 </button>
               ))}
+              {/* 직접 추가한 후보(선택 해제해도 사라지지 않음, ✕로 삭제) */}
+              {customIntentOptions.map(tag => {
+                const active = intentTags.has(tag);
+                return (
+                  <span key={tag} style={chip(active)}>
+                    <button type="button" onClick={() => toggleIntent(tag)} style={{ color: 'inherit', font: 'inherit' }}>{tag}</button>
+                    <span role="button" tabIndex={0} aria-label={`${tag} 삭제`}
+                      onClick={(e) => { e.stopPropagation(); removeCustomIntent(tag); }}
+                      style={{ marginLeft: 5, opacity: 0.85, cursor: 'pointer', display: 'inline-flex' }}>
+                      <X size={12} color={active ? '#fff' : t.textMuted} />
+                    </span>
+                  </span>
+                );
+              })}
             </div>
             <div className="flex gap-1.5 mt-2">
               <input value={customIntentInput} onChange={e => setCustomIntentInput(e.target.value)}
                 onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); addCustomIntent(); } }}
-                placeholder="직접 추가" style={{ ...fieldStyle, padding: '7px 10px', fontSize: 13 }} />
+                placeholder="직접 추가" className="flex-1 min-w-0" style={{ ...fieldStyle, padding: '7px 10px', fontSize: 13 }} />
               <button type="button" onClick={addCustomIntent} disabled={!customIntentInput.trim()}
-                className="px-3 rounded-lg" style={{ fontSize: 13, fontWeight: 600,
+                className="px-3 rounded-lg flex-shrink-0" style={{ fontSize: 13, fontWeight: 600, whiteSpace: 'nowrap',
                   color: customIntentInput.trim() ? '#fff' : t.textMuted,
                   backgroundColor: customIntentInput.trim() ? t.accent : t.bgSub,
                   opacity: customIntentInput.trim() ? 1 : 0.6 }}>추가</button>
@@ -436,26 +472,31 @@ export function RecipeFormSheet({ recipe, onSave, onDelete, onClose }: RecipeFor
           <div>
             <label style={labelStyle}>주재료 (냉장고 연결용)</label>
             <div className="flex flex-wrap gap-1.5">
-              {MAIN_INGREDIENT_PRESETS.map(({ name, emoji }) => {
-                const active = mainIngs.has(name);
-                return (
-                  <button key={name} type="button" onClick={() => toggleMain(name)} style={chip(active)}>
-                    <span style={{ marginRight: 4 }}>{emoji}</span>{name}
-                  </button>
-                );
-              })}
-              {Array.from(mainIngs).filter(x => !MAIN_INGREDIENT_PRESETS.some(p => p.name === x)).map(name => (
-                <button key={name} type="button" onClick={() => toggleMain(name)} style={chip(true)}>
-                  {name}
+              {MAIN_INGREDIENT_PRESETS.map(({ name, emoji }) => (
+                <button key={name} type="button" onClick={() => toggleMain(name)} style={chip(mainIngs.has(name))}>
+                  <span style={{ marginRight: 4 }}>{emoji}</span>{name}
                 </button>
               ))}
+              {customMainOptions.map(name => {
+                const active = mainIngs.has(name);
+                return (
+                  <span key={name} style={chip(active)}>
+                    <button type="button" onClick={() => toggleMain(name)} style={{ color: 'inherit', font: 'inherit' }}>{name}</button>
+                    <span role="button" tabIndex={0} aria-label={`${name} 삭제`}
+                      onClick={(e) => { e.stopPropagation(); removeCustomMain(name); }}
+                      style={{ marginLeft: 5, opacity: 0.85, cursor: 'pointer', display: 'inline-flex' }}>
+                      <X size={12} color={active ? '#fff' : t.textMuted} />
+                    </span>
+                  </span>
+                );
+              })}
             </div>
             <div className="flex gap-1.5 mt-2">
               <input value={customMainInput} onChange={e => setCustomMainInput(e.target.value)}
                 onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); addCustomMain(); } }}
-                placeholder="직접 추가" style={{ ...fieldStyle, padding: '7px 10px', fontSize: 13 }} />
+                placeholder="직접 추가" className="flex-1 min-w-0" style={{ ...fieldStyle, padding: '7px 10px', fontSize: 13 }} />
               <button type="button" onClick={addCustomMain} disabled={!customMainInput.trim()}
-                className="px-3 rounded-lg" style={{ fontSize: 13, fontWeight: 600,
+                className="px-3 rounded-lg flex-shrink-0" style={{ fontSize: 13, fontWeight: 600, whiteSpace: 'nowrap',
                   color: customMainInput.trim() ? '#fff' : t.textMuted,
                   backgroundColor: customMainInput.trim() ? t.accent : t.bgSub,
                   opacity: customMainInput.trim() ? 1 : 0.6 }}>추가</button>
