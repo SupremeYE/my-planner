@@ -6,6 +6,7 @@ import { useRealtimeSync } from '../../hooks/useRealtimeSync';
 import ConfirmModal from '../ConfirmModal';
 import { MandalartBoardMobile } from './MandalartBoardMobile';
 import { MandalartBoardPC } from './MandalartBoardPC';
+import { useToasts, ToastHost } from '../culture/CultureToast';
 
 type Board = { id: string; title: string; sort_order: number; created_at: string };
 type Cell = {
@@ -51,12 +52,14 @@ export function computeProgress(cells: Cell[]): MandalartProgress {
 
 export function MandalartView() {
   const { t } = useTheme();
+  const { toasts, notify } = useToasts();
 
   const [boards, setBoards] = useState<Board[]>([]);
   const [activeBoardId, setActiveBoardId] = useState<string | null>(null);
   const [cells, setCells] = useState<Cell[]>([]);
   const [showBoardMenu, setShowBoardMenu] = useState(false);
   const [renaming, setRenaming] = useState(false);
+  const [creating, setCreating] = useState(false);
   const [titleDraft, setTitleDraft] = useState('');
   const [deleteOpen, setDeleteOpen] = useState(false);
 
@@ -85,14 +88,24 @@ export function MandalartView() {
     [boards, activeBoardId],
   );
 
-  const handleAddBoard = async () => {
-    const title = window.prompt('새 보드 이름을 입력하세요', '새 만다라트');
-    if (!title) return;
-    const sortOrder = boards.length;
-    const created = await db.mandalartBoards.create(title.trim() || '새 만다라트', sortOrder);
+  // 새 보드 만들기 — 인라인 입력 진입 (window.prompt 미사용: 임베드 환경에서 차단될 수 있음)
+  const startCreate = () => {
+    setTitleDraft('새 만다라트');
+    setCreating(true);
+    setRenaming(false);
+    setShowBoardMenu(false);
+  };
+
+  const commitCreate = async () => {
+    const title = titleDraft.trim() || '새 만다라트';
+    const created = await db.mandalartBoards.create(title, boards.length);
+    setCreating(false);
     if (created) {
-      setShowBoardMenu(false);
       setActiveBoardId(created.id);
+      await refreshBoards();
+      notify('보드가 추가되었습니다', 'success');
+    } else {
+      notify('보드 추가에 실패했습니다', 'error');
     }
   };
 
@@ -100,6 +113,7 @@ export function MandalartView() {
     if (!activeBoard) return;
     setTitleDraft(activeBoard.title);
     setRenaming(true);
+    setCreating(false);
     setShowBoardMenu(false);
   };
 
@@ -108,6 +122,8 @@ export function MandalartView() {
     const next = titleDraft.trim();
     if (next && next !== activeBoard.title) {
       await db.mandalartBoards.rename(activeBoard.id, next);
+      await refreshBoards();
+      notify('이름이 변경되었습니다', 'success');
     }
     setRenaming(false);
   };
@@ -119,33 +135,36 @@ export function MandalartView() {
     setActiveBoardId(null);
     // refreshBoards 는 realtime 으로 트리거됨, 즉시 fallback:
     await refreshBoards();
+    notify('보드가 삭제되었습니다', 'success');
   };
 
   return (
     <div className="px-4 lg:px-8 pt-4 pb-10" style={{ backgroundColor: t.bg, minHeight: '100%' }}>
       {/* 보드 선택 + 액션 */}
       <div className="flex items-center gap-2 mb-4 relative">
-        {renaming ? (
+        {(renaming || creating) ? (
           <div className="flex items-center gap-2 flex-1">
             <input
               autoFocus
               value={titleDraft}
               onChange={e => setTitleDraft(e.target.value)}
+              onFocus={e => e.target.select()}
               onKeyDown={e => {
-                if (e.key === 'Enter') commitRename();
-                if (e.key === 'Escape') setRenaming(false);
+                if (e.key === 'Enter') creating ? commitCreate() : commitRename();
+                if (e.key === 'Escape') { setRenaming(false); setCreating(false); }
               }}
+              placeholder={creating ? '새 보드 이름' : '보드 이름'}
               className="flex-1 px-3 py-2 rounded-xl outline-none border"
               style={{
-                fontFamily: "'DM Serif Display', serif",
-                fontSize: 18,
-                backgroundColor: t.card, color: t.text, borderColor: t.border,
+                fontFamily: 'var(--font-gowun)',
+                fontSize: 16, fontWeight: 600,
+                backgroundColor: t.card, color: t.text, borderColor: t.accent,
               }}
             />
-            <button onClick={commitRename} className="p-2 rounded-xl" style={{ backgroundColor: t.accent, color: '#fff' }}>
+            <button onClick={() => creating ? commitCreate() : commitRename()} className="p-2 rounded-xl" style={{ backgroundColor: t.accent, color: '#fff' }}>
               <Check size={16} />
             </button>
-            <button onClick={() => setRenaming(false)} className="p-2 rounded-xl" style={{ backgroundColor: t.bgSub, color: t.textMuted }}>
+            <button onClick={() => { setRenaming(false); setCreating(false); }} className="p-2 rounded-xl" style={{ backgroundColor: t.bgSub, color: t.textMuted }}>
               <X size={16} />
             </button>
           </div>
@@ -156,8 +175,8 @@ export function MandalartView() {
               onClick={() => setShowBoardMenu(s => !s)}
               className="flex items-center gap-2 px-3 py-2 rounded-xl"
               style={{
-                fontFamily: "'DM Serif Display', serif",
-                fontSize: 20, color: t.text,
+                fontFamily: 'var(--font-gowun)',
+                fontSize: 16, fontWeight: 600, color: t.text,
                 backgroundColor: t.card, border: `1px solid ${t.borderLight}`,
                 maxWidth: '100%',
               }}
@@ -173,7 +192,7 @@ export function MandalartView() {
                 <Pencil size={14} />
               </button>
             )}
-            <button onClick={handleAddBoard} className="p-2 rounded-xl ml-auto"
+            <button onClick={startCreate} className="p-2 rounded-xl ml-auto"
               style={{ backgroundColor: t.accent, color: '#fff' }} title="새 보드">
               <Plus size={14} />
             </button>
@@ -211,7 +230,7 @@ export function MandalartView() {
               </button>
             ))}
             <button
-              onClick={handleAddBoard}
+              onClick={startCreate}
               className="w-full text-left px-3 py-2 flex items-center gap-2"
               style={{ fontSize: 13, color: t.accent, borderTop: `1px solid ${t.borderLight}` }}
             >
@@ -230,6 +249,7 @@ export function MandalartView() {
               boardTitle={activeBoard.title}
               cells={cells}
               onMutate={refreshCells}
+              onNotify={notify}
               onRenameBoard={(next) => db.mandalartBoards.rename(activeBoard.id, next).then(refreshBoards)}
             />
           </div>
@@ -240,6 +260,7 @@ export function MandalartView() {
               boardTitle={activeBoard.title}
               cells={cells}
               onMutate={refreshCells}
+              onNotify={notify}
               onRenameBoard={(next) => db.mandalartBoards.rename(activeBoard.id, next).then(refreshBoards)}
             />
           </div>
@@ -261,6 +282,8 @@ export function MandalartView() {
           onCancel={() => setDeleteOpen(false)}
         />
       )}
+
+      <ToastHost toasts={toasts} />
     </div>
   );
 }

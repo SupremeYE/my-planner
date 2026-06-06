@@ -3,12 +3,14 @@ import { useTheme } from '../../ThemeContext';
 import { db } from '../../../lib/db';
 import { computeProgress } from './MandalartView';
 import type { Cell } from './MandalartBoardMobile';
+import type { Notify } from '../culture/CultureToast';
 
 interface Props {
   boardId: string;
   boardTitle: string;
   cells: Cell[];
   onMutate: () => void;
+  onNotify: Notify;
   onRenameBoard: (next: string) => void;
 }
 
@@ -37,7 +39,7 @@ type EditTarget =
   | { kind: 'sub'; position: number; cell: Cell | null }
   | { kind: 'action'; parentId: string; position: number; cell: Cell | null };
 
-export function MandalartBoardPC({ boardId, boardTitle, cells, onMutate, onRenameBoard }: Props) {
+export function MandalartBoardPC({ boardId, boardTitle, cells, onMutate, onNotify, onRenameBoard }: Props) {
   const { t } = useTheme();
 
   const subs = useMemo(
@@ -76,15 +78,16 @@ export function MandalartBoardPC({ boardId, boardTitle, cells, onMutate, onRenam
     if (!editing) return;
     const next = editDraft.trim();
     if (editing.kind === 'core') {
-      if (next && next !== boardTitle) onRenameBoard(next);
+      if (next && next !== boardTitle) { onRenameBoard(next); onNotify('저장되었습니다', 'success'); }
       closeEdit(); return;
     }
     const parentId = editing.kind === 'sub' ? null : editing.parentId;
     if (editing.cell) {
-      if (!next) await db.mandalartCells.delete(editing.cell.id);
-      else if (next !== editing.cell.content) await db.mandalartCells.update(editing.cell.id, { content: next });
+      if (!next) { await db.mandalartCells.delete(editing.cell.id); onNotify('삭제되었습니다', 'success'); }
+      else if (next !== editing.cell.content) { await db.mandalartCells.update(editing.cell.id, { content: next }); onNotify('저장되었습니다', 'success'); }
     } else if (next) {
       await db.mandalartCells.upsert({ boardId, parentId, position: editing.position, content: next });
+      onNotify('추가되었습니다', 'success');
     }
     onMutate();
     closeEdit();
@@ -317,6 +320,7 @@ function SubPCCell({ cell, pct, hasActions, t, onClick, onEdit }: {
     return (
       <button
         onClick={onClick}
+        title="세부 목표 추가"
         style={{
           ...cellBase,
           backgroundColor: 'transparent',
@@ -324,7 +328,8 @@ function SubPCCell({ cell, pct, hasActions, t, onClick, onEdit }: {
           color: t.accent,
         }}
       >
-        <span style={{ fontSize: 18, fontWeight: 300 }}>+</span>
+        <span style={{ fontSize: 16, fontWeight: 300, lineHeight: 1 }}>+</span>
+        <span style={{ fontSize: 8.5, color: t.textMuted }}>세부</span>
       </button>
     );
   }
@@ -400,6 +405,7 @@ function ActionPCCell({ cell, t, onTap, onEdit }: {
     return (
       <button
         onClick={onTap}
+        title="행동 추가"
         style={{
           ...cellBase,
           backgroundColor: 'transparent',
@@ -407,7 +413,8 @@ function ActionPCCell({ cell, t, onTap, onEdit }: {
           color: t.accent,
         }}
       >
-        <span style={{ fontSize: 18, fontWeight: 300 }}>+</span>
+        <span style={{ fontSize: 16, fontWeight: 300, lineHeight: 1 }}>+</span>
+        <span style={{ fontSize: 8.5, color: t.textMuted }}>행동</span>
       </button>
     );
   }

@@ -10,7 +10,7 @@ export function GoalsHubView() {
   const [mode, setMode] = useState<GoalsMode>('mandalart');
 
   return (
-    <div style={{ minHeight: '100%', backgroundColor: t.bg }}>
+    <div className="flex-1 overflow-y-auto" style={{ minHeight: 0, backgroundColor: t.bg }}>
       {/* eyebrow + 제목 + 모드 탭 */}
       <div className="px-4 lg:px-8 pt-6 lg:pt-9">
         <div
