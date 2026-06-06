@@ -1,13 +1,17 @@
-import React, { useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ChevronLeft, X, Pencil, Clock, Star, ChefHat, Play, ExternalLink,
   Youtube, Instagram, Link2, Minus, Plus, Utensils, History,
+  Check, Camera, ImagePlus, Loader2, Trash2,
 } from 'lucide-react';
 import { useTheme } from '../../ThemeContext';
-import type { Recipe } from '../../store';
+import { db } from '../../../lib/db';
+import { useRealtimeSync } from '../../hooks/useRealtimeSync';
+import type { Recipe, RecipeCookLog } from '../../store';
 import { detectRecipeSourcePlatform, sourcePlatformLabel, type RecipeSourcePlatform } from '../../../lib/recipeSource';
 import { extractYouTubeVideoId } from '../../../lib/youtube';
 import { MAIN_INGREDIENT_PRESETS } from './recipeTags';
+import ConfirmModal from '../ConfirmModal';
 
 interface RecipeDetailProps {
   recipe: Recipe;
@@ -85,6 +89,64 @@ export function RecipeDetail({ recipe, onClose, onEdit }: RecipeDetailProps) {
 
   // YouTube 인라인 임베드 토글
   const [showEmbed, setShowEmbed] = useState(false);
+
+  // ── 조리 기록 (cook logs) ──
+  const [cookLogs, setCookLogs] = useState<RecipeCookLog[]>([]);
+  const [marking, setMarking] = useState(false);
+  // 사진 추가 안내 시트 — 방금 추가한 cook log id 보관
+  const [pendingPhotoLogId, setPendingPhotoLogId] = useState<string | null>(null);
+  const [uploadingPhoto, setUploadingPhoto] = useState(false);
+  // 갤러리/카메라 트리거용 두 개 input
+  const galleryInputRef = useRef<HTMLInputElement | null>(null);
+  const cameraInputRef = useRef<HTMLInputElement | null>(null);
+  const [confirmDeleteLogId, setConfirmDeleteLogId] = useState<string | null>(null);
+
+  const refreshLogs = useCallback(() => {
+    db.recipeCookLogs.fetchByRecipe(recipe.id).then(setCookLogs);
+  }, [recipe.id]);
+  useEffect(() => { refreshLogs(); }, [refreshLogs]);
+  // Realtime — 다른 기기에서 기록 추가/삭제 시 즉시 반영
+  useRealtimeSync('recipe_cook_logs', refreshLogs);
+
+  const handleMarkCooked = async () => {
+    if (marking) return;
+    setMarking(true);
+    const inserted = await db.recipeCookLogs.insert({ recipeId: recipe.id });
+    if (inserted) {
+      // recipes.cook_count + 1, last_cooked_at 갱신 — 기존 markCooked 재사용
+      await db.recipes.markCooked(recipe.id, recipe.cookCount ?? 0);
+      setCookLogs(prev => [inserted, ...prev]);
+      setPendingPhotoLogId(inserted.id); // 사진 추가 안내 시트 열기
+    }
+    setMarking(false);
+  };
+
+  const onPickPhoto = (source: 'camera' | 'gallery') => {
+    if (source === 'camera') cameraInputRef.current?.click();
+    else galleryInputRef.current?.click();
+  };
+
+  const handlePhotoFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    if (!file || !pendingPhotoLogId) return;
+    setUploadingPhoto(true);
+    const url = await db.recipeCookLogs.uploadPhoto(recipe.id, file);
+    if (url) {
+      await db.recipeCookLogs.setPhotoUrl(pendingPhotoLogId, url);
+      setCookLogs(prev => prev.map(l => l.id === pendingPhotoLogId ? { ...l, photoUrl: url } : l));
+    }
+    setUploadingPhoto(false);
+    setPendingPhotoLogId(null);
+  };
+
+  const handleDeleteLog = async () => {
+    if (!confirmDeleteLogId) return;
+    const id = confirmDeleteLogId;
+    setConfirmDeleteLogId(null);
+    setCookLogs(prev => prev.filter(l => l.id !== id)); // optimistic
+    await db.recipeCookLogs.delete(id);
+  };
 
   const lastCookedLabel = useMemo(() => {
     if (!recipe.lastCookedAt) return null;
@@ -343,30 +405,160 @@ export function RecipeDetail({ recipe, onClose, onEdit }: RecipeDetailProps) {
             </section>
           )}
 
-          {/* 만든 기록 placeholder — B-2에서 cook_logs 타임라인으로 교체 */}
+          {/* 만든 기록 — cook_logs 타임라인 (Realtime) */}
           <section>
             <h3 className="flex items-center gap-1.5 mb-2" style={{ fontSize: 14, fontWeight: 700, color: t.text }}>
               <History size={14} color={t.textMuted} /> 만든 기록
+              {cookLogs.length > 0 && (
+                <span style={{ fontSize: 12, fontWeight: 500, color: t.textMuted }}>({cookLogs.length})</span>
+              )}
             </h3>
-            <div className="rounded-xl px-3 py-4 text-center"
-              style={{ backgroundColor: t.card, border: `1px dashed ${t.border}`,
-                fontSize: 12, color: t.textMuted }}>
-              아직 기록이 없어요. 만들고 나서 기록을 남길 수 있어요.
-            </div>
+            {cookLogs.length === 0 ? (
+              <div className="rounded-xl px-3 py-4 text-center"
+                style={{ backgroundColor: t.card, border: `1px dashed ${t.border}`,
+                  fontSize: 12, color: t.textMuted }}>
+                아직 기록이 없어요. 아래 <b style={{ color: t.accent }}>만들었어요</b>로 첫 기록을 남겨보세요.
+              </div>
+            ) : (
+              <ul className="space-y-2">
+                {cookLogs.map(log => <CookLogRow key={log.id} log={log}
+                  onDelete={() => setConfirmDeleteLogId(log.id)} />)}
+              </ul>
+            )}
           </section>
         </div>
 
-        {/* 하단 sticky 액션 — '편집' (메인). '만들었어요'는 B-2에서 추가 */}
+        {/* 하단 sticky 액션 — '편집' + '만들었어요' */}
         <div className="sticky bottom-0 left-0 right-0 px-4 lg:px-6 py-3 flex gap-2"
           style={{
             backgroundColor: t.bg, borderTop: `1px solid ${t.border}`,
             paddingBottom: 'calc(12px + env(safe-area-inset-bottom))',
           }}>
           <button onClick={onEdit}
-            className="flex-1 flex items-center justify-center gap-1.5 rounded-xl py-3 active:scale-[0.99] transition-transform"
+            className="flex items-center justify-center gap-1.5 rounded-xl py-3 px-4 active:scale-[0.99] transition-transform"
             style={{ fontSize: 14, fontWeight: 700, color: t.accent,
               backgroundColor: t.accentLight, border: `1px solid ${t.accent}33` }}>
             <Pencil size={15} /> 편집
+          </button>
+          <button onClick={handleMarkCooked} disabled={marking}
+            className="flex-1 flex items-center justify-center gap-1.5 rounded-xl py-3 active:scale-[0.99] transition-transform"
+            style={{ fontSize: 14, fontWeight: 700, color: '#fff',
+              backgroundColor: t.accent, opacity: marking ? 0.6 : 1 }}>
+            {marking ? <Loader2 size={15} className="animate-spin" /> : <Check size={15} />}
+            만들었어요
+          </button>
+        </div>
+      </div>
+
+      {/* 사진 추가 안내 시트 (만들었어요 직후) */}
+      {pendingPhotoLogId && (
+        <PhotoPromptSheet
+          onPick={(src) => onPickPhoto(src)}
+          onSkip={() => setPendingPhotoLogId(null)}
+          uploading={uploadingPhoto}
+        />
+      )}
+
+      {/* 숨겨진 파일 input — 카메라 / 갤러리 */}
+      <input ref={galleryInputRef} type="file" accept="image/*"
+        style={{ display: 'none' }} onChange={handlePhotoFile} />
+      <input ref={cameraInputRef} type="file" accept="image/*" capture="environment"
+        style={{ display: 'none' }} onChange={handlePhotoFile} />
+
+      {/* 기록 삭제 확인 */}
+      {confirmDeleteLogId && (
+        <ConfirmModal
+          message="이 만든 기록을 삭제할까요?"
+          description="첨부한 사진도 함께 사라져요."
+          confirmText="삭제"
+          confirmDanger
+          onConfirm={handleDeleteLog}
+          onCancel={() => setConfirmDeleteLogId(null)}
+        />
+      )}
+    </div>
+  );
+}
+
+// ── 보조 컴포넌트들 ─────────────────────────────────────────────────────────
+
+function CookLogRow({ log, onDelete }: { log: RecipeCookLog; onDelete: () => void }) {
+  const { t } = useTheme();
+  const d = new Date(log.cookedAt);
+  const dateLabel = Number.isFinite(d.getTime())
+    ? `${d.getFullYear()}.${String(d.getMonth() + 1).padStart(2, '0')}.${String(d.getDate()).padStart(2, '0')}`
+    : '';
+  const timeLabel = Number.isFinite(d.getTime())
+    ? `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`
+    : '';
+
+  return (
+    <li className="flex items-center gap-3 rounded-xl p-2"
+      style={{ backgroundColor: t.card, border: `1px solid ${t.border}` }}>
+      {/* 사진 썸네일 또는 아이콘 */}
+      <div className="flex-shrink-0 rounded-lg overflow-hidden"
+        style={{ width: 56, height: 56, backgroundColor: t.bgSub,
+          border: `1px solid ${t.border}` }}>
+        {log.photoUrl ? (
+          <img src={log.photoUrl} alt="" className="w-full h-full object-cover"
+            onError={e => { (e.currentTarget as HTMLImageElement).style.visibility = 'hidden'; }} />
+        ) : (
+          <div className="w-full h-full flex items-center justify-center">
+            <Utensils size={20} color={t.textMuted} />
+          </div>
+        )}
+      </div>
+      <div className="flex-1 min-w-0">
+        <div style={{ fontSize: 13, fontWeight: 700, color: t.text }}>{dateLabel}</div>
+        <div style={{ fontSize: 11, color: t.textMuted, marginTop: 2 }}>
+          {timeLabel}{log.photoUrl ? ' · 📸 사진' : ''}
+        </div>
+      </div>
+      <button onClick={onDelete} aria-label="기록 삭제"
+        className="p-2 rounded-lg active:scale-95 transition-transform"
+        style={{ color: t.textMuted }}>
+        <Trash2 size={14} />
+      </button>
+    </li>
+  );
+}
+
+function PhotoPromptSheet({ onPick, onSkip, uploading }:
+  { onPick: (src: 'camera' | 'gallery') => void; onSkip: () => void; uploading: boolean }) {
+  const { t } = useTheme();
+  return (
+    <div className="fixed inset-0 z-[60] flex justify-center items-end p-0 lg:items-center lg:p-4"
+      style={{ backgroundColor: 'rgba(0,0,0,0.45)' }} onClick={uploading ? undefined : onSkip}>
+      <div className="w-full max-w-full rounded-t-2xl lg:max-w-[420px] lg:rounded-2xl"
+        style={{ backgroundColor: t.bg, border: `1px solid ${t.border}`,
+          paddingBottom: 'calc(16px + env(safe-area-inset-bottom))' }}
+        onClick={e => e.stopPropagation()}>
+        <div className="px-5 pt-5 pb-3 text-center">
+          <div className="text-2xl mb-1">🎉</div>
+          <h3 style={{ fontSize: 16, fontWeight: 800, color: t.text }}>오늘 만든 사진을 남길까요?</h3>
+          <p style={{ fontSize: 12, color: t.textSub, marginTop: 4 }}>
+            완성 사진은 만든 기록 타임라인에 함께 저장돼요.
+          </p>
+        </div>
+        <div className="px-5 space-y-2">
+          <button onClick={() => onPick('camera')} disabled={uploading}
+            className="w-full flex items-center justify-center gap-1.5 rounded-xl py-3 active:scale-[0.99]"
+            style={{ fontSize: 14, fontWeight: 700, color: '#fff', backgroundColor: t.accent,
+              opacity: uploading ? 0.6 : 1 }}>
+            {uploading ? <Loader2 size={15} className="animate-spin" /> : <Camera size={15} />}
+            카메라로 찍기
+          </button>
+          <button onClick={() => onPick('gallery')} disabled={uploading}
+            className="w-full flex items-center justify-center gap-1.5 rounded-xl py-3 active:scale-[0.99]"
+            style={{ fontSize: 14, fontWeight: 700, color: t.accent,
+              backgroundColor: t.accentLight, border: `1px solid ${t.accent}33`,
+              opacity: uploading ? 0.6 : 1 }}>
+            <ImagePlus size={15} /> 앨범에서 선택
+          </button>
+          <button onClick={onSkip} disabled={uploading}
+            className="w-full rounded-xl py-2.5"
+            style={{ fontSize: 13, fontWeight: 600, color: t.textMuted, backgroundColor: 'transparent' }}>
+            건너뛰기
           </button>
         </div>
       </div>
