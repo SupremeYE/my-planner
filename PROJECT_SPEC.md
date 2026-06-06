@@ -1,6 +1,6 @@
 # PROJECT_SPEC.md — My Planner PWA 기능 명세서
 
-> 최종 업데이트: 2026-06-05 (레시피 모듈 Phase 1a + 2a 추가 — Phase 1a: `recipes`/`recipe_ingredients`/`recipe_steps` 3개 테이블(소유자 RLS, 자식은 EXISTS 기반, Realtime publication), `/recipes` 목록 페이지 + 직접입력 추가/수정 시트(이름·기준 인분·조리 시간·재료 한 줄에 하나·단계별 선택 타이머·출처/썸네일), 인분 환산·재료 라인 파싱 유틸. Phase 2a: `fridge_items`/`shopping_items` 테이블(소유자 RLS, Realtime; `source_recipe_id`는 Phase 3 대비 ON DELETE SET NULL로만 미리 둠), `RecipeView`를 모듈 셸로 재구성하고 모듈 내부 하단 탭 네비(레시피/냉장고/장보기) 도입 — 모바일은 글로벌 5탭 네비 위 `bottom:56px` 별도 탭바, PC는 헤더 우측 세그먼트 컨트롤. 냉장고 페이지: 요약(전체/임박 D-2/다 떨어짐), 카테고리 섹션(냉장·냉동·실온, 유통기한 빠른 순), 행별 D-day·수량 +/− 스테퍼(낙관적 업데이트, D-2 강조). PC 레이아웃 무영향, 색 토큰만 사용. 이하 2026-06-03: 문화 기록 Stage 4: 저녁 daily-report Discord 리포트에 "오늘의 문화 기록" 섹션 추가 — 독서 다음, 상태 아이콘·플랫폼 한글·별점(completed/dropped)·리뷰/인사이트 발췌(80자·최대 8개·1900자 방어), KST 경계 UTC 변환 조회, 빈 상태 섹션 유지. 명세는 `DAILY_REPORT_SCHEMA.md`. 이하 Stage 3 모바일 레이아웃: 햄버거 진입(기존), sticky 헤더(검색 토글·상태 가로탭·필터 트리거), 3열 포스터 그리드, 필터 bottom sheet(플랫폼/유형/정렬), full-screen 슬라이드업 추가/수정 모달(헤더 ←·저장, 상단 빠른 상태칩 즉시반영, TMDB 1열 리스트), 골드 FAB(safe-area), 로딩 스켈레톤 — 모두 `lg:` 미만 전용, PC 미변경. 이하 Stage 2: YouTube oEmbed 자동 채움(제목·썸네일·플랫폼/유형), TMDB 영화·드라마 검색 통합(`VITE_TMDB_API_TOKEN`), 카드 hover 상태 빠른 변경(optimistic+롤백+토스트), `external_source`/`external_id` 기록. 이하 2026-06-02: 문화 기록 페이지 `/culture` 신규 추가 — Stage 1 PC 레이아웃: 영화/드라마/예능/유튜브 등 시청 콘텐츠 기록. culture_records 테이블·RLS·Realtime, 포스터 그리드(6열 2:3), 플랫폼/유형/상태 칩 필터·검색·정렬, 0.5단위 별점, 추가/수정 모달. 이하 동일 2026-06-02: 캘린더 하단 상세 패널을 조회 전용 → 일간 동일 CRUD로 확장: 할일·일정 직접 관리(체크/수정/미루기/삭제), 반복 할일 표시·분기 삭제, 상단 필터 탭 연동. 이하 2026-06-01: 독서 진행 이력 reading_logs 테이블·자동 로깅 추가, 마이그레이션 타임스탬프 충돌 수정, 식단 카페 저장 버그 수정, 일간 할일 체크박스 모바일 탭 유실 수정, 반복 할일 인스턴스 동작 복구·수정 모달 개선, daily-report Edge Function에 일정·식단·감정·독서 섹션 추가)
+> 최종 업데이트: 2026-06-06 (만다라트 Phase 1·2·3 추가 — Phase 1: `mandalart_boards`/`mandalart_cells` 2개 테이블(소유자/EXISTS RLS, Realtime, `(board_id, parent_id, position)` 유니크 + ON DELETE CASCADE), 빈 결과 시 "나의 만다라트" 보드 자동 시드. `/goals` 상위 래퍼 `GoalsHubView` 도입 — eyebrow "structure your dream"(Nanum Pen Script) + 제목 "목표"(DM Serif Display) + 최상위 모드 탭 [만다라트 / 기간별]. "기간별" 선택 시 기존 `MonthlyView`(연간/분기/월간/주간) 그대로 렌더. `MandalartView` 는 보드 드롭다운 + 이름변경(인라인) + 보드 추가/삭제(ConfirmModal). `useRealtimeSync` 양 테이블 구독. 진행률 유틸 `computeProgress(cells)` 공용. Phase 2: 모바일(`lg:hidden`) 드릴다운 3×3 — 중앙 보기는 핵심 헤더 카드(전체% 바) + 9칸 grid(중앙=핵심 `t.accent`, 둘레=세부 8 이름+미니바+▸ 또는 점선 +). 세부 칸 탭 → 그 세부의 3×3(중앙=세부+%, 둘레=행동 체크). breadcrumb "← 핵심". 행동 탭 = is_done 토글(낙관적), 빈 칸 = 편집 모달, 채워진 칸 500ms 롱프레스/우클릭 = 텍스트 편집(비워서 저장=셀 삭제). Phase 3: PC(`hidden lg:block`) 9×9 클래식 — 외곽 grid repeat(3,1fr) gap 12 ⊃ 블록 grid repeat(3,1fr) gap 4(블록 gap > 셀 gap). 가운데 블록=핵심+세부 8, 둘레 8블록=각 세부의 행동 8 미러링. 모든 셀 aspect-ratio:1 + min-width:0 + line-clamp:2 + word-break → 어떤 폭에서도 겹침 없음, 보드 max-width 780px. 행동 좌클릭=토글·우클릭=편집, 핵심/세부 클릭=편집. 세부 없는 둘레 블록은 비활성 placeholder(Phase 4 토대). 색상은 기존 토큰(t.*)만 사용. 모바일·PC 트리 완전 분리 → 기간별·다른 페이지 무영향. 이하 2026-06-05: 레시피 모듈 Phase 1a + 2a — Phase 1a: `recipes`/`recipe_ingredients`/`recipe_steps` 3개 테이블(소유자 RLS, 자식은 EXISTS 기반, Realtime publication), `/recipes` 목록 페이지 + 직접입력 추가/수정 시트(이름·기준 인분·조리 시간·재료 한 줄에 하나·단계별 선택 타이머·출처/썸네일), 인분 환산·재료 라인 파싱 유틸. Phase 2a: `fridge_items`/`shopping_items` 테이블(소유자 RLS, Realtime; `source_recipe_id`는 Phase 3 대비 ON DELETE SET NULL로만 미리 둠), `RecipeView`를 모듈 셸로 재구성하고 모듈 내부 하단 탭 네비(레시피/냉장고/장보기) 도입 — 모바일은 글로벌 5탭 네비 위 `bottom:56px` 별도 탭바, PC는 헤더 우측 세그먼트 컨트롤. 냉장고 페이지: 요약(전체/임박 D-2/다 떨어짐), 카테고리 섹션(냉장·냉동·실온, 유통기한 빠른 순), 행별 D-day·수량 +/− 스테퍼(낙관적 업데이트, D-2 강조). PC 레이아웃 무영향, 색 토큰만 사용. 이하 2026-06-03: 문화 기록 Stage 4: 저녁 daily-report Discord 리포트에 "오늘의 문화 기록" 섹션 추가 — 독서 다음, 상태 아이콘·플랫폼 한글·별점(completed/dropped)·리뷰/인사이트 발췌(80자·최대 8개·1900자 방어), KST 경계 UTC 변환 조회, 빈 상태 섹션 유지. 명세는 `DAILY_REPORT_SCHEMA.md`. 이하 Stage 3 모바일 레이아웃: 햄버거 진입(기존), sticky 헤더(검색 토글·상태 가로탭·필터 트리거), 3열 포스터 그리드, 필터 bottom sheet(플랫폼/유형/정렬), full-screen 슬라이드업 추가/수정 모달(헤더 ←·저장, 상단 빠른 상태칩 즉시반영, TMDB 1열 리스트), 골드 FAB(safe-area), 로딩 스켈레톤 — 모두 `lg:` 미만 전용, PC 미변경. 이하 Stage 2: YouTube oEmbed 자동 채움(제목·썸네일·플랫폼/유형), TMDB 영화·드라마 검색 통합(`VITE_TMDB_API_TOKEN`), 카드 hover 상태 빠른 변경(optimistic+롤백+토스트), `external_source`/`external_id` 기록. 이하 2026-06-02: 문화 기록 페이지 `/culture` 신규 추가 — Stage 1 PC 레이아웃: 영화/드라마/예능/유튜브 등 시청 콘텐츠 기록. culture_records 테이블·RLS·Realtime, 포스터 그리드(6열 2:3), 플랫폼/유형/상태 칩 필터·검색·정렬, 0.5단위 별점, 추가/수정 모달. 이하 동일 2026-06-02: 캘린더 하단 상세 패널을 조회 전용 → 일간 동일 CRUD로 확장: 할일·일정 직접 관리(체크/수정/미루기/삭제), 반복 할일 표시·분기 삭제, 상단 필터 탭 연동. 이하 2026-06-01: 독서 진행 이력 reading_logs 테이블·자동 로깅 추가, 마이그레이션 타임스탬프 충돌 수정, 식단 카페 저장 버그 수정, 일간 할일 체크박스 모바일 탭 유실 수정, 반복 할일 인스턴스 동작 복구·수정 모달 개선, daily-report Edge Function에 일정·식단·감정·독서 섹션 추가)
 
 ---
 
@@ -14,7 +14,7 @@
 | `/calendar` | `CalendarView` | 월/주/일 뷰, 필터 탭(할일·일정·습관·자기관리), 날짜 이동 |
 | `/todos` | `TodosView` | 전체 할일 날짜별 그룹 / 미지정 할일 탭 |
 | `/weekly` | `WeeklyView` | 날짜 미지정 할일 패널, 일별 칼럼, 주간 목표, 요일 배정 |
-| `/goals` | `MonthlyView` | 주간 목표 탭 / 월간 목표 탭 (통계+목표+습관 달성률) |
+| `/goals` | `GoalsHubView` | 최상위 모드 탭: **만다라트** / **기간별**. 기간별은 기존 `MonthlyView`(연간/분기/월간/주간) 그대로. 만다라트는 보드 드롭다운 + 모바일 드릴다운 3×3 / PC 9×9 클래식 |
 | `/projects` | `ProjectsView` | 프로젝트 목록, 신규 프로젝트 생성 |
 | `/projects/:id` | `ProjectDetailView` | 마일스톤 CRUD, 관련 할일 목록 |
 | `/habits` | `HabitsView` | 습관 CRUD, 반복 설정, 5종 목표 유형 체크칩, 연속달성일, 월간 통계 / **루틴 탭**: 루틴 CRUD, 단계 체크 + 카운트다운 타이머, YouTube URL, 연속달성일 |
@@ -76,6 +76,31 @@
 - 공통 TodoModal 사용 (날짜 직접 선택/미지정 저장 가능)
 
 #### `/goals` — 목표관리
+- **최상위 모드 탭(`GoalsHubView`)**: **만다라트** / **기간별** — 만다라트는 새 모드, 기간별은 기존 `MonthlyView` 4탭(연간/분기/월간/주간) 그대로 렌더 (기능·DOM 변경 0)
+- 페이지 상단: eyebrow "structure your dream"(Nanum Pen Script) + 제목 "목표"(DM Serif Display)
+
+##### 만다라트 모드 (Phase 1·2·3)
+- **보드 헤더**(공통): 보드 드롭다운(DM Serif) + ✎ 이름변경(인라인 input · Enter 저장 · ESC 취소) + ＋ 새 보드(prompt) + 🗑 보드 삭제(`ConfirmModal`)
+- 첫 방문 시 "나의 만다라트" 보드 1개 자동 시드(db 레이어 `mandalartBoards.fetchAll`이 빈 결과면 시드, race 방어). `useRealtimeSync('mandalart_boards' / 'mandalart_cells')` 로 PC↔모바일 즉시 반영
+- 진행률 유틸 `computeProgress(cells)`: 전체 = 행동(자식 있는 셀) 완료/전체 · 세부별 % · 행동 보유 여부 — Phase 2/3 공용
+- **모바일(`lg:hidden`, `MandalartBoardMobile`)**:
+  - 중앙 보기: 핵심 헤더 카드(Gaegu 핵심 제목 + `t.success` 채움 전체% 바) + 9칸 grid — 중앙 = 핵심(`t.accent` coral, Gaegu/DM Serif) / 둘레 8 = 세부 칸(이름 + 미니 진행률 바 + ▸) 또는 비어 있으면 점선 +
+  - 세부 칸 탭 → 그 세부의 3×3(중앙 = `t.accentLight` 세부 이름+%, 둘레 8 = 행동 체크 칸). breadcrumb "← 핵심"으로 복귀
+  - 행동 칸 탭 = `is_done` 토글(낙관적 + Realtime). 빈 칸 탭 = 편집 모달로 신규 셀 `upsert`. 채워진 칸 500ms **롱프레스(터치)** 또는 **우클릭(contextmenu)** = 텍스트 편집 모달 — 내용을 비우고 저장하면 셀 삭제(자식 행동 CASCADE)
+  - 핵심 헤더/중앙 코어 탭 = 보드 title 편집
+  - 셀 텍스트는 `line-clamp:2` + `word-break` + `min-width:0` + `aspect-square` 로 절대 넘침 없음
+- **PC(`hidden lg:block`, `MandalartBoardPC`)** — 오타니식 9×9:
+  - 외곽 grid `repeat(3,1fr) gap 12px` ⊃ 각 블록 `padding 5 + radius 12 + bg t.bgSub`(가운데 블록은 `t.accentLight` + accent 글로우) ⊃ 내부 grid `repeat(3,1fr) gap 4px` ⊃ 셀 `aspect-ratio 1 + radius 9`. 블록 gap > 셀 gap, 보드 컨테이너 `max-width: 780px` 중앙 정렬
+  - 가운데 블록(br=1,bc=1): 중앙 = 핵심(`t.accent` + 전체%) · 둘레 8 = 세부 8(`t.accentSoft` + 이름 + 미니바)
+  - 둘레 8블록: 미러링 — 각 블록 중앙 = subc(세부 이름 + 세부%) · 둘레 8 = 행동 체크 칸. 세부가 비어 있는 블록은 비활성 placeholder(`opacity 0.4`, dashed) — Phase 4 자유도(펼친 세부만 활성)의 토대
+  - 행동 좌클릭 = `is_done` 토글, 우클릭 = 텍스트 편집 모달. 핵심/세부 클릭 = 텍스트 편집. 빈 칸 = 점선 +
+  - 모든 셀 `min-width:0` + `line-clamp:2` + `word-break:break-word` → 어떤 폭에서도 셀 간 겹침 없고 긴 텍스트는 ··· 말줄임. 음수 마진/절대 배치 사용 안 함
+  - 상단 우측 전체 진행률 바 + DM Serif `XX%`
+- 색상은 기존 디자인 토큰만 사용(`t.accent`/`t.accentLight`/`t.accentSoft`/`t.success`/`t.bgSub`/`t.borderLight`/`t.danger`) — 하드코딩 색 0
+- 폰트: 제목 DM Serif Display, eyebrow Nanum Pen Script, 핵심/세부 라벨 Gaegu — `fonts.css` 의 기존 CDN import 그대로 활용
+- Phase 4(자유도/펼침/빈 칸/여러 보드) 예정
+
+##### 기간별 모드 (`MonthlyView`, 기존 그대로)
 - 상단 탭: **주간 목표** / **월간 목표**
 - 주간 목표 탭: 주차 네비, 목표 CRUD, 달성률 바, 월간 목표 연결 select
 - 월간 목표 탭: 월 네비, 통계 카드(완료 할일 수/달성률), 이달의 목표 카드(진행률 바+서브리스트), 이달 습관 달성률
@@ -234,6 +259,8 @@
 | `recipe_steps` | 레시피 요리 순서 (step_no, instruction, timer_seconds) | `sort_order` ASC | ✅ |
 | `fridge_items` | 냉장고 재고 (name, category, quantity, expiry_date) | `created_at` DESC | ✅ |
 | `shopping_items` | 장보기 목록 (Phase 2c 본 구현 예정) | `is_checked` ASC, `created_at` DESC | ✅ (db 레이어 완료) |
+| `mandalart_boards` | 만다라트 보드 (핵심 목표 = title) | `sort_order` ASC, `created_at` ASC | ✅ |
+| `mandalart_cells` | 만다라트 셀 (parent_id NULL=세부, parent_id=세부id 면 행동) | `position` ASC | ✅ |
 
 ### 2-2. 테이블별 컬럼 상세
 
@@ -578,6 +605,30 @@ is_checked        boolean     체크 여부 (기본값 false)
 created_at        timestamptz 생성일시
 ```
 > RLS: 본인 소유자만. Realtime: 등록 완료. db 레이어(`shoppingItems.fetchAll`/`upsert`/`setChecked`/`delete`) 완료, UI 본 구현은 Phase 2c
+
+#### `mandalart_boards` (만다라트 Phase 1)
+```
+id          uuid        PK (gen_random_uuid())
+user_id     uuid        FK → auth.users.id (DEFAULT auth.uid(), on delete cascade)
+title       text        핵심 목표 (기본값 '')
+sort_order  int         정렬 순서 (기본값 0)
+created_at  timestamptz 생성일시
+```
+> RLS: 본인 소유자만. Realtime: 등록 완료. db 레이어 `mandalartBoards.fetchAll`(빈 결과면 "나의 만다라트" 자동 시드)/`ensureSeed`/`create`/`rename`/`delete`
+
+#### `mandalart_cells` (만다라트 Phase 1)
+```
+id          uuid        PK
+board_id    uuid        FK → mandalart_boards.id (ON DELETE CASCADE)
+parent_id   uuid|null   FK → mandalart_cells.id (ON DELETE CASCADE) — NULL=세부 셀, 값=행동 셀
+position    int         0~7 (board_id+parent_id 안에서 유니크, CHECK 0~7)
+content     text        셀 내용 (기본값 '')
+is_done     boolean     완료 여부 (기본값 false, 행동 셀에서 의미 있음)
+created_at  timestamptz 생성일시
+```
+> 진행률은 클라이언트 `computeProgress()` 가 (자식 행동 완료/자식 행동 전체) 로 계산 — DB 트리거 없음
+> 유니크 인덱스: `(board_id, coalesce(parent_id::text,''), position)`
+> RLS: 소속 보드 소유권(EXISTS) 기반. Realtime: 등록 완료. db 레이어 `mandalartCells.fetchByBoard`/`upsert`(같은 board+parent+position 있으면 update, 없으면 insert)/`update`/`delete`
 
 ---
 
