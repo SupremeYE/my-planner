@@ -5,6 +5,7 @@ import { db } from '../../../lib/db';
 import { useRealtimeSync } from '../../hooks/useRealtimeSync';
 import ConfirmModal from '../ConfirmModal';
 import { MandalartBoardMobile } from './MandalartBoardMobile';
+import { MandalartBoardPC } from './MandalartBoardPC';
 
 type Board = { id: string; title: string; sort_order: number; created_at: string };
 type Cell = {
@@ -77,8 +78,6 @@ export function MandalartView() {
     () => boards.find(b => b.id === activeBoardId) ?? null,
     [boards, activeBoardId],
   );
-
-  const progress = useMemo(() => computeProgress(cells), [cells]);
 
   const handleAddBoard = async () => {
     const title = window.prompt('새 보드 이름을 입력하세요', '새 만다라트');
@@ -228,18 +227,15 @@ export function MandalartView() {
               onRenameBoard={(next) => db.mandalartBoards.rename(activeBoard.id, next).then(refreshBoards)}
             />
           </div>
-          {/* PC: Phase 3 에서 9×9 보드 추가 예정 */}
-          <div className="hidden lg:block rounded-2xl p-6 text-center"
-            style={{ backgroundColor: t.card, border: `1px solid ${t.borderLight}` }}>
-            <div style={{ fontFamily: "'Gaegu', cursive", fontSize: 18, color: t.text }}>
-              {activeBoard.title}
-            </div>
-            <div style={{ fontSize: 12, color: t.textMuted, marginTop: 8 }}>
-              전체 진행률 {progress.overall}% · 셀 {cells.length}개
-            </div>
-            <p style={{ fontSize: 12, color: t.textMuted, marginTop: 12, lineHeight: 1.6 }}>
-              PC 9×9 보드는 Phase 3 에서 추가됩니다.
-            </p>
+          {/* PC: 9×9 클래식 */}
+          <div className="hidden lg:block">
+            <MandalartBoardPC
+              boardId={activeBoard.id}
+              boardTitle={activeBoard.title}
+              cells={cells}
+              onMutate={refreshCells}
+              onRenameBoard={(next) => db.mandalartBoards.rename(activeBoard.id, next).then(refreshBoards)}
+            />
           </div>
         </>
       ) : (
