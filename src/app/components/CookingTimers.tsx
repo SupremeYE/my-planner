@@ -225,10 +225,10 @@ export function CookingTimers() {
   const { panelOpen } = useTimers();
   return (
     <>
-      {/* 미니 칩 위치 — 모바일: 글로벌 네비 위 / PC: 좌하단(포모도로 칩과 겹치지 않게) */}
+      {/* 미니 칩 위치 — 모바일: 글로벌 네비 위 왼쪽(레시피 추가 FAB 반대쪽) / PC: 좌하단 */}
       <style>{`
-        .cook-mini-chip{ bottom:calc(132px + env(safe-area-inset-bottom)); right:16px; }
-        @media (min-width:1024px){ .cook-mini-chip{ bottom:24px; right:auto; left:24px; } }
+        .cook-mini-chip{ bottom:calc(132px + env(safe-area-inset-bottom)); left:16px; }
+        @media (min-width:1024px){ .cook-mini-chip{ bottom:24px; left:24px; } }
       `}</style>
       <MiniChip />
       {panelOpen && <TimerPanel />}
