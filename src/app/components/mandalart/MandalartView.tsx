@@ -4,6 +4,7 @@ import { useTheme } from '../../ThemeContext';
 import { db } from '../../../lib/db';
 import { useRealtimeSync } from '../../hooks/useRealtimeSync';
 import ConfirmModal from '../ConfirmModal';
+import { MandalartBoardMobile } from './MandalartBoardMobile';
 
 type Board = { id: string; title: string; sort_order: number; created_at: string };
 type Cell = {
@@ -215,23 +216,32 @@ export function MandalartView() {
         )}
       </div>
 
-      {/* Phase 1: 보드 placeholder */}
+      {/* 모바일: 드릴다운 3×3 */}
       {activeBoard ? (
-        <div
-          className="rounded-2xl p-6 text-center"
-          style={{ backgroundColor: t.card, border: `1px solid ${t.borderLight}` }}
-        >
-          <div style={{ fontFamily: "'Gaegu', cursive", fontSize: 18, color: t.text }}>
-            {activeBoard.title}
+        <>
+          <div className="lg:hidden">
+            <MandalartBoardMobile
+              boardId={activeBoard.id}
+              boardTitle={activeBoard.title}
+              cells={cells}
+              onMutate={refreshCells}
+              onRenameBoard={(next) => db.mandalartBoards.rename(activeBoard.id, next).then(refreshBoards)}
+            />
           </div>
-          <div style={{ fontSize: 12, color: t.textMuted, marginTop: 8 }}>
-            전체 진행률 {progress.overall}% · 셀 {cells.length}개
+          {/* PC: Phase 3 에서 9×9 보드 추가 예정 */}
+          <div className="hidden lg:block rounded-2xl p-6 text-center"
+            style={{ backgroundColor: t.card, border: `1px solid ${t.borderLight}` }}>
+            <div style={{ fontFamily: "'Gaegu', cursive", fontSize: 18, color: t.text }}>
+              {activeBoard.title}
+            </div>
+            <div style={{ fontSize: 12, color: t.textMuted, marginTop: 8 }}>
+              전체 진행률 {progress.overall}% · 셀 {cells.length}개
+            </div>
+            <p style={{ fontSize: 12, color: t.textMuted, marginTop: 12, lineHeight: 1.6 }}>
+              PC 9×9 보드는 Phase 3 에서 추가됩니다.
+            </p>
           </div>
-          <p style={{ fontSize: 12, color: t.textMuted, marginTop: 12, lineHeight: 1.6 }}>
-            Phase 1 — 보드 시드/선택 완료.<br />
-            Phase 2(모바일 드릴다운)·Phase 3(PC 9×9) 작업 시 그리드가 여기에 그려집니다.
-          </p>
-        </div>
+        </>
       ) : (
         <div className="rounded-2xl p-6 text-center"
           style={{ backgroundColor: t.card, border: `1px solid ${t.borderLight}` }}>
