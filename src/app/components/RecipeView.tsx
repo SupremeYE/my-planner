@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
-import { ChefHat, Refrigerator, ShoppingCart } from 'lucide-react';
+import { ChefHat, Refrigerator, ShoppingCart, Timer } from 'lucide-react';
 import { useTheme } from '../ThemeContext';
+import { useTimers } from '../timers/TimerProvider';
 import { RecipeListTab } from './recipe/RecipeListTab';
 import { FridgeTab } from './recipe/FridgeTab';
 import { ShoppingTab } from './recipe/ShoppingTab';
@@ -17,9 +18,11 @@ const TABS: { key: ModuleTab; label: string; icon: React.ComponentType<{ size?: 
 // 모바일: 하단 탭바(글로벌 네비 위), PC: 헤더 우측 세그먼트 컨트롤. (라우트 변경 없이 상태로 전환)
 export function RecipeView() {
   const { t } = useTheme();
+  const { timers, openPanel } = useTimers();
   const [tab, setTab] = useState<ModuleTab>('recipes');
   const active = TABS.find(x => x.key === tab)!;
   const ActiveIcon = active.icon;
+  const timerCount = timers.length;
 
   return (
     <div className="recipe-mod-scroll" style={{ backgroundColor: t.bg, minHeight: '100%' }}>
@@ -41,6 +44,20 @@ export function RecipeView() {
             <ActiveIcon size={24} color={t.accent} />
             {active.label}
           </h1>
+          <div className="flex items-center gap-2">
+          {/* 공용 타이머 진입점 — 모바일·PC 공용 */}
+          <button onClick={openPanel} aria-label="타이머"
+            className="relative flex items-center justify-center rounded-xl active:scale-95 transition-transform"
+            style={{ width: 38, height: 38, backgroundColor: t.card, border: `1px solid ${t.border}` }}>
+            <Timer size={19} color={t.accent} />
+            {timerCount > 0 && (
+              <span className="absolute -top-1 -right-1 flex items-center justify-center rounded-full"
+                style={{ minWidth: 18, height: 18, padding: '0 4px', fontSize: 10, fontWeight: 800,
+                  color: '#fff', backgroundColor: t.accent, border: `2px solid ${t.bg}` }}>
+                {timerCount}
+              </span>
+            )}
+          </button>
           {/* PC 세그먼트 컨트롤 */}
           <div className="hidden lg:flex gap-1 p-1 rounded-xl" style={{ backgroundColor: t.bgSub, border: `1px solid ${t.border}` }}>
             {TABS.map(({ key, label, icon: Icon }) => {
@@ -57,6 +74,7 @@ export function RecipeView() {
                 </button>
               );
             })}
+          </div>
           </div>
         </div>
       </div>

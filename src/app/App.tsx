@@ -4,7 +4,9 @@ import { router } from './routes';
 import { ThemeProvider } from './ThemeContext';
 import { AuthProvider, useAuth } from './AuthContext';
 import { PlannerProvider } from './store';
+import { TimerProvider } from './timers/TimerProvider';
 import { GlobalFloatingTimer } from './components/GlobalFloatingTimer';
+import { CookingTimers } from './components/CookingTimers';
 import { PWABanner, IOSInstallGuide } from './components/PWABanner';
 import { LoginView } from './components/LoginView';
 import { ResetPasswordView } from './components/ResetPasswordView';
@@ -48,10 +50,13 @@ function AppContent() {
   // 로그인 됨 → 앱 본체
   return (
     <PlannerProvider>
-      <RouterProvider router={router} />
-      <GlobalFloatingTimer />
-      <PWABanner />
-      <IOSInstallGuide />
+      <TimerProvider>
+        <RouterProvider router={router} />
+        <GlobalFloatingTimer />
+        <CookingTimers />
+        <PWABanner />
+        <IOSInstallGuide />
+      </TimerProvider>
     </PlannerProvider>
   );
 }
