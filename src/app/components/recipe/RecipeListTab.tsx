@@ -1,14 +1,15 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { ChefHat, Plus, Clock, Star, Search, Shuffle, Sparkles, X, Youtube, Instagram, Link2 } from 'lucide-react';
+import { ChefHat, Plus, Clock, Star, Search, Shuffle, Sparkles, X, Youtube, Instagram, Link2, Check, AlertCircle } from 'lucide-react';
 import { useTheme } from '../../ThemeContext';
 import { db } from '../../../lib/db';
 import { useRealtimeSync } from '../../hooks/useRealtimeSync';
-import type { Recipe } from '../../store';
+import type { Recipe, FridgeItem } from '../../store';
 import { RecipeFormSheet } from './RecipeFormSheet';
 import { RecipeDetail } from './RecipeDetail';
 import ConfirmModal from '../ConfirmModal';
 import { detectRecipeSourcePlatform, type RecipeSourcePlatform } from '../../../lib/recipeSource';
 import { INTENT_TAG_PRESETS, MAIN_INGREDIENT_PRESETS } from './recipeTags';
+import { classifyCookable, findUrgentRecipes, type RecipeMatchResult, type UrgentRecipeHit } from './fridgeMatch';
 
 // 대표 이미지 결정 — coverSource 기준, 비어 있으면 다른 쪽 폴백
 function coverImage(r: Recipe): string | null {
@@ -42,7 +43,14 @@ const MAIN_EMOJI: Record<string, string> = Object.fromEntries(
 );
 
 // ── 레시피 카드 ──
-function RecipeCard({ recipe, onClick, highlight }: { recipe: Recipe; onClick: () => void; highlight?: boolean }) {
+// matchBadge: 우상단에 표시할 매칭 배지(있음/부족/임박)
+type MatchBadgeKind = 'ready' | 'oneMissing' | 'urgent';
+interface MatchBadge {
+  kind: MatchBadgeKind;
+  label: string;     // 예: '✓ 재료 있음', '1개 부족', 'D-1 두부'
+}
+function RecipeCard({ recipe, onClick, highlight, matchBadge }:
+  { recipe: Recipe; onClick: () => void; highlight?: boolean; matchBadge?: MatchBadge }) {
   const { t } = useTheme();
   const cover = coverImage(recipe);
   const isMyPhoto = recipe.coverSource === 'my_photo' && !!recipe.myPhotoUrl;
@@ -88,6 +96,30 @@ function RecipeCard({ recipe, onClick, highlight }: { recipe: Recipe; onClick: (
       </div>
       {/* 본문 */}
       <div className="px-3 py-2.5">
+        {matchBadge && (
+          <div className="mb-1.5">
+            <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md"
+              style={{
+                fontSize: 10, fontWeight: 700,
+                backgroundColor:
+                  matchBadge.kind === 'ready' ? t.accentLight
+                  : matchBadge.kind === 'urgent' ? t.dangerLight
+                  : t.bgSub,
+                color:
+                  matchBadge.kind === 'ready' ? t.accent
+                  : matchBadge.kind === 'urgent' ? t.danger
+                  : t.textSub,
+                border: `1px solid ${
+                  matchBadge.kind === 'ready' ? `${t.accent}55`
+                  : matchBadge.kind === 'urgent' ? `${t.danger}55`
+                  : t.border}`,
+              }}>
+              {matchBadge.kind === 'ready' && <Check size={10} />}
+              {matchBadge.kind === 'urgent' && <AlertCircle size={10} />}
+              {matchBadge.label}
+            </span>
+          </div>
+        )}
         <h3 className="truncate" style={{ fontSize: 14, fontWeight: 600, color: t.text }}>{recipe.title}</h3>
         <div className="flex items-center gap-2 mt-1" style={{ fontSize: 12, color: t.textSub }}>
           {recipe.rating != null && recipe.rating > 0 ? (
@@ -175,6 +207,18 @@ export function RecipeListTab() {
   useRealtimeSync('recipes', refresh);
   useRealtimeSync('recipe_ingredients', refresh);
   useRealtimeSync('recipe_steps', refresh);
+
+  // ── 냉장고 — 매칭 섹션용 ──
+  const [fridge, setFridge] = useState<FridgeItem[]>([]);
+  const refreshFridge = useCallback(() => {
+    db.fridgeItems.fetchAll().then(setFridge);
+  }, []);
+  useEffect(() => { refreshFridge(); }, [refreshFridge]);
+  useRealtimeSync('fridge_items', refreshFridge);
+
+  // 매칭 결과 — recipes / fridge 가 바뀌면 재계산 (Realtime 으로 자동 트리거)
+  const cookable = useMemo(() => classifyCookable(recipes, fridge), [recipes, fridge]);
+  const urgentRecipes = useMemo(() => findUrgentRecipes(recipes, fridge), [recipes, fridge]);
 
   // 저장된 레시피에 실제로 존재하는 태그/주재료 (프리셋 + 사용자 정의 모두)
   const { availableIntents, availableMains } = useMemo(() => {
@@ -326,6 +370,20 @@ export function RecipeListTab() {
           </button>
         )}
 
+        {/* "지금 만들 수 있어요" — 주재료가 냉장고에 모두 있는 레시피 + 1개 부족 */}
+        {!loading && recipes.length > 0 && (cookable.ready.length > 0 || cookable.oneMissing.length > 0) && (
+          <CookableSection
+            ready={cookable.ready}
+            oneMissing={cookable.oneMissing}
+            onPickRecipe={openDetail}
+          />
+        )}
+
+        {/* "유통기한 임박 재료 레시피" — fridge D-2 이내 품목이 들어간 레시피 */}
+        {!loading && urgentRecipes.length > 0 && (
+          <UrgentRecipesSection hits={urgentRecipes} onPickRecipe={openDetail} />
+        )}
+
         {/* "오늘 뭐먹지? 셔플" 배너 */}
         {!loading && recipes.length > 0 && (
           <div className="mb-4 rounded-2xl overflow-hidden"
@@ -450,5 +508,66 @@ export function RecipeListTab() {
         />
       )}
     </>
+  );
+}
+
+// ── 냉장고 매칭 섹션들 ──────────────────────────────────────────────────
+
+function CookableSection({ ready, oneMissing, onPickRecipe }:
+  { ready: RecipeMatchResult[]; oneMissing: RecipeMatchResult[]; onPickRecipe: (r: Recipe) => void }) {
+  const { t } = useTheme();
+  // 합쳐 한 줄에 보여주되, ready 가 먼저. 카드별로 배지 종류 다름.
+  const items: Array<{ m: RecipeMatchResult; kind: MatchBadgeKind }> = [
+    ...ready.map(m => ({ m, kind: 'ready' as const })),
+    ...oneMissing.map(m => ({ m, kind: 'oneMissing' as const })),
+  ];
+  return (
+    <section className="mb-5">
+      <div className="flex items-center gap-2 mb-2">
+        <Check size={14} color={t.accent} />
+        <h2 style={{ fontSize: 13, fontWeight: 700, color: t.textSub }}>지금 만들 수 있어요</h2>
+        <span style={{ fontSize: 11, color: t.textMuted }}>냉장고 주재료 매칭</span>
+      </div>
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+        {items.map(({ m, kind }) => {
+          const badge: MatchBadge = kind === 'ready'
+            ? { kind: 'ready', label: '✓ 재료 있음' }
+            : { kind: 'oneMissing', label: `1개 부족: ${m.missingKeys[0]}` };
+          return (
+            <RecipeCard key={m.recipe.id} recipe={m.recipe}
+              onClick={() => onPickRecipe(m.recipe)} matchBadge={badge} />
+          );
+        })}
+      </div>
+    </section>
+  );
+}
+
+function UrgentRecipesSection({ hits, onPickRecipe }:
+  { hits: UrgentRecipeHit[]; onPickRecipe: (r: Recipe) => void }) {
+  const { t } = useTheme();
+  return (
+    <section className="mb-5">
+      <div className="flex items-center gap-2 mb-2">
+        <AlertCircle size={14} color={t.danger} />
+        <h2 style={{ fontSize: 13, fontWeight: 700, color: t.textSub }}>유통기한 임박 재료 레시피</h2>
+        <span style={{ fontSize: 11, color: t.textMuted }}>D-2 이내 재료 활용</span>
+      </div>
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+        {hits.map(h => {
+          const top = h.urgentItems[0];
+          const label = top.daysLeft === 0
+            ? `D-day ${top.name}`
+            : top.daysLeft > 0
+              ? `D-${top.daysLeft} ${top.name}`
+              : `D+${-top.daysLeft} ${top.name}`;
+          return (
+            <RecipeCard key={h.recipe.id} recipe={h.recipe}
+              onClick={() => onPickRecipe(h.recipe)}
+              matchBadge={{ kind: 'urgent', label }} />
+          );
+        })}
+      </div>
+    </section>
   );
 }
