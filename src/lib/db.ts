@@ -1638,4 +1638,134 @@ export const db = {
       return data.publicUrl;
     },
   },
+
+  // ── 만다라트 — mandalart_boards / mandalart_cells ───────────────────────
+  // 단일 사용자 컨벤션: boards.user_id 는 DB DEFAULT auth.uid() 로 자동 충전.
+  // 첫 fetchAll 이 빈 배열이면 기본 보드 1개를 자동 시드한다(멱등).
+  mandalartBoards: {
+    fetchAll: async (): Promise<{ id: string; title: string; sort_order: number; created_at: string }[]> => {
+      const { data, error } = await supabase
+        .from('mandalart_boards')
+        .select('id, title, sort_order, created_at')
+        .order('sort_order', { ascending: true })
+        .order('created_at', { ascending: true });
+      if (error) { console.error('[db] mandalart_boards fetch:', error.message); return []; }
+      if (!data || data.length === 0) {
+        return await db.mandalartBoards.ensureSeed();
+      }
+      return data;
+    },
+    ensureSeed: async (): Promise<{ id: string; title: string; sort_order: number; created_at: string }[]> => {
+      const { data: existing } = await supabase
+        .from('mandalart_boards')
+        .select('id')
+        .limit(1);
+      if (existing && existing.length > 0) {
+        const { data } = await supabase
+          .from('mandalart_boards')
+          .select('id, title, sort_order, created_at')
+          .order('sort_order', { ascending: true })
+          .order('created_at', { ascending: true });
+        return data ?? [];
+      }
+      const { data, error } = await supabase
+        .from('mandalart_boards')
+        .insert({ title: '나의 만다라트', sort_order: 0 })
+        .select('id, title, sort_order, created_at');
+      if (error) { console.error('[db] mandalart_boards seed:', error.message); return []; }
+      return data ?? [];
+    },
+    create: async (title: string, sortOrder: number): Promise<{ id: string; title: string; sort_order: number; created_at: string } | null> => {
+      const { data, error } = await supabase
+        .from('mandalart_boards')
+        .insert({ title, sort_order: sortOrder })
+        .select('id, title, sort_order, created_at')
+        .single();
+      if (error) { console.error('[db] mandalart_boards create:', error.message); return null; }
+      return data;
+    },
+    rename: async (id: string, title: string) => {
+      const { error } = await supabase.from('mandalart_boards').update({ title }).eq('id', id);
+      if (error) console.error('[db] mandalart_boards rename:', error.message);
+    },
+    delete: async (id: string) => {
+      // cells 는 ON DELETE CASCADE 로 함께 삭제
+      const { error } = await supabase.from('mandalart_boards').delete().eq('id', id);
+      if (error) console.error('[db] mandalart_boards delete:', error.message);
+    },
+  },
+
+  mandalartCells: {
+    fetchByBoard: async (boardId: string): Promise<{
+      id: string; board_id: string; parent_id: string | null;
+      position: number; content: string; is_done: boolean; created_at: string;
+    }[]> => {
+      const { data, error } = await supabase
+        .from('mandalart_cells')
+        .select('id, board_id, parent_id, position, content, is_done, created_at')
+        .eq('board_id', boardId)
+        .order('position', { ascending: true });
+      if (error) { console.error('[db] mandalart_cells fetch:', error.message); return []; }
+      return data ?? [];
+    },
+    upsert: async (params: {
+      boardId: string;
+      parentId: string | null;
+      position: number;
+      content?: string;
+      isDone?: boolean;
+    }): Promise<{
+      id: string; board_id: string; parent_id: string | null;
+      position: number; content: string; is_done: boolean; created_at: string;
+    } | null> => {
+      // 같은 (board, parent, position) 의 셀이 있으면 update, 없으면 insert.
+      const baseQuery = supabase
+        .from('mandalart_cells')
+        .select('id')
+        .eq('board_id', params.boardId)
+        .eq('position', params.position);
+      const { data: existing, error: selErr } = params.parentId === null
+        ? await baseQuery.is('parent_id', null).maybeSingle()
+        : await baseQuery.eq('parent_id', params.parentId).maybeSingle();
+      if (selErr) { console.error('[db] mandalart_cells upsert select:', selErr.message); return null; }
+      const patch: Record<string, unknown> = {};
+      if (params.content !== undefined) patch.content = params.content;
+      if (params.isDone !== undefined) patch.is_done = params.isDone;
+      if (existing) {
+        const { data, error } = await supabase
+          .from('mandalart_cells')
+          .update(patch)
+          .eq('id', existing.id)
+          .select('id, board_id, parent_id, position, content, is_done, created_at')
+          .single();
+        if (error) { console.error('[db] mandalart_cells update:', error.message); return null; }
+        return data;
+      }
+      const { data, error } = await supabase
+        .from('mandalart_cells')
+        .insert({
+          board_id: params.boardId,
+          parent_id: params.parentId,
+          position: params.position,
+          content: params.content ?? '',
+          is_done: params.isDone ?? false,
+        })
+        .select('id, board_id, parent_id, position, content, is_done, created_at')
+        .single();
+      if (error) { console.error('[db] mandalart_cells insert:', error.message); return null; }
+      return data;
+    },
+    update: async (id: string, patch: { content?: string; isDone?: boolean }) => {
+      const row: Record<string, unknown> = {};
+      if (patch.content !== undefined) row.content = patch.content;
+      if (patch.isDone !== undefined) row.is_done = patch.isDone;
+      const { error } = await supabase.from('mandalart_cells').update(row).eq('id', id);
+      if (error) console.error('[db] mandalart_cells update:', error.message);
+    },
+    delete: async (id: string) => {
+      // 자식 셀은 ON DELETE CASCADE 로 함께 삭제됨
+      const { error } = await supabase.from('mandalart_cells').delete().eq('id', id);
+      if (error) console.error('[db] mandalart_cells delete:', error.message);
+    },
+  },
 };

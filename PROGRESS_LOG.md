@@ -6,6 +6,50 @@
 
 ---
 
+## 2026-06-06
+
+### 📋 TODO
+- [ ] 만다라트 Phase 4 — 자유도(펼침)·빈 칸 처리·여러 보드 정리(모바일/PC 9×9 모두 펼친 세부만 판으로 활성, 강제 81칸 아님)
+
+### ✅ 완료
+- [x] 만다라트 Phase 1 — 데이터 모델(`mandalart_boards`/`mandalart_cells`) + `/goals` 허브 모드 스위치(만다라트/기간별) + 보드 선택·추가·이름변경·삭제 + 기본 보드 자동 시드
+- [x] 만다라트 Phase 2 — 모바일 드릴다운 3×3 (중앙→세부 칸 탭으로 행동 펼침, 행동 체크 시 진행률 자동 갱신, 빈 칸 +로 추가, 롱프레스로 편집)
+- [x] 만다라트 Phase 3 — PC 9×9 클래식 (가운데 블록 = 핵심+세부8, 둘레 8블록 = 각 세부의 행동8 미러링, 좌클릭 토글·우클릭 편집)
+
+### 🛠 오늘 작업 내용
+
+**만다라트 Phase 1 — 데이터 모델 + /goals 허브 모드**
+- 마이그레이션 `20260606020000_create_mandalart.sql`: `mandalart_boards`(id/user_id/title/sort_order, RLS) + `mandalart_cells`(id/board_id/parent_id/position 0~7/content/is_done, 보드 소유권 EXISTS RLS, `(board_id, parent_id, position)` 유니크 인덱스, ON DELETE CASCADE). 두 테이블 모두 `supabase_realtime` publication 등록 → Supabase MCP로 원격 DB에 적용 완료
+- `db.ts` `mandalartBoards` 레이어: `fetchAll`(빈 결과면 "나의 만다라트" 자동 시드)/`ensureSeed`(race 방어)/`create`/`rename`/`delete`. `mandalartCells` 레이어: `fetchByBoard`/`upsert`(같은 board+parent+position 있으면 update, 없으면 insert)/`update`/`delete`
+- 신규 `GoalsHubView.tsx`: `/goals` 상위 래퍼 — eyebrow "structure your dream"(Nanum Pen Script) + 제목 "목표"(DM Serif Display) + 모드 탭 [만다라트 / 기간별]. "기간별" 선택 시 기존 `MonthlyView`(연간/분기/월간/주간 4탭)를 그대로 렌더 — 로직·DOM 미변경
+- 신규 `mandalart/MandalartView.tsx`: 보드 드롭다운(DM Serif Display) + ✎ 이름변경(인라인 input) + ＋ 새 보드(window.prompt) + 🗑 보드 삭제(ConfirmModal). `useRealtimeSync('mandalart_boards' / 'mandalart_cells')` 로 PC↔모바일 즉시 반영
+- 진행률 유틸 `computeProgress(cells)`: 전체(행동 완료/행동 전체)·세부별 %·행동 보유 여부. Phase 2~3 양쪽에서 공용
+- `routes.tsx`: `/goals` → `MonthlyView` 를 → `GoalsHubView` 로 교체 (`MonthlyView` import 제거; `GoalsHubView` 내부에서 import해 그대로 사용)
+
+**만다라트 Phase 2 — 모바일 드릴다운 3×3**
+- 신규 `mandalart/MandalartBoardMobile.tsx`: 중앙 보기 = 핵심 헤더 카드(전체% 바 + Gaegu 핵심 제목 + `t.success` 채움) + 9칸 grid(중앙=핵심 coral 칸 `t.accent`, 둘레=세부 8 — 이름+미니바+▸ 또는 빈 점선 +)
+- 세부 칸 탭 → drillSubId 세팅, 그 세부의 3×3 렌더(중앙=`t.accentLight` 세부+%, 둘레=행동 체크 칸). 상단 breadcrumb "← 핵심"으로 복귀
+- 행동 칸 탭 → `db.mandalartCells.update isDone` 토글, 즉시 재조회(낙관적/Realtime 양쪽). 빈 칸 탭 → 편집 모달로 신규 셀 `upsert`
+- 채워진 칸 500ms 롱프레스(touchstart 타이머) 또는 우클릭(contextmenu) → 편집 모달. 내용을 비워 저장 = 셀 삭제(자식 행동 CASCADE). 핵심 헤더/중앙 코어 탭 = 보드 title 편집
+- 셀 텍스트 `line-clamp:2` + `word-break` + `min-width:0` + `aspect-square` → 어떤 폭에서도 칸 넘침 없음. PC는 `hidden lg:block` placeholder 유지
+
+**만다라트 Phase 3 — PC 9×9 클래식**
+- 신규 `mandalart/MandalartBoardPC.tsx`: 외곽 grid `repeat(3,1fr) gap 12px` ⊃ 각 블록 `padding 5px + radius 12 + bg t.bgSub`(가운데 블록은 `t.accentLight` + accent 글로우) ⊃ 내부 grid `repeat(3,1fr) gap 4px` ⊃ 셀 `aspect-ratio 1 + radius 9`. 블록 gap > 셀 gap, 보드 컨테이너 `max-width: 780px` 중앙 정렬
+- 가운데 블록(br=1,bc=1): 중앙=핵심(`t.accent` coral + 전체%) / 둘레 8=세부 8(`t.accentSoft` + 이름 + 미니바). 둘레 8블록은 미러링 — 각 블록 중앙=`subc`(세부 이름 + 세부%) / 둘레 8=행동 체크 칸
+- 행동 좌클릭 = is_done 토글, 우클릭 = 텍스트 편집 모달. 핵심/세부 칸 클릭 = 텍스트 편집. 빈 칸 = 점선 + → 클릭 시 생성. **세부가 비어 있는 둘레 블록**은 비활성 placeholder(`opacity 0.4`, dashed) — Phase 4 자유도(펼친 세부만 활성)의 토대
+- 모든 셀 `min-width:0` + `line-clamp:2` + `word-break:break-word` → 어떤 폭에서도 셀 간 겹침 없고 긴 텍스트는 ··· 말줄임. 음수 마진/절대 배치 사용 안 함
+- 상단 우측 전체 진행률 바 + DM Serif `XX%`
+
+**원칙 준수**
+- 새 색상 값 하드코딩 0 — `t.accent / t.accentLight / t.accentSoft / t.success / t.bgSub / t.borderLight / t.danger` 등 기존 토큰만 사용
+- 폰트는 기존 `fonts.css`의 DM Serif Display·Nanum Pen Script·Gaegu CDN import 그대로 활용 (추가 import 없음)
+- Figma 디렉터리(`src/app/components/figma/`) 미수정 — `/goals`(`MonthlyView.tsx`)는 일반 컴포넌트로 확인됨
+- "기간별" 탭(연간·분기·월간·주간) 및 다른 페이지 영향 0 — `GoalsHubView` 내부에서 기존 `MonthlyView` 컴포넌트를 그대로 렌더
+- 모바일·PC 트리는 `lg:hidden` / `hidden lg:block` 으로 완전 분리
+- `npm run build` 통과(각 Phase 별로 검증)
+
+---
+
 ## 2026-06-05
 
 ### 📋 TODO
