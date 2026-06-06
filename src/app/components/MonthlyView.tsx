@@ -16,6 +16,7 @@ import {
 import { useTheme } from '../ThemeContext';
 import { WeeklyGoalsSection } from './WeeklyView';
 import { PeriodCascadePC } from './period/PeriodCascadePC';
+import { PeriodCascadeMobile } from './period/PeriodCascadeMobile';
 
 type GoalTab = 'annual' | 'quarterly' | 'monthly' | 'weekly';
 
@@ -61,12 +62,14 @@ export function MonthlyView() {
 
   return (
     <div style={{ minHeight: '100%', backgroundColor: t.bg }}>
-      {/* PC: 캐스케이드 3열 (연간→월간→주간). 모바일은 Phase 3 드릴다운 작업 전까지 기존 4탭 유지 */}
+      {/* PC: 캐스케이드 3열 (연간→월간→주간) */}
       <PeriodCascadePC />
+      {/* 모바일: 드릴다운 (연간→월간→주간) */}
+      <PeriodCascadeMobile />
 
-      {/* Header (모바일 전용) */}
+      {/* (사용 안 함) — 기존 4탭 모바일 헤더/본문은 Phase 3 에서 모바일 캐스케이드로 교체. 분기 별도 옵션은 추후 별도 진입점으로 검토 */}
       <div
-        className="lg:hidden sticky top-0 z-10 px-4 py-4"
+        className="hidden sticky top-0 z-10 px-4 py-4"
         style={{ backgroundColor: t.sidebar, borderBottom: `1px solid ${t.border}` }}
       >
         {/* 날짜 네비게이션 */}
@@ -128,8 +131,8 @@ export function MonthlyView() {
         </div>
       </div>
 
-      {/* Tab Content (모바일 전용) */}
-      <div className="lg:hidden">
+      {/* (사용 안 함) 기존 4탭 콘텐츠 — 캐스케이드로 교체됨. 컴포넌트는 호환성/롤백을 위해 보존 */}
+      <div className="hidden">
         {safeTab === 'annual' && (
           <AnnualGoalsContent key={annualYear} year={annualYear} />
         )}
