@@ -7,6 +7,22 @@ import { usePlanner, type Recipe, type MealType } from '../../store';
 import { useTimers } from '../../timers/TimerProvider';
 import { MAIN_INGREDIENT_PRESETS } from './recipeTags';
 
+// DB에 저장된 timerSeconds가 null인 기존 레시피를 위한 폴백 — 단계 텍스트에서 실시간 감지.
+// RecipeFormSheet의 detectTimerSeconds와 동일 로직.
+function detectTimerSec(instruction: string): number | null {
+  let total = 0;
+  let found = false;
+  const h = instruction.match(/(\d+(?:\.\d+)?)\s*시간/);
+  if (h) { total += Math.round(parseFloat(h[1]) * 3600); found = true; }
+  const m = instruction.match(/(\d+(?:\.\d+)?)\s*분/);
+  if (m) { total += Math.round(parseFloat(m[1]) * 60); found = true; }
+  if (!h && !m) {
+    const s = instruction.match(/(\d+(?:\.\d+)?)\s*초/);
+    if (s) { total += Math.round(parseFloat(s[1])); found = true; }
+  }
+  return found && total > 0 ? total : null;
+}
+
 // 대표 이미지 — RecipeDetail과 동일 규칙
 function coverImage(r: Recipe): string | null {
   if (r.coverSource === 'my_photo' && r.myPhotoUrl) return r.myPhotoUrl;
@@ -213,18 +229,26 @@ export function RecipeCookFlow({ recipe, onClose }: RecipeCookFlowProps) {
               <div className="flex-1" />
 
               {/* 단계 타이머 — timerSeconds 있을 때만 */}
-              {step.timerSeconds != null && step.timerSeconds > 0 && (
-                <button
-                  onClick={() => startTimer(step.timerSeconds!, `${step.stepNo ?? index + 1}단계 · ${recipe.title}`)}
-                  className="mx-auto mb-4 flex items-center gap-2 px-5 py-3 rounded-2xl active:scale-95 transition-transform"
-                  style={{ fontSize: 15, fontWeight: 800, color: '#fff', backgroundColor: t.accent,
-                    boxShadow: `0 8px 22px ${t.accent}55` }}>
-                  <Timer size={18} />
-                  타이머 시작 ({step.timerSeconds >= 60
-                    ? `${Math.floor(step.timerSeconds / 60)}분${step.timerSeconds % 60 > 0 ? ` ${step.timerSeconds % 60}초` : ''}`
-                    : `${step.timerSeconds}초`})
-                </button>
-              )}
+              {(() => {
+                // DB 저장값 우선, null이면 텍스트에서 실시간 감지 (기존 레시피 폴백)
+                const timerSec = (step.timerSeconds != null && step.timerSeconds > 0)
+                  ? step.timerSeconds
+                  : detectTimerSec(step.instruction);
+                if (!timerSec) return null;
+                const label = timerSec >= 60
+                  ? `${Math.floor(timerSec / 60)}분${timerSec % 60 > 0 ? ` ${timerSec % 60}초` : ''}`
+                  : `${timerSec}초`;
+                return (
+                  <button
+                    onClick={() => startTimer(timerSec, `${step.stepNo ?? index + 1}단계 · ${recipe.title}`)}
+                    className="mx-auto mb-4 flex items-center gap-2 px-5 py-3 rounded-2xl active:scale-95 transition-transform"
+                    style={{ fontSize: 15, fontWeight: 800, color: '#fff', backgroundColor: t.accent,
+                      boxShadow: `0 8px 22px ${t.accent}55` }}>
+                    <Timer size={18} />
+                    타이머 시작 ({label})
+                  </button>
+                );
+              })()}
             </div>
           </div>
         ) : (
