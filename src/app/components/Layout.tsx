@@ -388,6 +388,19 @@ function RightPanel() {
 function MobileMenuOverlay({ onClose }: { onClose: () => void }) {
   const { t } = useTheme();
   const location = useLocation();
+  const [isIn, setIsIn] = useState(false);
+  const [pressedItem, setPressedItem] = useState<string | null>(null);
+
+  // 마운트 직후 슬라이드-업 트리거
+  useEffect(() => {
+    const id = requestAnimationFrame(() => setIsIn(true));
+    return () => cancelAnimationFrame(id);
+  }, []);
+
+  const handleClose = () => {
+    setIsIn(false);
+    setTimeout(onClose, 300);
+  };
 
   const allItems = [
     ...mainNavItems,
@@ -404,42 +417,96 @@ function MobileMenuOverlay({ onClose }: { onClose: () => void }) {
     { to: '/recipes', icon: ChefHat, label: '레시피' },
     { to: '/vision', icon: Sparkles, label: '비전보드' },
     { to: '/question-journal', icon: NotebookPen, label: '질문일기' },
-    // 설정은 상단 아바타 메뉴로 이동
   ];
 
   return (
-    <div
-      className="fixed inset-0 z-50"
-      style={{ backgroundColor: 'rgba(0,0,0,0.35)' }}
-      onClick={onClose}
-    >
+    <>
+      {/* 배경 딤 */}
       <div
-        className="absolute bottom-14 left-0 right-0 rounded-t-2xl"
-        style={{ backgroundColor: t.sidebar, borderTop: `1px solid ${t.border}` }}
+        className="fixed inset-0 z-50"
+        style={{
+          backgroundColor: 'rgba(0,0,0,0.4)',
+          opacity: isIn ? 1 : 0,
+          transition: 'opacity 0.28s ease',
+        }}
+        onClick={handleClose}
+      />
+
+      {/* 글래스 패널 — 하단 네비 바로 위에 떠 있는 알약형 */}
+      <div
+        className="fixed z-50"
+        style={{
+          left: 12, right: 12,
+          bottom: `calc(80px + env(safe-area-inset-bottom))`,
+          borderRadius: 28,
+          backgroundColor: withAlpha(t.card, 0.82),
+          backdropFilter: 'blur(32px) saturate(1.8)',
+          WebkitBackdropFilter: 'blur(32px) saturate(1.8)',
+          border: '1px solid rgba(255,255,255,0.55)',
+          boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.6), 0 24px 56px rgba(0,0,0,0.22)',
+          transform: isIn ? 'translateY(0)' : 'translateY(calc(100% + 100px))',
+          transition: 'transform 0.38s cubic-bezier(0.32, 0.72, 0, 1)',
+        }}
         onClick={e => e.stopPropagation()}
       >
         {/* 핸들 바 */}
-        <div className="flex justify-center pt-3 pb-1">
-          <div className="w-10 h-1 rounded-full" style={{ backgroundColor: t.border }} />
+        <div className="flex justify-center pt-3 pb-2">
+          <div className="w-8 h-1 rounded-full" style={{ backgroundColor: t.border }} />
         </div>
-        <p className="px-5 pb-3 pt-1" style={{ fontSize: 11, color: t.textMuted, fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase' as const }}>
+
+        {/* 섹션 레이블 */}
+        <p className="px-5 pb-3" style={{ fontSize: 10, color: t.textMuted, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase' as const }}>
           메뉴
         </p>
-        <div className="grid grid-cols-4 gap-1 px-3 pb-5">
+
+        {/* 원형 메뉴 그리드 */}
+        <div className="grid grid-cols-4 gap-x-2 gap-y-4 px-4 pb-5">
           {allItems.map(({ to, icon: Icon, label }) => {
             const isActive = location.pathname === to || (to !== '/projects' && location.pathname.startsWith(to + '/'));
+            const isPressed = pressedItem === to;
             return (
               <NavLink
                 key={to}
                 to={to}
-                onClick={onClose}
-                className="flex flex-col items-center gap-1.5 py-3 rounded-2xl transition-all"
-                style={{
-                  backgroundColor: isActive ? t.accentLight : 'transparent',
-                }}
+                onClick={handleClose}
+                onTouchStart={() => setPressedItem(to)}
+                onTouchEnd={() => setTimeout(() => setPressedItem(null), 180)}
+                onMouseDown={() => setPressedItem(to)}
+                onMouseUp={() => setTimeout(() => setPressedItem(null), 180)}
+                className="flex flex-col items-center gap-1.5"
               >
-                <Icon size={20} color={isActive ? t.text : t.textMuted} />
-                <span style={{ fontSize: 10, color: isActive ? t.text : t.textSub, fontWeight: isActive ? 700 : 400, textAlign: 'center' as const, whiteSpace: 'nowrap' }}>
+                {/* 원형 아이콘 버튼 */}
+                <div
+                  style={{
+                    width: 52, height: 52,
+                    borderRadius: '50%',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    flexShrink: 0,
+                    backgroundColor: isActive
+                      ? t.accentLight
+                      : isPressed
+                        ? t.bgSub
+                        : withAlpha(t.bg, 0.75),
+                    border: isActive
+                      ? `1.5px solid ${t.accent}`
+                      : `1px solid ${t.border}`,
+                    transform: isPressed ? 'scale(0.84)' : 'scale(1)',
+                    transition: 'transform 0.12s ease, background-color 0.15s ease, box-shadow 0.15s ease',
+                    boxShadow: isActive
+                      ? `0 4px 14px ${withAlpha(t.accent, 0.3)}`
+                      : '0 2px 8px rgba(0,0,0,0.07)',
+                  }}
+                >
+                  <Icon size={20} color={isActive ? t.accent : t.textMuted} />
+                </div>
+                {/* 레이블 */}
+                <span style={{
+                  fontSize: 10,
+                  color: isActive ? t.accent : t.textSub,
+                  fontWeight: isActive ? 700 : 400,
+                  textAlign: 'center' as const,
+                  lineHeight: 1.3,
+                }}>
                   {label}
                 </span>
               </NavLink>
@@ -447,7 +514,7 @@ function MobileMenuOverlay({ onClose }: { onClose: () => void }) {
           })}
         </div>
       </div>
-    </div>
+    </>
   );
 }
 
