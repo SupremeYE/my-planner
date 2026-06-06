@@ -61,7 +61,8 @@ function TodoRow({
   todo, showDateAssign, onStatusToggle, onEdit, onDelete, onTop3Toggle, onAssignDate,
 }: TodoRowProps) {
   const { t } = useTheme();
-  const { projects } = usePlanner();
+  const { projects, weeklyGoals } = usePlanner();
+  const weeklyGoal = todo.weeklyGoalId ? weeklyGoals.find(w => w.id === todo.weeklyGoalId) : null;
   const [assignMode, setAssignMode] = useState(false);
   const [assignDate, setAssignDate] = useState('');
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
@@ -117,7 +118,7 @@ function TodoRow({
             </div>
 
             {/* Meta badges */}
-            {(project || todo.planStart || todo.dueDate || (todo.status !== 'active' && todo.status !== 'backlog')) && (
+            {(project || weeklyGoal || todo.planStart || todo.dueDate || (todo.status !== 'active' && todo.status !== 'backlog')) && (
               <div className="flex items-center gap-1.5 mt-1 flex-wrap">
                 {project && (
                   <span
@@ -125,6 +126,15 @@ function TodoRow({
                     style={{ fontSize: 10, backgroundColor: project.color + '18', color: project.color, lineHeight: '14px' }}
                   >
                     {project.name}
+                  </span>
+                )}
+                {weeklyGoal && (
+                  <span
+                    className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full"
+                    style={{ fontSize: 10, backgroundColor: t.accentLight, color: t.accent, lineHeight: '14px', maxWidth: 160 }}
+                    title={weeklyGoal.text}
+                  >
+                    🎯 <span className="truncate" style={{ maxWidth: 130 }}>{weeklyGoal.text}</span>
                   </span>
                 )}
                 {todo.planStart && (

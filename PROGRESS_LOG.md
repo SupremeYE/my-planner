@@ -9,7 +9,7 @@
 ## 2026-06-06
 
 ### 📋 TODO
-- [ ] 기간별 모드 Phase 5 — 자동 롤업 정밀화 + /할일·/일간 항목에 🎯 목표 배지 (프로젝트 배지와 같은 줄)
+- (기간별 모드 Phase 1~5 완료)
 
 ### ✅ 완료
 - [x] 레시피 모듈 모듈 D-1 — 냉장고 ↔ 레시피 매칭 헬퍼 + 레시피 목록 연결 섹션 (`지금 만들 수 있어요` ready/1개 부족 + `유통기한 임박 재료 레시피` D-2 이내)
@@ -24,6 +24,7 @@
 - [x] 기간별 모드 Phase 2 — PC 캐스케이드 3열(연간→월간→주간) + 정체성·핵심가치 카드 + 역추적 배지(`Layers/BarChart2` N · XX%) + `t.success` 진행 바 + 연도 ◀▶ 네비
 - [x] 기간별 모드 Phase 3 — 모바일 드릴다운(연간→월간→주간) + breadcrumb 복귀 + 동일 역추적 배지 + 공용 IdentityValuesCards 추출
 - [x] 기간별 모드 Phase 4 — 주간 카드 안 todos 인라인 체크리스트 + "할일 추가"(weeklyGoalId 자동 지정 + 그 주 월요일 날짜 제안) + "기존 할일 연결" 모달(검색·미연결 우선 정렬·반복 가상 인스턴스 제외)
+- [x] 기간별 모드 Phase 5 — /할일·/일간 카드에 🎯 목표 배지(프로젝트 배지와 같은 줄, 길면 truncate + title 풀텍스트). 자동 롤업은 Phase 2 의 `periodProgress` + `todos` 전역 state 의존이라 추가 코드 없이 자동 — 어디서 체크해도 주간%→월간%→연간% 즉시 재렌더
 
 ### 🛠 오늘 작업 내용
 
@@ -54,6 +55,12 @@
 - 각 카드 = 공용 `DrillCard`: PC 와 같은 역추적 배지/진행률, 우측 ChevronRight 로 드릴 가능 시각화, 연간/주간 카드에 좌측 체크 토글, 월간은 eyebrow 에 `yyyy-MM`. 연간 단계 상단에 IdentityCard + ValuesCard
 - 신규 `period/IdentityValuesCards.tsx`: PC 내부 정의를 추출한 공용 정체성/핵심가치 카드(autosave 600ms, 최대 3 칩). PC/모바일 둘 다 이 모듈을 import 해서 행동 통일
 - `MonthlyView.tsx` 모바일 트리 = `<PeriodCascadeMobile/>` 로 교체. 기존 4탭 콘텐츠 보존(hidden)
+
+**기간별 모드 Phase 5 — 자동 롤업 + 🎯 목표 배지**
+- `/할일`(`TodosView` TodoRow) 메타 영역에 프로젝트 배지 다음으로 🎯 목표 배지 추가 — `t.accentLight` 배경 + `t.accent` 글씨, 길면 `max-width: 130` truncate + `title` 속성에 풀텍스트
+- `/일간`(`DailyView` TodoRow) 메타 영역도 동일하게 — 작은 글씨(`fontSize: 9`, `max-width: 110`) 로 일간 칸반 폭 보호
+- `usePlanner()` destructure 에 `weeklyGoals` 추가 → `todo.weeklyGoalId` 가 있으면 `weeklyGoals.find` 로 해당 주간 목표 객체 조회 후 배지로 표시
+- 자동 롤업 정밀화는 별도 코드 변경 없음 — Phase 2 `periodProgress.weeklyRollup/monthlyRollup/annualRollup` 이 todos 전역 state 의존이라, 어디서 todo 완료해도 React 트리 전체 재렌더링되며 주간%→월간%→연간% 즉시 갱신됨. backlog/cancelled todos 는 분모에서 제외하는 EFFECTIVE 필터로 명세("연결 todos 완료/전체") 정확히 충족
 
 **기간별 모드 Phase 4 — 주간 카드 안 todos 인라인 체크리스트**
 - 신규 `period/WeeklyTodosInline.tsx`: 주간 카드 하단(PC) 또는 footer(모바일 DrillCard) 에 끼움

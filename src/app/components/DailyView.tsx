@@ -978,7 +978,7 @@ function SleepTimeEditModal({ record, onClose, onConfirm }: {
 export function DailyView() {
   const {
     selectedDate, setSelectedDate, todos, events, updateTodo, deleteRecurringTodo, habits, toggleHabit,
-    activeTimer, startTimer, stopTimer, tags, projects,
+    activeTimer, startTimer, stopTimer, tags, projects, weeklyGoals,
     selfCareRecords, updateSelfCareRecord,
     dayStartHour: tlStartHour, dayEndHour: tlEndHour, setDayHours,
     timelineLogs,
@@ -2068,6 +2068,7 @@ export function DailyView() {
   // 인라인되어 리마운트가 없다(키는 루트 div의 key로 유지).
   const TodoRow = ({ todo }: { todo: Todo }) => {
     const project = todo.projectId ? projects.find(p => p.id === todo.projectId) : null;
+    const weeklyGoal = todo.weeklyGoalId ? weeklyGoals.find(w => w.id === todo.weeklyGoalId) : null;
     const firstTag = (todo.tags && todo.tags.length > 0) ? tags.find(tg => tg.id === todo.tags![0]) : null;
     const accentColor = firstTag?.color || t.border;
     const isDone = todo.status === 'done';
@@ -2121,6 +2122,17 @@ export function DailyView() {
                 fontSize: 9, backgroundColor: project.color + '18', color: project.color, lineHeight: '14px',
               }}>
                 {project.name}
+              </span>
+            )}
+            {weeklyGoal && (
+              <span
+                className="inline-flex items-center gap-0.5 px-1.5 py-px rounded-full"
+                style={{
+                  fontSize: 9, backgroundColor: t.accentLight, color: t.accent, lineHeight: '14px', maxWidth: 140,
+                }}
+                title={weeklyGoal.text}
+              >
+                🎯 <span className="truncate" style={{ maxWidth: 110 }}>{weeklyGoal.text}</span>
               </span>
             )}
             {(todo.tags || []).map(tagId => <TagChip key={tagId} tagId={tagId} />)}
