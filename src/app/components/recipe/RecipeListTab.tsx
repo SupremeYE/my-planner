@@ -5,6 +5,7 @@ import { db } from '../../../lib/db';
 import { useRealtimeSync } from '../../hooks/useRealtimeSync';
 import type { Recipe } from '../../store';
 import { RecipeFormSheet } from './RecipeFormSheet';
+import { RecipeDetail } from './RecipeDetail';
 import ConfirmModal from '../ConfirmModal';
 import { detectRecipeSourcePlatform, type RecipeSourcePlatform } from '../../../lib/recipeSource';
 import { INTENT_TAG_PRESETS, MAIN_INGREDIENT_PRESETS } from './recipeTags';
@@ -156,6 +157,8 @@ export function RecipeListTab() {
   const [sheetOpen, setSheetOpen] = useState(false);
   const [editing, setEditing] = useState<Recipe | null>(null);
   const [deleteId, setDeleteId] = useState<string | null>(null);
+  // 카드 탭 → 상세 읽기 화면. 편집은 상세 안의 '편집' 버튼으로만 진입.
+  const [detailId, setDetailId] = useState<string | null>(null);
 
   // 태그 필터 — 다중 선택
   const [activeIntents, setActiveIntents] = useState<Set<string>>(new Set());
@@ -226,12 +229,18 @@ export function RecipeListTab() {
   useEffect(() => { setShuffled(null); }, [search, activeIntents, activeMains]);
 
   const openAdd = () => { setEditing(null); setSheetOpen(true); };
-  const openEdit = (r: Recipe) => { setEditing(r); setSheetOpen(true); };
+  // 카드 탭 → 상세 화면 진입
+  const openDetail = (r: Recipe) => { setDetailId(r.id); };
+  // 상세 → 편집: 상세를 닫고 폼 시트(편집 모드) 오픈
+  const openEditFromDetail = (r: Recipe) => { setDetailId(null); setEditing(r); setSheetOpen(true); };
 
   const handleSave = async (rec: Recipe) => {
+    const wasEditing = !!editing;
     await db.recipes.upsert(rec);
     setSheetOpen(false);
     setEditing(null);
+    // 편집 모드에서 저장한 경우 상세 화면으로 자연스럽게 복귀
+    if (wasEditing) setDetailId(rec.id);
     refresh();
   };
   const handleDelete = async () => {
@@ -240,6 +249,8 @@ export function RecipeListTab() {
     setDeleteId(null);
     setSheetOpen(false);
     setEditing(null);
+    // 삭제한 레시피의 상세가 열려 있다면 함께 닫기
+    if (detailId === deleteId) setDetailId(null);
     refresh();
   };
 
@@ -344,7 +355,7 @@ export function RecipeListTab() {
             {shuffled && (
               <div className="px-3 pb-3">
                 <div className="max-w-[260px]">
-                  <RecipeCard recipe={shuffled} onClick={() => openEdit(shuffled)} highlight />
+                  <RecipeCard recipe={shuffled} onClick={() => openDetail(shuffled)} highlight />
                 </div>
               </div>
             )}
@@ -361,7 +372,7 @@ export function RecipeListTab() {
             </div>
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
               {dusty.map(r => (
-                <RecipeCard key={r.id} recipe={r} onClick={() => openEdit(r)} />
+                <RecipeCard key={r.id} recipe={r} onClick={() => openDetail(r)} />
               ))}
             </div>
           </section>
@@ -392,7 +403,7 @@ export function RecipeListTab() {
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
             {filtered.map(r => (
               <RecipeCard key={r.id} recipe={r}
-                onClick={() => openEdit(r)}
+                onClick={() => openDetail(r)}
                 highlight={shuffled?.id === r.id} />
             ))}
           </div>
@@ -405,6 +416,19 @@ export function RecipeListTab() {
         style={{ width: 56, height: 56, backgroundColor: t.accent, color: '#fff', boxShadow: '0 6px 20px rgba(0,0,0,0.28)' }}>
         <Plus size={26} />
       </button>
+
+      {detailId && (() => {
+        // Realtime/refresh로 최신 객체를 항상 찾아 전달 (편집 직후 반영)
+        const r = recipes.find(x => x.id === detailId);
+        if (!r) return null;
+        return (
+          <RecipeDetail
+            recipe={r}
+            onClose={() => setDetailId(null)}
+            onEdit={() => openEditFromDetail(r)}
+          />
+        );
+      })()}
 
       {sheetOpen && (
         <RecipeFormSheet
