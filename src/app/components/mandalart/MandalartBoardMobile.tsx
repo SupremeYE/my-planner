@@ -3,6 +3,7 @@ import { ChevronRight } from 'lucide-react';
 import { useTheme } from '../../ThemeContext';
 import { db } from '../../../lib/db';
 import { computeProgress } from './MandalartView';
+import type { Notify } from '../culture/CultureToast';
 
 export type Cell = {
   id: string; board_id: string; parent_id: string | null;
@@ -14,6 +15,7 @@ interface Props {
   boardTitle: string;
   cells: Cell[];
   onMutate: () => void;
+  onNotify: Notify;
   onRenameBoard: (next: string) => void;
 }
 
@@ -31,7 +33,7 @@ type EditTarget =
   | { kind: 'sub'; position: number; cell: Cell | null }
   | { kind: 'action'; parentId: string; position: number; cell: Cell | null };
 
-export function MandalartBoardMobile({ boardId, boardTitle, cells, onMutate, onRenameBoard }: Props) {
+export function MandalartBoardMobile({ boardId, boardTitle, cells, onMutate, onNotify, onRenameBoard }: Props) {
   const { t } = useTheme();
   const [drillSubId, setDrillSubId] = useState<string | null>(null);
   const [editing, setEditing] = useState<EditTarget | null>(null);
@@ -80,35 +82,23 @@ export function MandalartBoardMobile({ boardId, boardTitle, cells, onMutate, onR
     if (!editing) return;
     const next = editDraft.trim();
     if (editing.kind === 'core') {
-      if (next && next !== boardTitle) onRenameBoard(next);
+      if (next && next !== boardTitle) { onRenameBoard(next); onNotify('저장되었습니다', 'success'); }
       closeEdit();
       return;
     }
-    if (editing.kind === 'sub') {
-      if (editing.cell) {
-        if (!next) {
-          // 내용 비우면 셀 삭제 (자식 행동도 CASCADE)
-          await db.mandalartCells.delete(editing.cell.id);
-        } else if (next !== editing.cell.content) {
-          await db.mandalartCells.update(editing.cell.id, { content: next });
-        }
-      } else if (next) {
-        await db.mandalartCells.upsert({
-          boardId, parentId: null, position: editing.position, content: next,
-        });
+    const parentId = editing.kind === 'sub' ? null : editing.parentId;
+    if (editing.cell) {
+      if (!next) {
+        // 내용 비우면 셀 삭제 (자식 행동도 CASCADE)
+        await db.mandalartCells.delete(editing.cell.id);
+        onNotify('삭제되었습니다', 'success');
+      } else if (next !== editing.cell.content) {
+        await db.mandalartCells.update(editing.cell.id, { content: next });
+        onNotify('저장되었습니다', 'success');
       }
-    } else {
-      if (editing.cell) {
-        if (!next) {
-          await db.mandalartCells.delete(editing.cell.id);
-        } else if (next !== editing.cell.content) {
-          await db.mandalartCells.update(editing.cell.id, { content: next });
-        }
-      } else if (next) {
-        await db.mandalartCells.upsert({
-          boardId, parentId: editing.parentId, position: editing.position, content: next,
-        });
-      }
+    } else if (next) {
+      await db.mandalartCells.upsert({ boardId, parentId, position: editing.position, content: next });
+      onNotify('추가되었습니다', 'success');
     }
     onMutate();
     closeEdit();
@@ -304,14 +294,15 @@ function SubCell({
     return (
       <button
         onClick={onTap}
-        className="aspect-square rounded-2xl flex items-center justify-center"
+        className="aspect-square rounded-2xl flex flex-col items-center justify-center gap-0.5"
         style={{
           backgroundColor: 'transparent',
           border: `1.5px dashed ${t.border}`,
           color: t.accent, minWidth: 0,
         }}
       >
-        <span style={{ fontSize: 22, fontWeight: 300 }}>+</span>
+        <span style={{ fontSize: 22, fontWeight: 300, lineHeight: 1 }}>+</span>
+        <span style={{ fontSize: 10, color: t.textMuted }}>세부 추가</span>
       </button>
     );
   }
@@ -410,10 +401,11 @@ function ActionCell({
     return (
       <button
         onClick={onTap}
-        className="aspect-square rounded-2xl flex items-center justify-center"
+        className="aspect-square rounded-2xl flex flex-col items-center justify-center gap-0.5"
         style={{ backgroundColor: 'transparent', border: `1.5px dashed ${t.border}`, color: t.accent, minWidth: 0 }}
       >
-        <span style={{ fontSize: 22, fontWeight: 300 }}>+</span>
+        <span style={{ fontSize: 22, fontWeight: 300, lineHeight: 1 }}>+</span>
+        <span style={{ fontSize: 10, color: t.textMuted }}>행동 추가</span>
       </button>
     );
   }
