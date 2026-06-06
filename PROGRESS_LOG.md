@@ -10,14 +10,43 @@
 
 ### 📋 TODO
 - (만다라트 Phase 1~4 완료)
+- (레시피 모듈 D-1 + D-2 완료)
 
 ### ✅ 완료
+- [x] 레시피 모듈 모듈 D-1 — 냉장고 ↔ 레시피 매칭 헬퍼 + 레시피 목록 연결 섹션 (`지금 만들 수 있어요` ready/1개 부족 + `유통기한 임박 재료 레시피` D-2 이내)
+- [x] 레시피 모듈 D-2 — RecipeDetail 재료 섹션 있음/부족 표시 + `부족한 재료 N개 장보기에 담기` (중복 방지, source_recipe_id/source_label 기록)
+- [x] 레시피/냉장고 textarea PC 키보드 단축키 — Cmd/Ctrl+Enter 제출 (Enter=줄바꿈 유지)
 - [x] 만다라트 Phase 1 — 데이터 모델(`mandalart_boards`/`mandalart_cells`) + `/goals` 허브 모드 스위치(만다라트/기간별) + 보드 선택·추가·이름변경·삭제 + 기본 보드 자동 시드
 - [x] 만다라트 Phase 2 — 모바일 드릴다운 3×3 (중앙→세부 칸 탭으로 행동 펼침, 행동 체크 시 진행률 자동 갱신, 빈 칸 +로 추가, 롱프레스로 편집)
 - [x] 만다라트 Phase 3 — PC 9×9 클래식 (가운데 블록 = 핵심+세부8, 둘레 8블록 = 각 세부의 행동8 미러링, 좌클릭 토글·우클릭 편집)
 - [x] 만다라트 Phase 4 — 자유도(펼침/체크 leaf) · 빈 칸 + · 여러 보드 (강제 81칸 아님, 채운 만큼만 표시)
 
 ### 🛠 오늘 작업 내용
+
+**레시피 모듈 D-1 — 냉장고 ↔ 레시피 매칭 + 목록 연결 섹션**
+- 신규 `src/app/components/recipe/fridgeMatch.ts`: 정규화(공백/대소문자 무시) + 양방향 부분일치 + 동의어 그룹(면↔파스타·국수·스파게티, 계란↔달걀, 돼지↔돼지고기·삼겹살 등)으로 표기 차이('계란' vs '계란 12') 흡수
+- 공개 API: `classifyCookable(recipes, fridge)` — 주재료가 냉장고에 모두 있는 `ready` / 1개 부족인 `oneMissing` 분리. `findUrgentRecipes(recipes, fridge)` — D-2 이내 fridge 품목이 매칭되는 레시피 + 가장 임박한 품목 + 남은 일수. `evaluateIngredients(recipe, fridge)` — 재료 단위 가용성(D-2 RecipeDetail용)
+- `RecipeListTab`에 두 섹션(`CookableSection`/`UrgentRecipesSection`) 추가 — 셔플/먼지 위. 카드에 `matchBadge` 추가 (`✓ 재료 있음` accentLight / `1개 부족: X` bgSub / `D-1 두부` dangerLight) — 색상은 글로벌 토큰만 사용
+- `db.fridgeItems.fetchAll()` 로딩 + `useRealtimeSync('fridge_items')` 로 냉장고 변경 시 매칭 자동 재계산
+- 주재료(mainIngredients)가 비어 있는 레시피는 `지금 만들 수 있어요`에서 제외(신호 없음). 임박 fridge 품목 0개면 임박 섹션 자체 숨김
+
+**레시피 모듈 D-2 — 부족 재료 표시 + 장보기 자동 담기**
+- `RecipeDetail` 재료 섹션 각 행에 `있음` / `부족` 칩 표시 (`evaluateIngredients` 기반, 글로벌 토큰)
+- 섹션 하단에 `부족한 재료 N개 장보기에 담기` 버튼 — `t.accent` accentLight 톤. 정규화 비교로 `shopping_items` 미체크 중 같은 이름은 제외, 모두 이미 있으면 버튼 비활성 + `부족 재료가 이미 장보기에 있어요` 라벨
+- 담길 때 `source_recipe_id=레시피.id`, `source_label=레시피 제목`. 수량은 재료의 amount(있을 때) 또는 1
+- `fridge_items` / `shopping_items` 양쪽 `useRealtimeSync` 구독 — 다른 기기/탭에서 냉장고를 채우면 자동 갱신, 장보기 중복 방지도 실시간 반영
+- 토스트로 추가 개수 피드백, 모바일/PC 레이아웃 영향 없음(기존 섹션 구조 재사용). RLS는 Phase 2a 정책(소유자만) 그대로 — 마이그레이션 추가 없음
+
+**레시피/냉장고 textarea PC 키보드 단축키**
+- FridgeTab 빠른 입력 textarea, RecipeFormSheet 붙여넣기/재료/요리순서 textarea에 `Cmd/Ctrl+Enter` → 제출(확인하기 / form.requestSubmit) 추가
+- Enter 단독은 줄바꿈 유지 → 다중 줄 입력 도중 의도치 않은 제출 방지
+- 단일행 input은 기존 `<form onSubmit>` 구조라 브라우저 기본 동작으로 Enter 제출이 이미 작동 — 추가 작업 없음. metaKey/ctrlKey 조건이라 모바일 영향 없음
+
+**원칙 준수 (D-1·D-2)**
+- 색상 하드코딩 0 — `t.accent / t.accentLight / t.danger / t.dangerLight / t.bgSub / t.border / t.textMuted` 등 글로벌 토큰만 사용
+- 모바일 카드 grid(`grid-cols-2`) / PC grid(`lg:grid-cols-4`) 기존 패턴 재사용 → 다른 페이지 PC 레이아웃 무영향
+- Realtime 필수 원칙 준수 — fridge/shopping 양쪽 구독, PC↔모바일 즉시 반영
+- `npm run build` 통과(각 단계 별 검증)
 
 **만다라트 Phase 1 — 데이터 모델 + /goals 허브 모드**
 - 마이그레이션 `20260606020000_create_mandalart.sql`: `mandalart_boards`(id/user_id/title/sort_order, RLS) + `mandalart_cells`(id/board_id/parent_id/position 0~7/content/is_done, 보드 소유권 EXISTS RLS, `(board_id, parent_id, position)` 유니크 인덱스, ON DELETE CASCADE). 두 테이블 모두 `supabase_realtime` publication 등록 → Supabase MCP로 원격 DB에 적용 완료
