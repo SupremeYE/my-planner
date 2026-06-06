@@ -260,6 +260,12 @@ export function FridgeTab() {
           </div>
           <div className="flex items-start gap-2">
             <textarea value={quickText} onChange={e => setQuickText(e.target.value)}
+              onKeyDown={e => {
+                if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
+                  e.preventDefault();
+                  if (quickText.trim()) handleQuickParse();
+                }
+              }}
               rows={2} placeholder={speech.isListening ? '🎙️ 듣고 있어요…' : '쉼표로 구분해서 적어주세요'}
               className="flex-1 rounded-xl outline-none"
               style={{ padding: '9px 11px', fontSize: 14, lineHeight: 1.4, resize: 'none',

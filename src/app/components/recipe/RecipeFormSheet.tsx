@@ -124,6 +124,14 @@ export function RecipeFormSheet({ recipe, onSave, onDelete, onClose }: RecipeFor
 
   const [submitting, setSubmitting] = useState(false);
 
+  // PC: textarea에서 Cmd/Ctrl+Enter 로 폼 제출 (Enter 단독은 줄바꿈 유지)
+  const submitOnModEnter = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
+      e.preventDefault();
+      e.currentTarget.form?.requestSubmit();
+    }
+  };
+
   // 음성 입력 — 각 textarea 별로 append
   const [speechErr, setSpeechErr] = useState<string | null>(null);
   const speechIng = useSpeechRecognition(
@@ -552,6 +560,7 @@ export function RecipeFormSheet({ recipe, onSave, onDelete, onClose }: RecipeFor
                 <div>
                   <label style={labelStyle}>캡션/메모 붙여넣기 (자동 정리)</label>
                   <textarea value={pasteText} onChange={e => setPasteText(e.target.value)}
+                    onKeyDown={submitOnModEnter}
                     rows={3}
                     placeholder={'유튜브 캡션이나 메모를 그대로 붙여넣어요.\n빈 줄로 구분하면 위는 재료, 아래는 순서로 넣어요.'}
                     style={{ ...fieldStyle, resize: 'vertical', lineHeight: 1.5 }} />
@@ -585,6 +594,7 @@ export function RecipeFormSheet({ recipe, onSave, onDelete, onClose }: RecipeFor
                     )}
                   </div>
                   <textarea value={ingredientsText} onChange={e => setIngredientsText(e.target.value)}
+                    onKeyDown={submitOnModEnter}
                     rows={4} placeholder={'예)\n돼지고기 200g\n양파 1개\n간장 2큰술'}
                     style={{ ...fieldStyle, resize: 'vertical', lineHeight: 1.6 }} />
                   <p style={{ fontSize: 11, color: t.textMuted, marginTop: 4 }}>
@@ -609,6 +619,7 @@ export function RecipeFormSheet({ recipe, onSave, onDelete, onClose }: RecipeFor
                     )}
                   </div>
                   <textarea value={stepsText} onChange={e => setStepsText(e.target.value)}
+                    onKeyDown={submitOnModEnter}
                     rows={5} placeholder={'예)\n팬에 기름을 두르고 양파를 볶는다\n돼지고기를 넣고 갈색이 될 때까지 5분 동안 익힌다\n…'}
                     style={{ ...fieldStyle, resize: 'vertical', lineHeight: 1.6 }} />
                   <p style={{ fontSize: 11, color: t.textMuted, marginTop: 4 }}>
