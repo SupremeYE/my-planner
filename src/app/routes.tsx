@@ -3,7 +3,7 @@ import { RootLayout } from './components/RootLayout';
 import { DashboardView } from './components/DashboardView';
 import { DailyView } from './components/DailyView';
 import { CalendarView } from './components/CalendarView';
-import { MonthlyView } from './components/MonthlyView';
+import { GoalsHubView } from './components/GoalsHubView';
 import { TodosView } from './components/TodosView';
 import { ProjectsView, ProjectDetailView } from './components/ProjectView';
 import { HabitsView } from './components/HabitsView';
@@ -31,7 +31,7 @@ export const router = createBrowserRouter([
       { path: 'daily',        Component: DailyView },
       { path: 'calendar',     Component: CalendarView },
       { path: 'todos',        Component: TodosView },
-      { path: 'goals',        Component: MonthlyView },
+      { path: 'goals',        Component: GoalsHubView },
       { path: 'projects',     Component: ProjectsView },
       { path: 'projects/:id', Component: ProjectDetailView },
       { path: 'habits',       Component: HabitsView },
