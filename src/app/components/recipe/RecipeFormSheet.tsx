@@ -11,10 +11,39 @@ import type { Recipe, RecipeIngredient, RecipeStep } from '../../store';
 import { parseIngredientLine } from './recipeUtils';
 import { INTENT_TAG_PRESETS, MAIN_INGREDIENT_PRESETS } from './recipeTags';
 
-const newId = () =>
-  (typeof crypto !== 'undefined' && 'randomUUID' in crypto)
-    ? crypto.randomUUID()
-    : `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+// 요리 순서 한 줄에서 시간 표현("5분", "1시간 30분", "30초" 등)을 감지해 초로 변환.
+// 감지된 시간이 있으면 그 단계에 timerSeconds 를 자동 세팅.
+function detectTimerSeconds(instruction: string): number | null {
+  let totalSec = 0;
+  let found = false;
+
+  // "X시간" or "X 시간"
+  const hourMatch = instruction.match(/(\d+(?:\.\d+)?)\s*시간/);
+  if (hourMatch) {
+    totalSec += Math.round(parseFloat(hourMatch[1]) * 3600);
+    found = true;
+  }
+
+  // "X분" or "X분간" or "X분 동안" (앞에 시간이 있어도 추가)
+  const minMatch = instruction.match(/(\d+(?:\.\d+)?)\s*분/);
+  if (minMatch) {
+    totalSec += Math.round(parseFloat(minMatch[1]) * 60);
+    found = true;
+  }
+
+  // "X초" — 시간/분이 없을 때만 (단독 "30초" 등)
+  if (!hourMatch && !minMatch) {
+    const secMatch = instruction.match(/(\d+(?:\.\d+)?)\s*초/);
+    if (secMatch) {
+      totalSec += Math.round(parseFloat(secMatch[1]));
+      found = true;
+    }
+  }
+
+  return found && totalSec > 0 ? totalSec : null;
+}
+
+
 
 interface RecipeFormSheetProps {
   recipe: Recipe | null;          // null = 신규 추가
@@ -209,7 +238,7 @@ export function RecipeFormSheet({ recipe, onSave, onDelete, onClose }: RecipeFor
       .split('\n')
       .map(s => s.trim())
       .filter(Boolean)
-      .map((s, i) => ({ id: newId(), stepNo: i + 1, instruction: s, timerSeconds: null, sortOrder: i }));
+      .map((s, i) => ({ id: newId(), stepNo: i + 1, instruction: s, timerSeconds: detectTimerSeconds(s), sortOrder: i }));
 
     const minNum = parseInt(totalMinutes, 10);
     const detected = detectRecipeSourcePlatform(sourceUrl);
@@ -575,8 +604,11 @@ export function RecipeFormSheet({ recipe, onSave, onDelete, onClose }: RecipeFor
                     )}
                   </div>
                   <textarea value={stepsText} onChange={e => setStepsText(e.target.value)}
-                    rows={5} placeholder={'예)\n팬에 기름을 두르고 양파를 볶는다\n돼지고기를 넣고 갈색이 될 때까지 익힌다\n…'}
+                    rows={5} placeholder={'예)\n팬에 기름을 두르고 양파를 볶는다\n돼지고기를 넣고 갈색이 될 때까지 5분 동안 익힌다\n…'}
                     style={{ ...fieldStyle, resize: 'vertical', lineHeight: 1.6 }} />
+                  <p style={{ fontSize: 11, color: t.textMuted, marginTop: 4 }}>
+                    ⏱ "5분", "10분 동안", "30초" 등 시간 표현이 있으면 요리 뷰에서 타이머 버튼이 자동으로 나타나요.
+                  </p>
                 </div>
               </div>
             )}

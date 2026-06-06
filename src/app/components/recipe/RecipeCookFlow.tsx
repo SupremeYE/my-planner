@@ -220,7 +220,9 @@ export function RecipeCookFlow({ recipe, onClose }: RecipeCookFlowProps) {
                   style={{ fontSize: 15, fontWeight: 800, color: '#fff', backgroundColor: t.accent,
                     boxShadow: `0 8px 22px ${t.accent}55` }}>
                   <Timer size={18} />
-                  타이머 시작 ({Math.round(step.timerSeconds / 60)}분)
+                  타이머 시작 ({step.timerSeconds >= 60
+                    ? `${Math.floor(step.timerSeconds / 60)}분${step.timerSeconds % 60 > 0 ? ` ${step.timerSeconds % 60}초` : ''}`
+                    : `${step.timerSeconds}초`})
                 </button>
               )}
             </div>
