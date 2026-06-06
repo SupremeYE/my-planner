@@ -25,7 +25,7 @@ export function RecipeView() {
   const timerCount = timers.length;
 
   return (
-    <div className="recipe-mod-scroll" style={{ backgroundColor: t.bg, minHeight: '100%' }}>
+    <div className="recipe-mod-scroll lg:h-full lg:overflow-y-auto" style={{ backgroundColor: t.bg, minHeight: '100%' }}>
       {/* 모듈 chrome 위치값 — 모바일: 글로벌 네비(56) + 모듈 탭바(54) 위 / PC: 일반 */}
       <style>{`
         .recipe-mod-scroll{padding-bottom:calc(150px + env(safe-area-inset-bottom));}

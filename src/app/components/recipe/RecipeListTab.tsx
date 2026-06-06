@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { ChefHat, Plus, Clock, Star, Search, Shuffle, Sparkles, X, Youtube, Instagram, Link2, Check, AlertCircle } from 'lucide-react';
+import { ChefHat, Plus, Clock, Star, Search, Shuffle, Sparkles, X, Youtube, Instagram, Link2, Check, AlertCircle, ChevronDown, ChevronUp } from 'lucide-react';
 import { useTheme } from '../../ThemeContext';
 import { db } from '../../../lib/db';
 import { useRealtimeSync } from '../../hooks/useRealtimeSync';
@@ -384,39 +384,40 @@ export function RecipeListTab() {
           <UrgentRecipesSection hits={urgentRecipes} onPickRecipe={openDetail} />
         )}
 
-        {/* "오늘 뭐먹지? 셔플" 배너 */}
+        {/* "오늘 뭐먹지? 셔플" 배너 — 한 줄 컴팩트. 셔플된 카드는 아래 그리드에서 highlight 로 강조됨 */}
         {!loading && recipes.length > 0 && (
-          <div className="mb-4 rounded-2xl overflow-hidden"
+          <div className="mb-4 rounded-2xl flex items-center justify-between gap-3 px-3 py-2.5"
             style={{ backgroundColor: t.accentLight, border: `1px solid ${t.accent}33` }}>
-            <div className="flex items-center justify-between gap-3 px-3 py-2.5">
-              <div className="flex items-center gap-2 min-w-0">
-                <Sparkles size={16} color={t.accent} />
-                <span className="truncate" style={{ fontSize: 13, fontWeight: 700, color: t.accent }}>
-                  오늘 뭐먹지?
-                </span>
-                <span className="truncate hidden sm:inline" style={{ fontSize: 11, color: t.textSub }}>
-                  {hasAnyFilter ? '필터 안에서 랜덤 추천' : '저장한 레시피 중 랜덤 추천'}
-                </span>
-              </div>
-              <button onClick={handleShuffle}
-                disabled={filtered.length === 0}
-                className="flex items-center gap-1 px-3 py-1.5 rounded-full active:scale-95 transition-transform"
-                style={{
-                  fontSize: 12, fontWeight: 700,
-                  backgroundColor: filtered.length === 0 ? t.bgSub : t.accent,
-                  color: filtered.length === 0 ? t.textMuted : '#fff',
-                  cursor: filtered.length === 0 ? 'not-allowed' : 'pointer',
-                }}>
-                <Shuffle size={13} /> 셔플
-              </button>
+            <div className="flex items-center gap-2 min-w-0">
+              <Sparkles size={16} color={t.accent} />
+              <span className="truncate" style={{ fontSize: 13, fontWeight: 700, color: t.accent }}>
+                오늘 뭐먹지?
+              </span>
+              <span className="truncate hidden sm:inline" style={{ fontSize: 11, color: t.textSub }}>
+                {hasAnyFilter ? '필터 안에서 랜덤 추천' : '저장한 레시피 중 랜덤 추천'}
+              </span>
+              {/* 셔플된 레시피 인라인 미리보기 — 작은 칩 형태로 (그리드 내 카드 강조와 중복 표시 방지) */}
+              {shuffled && (
+                <button onClick={() => openDetail(shuffled)}
+                  className="hidden sm:inline-flex items-center gap-1.5 ml-2 px-2 py-1 rounded-full active:scale-95 transition-transform"
+                  style={{ fontSize: 11, fontWeight: 700, color: t.accent, backgroundColor: t.card,
+                    border: `1px solid ${t.accent}55`, maxWidth: 220 }}>
+                  <span aria-hidden>🎯</span>
+                  <span className="truncate">{shuffled.title}</span>
+                </button>
+              )}
             </div>
-            {shuffled && (
-              <div className="px-3 pb-3">
-                <div className="max-w-[260px]">
-                  <RecipeCard recipe={shuffled} onClick={() => openDetail(shuffled)} highlight />
-                </div>
-              </div>
-            )}
+            <button onClick={handleShuffle}
+              disabled={filtered.length === 0}
+              className="flex-shrink-0 flex items-center gap-1 px-3 py-1.5 rounded-full active:scale-95 transition-transform"
+              style={{
+                fontSize: 12, fontWeight: 700,
+                backgroundColor: filtered.length === 0 ? t.bgSub : t.accent,
+                color: filtered.length === 0 ? t.textMuted : '#fff',
+                cursor: filtered.length === 0 ? 'not-allowed' : 'pointer',
+              }}>
+              <Shuffle size={13} /> 셔플
+            </button>
           </div>
         )}
 
@@ -513,32 +514,70 @@ export function RecipeListTab() {
 
 // ── 냉장고 매칭 섹션들 ──────────────────────────────────────────────────
 
+// 접기/펼치기 가능한 섹션 헤더 — 카드 카운트가 많으면 자리를 많이 차지하므로 사용자가 접을 수 있게.
+// localStorage 로 상태 유지(탭 전환/새로고침에도). 모바일·PC 동일 동작.
+function useCollapsed(key: string, defaultOpen: boolean): [boolean, () => void] {
+  const storageKey = `recipe.section.${key}`;
+  const [open, setOpen] = useState<boolean>(() => {
+    if (typeof window === 'undefined') return defaultOpen;
+    const raw = window.localStorage.getItem(storageKey);
+    return raw == null ? defaultOpen : raw === '1';
+  });
+  const toggle = () => setOpen(prev => {
+    const next = !prev;
+    try { window.localStorage.setItem(storageKey, next ? '1' : '0'); } catch {}
+    return next;
+  });
+  return [open, toggle];
+}
+
+function SectionHeader({ icon, color, title, hint, count, open, onToggle }: {
+  icon: React.ReactNode; color: string; title: string; hint: string; count: number;
+  open: boolean; onToggle: () => void;
+}) {
+  const { t } = useTheme();
+  return (
+    <button type="button" onClick={onToggle}
+      className="w-full flex items-center gap-2 mb-2 px-1 py-1 rounded-lg active:scale-[0.99] transition-transform"
+      aria-expanded={open}>
+      {icon}
+      <h2 style={{ fontSize: 13, fontWeight: 700, color: t.textSub }}>{title}</h2>
+      <span className="px-1.5 py-0.5 rounded-full" style={{ fontSize: 11, fontWeight: 700,
+        backgroundColor: `${color}1A`, color, border: `1px solid ${color}55` }}>{count}</span>
+      <span style={{ fontSize: 11, color: t.textMuted }}>{hint}</span>
+      <span className="ml-auto flex items-center" style={{ color: t.textMuted }}>
+        {open ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+      </span>
+    </button>
+  );
+}
+
 function CookableSection({ ready, oneMissing, onPickRecipe }:
   { ready: RecipeMatchResult[]; oneMissing: RecipeMatchResult[]; onPickRecipe: (r: Recipe) => void }) {
   const { t } = useTheme();
-  // 합쳐 한 줄에 보여주되, ready 가 먼저. 카드별로 배지 종류 다름.
   const items: Array<{ m: RecipeMatchResult; kind: MatchBadgeKind }> = [
     ...ready.map(m => ({ m, kind: 'ready' as const })),
     ...oneMissing.map(m => ({ m, kind: 'oneMissing' as const })),
   ];
+  const [open, toggle] = useCollapsed('cookable', true);
   return (
     <section className="mb-5">
-      <div className="flex items-center gap-2 mb-2">
-        <Check size={14} color={t.accent} />
-        <h2 style={{ fontSize: 13, fontWeight: 700, color: t.textSub }}>지금 만들 수 있어요</h2>
-        <span style={{ fontSize: 11, color: t.textMuted }}>냉장고 주재료 매칭</span>
-      </div>
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-        {items.map(({ m, kind }) => {
-          const badge: MatchBadge = kind === 'ready'
-            ? { kind: 'ready', label: '✓ 재료 있음' }
-            : { kind: 'oneMissing', label: `1개 부족: ${m.missingKeys[0]}` };
-          return (
-            <RecipeCard key={m.recipe.id} recipe={m.recipe}
-              onClick={() => onPickRecipe(m.recipe)} matchBadge={badge} />
-          );
-        })}
-      </div>
+      <SectionHeader icon={<Check size={14} color={t.accent} />} color={t.accent}
+        title="지금 만들 수 있어요" hint="냉장고 주재료 매칭" count={items.length}
+        open={open} onToggle={toggle} />
+      {open && (
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+          {items.map(({ m, kind }) => {
+            const badge: MatchBadge = kind === 'ready'
+              ? { kind: 'ready', label: '✓ 재료 있음' }
+              : { kind: 'oneMissing', label: `1개 부족: ${m.missingKeys[0]}` };
+            return (
+              <RecipeCard key={m.recipe.id} recipe={m.recipe}
+                onClick={() => onPickRecipe(m.recipe)} matchBadge={badge} />
+            );
+          })}
+        </div>
+      )}
     </section>
   );
 }
@@ -546,28 +585,29 @@ function CookableSection({ ready, oneMissing, onPickRecipe }:
 function UrgentRecipesSection({ hits, onPickRecipe }:
   { hits: UrgentRecipeHit[]; onPickRecipe: (r: Recipe) => void }) {
   const { t } = useTheme();
+  const [open, toggle] = useCollapsed('urgent', true);
   return (
     <section className="mb-5">
-      <div className="flex items-center gap-2 mb-2">
-        <AlertCircle size={14} color={t.danger} />
-        <h2 style={{ fontSize: 13, fontWeight: 700, color: t.textSub }}>유통기한 임박 재료 레시피</h2>
-        <span style={{ fontSize: 11, color: t.textMuted }}>D-2 이내 재료 활용</span>
-      </div>
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-        {hits.map(h => {
-          const top = h.urgentItems[0];
-          const label = top.daysLeft === 0
-            ? `D-day ${top.name}`
-            : top.daysLeft > 0
-              ? `D-${top.daysLeft} ${top.name}`
-              : `D+${-top.daysLeft} ${top.name}`;
-          return (
-            <RecipeCard key={h.recipe.id} recipe={h.recipe}
-              onClick={() => onPickRecipe(h.recipe)}
-              matchBadge={{ kind: 'urgent', label }} />
-          );
-        })}
-      </div>
+      <SectionHeader icon={<AlertCircle size={14} color={t.danger} />} color={t.danger}
+        title="유통기한 임박 재료 레시피" hint="D-2 이내 재료 활용" count={hits.length}
+        open={open} onToggle={toggle} />
+      {open && (
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+          {hits.map(h => {
+            const top = h.urgentItems[0];
+            const label = top.daysLeft === 0
+              ? `D-day ${top.name}`
+              : top.daysLeft > 0
+                ? `D-${top.daysLeft} ${top.name}`
+                : `D+${-top.daysLeft} ${top.name}`;
+            return (
+              <RecipeCard key={h.recipe.id} recipe={h.recipe}
+                onClick={() => onPickRecipe(h.recipe)}
+                matchBadge={{ kind: 'urgent', label }} />
+            );
+          })}
+        </div>
+      )}
     </section>
   );
 }
