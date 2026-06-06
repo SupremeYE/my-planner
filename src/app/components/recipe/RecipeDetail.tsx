@@ -12,6 +12,7 @@ import { detectRecipeSourcePlatform, sourcePlatformLabel, type RecipeSourcePlatf
 import { extractYouTubeVideoId } from '../../../lib/youtube';
 import { MAIN_INGREDIENT_PRESETS } from './recipeTags';
 import ConfirmModal from '../ConfirmModal';
+import { RecipeCookFlow } from './RecipeCookFlow';
 
 interface RecipeDetailProps {
   recipe: Recipe;
@@ -109,6 +110,9 @@ export function RecipeDetail({ recipe, onClose, onEdit }: RecipeDetailProps) {
   useEffect(() => { refreshLogs(); }, [refreshLogs]);
   // Realtime — 다른 기기에서 기록 추가/삭제 시 즉시 반영
   useRealtimeSync('recipe_cook_logs', refreshLogs);
+
+  // 릴스형 요리 뷰 열림 상태
+  const [cooking, setCooking] = useState(false);
 
   // 토스트 자동 닫기 (2.4초)
   useEffect(() => {
@@ -392,15 +396,12 @@ export function RecipeDetail({ recipe, onClose, onEdit }: RecipeDetailProps) {
                   요리 순서 <span style={{ fontSize: 12, fontWeight: 500, color: t.textMuted }}>({recipe.steps.length}단계)</span>
                 </h3>
                 <button
-                  onClick={() => alert('요리 시작 화면은 다음 업데이트에서 연결돼요.')}
-                  className="flex items-center gap-1 px-2.5 py-1 rounded-full"
+                  onClick={() => setCooking(true)}
+                  className="flex items-center gap-1 px-3 py-1.5 rounded-full active:scale-95 transition-transform"
                   style={{
                     fontSize: 12, fontWeight: 700,
-                    color: t.textMuted, backgroundColor: t.bgSub,
-                    border: `1px dashed ${t.border}`,
-                    cursor: 'not-allowed',
-                  }}
-                  aria-disabled="true">
+                    color: '#fff', backgroundColor: t.accent,
+                  }}>
                   <Play size={12} /> 요리 시작
                 </button>
               </div>
@@ -502,6 +503,11 @@ export function RecipeDetail({ recipe, onClose, onEdit }: RecipeDetailProps) {
           onConfirm={handleDeleteLog}
           onCancel={() => setConfirmDeleteLogId(null)}
         />
+      )}
+
+      {/* 릴스형 요리 뷰 (요리 시작) */}
+      {cooking && (
+        <RecipeCookFlow recipe={recipe} onClose={() => setCooking(false)} />
       )}
 
       {/* 만든 기록 추가 토스트 — 사진 건너뛰기/첨부 후 선택됐음을 알림 */}
