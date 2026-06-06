@@ -11,6 +11,11 @@ import type { Recipe, RecipeIngredient, RecipeStep } from '../../store';
 import { parseIngredientLine } from './recipeUtils';
 import { INTENT_TAG_PRESETS, MAIN_INGREDIENT_PRESETS } from './recipeTags';
 
+const newId = () =>
+  (typeof crypto !== 'undefined' && 'randomUUID' in crypto)
+    ? crypto.randomUUID()
+    : `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+
 // 요리 순서 한 줄에서 시간 표현("5분", "1시간 30분", "30초" 등)을 감지해 초로 변환.
 // 감지된 시간이 있으면 그 단계에 timerSeconds 를 자동 세팅.
 function detectTimerSeconds(instruction: string): number | null {
