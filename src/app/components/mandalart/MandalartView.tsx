@@ -21,25 +21,31 @@ export interface MandalartProgress {
 
 export function computeProgress(cells: Cell[]): MandalartProgress {
   const subs = cells.filter(c => c.parent_id === null);
-  let totalActions = 0;
-  let doneActions = 0;
-  const perSub = new Map<string, { done: number; total: number }>();
+  let total = 0;
+  let done = 0;
+  // 자식 있는 세부 = 자식 행동의 (done,total). 자식 없는 leaf 세부 = (is_done?1:0, 1).
+  const perSub = new Map<string, { done: number; total: number; hasActions: boolean }>();
   for (const sub of subs) {
     const actions = cells.filter(c => c.parent_id === sub.id);
-    const t = actions.length;
-    const d = actions.filter(a => a.is_done).length;
-    perSub.set(sub.id, { done: d, total: t });
-    totalActions += t;
-    doneActions += d;
+    if (actions.length > 0) {
+      const t = actions.length;
+      const d = actions.filter(a => a.is_done).length;
+      perSub.set(sub.id, { done: d, total: t, hasActions: true });
+      total += t; done += d;
+    } else {
+      const d = sub.is_done ? 1 : 0;
+      perSub.set(sub.id, { done: d, total: 1, hasActions: false });
+      total += 1; done += d;
+    }
   }
   return {
-    overall: totalActions ? Math.round((doneActions / totalActions) * 100) : 0,
+    overall: total ? Math.round((done / total) * 100) : 0,
     subPct: (subId) => {
       const e = perSub.get(subId);
       if (!e || e.total === 0) return 0;
       return Math.round((e.done / e.total) * 100);
     },
-    subHasActions: (subId) => (perSub.get(subId)?.total ?? 0) > 0,
+    subHasActions: (subId) => perSub.get(subId)?.hasActions ?? false,
   };
 }
 

@@ -128,6 +128,40 @@ export function MandalartBoardPC({ boardId, boardTitle, cells, onMutate, onRenam
 
           // 둘레 블록인데 그 위치의 세부 셀이 없으면 → 빈 블록 placeholder
           const subCell = subIdx !== null ? subByPos.get(subIdx) ?? null : null;
+          const isExpanded = subCell ? progress.subHasActions(subCell.id) : false;
+
+          // 둘레 블록 자유도: 세부 없음 → 전체 +, 세부 leaf → "펼치기" 큰 버튼.
+          if (!isCenterBlock && subIdx !== null && !isExpanded) {
+            return (
+              <button
+                key={blockIdx}
+                onClick={() => {
+                  if (!subCell) openEdit({ kind: 'sub', position: subIdx, cell: null });
+                  else openEdit({ kind: 'action', parentId: subCell.id, position: 0, cell: null });
+                }}
+                style={{
+                  padding: 5,
+                  borderRadius: 12,
+                  backgroundColor: 'transparent',
+                  border: `1.5px dashed ${t.border}`,
+                  minWidth: 0,
+                  aspectRatio: '1',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: 4,
+                  color: t.accent,
+                  opacity: subCell ? 0.9 : 0.45,
+                }}
+              >
+                <span style={{ fontSize: 22, fontWeight: 300 }}>+</span>
+                <span style={{ fontFamily: "'Gaegu', cursive", fontWeight: 700, fontSize: 11, color: t.accent }}>
+                  {subCell ? `${subCell.content || '세부'} 펼치기` : '세부 추가'}
+                </span>
+              </button>
+            );
+          }
 
           return (
             <div
@@ -159,13 +193,23 @@ export function MandalartBoardPC({ boardId, boardTitle, cells, onMutate, onRenam
                   }
                   const pos = positionForGridIdx(gridIdx)!;
                   const sub = subByPos.get(pos) ?? null;
+                  const subHasActions = sub ? progress.subHasActions(sub.id) : false;
                   return (
                     <SubPCCell
                       key={gridIdx}
                       cell={sub}
                       pct={sub ? progress.subPct(sub.id) : 0}
+                      hasActions={subHasActions}
                       t={t}
-                      onClick={() => openEdit({ kind: 'sub', position: pos, cell: sub })}
+                      onClick={() => {
+                        if (sub && !subHasActions) {
+                          // leaf — 좌클릭 = 토글
+                          toggleAction(sub);
+                        } else {
+                          openEdit({ kind: 'sub', position: pos, cell: sub });
+                        }
+                      }}
+                      onEdit={() => openEdit({ kind: 'sub', position: pos, cell: sub })}
                     />
                   );
                 }
@@ -186,34 +230,19 @@ export function MandalartBoardPC({ boardId, boardTitle, cells, onMutate, onRenam
                     />
                   );
                 }
-                if (!subCell) {
-                  // 세부가 비어 있으면 행동 칸도 비활성 placeholder
-                  return (
-                    <div
-                      key={gridIdx}
-                      style={{
-                        aspectRatio: '1',
-                        borderRadius: 9,
-                        backgroundColor: t.card,
-                        opacity: 0.4,
-                        border: `1px dashed ${t.border}`,
-                        minWidth: 0,
-                      }}
-                    />
-                  );
-                }
+                // 위에서 subCell 없음 / leaf 는 단일 버튼 블록으로 처리했으므로 여기는 펼침 상태.
                 const pos = positionForGridIdx(gridIdx)!;
-                const action = (actionsBySub.get(subCell.id) ?? []).find(a => a.position === pos) ?? null;
+                const action = (actionsBySub.get(subCell!.id) ?? []).find(a => a.position === pos) ?? null;
                 return (
                   <ActionPCCell
                     key={gridIdx}
                     cell={action}
                     t={t}
                     onTap={() => {
-                      if (!action) openEdit({ kind: 'action', parentId: subCell.id, position: pos, cell: null });
+                      if (!action) openEdit({ kind: 'action', parentId: subCell!.id, position: pos, cell: null });
                       else toggleAction(action);
                     }}
-                    onEdit={() => openEdit({ kind: 'action', parentId: subCell.id, position: pos, cell: action })}
+                    onEdit={() => openEdit({ kind: 'action', parentId: subCell!.id, position: pos, cell: action })}
                   />
                 );
               })}
@@ -222,8 +251,8 @@ export function MandalartBoardPC({ boardId, boardTitle, cells, onMutate, onRenam
         })}
       </div>
 
-      <p className="text-center mt-5" style={{ fontSize: 12, color: t.textMuted }}>
-        가운데 9칸 = 핵심 목표 + 세부 8 · 둘레 8판 = 각 세부의 행동 8 · 행동 칸을 클릭하면 진행률이 자동으로 차올라요 (우클릭으로 텍스트 편집)
+      <p className="text-center mt-5" style={{ fontSize: 12, color: t.textMuted, lineHeight: 1.6 }}>
+        가운데 9칸 = 핵심 + 세부 8 · 펼친 세부만 둘레 판으로 확장 · 빈 둘레 판의 + 를 눌러 펼치기 · 행동 좌클릭 = 체크, 우클릭 = 편집
       </p>
 
       {editing && (
@@ -280,8 +309,9 @@ function CorePCCell({ title, pct, t, onClick }: {
   );
 }
 
-function SubPCCell({ cell, pct, t, onClick }: {
-  cell: Cell | null; pct: number; t: ReturnType<typeof useTheme>['t']; onClick: () => void;
+function SubPCCell({ cell, pct, hasActions, t, onClick, onEdit }: {
+  cell: Cell | null; pct: number; hasActions: boolean;
+  t: ReturnType<typeof useTheme>['t']; onClick: () => void; onEdit: () => void;
 }) {
   if (!cell) {
     return (
@@ -298,22 +328,41 @@ function SubPCCell({ cell, pct, t, onClick }: {
       </button>
     );
   }
+  const done = !hasActions && cell.is_done;
   return (
     <button
       onClick={onClick}
+      onContextMenu={e => { e.preventDefault(); onEdit(); }}
       style={{
         ...cellBase,
-        backgroundColor: t.accentSoft,
-        color: t.text,
-        border: `1px solid transparent`,
+        backgroundColor: done ? t.success + '22' : t.accentSoft,
+        color: done ? t.textMuted : t.text,
+        border: `1px solid ${done ? t.success + '66' : 'transparent'}`,
       }}
     >
-      <span style={{ fontWeight: 700, fontSize: 11.5, lineHeight: 1.15, ...clamp2 }}>
+      <span style={{
+        fontWeight: 700, fontSize: 11.5, lineHeight: 1.15,
+        textDecoration: done ? 'line-through' : 'none',
+        ...clamp2,
+      }}>
         {cell.content}
       </span>
-      <span style={{ width: '74%', height: 4, borderRadius: 999, backgroundColor: '#ffffff80', overflow: 'hidden', display: 'block' }}>
-        <b style={{ display: 'block', height: '100%', width: `${pct}%`, backgroundColor: t.success }} />
-      </span>
+      {hasActions ? (
+        <span style={{ width: '74%', height: 4, borderRadius: 999, backgroundColor: '#ffffff80', overflow: 'hidden', display: 'block' }}>
+          <b style={{ display: 'block', height: '100%', width: `${pct}%`, backgroundColor: t.success }} />
+        </span>
+      ) : (
+        <span
+          aria-hidden
+          style={{
+            width: 14, height: 14, borderRadius: 999,
+            border: `1.5px solid ${done ? t.success : t.accent}`,
+            backgroundColor: done ? t.success : 'transparent',
+            color: '#fff', fontSize: 9, fontWeight: 700,
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+          }}
+        >{done ? '✓' : ''}</span>
+      )}
     </button>
   );
 }
