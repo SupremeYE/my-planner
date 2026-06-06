@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { X, ChevronLeft, Trash2 } from 'lucide-react';
 import { useTheme } from '../../ThemeContext';
 import type { FridgeItem, FridgeCategory } from '../../store';
+import { EXPIRY_PRESETS } from './recipeUtils';
 
 const CATEGORIES: FridgeCategory[] = ['냉장', '냉동', '실온'];
 
@@ -129,6 +130,23 @@ export function FridgeItemSheet({ item, onSave, onDelete, onClose }: FridgeItemS
           <div>
             <label style={labelStyle}>유통기한 (선택)</label>
             <input type="date" value={expiryDate} onChange={e => setExpiryDate(e.target.value)} style={fieldStyle} />
+            {/* 빠른 버튼 — +3일/+1주/+1달/모름 */}
+            <div className="flex flex-wrap gap-1.5 mt-2">
+              {EXPIRY_PRESETS.map(p => {
+                const v = p.getValue();
+                const active = expiryDate === v;
+                return (
+                  <button key={p.label} type="button" onClick={() => setExpiryDate(v)}
+                    className="px-2.5 py-1 rounded-full active:scale-95 transition-transform"
+                    style={{
+                      fontSize: 12, fontWeight: active ? 700 : 500,
+                      backgroundColor: active ? t.accent : t.bgSub,
+                      color: active ? '#fff' : t.textSub,
+                      border: `1px solid ${active ? t.accent : t.border}`,
+                    }}>{p.label}</button>
+                );
+              })}
+            </div>
           </div>
 
           {/* PC 저장 / 삭제 */}

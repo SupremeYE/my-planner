@@ -6,6 +6,7 @@ import { useRealtimeSync } from '../../hooks/useRealtimeSync';
 import type { ShoppingItem, FridgeCategory, FridgeItem } from '../../store';
 import { ShoppingItemSheet } from './ShoppingItemSheet';
 import { MoveToFridgeSheet } from './MoveToFridgeSheet';
+import { getFoodIcon } from './foodIcons';
 import ConfirmModal from '../ConfirmModal';
 
 const newId = () =>
@@ -13,7 +14,8 @@ const newId = () =>
     ? crypto.randomUUID()
     : `${Date.now()}-${Math.random().toString(36).slice(2)}`;
 
-// 행
+// 카드형 행 — 체크 원 + 아이콘 + 이름 + 출처 배지 + 수량.
+// 체크 탭 시 카드가 살짝 오른쪽으로 밀리는 마이크로 애니메이션 (logic은 부모가 처리).
 function ShoppingRow({ item, onCheck, onUncheck, onEdit, selectMode, selected, onToggleSelect }: {
   item: ShoppingItem;
   onCheck: () => void;
@@ -25,33 +27,60 @@ function ShoppingRow({ item, onCheck, onUncheck, onEdit, selectMode, selected, o
 }) {
   const { t } = useTheme();
   const checked = item.isChecked;
+  const [nudging, setNudging] = useState(false);
+  const icon = getFoodIcon(item.name);
+
+  // 체크 클릭 → 마이크로 nudge(180ms) 후 부모 핸들러 호출.
+  // 동작/저장 흐름은 그대로(MoveToFridgeSheet 트리거는 부모).
+  const handleCheckClick = () => {
+    if (checked) { onUncheck(); return; }
+    setNudging(true);
+    window.setTimeout(() => setNudging(false), 380);
+    onCheck();
+  };
 
   return (
-    <div className="flex items-center gap-3 rounded-xl px-3 py-2.5"
+    <div className="flex items-center gap-2.5 rounded-2xl px-2.5 py-2.5 lg:px-3 lg:py-3"
       style={{
         backgroundColor: selectMode && selected ? t.accentLight : t.card,
         border: `1px solid ${selectMode && selected ? t.accent : t.border}`,
-        opacity: checked && !(selectMode && selected) ? 0.55 : 1,
+        opacity: checked && !(selectMode && selected) ? 0.6 : 1,
+        boxShadow: t.shadow,
+        transform: nudging ? 'translateX(8px)' : 'translateX(0)',
+        transition: 'transform .26s cubic-bezier(.34,1.56,.64,1), opacity .2s, background-color .2s',
       }}>
-      {/* 좌측: 선택 모드면 선택 체크, 아니면 완료 체크 */}
+      {/* 좌측 체크 원 — 선택 모드면 선택 토글, 아니면 완료 체크 */}
       {selectMode ? (
         <button onClick={onToggleSelect} aria-label={selected ? '선택 해제' : '선택'}
           className="flex-shrink-0 rounded-full flex items-center justify-center"
-          style={{ width: 26, height: 26,
+          style={{ width: 28, height: 28,
             backgroundColor: selected ? t.accent : 'transparent',
             border: `2px solid ${selected ? t.accent : t.border}` }}>
-          {selected && <Check size={14} color="#fff" />}
+          {selected && <Check size={15} color="#fff" />}
         </button>
       ) : (
-        <button onClick={checked ? onUncheck : onCheck}
+        <button onClick={handleCheckClick}
           aria-label={checked ? '완료 해제' : '구매 완료 — 냉장고로 옮기기'}
-          className="flex-shrink-0 rounded-full flex items-center justify-center active:scale-95 transition-transform"
-          style={{ width: 26, height: 26,
+          className="flex-shrink-0 rounded-full flex items-center justify-center active:scale-90 transition-transform"
+          style={{ width: 28, height: 28,
             backgroundColor: checked ? t.accent : 'transparent',
             border: `2px solid ${checked ? t.accent : t.border}` }}>
-          {checked && <Check size={14} color="#fff" />}
+          {checked && <Check size={15} color="#fff" />}
         </button>
       )}
+
+      {/* 아이콘 타일 */}
+      <button onClick={selectMode ? onToggleSelect : onEdit}
+        className="flex-shrink-0 rounded-xl flex items-center justify-center active:scale-95 transition-transform"
+        aria-label={`${item.name} 수정`}
+        style={{
+          width: 40, height: 40,
+          backgroundColor: t.bgSub,
+          border: `1px solid ${t.borderLight}`,
+          fontSize: 20, lineHeight: 1,
+        }}>
+        <span aria-hidden>{icon}</span>
+      </button>
 
       {/* 본문 (탭 → 수정) */}
       <button onClick={selectMode ? onToggleSelect : onEdit} className="flex-1 text-left min-w-0">
@@ -59,10 +88,12 @@ function ShoppingRow({ item, onCheck, onUncheck, onEdit, selectMode, selected, o
           <span className="truncate" style={{ fontSize: 15, fontWeight: 600, color: t.text,
             textDecoration: checked ? 'line-through' : 'none' }}>{item.name}</span>
           {item.sourceLabel && (
-            <span className="px-1.5 py-0.5 rounded-md flex-shrink-0"
+            <span className="px-1.5 py-0.5 rounded-full flex-shrink-0"
               style={{ fontSize: 10, fontWeight: 600,
-                backgroundColor: t.bgSub, color: t.textSub, border: `1px solid ${t.border}` }}>
-              {item.sourceLabel}
+                backgroundColor: item.sourceRecipeId ? t.accentLight : t.bgSub,
+                color: item.sourceRecipeId ? t.accent : t.textSub,
+                border: `1px solid ${item.sourceRecipeId ? `${t.accent}55` : t.border}` }}>
+              {item.sourceRecipeId ? '🍳 ' : ''}{item.sourceLabel}
             </span>
           )}
         </div>
@@ -134,7 +165,7 @@ export function ShoppingTab() {
     await db.shoppingItems.setChecked(moveTarget.id, true);
     setMoveTarget(null);
     refresh();
-    notify(`${moveTarget.name} → 냉장고로 옮겼어요`);
+    notify(`🧊 냉장고로 톡! ${moveTarget.name} 추가됨`);
   };
   const handleUncheck = async (item: ShoppingItem) => {
     // 낙관적 + DB. 냉장고 항목은 별개로 두고 자동 삭제하지 않음(중복 추가는 사용자 책임)
@@ -227,10 +258,9 @@ export function ShoppingTab() {
         ) : items.length === 0 ? (
           <div className="flex flex-col items-center justify-center text-center py-16 px-6">
             <div className="rounded-full flex items-center justify-center mb-4"
-              style={{ width: 72, height: 72, backgroundColor: t.accentLight }}>
-              <ShoppingCart size={32} color={t.accent} />
-            </div>
-            <p style={{ fontSize: 16, fontWeight: 700, color: t.text }}>장보기 목록이 비어 있어요</p>
+              style={{ width: 80, height: 80, backgroundColor: t.accentLight, fontSize: 36, lineHeight: 1 }}
+              aria-hidden>🛒</div>
+            <p style={{ fontSize: 16, fontWeight: 700, color: t.text }}>살 거 없어요, 냉장고가 든든하네요 🧊</p>
             <p style={{ fontSize: 13, color: t.textSub, marginTop: 6 }}>+ 버튼으로 살 것을 추가해 보세요</p>
             <button onClick={openAdd} className="mt-5 flex items-center gap-1.5 px-4 py-2.5 rounded-xl"
               style={{ fontSize: 14, fontWeight: 700, color: '#fff', backgroundColor: t.accent }}>
@@ -238,19 +268,20 @@ export function ShoppingTab() {
             </button>
           </div>
         ) : (
-          <div className="space-y-5">
+          <div className="space-y-6">
             {/* 살 것 */}
             <section>
-              <div className="flex items-center gap-1.5 mb-2">
-                <h3 style={{ fontSize: 13, fontWeight: 700, color: t.textSub }}>살 것</h3>
-                <span style={{ fontSize: 12, color: t.textMuted }}>{pending.length}</span>
+              <div className="flex items-center gap-2 mb-2.5">
+                <h3 style={{ fontSize: 13, fontWeight: 700, color: t.text }}>살 것</h3>
+                <span style={{ fontSize: 11, fontWeight: 600, color: t.textMuted }}>{pending.length}</span>
+                <div className="flex-1 ml-1" style={{ height: 1, backgroundColor: `${t.accent}33` }} />
               </div>
               {pending.length === 0 ? (
                 <p style={{ fontSize: 13, color: t.textMuted, padding: '8px 4px' }}>
                   모두 다 샀어요! 👏
                 </p>
               ) : (
-                <div className="space-y-2">
+                <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-2 lg:gap-3">
                   {pending.map(it => (
                     <ShoppingRow key={it.id} item={it}
                       onCheck={() => handleCheck(it)} onUncheck={() => handleUncheck(it)}
@@ -264,11 +295,12 @@ export function ShoppingTab() {
             {/* 완료 */}
             {done.length > 0 && (
               <section>
-                <div className="flex items-center gap-1.5 mb-2">
-                  <h3 style={{ fontSize: 13, fontWeight: 700, color: t.textSub }}>완료</h3>
-                  <span style={{ fontSize: 12, color: t.textMuted }}>{done.length}</span>
+                <div className="flex items-center gap-2 mb-2.5">
+                  <h3 style={{ fontSize: 13, fontWeight: 700, color: t.text }}>완료</h3>
+                  <span style={{ fontSize: 11, fontWeight: 600, color: t.textMuted }}>{done.length}</span>
+                  <div className="flex-1 ml-1" style={{ height: 1, backgroundColor: `${t.accent}33` }} />
                 </div>
-                <div className="space-y-2">
+                <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-2 lg:gap-3">
                   {done.map(it => (
                     <ShoppingRow key={it.id} item={it}
                       onCheck={() => handleCheck(it)} onUncheck={() => handleUncheck(it)}

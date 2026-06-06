@@ -71,6 +71,32 @@ export function parseFridgeQuickInput(
     });
 }
 
+// yyyy-MM-dd 포맷 — 로컬 자정 기준.
+export function formatDateYmd(date: Date): string {
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, '0');
+  const d = String(date.getDate()).padStart(2, '0');
+  return `${y}-${m}-${d}`;
+}
+
+// 오늘 기준 N일/N주/N개월 후 yyyy-MM-dd (로컬). 음수도 허용.
+export function expiryFromToday(amount: number, unit: 'day' | 'week' | 'month'): string {
+  const now = new Date();
+  const d = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  if (unit === 'day') d.setDate(d.getDate() + amount);
+  else if (unit === 'week') d.setDate(d.getDate() + amount * 7);
+  else d.setMonth(d.getMonth() + amount);
+  return formatDateYmd(d);
+}
+
+// 유통기한 빠른 버튼 프리셋 — 라벨/값 계산. '모름' 은 빈 문자열로 처리.
+export const EXPIRY_PRESETS: Array<{ label: string; getValue: () => string }> = [
+  { label: '+3일',  getValue: () => expiryFromToday(3, 'day') },
+  { label: '+1주',  getValue: () => expiryFromToday(1, 'week') },
+  { label: '+1달',  getValue: () => expiryFromToday(1, 'month') },
+  { label: '모름',  getValue: () => '' },
+];
+
 // 초 → 사람이 읽는 한국어 ("5분", "1분 30초", "45초")
 export function formatDurationKo(totalSec: number): string {
   const m = Math.floor(totalSec / 60);

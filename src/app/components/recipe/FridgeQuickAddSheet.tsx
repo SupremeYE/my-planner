@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { X, ChevronLeft, Trash2, Plus } from 'lucide-react';
 import { useTheme } from '../../ThemeContext';
 import type { FridgeItem, FridgeCategory } from '../../store';
+import { EXPIRY_PRESETS } from './recipeUtils';
 
 const CATEGORIES: FridgeCategory[] = ['냉장', '냉동', '실온'];
 
@@ -138,12 +139,29 @@ export function FridgeQuickAddSheet({ initialDrafts, onSave, onClose }: FridgeQu
                     </select>
                   </div>
                 </div>
-                {/* 3행: 유통기한 */}
+                {/* 3행: 유통기한 + 빠른 버튼 */}
                 <div>
                   <label style={labelStyle}>유통기한 (선택)</label>
                   <input type="date" value={r.expiryDate}
                     onChange={e => updateRow(r.key, { expiryDate: e.target.value })}
                     style={fieldStyle} />
+                  <div className="flex flex-wrap gap-1 mt-1.5">
+                    {EXPIRY_PRESETS.map(p => {
+                      const v = p.getValue();
+                      const active = r.expiryDate === v;
+                      return (
+                        <button key={p.label} type="button"
+                          onClick={() => updateRow(r.key, { expiryDate: v })}
+                          className="px-2 py-0.5 rounded-full active:scale-95 transition-transform"
+                          style={{
+                            fontSize: 11, fontWeight: active ? 700 : 500,
+                            backgroundColor: active ? t.accent : t.bgSub,
+                            color: active ? '#fff' : t.textSub,
+                            border: `1px solid ${active ? t.accent : t.border}`,
+                          }}>{p.label}</button>
+                      );
+                    })}
+                  </div>
                 </div>
               </div>
             ))}

@@ -8,6 +8,7 @@ import type { FridgeItem, FridgeCategory } from '../../store';
 import { FridgeItemSheet } from './FridgeItemSheet';
 import { FridgeQuickAddSheet, draftsFromParsed } from './FridgeQuickAddSheet';
 import { parseFridgeQuickInput } from './recipeUtils';
+import { getFoodIcon } from './foodIcons';
 import ConfirmModal from '../ConfirmModal';
 
 const CATEGORY_ORDER: FridgeCategory[] = ['냉장', '냉동', '실온'];
@@ -32,7 +33,28 @@ function dDayLabel(days: number): string {
   return `D+${-days}`;
 }
 
-// 품목 행
+// 신선도 등급 — D-day 기반. tone 은 카드/칩 색상 선택에 사용.
+type FreshnessTone = 'danger' | 'warn' | 'ok';
+interface Freshness {
+  tone: FreshnessTone;
+  emoji: string;
+  label: string;
+}
+function getFreshness(days: number | null): Freshness | null {
+  if (days == null) return null;
+  if (days <= 1) {
+    return {
+      tone: 'danger',
+      emoji: '❗',
+      label: days < 0 ? `${-days}일 지남` : days === 0 ? '오늘까지' : '내일까지',
+    };
+  }
+  if (days <= 3) return { tone: 'warn', emoji: '🥲', label: '곧 상해요' };
+  return { tone: 'ok', emoji: '🌿', label: '싱싱' };
+}
+
+// 품목 카드 — 좌측 아이콘 타일 + 이름/신선도 + 알약형 수량 스테퍼.
+// 임박(D-2 이하)이면 배경/테두리에 살짝 코랄(t.dangerLight/t.danger55) 톤.
 function FridgeRow({ item, onEdit, onQty, selectMode, selected, onToggleSelect }: {
   item: FridgeItem;
   onEdit: () => void;
@@ -43,15 +65,33 @@ function FridgeRow({ item, onEdit, onQty, selectMode, selected, onToggleSelect }
 }) {
   const { t } = useTheme();
   const days = daysUntil(item.expiryDate);
-  const urgent = days != null && days <= 2;     // D-2 이내(만료 포함) 강조
+  const urgent = days != null && days <= 2;     // D-2 이내(만료 포함) 카드 강조
   const empty = item.quantity <= 0;
+  const fresh = getFreshness(days);
+  const icon = getFoodIcon(item.name, item.category);
+
+  // 카드 톤 — 선택 모드 > 임박 > 일반
+  const cardBg = selectMode && selected ? t.accentLight
+    : urgent ? t.dangerLight
+    : t.card;
+  const cardBorder = selectMode && selected ? t.accent
+    : urgent ? `${t.danger}66`
+    : t.border;
+
+  // 신선도 칩 색상 (테마 토큰만 사용)
+  const chipColors = fresh && (fresh.tone === 'danger'
+    ? { bg: t.dangerLight, fg: t.danger, bd: `${t.danger}55` }
+    : fresh.tone === 'warn'
+      ? { bg: t.accentLight, fg: t.accent, bd: `${t.accent}55` }
+      : { bg: `${t.success}1A`, fg: t.success, bd: `${t.success}55` });
 
   return (
-    <div className="flex items-center gap-3 rounded-xl px-3 py-2.5"
+    <div className="flex items-center gap-2.5 rounded-2xl px-2.5 py-2.5 lg:px-3 lg:py-3 transition-shadow"
       style={{
-        backgroundColor: selectMode && selected ? t.accentLight : urgent ? t.dangerLight : t.card,
-        border: `1px solid ${selectMode && selected ? t.accent : urgent ? t.danger : t.border}`,
-        opacity: empty && !(selectMode && selected) ? 0.6 : 1,
+        backgroundColor: cardBg,
+        border: `1px solid ${cardBorder}`,
+        opacity: empty && !(selectMode && selected) ? 0.62 : 1,
+        boxShadow: urgent ? `0 2px 12px ${t.danger}15` : t.shadow,
       }}>
       {/* 선택 모드 체크박스 */}
       {selectMode && (
@@ -64,38 +104,58 @@ function FridgeRow({ item, onEdit, onQty, selectMode, selected, onToggleSelect }
         </button>
       )}
 
-      {/* 이름 + D-day (탭 → 선택 모드면 선택 토글, 아니면 수정) */}
+      {/* 좌측 아이콘 타일 */}
+      <button onClick={selectMode ? onToggleSelect : onEdit}
+        className="flex-shrink-0 rounded-xl flex items-center justify-center active:scale-95 transition-transform"
+        aria-label={`${item.name} 수정`}
+        style={{
+          width: 44, height: 44,
+          backgroundColor: urgent ? t.card : t.bgSub,
+          border: `1px solid ${t.borderLight}`,
+          fontSize: 22, lineHeight: 1,
+        }}>
+        <span aria-hidden>{icon}</span>
+      </button>
+
+      {/* 이름 + 신선도 칩 + 수량 라벨 */}
       <button onClick={selectMode ? onToggleSelect : onEdit} className="flex-1 text-left min-w-0">
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1.5 flex-wrap">
           <span className="truncate" style={{ fontSize: 15, fontWeight: 600, color: t.text,
             textDecoration: empty ? 'line-through' : 'none' }}>{item.name}</span>
-          {days != null && (
-            <span className="flex-shrink-0 px-1.5 py-0.5 rounded-md"
+          {fresh && (
+            <span className="flex-shrink-0 inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full"
               style={{ fontSize: 11, fontWeight: 700,
-                backgroundColor: urgent ? t.danger : t.bgSub,
-                color: urgent ? '#fff' : t.textSub }}>
-              {dDayLabel(days)}
+                backgroundColor: chipColors!.bg,
+                color: chipColors!.fg,
+                border: `1px solid ${chipColors!.bd}` }}>
+              <span aria-hidden>{fresh.emoji}</span> {fresh.label}
             </span>
           )}
         </div>
-        <div style={{ fontSize: 12, color: empty ? t.danger : t.textMuted, marginTop: 2 }}>
-          {empty ? '다 떨어짐' : `${item.quantity}${item.unit ?? ''}`}
+        <div className="flex items-center gap-1.5 mt-1" style={{ fontSize: 12, color: empty ? t.danger : t.textMuted }}>
+          {days != null && (
+            <span className="inline-flex items-center px-1.5 py-0.5 rounded-md"
+              style={{ fontSize: 10, fontWeight: 700,
+                backgroundColor: t.bgSub, color: t.textSub, border: `1px solid ${t.borderLight}` }}>
+              {dDayLabel(days)}
+            </span>
+          )}
+          <span>{empty ? '다 떨어짐' : `${item.quantity}${item.unit ?? ''}`}</span>
         </div>
       </button>
 
-      {/* 수량 스테퍼 (선택 모드에서는 숨김) */}
+      {/* 알약형 수량 스테퍼 (선택 모드에서는 숨김) */}
       {!selectMode && (
-        <div className="flex items-center gap-1.5 flex-shrink-0">
-          <button onClick={() => onQty(-1)} className="rounded-lg flex items-center justify-center active:scale-95"
-            style={{ width: 32, height: 32, border: `1px solid ${t.border}`, backgroundColor: t.bg, color: t.text }}
-            aria-label="수량 감소">
-            <Minus size={15} />
+        <div className="flex items-center flex-shrink-0 rounded-full overflow-hidden"
+          style={{ border: `1px solid ${t.border}`, backgroundColor: t.card }}>
+          <button onClick={() => onQty(-1)} className="flex items-center justify-center active:scale-95"
+            style={{ width: 30, height: 30, color: t.text }} aria-label="수량 감소">
+            <Minus size={14} />
           </button>
-          <span style={{ minWidth: 24, textAlign: 'center', fontSize: 14, fontWeight: 600, color: t.text }}>{item.quantity}</span>
-          <button onClick={() => onQty(1)} className="rounded-lg flex items-center justify-center active:scale-95"
-            style={{ width: 32, height: 32, border: `1px solid ${t.border}`, backgroundColor: t.bg, color: t.text }}
-            aria-label="수량 증가">
-            <Plus size={15} />
+          <span style={{ minWidth: 22, textAlign: 'center', fontSize: 13, fontWeight: 700, color: t.text }}>{item.quantity}</span>
+          <button onClick={() => onQty(1)} className="flex items-center justify-center active:scale-95"
+            style={{ width: 30, height: 30, color: t.accent }} aria-label="수량 증가">
+            <Plus size={14} />
           </button>
         </div>
       )}
@@ -103,14 +163,29 @@ function FridgeRow({ item, onEdit, onQty, selectMode, selected, onToggleSelect }
   );
 }
 
-// 요약 카드
-function SummaryCard({ label, value, danger }: { label: string; value: number; danger?: boolean }) {
+// 요약 카드 — 좌측 작은 아이콘 + 숫자 + 라벨.
+// urgent 가 있고 값이 0보다 크면 카드 배경/테두리에 살짝 강조(t.dangerLight + t.danger55).
+function SummaryCard({ label, value, danger, icon }:
+  { label: string; value: number; danger?: boolean; icon: string }) {
   const { t } = useTheme();
+  const hot = !!danger && value > 0;
   return (
-    <div className="flex-1 rounded-xl px-3 py-2.5 text-center"
-      style={{ backgroundColor: t.card, border: `1px solid ${danger && value > 0 ? t.danger : t.border}` }}>
-      <div style={{ fontSize: 20, fontWeight: 800, color: danger && value > 0 ? t.danger : t.text }}>{value}</div>
-      <div style={{ fontSize: 11, color: t.textSub, marginTop: 2 }}>{label}</div>
+    <div className="flex-1 rounded-2xl px-3 py-2.5 flex items-center gap-2.5"
+      style={{
+        backgroundColor: hot ? t.dangerLight : t.card,
+        border: `1px solid ${hot ? `${t.danger}55` : t.border}`,
+        boxShadow: hot ? `0 2px 12px ${t.danger}15` : t.shadow,
+      }}>
+      <span aria-hidden className="flex items-center justify-center rounded-xl flex-shrink-0"
+        style={{
+          width: 32, height: 32, fontSize: 16, lineHeight: 1,
+          backgroundColor: hot ? t.card : t.bgSub,
+          border: `1px solid ${t.borderLight}`,
+        }}>{icon}</span>
+      <div className="min-w-0">
+        <div style={{ fontSize: 18, fontWeight: 800, color: hot ? t.danger : t.text, lineHeight: 1.1 }}>{value}</div>
+        <div className="truncate" style={{ fontSize: 11, color: hot ? t.danger : t.textSub, marginTop: 1 }}>{label}</div>
+      </div>
     </div>
   );
 }
@@ -301,9 +376,9 @@ export function FridgeTab() {
 
         {/* 요약 */}
         <div className="flex gap-2 mb-4">
-          <SummaryCard label="전체 품목" value={summary.total} />
-          <SummaryCard label="임박 (D-2 이내)" value={summary.near} danger />
-          <SummaryCard label="다 떨어짐" value={summary.out} danger />
+          <SummaryCard label="전체 품목" value={summary.total} icon="🧊" />
+          <SummaryCard label="임박 (D-2 이내)" value={summary.near} danger icon="❗" />
+          <SummaryCard label="다 떨어짐" value={summary.out} danger icon="🪫" />
         </div>
 
         {/* 선택/액션 바 */}
@@ -370,19 +445,22 @@ export function FridgeTab() {
             </button>
           </div>
         ) : (
-          <div className="space-y-5">
+          <div className="space-y-6">
             {CATEGORY_ORDER.map(cat => {
               const list = grouped[cat];
               if (list.length === 0) return null;
               const Icon = CATEGORY_ICON[cat];
               return (
                 <section key={cat}>
-                  <div className="flex items-center gap-1.5 mb-2">
-                    <Icon size={15} color={t.textSub} />
-                    <h3 style={{ fontSize: 13, fontWeight: 700, color: t.textSub }}>{cat}</h3>
-                    <span style={{ fontSize: 12, color: t.textMuted }}>{list.length}</span>
+                  {/* 얇은 골드(accent) 라인 카테고리 헤더 */}
+                  <div className="flex items-center gap-2 mb-2.5">
+                    <Icon size={15} color={t.accent} />
+                    <h3 style={{ fontSize: 13, fontWeight: 700, color: t.text }}>{cat}</h3>
+                    <span style={{ fontSize: 11, fontWeight: 600, color: t.textMuted }}>{list.length}</span>
+                    <div className="flex-1 ml-1" style={{ height: 1, backgroundColor: `${t.accent}33` }} />
                   </div>
-                  <div className="space-y-2">
+                  {/* 모바일 1열 / PC 2~3열 그리드 */}
+                  <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-2 lg:gap-3">
                     {list.map(it => (
                       <FridgeRow key={it.id} item={it} onEdit={() => openEdit(it)} onQty={(d) => handleQty(it, d)}
                         selectMode={selectMode} selected={selectedIds.has(it.id)} onToggleSelect={() => toggleSelect(it.id)} />
