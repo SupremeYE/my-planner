@@ -6,6 +6,7 @@ import { usePlanner } from '../../store';
 import { useTheme } from '../../ThemeContext';
 import { annualRollup, monthlyRollup, weeklyRollup, directChildCount } from './periodProgress';
 import { IdentityCard, ValuesCard } from './IdentityValuesCards';
+import { WeeklyTodosInline } from './WeeklyTodosInline';
 
 // PC "기간별" 모드 캐스케이드 3열: 연간 → 월간 → 주간
 // 좌(연간) 선택 → 중(월간: 그 연간에 연결된 것만) 선택 → 우(주간: 그 월간에 연결된 것만)
@@ -222,6 +223,7 @@ export function PeriodCascadePC() {
                     <Trash2 size={11} />
                   </button>
                 </div>
+                <WeeklyTodosInline weeklyGoalId={w.id} weekKey={w.weekKey} />
               </div>
             );
           })}

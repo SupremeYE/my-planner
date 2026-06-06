@@ -6,6 +6,7 @@ import { usePlanner } from '../../store';
 import { useTheme } from '../../ThemeContext';
 import { annualRollup, monthlyRollup, weeklyRollup, directChildCount } from './periodProgress';
 import { IdentityCard, ValuesCard } from './IdentityValuesCards';
+import { WeeklyTodosInline } from './WeeklyTodosInline';
 
 // 모바일 "기간별" 드릴다운: 연간 → (탭) → 월간 → (탭) → 주간
 // breadcrumb 으로 복귀, 각 카드에 역추적 배지.
@@ -205,6 +206,7 @@ export function PeriodCascadeMobile() {
                   metaIcon={<BarChart2 size={10} />}
                   metaText={`할일 ${childN}`}
                   onDelete={() => deleteWeeklyGoal(w.id)}
+                  footer={<WeeklyTodosInline weeklyGoalId={w.id} weekKey={w.weekKey} />}
                 />
               );
             })}
@@ -225,7 +227,7 @@ export function PeriodCascadeMobile() {
 
 // ─── 공용 드릴 카드 ──────────────────────────────────────────
 function DrillCard({
-  t, onTap, left, eyebrow, title, titleDim, pct, metaIcon, metaText, onDelete,
+  t, onTap, left, eyebrow, title, titleDim, pct, metaIcon, metaText, onDelete, footer,
 }: {
   t: ReturnType<typeof useTheme>['t'];
   onTap?: () => void;
@@ -237,6 +239,7 @@ function DrillCard({
   metaIcon: React.ReactNode;
   metaText: string;
   onDelete?: () => void;
+  footer?: React.ReactNode;
 }) {
   const isTappable = !!onTap;
   return (
@@ -281,6 +284,7 @@ function DrillCard({
           <ChevronRight size={14} style={{ color: t.textMuted, marginTop: 4 }} />
         )}
       </div>
+      {footer}
     </div>
   );
 }

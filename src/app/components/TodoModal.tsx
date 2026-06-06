@@ -23,10 +23,12 @@ interface TodoModalProps {
   todo?: Todo;
   initialPlanStart?: string;
   initialPlanEnd?: string;
+  /** 새 할일 생성 시 자동으로 연결할 주간 목표 id (Phase 4: 기간별 주간 카드 inline 추가) */
+  initialWeeklyGoalId?: string;
   onClose: () => void;
 }
 
-export function TodoModal({ date, todo, initialPlanStart, initialPlanEnd, onClose }: TodoModalProps) {
+export function TodoModal({ date, todo, initialPlanStart, initialPlanEnd, initialWeeklyGoalId, onClose }: TodoModalProps) {
   const { addTodo, updateTodo, deleteTodo, deleteRecurringTodo, updateRecurringTodo, tags: allTags, projects, addTag, updateTag, deleteTag } = usePlanner();
   const { t } = useTheme();
 
@@ -212,6 +214,8 @@ export function TodoModal({ date, todo, initialPlanStart, initialPlanEnd, onClos
     isTop3,
     tags: selectedTags,
     projectId: projectId || undefined,
+    // 기존 weeklyGoalId 보존(편집), 신규 생성 시 initialWeeklyGoalId 자동 적용
+    weeklyGoalId: todo?.weeklyGoalId ?? initialWeeklyGoalId ?? undefined,
     recurrenceRule: recurrenceRule ?? undefined,
     recurrenceDays: recurrenceRule === 'custom' ? recurrenceDays : undefined,
     recurrenceEndDate: recurrenceEndDate || undefined,
