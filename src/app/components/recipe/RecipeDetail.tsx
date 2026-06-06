@@ -7,12 +7,14 @@ import {
 import { useTheme } from '../../ThemeContext';
 import { db } from '../../../lib/db';
 import { useRealtimeSync } from '../../hooks/useRealtimeSync';
-import type { Recipe, RecipeCookLog } from '../../store';
+import type { Recipe, RecipeCookLog, FridgeItem, ShoppingItem } from '../../store';
 import { detectRecipeSourcePlatform, sourcePlatformLabel, type RecipeSourcePlatform } from '../../../lib/recipeSource';
 import { extractYouTubeVideoId } from '../../../lib/youtube';
 import { MAIN_INGREDIENT_PRESETS } from './recipeTags';
 import ConfirmModal from '../ConfirmModal';
 import { RecipeCookFlow } from './RecipeCookFlow';
+import { evaluateIngredients, type IngredientAvailability } from './fridgeMatch';
+import { ShoppingCart } from 'lucide-react';
 
 interface RecipeDetailProps {
   recipe: Recipe;
@@ -113,6 +115,73 @@ export function RecipeDetail({ recipe, onClose, onEdit }: RecipeDetailProps) {
 
   // 릴스형 요리 뷰 열림 상태
   const [cooking, setCooking] = useState(false);
+
+  // ── 냉장고/장보기 비교 — 재료 섹션 있음/부족 표시 + 부족 담기 ──
+  const [fridge, setFridge] = useState<FridgeItem[]>([]);
+  const [shopping, setShopping] = useState<ShoppingItem[]>([]);
+  const [addingToShopping, setAddingToShopping] = useState(false);
+  const refreshFridge = useCallback(() => { db.fridgeItems.fetchAll().then(setFridge); }, []);
+  const refreshShopping = useCallback(() => { db.shoppingItems.fetchAll().then(setShopping); }, []);
+  useEffect(() => { refreshFridge(); refreshShopping(); }, [refreshFridge, refreshShopping]);
+  useRealtimeSync('fridge_items', refreshFridge);
+  useRealtimeSync('shopping_items', refreshShopping);
+
+  const ingredientAvail: IngredientAvailability[] = useMemo(
+    () => evaluateIngredients(recipe, fridge),
+    [recipe, fridge],
+  );
+  const missingIngredients = useMemo(
+    () => ingredientAvail.filter(x => !x.hasInFridge),
+    [ingredientAvail],
+  );
+  // 장보기에 이미(미체크 상태로) 같은 이름이 있는지 — 정규화 비교(공백·대소문자 무시)
+  const norm = (s: string) => s.toLowerCase().replace(/\s+/g, '').trim();
+  const shoppingPendingNames = useMemo(
+    () => new Set(shopping.filter(s => !s.isChecked).map(s => norm(s.name))),
+    [shopping],
+  );
+  const missingToAdd = useMemo(
+    () => missingIngredients.filter(m => !shoppingPendingNames.has(norm(m.name))),
+    [missingIngredients, shoppingPendingNames],
+  );
+  const allMissingAlreadyInShopping = missingIngredients.length > 0 && missingToAdd.length === 0;
+
+  const handleAddMissingToShopping = async () => {
+    if (addingToShopping || missingToAdd.length === 0) return;
+    setAddingToShopping(true);
+    try {
+      const newId = () =>
+        (typeof crypto !== 'undefined' && 'randomUUID' in crypto)
+          ? crypto.randomUUID()
+          : `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+      // 중복 방지: 한 번 더 직전 상태로 필터 (Realtime race 보호)
+      const seen = new Set<string>();
+      const items: ShoppingItem[] = [];
+      for (const m of missingToAdd) {
+        const key = norm(m.name);
+        if (!key || seen.has(key)) continue;
+        seen.add(key);
+        items.push({
+          id: newId(),
+          name: m.name,
+          quantity: m.amount != null && Number.isFinite(m.amount) && m.amount > 0 ? m.amount : 1,
+          unit: m.unit ?? null,
+          sourceRecipeId: recipe.id,
+          sourceLabel: recipe.title,
+          isChecked: false,
+        });
+      }
+      // 순차 insert — 개별 RLS/오류 격리
+      for (const it of items) await db.shoppingItems.upsert(it);
+      refreshShopping();
+      setToast(`🛒 ${items.length}개 부족 재료를 장보기에 담았어요`);
+    } catch (err) {
+      console.error('[RecipeDetail] add missing to shopping failed:', err);
+      alert('장보기 담기 중 오류가 발생했어요.');
+    } finally {
+      setAddingToShopping(false);
+    }
+  };
 
   // 토스트 자동 닫기 (2.4초)
   useEffect(() => {
@@ -361,17 +430,37 @@ export function RecipeDetail({ recipe, onClose, onEdit }: RecipeDetailProps) {
           {/* 재료 */}
           {hasIngredients && (
             <section>
-              <h3 className="flex items-center gap-1.5 mb-2" style={{ fontSize: 14, fontWeight: 700, color: t.text }}>
-                재료 <span style={{ fontSize: 12, fontWeight: 500, color: t.textMuted }}>({recipe.ingredients.length})</span>
-              </h3>
+              <div className="flex items-center justify-between gap-2 mb-2">
+                <h3 className="flex items-center gap-1.5" style={{ fontSize: 14, fontWeight: 700, color: t.text }}>
+                  재료 <span style={{ fontSize: 12, fontWeight: 500, color: t.textMuted }}>({recipe.ingredients.length})</span>
+                </h3>
+                {missingIngredients.length > 0 && (
+                  <span style={{ fontSize: 11, color: t.textMuted }}>
+                    부족 {missingIngredients.length}개
+                  </span>
+                )}
+              </div>
               <ul className="rounded-xl overflow-hidden" style={{ backgroundColor: t.card, border: `1px solid ${t.border}` }}>
                 {recipe.ingredients.map((g, idx) => {
                   const scaled = scaleAmount(g.amount, factor);
+                  const avail = ingredientAvail.find(x => x.ingredientId === g.id);
+                  const has = !!avail?.hasInFridge;
                   return (
-                    <li key={g.id ?? idx} className="flex items-center justify-between gap-3 px-3 py-2.5"
+                    <li key={g.id ?? idx} className="flex items-center justify-between gap-2 px-3 py-2.5"
                       style={{ borderTop: idx === 0 ? 'none' : `1px solid ${t.border}` }}>
-                      <span className="truncate" style={{ fontSize: 14, color: t.text }}>{g.name}</span>
-                      <span style={{ fontSize: 13, fontWeight: 600, color: t.textSub }}>
+                      <div className="flex items-center gap-2 min-w-0 flex-1">
+                        <span className="flex-shrink-0 inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-md"
+                          style={{
+                            fontSize: 10, fontWeight: 700,
+                            backgroundColor: has ? t.accentLight : t.bgSub,
+                            color: has ? t.accent : t.textMuted,
+                            border: `1px solid ${has ? `${t.accent}55` : t.border}`,
+                          }}>
+                          {has ? <><Check size={9} /> 있음</> : '부족'}
+                        </span>
+                        <span className="truncate" style={{ fontSize: 14, color: t.text }}>{g.name}</span>
+                      </div>
+                      <span className="flex-shrink-0" style={{ fontSize: 13, fontWeight: 600, color: t.textSub }}>
                         {scaled != null ? (
                           <>
                             {formatAmount(scaled)}
@@ -385,6 +474,28 @@ export function RecipeDetail({ recipe, onClose, onEdit }: RecipeDetailProps) {
                   );
                 })}
               </ul>
+
+              {/* 부족 재료 → 장보기 담기 */}
+              {missingIngredients.length > 0 && (
+                <button
+                  onClick={handleAddMissingToShopping}
+                  disabled={addingToShopping || allMissingAlreadyInShopping}
+                  className="mt-2 w-full flex items-center justify-center gap-1.5 rounded-xl py-2.5 active:scale-[0.99] transition-transform"
+                  style={{
+                    fontSize: 13, fontWeight: 700,
+                    color: allMissingAlreadyInShopping ? t.textMuted : t.accent,
+                    backgroundColor: allMissingAlreadyInShopping ? t.bgSub : t.accentLight,
+                    border: `1px solid ${allMissingAlreadyInShopping ? t.border : `${t.accent}55`}`,
+                    opacity: addingToShopping ? 0.6 : 1,
+                  }}>
+                  {addingToShopping
+                    ? <Loader2 size={14} className="animate-spin" />
+                    : <ShoppingCart size={14} />}
+                  {allMissingAlreadyInShopping
+                    ? '부족 재료가 이미 장보기에 있어요'
+                    : `부족한 재료 ${missingToAdd.length}개 장보기에 담기`}
+                </button>
+              )}
             </section>
           )}
 
