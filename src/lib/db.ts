@@ -7,7 +7,7 @@ import type {
   FoodRecord, DiningType, TasteRating, Event, WeeklyGoal, MonthlyGoal, BrainstormItem, Tag, Routine,
   PeriodRecord, HabitMonthlyMemo, AnnualGoal, QuarterlyGoal,
   WeightRecord, WeightGoal, ConditionRecord, CultureRecord,
-  Recipe, RecipeIngredient, RecipeStep,
+  Recipe, RecipeIngredient, RecipeStep, RecipeCookLog,
   FridgeItem, ShoppingItem,
 } from '../app/store';
 
@@ -1330,6 +1330,67 @@ export const db = {
       // recipe_ingredients / recipe_steps 는 ON DELETE CASCADE 로 함께 삭제됨
       const { error } = await supabase.from('recipes').delete().eq('id', id);
       if (error) console.error('[db] recipes delete:', error.message);
+    },
+  },
+
+  // ── 레시피 조리 기록 — recipe_cook_logs (Phase 1 B-2) ──
+  recipeCookLogs: {
+    // 특정 레시피의 기록을 최신순으로
+    fetchByRecipe: async (recipeId: string): Promise<RecipeCookLog[]> => {
+      const { data, error } = await supabase
+        .from('recipe_cook_logs')
+        .select('*')
+        .eq('recipe_id', recipeId)
+        .order('cooked_at', { ascending: false });
+      if (error) console.error('[db] recipe_cook_logs fetch:', error.message);
+      return (data ?? []).map((r: any): RecipeCookLog => ({
+        id: r.id,
+        recipeId: r.recipe_id,
+        cookedAt: r.cooked_at,
+        photoUrl: r.photo_url ?? null,
+        note: r.note ?? null,
+        createdAt: r.created_at ?? undefined,
+      }));
+    },
+
+    // 한 건 기록 추가 — 생성된 row 반환(사진 업로드 후 update에 id 필요)
+    insert: async (params: { recipeId: string; note?: string | null }): Promise<RecipeCookLog | null> => {
+      const { data, error } = await supabase
+        .from('recipe_cook_logs')
+        .insert({ recipe_id: params.recipeId, note: params.note ?? null })
+        .select()
+        .single();
+      if (error) { console.error('[db] recipe_cook_logs insert:', error.message); return null; }
+      return {
+        id: data.id,
+        recipeId: data.recipe_id,
+        cookedAt: data.cooked_at,
+        photoUrl: data.photo_url ?? null,
+        note: data.note ?? null,
+        createdAt: data.created_at ?? undefined,
+      };
+    },
+
+    // 사진 URL 사후 업데이트
+    setPhotoUrl: async (id: string, url: string | null): Promise<boolean> => {
+      const { error } = await supabase.from('recipe_cook_logs').update({ photo_url: url }).eq('id', id);
+      if (error) { console.error('[db] recipe_cook_logs setPhotoUrl:', error.message); return false; }
+      return true;
+    },
+
+    // 기존 recipe-photos 버킷 재사용 — 경로: <recipeId>/cooklog/<uuid>.<ext>
+    uploadPhoto: async (recipeId: string, file: File): Promise<string | null> => {
+      const ext = (file.name.split('.').pop() ?? 'jpg').toLowerCase();
+      const path = `${recipeId}/cooklog/${crypto.randomUUID()}.${ext}`;
+      const { error } = await supabase.storage.from('recipe-photos').upload(path, file, { upsert: true });
+      if (error) { console.error('[db] recipe-photos cooklog upload:', error.message); return null; }
+      const { data } = supabase.storage.from('recipe-photos').getPublicUrl(path);
+      return data.publicUrl ?? null;
+    },
+
+    delete: async (id: string) => {
+      const { error } = await supabase.from('recipe_cook_logs').delete().eq('id', id);
+      if (error) console.error('[db] recipe_cook_logs delete:', error.message);
     },
   },
 

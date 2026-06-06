@@ -256,6 +256,16 @@ export interface Recipe {
   updatedAt?: string;
 }
 
+// 레시피 조리 기록 — '만들었어요' 한 건 = 1행. 사진/노트는 선택.
+export interface RecipeCookLog {
+  id: string;
+  recipeId: string;
+  cookedAt: string;       // ISO timestamp
+  photoUrl?: string | null;
+  note?: string | null;
+  createdAt?: string;
+}
+
 // ── 냉장고 / 장보기 (Phase 2) ────────────────────────────────────────────────
 export type FridgeCategory = '냉장' | '냉동' | '실온';
 
