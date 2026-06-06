@@ -234,10 +234,14 @@ export function MandalartBoardMobile({ boardId, boardTitle, cells, onMutate, onR
                 if (longPressed.current) return;
                 if (!sub) {
                   openEditFor({ kind: 'sub', position: pos, cell: null });
-                } else {
+                } else if (progress.subHasActions(sub.id)) {
                   setDrillSubId(sub.id);
+                } else {
+                  // leaf — 자체 체크 토글
+                  db.mandalartCells.update(sub.id, { isDone: !sub.is_done }).then(onMutate);
                 }
               }}
+              onExpand={sub && !progress.subHasActions(sub.id) ? () => setDrillSubId(sub.id) : undefined}
               onLongPress={() => openEditFor({ kind: 'sub', position: pos, cell: sub })}
               startLongPress={startLongPress}
               cancelLongPress={cancelLongPress}
@@ -245,8 +249,8 @@ export function MandalartBoardMobile({ boardId, boardTitle, cells, onMutate, onR
           );
         })}
       </div>
-      <p className="text-center mt-4" style={{ fontSize: 11, color: t.textMuted }}>
-        세부 목표 칸을 탭하면 행동으로 펼쳐져요 (길게 눌러 편집)
+      <p className="text-center mt-4" style={{ fontSize: 11, color: t.textMuted, lineHeight: 1.5 }}>
+        세부 칸을 탭하면 체크 / 행동이 있으면 펼쳐져요 · 길게 눌러 편집
       </p>
 
       {editing && (
@@ -289,10 +293,10 @@ function CoreCell({ title, pct, t, onClick }: {
 }
 
 function SubCell({
-  cell, pct, hasActions, onTap, onLongPress, startLongPress, cancelLongPress,
+  cell, pct, hasActions, onTap, onExpand, onLongPress, startLongPress, cancelLongPress,
 }: {
   cell: Cell | null; pct: number; hasActions: boolean;
-  onTap: () => void; onLongPress: () => void;
+  onTap: () => void; onExpand?: () => void; onLongPress: () => void;
   startLongPress: (run: () => void) => void; cancelLongPress: () => void;
 }) {
   const { t } = useTheme();
@@ -311,33 +315,64 @@ function SubCell({
       </button>
     );
   }
+  const done = !hasActions && cell.is_done;
   return (
-    <button
+    <div
+      role="button"
       onClick={onTap}
       onTouchStart={() => startLongPress(onLongPress)}
       onTouchEnd={cancelLongPress}
       onTouchMove={cancelLongPress}
       onContextMenu={e => { e.preventDefault(); onLongPress(); }}
-      className="aspect-square rounded-2xl flex flex-col items-center justify-center gap-1.5 px-2 relative text-center"
+      className="aspect-square rounded-2xl flex flex-col items-center justify-center gap-1.5 px-2 relative text-center cursor-pointer"
       style={{
-        backgroundColor: t.bgSub, border: `1px solid ${t.borderLight}`,
+        backgroundColor: done ? t.success + '22' : t.bgSub,
+        border: `1px solid ${done ? t.success + '66' : t.borderLight}`,
         color: t.text, minWidth: 0,
       }}
     >
+      {!hasActions && (
+        <span
+          className="rounded-full flex items-center justify-center"
+          style={{
+            width: 18, height: 18,
+            border: `1.5px solid ${done ? t.success : t.accent}`,
+            backgroundColor: done ? t.success : 'transparent',
+            color: done ? '#fff' : 'transparent',
+            fontSize: 10, fontWeight: 700,
+          }}
+        >✓</span>
+      )}
       <span style={{
         fontSize: 12.5, fontWeight: 500, lineHeight: 1.2,
+        color: done ? t.textMuted : t.text,
+        textDecoration: done ? 'line-through' : 'none',
         display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical',
         overflow: 'hidden', wordBreak: 'break-word',
       }}>
         {cell.content}
       </span>
-      <div className="h-1 rounded-full overflow-hidden" style={{ width: '70%', backgroundColor: t.border + '55' }}>
-        <div className="h-full" style={{ width: `${pct}%`, backgroundColor: t.success }} />
-      </div>
       {hasActions && (
-        <ChevronRight size={10} style={{ position: 'absolute', bottom: 6, right: 6, color: t.accent }} />
+        <>
+          <div className="h-1 rounded-full overflow-hidden" style={{ width: '70%', backgroundColor: t.border + '55' }}>
+            <div className="h-full" style={{ width: `${pct}%`, backgroundColor: t.success }} />
+          </div>
+          <ChevronRight size={10} style={{ position: 'absolute', bottom: 6, right: 6, color: t.accent }} />
+        </>
       )}
-    </button>
+      {!hasActions && onExpand && (
+        <span
+          role="button"
+          onClick={e => { e.stopPropagation(); onExpand(); }}
+          style={{
+            position: 'absolute', bottom: 4, right: 6,
+            fontSize: 9, fontWeight: 700, color: t.accent,
+            padding: '2px 5px', borderRadius: 8,
+            backgroundColor: t.accentLight,
+          }}
+        >+ 펼치기</span>
+      )}
+    </div>
   );
 }
 
