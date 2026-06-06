@@ -9,8 +9,7 @@
 ## 2026-06-06
 
 ### 📋 TODO
-- (만다라트 Phase 1~4 완료)
-- (레시피 모듈 D-1 + D-2 완료)
+- [ ] 기간별 모드 Phase 5 — 자동 롤업 정밀화 + /할일·/일간 항목에 🎯 목표 배지 (프로젝트 배지와 같은 줄)
 
 ### ✅ 완료
 - [x] 레시피 모듈 모듈 D-1 — 냉장고 ↔ 레시피 매칭 헬퍼 + 레시피 목록 연결 섹션 (`지금 만들 수 있어요` ready/1개 부족 + `유통기한 임박 재료 레시피` D-2 이내)
@@ -20,8 +19,58 @@
 - [x] 만다라트 Phase 2 — 모바일 드릴다운 3×3 (중앙→세부 칸 탭으로 행동 펼침, 행동 체크 시 진행률 자동 갱신, 빈 칸 +로 추가, 롱프레스로 편집)
 - [x] 만다라트 Phase 3 — PC 9×9 클래식 (가운데 블록 = 핵심+세부8, 둘레 8블록 = 각 세부의 행동8 미러링, 좌클릭 토글·우클릭 편집)
 - [x] 만다라트 Phase 4 — 자유도(펼침/체크 leaf) · 빈 칸 + · 여러 보드 (강제 81칸 아님, 채운 만큼만 표시)
+- [x] 만다라트 후속 버그 수정 — PC 잘림(GoalsHubView flex-1 overflow-y-auto), 새 보드 추가(window.prompt → 인라인 입력), 저장 토스트(culture useToasts 재사용), 드롭다운 폰트(DM Serif → var(--font-gowun) 16/600), 빈 칸 + 라벨("세부 추가"/"행동 추가")
+- [x] 기간별 모드 Phase 1 — `todos.weekly_goal_id text NULL FK ON DELETE SET NULL` 컬럼 + partial index 추가 (별도 join 테이블 없이 한 컬럼만, ON DELETE SET NULL 로 할일 자체는 보존)
+- [x] 기간별 모드 Phase 2 — PC 캐스케이드 3열(연간→월간→주간) + 정체성·핵심가치 카드 + 역추적 배지(`Layers/BarChart2` N · XX%) + `t.success` 진행 바 + 연도 ◀▶ 네비
+- [x] 기간별 모드 Phase 3 — 모바일 드릴다운(연간→월간→주간) + breadcrumb 복귀 + 동일 역추적 배지 + 공용 IdentityValuesCards 추출
+- [x] 기간별 모드 Phase 4 — 주간 카드 안 todos 인라인 체크리스트 + "할일 추가"(weeklyGoalId 자동 지정 + 그 주 월요일 날짜 제안) + "기존 할일 연결" 모달(검색·미연결 우선 정렬·반복 가상 인스턴스 제외)
 
 ### 🛠 오늘 작업 내용
+
+**만다라트 후속 PC 버그 수정**
+- PC에서 9×9 보드 하단이 잘려 보이던 문제: 데스크톱 `<main>` 이 `overflow-hidden` 이라 콘텐츠가 스크롤 없이 클립됨 → `GoalsHubView` 루트를 `flex-1 overflow-y-auto` 스크롤 컨테이너로 변경(다른 뷰와 동일 패턴). 기간별 모드도 자연스럽게 스크롤 가능
+- "새 보드 추가" 버튼이 동작하지 않던 문제: `window.prompt()` 가 임베드/프리뷰 환경에서 차단됨 → 인라인 입력(이름변경과 동일 UX, Enter/체크 버튼 제출)으로 교체. 드롭다운 메뉴 + 우측 ＋ 버튼 모두 인라인 생성 진입
+- 저장 시 피드백 없음: culture 페이지의 경량 토스트(`useToasts`/`ToastHost`) 재사용 → 셀 추가/저장/삭제 + 보드 추가/이름변경/삭제 시 하단에 "추가/저장/삭제되었습니다" 토스트
+- 드롭다운 보드 제목 글씨체 문제: `DM Serif Display` 는 한글 미지원 → 못생긴 serif 폴백 → `var(--font-gowun)` 16px/600 으로 변경, 인라인 입력도 동일 폰트
+- 빈 칸 + 버튼 의미 불명확: PC/모바일 빈 셀에 "세부 추가"/"행동 추가" 작은 라벨 추가
+
+**기간별 모드 Phase 1 — 마이그레이션 (todos ↔ weekly_goals)**
+- 마이그레이션 `20260606030000_todos_weekly_goal_link.sql`: `todos` 에 `weekly_goal_id text NULL` 컬럼 + FK `→ weekly_goals(id) ON DELETE SET NULL` (주간 목표 삭제 시 할일은 보존되고 연결만 끊김) + partial index `todos_weekly_goal_idx WHERE weekly_goal_id IS NOT NULL` (주간 카드의 "연결된 todos" 조회 최적화)
+- 한 할일 = 하나의 주간 목표 정책으로 별도 join 테이블 미사용
+- Supabase MCP 로 원격 DB 에 적용 완료, 기존 todos 4건 모두 `weekly_goal_id=null` 유지 → 다른 페이지 영향 0
+- `store.tsx` `Todo` 인터페이스 + `db.ts` `TodoRow`/`toTodo`/`fromTodo` 에 `weeklyGoalId` 매핑 추가 (`select('*')` 사용 중이라 자동 포함)
+
+**기간별 모드 Phase 2 — PC 캐스케이드 3열**
+- PC 4탭 화면이 빈 공간이 많고 연간→월간→주간 연결을 한눈에 보기 어렵던 문제 해결 → 한 화면 캐스케이드
+- 신규 `period/PeriodCascadePC.tsx`: 좌(연간 + 상단 IdentityCard/ValuesCard) → 중(선택된 연간에 연결된 월간만) → 우(선택된 월간에 연결된 주간만). 선택 카드 골드 강조(`border: 1.5px t.accent` + `bg: t.accentLight`). 연도 ◀ 2026 ▶
+- 신규 `period/periodProgress.ts`: `weeklyRollup`(연결된 todos done/total, 없으면 `weeklyGoal.done` 폴백) → `monthlyRollup`(하위 주간 합산) → `annualRollup`(하위 월간 합산). Phase 4 todos 연결 즉시 자동 반영
+- 카드 풋라인: `<Layers> 월간 N` / `<Layers> 주간 N` / `<BarChart2> 할일 N` + `XX%` + `t.success` 진행 바 → 모든 단계에서 부모-자식 연결 + 진행률이 즉시 보임
+- 각 열 하단 추가 인풋 (월간 열은 `<input type="month">` 추가) + 빈 상태 안내("연간을 먼저 선택" 등)
+- 기존 CRUD/연결 로직 보존: `addAnnualGoal`/`addMonthlyGoal`/`addWeeklyGoal`/toggle/delete/AnnualProfile 그대로 사용
+- `MonthlyView.tsx`: PC 트리는 `<PeriodCascadePC/>` 만 렌더, 기존 헤더/4탭은 `hidden` 으로 보존(롤백 안전)
+
+**기간별 모드 Phase 3 — 모바일 드릴다운**
+- 신규 `period/PeriodCascadeMobile.tsx`: 단계 상태 `Level = annual | monthly | weekly` 로 한 번에 한 화면만. 월간/주간 단계 상단 breadcrumb (`← 2026년 · 연간 텍스트 · 월간 텍스트`) — 중간 단계 텍스트도 클릭으로 위로 복귀
+- 각 카드 = 공용 `DrillCard`: PC 와 같은 역추적 배지/진행률, 우측 ChevronRight 로 드릴 가능 시각화, 연간/주간 카드에 좌측 체크 토글, 월간은 eyebrow 에 `yyyy-MM`. 연간 단계 상단에 IdentityCard + ValuesCard
+- 신규 `period/IdentityValuesCards.tsx`: PC 내부 정의를 추출한 공용 정체성/핵심가치 카드(autosave 600ms, 최대 3 칩). PC/모바일 둘 다 이 모듈을 import 해서 행동 통일
+- `MonthlyView.tsx` 모바일 트리 = `<PeriodCascadeMobile/>` 로 교체. 기존 4탭 콘텐츠 보존(hidden)
+
+**기간별 모드 Phase 4 — 주간 카드 안 todos 인라인 체크리스트**
+- 신규 `period/WeeklyTodosInline.tsx`: 주간 카드 하단(PC) 또는 footer(모바일 DrillCard) 에 끼움
+  - 연결된 todos 를 좌측 ○/✓ + 제목 truncate + 짧은 날짜(MM-dd) + × 로 인라인 표시. 좌측 ○/✓ 클릭 = `updateTodo({status})` (기존 레코드 그대로 → `/할일`·`/일간`·`/주간`·`/캘린더` 모두 동일 항목 동기화). 행 탭 = `TodoModal` 편집 진입
+  - "할일 추가" → `TodoModal` 진입 시 `initialWeeklyGoalId` 자동 지정 + 그 주 **월요일** 을 `date` 기본값으로 제안(`weekKeyToMonday` ISO 주 → 월요일 변환)
+  - "기존 할일 연결" → 별도 모달 `LinkExistingTodoModal`: 검색 + 미연결 우선 정렬 + 다른 주간에 이미 연결된 항목에는 "연결됨" 칩. 가상 반복 인스턴스(`'__'` 포함 id) 제외. 선택 시 `updateTodo({weeklyGoalId})`
+  - × 클릭 = `updateTodo({weeklyGoalId: undefined})` → DB null (`fromTodo` 매핑이 `?? null` 처리), 할일 자체는 보존
+- `TodoModal.tsx`: `initialWeeklyGoalId` prop 추가, `buildChanges` 에서 `weeklyGoalId: todo?.weeklyGoalId ?? initialWeeklyGoalId ?? undefined` 로 자동 적용(편집 시 기존값 보존). UI 변경 0
+- `DrillCard` 에 `footer?: React.ReactNode` prop 추가
+
+**원칙 준수**
+- 새 색상 값 하드코딩 0 — `t.accent / t.accentLight / t.accentSoft / t.success / t.bgSub / t.borderLight / t.card / t.sidebar` 등 기존 토큰만 사용
+- 폰트 추가 import 0 — 기존 `fonts.css` 의 DM Serif Display·Nanum Pen·Gaegu·Gowun 그대로 활용
+- 다른 페이지 무영향 — 만다라트·`/할일`·`/일간`·`/캘린더`·`/주간` 등 기존 동작/스키마 변경 없음 (Todo 옵셔널 필드 1개 추가뿐)
+- Figma 디렉터리(`src/app/components/figma/`) 미수정
+- `MonthlyView` 기존 4탭 컴포넌트(`AnnualGoalsContent`/`QuarterlyGoalsContent`/`MonthlyGoalsContent`/`WeeklyGoalsSection`) 는 정의 보존 — `WeeklyGoalsSection` 은 다른 페이지에서도 import 사용 중
+- 모든 Phase 후 `npm run build` 통과, main 에 직접 푸시(사용자 명시 허가)
 
 **레시피 모듈 D-1 — 냉장고 ↔ 레시피 매칭 + 목록 연결 섹션**
 - 신규 `src/app/components/recipe/fridgeMatch.ts`: 정규화(공백/대소문자 무시) + 양방향 부분일치 + 동의어 그룹(면↔파스타·국수·스파게티, 계란↔달걀, 돼지↔돼지고기·삼겹살 등)으로 표기 차이('계란' vs '계란 12') 흡수
