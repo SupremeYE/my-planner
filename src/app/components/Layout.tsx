@@ -460,6 +460,15 @@ export function Layout() {
   const [rightPanelOpen, setRightPanelOpen] = useState(true);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const location = useLocation();
+  const desktopMainRef = useRef<HTMLElement>(null);
+  const mobileMainRef = useRef<HTMLElement>(null);
+
+  // 라우트 변경 시 메인 스크롤을 최상단으로 리셋
+  // (이전 페이지 스크롤이 유지되어 새 페이지 제목/sticky 헤더가 가려지는 버그 방지)
+  useEffect(() => {
+    desktopMainRef.current?.scrollTo({ top: 0, left: 0 });
+    mobileMainRef.current?.scrollTo({ top: 0, left: 0 });
+  }, [location.pathname]);
 
   // 대시보드 메뉴 선택시 우측 패널 숨김
   const isDashboardRoute = location.pathname === '/dashboard';
@@ -695,7 +704,7 @@ export function Layout() {
         </aside>
 
         {/* Main Content */}
-        <main className="flex-1 overflow-hidden flex flex-col" style={{ backgroundColor: t.bg }}>
+        <main ref={desktopMainRef} className="flex-1 overflow-hidden flex flex-col" style={{ backgroundColor: t.bg }}>
           <NotificationPermissionBanner />
           <Outlet />
         </main>
@@ -762,7 +771,7 @@ export function Layout() {
           </div>
         </div>
 
-        <main className="flex-1 overflow-y-auto overflow-x-hidden overscroll-contain" style={{ backgroundColor: t.bg, paddingBottom: 'calc(5.5rem + env(safe-area-inset-bottom))' }}>
+        <main ref={mobileMainRef} className="flex-1 overflow-y-auto overflow-x-hidden overscroll-contain" style={{ backgroundColor: t.bg, paddingBottom: 'calc(5.5rem + env(safe-area-inset-bottom))' }}>
           <NotificationPermissionBanner />
           <Outlet />
         </main>
