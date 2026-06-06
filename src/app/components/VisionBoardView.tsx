@@ -79,7 +79,9 @@ function VisionCard({
         transition: dragging ? 'none' : 'transform .25s ease, box-shadow .25s ease',
         cursor: onClick ? 'pointer' : 'default',
         opacity: isDragSource ? 0.35 : 1,
-        touchAction: 'none', // dnd-kit TouchSensor 권장
+        // 모바일: 세로 스크롤은 허용하고(롱프레스 250ms 후에만 드래그 시작),
+        // touch-action:none 이면 카드 위에서 보드 스크롤이 막힘 → pan-y 로 완화
+        touchAction: 'pan-y',
       }}
       className="vision-pin"
     >
@@ -169,11 +171,13 @@ function VisionCard({
   );
 }
 
-// ── 빈 상태 (필터 결과 0개) ────────────────────────────────────────
-function VisionEmpty() {
+// ── 빈 상태 (필터 결과 0개) — 클릭 시 추가 모달 ────────────────────
+function VisionEmpty({ onClick }: { onClick?: () => void }) {
   const { t } = useTheme();
   return (
     <div
+      onClick={onClick}
+      role={onClick ? 'button' : undefined}
       style={{
         breakInside: 'avoid',
         marginBottom: 18,
@@ -187,6 +191,7 @@ function VisionEmpty() {
         justifyContent: 'center',
         gap: 8,
         color: t.accent,
+        cursor: onClick ? 'pointer' : 'default',
       }}
     >
       <Plus size={30} strokeWidth={1.2} />
@@ -393,7 +398,7 @@ export function VisionBoardView() {
       <DndContext sensors={sensors} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
         <div className="vision-board" style={{ paddingBottom: 130 }}>
           {loading ? null : filteredItems.length === 0 ? (
-            <VisionEmpty />
+            <VisionEmpty onClick={handleAddClick} />
           ) : (
             filteredItems.map((item, idx) => (
               <VisionCard
