@@ -15,6 +15,7 @@ import {
 } from '../store';
 import { useTheme } from '../ThemeContext';
 import { WeeklyGoalsSection } from './WeeklyView';
+import { PeriodCascadePC } from './period/PeriodCascadePC';
 
 type GoalTab = 'annual' | 'quarterly' | 'monthly' | 'weekly';
 
@@ -60,9 +61,12 @@ export function MonthlyView() {
 
   return (
     <div style={{ minHeight: '100%', backgroundColor: t.bg }}>
-      {/* Header */}
+      {/* PC: 캐스케이드 3열 (연간→월간→주간). 모바일은 Phase 3 드릴다운 작업 전까지 기존 4탭 유지 */}
+      <PeriodCascadePC />
+
+      {/* Header (모바일 전용) */}
       <div
-        className="sticky top-0 z-10 px-4 py-4"
+        className="lg:hidden sticky top-0 z-10 px-4 py-4"
         style={{ backgroundColor: t.sidebar, borderBottom: `1px solid ${t.border}` }}
       >
         {/* 날짜 네비게이션 */}
@@ -124,21 +128,23 @@ export function MonthlyView() {
         </div>
       </div>
 
-      {/* Tab Content */}
-      {safeTab === 'annual' && (
-        <AnnualGoalsContent key={annualYear} year={annualYear} />
-      )}
-      {safeTab === 'quarterly' && appSettings.showQuarterlyGoals && (
-        <QuarterlyGoalsContent year={annualYear} />
-      )}
-      {safeTab === 'monthly' && (
-        <MonthlyGoalsContent viewDate={monthlyViewDate} />
-      )}
-      {safeTab === 'weekly' && (
-        <div className="p-4">
-          <WeeklyGoalsSection weekKey={weekKey} viewDate={weeklyViewDate} />
-        </div>
-      )}
+      {/* Tab Content (모바일 전용) */}
+      <div className="lg:hidden">
+        {safeTab === 'annual' && (
+          <AnnualGoalsContent key={annualYear} year={annualYear} />
+        )}
+        {safeTab === 'quarterly' && appSettings.showQuarterlyGoals && (
+          <QuarterlyGoalsContent year={annualYear} />
+        )}
+        {safeTab === 'monthly' && (
+          <MonthlyGoalsContent viewDate={monthlyViewDate} />
+        )}
+        {safeTab === 'weekly' && (
+          <div className="p-4">
+            <WeeklyGoalsSection weekKey={weekKey} viewDate={weeklyViewDate} />
+          </div>
+        )}
+      </div>
     </div>
   );
 }

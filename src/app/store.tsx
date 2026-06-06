@@ -28,6 +28,8 @@ export interface Todo {
   doElapsedSec?: number;
   category?: string;
   projectId?: string;
+  /** 연결된 주간 목표 id (Phase 4·5: 목표↔할일 롤업) */
+  weeklyGoalId?: string;
   tags?: string[];
   // 반복 일정 필드
   recurrenceRule?: 'daily' | 'weekly' | 'weekdays' | 'custom';

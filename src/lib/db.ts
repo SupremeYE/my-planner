@@ -32,7 +32,9 @@ type TodoRow = {
   status: string; is_top3: boolean; plan_start: string | null; plan_end: string | null;
   do_start: string | null; do_end: string | null; do_elapsed_sec: number | null;
   category: string | null;
-  project_id: string | null; tags: string[];
+  project_id: string | null;
+  weekly_goal_id: string | null;
+  tags: string[];
   recurrence_rule: string | null;
   recurrence_days: number[] | null;
   recurrence_end_date: string | null;
@@ -153,6 +155,7 @@ const toTodo = (r: TodoRow): Todo => ({
   doStart: r.do_start ?? undefined, doEnd: r.do_end ?? undefined,
   doElapsedSec: r.do_elapsed_sec ?? undefined,
   category: r.category ?? undefined, projectId: r.project_id ?? undefined,
+  weeklyGoalId: r.weekly_goal_id ?? undefined,
   tags: r.tags ?? [],
   recurrenceRule: r.recurrence_rule as Todo['recurrenceRule'] ?? undefined,
   recurrenceDays: r.recurrence_days ?? undefined,
@@ -168,6 +171,7 @@ const fromTodo = (t: Todo): TodoRow => ({
   do_start: t.doStart ?? null, do_end: t.doEnd ?? null,
   do_elapsed_sec: t.doElapsedSec ?? null,
   category: t.category ?? null, project_id: t.projectId ?? null,
+  weekly_goal_id: t.weeklyGoalId ?? null,
   tags: t.tags ?? [],
   recurrence_rule: t.recurrenceRule ?? null,
   recurrence_days: t.recurrenceDays ?? null,
