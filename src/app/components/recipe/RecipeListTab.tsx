@@ -531,6 +531,8 @@ function useCollapsed(key: string, defaultOpen: boolean): [boolean, () => void] 
   return [open, toggle];
 }
 
+// 명확한 카드형 토글 헤더 — 컬러 좌측 액센트 바 + 카드 배경 + 호버/펼침 시 살짝 강조.
+// 카드처럼 분리돼 보여서 클릭 영역이 한눈에 인식됨.
 function SectionHeader({ icon, color, title, hint, count, open, onToggle }: {
   icon: React.ReactNode; color: string; title: string; hint: string; count: number;
   open: boolean; onToggle: () => void;
@@ -538,15 +540,22 @@ function SectionHeader({ icon, color, title, hint, count, open, onToggle }: {
   const { t } = useTheme();
   return (
     <button type="button" onClick={onToggle}
-      className="w-full flex items-center gap-2 mb-2 px-1 py-1 rounded-lg active:scale-[0.99] transition-transform"
-      aria-expanded={open}>
+      className="w-full flex items-center gap-2 mb-2 pl-2 pr-3 py-2 rounded-xl active:scale-[0.995] transition-all hover:shadow-sm"
+      aria-expanded={open}
+      style={{
+        backgroundColor: open ? `${color}0F` : t.card,
+        border: `1px solid ${open ? `${color}55` : t.border}`,
+        borderLeft: `3px solid ${color}`,
+        boxShadow: t.shadow,
+      }}>
       {icon}
-      <h2 style={{ fontSize: 13, fontWeight: 700, color: t.textSub }}>{title}</h2>
+      <h2 style={{ fontSize: 13, fontWeight: 700, color: t.text }}>{title}</h2>
       <span className="px-1.5 py-0.5 rounded-full" style={{ fontSize: 11, fontWeight: 700,
         backgroundColor: `${color}1A`, color, border: `1px solid ${color}55` }}>{count}</span>
-      <span style={{ fontSize: 11, color: t.textMuted }}>{hint}</span>
-      <span className="ml-auto flex items-center" style={{ color: t.textMuted }}>
-        {open ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+      <span className="truncate hidden sm:inline" style={{ fontSize: 11, color: t.textMuted }}>{hint}</span>
+      <span className="ml-auto flex items-center justify-center rounded-full flex-shrink-0"
+        style={{ width: 22, height: 22, color, backgroundColor: `${color}1A`, border: `1px solid ${color}33` }}>
+        {open ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
       </span>
     </button>
   );
