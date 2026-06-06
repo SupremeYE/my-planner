@@ -4,7 +4,7 @@ import {
 } from 'lucide-react';
 import { useTheme } from '../../ThemeContext';
 import { usePlanner, type Recipe, type MealType } from '../../store';
-import { useTimers } from '../../timers/TimerProvider';
+import { useTimers, remainingSec, formatClock } from '../../timers/TimerProvider';
 import { MAIN_INGREDIENT_PRESETS } from './recipeTags';
 
 // DB에 저장된 timerSeconds가 null인 기존 레시피를 위한 폴백 — 단계 텍스트에서 실시간 감지.
@@ -58,7 +58,7 @@ interface RecipeCookFlowProps {
 // 릴스형 요리 뷰 — 한 단계 = 한 전체화면 카드. C-1 공용 타이머 엔진 사용.
 export function RecipeCookFlow({ recipe, onClose }: RecipeCookFlowProps) {
   const { t } = useTheme();
-  const { startTimer } = useTimers();
+  const { startTimer, timers, nowMs, openPanel } = useTimers();
   const { addFoodRecord } = usePlanner();
 
   const steps = useMemo(
@@ -183,6 +183,34 @@ export function RecipeCookFlow({ recipe, onClose }: RecipeCookFlowProps) {
               {isDone ? '완성' : `${index + 1} / ${total}`}
             </span>
           </div>
+
+          {/* 실행 중 타이머 — 미니칩이 이 풀스크린 뒤에 가려지므로 여기서 직접 시간 표시 */}
+          {timers.length > 0 && (
+            <div className="flex gap-1.5 overflow-x-auto pb-2" style={{ scrollbarWidth: 'none' }}>
+              {timers.map(tm => {
+                const done = tm.status === 'done';
+                const rem = remainingSec(tm, nowMs);
+                return (
+                  <button key={tm.id} onClick={openPanel}
+                    className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-full flex-shrink-0 active:scale-95 transition-transform"
+                    style={{
+                      backgroundColor: done ? t.accent : t.accentLight,
+                      border: `1px solid ${done ? t.accent : 'transparent'}`,
+                    }}>
+                    <Timer size={13} color={done ? '#fff' : t.accent} className={done ? '' : 'animate-pulse'} />
+                    <span className="truncate" style={{ fontSize: 11, fontWeight: 600, maxWidth: 80,
+                      color: done ? 'rgba(255,255,255,0.85)' : t.textSub }}>
+                      {tm.label || '타이머'}
+                    </span>
+                    <span style={{ fontSize: 13, fontWeight: 800, fontVariantNumeric: 'tabular-nums',
+                      color: done ? '#fff' : t.accent }}>
+                      {done ? '완료!' : formatClock(rem)}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          )}
         </div>
 
         {/* 본문 */}
@@ -235,17 +263,38 @@ export function RecipeCookFlow({ recipe, onClose }: RecipeCookFlowProps) {
                   ? step.timerSeconds
                   : detectTimerSec(step.instruction);
                 if (!timerSec) return null;
-                const label = timerSec >= 60
+                const timerLabel = `${step.stepNo ?? index + 1}단계 · ${recipe.title}`;
+                // 이미 이 단계 타이머가 실행/완료 중이면 라이브 카운트다운으로 전환 (중복 시작 방지)
+                const active = timers.find(tm => tm.label === timerLabel);
+                const durLabel = timerSec >= 60
                   ? `${Math.floor(timerSec / 60)}분${timerSec % 60 > 0 ? ` ${timerSec % 60}초` : ''}`
                   : `${timerSec}초`;
+
+                if (active) {
+                  const done = active.status === 'done';
+                  const rem = remainingSec(active, nowMs);
+                  return (
+                    <button onClick={openPanel}
+                      className="mx-auto mb-4 flex items-center gap-2.5 px-5 py-3 rounded-2xl active:scale-95 transition-transform"
+                      style={{ fontSize: 16, fontWeight: 800,
+                        color: '#fff', backgroundColor: done ? '#6BAA7A' : t.accent,
+                        boxShadow: `0 8px 22px ${(done ? '#6BAA7A' : t.accent)}55` }}>
+                      <Timer size={18} className={done ? '' : 'animate-pulse'} />
+                      {done ? '⏰ 시간 완료!' : (
+                        <span style={{ fontVariantNumeric: 'tabular-nums' }}>{formatClock(rem)} 남음</span>
+                      )}
+                    </button>
+                  );
+                }
+
                 return (
                   <button
-                    onClick={() => startTimer(timerSec, `${step.stepNo ?? index + 1}단계 · ${recipe.title}`)}
+                    onClick={() => startTimer(timerSec, timerLabel)}
                     className="mx-auto mb-4 flex items-center gap-2 px-5 py-3 rounded-2xl active:scale-95 transition-transform"
                     style={{ fontSize: 15, fontWeight: 800, color: '#fff', backgroundColor: t.accent,
                       boxShadow: `0 8px 22px ${t.accent}55` }}>
                     <Timer size={18} />
-                    타이머 시작 ({label})
+                    타이머 시작 ({durLabel})
                   </button>
                 );
               })()}
