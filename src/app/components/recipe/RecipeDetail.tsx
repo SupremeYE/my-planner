@@ -111,14 +111,23 @@ export function RecipeDetail({ recipe, onClose, onEdit }: RecipeDetailProps) {
   const handleMarkCooked = async () => {
     if (marking) return;
     setMarking(true);
-    const inserted = await db.recipeCookLogs.insert({ recipeId: recipe.id });
-    if (inserted) {
+    try {
+      const inserted = await db.recipeCookLogs.insert({ recipeId: recipe.id });
+      if (!inserted) {
+        // 대표 원인: recipe_cook_logs 마이그레이션 미적용 / RLS / 네트워크
+        alert('만든 기록 저장에 실패했어요.\n잠시 후 다시 시도해 주세요.\n(테이블이 없다면 마이그레이션 20260606020000_create_recipe_cook_logs.sql 을 적용해 주세요)');
+        return;
+      }
       // recipes.cook_count + 1, last_cooked_at 갱신 — 기존 markCooked 재사용
       await db.recipes.markCooked(recipe.id, recipe.cookCount ?? 0);
       setCookLogs(prev => [inserted, ...prev]);
       setPendingPhotoLogId(inserted.id); // 사진 추가 안내 시트 열기
+    } catch (err) {
+      console.error('[RecipeDetail] markCooked failed:', err);
+      alert('만든 기록 저장 중 오류가 발생했어요.');
+    } finally {
+      setMarking(false);
     }
-    setMarking(false);
   };
 
   const onPickPhoto = (source: 'camera' | 'gallery') => {
@@ -131,13 +140,21 @@ export function RecipeDetail({ recipe, onClose, onEdit }: RecipeDetailProps) {
     e.target.value = '';
     if (!file || !pendingPhotoLogId) return;
     setUploadingPhoto(true);
-    const url = await db.recipeCookLogs.uploadPhoto(recipe.id, file);
-    if (url) {
+    try {
+      const url = await db.recipeCookLogs.uploadPhoto(recipe.id, file);
+      if (!url) {
+        alert('사진 업로드에 실패했어요. 다시 시도해 주세요.');
+        return;
+      }
       await db.recipeCookLogs.setPhotoUrl(pendingPhotoLogId, url);
       setCookLogs(prev => prev.map(l => l.id === pendingPhotoLogId ? { ...l, photoUrl: url } : l));
+    } catch (err) {
+      console.error('[RecipeDetail] photo upload failed:', err);
+      alert('사진 업로드 중 오류가 발생했어요.');
+    } finally {
+      setUploadingPhoto(false);
+      setPendingPhotoLogId(null);
     }
-    setUploadingPhoto(false);
-    setPendingPhotoLogId(null);
   };
 
   const handleDeleteLog = async () => {
