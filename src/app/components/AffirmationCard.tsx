@@ -93,7 +93,7 @@ export function AffirmationCard({ date }: { date: string }) {
 
   return (
     <div
-      className="flex items-center gap-2.5 rounded-2xl pl-2.5 pr-2 py-2 group transition-all duration-200 hover:-translate-y-px"
+      className="flex items-start lg:items-center gap-2.5 rounded-2xl pl-2.5 pr-2 py-2 group transition-all duration-200 hover:-translate-y-px"
       style={{
         background: cardBg,
         border: `1px solid ${borderColor}`,
@@ -102,15 +102,36 @@ export function AffirmationCard({ date }: { date: string }) {
         minWidth: 0,
       }}
     >
-      {/* 포인트 배지 안의 Sparkles 아이콘 */}
+      {/* 포인트 배지 안의 Sparkles 아이콘 — 모바일: 첫 줄 상단 정렬, PC: 세로 가운데 */}
       <span
-        className="flex items-center justify-center rounded-full transition-transform duration-200 group-hover:scale-105"
+        className="flex items-center justify-center rounded-full transition-transform duration-200 group-hover:scale-105 mt-0.5 lg:mt-0"
         style={{ width: 24, height: 24, background: badgeBg, flexShrink: 0 }}
       >
         <Sparkles size={13} color={accentColor} />
       </span>
 
+      {/* 모바일: 최대 3줄 줄바꿈, PC: 한 줄 말줄임 유지 */}
       <span
+        className="lg:hidden"
+        style={{
+          flex: 1,
+          fontSize: 13,
+          color: textColor,
+          fontFamily: "'Gowun Dodum', 'Pretendard', sans-serif",
+          letterSpacing: '-0.005em',
+          lineHeight: 1.65,
+          display: '-webkit-box',
+          WebkitBoxOrient: 'vertical',
+          WebkitLineClamp: 3,
+          overflow: 'hidden',
+          wordBreak: 'keep-all',
+          overflowWrap: 'break-word',
+        }}
+      >
+        {displayText}
+      </span>
+      <span
+        className="hidden lg:block"
         style={{
           flex: 1,
           fontSize: 13,
