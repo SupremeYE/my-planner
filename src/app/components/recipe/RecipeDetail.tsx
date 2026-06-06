@@ -96,6 +96,8 @@ export function RecipeDetail({ recipe, onClose, onEdit }: RecipeDetailProps) {
   // 사진 추가 안내 시트 — 방금 추가한 cook log id 보관
   const [pendingPhotoLogId, setPendingPhotoLogId] = useState<string | null>(null);
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
+  // 만든 기록 추가 확인 토스트 — 사진을 건너뛰거나 첨부 완료 시 "추가됐다"는 피드백
+  const [toast, setToast] = useState<string | null>(null);
   // 갤러리/카메라 트리거용 두 개 input
   const galleryInputRef = useRef<HTMLInputElement | null>(null);
   const cameraInputRef = useRef<HTMLInputElement | null>(null);
@@ -107,6 +109,13 @@ export function RecipeDetail({ recipe, onClose, onEdit }: RecipeDetailProps) {
   useEffect(() => { refreshLogs(); }, [refreshLogs]);
   // Realtime — 다른 기기에서 기록 추가/삭제 시 즉시 반영
   useRealtimeSync('recipe_cook_logs', refreshLogs);
+
+  // 토스트 자동 닫기 (2.4초)
+  useEffect(() => {
+    if (!toast) return;
+    const id = window.setTimeout(() => setToast(null), 2400);
+    return () => window.clearTimeout(id);
+  }, [toast]);
 
   const handleMarkCooked = async () => {
     if (marking) return;
@@ -148,6 +157,7 @@ export function RecipeDetail({ recipe, onClose, onEdit }: RecipeDetailProps) {
       }
       await db.recipeCookLogs.setPhotoUrl(pendingPhotoLogId, url);
       setCookLogs(prev => prev.map(l => l.id === pendingPhotoLogId ? { ...l, photoUrl: url } : l));
+      setToast('📸 사진과 함께 만든 기록에 추가됐어요');
     } catch (err) {
       console.error('[RecipeDetail] photo upload failed:', err);
       alert('사진 업로드 중 오류가 발생했어요.');
@@ -471,7 +481,7 @@ export function RecipeDetail({ recipe, onClose, onEdit }: RecipeDetailProps) {
       {pendingPhotoLogId && (
         <PhotoPromptSheet
           onPick={(src) => onPickPhoto(src)}
-          onSkip={() => setPendingPhotoLogId(null)}
+          onSkip={() => { setPendingPhotoLogId(null); setToast('✓ 만든 기록에 추가됐어요'); }}
           uploading={uploadingPhoto}
         />
       )}
@@ -492,6 +502,20 @@ export function RecipeDetail({ recipe, onClose, onEdit }: RecipeDetailProps) {
           onConfirm={handleDeleteLog}
           onCancel={() => setConfirmDeleteLogId(null)}
         />
+      )}
+
+      {/* 만든 기록 추가 토스트 — 사진 건너뛰기/첨부 후 선택됐음을 알림 */}
+      {toast && (
+        <div className="fixed inset-x-0 z-[70] flex justify-center px-4 pointer-events-none"
+          style={{ bottom: 'calc(96px + env(safe-area-inset-bottom))' }}>
+          <style>{`@keyframes recipeToastUp{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}`}</style>
+          <div className="flex items-center gap-2 px-4 py-2.5 rounded-full"
+            style={{ animation: 'recipeToastUp .2s ease-out',
+              backgroundColor: t.text, color: t.bg,
+              fontSize: 13, fontWeight: 700, boxShadow: '0 8px 24px rgba(0,0,0,0.25)', maxWidth: '92%' }}>
+            <span className="truncate">{toast}</span>
+          </div>
+        </div>
       )}
     </div>
   );
