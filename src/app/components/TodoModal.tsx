@@ -33,7 +33,7 @@ interface TodoModalProps {
 }
 
 export function TodoModal({ date, todo, initialPlanStart, initialPlanEnd, initialWeeklyGoalId, initialProjectId, initialMilestoneId, onClose }: TodoModalProps) {
-  const { addTodo, updateTodo, deleteTodo, deleteRecurringTodo, updateRecurringTodo, tags: allTags, projects, addTag, updateTag, deleteTag } = usePlanner();
+  const { addTodo, updateTodo, deleteTodo, deleteRecurringTodo, updateRecurringTodo, tags: allTags, projects, milestones, addTag, updateTag, deleteTag } = usePlanner();
   const { t } = useTheme();
 
   // ── 반복 관련 ───────────────────────────────────────────────────────────────
@@ -62,6 +62,7 @@ export function TodoModal({ date, todo, initialPlanStart, initialPlanEnd, initia
   const [isTop3, setIsTop3] = useState(todo?.isTop3 ?? false);
   const [selectedTags, setSelectedTags] = useState<string[]>(todo?.tags ?? []);
   const [projectId, setProjectId] = useState(todo?.projectId ?? initialProjectId ?? '');
+  const [milestoneId, setMilestoneId] = useState(todo?.milestoneId ?? initialMilestoneId ?? '');
   const [showNewTag, setShowNewTag] = useState(false);
   const [newTagName, setNewTagName] = useState('');
   const [newTagColor, setNewTagColor] = useState(DEFAULT_TAG_COLORS[0]);
@@ -220,8 +221,8 @@ export function TodoModal({ date, todo, initialPlanStart, initialPlanEnd, initia
     projectId: projectId || undefined,
     // 기존 weeklyGoalId 보존(편집), 신규 생성 시 initialWeeklyGoalId 자동 적용
     weeklyGoalId: todo?.weeklyGoalId ?? initialWeeklyGoalId ?? undefined,
-    // 마일스톤 연결 — 편집 시 기존값 보존, 신규 생성 시 initialMilestoneId 자동 적용
-    milestoneId: todo?.milestoneId ?? initialMilestoneId ?? undefined,
+    // 마일스톤 연결 — 폼 state 우선 (해제·재선택 모두 반영)
+    milestoneId: (projectId && milestoneId) ? milestoneId : undefined,
     recurrenceRule: recurrenceRule ?? undefined,
     recurrenceDays: recurrenceRule === 'custom' ? recurrenceDays : undefined,
     recurrenceEndDate: recurrenceEndDate || undefined,
@@ -482,7 +483,7 @@ export function TodoModal({ date, todo, initialPlanStart, initialPlanEnd, initia
             <label style={{ fontSize: 11, color: t.textSub, fontWeight: 600 }}>프로젝트</label>
             <select
               value={projectId}
-              onChange={e => setProjectId(e.target.value)}
+              onChange={e => { setProjectId(e.target.value); setMilestoneId(''); }}
               className="w-full mt-1 rounded-lg px-3 py-2 outline-none"
               style={{
                 border: `1px solid ${t.border}`,
@@ -497,6 +498,32 @@ export function TodoModal({ date, todo, initialPlanStart, initialPlanEnd, initia
               ))}
             </select>
           </div>
+
+          {/* 마일스톤 (프로젝트 선택 시) */}
+          {projectId && milestones.some(m => m.projectId === projectId) && (
+            <div>
+              <label style={{ fontSize: 11, color: t.textSub, fontWeight: 600 }}>🚩 마일스톤</label>
+              <select
+                value={milestoneId}
+                onChange={e => setMilestoneId(e.target.value)}
+                className="w-full mt-1 rounded-lg px-3 py-2 outline-none"
+                style={{
+                  border: `1px solid ${t.border}`,
+                  backgroundColor: t.bgSub,
+                  color: t.text,
+                  fontSize: 13,
+                }}
+              >
+                <option value="">없음 (미지정)</option>
+                {milestones
+                  .filter(m => m.projectId === projectId)
+                  .sort((a, b) => a.date.localeCompare(b.date))
+                  .map(m => (
+                    <option key={m.id} value={m.id}>{m.title}</option>
+                  ))}
+              </select>
+            </div>
+          )}
 
           {/* 태그 */}
           <div>

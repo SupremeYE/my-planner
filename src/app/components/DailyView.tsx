@@ -979,7 +979,7 @@ function SleepTimeEditModal({ record, onClose, onConfirm }: {
 export function DailyView() {
   const {
     selectedDate, setSelectedDate, todos, events, updateTodo, deleteRecurringTodo, habits, toggleHabit,
-    activeTimer, startTimer, stopTimer, tags, projects, weeklyGoals,
+    activeTimer, startTimer, stopTimer, tags, projects, weeklyGoals, milestones,
     selfCareRecords, updateSelfCareRecord,
     dayStartHour: tlStartHour, dayEndHour: tlEndHour, setDayHours,
     timelineLogs,
@@ -2070,6 +2070,7 @@ export function DailyView() {
   const TodoRow = ({ todo }: { todo: Todo }) => {
     const project = todo.projectId ? projects.find(p => p.id === todo.projectId) : null;
     const weeklyGoal = todo.weeklyGoalId ? weeklyGoals.find(w => w.id === todo.weeklyGoalId) : null;
+    const milestone = todo.milestoneId ? milestones.find(m => m.id === todo.milestoneId) : null;
     const firstTag = (todo.tags && todo.tags.length > 0) ? tags.find(tg => tg.id === todo.tags![0]) : null;
     const accentColor = firstTag?.color || t.border;
     const isDone = todo.status === 'done';
@@ -2114,6 +2115,17 @@ export function DailyView() {
           </div>
           <div className="flex items-center gap-1.5 mt-1 flex-wrap">
             {todo.mandalartCellId && <MandalartSourceBadge />}
+            {milestone && project && (
+              <span
+                className="inline-flex items-center gap-0.5 px-1.5 py-px rounded-full"
+                style={{
+                  fontSize: 9, backgroundColor: project.color + '18', color: project.color, fontWeight: 600, lineHeight: '14px', maxWidth: 140,
+                }}
+                title={milestone.title}
+              >
+                🚩 <span className="truncate" style={{ maxWidth: 110 }}>{milestone.title}</span>
+              </span>
+            )}
             {todo.planStart && (
               <span style={{ fontSize: 10, color: t.textMuted }}>
                 {todo.planStart}{todo.planEnd ? ` - ${todo.planEnd}` : ''}
