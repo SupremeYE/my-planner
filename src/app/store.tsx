@@ -294,6 +294,31 @@ export interface ShoppingItem {
   createdAt?: string;
 }
 
+// ── 스크랩 / 영감 보관함 (Stage 0) ────────────────────────────────────────
+export type ScrapSource = 'youtube' | 'instagram' | 'threads' | 'web';
+export type ScrapStatus = 'unread' | 'revisit' | 'done';
+
+export interface Scrap {
+  id: string;
+  url: string | null;
+  source: ScrapSource | null;
+  title: string | null;
+  thumbnailUrl: string | null;
+  comment: string | null;          // 한 줄 코멘트
+  tags: string[];
+  status: ScrapStatus;
+  lastViewedAt: string | null;     // ISO timestamp
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ScrapNote {
+  id: string;
+  scrapId: string;
+  content: string;
+  createdAt: string;
+}
+
 export interface PeriodRecord {
   id: string;
   startDate: string;        // yyyy-MM-dd

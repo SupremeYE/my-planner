@@ -6,6 +6,27 @@
 
 ---
 
+## 2026-06-07
+
+### 📋 TODO
+- (스크랩 / 영감 보관함 Stage 1 — 추가 모달 + db 레이어 + 메이슨리 그리드 + 노트 패널 + Realtime 구독)
+
+### ✅ 완료
+- [x] 스크랩 / 영감 보관함 **Stage 0** — 스키마 + 라우트 + 빈 페이지 셸 (실제 기능은 다음 단계)
+
+### 🛠 오늘 작업 내용
+
+**스크랩 / 영감 보관함 Stage 0 — 기반**
+- 마이그레이션 `20260607000000_create_scraps.sql`: `scraps` (id/user_id default auth.uid()/url/source/title/thumbnail_url/comment/tags text[]/status default 'unread'/last_viewed_at/created_at/updated_at) + `scrap_notes` (1:N, scrap_id ON DELETE CASCADE). 두 테이블 모두 RLS 활성 + 본인 행만 select/insert/update/delete (vision_*·culture_records 패턴 그대로). 인덱스 `scraps(user_id, created_at desc)` / `scrap_notes(scrap_id, created_at)`. Realtime publication 등록. Supabase MCP 로 my-planner 프로젝트 적용 완료
+- `store.tsx`: `Scrap` / `ScrapNote` / `ScrapSource('youtube'|'instagram'|'threads'|'web')` / `ScrapStatus('unread'|'revisit'|'done')` 타입 추가 — store 연동/Realtime 구독은 Stage 1에서
+- `routes.tsx`: `/scraps` 라우트 + `ScrapView` 컴포넌트 연결 (비전보드 라우트 다음에 배치)
+- 네비게이션: `Layout.tsx` 사이드바 라이프스타일 그룹 + 모바일 햄버거 시트, `LayoutC.tsx` 테마 C 상단바 모두에 "스크랩" 메뉴 항목 + `Bookmark` 아이콘 추가 (비전보드 옆 영감 계열 묶음)
+- `ScrapView.tsx` 빈 셸: 헤더(eyebrow `inspiration` Nanum Pen + 제목 `스크랩` DM Serif + 서브 `영감 보관함`) + dashed border 빈 그리드 영역(추후 메이슨리 자리) + 빈 상태 메시지("아직 스크랩이 없어요") + 우하단 확장형 FAB `스크랩 추가` (Stage 1까지는 placeholder 안내 토스트). 데이터 fetch / 모달 / Realtime 구독은 모두 다음 단계
+- 디자인 토큰만 사용(`t.accent`/`t.accentLight`/`t.card`/`t.bg`/`t.textSub` 등) — hex 하드코딩 0. 모바일(390px) 기준 + PC 분기는 Tailwind `lg:` 로만 (PC 사이드바 레이아웃 무영향)
+- `npm run build` 통과 (vite 6 production build)
+
+---
+
 ## 2026-06-06
 
 ### 📋 TODO
