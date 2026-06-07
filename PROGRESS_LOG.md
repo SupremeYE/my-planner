@@ -10,13 +10,15 @@
 
 ### 📋 TODO
 - [ ] 음악 기록 Stage 3 — 스티커 꾸미기 + 위치 저장 (stickers jsonb 컬럼·🎨 꾸미기 버튼 자리 이미 준비됨)
-- (스크랩 Stage 2 — 카드 상세 시트 + 상태 전환(unread/revisit/done) + scrap_notes 글 기록 패널 + scrap_notes Realtime 구독)
+- (스크랩 Stage 3 — 먼지 쌓인 스크랩 / 셔플 / "안 본 것만" 토글 / 검색)
+- (스크랩 Stage 4 — 비전보드·할일·저널 실제 연결, 디스코드)
 
 ### ✅ 완료
 - [x] 음악 기록 Stage 1 — 데이터 토대 + iTunes 검색·추가 (`music_records` 테이블 + RLS + Realtime, iTunes Search API 프록시 Edge Function `itunes-search`, 검색→결과 리스트→선택→무드·장르·메모·듣기링크 입력→저장, `itunes_track_id` 중복 방지)
 - [x] 음악 기록 Stage 2 — LP 그리드 + 상세 + 무드 필터·셔플 (문화 기록 안에 [영상/음악] 섹션 탭으로 통합)
 - [x] 스크랩 / 영감 보관함 **Stage 0** — 스키마 + 라우트 + 빈 페이지 셸
 - [x] 스크랩 / 영감 보관함 **Stage 1** — 저장 + Realtime + 메타 자동 채움(유튜브 oEmbed / 웹 OG / 인스타·스레드 수동 스크린샷) + db.ts 일원화 + 메이슨리 그리드 + 출처 필터 5종
+- [x] 스크랩 / 영감 보관함 **Stage 2** — 카드 상세 시트(썸네일·원본열기·코멘트·태그 인라인 편집) + 상태 세그먼트(미확인/다시봄/소화완료) + 노트 글 기록 패널(시간순 + 추가 시 소화완료 자동 승격) + scrap_notes Realtime + 연결 버튼 placeholder + touchViewed(last_viewed_at)
 
 ### 🛠 오늘 작업 내용
 
@@ -36,6 +38,61 @@
 - 색상은 디자인 토큰만(골드=accent/코랄=danger/그린=success), 비닐 검정·홈만 실물 LP 표현용 고정색
 - [x] 스크랩 / 영감 보관함 **Stage 0** — 스키마 + 라우트 + 빈 페이지 셸
 - [x] 스크랩 / 영감 보관함 **Stage 1** — 저장 + Realtime + 메타 자동 채움(유튜브 oEmbed / 웹 OG / 인스타·스레드 수동 스크린샷) + db.ts 일원화 + 메이슨리 그리드 + 출처 필터 5종
+
+**스크랩 Stage 2 — 상세 시트 + 상태 전환 + 노트 기록**
+
+데이터 레이어 (`src/lib/db.ts`)
+- `db.scrapNotes` 본 구현: `listByScrap(scrapId)` (created_at asc, 시간순) / `create({ scrapId, content })` (user_id DB DEFAULT auth.uid()) / `delete(id)`
+- `db.scraps.updateStatus(id, status)` — 세그먼트 컨트롤 전용 편의 메서드 (`updated_at` 동시 갱신)
+- `db.scraps.touchViewed(id)` — `last_viewed_at = now()` (Stage 3 먼지 로직 기반 데이터)
+- `ScrapNoteRow` + `toScrapNote` 변환기 추가 (snake_case → camelCase)
+- 컴포넌트의 supabase direct import 0, 모두 db.ts 경유 유지
+
+상세 시트 — `src/app/components/scrap/ScrapDetailSheet.tsx` (신규)
+- 모바일 슬라이드업 + PC 중앙 카드(560px, max-h 92vh) — AddScrapModal 동일 애니메이션 패턴(`isIn` + `requestAnimationFrame` + 220ms 언마운트), ESC 닫기
+- 카드 탭 → 시트 오픈 시 자동으로 `db.scraps.touchViewed(id)` 1회 호출 (useRef 가드)
+- 큰 썸네일(maxHeight 360, objectFit cover) / 썸네일 없으면 출처별 그라데이션(`t.accentLight`→`t.accent` 20%) + 큰 출처 아이콘
+- 출처 + "원본 열기" 핀치 칩(target=_blank rel=noopener noreferrer) — scrap.url 있을 때만
+- 제목(DM Serif Display 22) + 코멘트(Nanum Pen 18, 손글씨)
+
+상태 세그먼트 컨트롤
+- 미확인 / 다시봄 / 소화완료 — pill 그룹 형태, 활성 옵션은 `t.card` 배경 + 그림자
+- 탭 시 낙관적 업데이트(`setScrap`) + `db.scraps.updateStatus` + `onChanged()` 콜백으로 그리드 상태 점 즉시 반영
+- 미확인=`t.textMuted` / 다시봄=`t.accent` / 소화완료=`t.success` 점 색 (Stage 1 규칙 유지)
+
+노트 패널 (핵심)
+- 상단: textarea (Nanum Pen 16) + 초록 "글 추가" 버튼(`t.success` 배경) — 입력 비어있으면 비활성
+- "글 추가" → `db.scrapNotes.create` + 상태가 'done' 이 아니면 자동으로 'done' 승격 (낙관적 + DB)
+- 하단: 기존 노트들을 **날짜별 그룹화** 후 시간순 표시 (시각 `HH:mm` + `YYYY년 M월 D일 (요일)` 헤더)
+- 노트 카드: bgSub 배경 + 좌측 시각 표시 + Nanum Pen 본문 + 우측 휴지통 아이콘(낙관적 삭제 + DB)
+- 빈 상태: dashed 카드 "아직 쌓인 기록이 없어요"
+
+코멘트·태그 인라인 편집
+- 코멘트: "수정/추가" 버튼 → textarea (autoFocus, 200자) + 취소/저장 → `db.scraps.update({ comment })`
+- 태그: 기존 칩에 X 버튼으로 개별 삭제 / "+ 태그" 입력 → Enter·콤마·blur 시 추가, 중복 무시 / 모든 변경은 `db.scraps.update({ tags })` (전체 배열 교체)
+
+연결 버튼 (Stage 4 placeholder)
+- 비전보드로 / 할일로 / 저널로 — 3-col 그리드, disabled + dashed border + opacity 0.7 + "곧 지원돼요" 안내
+
+Realtime
+- 시트 열려 있는 동안만 `useRealtimeSync('scrap_notes', refreshNotes)` — 다른 기기/탭에서 글 추가 시 즉시 노트 타임라인에 반영, 시트 언마운트 시 채널 자동 해제 (훅이 처리)
+- `scrap_notes` 는 Stage 0 마이그레이션에서 이미 `supabase_realtime` publication 등록됨 → 추가 마이그레이션 0
+
+ScrapView 연결
+- `ScrapCard onClick` 부착 → `setOpenId(scrap.id)` 로 시트 오픈
+- `openScrap` 은 `scraps.find(s => s.id === openId)` 로 최신 상태 사본 사용 (낙관적 업데이트 즉시 반영)
+- 시트의 `onChanged` 콜백 → `refresh()` 그리드 재조회
+
+원칙 준수
+- 컴포넌트 supabase direct import 0 — 모두 db.ts 경유
+- 색상 토큰만(`t.accent`/`t.accentLight`/`t.success`/`t.danger`/`t.text`/`t.textSub`/`t.textMuted`/`t.border`/`t.borderLight`/`t.bg`/`t.bgSub`/`t.card`) + withAlpha — 새 hex 0
+- 폰트 추가 import 0 — 기존 DM Serif Display(제목) + Nanum Pen Script(코멘트·노트 본문) 재사용
+- 모바일(390) 기준 + PC 분기 `lg:` 만 — PC 사이드바 레이아웃 무영향
+- Figma 디렉터리(`src/app/components/figma/`) 미수정
+- Stage 3·4 보류 항목 미구현: 먼지 쌓인 스크랩 / 셔플 / 안 본 것만 토글 / 검색 / 비전보드·할일·저널 실제 연결 / 디스코드
+- `npm run build` 통과 (vite 6 production)
+
+---
 
 **스크랩 Stage 1 — 저장 + Realtime**
 

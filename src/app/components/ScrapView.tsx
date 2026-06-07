@@ -5,6 +5,7 @@ import { db } from '../../lib/db';
 import { useRealtimeSync } from '../hooks/useRealtimeSync';
 import type { Scrap, ScrapSource, ScrapStatus } from '../store';
 import AddScrapModal from './scrap/AddScrapModal';
+import ScrapDetailSheet from './scrap/ScrapDetailSheet';
 
 // 토큰 hex → rgba (다른 뷰들과 동일 패턴)
 function withAlpha(hex: string, alpha: number): string {
@@ -257,6 +258,8 @@ export function ScrapView() {
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<SourceFilter>('all');
   const [modalOpen, setModalOpen] = useState(false);
+  // Stage 2: 카드 탭 → 상세 시트 (현재 열린 스크랩 id)
+  const [openId, setOpenId] = useState<string | null>(null);
 
   // 모든 supabase 호출은 db.ts 를 거쳐서만 (Stage 1 규칙)
   const refresh = useCallback(async () => {
@@ -277,7 +280,13 @@ export function ScrapView() {
   }, [scraps, filter]);
 
   const handleAddClick = useCallback(() => setModalOpen(true), []);
-  // 카드 상세 시트는 Stage 2 — 여기서는 클릭해도 placeholder 동작 없음(undefined onClick → cursor:default)
+  const handleCardClick = useCallback((id: string) => setOpenId(id), []);
+
+  // 상세 시트 대상 — openId 가 가리키는 최신 스크랩 (낙관적 업데이트는 시트 내부에서 처리)
+  const openScrap = useMemo(
+    () => (openId ? scraps.find(s => s.id === openId) ?? null : null),
+    [openId, scraps],
+  );
 
   return (
     <div className="h-full overflow-y-auto relative" style={{ backgroundColor: t.bg }}>
@@ -375,7 +384,7 @@ export function ScrapView() {
           </div>
         ) : (
           filtered.map(scrap => (
-            <ScrapCard key={scrap.id} scrap={scrap} />
+            <ScrapCard key={scrap.id} scrap={scrap} onClick={() => handleCardClick(scrap.id)} />
           ))
         )}
       </div>
@@ -410,6 +419,16 @@ export function ScrapView() {
         <AddScrapModal
           onClose={() => setModalOpen(false)}
           onSaved={refresh}
+        />
+      )}
+
+      {/* 상세 시트 — Stage 2 */}
+      {openScrap && (
+        <ScrapDetailSheet
+          key={openScrap.id}
+          scrap={openScrap}
+          onClose={() => setOpenId(null)}
+          onChanged={refresh}
         />
       )}
     </div>

@@ -182,6 +182,20 @@ const toScrap = (r: ScrapRow): Scrap => ({
   updatedAt: r.updated_at,
 });
 
+type ScrapNoteRow = {
+  id: string;
+  scrap_id: string;
+  content: string;
+  created_at: string;
+};
+
+const toScrapNote = (r: ScrapNoteRow): ScrapNote => ({
+  id: r.id,
+  scrapId: r.scrap_id,
+  content: r.content,
+  createdAt: r.created_at,
+});
+
 // ── 변환 함수 ────────────────────────────────────────────────────────────────
 
 const toTodo = (r: TodoRow): Todo => ({
@@ -1885,6 +1899,23 @@ export const db = {
       const { error } = await supabase.from('scraps').delete().eq('id', id);
       if (error) console.error('[db] scraps delete:', error.message);
     },
+    // 상태 전환 전용 편의 메서드 — 세그먼트 컨트롤(미확인/다시봄/소화완료) 에서 호출.
+    updateStatus: async (id: string, status: ScrapStatus): Promise<void> => {
+      const { error } = await supabase
+        .from('scraps')
+        .update({ status, updated_at: new Date().toISOString() })
+        .eq('id', id);
+      if (error) console.error('[db] scraps updateStatus:', error.message);
+    },
+    // 상세 시트 오픈 시 호출 — last_viewed_at 만 now() 로 갱신(Stage 3 먼지 로직 기반).
+    touchViewed: async (id: string): Promise<void> => {
+      const now = new Date().toISOString();
+      const { error } = await supabase
+        .from('scraps')
+        .update({ last_viewed_at: now, updated_at: now })
+        .eq('id', id);
+      if (error) console.error('[db] scraps touchViewed:', error.message);
+    },
     // 수동 스크린샷 업로드(인스타·스레드용). 파일명은 itemKey 기반 — 동일 키 재업로드 시 덮어씀.
     uploadThumb: async (file: File, itemKey: string): Promise<string | null> => {
       const ext = (file.name.split('.').pop() ?? 'jpg').toLowerCase();
@@ -1912,18 +1943,31 @@ export const db = {
     },
   },
 
-  // Stage 2 에서 본 구현. 시그니처만 잡아둔다.
+  // scrap_notes — 스크랩에 쌓이는 짧은 글 기록 (1:N). RLS 로 본인 행만 통과.
   scrapNotes: {
-    listByScrap: async (_scrapId: string): Promise<ScrapNote[]> => {
-      // Stage 2 구현 예정 — created_at asc 로 노트 타임라인 반환
-      return [];
+    // 특정 스크랩의 노트들을 created_at asc(시간순) 로 반환 — 상세 시트 타임라인용.
+    listByScrap: async (scrapId: string): Promise<ScrapNote[]> => {
+      const { data, error } = await supabase
+        .from('scrap_notes')
+        .select('id, scrap_id, content, created_at')
+        .eq('scrap_id', scrapId)
+        .order('created_at', { ascending: true });
+      if (error) { console.error('[db] scrap_notes fetch:', error.message); return []; }
+      return (data ?? []).map(toScrapNote);
     },
-    create: async (_params: { scrapId: string; content: string }): Promise<ScrapNote | null> => {
-      // Stage 2 구현 예정
-      return null;
+    // 노트 추가 — user_id 는 DB DEFAULT auth.uid() 가 자동 충전.
+    create: async (params: { scrapId: string; content: string }): Promise<ScrapNote | null> => {
+      const { data, error } = await supabase
+        .from('scrap_notes')
+        .insert({ scrap_id: params.scrapId, content: params.content })
+        .select('id, scrap_id, content, created_at')
+        .single();
+      if (error) { console.error('[db] scrap_notes create:', error.message); return null; }
+      return data ? toScrapNote(data) : null;
     },
-    delete: async (_id: string): Promise<void> => {
-      // Stage 2 구현 예정
+    delete: async (id: string): Promise<void> => {
+      const { error } = await supabase.from('scrap_notes').delete().eq('id', id);
+      if (error) console.error('[db] scrap_notes delete:', error.message);
     },
   },
 
