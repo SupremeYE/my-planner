@@ -6,6 +6,34 @@
 
 ---
 
+## 2026-06-07
+
+### 📋 TODO
+- [ ] 음악 기록 Stage 3 — 스티커 꾸미기 + 위치 저장 (stickers jsonb 컬럼·🎨 꾸미기 버튼 자리 이미 준비됨)
+
+### ✅ 완료
+- [x] 음악 기록 Stage 1 — 데이터 토대 + iTunes 검색·추가 (`music_records` 테이블 + RLS + Realtime, iTunes Search API 프록시 Edge Function `itunes-search`, 검색→결과 리스트→선택→무드·장르·메모·듣기링크 입력→저장, `itunes_track_id` 중복 방지)
+- [x] 음악 기록 Stage 2 — LP 그리드 + 상세 + 무드 필터·셔플 (문화 기록 안에 [영상/음악] 섹션 탭으로 통합)
+
+### 🛠 오늘 작업 내용
+
+**음악 기록 Stage 1 — 데이터 토대 + iTunes 검색·추가**
+- 마이그레이션 `20260607000000_create_music_records.sql`: `music_records` 테이블(track_title/artist/album/artwork_url/release_year/itunes_track_id/preview_url/mood text[]/genre/memo/listen_url/stickers jsonb) + 소유자 RLS 4종 + `supabase_realtime` publication 등록 + 부분 unique index(`user_id, itunes_track_id`)로 중복 방지
+- Edge Function `itunes-search`: iTunes Search API(`media=music&entity=song&country=KR`) CORS 프록시, 결과를 camelCase 매핑(artworkUrl 100x100→600x600), `verify_jwt:true`
+- `src/lib/itunes.ts`: `searchMusic(term)` — `supabase.functions.invoke('itunes-search')` 호출
+- `src/lib/db.ts`: `musicRecords` 객체(fetchAll/existsByItunesId/insert/delete, snake_case↔camelCase 변환, user_id 미전송)
+- `src/app/store.tsx`: `MusicRecord` 인터페이스 추가
+
+**음악 기록 Stage 2 — LP 그리드 + 상세 + 무드 필터·셔플**
+- 문화 기록(`CultureRecordView`) 상단에 [영상/음악] 섹션 탭(`SectionTabs`) 추가 — 영상 탭은 기존 PC/모바일 트리 그대로 유지, 음악 탭은 단일 반응형 `MusicSection` early-return(PC 영상 레이아웃 무변형, 이중 구독 방지)
+- Stage 1 임시 `/music` 라우트·네비(Layout/LayoutC)·`MusicRecordView` 제거 → 문화 기록 안에서만 접근
+- `LpDisc`: 검은 비닐(radial-gradient) + 동심원 groove + 중앙 라벨 앨범아트 원형 크롭(없으면 골드 폴백) + 중앙 구멍, 8s 회전 / 그리드 모바일 2열·sm 3·lg 5
+- 무드 필터 칩(전체/집중/위로/신날 때/드라이브/잠들기 전, mood text[] 포함 필터) + "지금 이 무드엔?" 셔플 카드
+- `MusicDetailSheet` 상세 바텀시트: 큰 LP + ▶/⏸ 미리듣기(preview_url `<audio>`, 단일 인스턴스, 없으면 회전만 토글) + 🎨 꾸미기(Stage 3 비활성), 제목(DM Serif)/아티스트/앨범·연도, 무드(코랄)·장르(그린) 태그, 듣기 링크(listen_url 직접 + 유튜브뮤직/스포티파이 자동검색), 메모(골드 좌측 라인 + 저장일)
+- 색상은 디자인 토큰만(골드=accent/코랄=danger/그린=success), 비닐 검정·홈만 실물 LP 표현용 고정색
+
+---
+
 ## 2026-06-06
 
 ### 📋 TODO
