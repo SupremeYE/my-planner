@@ -30,6 +30,8 @@ export interface Todo {
   projectId?: string;
   /** 연결된 주간 목표 id (Phase 4·5: 목표↔할일 롤업) */
   weeklyGoalId?: string;
+  /** 만다라트에서 "보내기"로 생성된 경우 출처 셀 id */
+  mandalartCellId?: string;
   tags?: string[];
   // 반복 일정 필드
   recurrenceRule?: 'daily' | 'weekly' | 'weekdays' | 'custom';
@@ -340,6 +342,7 @@ export interface WeeklyGoal {
   done: boolean;
   monthlyGoalId?: string;
   weekKey: string;
+  mandalartCellId?: string;
 }
 
 export interface MonthlyGoal {
@@ -349,6 +352,7 @@ export interface MonthlyGoal {
   projectId?: string;
   /** 연간 목표 1개에 연결 (레거시 행은 비어 있을 수 있음) */
   annualGoalId?: string;
+  mandalartCellId?: string;
 }
 
 /** 연도별 연간 정체성·핵심 가치 (키: "2026" 등) */
@@ -384,6 +388,7 @@ export interface AnnualGoal {
   year: number;
   text: string;
   done: boolean;
+  mandalartCellId?: string;
 }
 
 export interface QuarterlyGoal {

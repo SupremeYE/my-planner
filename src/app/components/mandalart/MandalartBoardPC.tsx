@@ -1,7 +1,9 @@
 import { useMemo, useState } from 'react';
+import { Send } from 'lucide-react';
 import { useTheme } from '../../ThemeContext';
 import { db } from '../../../lib/db';
 import { computeProgress } from './MandalartView';
+import { SendCellModal } from './SendCellModal';
 import type { Cell } from './MandalartBoardMobile';
 import type { Notify } from '../culture/CultureToast';
 
@@ -66,6 +68,7 @@ export function MandalartBoardPC({ boardId, boardTitle, cells, onMutate, onNotif
 
   const [editing, setEditing] = useState<EditTarget | null>(null);
   const [editDraft, setEditDraft] = useState('');
+  const [sending, setSending] = useState<{ cell: Cell; isAction: boolean } | null>(null);
 
   const openEdit = (target: EditTarget) => {
     setEditing(target);
@@ -268,6 +271,25 @@ export function MandalartBoardPC({ boardId, boardTitle, cells, onMutate, onNotif
           onClose={closeEdit}
           allowEmpty={(editing.kind === 'sub' || editing.kind === 'action') && !!editing.cell}
           placeholder={editing.kind === 'core' ? '핵심 목표' : editing.kind === 'sub' ? '세부 목표' : '행동'}
+          onSend={
+            editing.kind !== 'core' && editing.cell && (editDraft.trim() || editing.cell.content)
+              ? () => {
+                  const cell = editing.cell!;
+                  setSending({ cell, isAction: editing.kind === 'action' });
+                  closeEdit();
+                }
+              : undefined
+          }
+        />
+      )}
+
+      {sending && (
+        <SendCellModal
+          cellId={sending.cell.id}
+          defaultText={sending.cell.content}
+          isAction={sending.isAction}
+          onClose={() => setSending(null)}
+          onNotify={onNotify}
         />
       )}
     </>
@@ -444,7 +466,7 @@ function ActionPCCell({ cell, t, onTap, onEdit }: {
 
 // ─── PC 편집 모달 ─────────────────────────────────────────────
 function EditModalPC({
-  t, title, draft, onChange, onSubmit, onClose, allowEmpty, placeholder,
+  t, title, draft, onChange, onSubmit, onClose, allowEmpty, placeholder, onSend,
 }: {
   t: ReturnType<typeof useTheme>['t'];
   title: string;
@@ -454,6 +476,7 @@ function EditModalPC({
   onClose: () => void;
   allowEmpty: boolean;
   placeholder: string;
+  onSend?: () => void;
 }) {
   return (
     <div
@@ -479,21 +502,33 @@ function EditModalPC({
           className="w-full rounded-xl px-3 py-2.5 border outline-none resize-none"
           style={{ fontSize: 14, borderColor: t.border, backgroundColor: t.bgSub, color: t.text }}
         />
-        <div className="flex justify-end gap-2 mt-3">
-          <button
-            onClick={onClose}
-            className="px-3 py-1.5 rounded-xl"
-            style={{ fontSize: 13, color: t.textMuted, backgroundColor: t.bgSub }}
-          >취소</button>
-          <button
-            onClick={onSubmit}
-            disabled={!allowEmpty && !draft.trim()}
-            className="px-3 py-1.5 rounded-xl"
-            style={{
-              fontSize: 13, color: '#fff', backgroundColor: t.accent,
-              opacity: (!allowEmpty && !draft.trim()) ? 0.4 : 1,
-            }}
-          >저장</button>
+        <div className="flex justify-between items-center gap-2 mt-3">
+          {onSend ? (
+            <button
+              onClick={onSend}
+              className="px-3 py-1.5 rounded-xl flex items-center gap-1.5"
+              style={{
+                fontSize: 13, color: t.accent, backgroundColor: t.accentLight,
+                border: `1px solid ${t.accent}55`,
+              }}
+            ><Send size={12} /> 보내기</button>
+          ) : <span />}
+          <div className="flex gap-2">
+            <button
+              onClick={onClose}
+              className="px-3 py-1.5 rounded-xl"
+              style={{ fontSize: 13, color: t.textMuted, backgroundColor: t.bgSub }}
+            >취소</button>
+            <button
+              onClick={onSubmit}
+              disabled={!allowEmpty && !draft.trim()}
+              className="px-3 py-1.5 rounded-xl"
+              style={{
+                fontSize: 13, color: '#fff', backgroundColor: t.accent,
+                opacity: (!allowEmpty && !draft.trim()) ? 0.4 : 1,
+              }}
+            >저장</button>
+          </div>
         </div>
         {allowEmpty && (
           <p className="mt-2 text-right" style={{ fontSize: 11, color: t.textMuted }}>

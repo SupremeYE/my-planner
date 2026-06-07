@@ -34,6 +34,7 @@ type TodoRow = {
   category: string | null;
   project_id: string | null;
   weekly_goal_id: string | null;
+  mandalart_cell_id: string | null;
   tags: string[];
   recurrence_rule: string | null;
   recurrence_days: number[] | null;
@@ -101,11 +102,13 @@ type EventRow = {
 type WeeklyGoalRow = {
   id: string; text: string; done: boolean;
   monthly_goal_id: string | null; week_key: string;
+  mandalart_cell_id?: string | null;
 };
 
 type MonthlyGoalRow = {
   id: string; text: string; month: string; project_id: string | null;
   annual_goal_id?: string | null;
+  mandalart_cell_id?: string | null;
 };
 
 type BrainstormItemRow = {
@@ -140,6 +143,7 @@ type PeriodRecordRow = {
 
 type AnnualGoalRow = {
   id: string; year: number; text: string; done: boolean;
+  mandalart_cell_id?: string | null;
 };
 
 type QuarterlyGoalRow = {
@@ -156,6 +160,7 @@ const toTodo = (r: TodoRow): Todo => ({
   doElapsedSec: r.do_elapsed_sec ?? undefined,
   category: r.category ?? undefined, projectId: r.project_id ?? undefined,
   weeklyGoalId: r.weekly_goal_id ?? undefined,
+  mandalartCellId: r.mandalart_cell_id ?? undefined,
   tags: r.tags ?? [],
   recurrenceRule: r.recurrence_rule as Todo['recurrenceRule'] ?? undefined,
   recurrenceDays: r.recurrence_days ?? undefined,
@@ -172,6 +177,7 @@ const fromTodo = (t: Todo): TodoRow => ({
   do_elapsed_sec: t.doElapsedSec ?? null,
   category: t.category ?? null, project_id: t.projectId ?? null,
   weekly_goal_id: t.weeklyGoalId ?? null,
+  mandalart_cell_id: t.mandalartCellId ?? null,
   tags: t.tags ?? [],
   recurrence_rule: t.recurrenceRule ?? null,
   recurrence_days: t.recurrenceDays ?? null,
@@ -331,31 +337,37 @@ const toWeeklyGoal = (r: WeeklyGoalRow): WeeklyGoal => ({
   id: r.id, text: r.text, done: r.done,
   monthlyGoalId: r.monthly_goal_id ?? undefined,
   weekKey: r.week_key,
+  mandalartCellId: r.mandalart_cell_id ?? undefined,
 });
 
 const fromWeeklyGoal = (g: WeeklyGoal): WeeklyGoalRow => ({
   id: g.id, text: g.text, done: g.done,
   monthly_goal_id: g.monthlyGoalId ?? null,
   week_key: g.weekKey,
+  mandalart_cell_id: g.mandalartCellId ?? null,
 });
 
 const toMonthlyGoal = (r: MonthlyGoalRow): MonthlyGoal => ({
   id: r.id, text: r.text, month: r.month,
   projectId: r.project_id ?? undefined,
   annualGoalId: r.annual_goal_id ?? undefined,
+  mandalartCellId: r.mandalart_cell_id ?? undefined,
 });
 
 const fromMonthlyGoal = (g: MonthlyGoal): MonthlyGoalRow => ({
   id: g.id, text: g.text, month: g.month,
   project_id: g.projectId ?? null,
   annual_goal_id: g.annualGoalId ?? null,
+  mandalart_cell_id: g.mandalartCellId ?? null,
 });
 
 const toAnnualGoal = (r: AnnualGoalRow): AnnualGoal => ({
   id: r.id, year: r.year, text: r.text, done: r.done,
+  mandalartCellId: r.mandalart_cell_id ?? undefined,
 });
 const fromAnnualGoal = (g: AnnualGoal): AnnualGoalRow => ({
   id: g.id, year: g.year, text: g.text, done: g.done,
+  mandalart_cell_id: g.mandalartCellId ?? null,
 });
 
 const toQuarterlyGoal = (r: QuarterlyGoalRow): QuarterlyGoal => ({
