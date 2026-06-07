@@ -20,6 +20,7 @@ import { CultureRecordView } from './components/CultureRecordView';
 import { RecipeView } from './components/RecipeView';
 import { ProfileView } from './components/ProfileView';
 import { VisionBoardView } from './components/VisionBoardView';
+import { ScrapView } from './components/ScrapView';
 
 export const router = createBrowserRouter([
   {
@@ -49,6 +50,7 @@ export const router = createBrowserRouter([
       { path: 'culture',          Component: CultureRecordView },
       { path: 'recipes',          Component: RecipeView },
       { path: 'vision',           Component: VisionBoardView },
+      { path: 'scraps',           Component: ScrapView },
       { path: 'profile',          Component: ProfileView },
     ],
   },
