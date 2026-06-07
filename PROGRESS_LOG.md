@@ -17,8 +17,20 @@
 - [x] 음악 기록 Stage 2 — LP 그리드 + 상세 + 무드 필터·셔플 (문화 기록 안에 [영상/음악] 섹션 탭으로 통합)
 - [x] 스크랩 / 영감 보관함 **Stage 0** — 스키마 + 라우트 + 빈 페이지 셸
 - [x] 스크랩 / 영감 보관함 **Stage 1** — 저장 + Realtime + 메타 자동 채움(유튜브 oEmbed / 웹 OG / 인스타·스레드 수동 스크린샷) + db.ts 일원화 + 메이슨리 그리드 + 출처 필터 5종
+- [x] 독서 페이지 자동 완독 + 독서밭 완독일 강조
 
 ### 🛠 오늘 작업 내용
+
+**독서 페이지 자동 완독 + 독서밭 완독일 강조 (`BooksView.tsx`)**
+- `BookDetailModal`: 현재 페이지 ≥ 전체 페이지(>0) 입력 시 `isAutoComplete` 플래그 활성
+  - 진행 바 색상 그린(`#6BAA7A`)으로 변경, "🎉 완독! 저장하면 완독 탭으로 이동돼요" 안내 배너 표시
+  - 저장 버튼 "완독 저장하기 🎉" 로 변경
+  - `handleSaveProgress`: `finalStatus = isAutoComplete ? 'done' : status` — status를 강제로 done 처리 + finishDate 자동 기록
+  - `onComplete` 콜백 prop 추가 → done 저장 시 호출
+- `BooksView`: `BookDetailModal`에 `onComplete={() => setActiveTab('done')}` 전달 → 완독 저장 후 자동으로 완독 탭 이동
+- `getReadingActivityData` (리팩터링): 기존 `getReadingActivityCounts` → `{ counts, completions }` 분리 반환. `completions`는 `finishDate` 날짜들의 Set
+- `pulseColor`: `isCompletion` 파라미터 추가 → 완독일은 활동 횟수 무관하게 `#D4603A`(최진한 색) 고정
+- `ReadingPulse` 셀: 완독일에 주황 테두리(`outline: 1.5px solid #D4603A`) + 툴팁 "🎉 완독!" 표시
 
 **음악 기록 Stage 1 — 데이터 토대 + iTunes 검색·추가**
 - 마이그레이션 `20260607000000_create_music_records.sql`: `music_records` 테이블(track_title/artist/album/artwork_url/release_year/itunes_track_id/preview_url/mood text[]/genre/memo/listen_url/stickers jsonb) + 소유자 RLS 4종 + `supabase_realtime` publication 등록 + 부분 unique index(`user_id, itunes_track_id`)로 중복 방지
