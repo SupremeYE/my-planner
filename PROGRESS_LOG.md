@@ -20,8 +20,25 @@
 - [x] 스크랩 / 영감 보관함 **Stage 2** — 카드 상세 시트(썸네일·원본열기·코멘트·태그 인라인 편집) + 상태 세그먼트(미확인/다시봄/소화완료) + 노트 글 기록 패널(시간순 + 추가 시 소화완료 자동 승격) + scrap_notes Realtime + 연결 버튼 placeholder + touchViewed(last_viewed_at)
 - [x] 스크랩 / 영감 보관함 **Stage 3** — 재노출: 먼지 쌓인 스크랩 카드(마스킹테이프 + 미리보기 + 셔플) + "안 본 것만" 토글 + 제목·코멘트·태그 검색(디바운스 200ms, 출처 필터와 AND 결합) + db.scraps.listDusty / search
 - [x] 독서 페이지 자동 완독 + 독서밭 완독일 강조
+- [x] 통합 일기 **Stage 0** — DB 셋업: `diary_entries` + `journal_questions` 테이블 + RLS + Realtime + 질문 108개(12 카테고리) seed (Supabase 적용 완료)
+- [x] 통합 일기 **Stage 1** — 탭 셸(오늘 일기/질문일기/이날의 기억) + 오늘 일기(자유일기) 작성·자동저장·최근 일기 리스트 (질문일기·이날의 기억은 placeholder)
 
 ### 🛠 오늘 작업 내용
+
+**통합 일기 Stage 0 — DB 셋업**
+- 마이그레이션 `20260607030000_create_diary_and_journal_questions.sql` (Supabase MCP `apply_migration` 으로 production 적용 완료)
+- `diary_entries`: 자유일기/질문일기를 `type`(free/question)으로 통합. `entry_date date` + `question_id`(FK→journal_questions, ON DELETE SET NULL) + `question_text`(작성 시점 질문 스냅샷 → 질문 수정·삭제돼도 일기 보존) + `content` + user_id(DEFAULT auth.uid())
+- 인덱스: `(user_id, entry_date)` / 이날의 기억용 `(user_id, EXTRACT(MONTH), EXTRACT(DAY))` expression 인덱스 / `type='free'` 하루 1개 부분 유니크 `(user_id, entry_date)`
+- `journal_questions`: 기본 질문(공용 `user_id=null`) + 나만의 질문(소유자). 12 카테고리 108개 seed(`is_default=true`)
+- RLS: 소유자 전용 4정책 + 기본 질문은 누구나 SELECT. 두 테이블 `supabase_realtime` publication 등록
+
+**통합 일기 Stage 1 — 탭 셸 + 오늘 일기(자유일기) (`DiaryView.tsx`)**
+- `/diary` 라우트 + 일기 메뉴 진입점(`PenLine`) 추가 — PC 사이드바·모바일 오버레이 두 네비 배열에. 기존 질문일기(`/question-journal`) 페이지는 미변경
+- 탭 3개(오늘 일기 기본 / 질문일기 / 이날의 기억). 활성 탭 coral(`t.danger`) 언더라인, 탭 전환 시 스크롤 상단. 질문일기·이날의 기억은 "준비 중 — 곧 추가됩니다" placeholder (Stage 2·3)
+- 오늘 일기 탭: 날짜 영역("M월 d일 · EEEE" + 달력 아이콘에 투명 `<input type="date" max={today}>` 오버레이 → 과거 작성/조회, 미래 차단). 노트 줄 배경 카드 + 손글씨(`--font-hand`) textarea + 자동저장(debounce 1.5s)·수동 저장(coral). `(entry_date, type='free')` 부분 유니크 기준 select 후 update/insert upsert
+- 최근 일기 7건(`entry_date` 내림차순): 날짜 + 본문 2줄 말줄임(손글씨), 클릭 시 해당 날짜 로드(선택 날짜 coral 테두리). 빈 상태 안내
+- `db.diaryEntries`(fetchFreeByDate/listRecentFree/upsertFree/delete) + `DiaryEntry` 타입. `diary_entries` Realtime 구독(편집 중 본문 보존)
+- 손글씨 토큰 `--font-hand`(=Gaegu) 추가 → 일기 본문(textarea·미리보기)에만 적용, UI 폰트(DM Serif/기존) 유지. 색상 토큰만 사용(골드=accent/코랄=danger/그린=success), PC 중앙 단일 컬럼(max-w 600px)
 
 **독서 페이지 자동 완독 + 독서밭 완독일 강조 (`BooksView.tsx`)**
 - `BookDetailModal`: 현재 페이지 ≥ 전체 페이지(>0) 입력 시 `isAutoComplete` 플래그 활성
