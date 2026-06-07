@@ -62,8 +62,9 @@ function TodoRow({
   todo, showDateAssign, onStatusToggle, onEdit, onDelete, onTop3Toggle, onAssignDate,
 }: TodoRowProps) {
   const { t } = useTheme();
-  const { projects, weeklyGoals } = usePlanner();
+  const { projects, weeklyGoals, milestones } = usePlanner();
   const weeklyGoal = todo.weeklyGoalId ? weeklyGoals.find(w => w.id === todo.weeklyGoalId) : null;
+  const milestone = todo.milestoneId ? milestones.find(m => m.id === todo.milestoneId) : null;
   const [assignMode, setAssignMode] = useState(false);
   const [assignDate, setAssignDate] = useState('');
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
@@ -119,9 +120,18 @@ function TodoRow({
             </div>
 
             {/* Meta badges */}
-            {(project || weeklyGoal || todo.mandalartCellId || todo.planStart || todo.dueDate || (todo.status !== 'active' && todo.status !== 'backlog')) && (
+            {(project || weeklyGoal || milestone || todo.mandalartCellId || todo.planStart || todo.dueDate || (todo.status !== 'active' && todo.status !== 'backlog')) && (
               <div className="flex items-center gap-1.5 mt-1 flex-wrap">
                 {todo.mandalartCellId && <MandalartSourceBadge />}
+                {milestone && project && (
+                  <span
+                    className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full"
+                    style={{ fontSize: 10, backgroundColor: project.color + '18', color: project.color, fontWeight: 600, lineHeight: '14px', maxWidth: 160 }}
+                    title={milestone.title}
+                  >
+                    🚩 <span className="truncate" style={{ maxWidth: 130 }}>{milestone.title}</span>
+                  </span>
+                )}
                 {project && (
                   <span
                     className="inline-flex items-center px-1.5 py-0.5 rounded-full"
