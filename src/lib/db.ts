@@ -10,6 +10,7 @@ import type {
   Recipe, RecipeIngredient, RecipeStep, RecipeCookLog,
   FridgeItem, ShoppingItem,
   Scrap, ScrapNote, ScrapSource, ScrapStatus,
+  DiaryEntry, DiarySourceType,
 } from '../app/store';
 
 function parseAnnualProfilesFromDb(raw: unknown): Record<string, { identity: string; values: string[] }> {
@@ -37,6 +38,8 @@ type TodoRow = {
   weekly_goal_id: string | null;
   milestone_id: string | null;
   mandalart_cell_id: string | null;
+  note: string | null;
+  source_url: string | null;
   tags: string[];
   recurrence_rule: string | null;
   recurrence_days: number[] | null;
@@ -196,6 +199,28 @@ const toScrapNote = (r: ScrapNoteRow): ScrapNote => ({
   createdAt: r.created_at,
 });
 
+type DiaryEntryRow = {
+  id: string;
+  title: string | null;
+  content: string;
+  source_type: string;
+  source_url: string | null;
+  source_label: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+const toDiaryEntry = (r: DiaryEntryRow): DiaryEntry => ({
+  id: r.id,
+  title: r.title,
+  content: r.content ?? '',
+  sourceType: ((r.source_type as DiarySourceType) ?? 'free'),
+  sourceUrl: r.source_url,
+  sourceLabel: r.source_label,
+  createdAt: r.created_at,
+  updatedAt: r.updated_at,
+});
+
 // ── 변환 함수 ────────────────────────────────────────────────────────────────
 
 const toTodo = (r: TodoRow): Todo => ({
@@ -208,6 +233,8 @@ const toTodo = (r: TodoRow): Todo => ({
   weeklyGoalId: r.weekly_goal_id ?? undefined,
   milestoneId: r.milestone_id ?? undefined,
   mandalartCellId: r.mandalart_cell_id ?? undefined,
+  note: r.note ?? undefined,
+  sourceUrl: r.source_url ?? undefined,
   tags: r.tags ?? [],
   recurrenceRule: r.recurrence_rule as Todo['recurrenceRule'] ?? undefined,
   recurrenceDays: r.recurrence_days ?? undefined,
@@ -226,6 +253,8 @@ const fromTodo = (t: Todo): TodoRow => ({
   weekly_goal_id: t.weeklyGoalId ?? null,
   milestone_id: t.milestoneId ?? null,
   mandalart_cell_id: t.mandalartCellId ?? null,
+  note: t.note ?? null,
+  source_url: t.sourceUrl ?? null,
   tags: t.tags ?? [],
   recurrence_rule: t.recurrenceRule ?? null,
   recurrence_days: t.recurrenceDays ?? null,
@@ -1716,10 +1745,10 @@ export const db = {
   },
 
   visionItems: {
-    fetchAll: async (): Promise<{ id: string; image_url: string | null; caption: string | null; category_id: string | null; sort_order: number; created_at: string }[]> => {
+    fetchAll: async (): Promise<{ id: string; image_url: string | null; caption: string | null; category_id: string | null; sort_order: number; created_at: string; source_url: string | null; source: string | null }[]> => {
       const { data, error } = await supabase
         .from('vision_items')
-        .select('id, image_url, caption, category_id, sort_order, created_at')
+        .select('id, image_url, caption, category_id, sort_order, created_at, source_url, source')
         .order('sort_order', { ascending: true })
         .order('created_at', { ascending: false });
       if (error) console.error('[db] vision_items fetch:', error.message);
@@ -1735,7 +1764,7 @@ export const db = {
       const max = data?.[0]?.sort_order ?? -1;
       return max + 1;
     },
-    create: async (params: { imageUrl: string | null; caption: string | null; categoryId: string | null; sortOrder: number }): Promise<string | null> => {
+    create: async (params: { imageUrl: string | null; caption: string | null; categoryId: string | null; sortOrder: number; sourceUrl?: string | null; source?: string | null }): Promise<string | null> => {
       const { data, error } = await supabase
         .from('vision_items')
         .insert({
@@ -1743,6 +1772,8 @@ export const db = {
           caption: params.caption,
           category_id: params.categoryId,
           sort_order: params.sortOrder,
+          source_url: params.sourceUrl ?? null,
+          source: params.source ?? null,
         })
         .select('id')
         .single();
@@ -2010,6 +2041,60 @@ export const db = {
     delete: async (id: string): Promise<void> => {
       const { error } = await supabase.from('scrap_notes').delete().eq('id', id);
       if (error) console.error('[db] scrap_notes delete:', error.message);
+    },
+  },
+
+  // ── 자유 일기 — diary_entries (Stage 4: 스크랩 → 저널 승격) ──────────────
+  // 단일 사용자 컨벤션: user_id 는 DB DEFAULT auth.uid() 로 자동 충전.
+  diaryEntries: {
+    listByUser: async (): Promise<DiaryEntry[]> => {
+      const { data, error } = await supabase
+        .from('diary_entries')
+        .select('id, title, content, source_type, source_url, source_label, created_at, updated_at')
+        .order('created_at', { ascending: false });
+      if (error) { console.error('[db] diary_entries fetch:', error.message); return []; }
+      return (data ?? []).map(toDiaryEntry);
+    },
+    fetchById: async (id: string): Promise<DiaryEntry | null> => {
+      const { data, error } = await supabase
+        .from('diary_entries')
+        .select('id, title, content, source_type, source_url, source_label, created_at, updated_at')
+        .eq('id', id)
+        .maybeSingle();
+      if (error) { console.error('[db] diary_entries fetchById:', error.message); return null; }
+      return data ? toDiaryEntry(data) : null;
+    },
+    create: async (params: {
+      title?: string | null;
+      content?: string;
+      sourceType?: DiarySourceType;
+      sourceUrl?: string | null;
+      sourceLabel?: string | null;
+    }): Promise<DiaryEntry | null> => {
+      const { data, error } = await supabase
+        .from('diary_entries')
+        .insert({
+          title: params.title ?? null,
+          content: params.content ?? '',
+          source_type: params.sourceType ?? 'free',
+          source_url: params.sourceUrl ?? null,
+          source_label: params.sourceLabel ?? null,
+        })
+        .select('id, title, content, source_type, source_url, source_label, created_at, updated_at')
+        .single();
+      if (error) { console.error('[db] diary_entries create:', error.message); return null; }
+      return data ? toDiaryEntry(data) : null;
+    },
+    update: async (id: string, patch: { title?: string | null; content?: string }): Promise<void> => {
+      const row: Record<string, unknown> = { updated_at: new Date().toISOString() };
+      if ('title' in patch) row.title = patch.title ?? null;
+      if ('content' in patch) row.content = patch.content ?? '';
+      const { error } = await supabase.from('diary_entries').update(row).eq('id', id);
+      if (error) console.error('[db] diary_entries update:', error.message);
+    },
+    delete: async (id: string): Promise<void> => {
+      const { error } = await supabase.from('diary_entries').delete().eq('id', id);
+      if (error) console.error('[db] diary_entries delete:', error.message);
     },
   },
 

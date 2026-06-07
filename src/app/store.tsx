@@ -34,6 +34,10 @@ export interface Todo {
   milestoneId?: string;
   /** 만다라트에서 "보내기"로 생성된 경우 출처 셀 id */
   mandalartCellId?: string;
+  /** 본문 외 추가 메모(스크랩 코멘트 등). 본문 한 줄 외 보조 설명 보관용 */
+  note?: string;
+  /** 외부 출처 url (스크랩에서 승격된 경우 원본 링크) */
+  sourceUrl?: string;
   tags?: string[];
   // 반복 일정 필드
   recurrenceRule?: 'daily' | 'weekly' | 'weekdays' | 'custom';
@@ -338,6 +342,20 @@ export interface ScrapNote {
   scrapId: string;
   content: string;
   createdAt: string;
+}
+
+// ── 자유 일기 (Stage 4 — 스크랩 → 저널 승격용) ──────────────────────────
+export type DiarySourceType = 'free' | 'scrap';
+
+export interface DiaryEntry {
+  id: string;
+  title: string | null;
+  content: string;
+  sourceType: DiarySourceType;
+  sourceUrl: string | null;
+  sourceLabel: string | null;
+  createdAt: string;
+  updatedAt: string;
 }
 
 export interface PeriodRecord {
