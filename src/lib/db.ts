@@ -1303,6 +1303,11 @@ export const db = {
         createdAt: data.created_at ?? undefined,
       };
     },
+    // LP 위 스티커 꾸미기 결과 저장 (stickers jsonb) — [{emoji,x,y}, ...]
+    updateStickers: async (id: string, stickers: { emoji: string; x: number; y: number }[]) => {
+      const { error } = await supabase.from('music_records').update({ stickers }).eq('id', id);
+      if (error) console.error('[db] music_records stickers update:', error.message);
+    },
     delete: async (id: string) => {
       const { error } = await supabase.from('music_records').delete().eq('id', id);
       if (error) console.error('[db] music_records delete:', error.message);

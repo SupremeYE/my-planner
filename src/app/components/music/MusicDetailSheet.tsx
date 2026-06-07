@@ -3,6 +3,7 @@ import { X, Play, Pause, Palette, ExternalLink, Trash2 } from 'lucide-react';
 import { useTheme } from '../../ThemeContext';
 import type { MusicRecord } from '../../store';
 import { LpDisc } from './LpDisc';
+import { useStickerEditor, StickerLayer, StickerPalette } from './StickerEditor';
 
 interface MusicDetailSheetProps {
   record: MusicRecord;
@@ -40,6 +41,9 @@ export function MusicDetailSheet({ record, onClose, onDelete }: MusicDetailSheet
   // 색 역할 매핑(하드코딩 금지 — 토큰만): 골드=accent, 코랄=danger, 그린=success
   const gold = t.accent, coral = t.danger, green = t.success;
 
+  // 스티커 꾸미기 (모바일·PC 공용 훅)
+  const { stickers, decorating, addSticker, moveSticker, removeSticker, toggleDecorate } = useStickerEditor(record);
+
   useEffect(() => {
     const handler = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
     document.addEventListener('keydown', handler);
@@ -61,6 +65,12 @@ export function MusicDetailSheet({ record, onClose, onDelete }: MusicDetailSheet
   };
 
   const hasListen = !!record.listenUrl;
+
+  // 꾸미기 모드 진입 시 LP 회전/재생 정지 후 토글
+  const onDecorateClick = () => {
+    if (!decorating) { audioRef.current?.pause(); setPlaying(false); }
+    toggleDecorate();
+  };
 
   return (
     <div className="fixed inset-0 z-50 flex flex-col justify-end"
@@ -84,26 +94,33 @@ export function MusicDetailSheet({ record, onClose, onDelete }: MusicDetailSheet
           style={{ WebkitOverflowScrolling: 'touch',
             paddingBottom: 'calc(24px + env(safe-area-inset-bottom))' }}>
 
-          {/* 큰 LP */}
+          {/* 큰 LP (+ 스티커 레이어) */}
           <div className="mx-auto mt-2 mb-4" style={{ width: 'min(64vw, 240px)' }}>
-            <LpDisc artworkUrl={record.artworkUrl} spinning={playing} />
+            <LpDisc artworkUrl={record.artworkUrl} spinning={playing && !decorating}>
+              <StickerLayer stickers={stickers} decorating={decorating}
+                onMove={moveSticker} onRemove={removeSticker} />
+            </LpDisc>
           </div>
 
           {/* 재생 / 꾸미기 컨트롤 */}
-          <div className="flex items-center justify-center gap-3 mb-5">
+          <div className="flex items-center justify-center gap-3 mb-4">
             <button onClick={togglePlay}
               className="flex items-center justify-center gap-1.5 rounded-full px-5 py-2.5 active:scale-95 transition-transform"
               style={{ backgroundColor: gold, color: '#fff', fontSize: 14, fontWeight: 700, minWidth: 120 }}>
               {playing ? <Pause size={18} /> : <Play size={18} />}
               {playing ? '멈춤' : '재생'}
             </button>
-            <button disabled aria-disabled title="다음 단계에서 제공돼요"
-              className="flex items-center justify-center gap-1.5 rounded-full px-5 py-2.5"
-              style={{ backgroundColor: t.bgSub, color: t.textMuted, fontSize: 14, fontWeight: 600,
-                border: `1px solid ${t.border}`, cursor: 'not-allowed' }}>
-              <Palette size={18} /> 꾸미기
+            <button onClick={onDecorateClick}
+              className="flex items-center justify-center gap-1.5 rounded-full px-5 py-2.5 active:scale-95 transition-transform"
+              style={decorating
+                ? { backgroundColor: gold, color: '#fff', fontSize: 14, fontWeight: 700 }
+                : { backgroundColor: t.bgSub, color: t.text, fontSize: 14, fontWeight: 600, border: `1px solid ${t.border}` }}>
+              <Palette size={18} /> {decorating ? '완료' : '꾸미기'}
             </button>
           </div>
+
+          {/* 스티커 팔레트 (꾸미기 모드에서만) */}
+          {decorating && <StickerPalette onPick={addSticker} />}
 
           {/* 숨은 audio */}
           {record.previewUrl && (

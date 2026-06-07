@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react';
 import { useTheme } from '../../ThemeContext';
 
 /**
@@ -14,9 +15,12 @@ import { useTheme } from '../../ThemeContext';
 export function LpDisc({
   artworkUrl,
   spinning = false,
+  children,
 }: {
   artworkUrl?: string | null;
   spinning?: boolean;
+  /** LP 위에 올라가는 레이어(스티커 등). 회전 컨테이너 내부라 spinning 시 LP와 함께 회전한다. */
+  children?: ReactNode;
 }) {
   const { t } = useTheme();
 
@@ -85,6 +89,8 @@ export function LpDisc({
           boxShadow: '0 0 0 1px rgba(0,0,0,0.35)',
         }}
       />
+      {/* 스티커 등 추가 레이어 (회전 컨테이너 내부 → LP와 함께 회전) */}
+      {children}
     </div>
   );
 }
