@@ -526,6 +526,34 @@ const toDiaryEntry = (r: DiaryEntryRow): DiaryEntry => ({
   updatedAt: r.updated_at,
 });
 
+// ── 질문 풀 (journal_questions) ───────────────────────────────────────────────
+export type JournalQuestion = {
+  id: string;
+  userId: string | null;
+  category: string;       // 영문 키 (custom = 나만의 질문)
+  categoryKo: string;     // 한글 표시명
+  text: string;
+  isDefault: boolean;     // 기본 질문(true) vs 나만의 질문(false)
+  sortOrder: number | null;
+  createdAt: string;
+};
+
+type JournalQuestionRow = {
+  id: string; user_id: string | null; category: string; category_ko: string;
+  text: string; is_default: boolean; sort_order: number | null; created_at: string;
+};
+
+const toJournalQuestion = (r: JournalQuestionRow): JournalQuestion => ({
+  id: r.id,
+  userId: r.user_id ?? null,
+  category: r.category,
+  categoryKo: r.category_ko,
+  text: r.text,
+  isDefault: r.is_default,
+  sortOrder: r.sort_order ?? null,
+  createdAt: r.created_at,
+});
+
 // ── DB 객체 ──────────────────────────────────────────────────────────────────
 
 export const db = {
@@ -2169,9 +2197,98 @@ export const db = {
       if (error) { console.error('[db] diary_entries insert:', error.message); return null; }
       return data ? toDiaryEntry(data) : null;
     },
+    // 특정 날짜의 질문일기 1건 (type='question'). 하루 1건 정책 → maybeSingle.
+    fetchQuestionByDate: async (entryDate: string): Promise<DiaryEntry | null> => {
+      const { data, error } = await supabase
+        .from('diary_entries')
+        .select('*')
+        .eq('type', 'question')
+        .eq('entry_date', entryDate)
+        .order('updated_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      if (error) console.error('[db] diary_entries fetchQuestionByDate:', error.message);
+      return data ? toDiaryEntry(data) : null;
+    },
+    // 최근 질문일기 N건 (entry_date 내림차순)
+    listRecentQuestion: async (limit = 7): Promise<DiaryEntry[]> => {
+      const { data, error } = await supabase
+        .from('diary_entries')
+        .select('*')
+        .eq('type', 'question')
+        .order('entry_date', { ascending: false })
+        .limit(limit);
+      if (error) console.error('[db] diary_entries listRecentQuestion:', error.message);
+      return (data ?? []).map(toDiaryEntry);
+    },
+    // 질문일기 저장 — (entry_date, type='question') 기준 앱 레벨 upsert(하루 1건).
+    // question_id + question_text(작성 시점 스냅샷) 함께 기록 → 질문 수정/삭제돼도 보존.
+    upsertQuestion: async (
+      entryDate: string,
+      questionId: string | null,
+      questionText: string,
+      content: string,
+    ): Promise<DiaryEntry | null> => {
+      const { data: existing, error: selErr } = await supabase
+        .from('diary_entries')
+        .select('id')
+        .eq('type', 'question')
+        .eq('entry_date', entryDate)
+        .order('updated_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      if (selErr) { console.error('[db] diary_entries upsertQuestion select:', selErr.message); return null; }
+      if (existing?.id) {
+        const { data, error } = await supabase
+          .from('diary_entries')
+          .update({ question_id: questionId, question_text: questionText, content, updated_at: new Date().toISOString() })
+          .eq('id', existing.id)
+          .select('*')
+          .single();
+        if (error) { console.error('[db] diary_entries question update:', error.message); return null; }
+        return data ? toDiaryEntry(data) : null;
+      }
+      const { data, error } = await supabase
+        .from('diary_entries')
+        .insert({ entry_date: entryDate, type: 'question', question_id: questionId, question_text: questionText, content })
+        .select('*')
+        .single();
+      if (error) { console.error('[db] diary_entries question insert:', error.message); return null; }
+      return data ? toDiaryEntry(data) : null;
+    },
     delete: async (id: string) => {
       const { error } = await supabase.from('diary_entries').delete().eq('id', id);
       if (error) console.error('[db] diary_entries delete:', error.message);
+    },
+  },
+
+  // ── 질문 풀 (journal_questions) — 기본 질문 + 나만의 질문 ──────────────────────
+  journalQuestions: {
+    // 전체 질문(기본 + 나만의). 카테고리/정렬 순.
+    fetchAll: async (): Promise<JournalQuestion[]> => {
+      const { data, error } = await supabase
+        .from('journal_questions')
+        .select('*')
+        .order('is_default', { ascending: false })
+        .order('sort_order', { ascending: true })
+        .order('created_at', { ascending: true });
+      if (error) console.error('[db] journal_questions fetch:', error.message);
+      return (data ?? []).map(toJournalQuestion);
+    },
+    // 나만의 질문 추가 — is_default=false, category='custom'. user_id 는 DEFAULT auth.uid().
+    createCustom: async (text: string): Promise<JournalQuestion | null> => {
+      const { data, error } = await supabase
+        .from('journal_questions')
+        .insert({ text, category: 'custom', category_ko: '나만의 질문', is_default: false })
+        .select('*')
+        .single();
+      if (error) { console.error('[db] journal_questions createCustom:', error.message); return null; }
+      return data ? toJournalQuestion(data) : null;
+    },
+    // 나만의 질문 삭제 — 기본 질문(user_id=null)은 RLS 로 차단되어 삭제 불가.
+    delete: async (id: string) => {
+      const { error } = await supabase.from('journal_questions').delete().eq('id', id);
+      if (error) console.error('[db] journal_questions delete:', error.message);
     },
   },
 };

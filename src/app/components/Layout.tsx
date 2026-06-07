@@ -4,7 +4,7 @@ import {
   Sun, CalendarDays, BarChart2, ListTodo,
   ChevronLeft, ChevronRight, Target, FolderKanban, Plus, Home,
   Menu, Heart, Repeat, BookOpen, Library, Settings, BarChart3,
-  Smile, Utensils, Camera, NotebookPen, Clapperboard, ChefHat,
+  Smile, Utensils, Camera, Clapperboard, ChefHat,
   Sparkles, Bookmark, PenLine,
   User, LogOut, Mail,
 } from 'lucide-react';
@@ -163,7 +163,6 @@ const lifestyleNavItems = [
   { to: '/vision', icon: Sparkles, label: '비전보드' },
   { to: '/scraps', icon: Bookmark, label: '스크랩' },
   { to: '/diary', icon: PenLine, label: '일기' },
-  { to: '/question-journal', icon: NotebookPen, label: '질문일기' },
 ];
 
 // ── Inline new project form ──
@@ -420,7 +419,6 @@ function MobileMenuOverlay({ onClose }: { onClose: () => void }) {
     { to: '/vision', icon: Sparkles, label: '비전보드' },
     { to: '/scraps', icon: Bookmark, label: '스크랩' },
     { to: '/diary', icon: PenLine, label: '일기' },
-    { to: '/question-journal', icon: NotebookPen, label: '질문일기' },
   ];
 
   return (
