@@ -6,7 +6,7 @@ import type {
   SelfCareRecord, ReviewRecord, WeeklyReview, MonthlyReview, TimelineLog,
   FoodRecord, DiningType, TasteRating, Event, WeeklyGoal, MonthlyGoal, BrainstormItem, Tag, Routine,
   PeriodRecord, HabitMonthlyMemo, AnnualGoal, QuarterlyGoal,
-  WeightRecord, WeightGoal, ConditionRecord, CultureRecord,
+  WeightRecord, WeightGoal, ConditionRecord, CultureRecord, MusicRecord,
   Recipe, RecipeIngredient, RecipeStep, RecipeCookLog,
   FridgeItem, ShoppingItem,
 } from '../app/store';
@@ -1186,6 +1186,76 @@ export const db = {
     delete: async (id: string) => {
       const { error } = await supabase.from('culture_records').delete().eq('id', id);
       if (error) console.error('[db] culture_records delete:', error.message);
+    },
+  },
+
+  // ── 음악 기록 (문화 기록 > 음악, Stage 1) ──
+  musicRecords: {
+    fetchAll: async (): Promise<MusicRecord[]> => {
+      const { data, error } = await supabase
+        .from('music_records').select('*').order('created_at', { ascending: false });
+      if (error) console.error('[db] music_records fetch:', error.message);
+      return (data ?? []).map((r: any): MusicRecord => ({
+        id: r.id,
+        trackTitle: r.track_title,
+        artist: r.artist,
+        album: r.album ?? null,
+        artworkUrl: r.artwork_url ?? null,
+        releaseYear: r.release_year ?? null,
+        itunesTrackId: r.itunes_track_id ?? null,
+        previewUrl: r.preview_url ?? null,
+        mood: r.mood ?? [],
+        genre: r.genre ?? null,
+        memo: r.memo ?? null,
+        listenUrl: r.listen_url ?? null,
+        stickers: r.stickers ?? [],
+        createdAt: r.created_at ?? undefined,
+      }));
+    },
+    // 같은 곡(itunes_track_id)이 이미 저장돼 있는지 확인 (중복 추가 방지용)
+    existsByItunesId: async (itunesTrackId: number): Promise<boolean> => {
+      const { data, error } = await supabase
+        .from('music_records').select('id').eq('itunes_track_id', itunesTrackId).limit(1);
+      if (error) { console.error('[db] music_records exists:', error.message); return false; }
+      return (data ?? []).length > 0;
+    },
+    // user_id 는 DB 기본값 auth.uid() 로 자동 채워지므로 클라이언트에서 보내지 않는다.
+    insert: async (record: Omit<MusicRecord, 'id' | 'createdAt'>): Promise<MusicRecord | null> => {
+      const { data, error } = await supabase.from('music_records').insert({
+        track_title: record.trackTitle,
+        artist: record.artist,
+        album: record.album ?? null,
+        artwork_url: record.artworkUrl ?? null,
+        release_year: record.releaseYear ?? null,
+        itunes_track_id: record.itunesTrackId ?? null,
+        preview_url: record.previewUrl ?? null,
+        mood: record.mood ?? [],
+        genre: record.genre ?? null,
+        memo: record.memo ?? null,
+        listen_url: record.listenUrl ?? null,
+        stickers: record.stickers ?? [],
+      }).select().single();
+      if (error) { console.error('[db] music_records insert:', error.message); return null; }
+      return {
+        id: data.id,
+        trackTitle: data.track_title,
+        artist: data.artist,
+        album: data.album ?? null,
+        artworkUrl: data.artwork_url ?? null,
+        releaseYear: data.release_year ?? null,
+        itunesTrackId: data.itunes_track_id ?? null,
+        previewUrl: data.preview_url ?? null,
+        mood: data.mood ?? [],
+        genre: data.genre ?? null,
+        memo: data.memo ?? null,
+        listenUrl: data.listen_url ?? null,
+        stickers: data.stickers ?? [],
+        createdAt: data.created_at ?? undefined,
+      };
+    },
+    delete: async (id: string) => {
+      const { error } = await supabase.from('music_records').delete().eq('id', id);
+      if (error) console.error('[db] music_records delete:', error.message);
     },
   },
 

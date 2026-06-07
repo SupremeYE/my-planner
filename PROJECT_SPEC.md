@@ -25,6 +25,7 @@
 | `/moments` | `MomentView` | 모먼트 로그 — 사진(최대 5장)+텍스트 작성·저장, 날씨 자동 기록, 최신순 카드 목록 |
 | `/question-journal` | `QuestionJournalView` | 질문일기 — 오늘의 질문 답변, 질문 탐색, 질문별 모아보기(5년 다이어리 스타일) |
 | `/culture` | `CultureRecordView` | 문화 기록 — 영화/드라마/예능/유튜브 등 시청 콘텐츠 기록(포스터 그리드, 칩 필터, 별점, 리뷰/인사이트). **Stage 1: PC 레이아웃만** |
+| `/music` | `MusicRecordView` | 음악 기록(문화 기록 > 음악) — iTunes 곡 검색 → 무드·장르·메모·듣기링크 입력 후 저장. **Stage 1: 데이터 토대 + 검색·추가 흐름 + 확인용 임시 텍스트 리스트** (정식 LP 그리드는 Stage 2) |
 | `/recipes` | `RecipeView` (모듈 셸) | 레시피 모듈 — 내부 탭 네비(레시피/냉장고/장보기). **Phase 1a + 2a + D**: 레시피 직접입력 CRUD + 냉장고(요약·카테고리 섹션·D-day·수량 스테퍼) + 레시피↔냉장고 연결(목록 상단 `지금 만들 수 있어요`/`유통기한 임박 재료 레시피`, 카드 매칭 배지, 상세 재료 있음/부족 + `부족 재료 장보기 담기`) |
 
 > 참고: `BrainstormView.tsx`, `BacklogView.tsx` 파일은 남아 있지만 현재 `routes.tsx`에는 연결되어 있지 않다.
@@ -274,6 +275,7 @@
 | `moments` | 모먼트 로그 | `created_at` DESC | ✅ |
 | `reading_logs` | 독서 진행 이력 (current_page 스냅샷) | `date` ASC | ✅ |
 | `culture_records` | 문화 기록 (영화/드라마/예능/유튜브 등 시청 콘텐츠) | `created_at` DESC | ✅ |
+| `music_records` | 음악 기록 (iTunes 검색 곡 + 무드·메모) | `created_at` DESC | ✅ |
 | `recipes` | 레시피 본체 (직접입력) | `created_at` DESC | ✅ |
 | `recipe_ingredients` | 레시피 재료 (recipe_id, name/amount/unit/sort_order) | `sort_order` ASC | ✅ |
 | `recipe_steps` | 레시피 요리 순서 (step_no, instruction, timer_seconds) | `sort_order` ASC | ✅ |

@@ -217,6 +217,25 @@ export interface CultureRecord {
   updatedAt?: string;
 }
 
+// ── 음악 기록 (문화 기록 > 음악, Stage 1) ──
+// iTunes 검색으로 고른 곡 + 무드·메모. Stage 2 에서 LP 그리드 UI 예정.
+export interface MusicRecord {
+  id: string;
+  trackTitle: string;
+  artist: string;
+  album?: string | null;
+  artworkUrl?: string | null;
+  releaseYear?: number | null;
+  itunesTrackId?: number | null;  // 중복 추가 방지용
+  previewUrl?: string | null;     // iTunes 30초 미리듣기
+  mood: string[];                 // 무드·상황 태그(복수)
+  genre?: string | null;
+  memo?: string | null;
+  listenUrl?: string | null;      // 비우면 제목으로 자동 검색 (Stage 2)
+  stickers?: unknown[];           // Stage 3 에서 사용
+  createdAt?: string;
+}
+
 // ── 레시피 모듈 (Phase 1) ───────────────────────────────────────────────────
 export type RecipeSourceType = 'manual' | 'link' | 'reels' | 'receipt' | 'ai';
 
