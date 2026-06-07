@@ -9,6 +9,7 @@ import type {
   WeightRecord, WeightGoal, ConditionRecord, CultureRecord,
   Recipe, RecipeIngredient, RecipeStep, RecipeCookLog,
   FridgeItem, ShoppingItem,
+  Scrap, ScrapNote, ScrapSource, ScrapStatus,
 } from '../app/store';
 
 function parseAnnualProfilesFromDb(raw: unknown): Record<string, { identity: string; values: string[] }> {
@@ -145,6 +146,34 @@ type AnnualGoalRow = {
 type QuarterlyGoalRow = {
   id: string; year: number; quarter: number; text: string; done: boolean;
 };
+
+type ScrapRow = {
+  id: string;
+  url: string | null;
+  source: string | null;
+  title: string | null;
+  thumbnail_url: string | null;
+  comment: string | null;
+  tags: string[] | null;
+  status: string;
+  last_viewed_at: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+const toScrap = (r: ScrapRow): Scrap => ({
+  id: r.id,
+  url: r.url,
+  source: (r.source as ScrapSource | null) ?? null,
+  title: r.title,
+  thumbnailUrl: r.thumbnail_url,
+  comment: r.comment,
+  tags: r.tags ?? [],
+  status: (r.status as ScrapStatus) ?? 'unread',
+  lastViewedAt: r.last_viewed_at,
+  createdAt: r.created_at,
+  updatedAt: r.updated_at,
+});
 
 // ── 변환 함수 ────────────────────────────────────────────────────────────────
 
@@ -1696,6 +1725,114 @@ export const db = {
       // cells 는 ON DELETE CASCADE 로 함께 삭제
       const { error } = await supabase.from('mandalart_boards').delete().eq('id', id);
       if (error) console.error('[db] mandalart_boards delete:', error.message);
+    },
+  },
+
+  // ── 스크랩 / 영감 보관함 — scraps / scrap_notes / Storage(scrap-thumbs) ────
+  // 단일 사용자 컨벤션: user_id 는 DB DEFAULT auth.uid() 로 자동 충전 → 클라이언트 미전송.
+  // 모든 컴포넌트는 이 레이어를 거쳐서만 supabase 에 접근(Stage 1 규칙).
+  scraps: {
+    // 최신순(created_at desc) 전체 조회 — RLS 가 본인 행만 통과시키므로 클라이언트 필터 불필요.
+    listByUser: async (): Promise<Scrap[]> => {
+      const { data, error } = await supabase
+        .from('scraps')
+        .select('id, url, source, title, thumbnail_url, comment, tags, status, last_viewed_at, created_at, updated_at')
+        .order('created_at', { ascending: false });
+      if (error) { console.error('[db] scraps fetch:', error.message); return []; }
+      return (data ?? []).map(toScrap);
+    },
+    create: async (params: {
+      url: string | null;
+      source: ScrapSource | null;
+      title: string | null;
+      thumbnailUrl: string | null;
+      comment: string | null;
+      tags: string[];
+    }): Promise<Scrap | null> => {
+      const { data, error } = await supabase
+        .from('scraps')
+        .insert({
+          url: params.url,
+          source: params.source,
+          title: params.title,
+          thumbnail_url: params.thumbnailUrl,
+          comment: params.comment,
+          tags: params.tags,
+          // status 는 DB DEFAULT 'unread' — 굳이 보내지 않아도 됨
+        })
+        .select('id, url, source, title, thumbnail_url, comment, tags, status, last_viewed_at, created_at, updated_at')
+        .single();
+      if (error) { console.error('[db] scraps create:', error.message); return null; }
+      return data ? toScrap(data) : null;
+    },
+    update: async (id: string, patch: {
+      url?: string | null;
+      source?: ScrapSource | null;
+      title?: string | null;
+      thumbnailUrl?: string | null;
+      comment?: string | null;
+      tags?: string[];
+      status?: ScrapStatus;
+      lastViewedAt?: string | null;
+    }): Promise<void> => {
+      const row: Record<string, unknown> = {};
+      if ('url' in patch) row.url = patch.url ?? null;
+      if ('source' in patch) row.source = patch.source ?? null;
+      if ('title' in patch) row.title = patch.title ?? null;
+      if ('thumbnailUrl' in patch) row.thumbnail_url = patch.thumbnailUrl ?? null;
+      if ('comment' in patch) row.comment = patch.comment ?? null;
+      if ('tags' in patch) row.tags = patch.tags ?? [];
+      if ('status' in patch) row.status = patch.status;
+      if ('lastViewedAt' in patch) row.last_viewed_at = patch.lastViewedAt ?? null;
+      // updated_at 은 트리거가 없으므로 명시적으로 갱신 (간단 정책 — 한 컬럼 추가 비용 무시 가능)
+      row.updated_at = new Date().toISOString();
+      const { error } = await supabase.from('scraps').update(row).eq('id', id);
+      if (error) console.error('[db] scraps update:', error.message);
+    },
+    delete: async (id: string): Promise<void> => {
+      // scrap_notes 는 ON DELETE CASCADE 로 함께 삭제됨
+      const { error } = await supabase.from('scraps').delete().eq('id', id);
+      if (error) console.error('[db] scraps delete:', error.message);
+    },
+    // 수동 스크린샷 업로드(인스타·스레드용). 파일명은 itemKey 기반 — 동일 키 재업로드 시 덮어씀.
+    uploadThumb: async (file: File, itemKey: string): Promise<string | null> => {
+      const ext = (file.name.split('.').pop() ?? 'jpg').toLowerCase();
+      const path = `${itemKey}.${ext}`;
+      const { error } = await supabase.storage
+        .from('scrap-thumbs')
+        .upload(path, file, { upsert: true, contentType: file.type });
+      if (error) { console.error('[db] scrap-thumbs upload:', error.message); return null; }
+      const { data } = supabase.storage.from('scrap-thumbs').getPublicUrl(path);
+      return data.publicUrl;
+    },
+    // ── fetch-link-metadata Edge Function 호출 (URL → 메타 자동 채움) ──
+    fetchLinkMetadata: async (url: string): Promise<{
+      source: ScrapSource;
+      title: string | null;
+      thumbnail_url: string | null;
+      description: string | null;
+      needsManual: boolean;
+    } | null> => {
+      const { data, error } = await supabase.functions.invoke('fetch-link-metadata', {
+        body: { url },
+      });
+      if (error) { console.error('[db] fetch-link-metadata invoke:', error.message); return null; }
+      return data ?? null;
+    },
+  },
+
+  // Stage 2 에서 본 구현. 시그니처만 잡아둔다.
+  scrapNotes: {
+    listByScrap: async (_scrapId: string): Promise<ScrapNote[]> => {
+      // Stage 2 구현 예정 — created_at asc 로 노트 타임라인 반환
+      return [];
+    },
+    create: async (_params: { scrapId: string; content: string }): Promise<ScrapNote | null> => {
+      // Stage 2 구현 예정
+      return null;
+    },
+    delete: async (_id: string): Promise<void> => {
+      // Stage 2 구현 예정
     },
   },
 
