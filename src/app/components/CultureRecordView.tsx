@@ -13,6 +13,7 @@ import {
   PLATFORM_META, PLATFORM_ORDER, CONTENT_TYPE_META, CONTENT_TYPE_ORDER, STATUS_META, STATUS_ORDER,
   SORT_LABELS, type CultureSortKey,
 } from './culture/cultureMeta';
+import { MusicSection, SectionTabs, type CultureSection } from './music/MusicSection';
 
 type SortKey = CultureSortKey;
 
@@ -25,6 +26,8 @@ export function CultureRecordView() {
   const [statusFilter, setStatusFilter] = useState<CultureStatus | 'all'>('all');
   const [sortKey, setSortKey] = useState<SortKey>('created');
   const [sortOpen, setSortOpen] = useState(false);
+  // 문화 기록 상위 섹션: 영상(기존) / 음악(Stage 2)
+  const [section, setSection] = useState<CultureSection>('video');
 
   const [modalOpen, setModalOpen] = useState(false);
   const [editing, setEditing] = useState<CultureRecord | null>(null);
@@ -120,11 +123,19 @@ export function CultureRecordView() {
 
   const mobileFiltersActive = platformFilter !== 'all' || typeFilter !== 'all';
 
+  // 음악 섹션 — 단일 반응형 컴포넌트로 한 번만 마운트 (영상 PC 레이아웃과 분리)
+  if (section === 'music') {
+    return <MusicSection section={section} setSection={setSection} />;
+  }
+
   return (
     <>
     {/* ════════ PC (lg 이상) — Stage 1·2 레이아웃 그대로 유지 ════════ */}
     <div className="hidden lg:block h-full overflow-y-auto" style={{ backgroundColor: t.bg }}>
       <div className="max-w-[1400px] mx-auto px-4 lg:px-8 py-5 lg:py-7">
+
+        {/* ── 섹션 탭 (영상/음악) ── */}
+        <SectionTabs section={section} setSection={setSection} />
 
         {/* ── 헤더 ── */}
         <div className="flex items-center justify-between gap-3 mb-5">
@@ -214,6 +225,10 @@ export function CultureRecordView() {
       {/* sticky 헤더 */}
       <div className="sticky top-0 z-20"
         style={{ backgroundColor: t.bg, borderBottom: `1px solid ${t.border}` }}>
+        {/* 0행: 섹션 탭 (영상/음악) */}
+        <div className="px-4 pt-2.5">
+          <SectionTabs section={section} setSection={setSection} />
+        </div>
         {/* 1행: 제목 + 검색 토글 */}
         {!searchOpen ? (
           <div className="flex items-center justify-between px-4 py-3">
