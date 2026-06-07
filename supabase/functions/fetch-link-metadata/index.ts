@@ -1,0 +1,205 @@
+// Supabase Edge Function: fetch-link-metadata
+//
+// 입력: { url: string }
+// 출력: { source, title, thumbnail_url, description, needsManual }
+//
+// 동작:
+//  - 출처 감지(youtube / instagram / threads / web)
+//  - youtube: oEmbed (https://www.youtube.com/oembed) — 키 불필요
+//  - web:     HTML 가져와 og:title / og:image / og:description 파싱
+//  - instagram / threads: 자동 fetch 금지 → needsManual:true 만 반환
+//
+// 실패는 graceful — 항상 200 JSON 응답. 클라이언트는 needsManual 또는 빈 필드만 보고
+// "자동 채움 실패 → 직접 입력해주세요" UI 로 폴백한다.
+
+import 'jsr:@supabase/functions-js/edge-runtime.d.ts';
+
+type Source = 'youtube' | 'instagram' | 'threads' | 'web';
+
+interface Result {
+  source: Source;
+  title: string | null;
+  thumbnail_url: string | null;
+  description: string | null;
+  needsManual: boolean;
+}
+
+const CORS_HEADERS = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Methods': 'POST, OPTIONS',
+  'Access-Control-Allow-Headers': 'authorization, content-type, x-client-info, apikey',
+};
+
+function jsonResponse(body: unknown, status = 200): Response {
+  return new Response(JSON.stringify(body), {
+    status,
+    headers: { 'Content-Type': 'application/json', ...CORS_HEADERS },
+  });
+}
+
+// 출처 감지 — 호스트네임 기준
+function detectSource(url: string): Source {
+  try {
+    const u = new URL(url);
+    const host = u.hostname.toLowerCase().replace(/^www\./, '');
+    if (host === 'youtube.com' || host === 'm.youtube.com' || host === 'youtu.be' || host.endsWith('.youtube.com')) {
+      return 'youtube';
+    }
+    if (host === 'instagram.com' || host.endsWith('.instagram.com')) return 'instagram';
+    if (host === 'threads.net' || host === 'threads.com' || host.endsWith('.threads.net') || host.endsWith('.threads.com')) {
+      return 'threads';
+    }
+    return 'web';
+  } catch {
+    return 'web';
+  }
+}
+
+// ── YouTube oEmbed ──
+async function fetchYouTube(url: string): Promise<Partial<Result>> {
+  try {
+    const oembedUrl = `https://www.youtube.com/oembed?url=${encodeURIComponent(url)}&format=json`;
+    const res = await fetch(oembedUrl, { headers: { 'User-Agent': 'Mozilla/5.0 ScrapBot' } });
+    if (!res.ok) return {};
+    const data = await res.json();
+    return {
+      title: typeof data?.title === 'string' ? data.title : null,
+      thumbnail_url: typeof data?.thumbnail_url === 'string' ? data.thumbnail_url : null,
+      description: typeof data?.author_name === 'string' ? data.author_name : null,
+    };
+  } catch {
+    return {};
+  }
+}
+
+// ── OG/메타 태그 파싱 ──
+// 간단한 정규식 기반 파서. JSDOM 같은 무거운 의존성 없이 OG/twitter/타이틀만 추출한다.
+function decodeHtml(s: string): string {
+  return s
+    .replace(/&amp;/gi, '&')
+    .replace(/&lt;/gi, '<')
+    .replace(/&gt;/gi, '>')
+    .replace(/&quot;/gi, '"')
+    .replace(/&#39;/gi, "'")
+    .replace(/&apos;/gi, "'")
+    .replace(/&nbsp;/gi, ' ')
+    .replace(/&#(\d+);/g, (_, n) => String.fromCharCode(Number(n)));
+}
+
+function pickMeta(html: string, names: string[]): string | null {
+  // <meta property="og:title" content="..."> 또는 name="..." 양쪽 지원, content/property 순서 교환도 허용
+  for (const n of names) {
+    // property/name = "n"  →  content = "..."
+    const re1 = new RegExp(
+      `<meta[^>]+(?:property|name)=["']${n.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}["'][^>]*content=["']([^"']*)["']`,
+      'i',
+    );
+    const m1 = html.match(re1);
+    if (m1?.[1]) return decodeHtml(m1[1]);
+    // content = "..." → property/name = "n"  (순서 반대 케이스)
+    const re2 = new RegExp(
+      `<meta[^>]+content=["']([^"']*)["'][^>]*(?:property|name)=["']${n.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}["']`,
+      'i',
+    );
+    const m2 = html.match(re2);
+    if (m2?.[1]) return decodeHtml(m2[1]);
+  }
+  return null;
+}
+
+// 상대경로 og:image 를 절대경로로 변환
+function absoluteUrl(maybeUrl: string | null, baseUrl: string): string | null {
+  if (!maybeUrl) return null;
+  try {
+    return new URL(maybeUrl, baseUrl).toString();
+  } catch {
+    return null;
+  }
+}
+
+async function fetchWeb(url: string): Promise<Partial<Result>> {
+  try {
+    const res = await fetch(url, {
+      headers: {
+        // 일부 사이트는 봇 차단 → 일반 브라우저 UA로 위장
+        'User-Agent':
+          'Mozilla/5.0 (Macintosh; Intel Mac OS X 13_0) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0 Safari/537.36',
+        'Accept': 'text/html,application/xhtml+xml',
+        'Accept-Language': 'ko,en;q=0.9',
+      },
+      redirect: 'follow',
+    });
+    if (!res.ok) return {};
+    const html = await res.text();
+    // <head> 만 자르면 더 빠르지만 일부 사이트는 <body> 안에도 OG 메타 둠 → 8만자까지만 처리
+    const slice = html.length > 200_000 ? html.slice(0, 200_000) : html;
+
+    const title =
+      pickMeta(slice, ['og:title', 'twitter:title']) ??
+      (slice.match(/<title[^>]*>([^<]+)<\/title>/i)?.[1] ? decodeHtml(slice.match(/<title[^>]*>([^<]+)<\/title>/i)![1]) : null);
+
+    const rawImage = pickMeta(slice, ['og:image', 'og:image:secure_url', 'twitter:image', 'twitter:image:src']);
+    const description = pickMeta(slice, ['og:description', 'twitter:description', 'description']);
+
+    return {
+      title: title ?? null,
+      thumbnail_url: absoluteUrl(rawImage, res.url || url),
+      description: description ?? null,
+    };
+  } catch {
+    return {};
+  }
+}
+
+Deno.serve(async (req: Request) => {
+  if (req.method === 'OPTIONS') {
+    return new Response('ok', { headers: CORS_HEADERS });
+  }
+  if (req.method !== 'POST') {
+    return jsonResponse({ error: 'method_not_allowed' }, 405);
+  }
+
+  let url = '';
+  try {
+    const body = await req.json();
+    url = typeof body?.url === 'string' ? body.url.trim() : '';
+  } catch {
+    /* invalid json — url 비어있는 채로 진행 */
+  }
+
+  if (!url) {
+    return jsonResponse({
+      source: 'web',
+      title: null,
+      thumbnail_url: null,
+      description: null,
+      needsManual: true,
+    } as Result);
+  }
+
+  const source = detectSource(url);
+
+  // 인스타 / 스레드 — 로그인 벽 때문에 안정적 자동 fetch 불가 → 항상 needsManual
+  if (source === 'instagram' || source === 'threads') {
+    return jsonResponse({
+      source,
+      title: null,
+      thumbnail_url: null,
+      description: null,
+      needsManual: true,
+    } as Result);
+  }
+
+  const fetched = source === 'youtube' ? await fetchYouTube(url) : await fetchWeb(url);
+
+  const result: Result = {
+    source,
+    title: fetched.title ?? null,
+    thumbnail_url: fetched.thumbnail_url ?? null,
+    description: fetched.description ?? null,
+    // 자동 fetch 가 완전히 실패하면 needsManual 로 표시 (UI 에서 직접 입력 안내)
+    needsManual: !fetched.title && !fetched.thumbnail_url,
+  };
+
+  return jsonResponse(result);
+});
