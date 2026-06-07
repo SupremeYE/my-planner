@@ -9,12 +9,52 @@
 ## 2026-06-07
 
 ### 📋 TODO
-- (스크랩 / 영감 보관함 Stage 1 — 추가 모달 + db 레이어 + 메이슨리 그리드 + 노트 패널 + Realtime 구독)
+- (스크랩 Stage 2 — 카드 상세 시트 + 상태 전환(unread/revisit/done) + scrap_notes 글 기록 패널 + scrap_notes Realtime 구독)
 
 ### ✅ 완료
-- [x] 스크랩 / 영감 보관함 **Stage 0** — 스키마 + 라우트 + 빈 페이지 셸 (실제 기능은 다음 단계)
+- [x] 스크랩 / 영감 보관함 **Stage 0** — 스키마 + 라우트 + 빈 페이지 셸
+- [x] 스크랩 / 영감 보관함 **Stage 1** — 저장 + Realtime + 메타 자동 채움(유튜브 oEmbed / 웹 OG / 인스타·스레드 수동 스크린샷) + db.ts 일원화 + 메이슨리 그리드 + 출처 필터 5종
 
 ### 🛠 오늘 작업 내용
+
+**스크랩 Stage 1 — 저장 + Realtime**
+
+데이터/인프라
+- 마이그레이션 `20260607010000_create_scrap_thumbs_bucket.sql`: Supabase Storage `scrap-thumbs` 버킷 + RLS (public read + authenticated insert/update/delete). vision-board·moment-photos·food-photos 패턴 그대로
+- Edge Function `fetch-link-metadata` 배포: `{ url }` → `{ source, title, thumbnail_url, description, needsManual }`. 출처 감지 후 youtube=oEmbed(키 불필요) / web=HTML fetch + og:title/og:image/og:description 정규식 파싱(상대경로→절대경로, HTML 엔티티 디코드, 200KB cap, 브라우저 UA 위장) / instagram·threads=로그인 벽 → `needsManual:true` 즉시 반환(자동 fetch 금지). 실패해도 항상 200 graceful. verify_jwt=true
+
+db.ts 일원화 (Stage 1 규칙: 모든 supabase 호출은 db 레이어 경유)
+- `db.scraps`: `listByUser`(created_at desc) / `create` / `update`(부분 패치 + `updated_at` 자동 갱신) / `delete` / `uploadThumb`(scrap-thumbs 버킷) / `fetchLinkMetadata`(Edge Function invoke 래퍼)
+- `db.scrapNotes`: Stage 2 용 시그니처만 (`listByScrap`/`create`/`delete`)
+- `ScrapRow` + `toScrap` 변환기 추가
+
+AddScrapModal (모바일 슬라이드업 + PC 중앙 카드)
+- 링크 입력 → 클라이언트 측 출처 감지로 칩 즉시 표시 + '가져오기' 버튼/붙여넣기 자동 트리거 → `db.scraps.fetchLinkMetadata`
+- youtube/web: 제목·썸네일 자동 채움(사용자 입력값이 비어있을 때만 → 편집 가능 유지)
+- needsManual(인스타·스레드 또는 web fetch 실패): 안내 메시지 + 갤러리/카메라 스크린샷 업로드 → scrap-thumbs 버킷
+- 코멘트 textarea = Nanum Pen Script(손글씨), 태그 쉼표 구분 → text[] (trim/중복/빈 항목 제거)
+- 저장 시 `db.scraps.create({ url, source, title, thumbnailUrl, comment, tags })` — `status` 는 DB DEFAULT 'unread'
+
+ScrapView 본 구현
+- `db.scraps.listByUser` 로 fetch + `useRealtimeSync('scraps', refresh)` 구독 → 다른 기기/탭에서 추가/수정/삭제 시 즉시 반영, 언마운트 자동 해제
+- 출처 필터 칩 5종(전체/유튜브/인스타/스레드/웹) — 활성 칩은 `t.text` 배경 + `t.card` 글씨
+- CSS columns 메이슨리(모바일 2열 / lg 3열 / xl 4열) — `break-inside:avoid`, 폭 변동에 자연 적응
+- `ScrapCard`: 썸네일 있으면 이미지, 없으면 출처별 그라데이션(`t.accentLight` → `t.accent` 18%) + 큰 출처 아이콘 placeholder. 좌상단 출처 칩 + 우상단 상태 점(unread=`t.textMuted`/revisit=`t.accent`/done=`t.success` — 색만, 전환 액션은 Stage 2)
+- 본문: 제목(2줄 clamp) + 코멘트(Nanum Pen 손글씨, 2줄 clamp) + 태그 칩 최대 4개 + 잔여 +N
+- 로딩 텍스트 + 빈 상태(전체/필터별 메시지 분기)
+- 출처 lucide 아이콘: Youtube / Instagram / MessageCircle(threads) / Globe(web)
+- 카드 탭 동작은 Stage 2 placeholder — onClick 미부착(`cursor:default`)
+
+원칙 준수
+- 컴포넌트에서 supabase direct import 0 — 모두 db.ts 경유
+- 색상 토큰만(`t.accent`/`t.accentLight`/`t.bgSub`/`t.success`/`t.textMuted`/`t.border` 등) + withAlpha — 새 hex 0
+- 모바일(390) 기준 + PC 분기 `lg:` + CSS column-count 미디어쿼리만 — PC 사이드바 레이아웃 무영향
+- Figma 디렉터리(`src/app/components/figma/`) 미수정
+- 폰트 추가 import 0 — 기존 DM Serif Display(제목) + Nanum Pen Script(eyebrow/코멘트) 재사용
+- Stage 2 보류 항목 미구현: 카드 상세 시트, 상태 전환 액션, scrap_notes 글 기록 패널, scrap_notes Realtime 구독
+- `npm run build` 통과 (vite 6 production)
+
+---
 
 **스크랩 / 영감 보관함 Stage 0 — 기반**
 - 마이그레이션 `20260607000000_create_scraps.sql`: `scraps` (id/user_id default auth.uid()/url/source/title/thumbnail_url/comment/tags text[]/status default 'unread'/last_viewed_at/created_at/updated_at) + `scrap_notes` (1:N, scrap_id ON DELETE CASCADE). 두 테이블 모두 RLS 활성 + 본인 행만 select/insert/update/delete (vision_*·culture_records 패턴 그대로). 인덱스 `scraps(user_id, created_at desc)` / `scrap_notes(scrap_id, created_at)`. Realtime publication 등록. Supabase MCP 로 my-planner 프로젝트 적용 완료
