@@ -7,6 +7,7 @@ import { useTheme } from '../../ThemeContext';
 import { annualRollup, monthlyRollup, weeklyRollup, directChildCount } from './periodProgress';
 import { IdentityCard, ValuesCard } from './IdentityValuesCards';
 import { WeeklyTodosInline } from './WeeklyTodosInline';
+import { MandalartSourceBadge } from '../mandalart/MandalartSourceBadge';
 
 // 모바일 "기간별" 드릴다운: 연간 → (탭) → 월간 → (탭) → 주간
 // breadcrumb 으로 복귀, 각 카드에 역추적 배지.
@@ -123,6 +124,7 @@ export function PeriodCascadeMobile() {
                 metaIcon={<Layers size={10} />}
                 metaText={`월간 ${childN}`}
                 onDelete={() => deleteAnnualGoal(g.id)}
+                fromMandalart={!!g.mandalartCellId}
               />
             );
           })}
@@ -158,6 +160,7 @@ export function PeriodCascadeMobile() {
                   metaIcon={<Layers size={10} />}
                   metaText={`주간 ${childN}`}
                   onDelete={() => deleteMonthlyGoal(m.id)}
+                  fromMandalart={!!m.mandalartCellId}
                 />
               );
             })}
@@ -207,6 +210,7 @@ export function PeriodCascadeMobile() {
                   metaText={`할일 ${childN}`}
                   onDelete={() => deleteWeeklyGoal(w.id)}
                   footer={<WeeklyTodosInline weeklyGoalId={w.id} weekKey={w.weekKey} />}
+                  fromMandalart={!!w.mandalartCellId}
                 />
               );
             })}
@@ -227,7 +231,7 @@ export function PeriodCascadeMobile() {
 
 // ─── 공용 드릴 카드 ──────────────────────────────────────────
 function DrillCard({
-  t, onTap, left, eyebrow, title, titleDim, pct, metaIcon, metaText, onDelete, footer,
+  t, onTap, left, eyebrow, title, titleDim, pct, metaIcon, metaText, onDelete, footer, fromMandalart,
 }: {
   t: ReturnType<typeof useTheme>['t'];
   onTap?: () => void;
@@ -240,6 +244,7 @@ function DrillCard({
   metaText: string;
   onDelete?: () => void;
   footer?: React.ReactNode;
+  fromMandalart?: boolean;
 }) {
   const isTappable = !!onTap;
   return (
@@ -267,6 +272,7 @@ function DrillCard({
           }}>
             {title}
           </div>
+          {fromMandalart && <div className="mt-1"><MandalartSourceBadge /></div>}
           <div className="mt-1.5 h-1.5 rounded-full overflow-hidden" style={{ backgroundColor: t.bgSub }}>
             <div className="h-full" style={{ width: `${pct}%`, backgroundColor: t.success }} />
           </div>

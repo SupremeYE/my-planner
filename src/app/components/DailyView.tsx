@@ -14,6 +14,7 @@ import { useNotification } from '../hooks/useNotification';
 import { TimePicker } from './TimePicker';
 import ConfirmModal from './ConfirmModal';
 import { TodoModal } from './TodoModal';
+import { MandalartSourceBadge } from './mandalart/MandalartSourceBadge';
 import { EventModal } from './EventModal';
 import { FocusModal } from './FocusModal';
 import { FloatingAddFab } from './FloatingAddFab';
@@ -2112,6 +2113,7 @@ export function DailyView() {
             </span>
           </div>
           <div className="flex items-center gap-1.5 mt-1 flex-wrap">
+            {todo.mandalartCellId && <MandalartSourceBadge />}
             {todo.planStart && (
               <span style={{ fontSize: 10, color: t.textMuted }}>
                 {todo.planStart}{todo.planEnd ? ` - ${todo.planEnd}` : ''}

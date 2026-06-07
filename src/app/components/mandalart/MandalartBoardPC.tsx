@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react';
 import { Send } from 'lucide-react';
 import { useTheme } from '../../ThemeContext';
 import { db } from '../../../lib/db';
+import { usePlanner } from '../../store';
 import { computeProgress } from './MandalartView';
 import { SendCellModal } from './SendCellModal';
 import type { Cell } from './MandalartBoardMobile';
@@ -43,6 +44,15 @@ type EditTarget =
 
 export function MandalartBoardPC({ boardId, boardTitle, cells, onMutate, onNotify, onRenameBoard }: Props) {
   const { t } = useTheme();
+  const { annualGoals, monthlyGoals, weeklyGoals, todos } = usePlanner();
+  const sentCellIds = useMemo(() => {
+    const s = new Set<string>();
+    for (const g of annualGoals) if (g.mandalartCellId) s.add(g.mandalartCellId);
+    for (const g of monthlyGoals) if (g.mandalartCellId) s.add(g.mandalartCellId);
+    for (const g of weeklyGoals) if (g.mandalartCellId) s.add(g.mandalartCellId);
+    for (const td of todos) if (td.mandalartCellId) s.add(td.mandalartCellId);
+    return s;
+  }, [annualGoals, monthlyGoals, weeklyGoals, todos]);
 
   const subs = useMemo(
     () => cells.filter(c => c.parent_id === null).sort((a, b) => a.position - b.position),
@@ -204,6 +214,7 @@ export function MandalartBoardPC({ boardId, boardTitle, cells, onMutate, onNotif
                     <SubPCCell
                       key={gridIdx}
                       cell={sub}
+                      sent={sub ? sentCellIds.has(sub.id) : false}
                       pct={sub ? progress.subPct(sub.id) : 0}
                       hasActions={subHasActions}
                       t={t}
@@ -243,6 +254,7 @@ export function MandalartBoardPC({ boardId, boardTitle, cells, onMutate, onNotif
                   <ActionPCCell
                     key={gridIdx}
                     cell={action}
+                    sent={action ? sentCellIds.has(action.id) : false}
                     t={t}
                     onTap={() => {
                       if (!action) openEdit({ kind: 'action', parentId: subCell!.id, position: pos, cell: null });
@@ -334,8 +346,8 @@ function CorePCCell({ title, pct, t, onClick }: {
   );
 }
 
-function SubPCCell({ cell, pct, hasActions, t, onClick, onEdit }: {
-  cell: Cell | null; pct: number; hasActions: boolean;
+function SubPCCell({ cell, sent, pct, hasActions, t, onClick, onEdit }: {
+  cell: Cell | null; sent: boolean; pct: number; hasActions: boolean;
   t: ReturnType<typeof useTheme>['t']; onClick: () => void; onEdit: () => void;
 }) {
   if (!cell) {
@@ -365,8 +377,15 @@ function SubPCCell({ cell, pct, hasActions, t, onClick, onEdit }: {
         backgroundColor: done ? t.success + '22' : t.accentSoft,
         color: done ? t.textMuted : t.text,
         border: `1px solid ${done ? t.success + '66' : 'transparent'}`,
+        position: 'relative',
       }}
     >
+      {sent && (
+        <span
+          title="이 칸에서 보낸 항목이 있어요"
+          style={{ position: 'absolute', top: 2, left: 4, fontSize: 10, fontWeight: 700, color: t.accent, lineHeight: 1 }}
+        >✦</span>
+      )}
       <span style={{
         fontWeight: 700, fontSize: 11.5, lineHeight: 1.15,
         textDecoration: done ? 'line-through' : 'none',
@@ -417,8 +436,8 @@ function SubCenterPCCell({ name, pct, t, onClick }: {
   );
 }
 
-function ActionPCCell({ cell, t, onTap, onEdit }: {
-  cell: Cell | null;
+function ActionPCCell({ cell, sent, t, onTap, onEdit }: {
+  cell: Cell | null; sent: boolean;
   t: ReturnType<typeof useTheme>['t'];
   onTap: () => void;
   onEdit: () => void;
@@ -451,8 +470,15 @@ function ActionPCCell({ cell, t, onTap, onEdit }: {
         border: `1px solid ${done ? t.success + '66' : t.borderLight}`,
         color: done ? t.textMuted : t.text,
         cursor: 'pointer',
+        position: 'relative',
       }}
     >
+      {sent && (
+        <span
+          title="이 칸에서 보낸 항목이 있어요"
+          style={{ position: 'absolute', top: 2, left: 4, fontSize: 10, fontWeight: 700, color: t.accent, lineHeight: 1 }}
+        >✦</span>
+      )}
       <span style={{
         fontSize: 11, lineHeight: 1.15,
         textDecoration: done ? 'line-through' : 'none',
