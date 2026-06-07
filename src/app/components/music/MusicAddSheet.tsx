@@ -97,16 +97,20 @@ export function MusicAddSheet({ onClose, onAdded, notify }: MusicAddSheetProps) 
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex flex-col justify-end"
+    <div className="fixed inset-0 z-50 flex flex-col justify-end lg:items-center lg:justify-center lg:p-6"
       style={{ backgroundColor: 'rgba(0,0,0,0.4)' }} onClick={onClose}>
-      <div className="rounded-t-3xl flex flex-col"
-        style={{ backgroundColor: t.bg, maxHeight: '90vh', animation: 'musicSheetUp 0.28s ease' }}
+      {/* PC 중앙 모달 등장 애니메이션 (모바일은 바텀시트 슬라이드업 유지) */}
+      <style>{`@keyframes musicAddPop{from{opacity:0;transform:scale(0.96)}to{opacity:1;transform:scale(1)}}
+.music-add-card{animation:musicSheetUp 0.28s ease}
+@media(min-width:1024px){.music-add-card{animation:musicAddPop 0.2s ease}}`}</style>
+      <div className="music-add-card rounded-t-3xl lg:rounded-2xl flex flex-col w-full lg:w-[520px] lg:max-w-[92vw]"
+        style={{ backgroundColor: t.bg, maxHeight: '90vh' }}
         onClick={e => e.stopPropagation()}>
-        {/* 핸들 + 헤더 */}
-        <div className="flex justify-center pt-3 pb-1" onClick={onClose}>
+        {/* 핸들(모바일 전용) + 헤더 */}
+        <div className="flex justify-center pt-3 pb-1 lg:hidden" onClick={onClose}>
           <div className="w-10 h-1 rounded-full" style={{ backgroundColor: t.border }} />
         </div>
-        <div className="flex items-center justify-between px-5 pb-2">
+        <div className="flex items-center justify-between px-5 pb-2 lg:pt-5">
           <p style={{ fontSize: 16, fontWeight: 700, color: t.text }}>곡 추가</p>
           <button onClick={onClose} aria-label="닫기"
             className="flex items-center justify-center rounded-full"

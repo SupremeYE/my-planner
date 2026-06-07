@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Plus, Shuffle, Music } from 'lucide-react';
+import { Plus, Shuffle, Music, ChevronRight } from 'lucide-react';
 import { useTheme } from '../../ThemeContext';
 import { db } from '../../../lib/db';
 import { useRealtimeSync } from '../../hooks/useRealtimeSync';
@@ -8,6 +8,7 @@ import { MOOD_OPTIONS, type MoodFilter } from './musicMoods';
 import { LpDisc } from './LpDisc';
 import { MusicAddSheet } from './MusicAddSheet';
 import { MusicDetailSheet } from './MusicDetailSheet';
+import { MusicDetailPanel } from './MusicDetailPanel';
 import { useToasts, ToastHost } from '../culture/CultureToast';
 import ConfirmModal from '../ConfirmModal';
 
@@ -44,7 +45,9 @@ export function SectionTabs({ section, setSection }: {
 
 /**
  * 음악 섹션 — LP판 그리드 + 무드 필터 + 셔플 + 추가/상세.
- * 단일 컴포넌트로 모바일/PC 반응형(그리드 열 수만 다름). 한 번만 마운트된다.
+ *  - 모바일(lg 미만): Stage 2 레이아웃 그대로 (세로 헤더 + 셔플 카드 + 무드 칩 + 그리드 + 바텀시트 상세)
+ *  - PC(lg 이상): 가로 헤더(브레드크럼·제목·추가 / 무드 칩·셔플) + 5열 그리드 + 우측 밀어내기(push) 상세 패널
+ * 한 번만 마운트되며 CSS(lg:)로 두 트리 중 하나만 보인다(이중 구독 방지).
  */
 export function MusicSection({ section, setSection }: {
   section: CultureSection;
@@ -58,6 +61,10 @@ export function MusicSection({ section, setSection }: {
   const [addOpen, setAddOpen] = useState(false);
   const [detail, setDetail] = useState<MusicRecord | null>(null);
   const [deleteId, setDeleteId] = useState<string | null>(null);
+
+  // PC 패널 닫힘 애니메이션 동안 직전 곡을 잠시 유지(트랜지션 종료 후 비움)
+  const [panelRecord, setPanelRecord] = useState<MusicRecord | null>(null);
+  useEffect(() => { if (detail) setPanelRecord(detail); }, [detail]);
 
   // 색 역할 매핑(토큰만): 골드=accent, 코랄=danger, 그린=success
   const coral = t.danger;
@@ -91,88 +98,187 @@ export function MusicSection({ section, setSection }: {
   const moodChips: MoodFilter[] = ['all', ...MOOD_OPTIONS];
 
   return (
-    <div className="h-full overflow-y-auto" style={{ backgroundColor: t.bg }}>
+    <div className="h-full" style={{ backgroundColor: t.bg }}>
       {/* LP 회전 / 바텀시트 키프레임 (1회 주입) */}
       <style>{`@keyframes lpspin{from{transform:rotate(0)}to{transform:rotate(360deg)}}
 @keyframes musicSheetUp{from{transform:translateY(100%)}to{transform:translateY(0)}}`}</style>
 
-      <div className="max-w-[1400px] mx-auto px-4 lg:px-8 py-4 lg:py-7"
-        style={{ paddingBottom: 'calc(96px + env(safe-area-inset-bottom))' }}>
+      {/* ════════ 모바일 (lg 미만) — Stage 2 레이아웃 그대로 유지 ════════ */}
+      <div className="lg:hidden h-full overflow-y-auto">
+        <div className="max-w-[1400px] mx-auto px-4 py-4"
+          style={{ paddingBottom: 'calc(96px + env(safe-area-inset-bottom))' }}>
 
-        <SectionTabs section={section} setSection={setSection} />
+          <SectionTabs section={section} setSection={setSection} />
 
-        {/* 헤더: "음악"(DM Serif) + 코랄 원형 추가 버튼 */}
-        <div className="flex items-center justify-between mb-4">
-          <h1 style={{ fontFamily: "'DM Serif Display', serif", fontSize: 28, color: t.text }}>음악</h1>
-          <button onClick={() => setAddOpen(true)} aria-label="곡 추가"
-            className="flex items-center justify-center rounded-full active:scale-95 transition-transform"
-            style={{ width: 44, height: 44, backgroundColor: coral, color: '#fff',
-              boxShadow: '0 4px 14px rgba(0,0,0,0.18)' }}>
-            <Plus size={24} />
+          {/* 헤더: "음악"(DM Serif) + 코랄 원형 추가 버튼 */}
+          <div className="flex items-center justify-between mb-4">
+            <h1 style={{ fontFamily: "'DM Serif Display', serif", fontSize: 28, color: t.text }}>음악</h1>
+            <button onClick={() => setAddOpen(true)} aria-label="곡 추가"
+              className="flex items-center justify-center rounded-full active:scale-95 transition-transform"
+              style={{ width: 44, height: 44, backgroundColor: coral, color: '#fff',
+                boxShadow: '0 4px 14px rgba(0,0,0,0.18)' }}>
+              <Plus size={24} />
+            </button>
+          </div>
+
+          {/* "지금 이 무드엔?" 셔플 카드 */}
+          <button onClick={shuffle}
+            className="flex items-center gap-3 w-full rounded-2xl p-4 mb-4 text-left active:scale-[0.99] transition-transform"
+            style={{ backgroundColor: t.card, border: `1px solid ${t.border}`, boxShadow: t.shadow }}>
+            <div className="flex items-center justify-center rounded-full flex-shrink-0"
+              style={{ width: 44, height: 44, backgroundColor: t.accentLight }}>
+              <Shuffle size={22} color={t.accent} />
+            </div>
+            <div className="min-w-0">
+              <p style={{ fontSize: 15, fontWeight: 700, color: t.text }}>지금 이 무드엔?</p>
+              <p style={{ fontSize: 12, color: t.textMuted }}>
+                {moodFilter === 'all' ? '전체' : `'${moodFilter}'`} 곡 중 한 곡을 랜덤으로 골라드려요
+              </p>
+            </div>
           </button>
+
+          {/* 무드 필터 칩 (가로 스크롤) */}
+          <div className="flex gap-1.5 overflow-x-auto pb-2 mb-2" style={{ WebkitOverflowScrolling: 'touch' }}>
+            {moodChips.map(m => {
+              const active = moodFilter === m;
+              const label = m === 'all' ? '전체' : m;
+              return (
+                <button key={m} onClick={() => setMoodFilter(m)}
+                  className="flex-shrink-0 px-3 rounded-full transition-all"
+                  style={{ minHeight: 34, fontSize: 13, fontWeight: active ? 600 : 400,
+                    backgroundColor: active ? t.accent : t.bgSub, color: active ? '#fff' : t.textSub,
+                    border: `1px solid ${active ? t.accent : t.border}` }}>
+                  {label}
+                </button>
+              );
+            })}
+          </div>
+
+          {/* LP 그리드 / 빈 상태 */}
+          {filtered.length === 0 ? (
+            <EmptyState hasAny={records.length > 0} onAdd={() => setAddOpen(true)} />
+          ) : (
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-x-4 gap-y-6 mt-3">
+              {filtered.map(r => (
+                <button key={r.id} onClick={() => setDetail(r)}
+                  className="flex flex-col items-center text-center active:opacity-80 transition-opacity">
+                  <div className="w-full" style={{ maxWidth: 200 }}>
+                    <LpDisc artworkUrl={r.artworkUrl} spinning />
+                  </div>
+                  <p className="mt-2 w-full truncate" style={{ fontSize: 13, fontWeight: 700, color: t.text }}
+                    title={r.trackTitle}>{r.trackTitle}</p>
+                  <p className="w-full truncate" style={{ fontSize: 12, color: t.textMuted }}
+                    title={r.artist}>{r.artist}</p>
+                </button>
+              ))}
+            </div>
+          )}
         </div>
 
-        {/* "지금 이 무드엔?" 셔플 카드 */}
-        <button onClick={shuffle}
-          className="flex items-center gap-3 w-full rounded-2xl p-4 mb-4 text-left active:scale-[0.99] transition-transform"
-          style={{ backgroundColor: t.card, border: `1px solid ${t.border}`, boxShadow: t.shadow }}>
-          <div className="flex items-center justify-center rounded-full flex-shrink-0"
-            style={{ width: 44, height: 44, backgroundColor: t.accentLight }}>
-            <Shuffle size={22} color={t.accent} />
-          </div>
-          <div className="min-w-0">
-            <p style={{ fontSize: 15, fontWeight: 700, color: t.text }}>지금 이 무드엔?</p>
-            <p style={{ fontSize: 12, color: t.textMuted }}>
-              {moodFilter === 'all' ? '전체' : `'${moodFilter}'`} 곡 중 한 곡을 랜덤으로 골라드려요
-            </p>
-          </div>
-        </button>
-
-        {/* 무드 필터 칩 (가로 스크롤) */}
-        <div className="flex gap-1.5 overflow-x-auto pb-2 mb-2" style={{ WebkitOverflowScrolling: 'touch' }}>
-          {moodChips.map(m => {
-            const active = moodFilter === m;
-            const label = m === 'all' ? '전체' : m;
-            return (
-              <button key={m} onClick={() => setMoodFilter(m)}
-                className="flex-shrink-0 px-3 rounded-full transition-all"
-                style={{ minHeight: 34, fontSize: 13, fontWeight: active ? 600 : 400,
-                  backgroundColor: active ? t.accent : t.bgSub, color: active ? '#fff' : t.textSub,
-                  border: `1px solid ${active ? t.accent : t.border}` }}>
-                {label}
-              </button>
-            );
-          })}
-        </div>
-
-        {/* LP 그리드 / 빈 상태 */}
-        {filtered.length === 0 ? (
-          <EmptyState hasAny={records.length > 0} onAdd={() => setAddOpen(true)} />
-        ) : (
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-x-4 gap-y-6 mt-3">
-            {filtered.map(r => (
-              <button key={r.id} onClick={() => setDetail(r)}
-                className="flex flex-col items-center text-center active:opacity-80 transition-opacity">
-                <div className="w-full" style={{ maxWidth: 200 }}>
-                  <LpDisc artworkUrl={r.artworkUrl} spinning />
-                </div>
-                <p className="mt-2 w-full truncate" style={{ fontSize: 13, fontWeight: 700, color: t.text }}
-                  title={r.trackTitle}>{r.trackTitle}</p>
-                <p className="w-full truncate" style={{ fontSize: 12, color: t.textMuted }}
-                  title={r.artist}>{r.artist}</p>
-              </button>
-            ))}
-          </div>
+        {/* 모바일 상세 — 바텀시트 (PC에서는 부모 lg:hidden 으로 숨김) */}
+        {detail && (
+          <MusicDetailSheet record={detail} onClose={() => setDetail(null)}
+            onDelete={(id) => setDeleteId(id)} />
         )}
       </div>
 
-      {/* 오버레이 */}
+      {/* ════════ PC (lg 이상) — 가로 헤더 + 5열 그리드 + 우측 밀어내기 패널 ════════ */}
+      <div className="hidden lg:flex flex-col h-full overflow-hidden">
+
+        {/* 상단 헤더 영역 (고정) — 하단 1px 구분선(line 토큰=t.border)으로 상세 영역과 분리 */}
+        <div className="flex-shrink-0 px-8 pt-7 pb-3" style={{ borderBottom: `1px solid ${t.border}` }}>
+          <SectionTabs section={section} setSection={setSection} />
+
+          {/* 윗줄: 브레드크럼 + 제목 / 추가 버튼 */}
+          <div className="flex items-end justify-between gap-3">
+            <div className="min-w-0">
+              <p className="flex items-center gap-1" style={{ fontSize: 13, color: t.textMuted }}>
+                문화 기록 <ChevronRight size={13} /> 음악
+              </p>
+              <h1 style={{ fontFamily: "'DM Serif Display', serif", fontSize: 30, color: t.text, lineHeight: 1.2 }}>
+                음악
+              </h1>
+            </div>
+            <button onClick={() => setAddOpen(true)}
+              className="flex items-center gap-1.5 rounded-full px-4 py-2.5 flex-shrink-0 active:scale-95 transition-transform"
+              style={{ backgroundColor: coral, color: '#fff', fontSize: 14, fontWeight: 700,
+                boxShadow: '0 4px 14px rgba(0,0,0,0.16)' }}>
+              <Plus size={18} /> 음악 추가
+            </button>
+          </div>
+
+          {/* 아랫줄: 무드 칩(가로) + 오른쪽 끝 셔플 버튼 */}
+          <div className="flex items-center gap-3 mt-4 mb-1">
+            <div className="flex gap-1.5 flex-1 overflow-x-auto pb-1">
+              {moodChips.map(m => {
+                const active = moodFilter === m;
+                const label = m === 'all' ? '전체' : m;
+                return (
+                  <button key={m} onClick={() => setMoodFilter(m)}
+                    className="flex-shrink-0 px-3 rounded-full transition-all"
+                    style={{ minHeight: 34, fontSize: 13, fontWeight: active ? 600 : 400,
+                      backgroundColor: active ? t.accent : t.bgSub, color: active ? '#fff' : t.textSub,
+                      border: `1px solid ${active ? t.accent : t.border}` }}>
+                    {label}
+                  </button>
+                );
+              })}
+            </div>
+            <button onClick={shuffle}
+              className="flex items-center gap-1.5 rounded-full px-4 py-2 flex-shrink-0 active:scale-95 transition-transform"
+              style={{ backgroundColor: t.accentLight, color: t.accent, fontSize: 13, fontWeight: 700,
+                border: `1px solid ${t.accent}` }}>
+              <Shuffle size={16} /> 지금 이 무드엔?
+            </button>
+          </div>
+        </div>
+
+        {/* 본문: 그리드(flex-1) + 우측 push 패널 */}
+        <div className="flex-1 flex min-h-0 overflow-hidden">
+
+          {/* 그리드 영역 — 빈 공간 클릭 시 패널 닫힘 */}
+          <div className="flex-1 overflow-y-auto px-8 py-6"
+            onClick={() => { if (detail) setDetail(null); }}>
+            {filtered.length === 0 ? (
+              <EmptyState hasAny={records.length > 0} onAdd={() => setAddOpen(true)} />
+            ) : (
+              <div className="grid grid-cols-5 gap-x-5 gap-y-7">
+                {filtered.map(r => {
+                  const selected = detail?.id === r.id;
+                  return (
+                    <button key={r.id}
+                      onClick={(e) => { e.stopPropagation(); setDetail(r); }}
+                      className="flex flex-col items-center text-center transition-opacity hover:opacity-90">
+                      <div className="w-full">
+                        <LpDisc artworkUrl={r.artworkUrl} spinning />
+                      </div>
+                      <p className="mt-2 w-full truncate"
+                        style={{ fontSize: 13, fontWeight: 700, color: selected ? t.accent : t.text }}
+                        title={r.trackTitle}>{r.trackTitle}</p>
+                      <p className="w-full truncate" style={{ fontSize: 12, color: t.textMuted }}
+                        title={r.artist}>{r.artist}</p>
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+
+          {/* 우측 push 패널 래퍼 — width 0↔390 트랜지션으로 그리드를 밀어낸다 */}
+          <div className="flex-shrink-0 h-full overflow-hidden"
+            style={{ width: detail ? 390 : 0, transition: 'width 0.3s ease' }}
+            onTransitionEnd={() => { if (!detail) setPanelRecord(null); }}>
+            {panelRecord && (
+              <MusicDetailPanel record={panelRecord} onClose={() => setDetail(null)}
+                onDelete={(id) => setDeleteId(id)} />
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* ════════ 공통 오버레이 ════════ */}
       {addOpen && (
         <MusicAddSheet onClose={() => setAddOpen(false)} onAdded={refresh} notify={notify} />
-      )}
-      {detail && (
-        <MusicDetailSheet record={detail} onClose={() => setDetail(null)}
-          onDelete={(id) => setDeleteId(id)} />
       )}
       {deleteId && (
         <ConfirmModal
