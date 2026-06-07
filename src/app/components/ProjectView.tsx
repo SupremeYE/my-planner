@@ -3,12 +3,13 @@ import { useParams, NavLink } from 'react-router';
 import {
   Plus, ChevronLeft, CheckCircle2, Flag, Trash2,
   Calendar, Clock, FolderKanban, MoreHorizontal, X,
-  TrendingUp, Circle,
+  TrendingUp, Circle, Target,
 } from 'lucide-react';
 import { usePlanner, Project, Milestone, Todo } from '../store';
 import { format, parseISO, differenceInDays } from 'date-fns';
 import { ko } from 'date-fns/locale';
 import ConfirmModal from './ConfirmModal';
+import { useTheme } from '../ThemeContext';
 
 // ── Project color palette ──
 export const PROJECT_COLORS = [
@@ -123,66 +124,95 @@ function NewProjectModal({ onClose, onSave }: {
   );
 }
 
+// 연결 목표 라벨 — Project.goalKind + goalId 를 해석해 표시용 텍스트 반환
+function useProjectGoalLabel(project: Project): string | null {
+  const { annualGoals, quarterlyGoals, monthlyGoals } = usePlanner();
+  if (!project.goalKind || !project.goalId) return null;
+  if (project.goalKind === 'annual') return annualGoals.find(g => g.id === project.goalId)?.text ?? null;
+  if (project.goalKind === 'quarterly') return quarterlyGoals.find(g => g.id === project.goalId)?.text ?? null;
+  if (project.goalKind === 'monthly') return monthlyGoals.find(g => g.id === project.goalId)?.text ?? null;
+  return null;
+}
+
 // ── Project Card (in list) ──
 function ProjectCard({ project }: { project: Project }) {
+  const { t } = useTheme();
   const { todos, milestones } = usePlanner();
-  const projectTodos = todos.filter(t => t.projectId === project.id && t.status !== 'cancelled');
-  const doneTodos = projectTodos.filter(t => t.status === 'done');
+  const projectTodos = todos.filter(td => td.projectId === project.id && td.status !== 'cancelled');
+  const doneTodos = projectTodos.filter(td => td.status === 'done');
   const progress = projectTodos.length ? Math.round((doneTodos.length / projectTodos.length) * 100) : 0;
-  const projectMilestones = milestones.filter(m => m.projectId === project.id);
+  const projectMilestones = milestones
+    .filter(m => m.projectId === project.id)
+    .sort((a, b) => a.date.localeCompare(b.date));
   const nextMilestone = projectMilestones.find(m => !m.done);
   const daysLeft = project.endDate ? differenceInDays(parseISO(project.endDate), new Date()) : null;
+  const goalLabel = useProjectGoalLabel(project);
 
   return (
     <NavLink
       to={`/projects/${project.id}`}
-      className="block rounded-2xl p-5 transition-all hover:shadow-md"
-      style={{ backgroundColor: '#fff', border: '1px solid #eef4fa' }}
+      className="block rounded-2xl p-5 transition-all duration-150 hover:-translate-y-0.5 hover:shadow-lg"
+      style={{ backgroundColor: t.card, border: `1px solid ${t.borderLight}` }}
     >
       {/* Header */}
-      <div className="flex items-start justify-between mb-3">
-        <div className="flex items-center gap-3">
+      <div className="flex items-start justify-between mb-3 gap-2">
+        <div className="flex items-center gap-3 min-w-0">
           <div className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0"
             style={{ backgroundColor: hexAlpha(project.color, 0.15) }}>
             <FolderKanban size={20} color={project.color} />
           </div>
-          <div>
-            <div style={{ fontSize: 15, fontWeight: 700, color: '#26343d' }}>{project.name}</div>
+          <div className="min-w-0">
+            <div style={{ fontSize: 15, fontWeight: 700, color: t.text, wordBreak: 'break-word' }}>{project.name}</div>
             {project.description && (
-              <div style={{ fontSize: 12, color: '#888', marginTop: 1 }}>{project.description}</div>
+              <div className="truncate" style={{ fontSize: 12, color: t.textMuted, marginTop: 1 }}>{project.description}</div>
             )}
           </div>
         </div>
-        <span className="px-2 py-0.5 rounded-full text-xs"
-          style={{ backgroundColor: hexAlpha(project.color, 0.12), color: project.color, fontWeight: 600 }}>
+        <span className="px-2 py-0.5 rounded-full flex-shrink-0"
+          style={{ backgroundColor: hexAlpha(project.color, 0.12), color: project.color, fontWeight: 600, fontSize: 11 }}>
           {project.status === 'active' ? '진행중' : project.status === 'completed' ? '완료' : '일시중단'}
         </span>
       </div>
 
+      {/* 🎯 연결 목표 배지 */}
+      {goalLabel && (
+        <div className="flex items-center gap-1.5 mb-2.5 px-2 py-1 rounded-lg"
+          style={{ backgroundColor: t.accentLight, border: `1px solid ${t.accent}22` }}>
+          <Target size={11} color={t.accent} />
+          <span className="truncate" style={{ fontSize: 11, color: t.accent, fontWeight: 600 }} title={goalLabel}>
+            {project.goalKind === 'annual' ? '연간' : project.goalKind === 'quarterly' ? '분기' : '월간'} · {goalLabel}
+          </span>
+        </div>
+      )}
+
       {/* Progress */}
       <div className="mb-3">
         <div className="flex justify-between items-center mb-1.5">
-          <span style={{ fontSize: 11, color: '#888' }}>{doneTodos.length}/{projectTodos.length} 완료</span>
+          <span style={{ fontSize: 11, color: t.textMuted }}>할일 {doneTodos.length}/{projectTodos.length}</span>
           <span style={{ fontSize: 12, color: project.color, fontWeight: 700 }}>{progress}%</span>
         </div>
-        <div className="h-2 rounded-full overflow-hidden" style={{ backgroundColor: '#eef4fa' }}>
+        <div className="h-2 rounded-full overflow-hidden" style={{ backgroundColor: t.bgSub }}>
           <div className="h-full rounded-full transition-all"
             style={{ width: `${progress}%`, backgroundColor: project.color }} />
         </div>
       </div>
 
       {/* Footer */}
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between gap-2">
         {nextMilestone ? (
-          <div className="flex items-center gap-1.5">
+          <div className="flex items-center gap-1.5 min-w-0">
             <Flag size={11} color={project.color} />
-            <span style={{ fontSize: 11, color: '#888' }}>다음: {nextMilestone.title}</span>
+            <span className="truncate" style={{ fontSize: 11, color: t.textMuted }}>다음: {nextMilestone.title}</span>
           </div>
         ) : (
-          <span style={{ fontSize: 11, color: '#ccc' }}>마일스톤 없음</span>
+          <span style={{ fontSize: 11, color: t.textMuted }}>마일스톤 없음</span>
         )}
         {daysLeft !== null && (
-          <span style={{ fontSize: 11, color: daysLeft < 7 ? '#9f403d' : '#aaa', fontWeight: daysLeft < 7 ? 600 : 400 }}>
+          <span className="flex-shrink-0" style={{
+            fontSize: 11,
+            color: daysLeft < 0 ? t.danger : daysLeft < 7 ? t.danger : t.textMuted,
+            fontWeight: daysLeft < 7 ? 600 : 400,
+          }}>
             {daysLeft < 0 ? '마감 초과' : daysLeft === 0 ? 'D-Day' : `D-${daysLeft}`}
           </span>
         )}
@@ -193,6 +223,7 @@ function ProjectCard({ project }: { project: Project }) {
 
 // ── Project List Page ──
 export function ProjectsView() {
+  const { t } = useTheme();
   const { projects, addProject } = usePlanner();
   const [showNewModal, setShowNewModal] = useState(false);
 
@@ -200,38 +231,38 @@ export function ProjectsView() {
   const otherProjects = projects.filter(p => p.status !== 'active');
 
   return (
-    <div className="h-full overflow-y-auto">
+    <div className="h-full overflow-y-auto" style={{ backgroundColor: t.bg }}>
       {/* Header */}
-      <div className="sticky top-0 z-10 px-6 py-4 flex items-center justify-between"
-        style={{ backgroundColor: '#f6fafe', borderBottom: '1px solid #eef4fa' }}>
+      <div className="sticky top-0 z-10 px-4 lg:px-6 py-4 flex items-center justify-between"
+        style={{ backgroundColor: t.bg, borderBottom: `1px solid ${t.borderLight}` }}>
         <div className="flex items-center gap-3">
-          <FolderKanban size={20} color="#515f74" />
+          <FolderKanban size={20} color={t.accent} />
           <div>
-            <h1 style={{ fontSize: 20, fontWeight: 700, color: '#26343d' }}>프로젝트</h1>
-            <p style={{ fontSize: 12, color: '#aaa' }}>총 {projects.length}개의 프로젝트</p>
+            <h1 style={{ fontSize: 20, fontWeight: 700, color: t.text }}>프로젝트</h1>
+            <p style={{ fontSize: 12, color: t.textMuted }}>총 {projects.length}개의 프로젝트</p>
           </div>
         </div>
         <button
           onClick={() => setShowNewModal(true)}
           className="flex items-center gap-2 px-4 py-2 rounded-xl"
-          style={{ backgroundColor: '#515f74', color: '#fff', fontSize: 13, fontWeight: 600 }}
+          style={{ backgroundColor: t.accent, color: '#fff', fontSize: 13, fontWeight: 600 }}
         >
           <Plus size={14} />
           새 프로젝트
         </button>
       </div>
 
-      <div className="px-6 py-5 space-y-6">
+      <div className="px-4 lg:px-6 py-5 space-y-6">
         {/* Active Projects */}
         {activeProjects.length > 0 && (
           <div>
             <div className="flex items-center gap-2 mb-4">
-              <TrendingUp size={13} color="#515f74" />
-              <span style={{ fontSize: 11, color: '#515f74', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+              <TrendingUp size={13} color={t.accent} />
+              <span style={{ fontSize: 11, color: t.accent, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
                 진행 중 ({activeProjects.length})
               </span>
             </div>
-            <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
               {activeProjects.map(p => <ProjectCard key={p.id} project={p} />)}
             </div>
           </div>
@@ -241,12 +272,12 @@ export function ProjectsView() {
         {otherProjects.length > 0 && (
           <div>
             <div className="flex items-center gap-2 mb-4">
-              <Circle size={13} color="#aaa" />
-              <span style={{ fontSize: 11, color: '#aaa', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+              <Circle size={13} color={t.textMuted} />
+              <span style={{ fontSize: 11, color: t.textMuted, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
                 기타 ({otherProjects.length})
               </span>
             </div>
-            <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
               {otherProjects.map(p => <ProjectCard key={p.id} project={p} />)}
             </div>
           </div>
@@ -254,12 +285,12 @@ export function ProjectsView() {
 
         {projects.length === 0 && (
           <div className="flex flex-col items-center justify-center py-20 text-center">
-            <FolderKanban size={40} color="#d5e5ef" />
-            <p style={{ fontSize: 15, color: '#aaa', marginTop: 12 }}>아직 프로젝트가 없어요</p>
-            <p style={{ fontSize: 12, color: '#ccc', marginTop: 4 }}>새 프로젝트를 만들어 보세요</p>
+            <FolderKanban size={40} color={t.borderLight} />
+            <p style={{ fontSize: 15, color: t.textMuted, marginTop: 12 }}>아직 프로젝트가 없어요</p>
+            <p style={{ fontSize: 12, color: t.textMuted, marginTop: 4 }}>새 프로젝트를 만들어 보세요</p>
             <button onClick={() => setShowNewModal(true)}
               className="mt-4 px-4 py-2 rounded-xl"
-              style={{ backgroundColor: '#eef4fa', color: '#515f74', fontSize: 13, fontWeight: 600 }}>
+              style={{ backgroundColor: t.bgSub, color: t.accent, fontSize: 13, fontWeight: 600 }}>
               + 프로젝트 만들기
             </button>
           </div>

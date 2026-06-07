@@ -30,6 +30,8 @@ export interface Todo {
   projectId?: string;
   /** 연결된 주간 목표 id (Phase 4·5: 목표↔할일 롤업) */
   weeklyGoalId?: string;
+  /** 연결된 마일스톤 id (프로젝트 진행률 자동 산출용) */
+  milestoneId?: string;
   /** 만다라트에서 "보내기"로 생성된 경우 출처 셀 id */
   mandalartCellId?: string;
   tags?: string[];
@@ -461,6 +463,10 @@ export interface Project {
   startDate?: string;
   endDate?: string;
   status: 'active' | 'completed' | 'paused';
+  /** 연결 대상 목표 종류 — 연간/분기/월간. 미연결이면 undefined */
+  goalKind?: 'annual' | 'quarterly' | 'monthly';
+  /** 연결 대상 목표의 PK (goalKind 와 함께 해석) */
+  goalId?: string;
 }
 
 export interface Milestone {

@@ -34,6 +34,7 @@ type TodoRow = {
   category: string | null;
   project_id: string | null;
   weekly_goal_id: string | null;
+  milestone_id: string | null;
   mandalart_cell_id: string | null;
   tags: string[];
   recurrence_rule: string | null;
@@ -69,6 +70,8 @@ type HabitMonthlyMemoRow = {
 type ProjectRow = {
   id: string; name: string; color: string; description: string | null;
   start_date: string | null; end_date: string | null; status: string;
+  goal_kind?: string | null;
+  goal_id?: string | null;
 };
 
 type MilestoneRow = {
@@ -160,6 +163,7 @@ const toTodo = (r: TodoRow): Todo => ({
   doElapsedSec: r.do_elapsed_sec ?? undefined,
   category: r.category ?? undefined, projectId: r.project_id ?? undefined,
   weeklyGoalId: r.weekly_goal_id ?? undefined,
+  milestoneId: r.milestone_id ?? undefined,
   mandalartCellId: r.mandalart_cell_id ?? undefined,
   tags: r.tags ?? [],
   recurrenceRule: r.recurrence_rule as Todo['recurrenceRule'] ?? undefined,
@@ -177,6 +181,7 @@ const fromTodo = (t: Todo): TodoRow => ({
   do_elapsed_sec: t.doElapsedSec ?? null,
   category: t.category ?? null, project_id: t.projectId ?? null,
   weekly_goal_id: t.weeklyGoalId ?? null,
+  milestone_id: t.milestoneId ?? null,
   mandalart_cell_id: t.mandalartCellId ?? null,
   tags: t.tags ?? [],
   recurrence_rule: t.recurrenceRule ?? null,
@@ -232,6 +237,8 @@ const toProject = (r: ProjectRow): Project => ({
   startDate: r.start_date ?? undefined,
   endDate: r.end_date ?? undefined,
   status: r.status as Project['status'],
+  goalKind: (r.goal_kind ?? undefined) as Project['goalKind'],
+  goalId: r.goal_id ?? undefined,
 });
 
 const fromProject = (p: Project): ProjectRow => ({
@@ -240,6 +247,8 @@ const fromProject = (p: Project): ProjectRow => ({
   start_date: p.startDate ?? null,
   end_date: p.endDate ?? null,
   status: p.status,
+  goal_kind: p.goalKind ?? null,
+  goal_id: p.goalId ?? null,
 });
 
 const toMilestone = (r: MilestoneRow): Milestone => ({
