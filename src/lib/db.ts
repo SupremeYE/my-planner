@@ -1916,6 +1916,43 @@ export const db = {
         .eq('id', id);
       if (error) console.error('[db] scraps touchViewed:', error.message);
     },
+    // ── Stage 3: 먼지 쌓인 스크랩 후보 ──
+    // 조건: status != 'done' AND COALESCE(last_viewed_at, created_at) < (now - minDaysSinceView 일).
+    // 즉 최근에 본 건/소화 완료 건은 제외 → 오래 안 본 후보만 반환.
+    listDusty: async (minDaysSinceView = 14, limit = 20): Promise<Scrap[]> => {
+      const thresholdIso = new Date(Date.now() - minDaysSinceView * 86400000).toISOString();
+      // PostgREST .or(): "한 번도 안 본(last_viewed_at null) + created_at 오래된 것" OR "last_viewed_at 오래된 것"
+      const { data, error } = await supabase
+        .from('scraps')
+        .select('id, url, source, title, thumbnail_url, comment, tags, status, last_viewed_at, created_at, updated_at')
+        .neq('status', 'done')
+        .or(`and(last_viewed_at.is.null,created_at.lt.${thresholdIso}),last_viewed_at.lt.${thresholdIso}`)
+        .limit(limit);
+      if (error) { console.error('[db] scraps listDusty:', error.message); return []; }
+      // COALESCE(last_viewed_at, created_at) ASC 정렬 — 가장 오래 안 본 게 앞.
+      const sorted = (data ?? []).slice().sort((a, b) => {
+        const aKey = a.last_viewed_at ?? a.created_at;
+        const bKey = b.last_viewed_at ?? b.created_at;
+        return aKey.localeCompare(bKey);
+      });
+      return sorted.map(toScrap);
+    },
+    // ── Stage 3: 검색 — 제목·코멘트 ilike + 태그 정확 매칭(text[] contains) ──
+    // 빈 문자열은 호출 측에서 가드(검색창 비우면 전체 보이게).
+    search: async (q: string): Promise<Scrap[]> => {
+      const term = q.trim();
+      if (!term) return [];
+      // PostgREST .or() 의 콤마/괄호/중괄호와 ilike 패턴 와일드카드 충돌 방지용 sanitize.
+      const safe = term.replace(/[%_(),{}]/g, '');
+      if (!safe) return [];
+      const { data, error } = await supabase
+        .from('scraps')
+        .select('id, url, source, title, thumbnail_url, comment, tags, status, last_viewed_at, created_at, updated_at')
+        .or(`title.ilike.%${safe}%,comment.ilike.%${safe}%,tags.cs.{${safe}}`)
+        .order('created_at', { ascending: false });
+      if (error) { console.error('[db] scraps search:', error.message); return []; }
+      return (data ?? []).map(toScrap);
+    },
     // 수동 스크린샷 업로드(인스타·스레드용). 파일명은 itemKey 기반 — 동일 키 재업로드 시 덮어씀.
     uploadThumb: async (file: File, itemKey: string): Promise<string | null> => {
       const ext = (file.name.split('.').pop() ?? 'jpg').toLowerCase();

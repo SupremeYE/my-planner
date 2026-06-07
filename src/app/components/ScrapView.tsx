@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { Bookmark, Plus, Youtube, Instagram, Globe, MessageCircle } from 'lucide-react';
+import { Bookmark, Plus, Youtube, Instagram, Globe, MessageCircle, Search, Shuffle, X, Sparkles } from 'lucide-react';
 import { useTheme } from '../ThemeContext';
 import { db } from '../../lib/db';
 import { useRealtimeSync } from '../hooks/useRealtimeSync';
@@ -251,6 +251,176 @@ function ScrapCard({ scrap, onClick }: { scrap: Scrap; onClick?: () => void }) {
   );
 }
 
+// ── 먼지 쌓인 스크랩 카드 (Stage 3) ───────────────────────────────
+// "한참 안 들여다본 스크랩이에요" — 상단 가로 카드. 마스킹 테이프 + 미리보기 + 셔플 버튼.
+function DustyResurfaceCard({
+  scrap, canShuffle, onOpen, onShuffle,
+}: {
+  scrap: Scrap;
+  canShuffle: boolean;
+  onOpen: () => void;
+  onShuffle: () => void;
+}) {
+  const { t } = useTheme();
+  const meta = scrap.source ? SOURCE_META[scrap.source] : SOURCE_META.web;
+  const Icon = meta.Icon;
+
+  return (
+    <div className="px-6 lg:px-14 mt-5">
+      <div
+        style={{
+          position: 'relative',
+          backgroundColor: t.card,
+          border: `1px solid ${t.borderLight}`,
+          borderRadius: 14,
+          boxShadow: '0 4px 12px rgba(0,0,0,0.06)',
+          padding: 12,
+          paddingTop: 18,
+          display: 'flex',
+          gap: 12,
+          alignItems: 'stretch',
+        }}
+      >
+        {/* 마스킹 테이프 — 좌상단에 살짝 비스듬히 */}
+        <span
+          aria-hidden
+          style={{
+            position: 'absolute',
+            top: -8,
+            left: 24,
+            width: 78,
+            height: 18,
+            backgroundColor: withAlpha(t.accentLight, 0.95),
+            borderTop: `1px solid ${withAlpha(t.accent, 0.25)}`,
+            borderBottom: `1px solid ${withAlpha(t.accent, 0.25)}`,
+            transform: 'rotate(-3deg)',
+            boxShadow: '0 2px 4px rgba(0,0,0,0.06)',
+          }}
+        />
+
+        {/* 미리보기 썸네일 */}
+        <button
+          onClick={onOpen}
+          aria-label={scrap.title ?? '스크랩 열기'}
+          style={{
+            flex: '0 0 auto',
+            width: 84,
+            height: 84,
+            borderRadius: 10,
+            overflow: 'hidden',
+            border: `1px solid ${t.borderLight}`,
+            backgroundColor: t.bgSub,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: 0,
+            cursor: 'pointer',
+          }}
+        >
+          {scrap.thumbnailUrl ? (
+            <img
+              src={scrap.thumbnailUrl}
+              alt=""
+              style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+              loading="lazy"
+            />
+          ) : (
+            <div
+              style={{
+                width: '100%',
+                height: '100%',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                background: `linear-gradient(135deg, ${t.accentLight} 0%, ${withAlpha(t.accent, 0.2)} 100%)`,
+              }}
+            >
+              <Icon size={24} color={t.accent} />
+            </div>
+          )}
+        </button>
+
+        {/* 본문 */}
+        <div className="flex-1 min-w-0 flex flex-col" style={{ paddingTop: 2 }}>
+          <div
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: 4,
+              color: t.accent,
+              fontSize: 11,
+              fontWeight: 700,
+            }}
+          >
+            <Sparkles size={11} />
+            한참 안 들여다본 스크랩이에요
+          </div>
+          <button
+            onClick={onOpen}
+            style={{
+              marginTop: 4,
+              fontSize: 13,
+              lineHeight: 1.35,
+              color: t.text,
+              fontWeight: 600,
+              textAlign: 'left',
+              padding: 0,
+              background: 'transparent',
+              border: 'none',
+              cursor: 'pointer',
+              display: '-webkit-box',
+              WebkitLineClamp: 2,
+              WebkitBoxOrient: 'vertical',
+              overflow: 'hidden',
+              wordBreak: 'break-word',
+            }}
+          >
+            {scrap.title ?? scrap.url ?? '제목 없는 스크랩'}
+          </button>
+          <div
+            className="mt-auto flex items-center justify-between gap-2"
+            style={{ paddingTop: 8 }}
+          >
+            <span
+              style={{
+                fontSize: 10,
+                color: t.textMuted,
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 4,
+              }}
+            >
+              <Icon size={10} color={t.textMuted} />
+              {meta.label}
+            </span>
+            <button
+              onClick={onShuffle}
+              disabled={!canShuffle}
+              style={{
+                fontSize: 11,
+                fontWeight: 700,
+                color: canShuffle ? t.accent : t.textMuted,
+                padding: '5px 10px',
+                borderRadius: 999,
+                backgroundColor: canShuffle ? t.accentLight : t.bgSub,
+                border: 'none',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 4,
+                cursor: canShuffle ? 'pointer' : 'not-allowed',
+                opacity: canShuffle ? 1 : 0.6,
+              }}
+            >
+              <Shuffle size={11} />
+              다른 거 보여줘
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ── /scraps — 본 화면 (Stage 1) ───────────────────────────────────
 export function ScrapView() {
   const { t } = useTheme();
@@ -261,32 +431,84 @@ export function ScrapView() {
   // Stage 2: 카드 탭 → 상세 시트 (현재 열린 스크랩 id)
   const [openId, setOpenId] = useState<string | null>(null);
 
+  // ── Stage 3: 검색 + 안 본 것만 토글 + 먼지 쌓인 스크랩 ──
+  const [searchQuery, setSearchQuery] = useState('');
+  const [searchResults, setSearchResults] = useState<Scrap[] | null>(null); // null=검색 안 함, []=검색했는데 없음
+  const [onlyUnread, setOnlyUnread] = useState(false);
+  const [dustyCandidates, setDustyCandidates] = useState<Scrap[]>([]);
+  const [dustyIndex, setDustyIndex] = useState(0);
+
   // 모든 supabase 호출은 db.ts 를 거쳐서만 (Stage 1 규칙)
+  // 본 목록 + 먼지 후보를 함께 갱신해서 last_viewed_at 변경에 따라 먼지 후보도 자연 빠짐.
   const refresh = useCallback(async () => {
-    const data = await db.scraps.listByUser();
+    const [data, dusty] = await Promise.all([
+      db.scraps.listByUser(),
+      db.scraps.listDusty(),
+    ]);
     setScraps(data);
+    setDustyCandidates(dusty);
+    setDustyIndex(prev => (dusty.length === 0 ? 0 : Math.min(prev, dusty.length - 1)));
     setLoading(false);
   }, []);
 
   useEffect(() => { refresh(); }, [refresh]);
 
   // Realtime 구독 — insert/update/delete 모두 자동 refresh (CLAUDE.md 규칙)
-  // scrap_notes 구독은 Stage 2 에서 추가
+  // scrap_notes 구독은 Stage 2 상세 시트 내부에서 (열린 동안만)
   useRealtimeSync('scraps', refresh);
 
+  // 검색 — db.ts.search 디바운스(200ms). 빈 문자열은 null 로 두어 전체 목록 사용.
+  useEffect(() => {
+    const q = searchQuery.trim();
+    if (!q) { setSearchResults(null); return; }
+    const handle = setTimeout(async () => {
+      const results = await db.scraps.search(q);
+      setSearchResults(results);
+    }, 200);
+    return () => clearTimeout(handle);
+  }, [searchQuery]);
+
+  // 그리드용 베이스 — 검색 중이면 검색 결과, 아니면 전체. 그 위에 출처 + 안 본 것만 AND 결합.
   const filtered = useMemo(() => {
-    if (filter === 'all') return scraps;
-    return scraps.filter(s => s.source === filter);
-  }, [scraps, filter]);
+    const base = searchResults ?? scraps;
+    return base.filter(s => {
+      if (filter !== 'all' && s.source !== filter) return false;
+      if (onlyUnread && s.status !== 'unread') return false;
+      return true;
+    });
+  }, [scraps, searchResults, filter, onlyUnread]);
 
   const handleAddClick = useCallback(() => setModalOpen(true), []);
   const handleCardClick = useCallback((id: string) => setOpenId(id), []);
+  const handleClearSearch = useCallback(() => { setSearchQuery(''); setSearchResults(null); }, []);
 
-  // 상세 시트 대상 — openId 가 가리키는 최신 스크랩 (낙관적 업데이트는 시트 내부에서 처리)
-  const openScrap = useMemo(
-    () => (openId ? scraps.find(s => s.id === openId) ?? null : null),
-    [openId, scraps],
-  );
+  // 셔플 — 후보 안에서 다른 인덱스로 교체. 후보 1개 이하면 동작 안 함.
+  const handleShuffleDusty = useCallback(() => {
+    setDustyIndex(prev => {
+      if (dustyCandidates.length <= 1) return prev;
+      let next = prev;
+      while (next === prev) next = Math.floor(Math.random() * dustyCandidates.length);
+      return next;
+    });
+  }, [dustyCandidates.length]);
+
+  // 상세 시트 대상 — openId 가 가리키는 최신 스크랩. scraps 에 없으면 검색결과/먼지후보에서 보조 조회.
+  const openScrap = useMemo(() => {
+    if (!openId) return null;
+    return (
+      scraps.find(s => s.id === openId)
+      ?? (searchResults?.find(s => s.id === openId) ?? null)
+      ?? dustyCandidates.find(s => s.id === openId)
+      ?? null
+    );
+  }, [openId, scraps, searchResults, dustyCandidates]);
+
+  // 현재 먼지 카드에 표시할 스크랩 — 검색 중이거나 카드 없으면 숨김.
+  const dustyScrap = useMemo(() => {
+    if (searchResults !== null) return null; // 검색 중엔 숨김
+    if (dustyCandidates.length === 0) return null;
+    return dustyCandidates[Math.min(dustyIndex, dustyCandidates.length - 1)] ?? null;
+  }, [dustyCandidates, dustyIndex, searchResults]);
 
   return (
     <div className="h-full overflow-y-auto relative" style={{ backgroundColor: t.bg }}>
@@ -334,9 +556,70 @@ export function ScrapView() {
         </p>
       </header>
 
+      {/* ── 검색창 + 안 본 것만 토글 (Stage 3) ── */}
+      <div className="px-6 lg:px-14 mt-5 flex items-center gap-2">
+        <div
+          className="flex-1 flex items-center gap-2 px-3 py-2 rounded-full"
+          style={{ backgroundColor: t.bgSub, border: `1px solid ${t.borderLight}` }}
+        >
+          <Search size={14} color={t.textMuted} />
+          <input
+            type="text"
+            value={searchQuery}
+            onChange={e => setSearchQuery(e.target.value)}
+            placeholder="제목·코멘트·태그로 찾기"
+            style={{
+              flex: 1,
+              backgroundColor: 'transparent',
+              color: t.text,
+              fontSize: 13,
+              outline: 'none',
+              border: 'none',
+            }}
+          />
+          {searchQuery && (
+            <button
+              onClick={handleClearSearch}
+              aria-label="검색 지우기"
+              style={{ padding: 2, display: 'inline-flex', color: t.textMuted }}
+            >
+              <X size={13} />
+            </button>
+          )}
+        </div>
+        <button
+          onClick={() => setOnlyUnread(v => !v)}
+          aria-pressed={onlyUnread}
+          style={{
+            flex: '0 0 auto',
+            fontSize: 12,
+            fontWeight: 700,
+            padding: '8px 12px',
+            borderRadius: 999,
+            backgroundColor: onlyUnread ? t.accent : 'transparent',
+            color: onlyUnread ? '#fff' : t.textSub,
+            border: `1px solid ${onlyUnread ? t.accent : withAlpha(t.textMuted, 0.35)}`,
+            whiteSpace: 'nowrap',
+            transition: 'background-color .15s ease, color .15s ease',
+          }}
+        >
+          안 본 것만
+        </button>
+      </div>
+
+      {/* ── 먼지 쌓인 스크랩 카드 (Stage 3) — 검색 중엔 숨김, 후보 없으면 숨김 ── */}
+      {dustyScrap && (
+        <DustyResurfaceCard
+          scrap={dustyScrap}
+          canShuffle={dustyCandidates.length > 1}
+          onOpen={() => handleCardClick(dustyScrap.id)}
+          onShuffle={handleShuffleDusty}
+        />
+      )}
+
       {/* ── 출처 필터 칩 (가로 스크롤) ── */}
       <div
-        className="flex gap-2 overflow-x-auto px-6 lg:px-14 mt-5 pb-1"
+        className="flex gap-2 overflow-x-auto px-6 lg:px-14 mt-4 pb-1"
         style={{ scrollbarWidth: 'none' as const }}
       >
         <style>{`.scrap-filters::-webkit-scrollbar{display:none;}`}</style>
@@ -376,10 +659,20 @@ export function ScrapView() {
           >
             <Bookmark size={32} strokeWidth={1.4} color={t.accent} />
             <p style={{ fontSize: 14, fontWeight: 600, color: t.text }}>
-              {filter === 'all' ? '아직 스크랩이 없어요' : '이 출처에 저장된 스크랩이 없어요'}
+              {searchResults !== null
+                ? '검색 결과가 없어요'
+                : onlyUnread
+                ? '안 본 스크랩이 없어요'
+                : filter === 'all'
+                ? '아직 스크랩이 없어요'
+                : '이 출처에 저장된 스크랩이 없어요'}
             </p>
             <p style={{ fontSize: 12, color: t.textSub, lineHeight: 1.5, maxWidth: 260 }}>
-              우하단 + 버튼을 눌러 첫 스크랩을 추가해보세요.
+              {searchResults !== null
+                ? '다른 단어로 다시 찾아보세요.'
+                : onlyUnread
+                ? '모두 한 번씩 들여다봤거나, 다시봄·소화완료 상태예요.'
+                : '우하단 + 버튼을 눌러 첫 스크랩을 추가해보세요.'}
             </p>
           </div>
         ) : (

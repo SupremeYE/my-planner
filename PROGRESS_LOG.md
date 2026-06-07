@@ -10,7 +10,6 @@
 
 ### 📋 TODO
 - [ ] 음악 기록 Stage 3 — 스티커 꾸미기 + 위치 저장 (stickers jsonb 컬럼·🎨 꾸미기 버튼 자리 이미 준비됨)
-- (스크랩 Stage 3 — 먼지 쌓인 스크랩 / 셔플 / "안 본 것만" 토글 / 검색)
 - (스크랩 Stage 4 — 비전보드·할일·저널 실제 연결, 디스코드)
 
 ### ✅ 완료
@@ -19,6 +18,7 @@
 - [x] 스크랩 / 영감 보관함 **Stage 0** — 스키마 + 라우트 + 빈 페이지 셸
 - [x] 스크랩 / 영감 보관함 **Stage 1** — 저장 + Realtime + 메타 자동 채움(유튜브 oEmbed / 웹 OG / 인스타·스레드 수동 스크린샷) + db.ts 일원화 + 메이슨리 그리드 + 출처 필터 5종
 - [x] 스크랩 / 영감 보관함 **Stage 2** — 카드 상세 시트(썸네일·원본열기·코멘트·태그 인라인 편집) + 상태 세그먼트(미확인/다시봄/소화완료) + 노트 글 기록 패널(시간순 + 추가 시 소화완료 자동 승격) + scrap_notes Realtime + 연결 버튼 placeholder + touchViewed(last_viewed_at)
+- [x] 스크랩 / 영감 보관함 **Stage 3** — 재노출: 먼지 쌓인 스크랩 카드(마스킹테이프 + 미리보기 + 셔플) + "안 본 것만" 토글 + 제목·코멘트·태그 검색(디바운스 200ms, 출처 필터와 AND 결합) + db.scraps.listDusty / search
 
 ### 🛠 오늘 작업 내용
 
@@ -38,6 +38,41 @@
 - 색상은 디자인 토큰만(골드=accent/코랄=danger/그린=success), 비닐 검정·홈만 실물 LP 표현용 고정색
 - [x] 스크랩 / 영감 보관함 **Stage 0** — 스키마 + 라우트 + 빈 페이지 셸
 - [x] 스크랩 / 영감 보관함 **Stage 1** — 저장 + Realtime + 메타 자동 채움(유튜브 oEmbed / 웹 OG / 인스타·스레드 수동 스크린샷) + db.ts 일원화 + 메이슨리 그리드 + 출처 필터 5종
+
+**스크랩 Stage 3 — 재노출: 먼지 쌓인 스크랩 + 셔플 + 안 본 것만 + 검색**
+
+데이터 레이어 (`src/lib/db.ts`)
+- `db.scraps.listDusty(minDaysSinceView=14, limit=20)` — status != 'done' AND `COALESCE(last_viewed_at, created_at) < (now - 14d)`. PostgREST `.or()` 로 `and(last_viewed_at.is.null, created_at.lt.X)` OR `last_viewed_at.lt.X` 분기. 결과는 클라이언트에서 `COALESCE` 키로 오래된 순(asc) 정렬해 반환 (PostgREST 가 COALESCE 정렬을 직접 지원하지 않아서)
+- `db.scraps.search(q)` — `title.ilike.%q% OR comment.ilike.%q% OR tags.cs.{q}` (태그는 text[] contains, 정확 매칭). 와일드카드/콤마/괄호 sanitize 후 호출. 빈 쿼리는 즉시 빈 배열 반환
+- 두 메서드 모두 컴포넌트의 supabase direct import 0 유지 — db.ts 경유
+
+ScrapView (`src/app/components/ScrapView.tsx`)
+- 새 state: `searchQuery` / `searchResults`(null=비검색, []=결과없음) / `onlyUnread` / `dustyCandidates` / `dustyIndex`
+- `refresh()` 가 `listByUser` + `listDusty` 를 `Promise.all` 로 동시 호출 → Realtime `scraps` 변경 / 시트 닫힘 / 노트 추가(소화완료 자동승격) 모두에서 먼지 후보 자동 재계산
+- 검색 — `useEffect` 디바운스 200ms → `db.scraps.search(q)` 호출. 빈 문자열은 `searchResults=null` 로 두어 전체 스크랩 사용
+- `filtered` 베이스 = `searchResults ?? scraps` → 출처 필터 + `onlyUnread`(status==='unread') 모두 AND 결합
+- 검색창: 라운드 pill 입력 + `Search`/`X`(클리어) 아이콘, `t.bgSub` 배경 + `t.borderLight` 테두리
+- "안 본 것만" 토글: 활성 시 `t.accent` 배경/흰 글씨, 비활성 시 투명 + 외곽선 (출처 필터 칩과 시각적 구분)
+- 빈 상태 메시지 분기: 검색결과 없음 / 안 본 것 없음 / 출처별 없음 / 첫 사용 — 각각 다른 안내문
+
+먼지 쌓인 스크랩 카드 — `DustyResurfaceCard` 컴포넌트 (ScrapView 안 헬퍼)
+- 검색 중이거나 후보 없으면 자동 숨김
+- 좌상단 마스킹 테이프(작은 `t.accentLight` 직사각형 + -3deg rotate + 상하 골드 hairline + 그림자)
+- 좌측: 84x84 미리보기 썸네일(없으면 출처별 그라데이션 + Sparkles 아이콘), 탭 시 상세 시트 오픈
+- 우측: ✨ "한참 안 들여다본 스크랩이에요" 골드 라벨 + 제목 2줄 클램프 + 하단 출처 라벨 + `Shuffle` 아이콘 "다른 거 보여줘" 버튼(`t.accentLight` 배경)
+- 셔플: 후보 안에서 다른 인덱스 랜덤 픽 (후보 1개 이하면 비활성)
+- 카드 탭 → 상세 시트 오픈 → 시트에서 `touchViewed` 호출 → 닫힘 시 `refresh` → `listDusty` 재호출 → 본 스크랩은 자동으로 후보에서 빠짐
+
+원칙 준수
+- 모든 supabase 호출 db.ts 경유 (`listDusty`/`search` 도)
+- 색상 토큰만(`t.accent`/`t.accentLight`/`t.bgSub`/`t.borderLight`/`t.textSub`/`t.textMuted` 등) + `withAlpha`
+- 모바일(390) 기준 + PC `lg:` 분기 — 헤더 폭은 기존 `px-6 lg:px-14` 그대로 사용
+- Figma 디렉터리(`src/app/components/figma/`) 미수정
+- 폰트 추가 import 0
+- Stage 4 보류 항목 미구현: 비전보드·할일·저널 실제 연결 / 디스코드
+- `npm run build` 통과 (vite 6 production)
+
+---
 
 **스크랩 Stage 2 — 상세 시트 + 상태 전환 + 노트 기록**
 
