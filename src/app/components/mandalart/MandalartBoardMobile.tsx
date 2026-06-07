@@ -1,8 +1,10 @@
 import { useMemo, useRef, useState } from 'react';
-import { ChevronRight } from 'lucide-react';
+import { ChevronRight, Send } from 'lucide-react';
 import { useTheme } from '../../ThemeContext';
 import { db } from '../../../lib/db';
+import { usePlanner } from '../../store';
 import { computeProgress } from './MandalartView';
+import { SendCellModal } from './SendCellModal';
 import type { Notify } from '../culture/CultureToast';
 
 export type Cell = {
@@ -35,9 +37,19 @@ type EditTarget =
 
 export function MandalartBoardMobile({ boardId, boardTitle, cells, onMutate, onNotify, onRenameBoard }: Props) {
   const { t } = useTheme();
+  const { annualGoals, monthlyGoals, weeklyGoals, todos } = usePlanner();
+  const sentCellIds = useMemo(() => {
+    const s = new Set<string>();
+    for (const g of annualGoals) if (g.mandalartCellId) s.add(g.mandalartCellId);
+    for (const g of monthlyGoals) if (g.mandalartCellId) s.add(g.mandalartCellId);
+    for (const g of weeklyGoals) if (g.mandalartCellId) s.add(g.mandalartCellId);
+    for (const td of todos) if (td.mandalartCellId) s.add(td.mandalartCellId);
+    return s;
+  }, [annualGoals, monthlyGoals, weeklyGoals, todos]);
   const [drillSubId, setDrillSubId] = useState<string | null>(null);
   const [editing, setEditing] = useState<EditTarget | null>(null);
   const [editDraft, setEditDraft] = useState('');
+  const [sending, setSending] = useState<{ cell: Cell; isAction: boolean } | null>(null);
   const longPressTimer = useRef<number | null>(null);
   const longPressed = useRef(false);
 
@@ -142,6 +154,7 @@ export function MandalartBoardMobile({ boardId, boardTitle, cells, onMutate, onN
               <ActionCell
                 key={gridIdx}
                 cell={cell}
+                sent={cell ? sentCellIds.has(cell.id) : false}
                 onTap={() => {
                   if (longPressed.current) return;
                   if (!cell) {
@@ -171,6 +184,25 @@ export function MandalartBoardMobile({ boardId, boardTitle, cells, onMutate, onN
             onClose={closeEdit}
             allowEmpty={(editing.kind === 'sub' || editing.kind === 'action') && !!editing.cell}
             placeholder={editing.kind === 'action' ? '행동을 적어보세요' : '세부 목표'}
+            onSend={
+              editing.kind !== 'core' && editing.cell && (editDraft.trim() || editing.cell.content)
+                ? () => {
+                    const cell = editing.cell!;
+                    setSending({ cell, isAction: editing.kind === 'action' });
+                    closeEdit();
+                  }
+                : undefined
+            }
+          />
+        )}
+
+        {sending && (
+          <SendCellModal
+            cellId={sending.cell.id}
+            defaultText={sending.cell.content}
+            isAction={sending.isAction}
+            onClose={() => setSending(null)}
+            onNotify={onNotify}
           />
         )}
       </>
@@ -218,6 +250,7 @@ export function MandalartBoardMobile({ boardId, boardTitle, cells, onMutate, onN
             <SubCell
               key={gridIdx}
               cell={sub}
+              sent={sub ? sentCellIds.has(sub.id) : false}
               pct={sub ? progress.subPct(sub.id) : 0}
               hasActions={sub ? progress.subHasActions(sub.id) : false}
               onTap={() => {
@@ -253,6 +286,25 @@ export function MandalartBoardMobile({ boardId, boardTitle, cells, onMutate, onN
           onClose={closeEdit}
           allowEmpty={editing.kind === 'sub' && !!editing.cell}
           placeholder={editing.kind === 'core' ? '핵심 목표 (예: 2026 최고의 나)' : '세부 목표'}
+          onSend={
+            editing.kind === 'sub' && editing.cell && (editDraft.trim() || editing.cell.content)
+              ? () => {
+                  const cell = editing.cell!;
+                  setSending({ cell, isAction: false });
+                  closeEdit();
+                }
+              : undefined
+          }
+        />
+      )}
+
+      {sending && (
+        <SendCellModal
+          cellId={sending.cell.id}
+          defaultText={sending.cell.content}
+          isAction={sending.isAction}
+          onClose={() => setSending(null)}
+          onNotify={onNotify}
         />
       )}
     </>
@@ -283,9 +335,9 @@ function CoreCell({ title, pct, t, onClick }: {
 }
 
 function SubCell({
-  cell, pct, hasActions, onTap, onExpand, onLongPress, startLongPress, cancelLongPress,
+  cell, sent, pct, hasActions, onTap, onExpand, onLongPress, startLongPress, cancelLongPress,
 }: {
-  cell: Cell | null; pct: number; hasActions: boolean;
+  cell: Cell | null; sent: boolean; pct: number; hasActions: boolean;
   onTap: () => void; onExpand?: () => void; onLongPress: () => void;
   startLongPress: (run: () => void) => void; cancelLongPress: () => void;
 }) {
@@ -322,6 +374,15 @@ function SubCell({
         color: t.text, minWidth: 0,
       }}
     >
+      {sent && (
+        <span
+          title="이 칸에서 보낸 항목이 있어요"
+          style={{
+            position: 'absolute', top: 4, left: 6,
+            fontSize: 11, color: t.accent, fontWeight: 700, lineHeight: 1,
+          }}
+        >✦</span>
+      )}
       {!hasActions && (
         <span
           className="rounded-full flex items-center justify-center"
@@ -390,9 +451,9 @@ function SubCenterCell({ name, pct, onClick }: { name: string; pct: number; onCl
 }
 
 function ActionCell({
-  cell, onTap, onLongPress, startLongPress, cancelLongPress,
+  cell, sent, onTap, onLongPress, startLongPress, cancelLongPress,
 }: {
-  cell: Cell | null;
+  cell: Cell | null; sent: boolean;
   onTap: () => void; onLongPress: () => void;
   startLongPress: (run: () => void) => void; cancelLongPress: () => void;
 }) {
@@ -417,13 +478,22 @@ function ActionCell({
       onTouchEnd={cancelLongPress}
       onTouchMove={cancelLongPress}
       onContextMenu={e => { e.preventDefault(); onLongPress(); }}
-      className="aspect-square rounded-2xl flex flex-col items-center justify-center gap-1 px-2 text-center"
+      className="aspect-square rounded-2xl flex flex-col items-center justify-center gap-1 px-2 text-center relative"
       style={{
         backgroundColor: done ? t.success + '22' : t.card,
         border: `1px solid ${done ? t.success + '66' : t.borderLight}`,
         color: t.text, minWidth: 0,
       }}
     >
+      {sent && (
+        <span
+          title="이 칸에서 보낸 항목이 있어요"
+          style={{
+            position: 'absolute', top: 4, left: 6,
+            fontSize: 11, color: t.accent, fontWeight: 700, lineHeight: 1,
+          }}
+        >✦</span>
+      )}
       <span
         className="rounded-full flex items-center justify-center"
         style={{
@@ -447,7 +517,7 @@ function ActionCell({
 
 // ─── 편집 모달 ────────────────────────────────────────────────
 function EditModal({
-  t, title, draft, onChange, onSubmit, onClose, allowEmpty, placeholder,
+  t, title, draft, onChange, onSubmit, onClose, allowEmpty, placeholder, onSend,
 }: {
   t: ReturnType<typeof useTheme>['t'];
   title: string;
@@ -457,6 +527,7 @@ function EditModal({
   onClose: () => void;
   allowEmpty: boolean;
   placeholder: string;
+  onSend?: () => void;
 }) {
   return (
     <div
@@ -479,21 +550,33 @@ function EditModal({
           className="w-full rounded-xl px-3 py-2.5 border outline-none resize-none"
           style={{ fontSize: 14, borderColor: t.border, backgroundColor: t.bgSub, color: t.text }}
         />
-        <div className="flex justify-end gap-2 mt-3">
-          <button
-            onClick={onClose}
-            className="px-3 py-1.5 rounded-xl"
-            style={{ fontSize: 13, color: t.textMuted, backgroundColor: t.bgSub }}
-          >취소</button>
-          <button
-            onClick={onSubmit}
-            disabled={!allowEmpty && !draft.trim()}
-            className="px-3 py-1.5 rounded-xl"
-            style={{
-              fontSize: 13, color: '#fff', backgroundColor: t.accent,
-              opacity: (!allowEmpty && !draft.trim()) ? 0.4 : 1,
-            }}
-          >저장</button>
+        <div className="flex justify-between items-center gap-2 mt-3">
+          {onSend ? (
+            <button
+              onClick={onSend}
+              className="px-3 py-1.5 rounded-xl flex items-center gap-1.5"
+              style={{
+                fontSize: 13, color: t.accent, backgroundColor: t.accentLight,
+                border: `1px solid ${t.accent}55`,
+              }}
+            ><Send size={12} /> 보내기</button>
+          ) : <span />}
+          <div className="flex gap-2">
+            <button
+              onClick={onClose}
+              className="px-3 py-1.5 rounded-xl"
+              style={{ fontSize: 13, color: t.textMuted, backgroundColor: t.bgSub }}
+            >취소</button>
+            <button
+              onClick={onSubmit}
+              disabled={!allowEmpty && !draft.trim()}
+              className="px-3 py-1.5 rounded-xl"
+              style={{
+                fontSize: 13, color: '#fff', backgroundColor: t.accent,
+                opacity: (!allowEmpty && !draft.trim()) ? 0.4 : 1,
+              }}
+            >저장</button>
+          </div>
         </div>
         {allowEmpty && (
           <p className="mt-2 text-right" style={{ fontSize: 11, color: t.textMuted }}>

@@ -34,6 +34,8 @@ type TodoRow = {
   category: string | null;
   project_id: string | null;
   weekly_goal_id: string | null;
+  milestone_id: string | null;
+  mandalart_cell_id: string | null;
   tags: string[];
   recurrence_rule: string | null;
   recurrence_days: number[] | null;
@@ -68,6 +70,8 @@ type HabitMonthlyMemoRow = {
 type ProjectRow = {
   id: string; name: string; color: string; description: string | null;
   start_date: string | null; end_date: string | null; status: string;
+  goal_kind?: string | null;
+  goal_id?: string | null;
 };
 
 type MilestoneRow = {
@@ -101,11 +105,13 @@ type EventRow = {
 type WeeklyGoalRow = {
   id: string; text: string; done: boolean;
   monthly_goal_id: string | null; week_key: string;
+  mandalart_cell_id?: string | null;
 };
 
 type MonthlyGoalRow = {
   id: string; text: string; month: string; project_id: string | null;
   annual_goal_id?: string | null;
+  mandalart_cell_id?: string | null;
 };
 
 type BrainstormItemRow = {
@@ -140,6 +146,7 @@ type PeriodRecordRow = {
 
 type AnnualGoalRow = {
   id: string; year: number; text: string; done: boolean;
+  mandalart_cell_id?: string | null;
 };
 
 type QuarterlyGoalRow = {
@@ -156,6 +163,8 @@ const toTodo = (r: TodoRow): Todo => ({
   doElapsedSec: r.do_elapsed_sec ?? undefined,
   category: r.category ?? undefined, projectId: r.project_id ?? undefined,
   weeklyGoalId: r.weekly_goal_id ?? undefined,
+  milestoneId: r.milestone_id ?? undefined,
+  mandalartCellId: r.mandalart_cell_id ?? undefined,
   tags: r.tags ?? [],
   recurrenceRule: r.recurrence_rule as Todo['recurrenceRule'] ?? undefined,
   recurrenceDays: r.recurrence_days ?? undefined,
@@ -172,6 +181,8 @@ const fromTodo = (t: Todo): TodoRow => ({
   do_elapsed_sec: t.doElapsedSec ?? null,
   category: t.category ?? null, project_id: t.projectId ?? null,
   weekly_goal_id: t.weeklyGoalId ?? null,
+  milestone_id: t.milestoneId ?? null,
+  mandalart_cell_id: t.mandalartCellId ?? null,
   tags: t.tags ?? [],
   recurrence_rule: t.recurrenceRule ?? null,
   recurrence_days: t.recurrenceDays ?? null,
@@ -226,6 +237,8 @@ const toProject = (r: ProjectRow): Project => ({
   startDate: r.start_date ?? undefined,
   endDate: r.end_date ?? undefined,
   status: r.status as Project['status'],
+  goalKind: (r.goal_kind ?? undefined) as Project['goalKind'],
+  goalId: r.goal_id ?? undefined,
 });
 
 const fromProject = (p: Project): ProjectRow => ({
@@ -234,6 +247,8 @@ const fromProject = (p: Project): ProjectRow => ({
   start_date: p.startDate ?? null,
   end_date: p.endDate ?? null,
   status: p.status,
+  goal_kind: p.goalKind ?? null,
+  goal_id: p.goalId ?? null,
 });
 
 const toMilestone = (r: MilestoneRow): Milestone => ({
@@ -331,31 +346,37 @@ const toWeeklyGoal = (r: WeeklyGoalRow): WeeklyGoal => ({
   id: r.id, text: r.text, done: r.done,
   monthlyGoalId: r.monthly_goal_id ?? undefined,
   weekKey: r.week_key,
+  mandalartCellId: r.mandalart_cell_id ?? undefined,
 });
 
 const fromWeeklyGoal = (g: WeeklyGoal): WeeklyGoalRow => ({
   id: g.id, text: g.text, done: g.done,
   monthly_goal_id: g.monthlyGoalId ?? null,
   week_key: g.weekKey,
+  mandalart_cell_id: g.mandalartCellId ?? null,
 });
 
 const toMonthlyGoal = (r: MonthlyGoalRow): MonthlyGoal => ({
   id: r.id, text: r.text, month: r.month,
   projectId: r.project_id ?? undefined,
   annualGoalId: r.annual_goal_id ?? undefined,
+  mandalartCellId: r.mandalart_cell_id ?? undefined,
 });
 
 const fromMonthlyGoal = (g: MonthlyGoal): MonthlyGoalRow => ({
   id: g.id, text: g.text, month: g.month,
   project_id: g.projectId ?? null,
   annual_goal_id: g.annualGoalId ?? null,
+  mandalart_cell_id: g.mandalartCellId ?? null,
 });
 
 const toAnnualGoal = (r: AnnualGoalRow): AnnualGoal => ({
   id: r.id, year: r.year, text: r.text, done: r.done,
+  mandalartCellId: r.mandalart_cell_id ?? undefined,
 });
 const fromAnnualGoal = (g: AnnualGoal): AnnualGoalRow => ({
   id: g.id, year: g.year, text: g.text, done: g.done,
+  mandalart_cell_id: g.mandalartCellId ?? null,
 });
 
 const toQuarterlyGoal = (r: QuarterlyGoalRow): QuarterlyGoal => ({

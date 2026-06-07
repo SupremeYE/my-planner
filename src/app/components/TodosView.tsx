@@ -7,6 +7,7 @@ import {
 import { usePlanner, Todo, TodoStatus } from '../store';
 import { useTheme } from '../ThemeContext';
 import ConfirmModal from './ConfirmModal';
+import { MandalartSourceBadge } from './mandalart/MandalartSourceBadge';
 import { TodoModal } from './TodoModal';
 import { EventModal } from './EventModal';
 import { AddEntryMenu } from './AddEntryMenu';
@@ -118,8 +119,9 @@ function TodoRow({
             </div>
 
             {/* Meta badges */}
-            {(project || weeklyGoal || todo.planStart || todo.dueDate || (todo.status !== 'active' && todo.status !== 'backlog')) && (
+            {(project || weeklyGoal || todo.mandalartCellId || todo.planStart || todo.dueDate || (todo.status !== 'active' && todo.status !== 'backlog')) && (
               <div className="flex items-center gap-1.5 mt-1 flex-wrap">
+                {todo.mandalartCellId && <MandalartSourceBadge />}
                 {project && (
                   <span
                     className="inline-flex items-center px-1.5 py-0.5 rounded-full"

@@ -7,6 +7,7 @@ import { useTheme } from '../../ThemeContext';
 import { annualRollup, monthlyRollup, weeklyRollup, directChildCount } from './periodProgress';
 import { IdentityCard, ValuesCard } from './IdentityValuesCards';
 import { WeeklyTodosInline } from './WeeklyTodosInline';
+import { MandalartSourceBadge } from '../mandalart/MandalartSourceBadge';
 
 // PC "기간별" 모드 캐스케이드 3열: 연간 → 월간 → 주간
 // 좌(연간) 선택 → 중(월간: 그 연간에 연결된 것만) 선택 → 우(주간: 그 월간에 연결된 것만)
@@ -107,6 +108,7 @@ export function PeriodCascadePC() {
                       textDecoration: g.done ? 'line-through' : 'none',
                       wordBreak: 'break-word',
                     }}>{g.text}</div>
+                    {g.mandalartCellId && <div className="mt-1"><MandalartSourceBadge /></div>}
                     <div className="mt-1.5 h-1.5 rounded-full overflow-hidden" style={{ backgroundColor: t.bgSub }}>
                       <div className="h-full" style={{ width: `${r.pct}%`, backgroundColor: t.success }} />
                     </div>
@@ -156,6 +158,7 @@ export function PeriodCascadePC() {
                     <div style={{ fontSize: 13, fontWeight: 600, color: t.text, marginTop: 2, wordBreak: 'break-word' }}>
                       {m.text}
                     </div>
+                    {m.mandalartCellId && <div className="mt-1"><MandalartSourceBadge /></div>}
                     <div className="mt-1.5 h-1.5 rounded-full overflow-hidden" style={{ backgroundColor: t.bgSub }}>
                       <div className="h-full" style={{ width: `${r.pct}%`, backgroundColor: t.success }} />
                     </div>
@@ -211,6 +214,7 @@ export function PeriodCascadePC() {
                       textDecoration: w.done ? 'line-through' : 'none',
                       wordBreak: 'break-word',
                     }}>{w.text}</div>
+                    {w.mandalartCellId && <div className="mt-1"><MandalartSourceBadge /></div>}
                     <div className="mt-1.5 h-1.5 rounded-full overflow-hidden" style={{ backgroundColor: t.bgSub }}>
                       <div className="h-full" style={{ width: `${r.pct}%`, backgroundColor: t.success }} />
                     </div>

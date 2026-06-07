@@ -30,6 +30,10 @@ export interface Todo {
   projectId?: string;
   /** 연결된 주간 목표 id (Phase 4·5: 목표↔할일 롤업) */
   weeklyGoalId?: string;
+  /** 연결된 마일스톤 id (프로젝트 진행률 자동 산출용) */
+  milestoneId?: string;
+  /** 만다라트에서 "보내기"로 생성된 경우 출처 셀 id */
+  mandalartCellId?: string;
   tags?: string[];
   // 반복 일정 필드
   recurrenceRule?: 'daily' | 'weekly' | 'weekdays' | 'custom';
@@ -311,6 +315,31 @@ export interface ShoppingItem {
   createdAt?: string;
 }
 
+// ── 스크랩 / 영감 보관함 (Stage 0) ────────────────────────────────────────
+export type ScrapSource = 'youtube' | 'instagram' | 'threads' | 'web';
+export type ScrapStatus = 'unread' | 'revisit' | 'done';
+
+export interface Scrap {
+  id: string;
+  url: string | null;
+  source: ScrapSource | null;
+  title: string | null;
+  thumbnailUrl: string | null;
+  comment: string | null;          // 한 줄 코멘트
+  tags: string[];
+  status: ScrapStatus;
+  lastViewedAt: string | null;     // ISO timestamp
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ScrapNote {
+  id: string;
+  scrapId: string;
+  content: string;
+  createdAt: string;
+}
+
 export interface PeriodRecord {
   id: string;
   startDate: string;        // yyyy-MM-dd
@@ -359,6 +388,7 @@ export interface WeeklyGoal {
   done: boolean;
   monthlyGoalId?: string;
   weekKey: string;
+  mandalartCellId?: string;
 }
 
 export interface MonthlyGoal {
@@ -368,6 +398,7 @@ export interface MonthlyGoal {
   projectId?: string;
   /** 연간 목표 1개에 연결 (레거시 행은 비어 있을 수 있음) */
   annualGoalId?: string;
+  mandalartCellId?: string;
 }
 
 /** 연도별 연간 정체성·핵심 가치 (키: "2026" 등) */
@@ -403,6 +434,7 @@ export interface AnnualGoal {
   year: number;
   text: string;
   done: boolean;
+  mandalartCellId?: string;
 }
 
 export interface QuarterlyGoal {
@@ -450,6 +482,10 @@ export interface Project {
   startDate?: string;
   endDate?: string;
   status: 'active' | 'completed' | 'paused';
+  /** 연결 대상 목표 종류 — 연간/분기/월간. 미연결이면 undefined */
+  goalKind?: 'annual' | 'quarterly' | 'monthly';
+  /** 연결 대상 목표의 PK (goalKind 와 함께 해석) */
+  goalId?: string;
 }
 
 export interface Milestone {

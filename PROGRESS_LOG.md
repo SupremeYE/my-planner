@@ -10,10 +10,12 @@
 
 ### 📋 TODO
 - [ ] 음악 기록 Stage 3 — 스티커 꾸미기 + 위치 저장 (stickers jsonb 컬럼·🎨 꾸미기 버튼 자리 이미 준비됨)
+- (스크랩 / 영감 보관함 Stage 1 — 추가 모달 + db 레이어 + 메이슨리 그리드 + 노트 패널 + Realtime 구독)
 
 ### ✅ 완료
 - [x] 음악 기록 Stage 1 — 데이터 토대 + iTunes 검색·추가 (`music_records` 테이블 + RLS + Realtime, iTunes Search API 프록시 Edge Function `itunes-search`, 검색→결과 리스트→선택→무드·장르·메모·듣기링크 입력→저장, `itunes_track_id` 중복 방지)
 - [x] 음악 기록 Stage 2 — LP 그리드 + 상세 + 무드 필터·셔플 (문화 기록 안에 [영상/음악] 섹션 탭으로 통합)
+- [x] 스크랩 / 영감 보관함 **Stage 0** — 스키마 + 라우트 + 빈 페이지 셸 (실제 기능은 다음 단계)
 
 ### 🛠 오늘 작업 내용
 
@@ -31,6 +33,15 @@
 - 무드 필터 칩(전체/집중/위로/신날 때/드라이브/잠들기 전, mood text[] 포함 필터) + "지금 이 무드엔?" 셔플 카드
 - `MusicDetailSheet` 상세 바텀시트: 큰 LP + ▶/⏸ 미리듣기(preview_url `<audio>`, 단일 인스턴스, 없으면 회전만 토글) + 🎨 꾸미기(Stage 3 비활성), 제목(DM Serif)/아티스트/앨범·연도, 무드(코랄)·장르(그린) 태그, 듣기 링크(listen_url 직접 + 유튜브뮤직/스포티파이 자동검색), 메모(골드 좌측 라인 + 저장일)
 - 색상은 디자인 토큰만(골드=accent/코랄=danger/그린=success), 비닐 검정·홈만 실물 LP 표현용 고정색
+
+**스크랩 / 영감 보관함 Stage 0 — 기반**
+- 마이그레이션 `20260607000000_create_scraps.sql`: `scraps` (id/user_id default auth.uid()/url/source/title/thumbnail_url/comment/tags text[]/status default 'unread'/last_viewed_at/created_at/updated_at) + `scrap_notes` (1:N, scrap_id ON DELETE CASCADE). 두 테이블 모두 RLS 활성 + 본인 행만 select/insert/update/delete (vision_*·culture_records 패턴 그대로). 인덱스 `scraps(user_id, created_at desc)` / `scrap_notes(scrap_id, created_at)`. Realtime publication 등록. Supabase MCP 로 my-planner 프로젝트 적용 완료
+- `store.tsx`: `Scrap` / `ScrapNote` / `ScrapSource('youtube'|'instagram'|'threads'|'web')` / `ScrapStatus('unread'|'revisit'|'done')` 타입 추가 — store 연동/Realtime 구독은 Stage 1에서
+- `routes.tsx`: `/scraps` 라우트 + `ScrapView` 컴포넌트 연결 (비전보드 라우트 다음에 배치)
+- 네비게이션: `Layout.tsx` 사이드바 라이프스타일 그룹 + 모바일 햄버거 시트, `LayoutC.tsx` 테마 C 상단바 모두에 "스크랩" 메뉴 항목 + `Bookmark` 아이콘 추가 (비전보드 옆 영감 계열 묶음)
+- `ScrapView.tsx` 빈 셸: 헤더(eyebrow `inspiration` Nanum Pen + 제목 `스크랩` DM Serif + 서브 `영감 보관함`) + dashed border 빈 그리드 영역(추후 메이슨리 자리) + 빈 상태 메시지("아직 스크랩이 없어요") + 우하단 확장형 FAB `스크랩 추가` (Stage 1까지는 placeholder 안내 토스트). 데이터 fetch / 모달 / Realtime 구독은 모두 다음 단계
+- 디자인 토큰만 사용(`t.accent`/`t.accentLight`/`t.card`/`t.bg`/`t.textSub` 등) — hex 하드코딩 0. 모바일(390px) 기준 + PC 분기는 Tailwind `lg:` 로만 (PC 사이드바 레이아웃 무영향)
+- `npm run build` 통과 (vite 6 production build)
 
 ---
 
