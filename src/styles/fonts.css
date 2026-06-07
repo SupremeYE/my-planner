@@ -13,6 +13,8 @@
   --font-gmarket: 'GmarketSansBold', 'GmarketSans', var(--font-pretendard);
   /* 손글씨 느낌 — 모먼트 카드 제목 등. 미로드 시 Gowun으로 폴백 */
   --font-gaegu: 'Gaegu', var(--font-gowun);
+  /* 일기 본문 전용 손글씨 토큰 — 작성 textarea·미리보기에만 사용(UI 폰트는 그대로) */
+  --font-hand: var(--font-gaegu);
   /* 펜 손글씨 — 비전보드 eyebrow 등. 미로드 시 Gaegu/Gowun으로 폴백 */
   --font-nanum-pen: 'Nanum Pen Script', var(--font-gaegu);
 }

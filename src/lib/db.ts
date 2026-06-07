@@ -497,6 +497,35 @@ const fromRoutine = (r: Routine): RoutineRow => {
   };
 };
 
+// ── 통합 일기 (diary_entries) ────────────────────────────────────────────────
+export type DiaryEntry = {
+  id: string;
+  entryDate: string;            // yyyy-MM-dd (일기 대상 날짜)
+  type: 'free' | 'question';
+  questionId: string | null;
+  questionText: string | null;  // 작성 시점 질문 스냅샷
+  content: string;
+  createdAt: string;
+  updatedAt: string;
+};
+
+type DiaryEntryRow = {
+  id: string; entry_date: string; type: string;
+  question_id: string | null; question_text: string | null;
+  content: string; created_at: string; updated_at: string;
+};
+
+const toDiaryEntry = (r: DiaryEntryRow): DiaryEntry => ({
+  id: r.id,
+  entryDate: r.entry_date,
+  type: r.type as DiaryEntry['type'],
+  questionId: r.question_id ?? null,
+  questionText: r.question_text ?? null,
+  content: r.content,
+  createdAt: r.created_at,
+  updatedAt: r.updated_at,
+});
+
 // ── DB 객체 ──────────────────────────────────────────────────────────────────
 
 export const db = {
@@ -2084,6 +2113,65 @@ export const db = {
       // 자식 셀은 ON DELETE CASCADE 로 함께 삭제됨
       const { error } = await supabase.from('mandalart_cells').delete().eq('id', id);
       if (error) console.error('[db] mandalart_cells delete:', error.message);
+    },
+  },
+
+  // ── 통합 일기 (자유일기/질문일기) ─────────────────────────────────────────────
+  diaryEntries: {
+    // 특정 날짜의 자유일기 1건 (type='free'). 하루 1개 부분 유니크라 maybeSingle.
+    fetchFreeByDate: async (entryDate: string): Promise<DiaryEntry | null> => {
+      const { data, error } = await supabase
+        .from('diary_entries')
+        .select('*')
+        .eq('type', 'free')
+        .eq('entry_date', entryDate)
+        .maybeSingle();
+      if (error) console.error('[db] diary_entries fetchFreeByDate:', error.message);
+      return data ? toDiaryEntry(data) : null;
+    },
+    // 최근 자유일기 N건 (entry_date 내림차순)
+    listRecentFree: async (limit = 7): Promise<DiaryEntry[]> => {
+      const { data, error } = await supabase
+        .from('diary_entries')
+        .select('*')
+        .eq('type', 'free')
+        .order('entry_date', { ascending: false })
+        .limit(limit);
+      if (error) console.error('[db] diary_entries listRecentFree:', error.message);
+      return (data ?? []).map(toDiaryEntry);
+    },
+    // 자유일기 저장 — (entry_date, type='free') 기준 upsert.
+    // 부분 유니크 인덱스라 onConflict upsert 대신 select 후 update/insert.
+    // user_id 는 DB DEFAULT auth.uid() 가 자동 충전.
+    upsertFree: async (entryDate: string, content: string): Promise<DiaryEntry | null> => {
+      const { data: existing, error: selErr } = await supabase
+        .from('diary_entries')
+        .select('id')
+        .eq('type', 'free')
+        .eq('entry_date', entryDate)
+        .maybeSingle();
+      if (selErr) { console.error('[db] diary_entries upsertFree select:', selErr.message); return null; }
+      if (existing?.id) {
+        const { data, error } = await supabase
+          .from('diary_entries')
+          .update({ content, updated_at: new Date().toISOString() })
+          .eq('id', existing.id)
+          .select('*')
+          .single();
+        if (error) { console.error('[db] diary_entries update:', error.message); return null; }
+        return data ? toDiaryEntry(data) : null;
+      }
+      const { data, error } = await supabase
+        .from('diary_entries')
+        .insert({ entry_date: entryDate, type: 'free', content })
+        .select('*')
+        .single();
+      if (error) { console.error('[db] diary_entries insert:', error.message); return null; }
+      return data ? toDiaryEntry(data) : null;
+    },
+    delete: async (id: string) => {
+      const { error } = await supabase.from('diary_entries').delete().eq('id', id);
+      if (error) console.error('[db] diary_entries delete:', error.message);
     },
   },
 };

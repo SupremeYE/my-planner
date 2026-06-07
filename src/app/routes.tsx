@@ -15,6 +15,7 @@ import { FoodView } from './components/FoodView';
 import { BooksView } from './components/BooksView';
 import { MoodView } from './components/MoodView';
 import { MomentView } from './components/MomentView';
+import { DiaryView } from './components/DiaryView';
 import { QuestionJournalView } from './components/QuestionJournalView';
 import { CultureRecordView } from './components/CultureRecordView';
 import { RecipeView } from './components/RecipeView';
@@ -46,6 +47,7 @@ export const router = createBrowserRouter([
       { path: 'books',        Component: BooksView },
       { path: 'mood',         Component: MoodView },
       { path: 'moments',           Component: MomentView },
+      { path: 'diary',            Component: DiaryView },
       { path: 'question-journal', Component: QuestionJournalView },
       { path: 'culture',          Component: CultureRecordView },
       { path: 'recipes',          Component: RecipeView },
