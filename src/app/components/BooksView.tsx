@@ -252,22 +252,27 @@ function MonthlyTower({
 }
 
 // ─── 독서밭 채우기 히트맵 ──────────────────────────────────────────────
-function getReadingActivityCounts(books: Book[]): Map<string, number> {
+function getReadingActivityData(books: Book[]): { counts: Map<string, number>; completions: Set<string> } {
   const counts = new Map<string, number>();
+  const completions = new Set<string>();
   const add = (date: string) => {
     const d = date.slice(0, 10);
     counts.set(d, (counts.get(d) ?? 0) + 1);
   };
   for (const b of books) {
     if (b.startDate) add(b.startDate);
-    if (b.finishDate) add(b.finishDate);
+    if (b.finishDate) {
+      add(b.finishDate);
+      completions.add(b.finishDate.slice(0, 10));
+    }
     for (const q of b.quotes) add(q.createdAt);
   }
-  return counts;
+  return { counts, completions };
 }
 
-function pulseColor(count: number, bgSub: string): string {
+function pulseColor(count: number, bgSub: string, isCompletion?: boolean): string {
   if (count === 0) return bgSub;
+  if (isCompletion) return '#D4603A';
   if (count === 1) return 'rgba(244,165,130,0.28)';
   if (count === 2) return 'rgba(244,165,130,0.55)';
   if (count === 3) return '#F4A582';
@@ -276,7 +281,7 @@ function pulseColor(count: number, bgSub: string): string {
 
 function ReadingPulse({ books, t }: { books: Book[]; t: any }) {
   const scrollRef = useRef<HTMLDivElement>(null);
-  const counts = getReadingActivityCounts(books);
+  const { counts, completions } = getReadingActivityData(books);
 
   const today = new Date();
   const todayStr = format(today, 'yyyy-MM-dd');
@@ -373,18 +378,24 @@ function ReadingPulse({ books, t }: { books: Book[]; t: any }) {
                 )}
               </div>
               {/* 날짜 셀 */}
-              {week.map(day => (
-                <div
-                  key={day.date}
-                  title={day.date + (day.count > 0 ? ` · ${day.count}회 활동` : '')}
-                  style={{
-                    width: CELL, height: CELL, borderRadius: 2, flexShrink: 0,
-                    backgroundColor: day.date > todayStr ? t.bgSub : pulseColor(day.count, t.bgSub),
-                    opacity: day.date > todayStr ? 0.15 : day.count === 0 ? 0.38 : 1,
-                    cursor: day.count > 0 ? 'pointer' : 'default',
-                  }}
-                />
-              ))}
+              {week.map(day => {
+                const isCompletion = completions.has(day.date);
+                const tooltipExtra = isCompletion ? ` 🎉 완독!` : day.count > 0 ? ` · ${day.count}회 활동` : '';
+                return (
+                  <div
+                    key={day.date}
+                    title={day.date + tooltipExtra}
+                    style={{
+                      width: CELL, height: CELL, borderRadius: 2, flexShrink: 0,
+                      backgroundColor: day.date > todayStr ? t.bgSub : pulseColor(day.count, t.bgSub, isCompletion),
+                      opacity: day.date > todayStr ? 0.15 : day.count === 0 ? 0.38 : 1,
+                      cursor: day.count > 0 ? 'pointer' : 'default',
+                      outline: isCompletion && day.date <= todayStr ? `1.5px solid #D4603A` : 'none',
+                      outlineOffset: 1,
+                    }}
+                  />
+                );
+              })}
             </div>
           ))}
         </div>
@@ -692,11 +703,13 @@ function BookDetailModal({
   onClose,
   onUpdate,
   onDelete,
+  onComplete,
 }: {
   book: Book;
   onClose: () => void;
   onUpdate: (b: Book) => void;
   onDelete: (id: string) => void;
+  onComplete?: () => void;
 }) {
   const { t } = useTheme();
   const [currentPage, setCurrentPage] = useState(String(book.currentPage));
@@ -713,17 +726,21 @@ function BookDetailModal({
   const hasSpeechApi = typeof window !== 'undefined' &&
     ('SpeechRecognition' in window || 'webkitSpeechRecognition' in window);
 
-  const pct = totalPages && parseInt(totalPages) > 0
-    ? Math.min(100, Math.round((parseInt(currentPage || '0') / parseInt(totalPages)) * 100))
+  const parsedCurrentPage = parseInt(currentPage) || 0;
+  const parsedTotalPages = parseInt(totalPages) || 0;
+  const pct = parsedTotalPages > 0
+    ? Math.min(100, Math.round((parsedCurrentPage / parsedTotalPages) * 100))
     : 0;
+  const isAutoComplete = parsedCurrentPage > 0 && parsedTotalPages > 0 && parsedCurrentPage >= parsedTotalPages;
 
   const handleSaveProgress = () => {
+    const finalStatus: BookStatus = isAutoComplete ? 'done' : status;
     const updated: Book = {
       ...book,
-      currentPage: parseInt(currentPage) || 0,
-      totalPages: parseInt(totalPages) || 0,
-      status,
-      finishDate: status === 'done' && !book.finishDate
+      currentPage: parsedCurrentPage,
+      totalPages: parsedTotalPages,
+      status: finalStatus,
+      finishDate: finalStatus === 'done' && !book.finishDate
         ? format(new Date(), 'yyyy-MM-dd')
         : book.finishDate,
     };
@@ -759,7 +776,8 @@ function BookDetailModal({
       });
     }
     onUpdate(updated);
-    onClose(); // 저장 후 모달 닫기 — 기존엔 onUpdate(값 반영)만 하고 모달을 안 닫아 "저장 버튼 눌러도 반응 없음"으로 보였음
+    if (finalStatus === 'done') onComplete?.();
+    onClose();
   };
 
   const toggleRecording = () => {
@@ -950,34 +968,41 @@ function BookDetailModal({
                 </div>
 
                 {/* 진도율 바 */}
-                {parseInt(totalPages) > 0 && (
+                {parsedTotalPages > 0 && (
                   <div>
                     <div className="flex justify-between items-center mb-1.5">
-                      <span style={{ fontSize: 12, color: t.textSub }}>
-                        진도율
-                      </span>
-                      <span style={{ fontSize: 13, color: t.accent, fontWeight: 700 }}>
-                        {pct}%
-                      </span>
+                      <span style={{ fontSize: 12, color: t.textSub }}>진도율</span>
+                      <span style={{ fontSize: 13, color: t.accent, fontWeight: 700 }}>{pct}%</span>
                     </div>
                     <div className="h-2 rounded-full overflow-hidden" style={{ backgroundColor: t.bgSub }}>
                       <div
                         className="h-full rounded-full transition-all"
-                        style={{ width: `${pct}%`, backgroundColor: t.accent }}
+                        style={{ width: `${pct}%`, backgroundColor: isAutoComplete ? '#6BAA7A' : t.accent }}
                       />
                     </div>
                     <p style={{ fontSize: 11, color: t.textMuted, marginTop: 4 }}>
-                      {parseInt(currentPage) || 0}p / {parseInt(totalPages)}p
+                      {parsedCurrentPage}p / {parsedTotalPages}p
                     </p>
+                  </div>
+                )}
+
+                {isAutoComplete && (
+                  <div
+                    className="w-full py-2.5 rounded-xl text-center"
+                    style={{ backgroundColor: 'rgba(107,170,122,0.12)', border: '1px solid rgba(107,170,122,0.35)' }}
+                  >
+                    <span style={{ fontSize: 13, fontWeight: 700, color: '#6BAA7A' }}>
+                      🎉 완독! 저장하면 완독 탭으로 이동돼요
+                    </span>
                   </div>
                 )}
 
                 <button
                   onClick={handleSaveProgress}
                   className="w-full py-3 rounded-xl font-semibold"
-                  style={{ backgroundColor: t.accent, color: '#fff', fontSize: 14 }}
+                  style={{ backgroundColor: isAutoComplete ? '#6BAA7A' : t.accent, color: '#fff', fontSize: 14 }}
                 >
-                  저장하기
+                  {isAutoComplete ? '완독 저장하기 🎉' : '저장하기'}
                 </button>
               </>
             )}
@@ -1710,6 +1735,7 @@ export function BooksView() {
           onClose={() => setSelectedBook(null)}
           onUpdate={handleUpdate}
           onDelete={handleDelete}
+          onComplete={() => setActiveTab('done')}
         />
       )}
     </div>
