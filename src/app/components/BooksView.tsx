@@ -1595,43 +1595,77 @@ export function BooksView() {
 
       {/* 탭 */}
       <div className="flex-shrink-0 px-4 pb-3">
-        <div className="flex gap-1 p-1 rounded-2xl" style={{ backgroundColor: t.card }}>
-          {TAB_LIST.map(tab => {
-            const isActive = activeTab === tab.key;
-            const totalQuoteCount = books.reduce((acc, b) => acc + b.quotes.length, 0);
-            const count =
-              tab.key === 'quotes' ? totalQuoteCount
-              : tab.key === 'stats' ? null
-              : tabCounts[tab.key as BookStatus];
-            return (
-              <button
-                key={tab.key}
-                onClick={() => setActiveTab(tab.key)}
-                className="flex-1 py-2 rounded-xl transition-all"
+        {(() => {
+          const activeIndex = TAB_LIST.findIndex(tab => tab.key === activeTab);
+          const totalQuoteCount = books.reduce((acc, b) => acc + b.quotes.length, 0);
+          return (
+            <div
+              className="relative flex p-1 rounded-2xl overflow-hidden"
+              style={{ backgroundColor: t.card }}
+            >
+              {/* 슬라이딩 pill */}
+              <div
                 style={{
-                  fontSize: 11,
-                  fontWeight: isActive ? 700 : 400,
-                  backgroundColor: isActive ? t.accent : 'transparent',
-                  color: isActive ? '#fff' : t.textMuted,
+                  position: 'absolute',
+                  top: 4, bottom: 4,
+                  left: `calc(4px + ${activeIndex} * (100% - 8px) / ${TAB_LIST.length})`,
+                  width: `calc((100% - 8px) / ${TAB_LIST.length})`,
+                  backgroundColor: t.accent,
+                  borderRadius: 10,
+                  transition: 'left 0.22s cubic-bezier(0.4, 0, 0.2, 1)',
+                  zIndex: 0,
+                  pointerEvents: 'none',
                 }}
-              >
-                {tab.label}
-                {count !== null && count > 0 && (
-                  <span className="ml-1"
-                    style={{
-                      fontSize: 9,
-                      backgroundColor: isActive ? 'rgba(255,255,255,0.3)' : t.accentLight,
-                      color: isActive ? '#fff' : t.accent,
-                      padding: '1px 5px',
-                      borderRadius: 99,
-                    }}>
-                    {count}
-                  </span>
-                )}
-              </button>
-            );
-          })}
-        </div>
+              />
+
+              {TAB_LIST.map((tab, idx) => {
+                const isActive = activeTab === tab.key;
+                const count =
+                  tab.key === 'quotes' ? totalQuoteCount
+                  : tab.key === 'stats' ? null
+                  : tabCounts[tab.key as BookStatus];
+                const showDivider = idx > 0 && !isActive && activeIndex !== idx - 1;
+                return (
+                  <div key={tab.key} className="flex-1 relative flex items-center" style={{ zIndex: 1 }}>
+                    {showDivider && (
+                      <div style={{
+                        position: 'absolute', left: 0,
+                        top: '20%', height: '60%',
+                        width: 1,
+                        backgroundColor: t.border,
+                        pointerEvents: 'none',
+                      }} />
+                    )}
+                    <button
+                      onClick={() => setActiveTab(tab.key)}
+                      className="flex-1 py-2"
+                      style={{
+                        fontSize: 11,
+                        fontWeight: isActive ? 700 : 400,
+                        color: isActive ? '#fff' : t.textMuted,
+                        position: 'relative',
+                        zIndex: 1,
+                      }}
+                    >
+                      {tab.label}
+                      {count !== null && count > 0 && (
+                        <span className="ml-1" style={{
+                          fontSize: 9,
+                          backgroundColor: isActive ? 'rgba(255,255,255,0.3)' : t.accentLight,
+                          color: isActive ? '#fff' : t.accent,
+                          padding: '1px 5px',
+                          borderRadius: 99,
+                        }}>
+                          {count}
+                        </span>
+                      )}
+                    </button>
+                  </div>
+                );
+              })}
+            </div>
+          );
+        })()}
       </div>
 
       {/* 콘텐츠 */}
