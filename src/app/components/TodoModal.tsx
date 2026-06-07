@@ -25,10 +25,14 @@ interface TodoModalProps {
   initialPlanEnd?: string;
   /** 새 할일 생성 시 자동으로 연결할 주간 목표 id (Phase 4: 기간별 주간 카드 inline 추가) */
   initialWeeklyGoalId?: string;
+  /** 새 할일 생성 시 자동 지정할 프로젝트 id (프로젝트 상세 내부에서 추가 시) */
+  initialProjectId?: string;
+  /** 새 할일 생성 시 자동 지정할 마일스톤 id (마일스톤 카드 내부에서 추가 시) */
+  initialMilestoneId?: string;
   onClose: () => void;
 }
 
-export function TodoModal({ date, todo, initialPlanStart, initialPlanEnd, initialWeeklyGoalId, onClose }: TodoModalProps) {
+export function TodoModal({ date, todo, initialPlanStart, initialPlanEnd, initialWeeklyGoalId, initialProjectId, initialMilestoneId, onClose }: TodoModalProps) {
   const { addTodo, updateTodo, deleteTodo, deleteRecurringTodo, updateRecurringTodo, tags: allTags, projects, addTag, updateTag, deleteTag } = usePlanner();
   const { t } = useTheme();
 
@@ -57,7 +61,7 @@ export function TodoModal({ date, todo, initialPlanStart, initialPlanEnd, initia
   const [planEnd, setPlanEnd] = useState(todo?.planEnd ?? initialPlanEnd ?? '');
   const [isTop3, setIsTop3] = useState(todo?.isTop3 ?? false);
   const [selectedTags, setSelectedTags] = useState<string[]>(todo?.tags ?? []);
-  const [projectId, setProjectId] = useState(todo?.projectId ?? '');
+  const [projectId, setProjectId] = useState(todo?.projectId ?? initialProjectId ?? '');
   const [showNewTag, setShowNewTag] = useState(false);
   const [newTagName, setNewTagName] = useState('');
   const [newTagColor, setNewTagColor] = useState(DEFAULT_TAG_COLORS[0]);
@@ -216,6 +220,8 @@ export function TodoModal({ date, todo, initialPlanStart, initialPlanEnd, initia
     projectId: projectId || undefined,
     // 기존 weeklyGoalId 보존(편집), 신규 생성 시 initialWeeklyGoalId 자동 적용
     weeklyGoalId: todo?.weeklyGoalId ?? initialWeeklyGoalId ?? undefined,
+    // 마일스톤 연결 — 편집 시 기존값 보존, 신규 생성 시 initialMilestoneId 자동 적용
+    milestoneId: todo?.milestoneId ?? initialMilestoneId ?? undefined,
     recurrenceRule: recurrenceRule ?? undefined,
     recurrenceDays: recurrenceRule === 'custom' ? recurrenceDays : undefined,
     recurrenceEndDate: recurrenceEndDate || undefined,
