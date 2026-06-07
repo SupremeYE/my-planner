@@ -308,6 +308,50 @@ async function fetchCultureRows(
   }
 }
 
+// ── 먼지 쌓인 스크랩 한 줄 (Stage 4 — listDusty 와 같은 정책) ──
+// 한 달(30일) 이상 안 본 'done' 외 스크랩 중 하나를 골라 한 줄 리마인드.
+// 후보 없으면 빈 배열을 반환해 섹션을 생략한다.
+type DustyScrapRow = {
+  id: string;
+  url: string | null;
+  title: string | null;
+  last_viewed_at: string | null;
+  created_at: string;
+};
+
+async function buildDustyScrapSection(
+  supabase: SupabaseLike,
+  minDaysSinceView = 30,
+): Promise<string[]> {
+  try {
+    const thresholdIso = new Date(Date.now() - minDaysSinceView * 86400000).toISOString();
+    const { data, error } = await supabase
+      .from('scraps')
+      .select('id, url, title, last_viewed_at, created_at')
+      .neq('status', 'done')
+      .or(`and(last_viewed_at.is.null,created_at.lt.${thresholdIso}),last_viewed_at.lt.${thresholdIso}`)
+      .limit(20);
+    if (error) throw error;
+    const rows = (data ?? []) as DustyScrapRow[];
+    if (rows.length === 0) return [];
+    // 클라이언트와 동일한 정렬(가장 오래된 viewed/created 우선)
+    const sorted = rows.slice().sort((a, b) => {
+      const aKey = a.last_viewed_at ?? a.created_at;
+      const bKey = b.last_viewed_at ?? b.created_at;
+      return aKey.localeCompare(bKey);
+    });
+    // 매일 같은 항목만 노출되지 않도록 살짝 흔든다(상위 5개 중 랜덤).
+    const pool = sorted.slice(0, Math.min(5, sorted.length));
+    const pick = pool[Math.floor(Math.random() * pool.length)];
+    const titleText = pick.title?.trim() || '제목 없는 스크랩';
+    const tail = pick.url ? ` ${pick.url}` : '';
+    return ['📌 **한 달 전 저장한 거 기억나?**', `${titleText}${tail}`];
+  } catch (err) {
+    console.error('dusty scrap section error:', err);
+    return [];
+  }
+}
+
 // excerptLimit 으로 리뷰/인사이트 발췌 길이를 제어(0 이하면 발췌 줄 생략 — 길이 방어용)
 function formatCultureSection(
   result: { rows: CultureRow[]; failed: boolean },
@@ -417,12 +461,13 @@ Deno.serve(async () => {
     }
 
     // ── 신규 카테고리 섹션 (각 섹션 내부에서 try/catch — 한 섹션 실패가 다른 섹션에 영향 없음) ──
-    const [eventLines, foodLines, moodLines, readingLines, cultureResult] = await Promise.all([
+    const [eventLines, foodLines, moodLines, readingLines, cultureResult, dustyLines] = await Promise.all([
       buildEventsSection(supabase, today),
       buildFoodSection(supabase, today),
       buildMoodSection(supabase, today),
       buildReadingSection(supabase, today),
       fetchCultureRows(supabase, today),
+      buildDustyScrapSection(supabase, 30),
     ]);
 
     lines.push('');
@@ -436,9 +481,11 @@ Deno.serve(async () => {
 
     // 문화 기록은 독서 다음에 배치(둘 다 "오늘 인풋된 콘텐츠" 성격).
     // 응원 문구는 항상 마지막. 문화 섹션은 발췌 길이로 메시지 총량을 방어한다.
+    // 먼지 쌓인 스크랩(있을 때만)은 문화 다음, 응원 직전에 한 줄로 노출.
     const closing = ['', '오늘도 수고했어요 🌙'];
+    const dustyBlock = dustyLines.length > 0 ? ['', ...dustyLines] : [];
     const compose = (excerptLimit: number): string =>
-      [...lines, '', ...formatCultureSection(cultureResult, excerptLimit), ...closing].join('\n');
+      [...lines, '', ...formatCultureSection(cultureResult, excerptLimit), ...dustyBlock, ...closing].join('\n');
 
     // Discord 2000자 한도 방어: 80자 → 40자 → 발췌 생략(0) 순으로 단계적 축소
     let text = compose(80);

@@ -21,6 +21,8 @@ import { RecipeView } from './components/RecipeView';
 import { ProfileView } from './components/ProfileView';
 import { VisionBoardView } from './components/VisionBoardView';
 import { ScrapView } from './components/ScrapView';
+import { DiaryView } from './components/DiaryView';
+import { DiaryDetailView } from './components/DiaryDetailView';
 
 export const router = createBrowserRouter([
   {
@@ -51,6 +53,8 @@ export const router = createBrowserRouter([
       { path: 'recipes',          Component: RecipeView },
       { path: 'vision',           Component: VisionBoardView },
       { path: 'scraps',           Component: ScrapView },
+      { path: 'journal',          Component: DiaryView },
+      { path: 'journal/:id',      Component: DiaryDetailView },
       { path: 'profile',          Component: ProfileView },
     ],
   },

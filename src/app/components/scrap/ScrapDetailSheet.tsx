@@ -1,12 +1,14 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useNavigate } from 'react-router';
 import {
   ArrowLeft, X, ExternalLink, Youtube, Instagram, MessageCircle, Globe,
-  Trash2, Plus, Sparkles, CheckSquare, BookOpen,
+  Trash2, Plus, Sparkles, CheckSquare, BookOpen, Check,
 } from 'lucide-react';
 import { useTheme } from '../../ThemeContext';
 import { db } from '../../../lib/db';
 import { useRealtimeSync } from '../../hooks/useRealtimeSync';
-import type { Scrap, ScrapNote, ScrapSource, ScrapStatus } from '../../store';
+import { format } from 'date-fns';
+import type { Scrap, ScrapNote, ScrapSource, ScrapStatus, Todo } from '../../store';
 
 // 토큰 hex → rgba (다른 모달과 동일 패턴)
 function withAlpha(hex: string, alpha: number): string {
@@ -59,9 +61,126 @@ interface Props {
 
 export default function ScrapDetailSheet({ scrap: initialScrap, onClose, onChanged }: Props) {
   const { t } = useTheme();
+  const navigate = useNavigate();
 
   // 로컬 사본 — 낙관적 업데이트로 즉시 반영, 백그라운드 저장
   const [scrap, setScrap] = useState<Scrap>(initialScrap);
+
+  // 연결(Stage 4) 상태
+  const [connecting, setConnecting] = useState<null | 'vision' | 'todo' | 'diary'>(null);
+  const [toast, setToast] = useState<string | null>(null);
+  const [visionPickerOpen, setVisionPickerOpen] = useState(false);
+  const [visionCategories, setVisionCategories] = useState<{ id: string; name: string }[]>([]);
+
+  // 토스트 자동 사라짐
+  useEffect(() => {
+    if (!toast) return;
+    const h = setTimeout(() => setToast(null), 2400);
+    return () => clearTimeout(h);
+  }, [toast]);
+
+  // 연결 후 자동 done 승격 (글 추가와 같은 철학)
+  const promoteToDone = useCallback(async () => {
+    if (scrap.status === 'done') return;
+    setScrap(s => ({ ...s, status: 'done' }));
+    await db.scraps.updateStatus(initialScrap.id, 'done');
+    onChanged();
+  }, [initialScrap.id, onChanged, scrap.status]);
+
+  // 비전보드 카테고리 미리 로드
+  const loadVisionCategoriesOnce = useCallback(async () => {
+    if (visionCategories.length > 0) return;
+    const cats = await db.visionCategories.fetchAll();
+    setVisionCategories(cats.map(c => ({ id: c.id, name: c.name })));
+  }, [visionCategories.length]);
+
+  const handleOpenVisionPicker = useCallback(async () => {
+    if (connecting) return;
+    setVisionPickerOpen(true);
+    await loadVisionCategoriesOnce();
+  }, [connecting, loadVisionCategoriesOnce]);
+
+  // ── 비전보드로 ──
+  const handleConnectVision = useCallback(async (categoryId: string) => {
+    if (connecting) return;
+    setConnecting('vision');
+    try {
+      const sortOrder = await db.visionItems.nextSortOrder();
+      // 비전보드 caption — 한 줄 코멘트가 있으면 우선, 없으면 제목
+      const caption = scrap.comment?.trim() || scrap.title?.trim() || null;
+      const id = await db.visionItems.create({
+        imageUrl: scrap.thumbnailUrl,
+        caption,
+        categoryId,
+        sortOrder,
+        sourceUrl: scrap.url,
+        source: scrap.source ? `scrap:${scrap.source}` : 'scrap',
+      });
+      if (id) {
+        setVisionPickerOpen(false);
+        await promoteToDone();
+        setToast('비전보드에 추가했어요');
+      } else {
+        setToast('비전보드 연결에 실패했어요');
+      }
+    } finally {
+      setConnecting(null);
+    }
+  }, [connecting, scrap.comment, scrap.title, scrap.thumbnailUrl, scrap.url, scrap.source, promoteToDone]);
+
+  // ── 할일로 ──
+  const handleConnectTodo = useCallback(async () => {
+    if (connecting) return;
+    setConnecting('todo');
+    try {
+      const todo: Todo = {
+        id: crypto.randomUUID(),
+        text: scrap.title?.trim() || scrap.comment?.trim() || '스크랩 영감',
+        date: format(new Date(), 'yyyy-MM-dd'),
+        status: 'active',
+        isTop3: false,
+        tags: [...(scrap.tags ?? []), '스크랩'],
+        note: scrap.comment?.trim() || undefined,
+        sourceUrl: scrap.url ?? undefined,
+      };
+      await db.todos.upsert(todo);
+      await promoteToDone();
+      setToast('오늘 할일에 추가했어요');
+    } finally {
+      setConnecting(null);
+    }
+  }, [connecting, scrap.title, scrap.comment, scrap.tags, scrap.url, promoteToDone]);
+
+  // ── 저널로 ── (생성 후 해당 일기로 이동)
+  const handleConnectDiary = useCallback(async () => {
+    if (connecting) return;
+    setConnecting('diary');
+    try {
+      const titleSeed = scrap.title?.trim() || '스크랩에서 떠오른 생각';
+      const seedParts: string[] = [];
+      if (scrap.url) seedParts.push(scrap.url);
+      if (scrap.comment?.trim()) seedParts.push(scrap.comment.trim());
+      seedParts.push('');
+      seedParts.push(''); // 빈 줄 두 개로 이어쓰기 공간 확보
+      const entry = await db.diaryEntries.create({
+        title: titleSeed,
+        content: seedParts.join('\n'),
+        sourceType: 'scrap',
+        sourceUrl: scrap.url,
+        sourceLabel: scrap.title?.trim() || null,
+      });
+      if (entry) {
+        await promoteToDone();
+        handleClose();
+        // 닫기 애니메이션 끝난 직후 이동
+        setTimeout(() => navigate(`/journal/${entry.id}`), 240);
+      } else {
+        setToast('저널 연결에 실패했어요');
+      }
+    } finally {
+      setConnecting(null);
+    }
+  }, [connecting, scrap.title, scrap.url, scrap.comment, promoteToDone, navigate]);
 
   // 노트 상태
   const [notes, setNotes] = useState<ScrapNote[]>([]);
@@ -191,7 +310,7 @@ export default function ScrapDetailSheet({ scrap: initialScrap, onClose, onChang
     >
       <div
         onClick={e => e.stopPropagation()}
-        className="flex flex-col w-full lg:w-[560px] lg:max-h-[92vh] lg:rounded-2xl overflow-hidden"
+        className="relative flex flex-col w-full lg:w-[560px] lg:max-h-[92vh] lg:rounded-2xl overflow-hidden"
         style={{
           backgroundColor: t.card,
           boxShadow: '0 24px 60px rgba(0,0,0,0.25)',
@@ -599,48 +718,131 @@ export default function ScrapDetailSheet({ scrap: initialScrap, onClose, onChang
               </div>
             </div>
 
-            {/* ── 연결 버튼 (Stage 4 placeholder) ── */}
+            {/* ── 연결 버튼 (Stage 4) ── */}
             <div>
               <span style={{ fontSize: 11, fontWeight: 700, color: t.textSub, letterSpacing: 0.3 }}>
                 연결
               </span>
               <div className="grid grid-cols-3 gap-2 mt-2">
                 {[
-                  { label: '비전보드로', Icon: Sparkles },
-                  { label: '할일로',     Icon: CheckSquare },
-                  { label: '저널로',     Icon: BookOpen },
-                ].map(({ label, Icon }) => (
-                  <button
-                    key={label}
-                    disabled
-                    title="곧 지원돼요"
-                    style={{
-                      display: 'flex',
-                      flexDirection: 'column',
-                      alignItems: 'center',
-                      gap: 4,
-                      padding: '12px 6px',
-                      borderRadius: 12,
-                      backgroundColor: t.bgSub,
-                      border: `1px dashed ${t.borderLight}`,
-                      color: t.textMuted,
-                      fontSize: 11,
-                      fontWeight: 600,
-                      opacity: 0.7,
-                      cursor: 'not-allowed',
-                    }}
-                  >
-                    <Icon size={16} color={t.textMuted} />
-                    {label}
-                  </button>
-                ))}
+                  { key: 'vision', label: '비전보드로', Icon: Sparkles,
+                    onClick: () => handleOpenVisionPicker() },
+                  { key: 'todo', label: '할일로', Icon: CheckSquare,
+                    onClick: () => handleConnectTodo() },
+                  { key: 'diary', label: '저널로', Icon: BookOpen,
+                    onClick: () => handleConnectDiary() },
+                ].map(({ key, label, Icon, onClick }) => {
+                  const isBusy = connecting === key;
+                  return (
+                    <button
+                      key={key}
+                      onClick={onClick}
+                      disabled={!!connecting}
+                      style={{
+                        display: 'flex',
+                        flexDirection: 'column',
+                        alignItems: 'center',
+                        gap: 4,
+                        padding: '12px 6px',
+                        borderRadius: 12,
+                        backgroundColor: t.card,
+                        border: `1px solid ${t.borderLight}`,
+                        color: t.text,
+                        fontSize: 11,
+                        fontWeight: 700,
+                        cursor: connecting ? 'wait' : 'pointer',
+                        opacity: connecting && !isBusy ? 0.5 : 1,
+                        transition: 'background-color .15s ease',
+                      }}
+                    >
+                      <Icon size={16} color={t.accent} />
+                      {isBusy ? '연결 중…' : label}
+                    </button>
+                  );
+                })}
               </div>
               <p style={{ fontSize: 10, color: t.textMuted, marginTop: 6, textAlign: 'center' }}>
-                연결 기능은 곧 추가돼요
+                연결하면 자동으로 "소화완료"로 표시돼요
               </p>
+
+              {/* 비전보드 카테고리 선택 미니 패널 */}
+              {visionPickerOpen && (
+                <div
+                  className="mt-3"
+                  style={{
+                    backgroundColor: t.bgSub,
+                    border: `1px solid ${t.borderLight}`,
+                    borderRadius: 12,
+                    padding: 10,
+                  }}
+                >
+                  <div className="flex items-center justify-between" style={{ marginBottom: 8 }}>
+                    <span style={{ fontSize: 11, fontWeight: 700, color: t.textSub }}>
+                      어떤 카테고리에 넣을까요?
+                    </span>
+                    <button
+                      onClick={() => setVisionPickerOpen(false)}
+                      style={{ color: t.textMuted, padding: 2 }}
+                      aria-label="취소"
+                    >
+                      <X size={14} />
+                    </button>
+                  </div>
+                  <div className="flex flex-wrap gap-1.5">
+                    {visionCategories.map(cat => (
+                      <button
+                        key={cat.id}
+                        onClick={() => handleConnectVision(cat.id)}
+                        disabled={connecting === 'vision'}
+                        style={{
+                          fontSize: 12,
+                          fontWeight: 700,
+                          color: t.text,
+                          backgroundColor: t.card,
+                          padding: '6px 12px',
+                          borderRadius: 999,
+                          border: `1px solid ${t.borderLight}`,
+                        }}
+                      >
+                        {cat.name}
+                      </button>
+                    ))}
+                    {visionCategories.length === 0 && (
+                      <span style={{ fontSize: 11, color: t.textMuted }}>
+                        카테고리를 불러오는 중…
+                      </span>
+                    )}
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         </div>
+
+        {/* 토스트 — 연결 결과 알림 */}
+        {toast && (
+          <div
+            className="absolute left-1/2"
+            style={{
+              bottom: 24,
+              transform: 'translateX(-50%)',
+              backgroundColor: t.text,
+              color: t.card,
+              padding: '10px 16px',
+              borderRadius: 999,
+              fontSize: 12,
+              fontWeight: 700,
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: 6,
+              boxShadow: '0 6px 18px rgba(0,0,0,0.25)',
+              pointerEvents: 'none',
+            }}
+          >
+            <Check size={14} />
+            {toast}
+          </div>
+        )}
       </div>
     </div>
   );
