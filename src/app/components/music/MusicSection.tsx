@@ -185,8 +185,8 @@ export function MusicSection({ section, setSection }: {
       {/* ════════ PC (lg 이상) — 가로 헤더 + 5열 그리드 + 우측 밀어내기 패널 ════════ */}
       <div className="hidden lg:flex flex-col h-full overflow-hidden">
 
-        {/* 상단 헤더 영역 (고정) */}
-        <div className="flex-shrink-0 px-8 pt-7">
+        {/* 상단 헤더 영역 (고정) — 하단 1px 구분선(line 토큰=t.border)으로 상세 영역과 분리 */}
+        <div className="flex-shrink-0 px-8 pt-7 pb-3" style={{ borderBottom: `1px solid ${t.border}` }}>
           <SectionTabs section={section} setSection={setSection} />
 
           {/* 윗줄: 브레드크럼 + 제목 / 추가 버튼 */}
