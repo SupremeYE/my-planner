@@ -1491,6 +1491,7 @@ export function BooksView() {
   useEffect(() => { fetchBooksData(); }, [fetchBooksData]);
   useRealtimeSync('books', fetchBooksData);
   useRealtimeSync('book_quotes', fetchBooksData);
+  useEffect(() => { setPage(1); }, [activeTab]);
 
   const handleAdd = (data: Omit<Book, 'id' | 'quotes' | 'addedAt'>) => {
     const book: Book = {
@@ -1556,9 +1557,15 @@ export function BooksView() {
       });
   };
 
+  const PAGE_SIZE = 10;
+  const [page, setPage] = useState(1);
+
   const filteredBooks = activeTab === 'stats' || activeTab === 'quotes'
     ? []
     : books.filter(b => b.status === activeTab);
+
+  const totalPages = Math.ceil(filteredBooks.length / PAGE_SIZE);
+  const pagedBooks = filteredBooks.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
 
   const tabCounts: Record<BookStatus, number> = {
     reading: books.filter(b => b.status === 'reading').length,
@@ -1655,7 +1662,7 @@ export function BooksView() {
           </div>
         ) : (
           <div className="space-y-3">
-            {filteredBooks.map(book => {
+            {pagedBooks.map(book => {
               const pct = progressPct(book);
               return (
                 <button
@@ -1721,6 +1728,58 @@ export function BooksView() {
                 </button>
               );
             })}
+
+            {/* 페이지네이션 */}
+            {totalPages > 1 && (
+              <div className="flex items-center justify-center gap-2 pt-2 pb-1">
+                <button
+                  onClick={() => setPage(p => Math.max(1, p - 1))}
+                  disabled={page === 1}
+                  className="flex items-center justify-center w-8 h-8 rounded-xl transition-all"
+                  style={{
+                    backgroundColor: page === 1 ? 'transparent' : t.card,
+                    border: `1px solid ${page === 1 ? 'transparent' : t.border}`,
+                    color: page === 1 ? t.textMuted : t.text,
+                    opacity: page === 1 ? 0.3 : 1,
+                    cursor: page === 1 ? 'default' : 'pointer',
+                  }}
+                >
+                  <ChevronLeft size={15} />
+                </button>
+
+                {Array.from({ length: totalPages }, (_, i) => i + 1).map(p => (
+                  <button
+                    key={p}
+                    onClick={() => setPage(p)}
+                    className="flex items-center justify-center w-8 h-8 rounded-xl transition-all"
+                    style={{
+                      fontSize: 12,
+                      fontWeight: p === page ? 700 : 400,
+                      backgroundColor: p === page ? t.accent : t.card,
+                      border: `1px solid ${p === page ? t.accent : t.border}`,
+                      color: p === page ? '#fff' : t.textSub,
+                    }}
+                  >
+                    {p}
+                  </button>
+                ))}
+
+                <button
+                  onClick={() => setPage(p => Math.min(totalPages, p + 1))}
+                  disabled={page === totalPages}
+                  className="flex items-center justify-center w-8 h-8 rounded-xl transition-all"
+                  style={{
+                    backgroundColor: page === totalPages ? 'transparent' : t.card,
+                    border: `1px solid ${page === totalPages ? 'transparent' : t.border}`,
+                    color: page === totalPages ? t.textMuted : t.text,
+                    opacity: page === totalPages ? 0.3 : 1,
+                    cursor: page === totalPages ? 'default' : 'pointer',
+                  }}
+                >
+                  <ChevronRight size={15} />
+                </button>
+              </div>
+            )}
           </div>
         )}
       </div>
