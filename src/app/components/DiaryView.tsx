@@ -125,16 +125,24 @@ function DateNav({ date, onChange, right }: { date: string; onChange: (d: string
 }
 
 // 노트 줄 배경 textarea 공용 스타일
+// 줄 간격(32px)과 line-height(32px)를 정확히 일치시키고, 기본 패딩을 0으로 둬
+// 글자 줄과 가로선의 위상을 맞춘다. background-attachment: local 로 스크롤 시에도
+// 선이 글자를 따라가도록 한다(고정선과 글자가 어긋나 보이는 문제 방지).
+const NOTE_LINE_H = 32;
 function noteAreaStyle(t: ThemeTokens): React.CSSProperties {
   const lineColor = t.borderLight || t.border;
   return {
     width: '100%',
     resize: 'none',
     outline: 'none',
-    background: `repeating-linear-gradient(${t.card}, ${t.card} 31px, ${lineColor} 31px, ${lineColor} 32px)`,
+    border: 'none',
+    padding: 0,
+    backgroundColor: t.card,
+    backgroundImage: `repeating-linear-gradient(to bottom, transparent 0, transparent ${NOTE_LINE_H - 1}px, ${lineColor} ${NOTE_LINE_H - 1}px, ${lineColor} ${NOTE_LINE_H}px)`,
+    backgroundAttachment: 'local',
     fontFamily: 'var(--font-hand)',
     fontSize: 18,
-    lineHeight: '32px',
+    lineHeight: `${NOTE_LINE_H}px`,
     color: t.text,
   };
 }
