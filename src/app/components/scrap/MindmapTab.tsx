@@ -211,17 +211,24 @@ export default function MindmapTab({ scrapId, onNavigateScrap }: Props) {
       pinchRef.current.prevDist = d;
       movedRef.current = true;
     } else if (panRef.current) {
+      // 드래그 확정(10px) 전에는 팬하지 않는다 → 손가락 탭의 미세 흔들림을 무시해
+      // 탭=선택이 안정적으로 동작(터치 슬롭). 확정 시점에 기준점을 현재로 리셋해 점프 방지.
+      if (!movedRef.current) {
+        if (Math.hypot(e.clientX - panRef.current.startX, e.clientY - panRef.current.startY) > 10) {
+          movedRef.current = true;
+          panRef.current.lastX = e.clientX;
+          panRef.current.lastY = e.clientY;
+          // 드래그 확정 시에만 캡처 → 컨테이너 밖으로 나가도 팬 지속(클릭은 이미 분리됨)
+          try { containerRef.current?.setPointerCapture(e.pointerId); } catch { /* noop */ }
+        }
+        return;
+      }
       const dx = e.clientX - panRef.current.lastX;
       const dy = e.clientY - panRef.current.lastY;
       panRef.current.lastX = e.clientX;
       panRef.current.lastY = e.clientY;
       const cur = tfRef.current;
       applyTf({ ...cur, tx: cur.tx + dx, ty: cur.ty + dy });
-      if (!movedRef.current && Math.hypot(e.clientX - panRef.current.startX, e.clientY - panRef.current.startY) > 5) {
-        movedRef.current = true;
-        // 드래그 확정 시에만 캡처 → 컨테이너 밖으로 나가도 팬 지속(클릭은 이미 분리됨)
-        try { containerRef.current?.setPointerCapture(e.pointerId); } catch { /* noop */ }
-      }
     }
   };
 
@@ -384,8 +391,8 @@ export default function MindmapTab({ scrapId, onNavigateScrap }: Props) {
                     style={{ cursor: 'pointer' }}
                     onClick={e => { e.stopPropagation(); if (!movedRef.current) setSelectedId(n.id); }}
                     onDoubleClick={e => { e.stopPropagation(); setSelectedId(n.id); handleStartEdit(n); }}
-                    onMouseEnter={() => setHoveredId(n.id)}
-                    onMouseLeave={() => setHoveredId(cur => (cur === n.id ? null : cur))}
+                    onPointerEnter={e => { if (e.pointerType === 'mouse') setHoveredId(n.id); }}
+                    onPointerLeave={e => { if (e.pointerType === 'mouse') setHoveredId(cur => (cur === n.id ? null : cur)); }}
                   >
                     <rect
                       x={n.x} y={n.y} width={n.w} height={n.h}
