@@ -10,6 +10,7 @@ import type {
   Recipe, RecipeIngredient, RecipeStep, RecipeCookLog,
   FridgeItem, ShoppingItem,
   Scrap, ScrapNote, ScrapSource, ScrapStatus,
+  MindmapNode, MindmapTreeNode, MindmapDir,
 } from '../app/store';
 
 function parseAnnualProfilesFromDb(raw: unknown): Record<string, { identity: string; values: string[] }> {
@@ -193,6 +194,26 @@ const toScrapNote = (r: ScrapNoteRow): ScrapNote => ({
   id: r.id,
   scrapId: r.scrap_id,
   content: r.content,
+  createdAt: r.created_at,
+});
+
+type MindmapNodeRow = {
+  id: string;
+  scrap_id: string;
+  parent_id: string | null;
+  text: string;
+  dir: string | null;
+  sort_order: number;
+  created_at: string;
+};
+
+const toMindmapNode = (r: MindmapNodeRow): MindmapNode => ({
+  id: r.id,
+  scrapId: r.scrap_id,
+  parentId: r.parent_id ?? null,
+  text: r.text ?? '',
+  dir: (r.dir as MindmapDir | null) ?? null,
+  sortOrder: r.sort_order ?? 0,
   createdAt: r.created_at,
 });
 
@@ -2298,6 +2319,173 @@ export const db = {
     delete: async (id: string) => {
       const { error } = await supabase.from('journal_questions').delete().eq('id', id);
       if (error) console.error('[db] journal_questions delete:', error.message);
+    },
+  },
+
+  // ── 마인드맵 (Phase 5-0) ─────────────────────────────────────────────────
+  // 컴포넌트에서 supabase 직접 호출 금지 — 이 레이어로만 접근.
+  mindmap: {
+    // 루트(parent_id null) 없으면 생성 후 반환. text 는 스크랩 제목으로 채움.
+    ensureRoot: async (scrapId: string): Promise<MindmapNode | null> => {
+      const { data: existing, error: selErr } = await supabase
+        .from('mindmap_nodes')
+        .select('id, scrap_id, parent_id, text, dir, sort_order, created_at')
+        .eq('scrap_id', scrapId)
+        .is('parent_id', null)
+        .maybeSingle();
+      if (selErr) { console.error('[db] mindmap ensureRoot select:', selErr.message); return null; }
+      if (existing) return toMindmapNode(existing);
+
+      // 스크랩 제목 조회 → 루트 라벨
+      const { data: scrapRow } = await supabase
+        .from('scraps')
+        .select('title')
+        .eq('id', scrapId)
+        .maybeSingle();
+      const rootText = (scrapRow?.title ?? '').trim() || '마인드맵';
+
+      const { data, error } = await supabase
+        .from('mindmap_nodes')
+        .insert({ scrap_id: scrapId, parent_id: null, text: rootText, dir: null, sort_order: 0 })
+        .select('id, scrap_id, parent_id, text, dir, sort_order, created_at')
+        .single();
+      if (error) { console.error('[db] mindmap ensureRoot insert:', error.message); return null; }
+      return data ? toMindmapNode(data) : null;
+    },
+
+    // 전체 fetch → parent_id 로 트리 조립. 루트(parent_id null)를 반환, 없으면 null.
+    listTree: async (scrapId: string): Promise<MindmapTreeNode | null> => {
+      const { data, error } = await supabase
+        .from('mindmap_nodes')
+        .select('id, scrap_id, parent_id, text, dir, sort_order, created_at')
+        .eq('scrap_id', scrapId)
+        .order('sort_order', { ascending: true })
+        .order('created_at', { ascending: true });
+      if (error) { console.error('[db] mindmap listTree:', error.message); return null; }
+
+      const flat = (data ?? []).map(toMindmapNode);
+      if (flat.length === 0) return null;
+
+      const byId = new Map<string, MindmapTreeNode>();
+      flat.forEach(n => byId.set(n.id, { ...n, children: [] }));
+      let root: MindmapTreeNode | null = null;
+      for (const n of flat) {
+        const node = byId.get(n.id)!;
+        if (n.parentId === null) {
+          root = node;
+        } else {
+          const parent = byId.get(n.parentId);
+          if (parent) parent.children.push(node);
+          else root = root ?? node; // 부모 유실 시 안전망
+        }
+      }
+      return root;
+    },
+
+    // 노드 생성. parent 가 루트면 dir 을 지정(루트 직속 가지), 그 외엔 dir null(부모 상속).
+    createNode: async (parentId: string, text: string, dir?: MindmapDir): Promise<MindmapNode | null> => {
+      // 부모로부터 scrap_id 와 다음 sort_order 산출
+      const { data: parent, error: pErr } = await supabase
+        .from('mindmap_nodes')
+        .select('scrap_id')
+        .eq('id', parentId)
+        .maybeSingle();
+      if (pErr || !parent) { console.error('[db] mindmap createNode parent:', pErr?.message); return null; }
+
+      const { data: siblings } = await supabase
+        .from('mindmap_nodes')
+        .select('sort_order')
+        .eq('parent_id', parentId)
+        .order('sort_order', { ascending: false })
+        .limit(1);
+      const nextOrder = (siblings?.[0]?.sort_order ?? -1) + 1;
+
+      const { data, error } = await supabase
+        .from('mindmap_nodes')
+        .insert({
+          scrap_id: parent.scrap_id,
+          parent_id: parentId,
+          text,
+          dir: dir ?? null,
+          sort_order: nextOrder,
+        })
+        .select('id, scrap_id, parent_id, text, dir, sort_order, created_at')
+        .single();
+      if (error) { console.error('[db] mindmap createNode insert:', error.message); return null; }
+      return data ? toMindmapNode(data) : null;
+    },
+
+    updateNode: async (id: string, patch: { text?: string; dir?: MindmapDir | null }): Promise<void> => {
+      const row: Record<string, unknown> = {};
+      if ('text' in patch) row.text = patch.text ?? '';
+      if ('dir' in patch) row.dir = patch.dir ?? null;
+      if (Object.keys(row).length === 0) return;
+      const { error } = await supabase.from('mindmap_nodes').update(row).eq('id', id);
+      if (error) console.error('[db] mindmap updateNode:', error.message);
+    },
+
+    // 자식은 ON DELETE CASCADE 로 함께 삭제됨.
+    deleteNode: async (id: string): Promise<void> => {
+      const { error } = await supabase.from('mindmap_nodes').delete().eq('id', id);
+      if (error) console.error('[db] mindmap deleteNode:', error.message);
+    },
+
+    // 노드↔스크랩 연결 동기화 — 현재 연결과 비교해 추가/삭제분만 반영.
+    setNodeScraps: async (nodeId: string, scrapIds: string[]): Promise<void> => {
+      const { data: current, error: curErr } = await supabase
+        .from('mindmap_node_scraps')
+        .select('scrap_id')
+        .eq('node_id', nodeId);
+      if (curErr) { console.error('[db] mindmap setNodeScraps select:', curErr.message); return; }
+
+      const currentSet = new Set((current ?? []).map(r => r.scrap_id));
+      const nextSet = new Set(scrapIds);
+
+      const toAdd = scrapIds.filter(id => !currentSet.has(id));
+      const toRemove = [...currentSet].filter(id => !nextSet.has(id));
+
+      if (toAdd.length > 0) {
+        const { error } = await supabase
+          .from('mindmap_node_scraps')
+          .insert(toAdd.map(scrapId => ({ node_id: nodeId, scrap_id: scrapId })));
+        if (error) console.error('[db] mindmap setNodeScraps insert:', error.message);
+      }
+      if (toRemove.length > 0) {
+        const { error } = await supabase
+          .from('mindmap_node_scraps')
+          .delete()
+          .eq('node_id', nodeId)
+          .in('scrap_id', toRemove);
+        if (error) console.error('[db] mindmap setNodeScraps delete:', error.message);
+      }
+    },
+
+    listNodeScraps: async (nodeId: string): Promise<string[]> => {
+      const { data, error } = await supabase
+        .from('mindmap_node_scraps')
+        .select('scrap_id')
+        .eq('node_id', nodeId);
+      if (error) { console.error('[db] mindmap listNodeScraps:', error.message); return []; }
+      return (data ?? []).map(r => r.scrap_id);
+    },
+
+    // 한 마인드맵(scrap_id)에 속한 모든 노드의 연결을 한 번에 조회 — 칩 렌더용 벌크.
+    // 반환: { nodeId, scrapId }[] (노드별로 묶는 건 호출 측에서).
+    listLinks: async (scrapId: string): Promise<{ nodeId: string; scrapId: string }[]> => {
+      const { data: nodes, error: nErr } = await supabase
+        .from('mindmap_nodes')
+        .select('id')
+        .eq('scrap_id', scrapId);
+      if (nErr) { console.error('[db] mindmap listLinks nodes:', nErr.message); return []; }
+      const nodeIds = (nodes ?? []).map(n => n.id);
+      if (nodeIds.length === 0) return [];
+
+      const { data, error } = await supabase
+        .from('mindmap_node_scraps')
+        .select('node_id, scrap_id')
+        .in('node_id', nodeIds);
+      if (error) { console.error('[db] mindmap listLinks:', error.message); return []; }
+      return (data ?? []).map(r => ({ nodeId: r.node_id, scrapId: r.scrap_id }));
     },
   },
 };

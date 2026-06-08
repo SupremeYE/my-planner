@@ -722,6 +722,7 @@ export function ScrapView() {
           scrap={openScrap}
           onClose={() => setOpenId(null)}
           onChanged={refresh}
+          onNavigateScrap={(id) => setOpenId(id)}
         />
       )}
     </div>
