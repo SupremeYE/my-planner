@@ -45,7 +45,8 @@ export function DiaryView() {
 
   return (
     <div ref={scrollRef} className="h-full overflow-y-auto" style={{ backgroundColor: t.bg }}>
-      <div className="mx-auto w-full lg:max-w-[600px] px-4 lg:px-6 pt-5 pb-24">
+      {/* 모바일: px-4 단일 컬럼(기존 유지). PC: 다른 페이지처럼 가로폭 채움(좁은 600px 중앙 정렬 제거) */}
+      <div className="w-full px-4 lg:px-10 pt-5 lg:pt-7 pb-24">
         {/* 헤더 */}
         <header className="mb-5">
           <div style={{ fontFamily: 'var(--font-gaegu)', fontSize: 16, color: t.textSub }}>my diary</div>

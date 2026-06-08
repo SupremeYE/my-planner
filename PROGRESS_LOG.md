@@ -28,7 +28,11 @@
 - `MemoryTab`: 기준 날짜(기본 오늘, 달력으로 변경·미래 차단)의 월/일과 같고 연도 1~5년 전 기록 전부(자유·질문 무관) 조회 → 연도별 그룹(1년 전이 위)
 - `YearBlock`: "N년 전 · YYYY" 뱃지(gold) + 그 해 기록 카드. 기록 없는 연도는 흐린 빈 카드("이날의 기록이 아직 없어요"). 1~5년 전 전부 비면 안내 문구("매년 같은 날, 오늘의 기록이 이곳에 쌓여요…")
 - `MemoryCard`: type 뱃지(자유=success/질문=danger) + 좌측 강조선 + (질문이면 질문 문장 이탤릭) + 본문 발췌(개구). 클릭 → 읽기 전용 상세 시트(`MemoryDetailSheet`, 전체 본문 개구·whitespace 보존)
-- `db.diaryEntries.listOnThisDay` 추가. 색상 토큰만 사용(골드=accent/코랄=danger/그린=success), 본문 개구(`--font-hand`), PC 중앙 단일 컬럼·모바일 우선, 다른 페이지 무영향
+- `db.diaryEntries.listOnThisDay` 추가. 색상 토큰만 사용(골드=accent/코랄=danger/그린=success), 본문 개구(`--font-hand`), 모바일 우선, 다른 페이지 무영향
+
+**통합 일기 PC 레이아웃 — 가로폭 채움 (`DiaryView.tsx`)**
+- PC에서 좁은 600px 중앙 정렬 컬럼(`lg:max-w-[600px]`)으로 몰려 보이던 문제 수정 → 다른 페이지처럼 가로폭을 채우도록 `w-full px-4 lg:px-10`로 변경(좁은 max-width 제거)
+- 모바일(`px-4` 단일 컬럼)은 그대로 유지, 변경은 `lg:` prefix에 한정
 
 ## 2026-06-07
 
