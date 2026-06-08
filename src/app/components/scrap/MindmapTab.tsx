@@ -316,14 +316,8 @@ export default function MindmapTab({ scrapId, onNavigateScrap }: Props) {
   }, [editingId]);
 
   // ── 렌더 ───────────────────────────────────────────────────────────────
-  if (loading) {
-    return (
-      <div style={{ padding: '40px 0', textAlign: 'center', color: t.textMuted, fontSize: 12 }}>
-        마인드맵 불러오는 중…
-      </div>
-    );
-  }
-
+  // 주의: 로딩 중에도 캔버스 컨테이너를 항상 렌더해야 ResizeObserver 가 크기를
+  // 측정할 수 있다(로딩 게이트로 일찍 return 하면 size 가 0 으로 남아 노드가 안 보임).
   return (
     <div>
       {/* 안내 */}
@@ -451,6 +445,19 @@ export default function MindmapTab({ scrapId, onNavigateScrap }: Props) {
             })}
           </g>
         </svg>
+
+        {/* 로딩 오버레이 */}
+        {loading && (
+          <div
+            style={{
+              position: 'absolute', inset: 0, display: 'flex',
+              alignItems: 'center', justifyContent: 'center',
+              color: t.textMuted, fontSize: 12, zIndex: 8,
+            }}
+          >
+            마인드맵 불러오는 중…
+          </div>
+        )}
 
         {/* 줌/정렬 컨트롤 */}
         <div

@@ -684,7 +684,7 @@ export function ScrapView() {
 
       {/* ── FAB (확장형 라벨 버튼) ── */}
       <div
-        className="fixed left-0 right-0 flex z-30 pointer-events-none justify-center lg:justify-end lg:pr-10"
+        className="fixed left-0 right-0 flex z-30 pointer-events-none justify-center lg:justify-end lg:pr-[312px]"
         style={{ bottom: 'calc(env(safe-area-inset-bottom) + 84px)' }}
       >
         <button
