@@ -57,6 +57,7 @@ export default function MindmapTab({ scrapId, onNavigateScrap }: Props) {
   const [tree, setTree] = useState<MindmapTreeNode | null>(null);
   const [loading, setLoading] = useState(true);
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [hoveredId, setHoveredId] = useState<string | null>(null); // PC hover 강조
 
   // 노드↔스크랩 연결: nodeId → scrapId[]
   const [links, setLinks] = useState<Map<string, string[]>>(new Map());
@@ -166,6 +167,20 @@ export default function MindmapTab({ scrapId, onNavigateScrap }: Props) {
     zoomAround(factor, w / 2, h / 2);
   };
 
+  // PC: 마우스 휠 줌(커서 지점 기준). passive:false 로 스크롤 기본동작 차단.
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+    const onWheel = (e: WheelEvent) => {
+      e.preventDefault();
+      const rect = el.getBoundingClientRect();
+      const factor = e.deltaY < 0 ? 1.1 : 1 / 1.1;
+      zoomAround(factor, e.clientX - rect.left, e.clientY - rect.top);
+    };
+    el.addEventListener('wheel', onWheel, { passive: false });
+    return () => el.removeEventListener('wheel', onWheel);
+  }, [zoomAround]);
+
   // ── 포인터: 팬 + 핀치 줌 ────────────────────────────────────────────────
   const onPointerDown = (e: React.PointerEvent) => {
     containerRef.current?.setPointerCapture(e.pointerId);
@@ -224,6 +239,15 @@ export default function MindmapTab({ scrapId, onNavigateScrap }: Props) {
     layout.nodes.forEach(n => m.set(n.id, n));
     return m;
   }, [layout]);
+
+  // 월드 좌표 노드 → 현재 transform 기준 화면(컨테이너) 좌표. PC 플로팅 UI 위치용.
+  const screenRectOf = useCallback((n: LaidOutNode) => {
+    const x = tf.tx + tf.scale * n.x;
+    const y = tf.ty + tf.scale * n.y;
+    const w = tf.scale * n.w;
+    const h = tf.scale * n.h;
+    return { x, y, w, h, cx: x + w / 2, cy: y + h / 2 };
+  }, [tf]);
 
   // 트리 메타: nodeId → { parentId, dir } (방향 토글·루트 직속 판별용)
   const nodeMeta = useMemo(() => {
@@ -304,12 +328,15 @@ export default function MindmapTab({ scrapId, onNavigateScrap }: Props) {
     <div>
       {/* 안내 */}
       <p style={{ fontSize: 11, color: t.textMuted, marginBottom: 8, lineHeight: 1.5 }}>
-        노드를 눌러 선택하고, 빈 곳을 끌어 이동·두 손가락으로 확대하세요.
+        노드를 눌러 선택하고, 빈 곳을 끌어 이동하세요.
+        <span className="lg:hidden"> 두 손가락으로 확대됩니다.</span>
+        <span className="hidden lg:inline"> 휠로 확대, 더블클릭으로 바로 편집돼요.</span>
       </p>
 
-      {/* 캔버스 — 드래그 팬 / 핀치 줌 */}
+      {/* 캔버스 — 드래그 팬 / 핀치줌(모바일) · 휠줌(PC) */}
       <div
         ref={containerRef}
+        className="h-[380px] lg:h-[520px]"
         onPointerDown={onPointerDown}
         onPointerMove={onPointerMove}
         onPointerUp={onPointerUp}
@@ -318,7 +345,6 @@ export default function MindmapTab({ scrapId, onNavigateScrap }: Props) {
         style={{
           position: 'relative',
           width: '100%',
-          height: 380,
           overflow: 'hidden',
           borderRadius: 14,
           border: `1px solid ${t.borderLight}`,
@@ -349,6 +375,7 @@ export default function MindmapTab({ scrapId, onNavigateScrap }: Props) {
             {/* 노드 + 칩 */}
             {layout.nodes.map(n => {
               const isSel = n.id === selectedId;
+              const isHover = hoveredId === n.id && !isSel; // PC hover 강조
               const fill = n.isRoot ? t.accent : t.card;
               const textColor = n.isRoot ? '#fff' : t.text;
               const chips = links.get(n.id) ?? [];
@@ -359,13 +386,15 @@ export default function MindmapTab({ scrapId, onNavigateScrap }: Props) {
                     style={{ cursor: 'pointer' }}
                     onClick={e => { e.stopPropagation(); if (!movedRef.current) setSelectedId(n.id); }}
                     onDoubleClick={e => { e.stopPropagation(); setSelectedId(n.id); handleStartEdit(n); }}
+                    onMouseEnter={() => setHoveredId(n.id)}
+                    onMouseLeave={() => setHoveredId(cur => (cur === n.id ? null : cur))}
                   >
                     <rect
                       x={n.x} y={n.y} width={n.w} height={n.h}
                       rx={n.isRoot ? 20 : 12}
                       fill={fill}
-                      stroke={isSel ? t.text : (n.isRoot ? t.accent : t.borderLight)}
-                      strokeWidth={isSel ? 2.5 : 1.5}
+                      stroke={isSel ? t.text : isHover ? t.accent : (n.isRoot ? t.accent : t.borderLight)}
+                      strokeWidth={isSel ? 2.5 : isHover ? 2 : 1.5}
                     />
                     <text
                       x={n.x + n.w / 2}
@@ -449,11 +478,124 @@ export default function MindmapTab({ scrapId, onNavigateScrap }: Props) {
             </button>
           ))}
         </div>
+
+        {/* ── PC 전용: 노드 옆 플로팅 미니 툴바 ── */}
+        {selected && !editingId && (() => {
+          const r = screenRectOf(selected);
+          const above = r.y > 60;
+          const left = clamp(r.cx, 140, Math.max(140, size.w - 140));
+          const top = above ? r.y - 8 : r.y + r.h + 8;
+          const iconBtn = (
+            key: string,
+            Icon: React.ComponentType<{ size?: number; color?: string }>,
+            onClick: () => void,
+            label: string,
+            color = t.textSub,
+          ) => (
+            <button
+              key={key}
+              onClick={onClick}
+              title={label}
+              aria-label={label}
+              style={{
+                width: 30, height: 30, borderRadius: 8,
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                backgroundColor: 'transparent', border: 'none',
+              }}
+              onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.backgroundColor = t.bgSub; }}
+              onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.backgroundColor = 'transparent'; }}
+            >
+              <Icon size={15} color={color} />
+            </button>
+          );
+          return (
+            <div
+              className="hidden lg:flex"
+              onPointerDown={e => e.stopPropagation()}
+              onClick={e => e.stopPropagation()}
+              style={{
+                position: 'absolute', left, top,
+                transform: above ? 'translate(-50%, -100%)' : 'translate(-50%, 0)',
+                alignItems: 'center', gap: 2,
+                backgroundColor: t.card, border: `1px solid ${t.borderLight}`,
+                borderRadius: 999, padding: '4px 6px',
+                boxShadow: '0 6px 20px rgba(0,0,0,0.16)', whiteSpace: 'nowrap', zIndex: 5,
+              }}
+            >
+              {/* 루트 직속 가지: 방향 4방 */}
+              {isRootChild && (
+                <>
+                  {DIR_BUTTONS.map(({ dir, Icon }) => {
+                    const active = selectedMeta?.dir === dir;
+                    return (
+                      <button
+                        key={dir}
+                        onClick={() => handleSetDir(dir)}
+                        title={`방향 ${dir}`}
+                        aria-label={`방향 ${dir}`}
+                        style={{
+                          width: 28, height: 28, borderRadius: 8,
+                          display: 'flex', alignItems: 'center', justifyContent: 'center',
+                          backgroundColor: active ? t.accent : 'transparent',
+                          border: active ? 'none' : `1px solid ${t.borderLight}`,
+                        }}
+                      >
+                        <Icon size={14} color={active ? '#fff' : t.textSub} />
+                      </button>
+                    );
+                  })}
+                  <span style={{ width: 1, height: 20, backgroundColor: t.borderLight, margin: '0 3px' }} />
+                </>
+              )}
+              {iconBtn('add', Plus, handleAddChild, '가지 추가', t.accent)}
+              {iconBtn('edit', Pencil, () => handleStartEdit(selected), '이름 수정')}
+              {iconBtn('link', Link2, () => setLinkSheetFor(selected.id), '스크랩 연결')}
+              {!selected.isRoot && iconBtn('del', Trash2, () => setPendingDelete(selected), '삭제', t.danger)}
+            </div>
+          );
+        })()}
+
+        {/* ── PC 전용: 노드 위 인라인 편집 입력 ── */}
+        {editingId && (() => {
+          const en = nodeById.get(editingId);
+          if (!en) return null;
+          const r = screenRectOf(en);
+          const left = clamp(r.cx, 90, Math.max(90, size.w - 90));
+          const width = Math.max(150, r.w + 24);
+          return (
+            <div
+              className="hidden lg:block"
+              onPointerDown={e => e.stopPropagation()}
+              onClick={e => e.stopPropagation()}
+              style={{ position: 'absolute', left, top: r.cy, transform: 'translate(-50%, -50%)', width, zIndex: 6 }}
+            >
+              <input
+                autoFocus
+                value={editText}
+                onChange={e => setEditText(e.target.value)}
+                onKeyDown={e => {
+                  if (e.key === 'Enter') { e.preventDefault(); handleSaveEdit(); }
+                  if (e.key === 'Escape') handleCancelEdit();
+                }}
+                onBlur={handleSaveEdit}
+                placeholder="노드 이름"
+                style={{
+                  width: '100%', textAlign: 'center',
+                  padding: '6px 10px', borderRadius: 10,
+                  border: `2px solid ${t.accent}`,
+                  backgroundColor: t.card, color: t.text,
+                  fontSize: 17, fontFamily: 'var(--font-nanum-pen)',
+                  outline: 'none', boxShadow: '0 6px 20px rgba(0,0,0,0.16)',
+                }}
+              />
+            </div>
+          );
+        })()}
       </div>
 
-      {/* 라벨 편집 바 */}
+      {/* 라벨 편집 바 (모바일) */}
       {editingId && (
-        <div className="flex items-center gap-2 mt-3">
+        <div className="flex items-center gap-2 mt-3 lg:hidden">
           <input
             ref={editInputRef}
             value={editText}
@@ -495,9 +637,9 @@ export default function MindmapTab({ scrapId, onNavigateScrap }: Props) {
         </div>
       )}
 
-      {/* 루트 직속 가지 — 방향 4방 변경 */}
+      {/* 루트 직속 가지 — 방향 4방 변경 (모바일) */}
       {selected && !editingId && isRootChild && (
-        <div className="flex items-center gap-2 mt-3">
+        <div className="flex items-center gap-2 mt-3 lg:hidden">
           <span style={{ fontSize: 11, fontWeight: 700, color: t.textSub, flex: '0 0 auto' }}>
             이 가지 방향
           </span>
@@ -524,9 +666,9 @@ export default function MindmapTab({ scrapId, onNavigateScrap }: Props) {
         </div>
       )}
 
-      {/* 선택 노드 액션 바 */}
+      {/* 선택 노드 액션 바 (모바일) */}
       {selected && !editingId && (
-        <div className="flex items-center gap-2 mt-3">
+        <div className="flex items-center gap-2 mt-3 lg:hidden">
           <span
             style={{ fontSize: 12, color: t.textSub, fontWeight: 700, flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
           >

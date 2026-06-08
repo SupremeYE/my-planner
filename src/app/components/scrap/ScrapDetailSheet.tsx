@@ -196,12 +196,14 @@ export default function ScrapDetailSheet({ scrap: initialScrap, onClose, onChang
     >
       <div
         onClick={e => e.stopPropagation()}
-        className="flex flex-col w-full lg:w-[560px] lg:max-h-[92vh] lg:rounded-2xl overflow-hidden"
+        className={`flex flex-col w-full lg:max-h-[92vh] lg:rounded-2xl overflow-hidden ${
+          activeTab === 'mindmap' ? 'lg:w-[860px]' : 'lg:w-[560px]'
+        }`}
         style={{
           backgroundColor: t.card,
           boxShadow: '0 24px 60px rgba(0,0,0,0.25)',
           transform: isIn ? 'translateY(0)' : 'translateY(24px)',
-          transition: 'transform 0.28s cubic-bezier(0.32, 0.72, 0, 1)',
+          transition: 'transform 0.28s cubic-bezier(0.32, 0.72, 0, 1), width 0.2s ease',
           maxHeight: '92vh',
         }}
       >
