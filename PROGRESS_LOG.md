@@ -9,11 +9,28 @@
 ## 2026-06-08
 
 ### ✅ 완료
+- [x] 운동 모듈 **Stage 0** — Supabase 스키마 5테이블 + free-exercise-db(873종목) import + 스타터 한글 9종목 (DB only, UI/컴포넌트 미변경, 런타임 번역 금지 원칙 명시)
 - [x] 통합 일기 **Stage 2** — 질문일기 탭: 오늘의 질문 카드(날짜 deterministic 기본 질문 + localStorage 고정) + 답변 작성·자동저장 + "다른 질문" 셔플 + 질문 탐색 시트(카테고리 필터/나만의 질문 추가·삭제) + 지난 질문일기 리스트 + 기존 `/question-journal` → `/diary` 리다이렉트
 - [x] 통합 일기 **Stage 3** — 이날의 기억(5년 일기) 탭: 기준 날짜의 월/일 같은 1~5년 전 기록 조회(월/일 expression 인덱스) + 연도 블록(자유/질문 type 뱃지) + 기록 없는 연도 흐린 빈 카드 + 전부 비면 안내 문구 + 읽기 전용 상세 시트
 - [x] **통합 일기 페이지(오늘 일기 / 질문일기 / 이날의 기억) 3탭 전체 완성**
 
 ### 🛠 오늘 작업 내용
+
+**운동 모듈 Stage 0 — Supabase 스키마 + free-exercise-db import (DB only)**
+- 마이그레이션 `20260608010000_create_workout_tables.sql` (Supabase MCP `apply_migration` 으로 production 적용 완료) — 5테이블:
+  - `exercises`(종목 마스터/카탈로그): `user_id` null=전체 공용·있으면 내 커스텀, `name_ko`(null=미채택 카탈로그)·`name_en`·`type`(근력/유산소 CHECK)·`body_part`(9종 CHECK)·`equipment`·`primary_muscles text[]`·`youtube_url`·`image_url`·`source`('free-exercise-db'|'custom')·`source_id`
+  - `workout_logs`(한 날/한 종목 세션: user_id·exercise_id FK·performed_on·memo) / `workout_sets`(세트=근력 weight/reps 또는 유산소 duration_min/distance_km, log_id ON DELETE CASCADE) / `routine_days`(요일별 헤더, day_of_week 1~7 CHECK, unique(user_id,day_of_week)) / `routine_exercises`(routine_day_id ON DELETE CASCADE·exercise_id·sort_order)
+  - 인덱스: workout_logs(user_id,performed_on desc)·(exercise_id,performed_on desc) / workout_sets(log_id) / routine_exercises(routine_day_id,sort_order) / exercises(name_ko)·(name_en)·(body_part)
+  - RLS: 전 테이블 활성. exercises select=(user_id is null OR =auth.uid())·insert/update/delete=내 행만 / workout_logs·routine_days=user_id 기준 / workout_sets·routine_exercises=부모(EXISTS) 기준. 5테이블 모두 `supabase_realtime` publication 등록
+- free-exercise-db(yuhonas/free-exercise-db, 퍼블릭 도메인) `dist/exercises.json` 873종목 import (execute_sql 3배치):
+  - 매핑 딕셔너리: type=cardio→유산소·그외→근력 / body_part=primaryMuscles[0] 기준(하체/가슴/등/어깨/팔/코어, 유산소면 강제 유산소) → 873종목 전부 매핑 성공
+  - 각 항목 user_id=null·source='free-exercise-db'·source_id=원본 id·name_en=원본 name·equipment·primary_muscles=원본 primaryMuscles
+  - 이미지: `images[0] === source_id || '/0.jpg'` 임을 확인 → image_url = GitHub raw 핫링크(`.../exercises/<id>/0.jpg`)로 873개 전부 채움. **Storage 이관은 Stage 3** (지금은 Storage·대역폭 미사용)
+  - name_ko: import 시 전부 null(=카탈로그). 일괄 번역 안 함
+- 스타터 한글 종목 9개 name_ko 채움(name_en 매칭 UPDATE, 정해진 텍스트 1회성·번역 API 미사용): 바벨 스쿼트/루마니안 데드리프트/바벨 힙쓰러스트/랫풀다운(Wide-Grip Lat Pulldown)/벤치프레스(Barbell Bench Press - Medium Grip)/숄더프레스(Barbell Shoulder Press)/러닝(Running, Treadmill)/사이클(Bicycling). 요가는 매칭 항목 없어 custom 공용(user_id=null)으로 직접 insert
+- 검증: imported 873 / with_image 873 / with_name_ko 9 / cardio 15 / total 874. security advisor — 신규 5테이블 RLS 정상(전용 경고 없음)
+- **런타임 번역 금지 원칙**을 마이그레이션 주석 + `scripts/seed-exercises.mjs`(재현용 seed 스크립트, 매핑 딕셔너리·스타터 매핑 포함)에 명시
+- 이 스테이지는 DB만 — UI/컴포넌트/라우트/store 미변경
 
 **통합 일기 Stage 2 — 질문일기 탭 (`DiaryView.tsx`)**
 - 오늘의 질문 카드: 답변 있으면 `question_text` 스냅샷+답변 로드(편집), 없으면 날짜 deterministic 기본 질문(최근 답한 질문 가급적 제외) + `localStorage`로 같은 날 질문 고정. coral 좌측 강조 + 카테고리 태그(accentLight) + DM Serif 질문 문장
