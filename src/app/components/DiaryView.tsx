@@ -129,6 +129,7 @@ function DateNav({ date, onChange, right }: { date: string; onChange: (d: string
 // 줄 간격(32px)과 line-height(32px)를 정확히 일치시키고, 기본 패딩을 0으로 둬
 // 글자 줄과 가로선의 위상을 맞춘다. background-attachment: local 로 스크롤 시에도
 // 선이 글자를 따라가도록 한다(고정선과 글자가 어긋나 보이는 문제 방지).
+// 가로선을 각 행의 '맨 위'(0, 32, 64…)에 그려 첫 줄 위에도 선이 생기게 한다.
 const NOTE_LINE_H = 32;
 function noteAreaStyle(t: ThemeTokens): React.CSSProperties {
   const lineColor = t.borderLight || t.border;
@@ -139,7 +140,7 @@ function noteAreaStyle(t: ThemeTokens): React.CSSProperties {
     border: 'none',
     padding: 0,
     backgroundColor: t.card,
-    backgroundImage: `repeating-linear-gradient(to bottom, transparent 0, transparent ${NOTE_LINE_H - 1}px, ${lineColor} ${NOTE_LINE_H - 1}px, ${lineColor} ${NOTE_LINE_H}px)`,
+    backgroundImage: `repeating-linear-gradient(to bottom, ${lineColor} 0, ${lineColor} 1px, transparent 1px, transparent ${NOTE_LINE_H}px)`,
     backgroundAttachment: 'local',
     fontFamily: 'var(--font-hand)',
     fontSize: 18,
