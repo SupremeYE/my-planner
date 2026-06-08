@@ -554,6 +554,103 @@ const toJournalQuestion = (r: JournalQuestionRow): JournalQuestion => ({
   createdAt: r.created_at,
 });
 
+// ── 운동 모듈 (Stage 0 스키마) — exercises / workout_logs / workout_sets / routine_days / routine_exercises ──
+// 데이터 원칙: 운동 데이터는 "DB에 한 번 저장 → 이후엔 읽기만". name_ko 한글화는 seed 또는 '채택' 시점 1회만.
+// 런타임 번역 금지: 아래 어떤 메서드도 번역 API 를 호출하지 않는다 — DB 값(name_ko/name_en)만 읽는다.
+export type ExerciseType = '근력' | '유산소';
+export type ExerciseBodyPart = '하체' | '등' | '가슴' | '어깨' | '팔' | '코어' | '전신' | '유산소' | '기타';
+
+export type Exercise = {
+  id: string;
+  userId: string | null;        // null = 전체 공용 카탈로그
+  nameKo: string | null;        // null = 미채택 카탈로그 항목
+  nameEn: string;
+  type: ExerciseType;
+  bodyPart: ExerciseBodyPart;
+  equipment: string | null;
+  primaryMuscles: string[];
+  youtubeUrl: string | null;
+  imageUrl: string | null;
+  source: string;               // 'free-exercise-db' | 'custom'
+  sourceId: string | null;
+};
+
+type ExerciseRow = {
+  id: string; user_id: string | null; name_ko: string | null; name_en: string;
+  type: string; body_part: string; equipment: string | null;
+  primary_muscles: string[] | null; youtube_url: string | null; image_url: string | null;
+  source: string | null; source_id: string | null;
+};
+
+const toExercise = (r: ExerciseRow): Exercise => ({
+  id: r.id,
+  userId: r.user_id ?? null,
+  nameKo: r.name_ko ?? null,
+  nameEn: r.name_en,
+  type: r.type as ExerciseType,
+  bodyPart: r.body_part as ExerciseBodyPart,
+  equipment: r.equipment ?? null,
+  primaryMuscles: r.primary_muscles ?? [],
+  youtubeUrl: r.youtube_url ?? null,
+  imageUrl: r.image_url ?? null,
+  source: r.source ?? 'custom',
+  sourceId: r.source_id ?? null,
+});
+
+// 종목 표시명: 한글(name_ko) 우선, 없으면 영어(name_en). 번역하지 않고 저장된 값만 사용.
+export const exerciseLabel = (e: Exercise): string => e.nameKo || e.nameEn;
+
+export type WorkoutSet = {
+  id?: string;
+  logId?: string;
+  setNo: number;
+  weight: number | null;        // 근력
+  reps: number | null;          // 근력
+  durationMin: number | null;   // 유산소
+  distanceKm: number | null;    // 유산소
+};
+
+export type WorkoutLog = {
+  id: string;
+  exerciseId: string;
+  performedOn: string;          // yyyy-MM-dd
+  memo: string | null;
+  createdAt: string;
+  sets: WorkoutSet[];
+  exercise?: Exercise | null;   // 조인된 종목
+};
+
+export type RoutineExerciseItem = {
+  id: string;
+  routineDayId: string;
+  exerciseId: string;
+  sortOrder: number;
+  exercise?: Exercise | null;
+};
+
+export type RoutineDay = {
+  id: string;
+  dayOfWeek: number;            // 1=월 … 7=일
+  label: string | null;
+  exercises: RoutineExerciseItem[];
+};
+
+const toWorkoutSet = (r: any): WorkoutSet => ({
+  id: r.id, logId: r.log_id, setNo: r.set_no,
+  weight: r.weight ?? null, reps: r.reps ?? null,
+  durationMin: r.duration_min ?? null, distanceKm: r.distance_km ?? null,
+});
+
+const toWorkoutLog = (r: any): WorkoutLog => ({
+  id: r.id,
+  exerciseId: r.exercise_id,
+  performedOn: r.performed_on,
+  memo: r.memo ?? null,
+  createdAt: r.created_at,
+  sets: (r.workout_sets ?? []).map(toWorkoutSet).sort((a: WorkoutSet, b: WorkoutSet) => a.setNo - b.setNo),
+  exercise: r.exercises ? toExercise(r.exercises) : null,
+});
+
 // ── DB 객체 ──────────────────────────────────────────────────────────────────
 
 export const db = {
@@ -2298,6 +2395,217 @@ export const db = {
     delete: async (id: string) => {
       const { error } = await supabase.from('journal_questions').delete().eq('id', id);
       if (error) console.error('[db] journal_questions delete:', error.message);
+    },
+  },
+
+  // ── 운동 모듈 — exercises / workout_logs / workout_sets / routine_days / routine_exercises ──
+  // 런타임 번역 금지: 종목 이름은 DB 의 name_ko/name_en 만 읽어 표시한다. 페이지 진입 시 번역 호출 없음.
+  workouts: {
+    // "내 운동": name_ko 가 있거나, 내가 소유했거나(user_id), 내 logs/routines 에 등장한 종목.
+    // 같은 source_id(없으면 영어명) 기준 dedupe — 채택 복사본이 카탈로그 원본을 덮는다.
+    listMine: async (): Promise<Exercise[]> => {
+      const [exRes, logRes, rtRes] = await Promise.all([
+        supabase.from('exercises').select('*'),
+        supabase.from('workout_logs').select('exercise_id'),
+        supabase.from('routine_exercises').select('exercise_id'),
+      ]);
+      if (exRes.error) console.error('[db] exercises listMine:', exRes.error.message);
+      const usedIds = new Set<string>([
+        ...((logRes.data ?? []).map((r: any) => r.exercise_id)),
+        ...((rtRes.data ?? []).map((r: any) => r.exercise_id)),
+      ]);
+      const mine = (exRes.data ?? []).map(toExercise)
+        .filter(e => e.nameKo != null || e.userId != null || usedIds.has(e.id));
+      const score = (x: Exercise) => (x.nameKo ? 2 : 0) + (x.userId ? 1 : 0);
+      const byKey = new Map<string, Exercise>();
+      for (const e of mine) {
+        const key = e.sourceId ?? `en:${e.nameEn}`;
+        const cur = byKey.get(key);
+        if (!cur || score(e) > score(cur)) byKey.set(key, e);
+      }
+      return Array.from(byKey.values())
+        .sort((a, b) => exerciseLabel(a).localeCompare(exerciseLabel(b), 'ko'));
+    },
+
+    // 전체 카탈로그 검색 (한글명·영어명·장비 ilike + 근육 contains). DB 값만 검색 — 번역 없음.
+    search: async (q: string): Promise<Exercise[]> => {
+      const term = q.trim();
+      if (!term) return [];
+      const safe = term.replace(/[%,()]/g, ' ').trim();
+      if (!safe) return [];
+      const { data, error } = await supabase
+        .from('exercises')
+        .select('*')
+        .or(`name_ko.ilike.%${safe}%,name_en.ilike.%${safe}%,equipment.ilike.%${safe}%,primary_muscles.cs.{${safe}}`)
+        .limit(120);
+      if (error) console.error('[db] exercises search:', error.message);
+      return (data ?? []).map(toExercise)
+        .sort((a, b) => exerciseLabel(a).localeCompare(exerciseLabel(b), 'ko'));
+    },
+
+    // 카탈로그 종목 채택: 공용 행(user_id=null)은 RLS 상 수정 불가 → 내 소유 복사본 생성.
+    // 이미 내 소유면 name_ko 만 갱신. nameKo 비우면 null(표시는 영어명으로 폴백).
+    // ※ 한글화는 이 '채택' 시점 1회뿐 — 페이지 조회마다 번역 API 호출 금지(런타임 번역 금지).
+    adopt: async (ex: Exercise, nameKo: string | null): Promise<Exercise | null> => {
+      const ko = nameKo && nameKo.trim() ? nameKo.trim() : null;
+      if (ex.userId) {
+        const { data, error } = await supabase.from('exercises')
+          .update({ name_ko: ko }).eq('id', ex.id).select('*').single();
+        if (error) { console.error('[db] exercises adopt update:', error.message); return null; }
+        return toExercise(data);
+      }
+      // 이미 채택한 복사본이 있으면 그 행의 name_ko 만 갱신 (중복 방지)
+      let dupQ = supabase.from('exercises').select('*').not('user_id', 'is', null);
+      dupQ = ex.sourceId ? dupQ.eq('source_id', ex.sourceId) : dupQ.eq('name_en', ex.nameEn);
+      const { data: dup } = await dupQ.maybeSingle();
+      if (dup?.id) {
+        const { data, error } = await supabase.from('exercises')
+          .update({ name_ko: ko }).eq('id', dup.id).select('*').single();
+        if (error) { console.error('[db] exercises adopt re-update:', error.message); return null; }
+        return toExercise(data);
+      }
+      const { data, error } = await supabase.from('exercises').insert({
+        name_ko: ko, name_en: ex.nameEn, type: ex.type, body_part: ex.bodyPart,
+        equipment: ex.equipment, primary_muscles: ex.primaryMuscles,
+        youtube_url: ex.youtubeUrl, image_url: ex.imageUrl,
+        source: ex.source, source_id: ex.sourceId,
+      }).select('*').single();
+      if (error) { console.error('[db] exercises adopt insert:', error.message); return null; }
+      return toExercise(data);
+    },
+
+    // ── 세션(workout_logs) + 세트(workout_sets) ──
+    fetchLog: async (logId: string): Promise<WorkoutLog | null> => {
+      const { data, error } = await supabase.from('workout_logs')
+        .select('*, exercises(*), workout_sets(*)').eq('id', logId).single();
+      if (error) { console.error('[db] workout_logs fetchLog:', error.message); return null; }
+      return toWorkoutLog(data);
+    },
+    listByDate: async (performedOn: string): Promise<WorkoutLog[]> => {
+      const { data, error } = await supabase.from('workout_logs')
+        .select('*, exercises(*), workout_sets(*)')
+        .eq('performed_on', performedOn)
+        .order('created_at', { ascending: true });
+      if (error) console.error('[db] workout_logs listByDate:', error.message);
+      return (data ?? []).map(toWorkoutLog);
+    },
+    listAll: async (): Promise<WorkoutLog[]> => {
+      const { data, error } = await supabase.from('workout_logs')
+        .select('*, exercises(*), workout_sets(*)')
+        .order('performed_on', { ascending: false })
+        .order('created_at', { ascending: false });
+      if (error) console.error('[db] workout_logs listAll:', error.message);
+      return (data ?? []).map(toWorkoutLog);
+    },
+    // 직전 세션(prefill 용) — beforeDate 미만 중 가장 최근. 없으면 전체 중 최근.
+    lastSessionFor: async (exerciseId: string, beforeDate?: string): Promise<WorkoutLog | null> => {
+      let q = supabase.from('workout_logs')
+        .select('*, exercises(*), workout_sets(*)')
+        .eq('exercise_id', exerciseId)
+        .order('performed_on', { ascending: false })
+        .order('created_at', { ascending: false })
+        .limit(1);
+      if (beforeDate) q = q.lt('performed_on', beforeDate);
+      const { data, error } = await q;
+      if (error) console.error('[db] workout_logs lastSession:', error.message);
+      return data && data.length ? toWorkoutLog(data[0]) : null;
+    },
+    // 성장 그래프: fromDate 이후 세션별 대표 weight(최대 무게) 날짜순 — 근력 전용.
+    growthSeries: async (exerciseId: string, fromDate: string): Promise<{ date: string; weight: number }[]> => {
+      const { data, error } = await supabase.from('workout_logs')
+        .select('performed_on, workout_sets(weight)')
+        .eq('exercise_id', exerciseId)
+        .gte('performed_on', fromDate)
+        .order('performed_on', { ascending: true });
+      if (error) console.error('[db] workout_logs growth:', error.message);
+      const out: { date: string; weight: number }[] = [];
+      for (const r of (data ?? []) as any[]) {
+        const weights = (r.workout_sets ?? []).map((s: any) => s.weight).filter((w: any) => typeof w === 'number');
+        if (weights.length) out.push({ date: r.performed_on, weight: Math.max(...weights) });
+      }
+      return out;
+    },
+    createLog: async (input: { exerciseId: string; performedOn: string; memo: string | null; sets: WorkoutSet[] }): Promise<WorkoutLog | null> => {
+      const { data: log, error } = await supabase.from('workout_logs')
+        .insert({ exercise_id: input.exerciseId, performed_on: input.performedOn, memo: input.memo })
+        .select('id').single();
+      if (error || !log) { console.error('[db] workout_logs create:', error?.message); return null; }
+      if (input.sets.length) {
+        const rows = input.sets.map((s, i) => ({
+          log_id: log.id, set_no: i + 1,
+          weight: s.weight, reps: s.reps, duration_min: s.durationMin, distance_km: s.distanceKm,
+        }));
+        const { error: sErr } = await supabase.from('workout_sets').insert(rows);
+        if (sErr) console.error('[db] workout_sets create:', sErr.message);
+      }
+      return db.workouts.fetchLog(log.id);
+    },
+    updateLog: async (logId: string, input: { memo: string | null; sets: WorkoutSet[] }): Promise<WorkoutLog | null> => {
+      const { error } = await supabase.from('workout_logs').update({ memo: input.memo }).eq('id', logId);
+      if (error) console.error('[db] workout_logs update:', error.message);
+      // 세트 전체 교체
+      await supabase.from('workout_sets').delete().eq('log_id', logId);
+      if (input.sets.length) {
+        const rows = input.sets.map((s, i) => ({
+          log_id: logId, set_no: i + 1,
+          weight: s.weight, reps: s.reps, duration_min: s.durationMin, distance_km: s.distanceKm,
+        }));
+        const { error: sErr } = await supabase.from('workout_sets').insert(rows);
+        if (sErr) console.error('[db] workout_sets replace:', sErr.message);
+      }
+      return db.workouts.fetchLog(logId);
+    },
+    deleteLog: async (logId: string) => {
+      const { error } = await supabase.from('workout_logs').delete().eq('id', logId); // workout_sets 는 ON DELETE CASCADE
+      if (error) console.error('[db] workout_logs delete:', error.message);
+    },
+
+    // ── 주간 루틴(routine_days + routine_exercises) ──
+    listRoutineDays: async (): Promise<RoutineDay[]> => {
+      const { data, error } = await supabase.from('routine_days')
+        .select('*, routine_exercises(*, exercises(*))')
+        .order('day_of_week', { ascending: true });
+      if (error) console.error('[db] routine_days list:', error.message);
+      return (data ?? []).map((r: any): RoutineDay => ({
+        id: r.id, dayOfWeek: r.day_of_week, label: r.label ?? null,
+        exercises: (r.routine_exercises ?? [])
+          .map((re: any): RoutineExerciseItem => ({
+            id: re.id, routineDayId: re.routine_day_id, exerciseId: re.exercise_id,
+            sortOrder: re.sort_order ?? 0, exercise: re.exercises ? toExercise(re.exercises) : null,
+          }))
+          .sort((a: RoutineExerciseItem, b: RoutineExerciseItem) => a.sortOrder - b.sortOrder),
+      }));
+    },
+    // 요일 헤더 보장 (unique(user_id, day_of_week)) → id 반환
+    ensureRoutineDay: async (dayOfWeek: number): Promise<string | null> => {
+      const { data: existing } = await supabase.from('routine_days')
+        .select('id').eq('day_of_week', dayOfWeek).maybeSingle();
+      if (existing?.id) return existing.id;
+      const { data, error } = await supabase.from('routine_days')
+        .insert({ day_of_week: dayOfWeek }).select('id').single();
+      if (error) { console.error('[db] routine_days ensure:', error.message); return null; }
+      return data.id;
+    },
+    setRoutineLabel: async (dayOfWeek: number, label: string | null) => {
+      const dayId = await db.workouts.ensureRoutineDay(dayOfWeek);
+      if (!dayId) return;
+      const { error } = await supabase.from('routine_days').update({ label }).eq('id', dayId);
+      if (error) console.error('[db] routine_days label:', error.message);
+    },
+    addRoutineExercise: async (dayOfWeek: number, exerciseId: string) => {
+      const dayId = await db.workouts.ensureRoutineDay(dayOfWeek);
+      if (!dayId) return;
+      const { data: last } = await supabase.from('routine_exercises')
+        .select('sort_order').eq('routine_day_id', dayId)
+        .order('sort_order', { ascending: false }).limit(1);
+      const next = last && last.length ? (last[0].sort_order ?? 0) + 1 : 0;
+      const { error } = await supabase.from('routine_exercises')
+        .insert({ routine_day_id: dayId, exercise_id: exerciseId, sort_order: next });
+      if (error) console.error('[db] routine_exercises add:', error.message);
+    },
+    removeRoutineExercise: async (id: string) => {
+      const { error } = await supabase.from('routine_exercises').delete().eq('id', id);
+      if (error) console.error('[db] routine_exercises remove:', error.message);
     },
   },
 };

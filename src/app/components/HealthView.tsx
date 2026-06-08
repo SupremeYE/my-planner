@@ -3,14 +3,16 @@ import { useTheme } from '../ThemeContext';
 import { SleepSection, PeriodSection } from './SelfCareView';
 import { WeightTab } from './WeightTab';
 import { ConditionTab } from './ConditionTab';
+import { WorkoutTab } from './workout/WorkoutTab';
 
-type HealthTab = 'sleep' | 'condition' | 'weight' | 'period';
+type HealthTab = 'sleep' | 'condition' | 'weight' | 'period' | 'workout';
 
 const TABS: { key: HealthTab; label: string }[] = [
   { key: 'sleep',     label: '수면' },
   { key: 'condition', label: '컨디션' },
   { key: 'weight',    label: '몸무게' },
   { key: 'period',    label: '생리' },
+  { key: 'workout',   label: '운동' },
 ];
 
 export function HealthView() {
@@ -30,7 +32,7 @@ export function HealthView() {
       <div className="px-4 pt-5 pb-3 lg:px-6 lg:pt-6">
         <h1 style={{ fontSize: 22, fontWeight: 700, color: t.text }}>건강</h1>
         <p style={{ fontSize: 13, color: t.textSub, marginTop: 2 }}>
-          수면, 컨디션, 몸무게, 생리 등 신체 상태를 기록하세요
+          수면, 컨디션, 몸무게, 생리, 운동 등 신체 상태를 기록하세요
         </p>
       </div>
 
@@ -39,7 +41,7 @@ export function HealthView() {
         className="px-4 lg:px-6"
         style={{ borderBottom: `1px solid ${t.border}` }}
       >
-        <div className="grid grid-cols-4 lg:flex lg:gap-6">
+        <div className="grid grid-cols-5 lg:flex lg:gap-6">
           {TABS.map(tb => {
             const active = activeTab === tb.key;
             return (
@@ -74,6 +76,7 @@ export function HealthView() {
         {activeTab === 'condition' && <ConditionTab />}
         {activeTab === 'weight' && <WeightTab />}
         {activeTab === 'period' && <PeriodSection />}
+        {activeTab === 'workout' && <WorkoutTab />}
       </div>
     </div>
   );
