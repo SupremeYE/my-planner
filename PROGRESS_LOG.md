@@ -9,6 +9,7 @@
 ## 2026-06-08
 
 ### ✅ 완료
+- [x] 운동 종목 한글명 일괄 채움 (seed 1회 배치) — `name_ko IS NULL` 카탈로그 865개를 한국 헬스장 자연 음차 한글명으로 채움(멱등). "스쿼트" 검색 1→56건, 미번역 0. 런타임 번역 코드 없음
 - [x] 운동 모듈 **Stage 3** — 종목 이미지 GitHub raw 핫링크 → Supabase Storage(`exercise-images`) 이관(자립화). 버킷 생성 + 멱등 이관 스크립트/Edge Function + image_url 갱신 (UI 로직 무변경)
 - [x] 운동 모듈 **Stage 1** — 건강 메뉴 '운동' 탭(모바일): 스트릭 히어로 + 오늘의 루틴 + 부위별 마지막 운동 + 종목별 성장 그래프 + 오늘의 운동, 바텀시트 4종(종목선택/기록/주간루틴/지난기록). 색상 토큰만·PC 미변경·런타임 번역 호출 없음
 - [x] 운동 모듈 **Stage 0** — Supabase 스키마 5테이블 + free-exercise-db(873종목) import + 스타터 한글 9종목 (DB only, UI/컴포넌트 미변경, 런타임 번역 금지 원칙 명시)
@@ -17,6 +18,15 @@
 - [x] **통합 일기 페이지(오늘 일기 / 질문일기 / 이날의 기억) 3탭 전체 완성**
 
 ### 🛠 오늘 작업 내용
+
+**운동 종목 한글명(name_ko) 일괄 채움 — seed 1회 배치**
+- 배경: 카탈로그 865개가 영어 이름만 있어 한글 검색이 거의 안 됐음(스타터 9개만 한글). 일괄 한글화로 검색성 확보
+- 대상: `exercises` 중 `name_ko IS NULL` 인 free-exercise-db 865개. 이미 한글명 있던 스타터 9개는 건너뜀(멱등). `name_en` 중복 0 확인 → `name_en` 매칭 UPDATE
+- 번역 지침(스펙대로): 한국 헬스장 자연 음차(Barbell→바벨, Incline→인클라인, Squat→스쿼트, Press→프레스 …), 군더더기·괄호 설명 금지, 약어(SMR/EZ바/V바 등)는 음차 안 함. 결과를 `scripts/exercise-name-ko.seed.json`(en→ko 맵)에 기록
+- 적용: 멱등 UPDATE `set name_ko=v.ko ... where name_en=v.en and name_ko is null` 4배치(220개씩). 재실행해도 채워진 행은 0건 매칭(멱등)
+- 검수 결과(`scripts/exercise-name-ko.review.md`): 전체 874 전부 name_ko 채워짐(null 0), name_ko==name_en 0, 길이 이상치 0, 라틴 3자+ 잔존 13개(전부 `SMR` 약어 — 허용). **"스쿼트" 검색 1→56건**
+- 검색 동작: `db.workouts.search` 가 `name_ko OR name_en OR equipment OR primary_muscles` 매칭 → 한글/영어 모두, custom·미채택 종목도 영어로 안전 검색(기존 구현 충족, 변경 없음)
+- **런타임 번역 금지 준수**: 페이지 진입/조회 시 번역 호출 코드 없음. 재현용 Haiku 스크립트 `scripts/translate-exercise-names.mjs`(claude-haiku-4-5, 40개씩 JSON in/out, `name_ko IS NULL` 만, 검수 리스트 출력)도 커밋
 
 **운동 모듈 Stage 3 — 종목 이미지 Storage 이관(자립화)**
 - 목적: 종목 이미지를 외부 GitHub raw 핫링크 의존에서 벗어나 Supabase Storage 로 자체 호스팅(대역폭·가용성 안정화). UI 로직 변경 없이 `exercises.image_url` 값만 교체
