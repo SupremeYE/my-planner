@@ -148,10 +148,66 @@ function noteAreaStyle(t: ThemeTokens): React.CSSProperties {
   };
 }
 
+// 노트 줄 textarea — 빈 줄을 클릭하면 그 줄까지 줄바꿈을 채워 커서를 놓아
+// 노트처럼 원하는 줄부터 작성할 수 있게 한다. (일반 textarea 는 첫 줄에서만 시작됨)
+function LinedTextarea({
+  value, onChange, onFocus, onBlur, placeholder, rows,
+}: {
+  value: string;
+  onChange: (v: string) => void;
+  onFocus?: () => void;
+  onBlur?: () => void;
+  placeholder?: string;
+  rows: number;
+}) {
+  const { t } = useTheme();
+  const ref = useRef<HTMLTextAreaElement>(null);
+  const pendingCaret = useRef<number | null>(null);
+
+  // 줄바꿈 패딩 후 커서를 원하는 위치로 이동(상태 반영 뒤)
+  useEffect(() => {
+    if (pendingCaret.current != null && ref.current) {
+      const pos = pendingCaret.current;
+      pendingCaret.current = null;
+      ref.current.focus();
+      ref.current.setSelectionRange(pos, pos);
+    }
+  }, [value]);
+
+  const handleClick = (e: React.MouseEvent<HTMLTextAreaElement>) => {
+    const ta = ref.current;
+    if (!ta) return;
+    const y = e.clientY - ta.getBoundingClientRect().top + ta.scrollTop;
+    const clickedLine = Math.floor(y / NOTE_LINE_H);
+    const lineCount = ta.value === '' ? 0 : ta.value.split('\n').length;
+    const lastLine = Math.max(lineCount - 1, 0);
+    if (clickedLine > lastLine) {
+      const next = ta.value + '\n'.repeat(clickedLine - lastLine);
+      pendingCaret.current = next.length;
+      onChange(next);
+    }
+  };
+
+  return (
+    <textarea
+      ref={ref}
+      value={value}
+      onChange={e => onChange(e.target.value)}
+      onClick={handleClick}
+      onFocus={onFocus}
+      onBlur={onBlur}
+      placeholder={placeholder}
+      rows={rows}
+      style={noteAreaStyle(t)}
+    />
+  );
+}
+
 // ── 오늘 일기 탭 (자유일기) ───────────────────────────────────────────────────
 function TodayDiaryTab() {
   const { t } = useTheme();
   const [selectedDate, setSelectedDate] = useState(todayStr());
+  const [title, setTitle]       = useState('');
   const [content, setContent]   = useState('');
   const [recent, setRecent]     = useState<DiaryEntry[]>([]);
   const [loading, setLoading]   = useState(true);
@@ -160,7 +216,8 @@ function TodayDiaryTab() {
   const [existingId, setExistingId] = useState<string | null>(null);
   const [confirmDelete, setConfirmDelete] = useState<{ id: string; isCurrent: boolean } | null>(null);
 
-  const loadedRef  = useRef('');
+  const loadedRef      = useRef('');   // 마지막 저장된 본문
+  const loadedTitleRef = useRef('');   // 마지막 저장된 제목
   const editingRef = useRef(false);
   const topRef = useRef<HTMLDivElement>(null);
 
@@ -168,8 +225,11 @@ function TodayDiaryTab() {
     setLoading(true);
     const entry = await db.diaryEntries.fetchFreeByDate(date);
     const text = entry?.content ?? '';
+    const ttl = entry?.title ?? '';
     loadedRef.current = text;
+    loadedTitleRef.current = ttl;
     setContent(text);
+    setTitle(ttl);
     setExistingId(entry?.id ?? null);
     setLoading(false);
   }, []);
@@ -186,13 +246,16 @@ function TodayDiaryTab() {
     if (!editingRef.current) loadForDate(selectedDate);
   });
 
-  const save = useCallback(async (date: string, text: string) => {
-    const trimmed = text.trim();
-    if (!trimmed) return;
+  // 저장 — 본문은 끝 공백/줄바꿈만 정리(앞쪽 줄 위치는 보존), 제목은 양끝 정리.
+  const save = useCallback(async (date: string, text: string, ttl: string) => {
+    const body = text.replace(/\s+$/, '');
+    const titleVal = ttl.trim();
+    if (!body.trim() && !titleVal) return;
     setSaveState('saving');
-    const saved = await db.diaryEntries.upsertFree(date, trimmed);
+    const saved = await db.diaryEntries.upsertFree(date, body, titleVal || null);
     if (saved) setExistingId(saved.id);
-    loadedRef.current = trimmed;
+    loadedRef.current = body;
+    loadedTitleRef.current = titleVal;
     setSaveState('saved');
     loadRecent();
     setTimeout(() => setSaveState('idle'), 1500);
@@ -200,10 +263,11 @@ function TodayDiaryTab() {
 
   useEffect(() => {
     if (loading) return;
-    if (content.trim() === loadedRef.current.trim()) return;
-    const id = setTimeout(() => { save(selectedDate, content); }, 1500);
+    if (content.replace(/\s+$/, '') === loadedRef.current.replace(/\s+$/, '')
+        && title.trim() === loadedTitleRef.current.trim()) return;
+    const id = setTimeout(() => { save(selectedDate, content, title); }, 1500);
     return () => clearTimeout(id);
-  }, [content, selectedDate, loading, save]);
+  }, [content, title, selectedDate, loading, save]);
 
   const onPickRecent = (date: string) => {
     setSelectedDate(date);
@@ -218,11 +282,15 @@ function TodayDiaryTab() {
     await db.diaryEntries.delete(id);
     if (isCurrent) {
       setContent('');
+      setTitle('');
       loadedRef.current = '';
+      loadedTitleRef.current = '';
       setExistingId(null);
     }
     loadRecent();
   };
+
+  const hasInput = !!content.trim() || !!title.trim();
 
   return (
     <div className="flex flex-col">
@@ -230,22 +298,41 @@ function TodayDiaryTab() {
 
       <DateNav date={selectedDate} onChange={setSelectedDate} />
 
-      {/* 작성 영역 — 노트 줄 배경 + 손글씨 폰트 */}
+      {/* 작성 영역 — 제목칸 + 노트 줄 본문(손글씨) */}
       <div className="rounded-2xl p-4" style={{ backgroundColor: t.card, border: `1px solid ${t.border}` }}>
-        <textarea
+        {/* 제목칸 */}
+        <input
+          value={title}
+          onChange={e => setTitle(e.target.value)}
+          onFocus={() => { editingRef.current = true; }}
+          onBlur={() => { editingRef.current = false; }}
+          placeholder="제목 (선택)"
+          style={{
+            width: '100%',
+            border: 'none',
+            outline: 'none',
+            background: 'transparent',
+            fontFamily: 'var(--font-hand)',
+            fontSize: 22,
+            fontWeight: 700,
+            color: t.text,
+          }}
+        />
+        <div style={{ height: 1, background: t.border, margin: '8px 0 10px' }} />
+        {/* 본문 — 원하는 줄을 클릭해 작성 */}
+        <LinedTextarea
           value={content}
-          onChange={e => setContent(e.target.value)}
+          onChange={setContent}
           onFocus={() => { editingRef.current = true; }}
           onBlur={() => { editingRef.current = false; }}
           placeholder="오늘 하루는 어땠나요? 자유롭게 적어보세요..."
           rows={9}
-          style={noteAreaStyle(t)}
         />
         <SaveRow
           t={t}
           saveState={saveState}
-          disabled={!content.trim()}
-          onSave={() => save(selectedDate, content)}
+          disabled={!hasInput}
+          onSave={() => save(selectedDate, content, title)}
           onDelete={existingId ? () => setConfirmDelete({ id: existingId, isCurrent: true }) : undefined}
         />
       </div>
@@ -272,6 +359,11 @@ function TodayDiaryTab() {
                       <span style={{ fontSize: 13, fontWeight: 700, color: t.text }}>{d}</span>
                       <span style={{ fontSize: 12, color: t.textMuted }}>{w}</span>
                     </div>
+                    {entry.title && (
+                      <p style={{ fontFamily: 'var(--font-hand)', fontSize: 17, fontWeight: 700, color: t.text, marginBottom: 2 }}>
+                        {entry.title}
+                      </p>
+                    )}
                     <p style={excerptStyle(t)}>{entry.content}</p>
                   </button>
                   <button
@@ -401,13 +493,13 @@ function QuestionDiaryTab() {
   useRealtimeSync('journal_questions', () => { loadQuestions(); });
 
   const save = useCallback(async () => {
-    const trimmed = answer.trim();
-    if (!currentQuestion || !trimmed) return;
+    const body = answer.replace(/\s+$/, '');   // 끝 공백/줄바꿈만 정리(앞쪽 줄 위치 보존)
+    if (!currentQuestion || !body.trim()) return;
     setSaveState('saving');
     const qid = currentQuestion.id || null;
-    const saved = await db.diaryEntries.upsertQuestion(selectedDate, qid, currentQuestion.text, trimmed);
+    const saved = await db.diaryEntries.upsertQuestion(selectedDate, qid, currentQuestion.text, body);
     if (saved) setExistingId(saved.id);
-    loadedRef.current = trimmed;
+    loadedRef.current = body;
     setSaveState('saved');
     loadRecent();
     setTimeout(() => setSaveState('idle'), 1500);
@@ -416,7 +508,7 @@ function QuestionDiaryTab() {
   // 자동저장(debounce 1.5s)
   useEffect(() => {
     if (loading) return;
-    if (answer.trim() === loadedRef.current.trim()) return;
+    if (answer.replace(/\s+$/, '') === loadedRef.current.replace(/\s+$/, '')) return;
     const id = setTimeout(() => { save(); }, 1500);
     return () => clearTimeout(id);
   }, [answer, loading, save]);
@@ -511,16 +603,15 @@ function QuestionDiaryTab() {
         )}
       </div>
 
-      {/* 답변 작성 영역 */}
+      {/* 답변 작성 영역 — 원하는 줄을 클릭해 작성 */}
       <div className="rounded-2xl p-4 mt-3" style={{ backgroundColor: t.card, border: `1px solid ${t.border}` }}>
-        <textarea
+        <LinedTextarea
           value={answer}
-          onChange={e => setAnswer(e.target.value)}
+          onChange={setAnswer}
           onFocus={() => { editingRef.current = true; }}
           onBlur={() => { editingRef.current = false; }}
           placeholder="오늘의 질문에 솔직하게 답해보세요..."
           rows={7}
-          style={noteAreaStyle(t)}
         />
         <SaveRow
           t={t}
@@ -934,6 +1025,11 @@ function MemoryCard({ entry, onOpen }: { entry: DiaryEntry; onOpen: (e: DiaryEnt
           {entry.questionText}
         </p>
       )}
+      {!isQuestion && entry.title && (
+        <p style={{ fontFamily: 'var(--font-hand)', fontSize: 17, fontWeight: 700, color: t.text, marginBottom: 2 }}>
+          {entry.title}
+        </p>
+      )}
       <p style={excerptStyle(t)}>{entry.content}</p>
     </button>
   );
@@ -1000,6 +1096,11 @@ function MemoryDetailSheet({ entry, onClose, onDeleted }: { entry: DiaryEntry; o
           {isQuestion && entry.questionText && (
             <p style={{ fontSize: 14, fontStyle: 'italic', color: t.textMuted, marginBottom: 12, lineHeight: 1.5 }}>
               {entry.questionText}
+            </p>
+          )}
+          {!isQuestion && entry.title && (
+            <p style={{ fontFamily: 'var(--font-hand)', fontSize: 22, fontWeight: 700, color: t.text, marginBottom: 8 }}>
+              {entry.title}
             </p>
           )}
           <p style={{ fontFamily: 'var(--font-hand)', fontSize: 18, lineHeight: '32px', color: t.text, whiteSpace: 'pre-wrap' }}>

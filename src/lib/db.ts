@@ -523,6 +523,7 @@ export type DiaryEntry = {
   id: string;
   entryDate: string;            // yyyy-MM-dd (일기 대상 날짜)
   type: 'free' | 'question';
+  title: string | null;         // 자유일기 제목(선택). 질문일기는 미사용(null)
   questionId: string | null;
   questionText: string | null;  // 작성 시점 질문 스냅샷
   content: string;
@@ -532,6 +533,7 @@ export type DiaryEntry = {
 
 type DiaryEntryRow = {
   id: string; entry_date: string; type: string;
+  title: string | null;
   question_id: string | null; question_text: string | null;
   content: string; created_at: string; updated_at: string;
 };
@@ -540,6 +542,7 @@ const toDiaryEntry = (r: DiaryEntryRow): DiaryEntry => ({
   id: r.id,
   entryDate: r.entry_date,
   type: r.type as DiaryEntry['type'],
+  title: r.title ?? null,
   questionId: r.question_id ?? null,
   questionText: r.question_text ?? null,
   content: r.content,
@@ -2191,8 +2194,9 @@ export const db = {
     },
     // 자유일기 저장 — (entry_date, type='free') 기준 upsert.
     // 부분 유니크 인덱스라 onConflict upsert 대신 select 후 update/insert.
-    // user_id 는 DB DEFAULT auth.uid() 가 자동 충전.
-    upsertFree: async (entryDate: string, content: string): Promise<DiaryEntry | null> => {
+    // user_id 는 DB DEFAULT auth.uid() 가 자동 충전. title 은 선택(없으면 null).
+    upsertFree: async (entryDate: string, content: string, title?: string | null): Promise<DiaryEntry | null> => {
+      const titleVal = title?.trim() ? title.trim() : null;
       const { data: existing, error: selErr } = await supabase
         .from('diary_entries')
         .select('id')
@@ -2203,7 +2207,7 @@ export const db = {
       if (existing?.id) {
         const { data, error } = await supabase
           .from('diary_entries')
-          .update({ content, updated_at: new Date().toISOString() })
+          .update({ content, title: titleVal, updated_at: new Date().toISOString() })
           .eq('id', existing.id)
           .select('*')
           .single();
@@ -2212,7 +2216,7 @@ export const db = {
       }
       const { data, error } = await supabase
         .from('diary_entries')
-        .insert({ entry_date: entryDate, type: 'free', content })
+        .insert({ entry_date: entryDate, type: 'free', content, title: titleVal })
         .select('*')
         .single();
       if (error) { console.error('[db] diary_entries insert:', error.message); return null; }
