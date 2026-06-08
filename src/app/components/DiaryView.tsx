@@ -5,6 +5,7 @@ import { CalendarDays, Check, Compass, NotebookPen, PenLine, Plus, Shuffle, Tras
 import { useTheme, type ThemeTokens } from '../ThemeContext';
 import { db, type DiaryEntry, type JournalQuestion } from '../../lib/db';
 import { useRealtimeSync } from '../hooks/useRealtimeSync';
+import ConfirmModal from './ConfirmModal';
 
 // 탭 정의 — Stage 1 오늘 일기, Stage 2 질문일기, Stage 3 이날의 기억(5년 일기).
 const TABS = [
@@ -156,6 +157,9 @@ function TodayDiaryTab() {
   const [loading, setLoading]   = useState(true);
   const [saveState, setSaveState] = useState<'idle' | 'saving' | 'saved'>('idle');
 
+  const [existingId, setExistingId] = useState<string | null>(null);
+  const [confirmDelete, setConfirmDelete] = useState<{ id: string; isCurrent: boolean } | null>(null);
+
   const loadedRef  = useRef('');
   const editingRef = useRef(false);
   const topRef = useRef<HTMLDivElement>(null);
@@ -166,6 +170,7 @@ function TodayDiaryTab() {
     const text = entry?.content ?? '';
     loadedRef.current = text;
     setContent(text);
+    setExistingId(entry?.id ?? null);
     setLoading(false);
   }, []);
 
@@ -185,7 +190,8 @@ function TodayDiaryTab() {
     const trimmed = text.trim();
     if (!trimmed) return;
     setSaveState('saving');
-    await db.diaryEntries.upsertFree(date, trimmed);
+    const saved = await db.diaryEntries.upsertFree(date, trimmed);
+    if (saved) setExistingId(saved.id);
     loadedRef.current = trimmed;
     setSaveState('saved');
     loadRecent();
@@ -202,6 +208,20 @@ function TodayDiaryTab() {
   const onPickRecent = (date: string) => {
     setSelectedDate(date);
     topRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  };
+
+  // 삭제 실행 — 현재 편집 중인 날짜의 일기면 작성칸도 비운다.
+  const doDelete = async () => {
+    if (!confirmDelete) return;
+    const { id, isCurrent } = confirmDelete;
+    setConfirmDelete(null);
+    await db.diaryEntries.delete(id);
+    if (isCurrent) {
+      setContent('');
+      loadedRef.current = '';
+      setExistingId(null);
+    }
+    loadRecent();
   };
 
   return (
@@ -221,7 +241,13 @@ function TodayDiaryTab() {
           rows={9}
           style={noteAreaStyle(t)}
         />
-        <SaveRow t={t} saveState={saveState} disabled={!content.trim()} onSave={() => save(selectedDate, content)} />
+        <SaveRow
+          t={t}
+          saveState={saveState}
+          disabled={!content.trim()}
+          onSave={() => save(selectedDate, content)}
+          onDelete={existingId ? () => setConfirmDelete({ id: existingId, isCurrent: true }) : undefined}
+        />
       </div>
 
       {/* 최근 일기 */}
@@ -235,11 +261,11 @@ function TodayDiaryTab() {
               const { day: d, weekday: w } = dateLabel(entry.entryDate);
               const isSel = entry.entryDate === selectedDate;
               return (
-                <li key={entry.id}>
+                <li key={entry.id} className="relative">
                   <button
                     type="button"
                     onClick={() => onPickRecent(entry.entryDate)}
-                    className="w-full text-left rounded-2xl p-4 transition-colors"
+                    className="w-full text-left rounded-2xl p-4 pr-12 transition-colors"
                     style={{ backgroundColor: t.card, border: `1px solid ${isSel ? t.danger : t.border}` }}
                   >
                     <div className="flex items-baseline gap-2 mb-1.5">
@@ -248,12 +274,32 @@ function TodayDiaryTab() {
                     </div>
                     <p style={excerptStyle(t)}>{entry.content}</p>
                   </button>
+                  <button
+                    type="button"
+                    onClick={() => setConfirmDelete({ id: entry.id, isCurrent: entry.entryDate === selectedDate })}
+                    className="absolute top-3 right-3 p-1.5 rounded-lg"
+                    style={{ color: t.textMuted }}
+                    aria-label="일기 삭제"
+                  >
+                    <Trash2 size={15} />
+                  </button>
                 </li>
               );
             })}
           </ul>
         )}
       </section>
+
+      {confirmDelete && (
+        <ConfirmModal
+          message="이 일기를 삭제할까요?"
+          description="삭제한 일기는 되돌릴 수 없어요."
+          confirmText="삭제"
+          confirmDanger
+          onConfirm={doDelete}
+          onCancel={() => setConfirmDelete(null)}
+        />
+      )}
     </div>
   );
 }
@@ -271,6 +317,7 @@ function QuestionDiaryTab() {
   const [loading, setLoading] = useState(true);
   const [saveState, setSaveState] = useState<'idle' | 'saving' | 'saved'>('idle');
   const [exploreOpen, setExploreOpen] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState<{ id: string; isCurrent: boolean } | null>(null);
 
   const loadedRef = useRef('');
   const editingRef = useRef(false);
@@ -402,6 +449,21 @@ function QuestionDiaryTab() {
     topRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
   };
 
+  // 삭제 — 현재 편집 중인 날짜의 답변이면 작성칸을 비우고 질문을 다시 배정한다.
+  const doDelete = async () => {
+    if (!confirmDelete) return;
+    const { id, isCurrent } = confirmDelete;
+    setConfirmDelete(null);
+    await db.diaryEntries.delete(id);
+    if (isCurrent) {
+      setAnswer('');
+      loadedRef.current = '';
+      setExistingId(null);
+      setCurrentQuestion(resolveQuestionForDate(selectedDate));
+    }
+    loadRecent();
+  };
+
   return (
     <div className="flex flex-col">
       <div ref={topRef} />
@@ -460,7 +522,13 @@ function QuestionDiaryTab() {
           rows={7}
           style={noteAreaStyle(t)}
         />
-        <SaveRow t={t} saveState={saveState} disabled={!answer.trim() || !currentQuestion} onSave={save} />
+        <SaveRow
+          t={t}
+          saveState={saveState}
+          disabled={!answer.trim() || !currentQuestion}
+          onSave={save}
+          onDelete={existingId ? () => setConfirmDelete({ id: existingId, isCurrent: true }) : undefined}
+        />
       </div>
 
       {/* 지난 질문일기 */}
@@ -474,11 +542,11 @@ function QuestionDiaryTab() {
               const { day: d, weekday: w } = dateLabel(entry.entryDate);
               const isSel = entry.entryDate === selectedDate;
               return (
-                <li key={entry.id}>
+                <li key={entry.id} className="relative">
                   <button
                     type="button"
                     onClick={() => onPickRecent(entry.entryDate)}
-                    className="w-full text-left rounded-2xl p-4 transition-colors"
+                    className="w-full text-left rounded-2xl p-4 pr-12 transition-colors"
                     style={{ backgroundColor: t.card, border: `1px solid ${isSel ? t.danger : t.border}` }}
                   >
                     <div className="flex items-baseline gap-2 mb-1.5">
@@ -491,6 +559,15 @@ function QuestionDiaryTab() {
                       </p>
                     )}
                     <p style={excerptStyle(t)}>{entry.content}</p>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setConfirmDelete({ id: entry.id, isCurrent: entry.entryDate === selectedDate })}
+                    className="absolute top-3 right-3 p-1.5 rounded-lg"
+                    style={{ color: t.textMuted }}
+                    aria-label="질문일기 삭제"
+                  >
+                    <Trash2 size={15} />
                   </button>
                 </li>
               );
@@ -505,6 +582,17 @@ function QuestionDiaryTab() {
           onClose={() => setExploreOpen(false)}
           onSelect={selectQuestion}
           onReloadQuestions={loadQuestions}
+        />
+      )}
+
+      {confirmDelete && (
+        <ConfirmModal
+          message="이 질문일기를 삭제할까요?"
+          description="삭제한 답변은 되돌릴 수 없어요."
+          confirmText="삭제"
+          confirmDanger
+          onConfirm={doDelete}
+          onCancel={() => setConfirmDelete(null)}
         />
       )}
     </div>
@@ -768,7 +856,13 @@ function MemoryTab() {
         </div>
       )}
 
-      {detail && <MemoryDetailSheet entry={detail} onClose={() => setDetail(null)} />}
+      {detail && (
+        <MemoryDetailSheet
+          entry={detail}
+          onClose={() => setDetail(null)}
+          onDeleted={() => { setDetail(null); load(); }}
+        />
+      )}
     </div>
   );
 }
@@ -845,12 +939,13 @@ function MemoryCard({ entry, onOpen }: { entry: DiaryEntry; onOpen: (e: DiaryEnt
   );
 }
 
-// 기록 상세 (읽기 전용 바텀시트/모달)
-function MemoryDetailSheet({ entry, onClose }: { entry: DiaryEntry; onClose: () => void }) {
+// 기록 상세 (읽기 전용 바텀시트/모달 + 삭제)
+function MemoryDetailSheet({ entry, onClose, onDeleted }: { entry: DiaryEntry; onClose: () => void; onDeleted: () => void }) {
   const { t } = useTheme();
   const isQuestion = entry.type === 'question';
   const d = parseISO(entry.entryDate);
   const dateText = format(d, 'yyyy년 M월 d일 EEEE', { locale: ko });
+  const [confirming, setConfirming] = useState(false);
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
@@ -858,7 +953,14 @@ function MemoryDetailSheet({ entry, onClose }: { entry: DiaryEntry; onClose: () 
     return () => window.removeEventListener('keydown', handler);
   }, [onClose]);
 
+  const handleDelete = async () => {
+    setConfirming(false);
+    await db.diaryEntries.delete(entry.id);
+    onDeleted();
+  };
+
   return (
+    <>
     <div
       className="fixed inset-0 z-40 flex items-end lg:items-center justify-center"
       style={{ background: 'rgba(0,0,0,0.35)' }}
@@ -905,34 +1007,75 @@ function MemoryDetailSheet({ entry, onClose }: { entry: DiaryEntry; onClose: () 
           </p>
           <div className="h-4" />
         </div>
+
+        {/* 푸터 — 삭제 */}
+        <div className="flex-none px-5 py-3" style={{ borderTop: `1px solid ${t.border}` }}>
+          <button
+            type="button"
+            onClick={() => setConfirming(true)}
+            className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-sm font-semibold"
+            style={{ color: t.danger, backgroundColor: t.dangerLight }}
+          >
+            <Trash2 size={15} /> 삭제
+          </button>
+        </div>
       </div>
     </div>
+
+    {confirming && (
+      <ConfirmModal
+        message="이 기록을 삭제할까요?"
+        description="삭제한 일기는 되돌릴 수 없어요."
+        confirmText="삭제"
+        confirmDanger
+        onConfirm={handleDelete}
+        onCancel={() => setConfirming(false)}
+      />
+    )}
+    </>
   );
 }
 
 // ── 작은 공용 조각 ────────────────────────────────────────────────────────────
 function SaveRow({
-  t, saveState, disabled, onSave,
+  t, saveState, disabled, onSave, onDelete,
 }: {
   t: ThemeTokens;
   saveState: 'idle' | 'saving' | 'saved';
   disabled: boolean;
   onSave: () => void;
+  onDelete?: () => void;   // 이미 저장된 기록일 때만 전달 → 삭제 버튼 노출
 }) {
   return (
-    <div className="flex items-center justify-end gap-3 mt-3">
-      <span style={{ fontSize: 12, color: t.textMuted }}>
-        {saveState === 'saving' ? '저장 중...' : saveState === 'saved' ? '저장됨' : ''}
-      </span>
-      <button
-        type="button"
-        onClick={onSave}
-        disabled={disabled || saveState === 'saving'}
-        className="flex items-center gap-1.5 px-5 py-2 rounded-xl text-sm font-semibold transition-opacity disabled:opacity-40"
-        style={{ backgroundColor: t.danger, color: '#fff' }}
-      >
-        <Check size={15} /> 저장
-      </button>
+    <div className="flex items-center justify-between gap-3 mt-3">
+      {/* 좌측: 삭제(저장된 기록일 때만) */}
+      <div>
+        {onDelete && (
+          <button
+            type="button"
+            onClick={onDelete}
+            className="flex items-center gap-1 px-2 py-1.5 rounded-lg text-sm transition-colors"
+            style={{ color: t.textMuted }}
+          >
+            <Trash2 size={14} /> 삭제
+          </button>
+        )}
+      </div>
+      {/* 우측: 저장 상태 + 저장 */}
+      <div className="flex items-center gap-3">
+        <span style={{ fontSize: 12, color: t.textMuted }}>
+          {saveState === 'saving' ? '저장 중...' : saveState === 'saved' ? '저장됨' : ''}
+        </span>
+        <button
+          type="button"
+          onClick={onSave}
+          disabled={disabled || saveState === 'saving'}
+          className="flex items-center gap-1.5 px-5 py-2 rounded-xl text-sm font-semibold transition-opacity disabled:opacity-40"
+          style={{ backgroundColor: t.danger, color: '#fff' }}
+        >
+          <Check size={15} /> 저장
+        </button>
+      </div>
     </div>
   );
 }
