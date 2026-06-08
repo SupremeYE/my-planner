@@ -183,7 +183,9 @@ export default function MindmapTab({ scrapId, onNavigateScrap }: Props) {
 
   // ── 포인터: 팬 + 핀치 줌 ────────────────────────────────────────────────
   const onPointerDown = (e: React.PointerEvent) => {
-    containerRef.current?.setPointerCapture(e.pointerId);
+    // 주의: 여기서 setPointerCapture 를 호출하면 이후 click 이벤트가 노드가 아니라
+    // 캡처 대상(컨테이너)으로 디스패치되어 노드 선택이 막힌다. 캡처는 드래그가
+    // 확정된 순간(onPointerMove)에만 건다 → 클릭=선택 / 드래그=팬 분리.
     pointers.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
     movedRef.current = false;
     if (pointers.current.size === 1) {
@@ -215,8 +217,10 @@ export default function MindmapTab({ scrapId, onNavigateScrap }: Props) {
       panRef.current.lastY = e.clientY;
       const cur = tfRef.current;
       applyTf({ ...cur, tx: cur.tx + dx, ty: cur.ty + dy });
-      if (Math.hypot(e.clientX - panRef.current.startX, e.clientY - panRef.current.startY) > 5) {
+      if (!movedRef.current && Math.hypot(e.clientX - panRef.current.startX, e.clientY - panRef.current.startY) > 5) {
         movedRef.current = true;
+        // 드래그 확정 시에만 캡처 → 컨테이너 밖으로 나가도 팬 지속(클릭은 이미 분리됨)
+        try { containerRef.current?.setPointerCapture(e.pointerId); } catch { /* noop */ }
       }
     }
   };
