@@ -7,6 +7,7 @@ import { useTheme } from '../../ThemeContext';
 import { db } from '../../../lib/db';
 import { useRealtimeSync } from '../../hooks/useRealtimeSync';
 import type { Scrap, ScrapNote, ScrapSource, ScrapStatus } from '../../store';
+import MindmapTab from './MindmapTab';
 
 // 토큰 hex → rgba (다른 모달과 동일 패턴)
 function withAlpha(hex: string, alpha: number): string {
@@ -72,6 +73,9 @@ export default function ScrapDetailSheet({ scrap: initialScrap, onClose, onChang
   const [editingComment, setEditingComment] = useState(false);
   const [commentDraft, setCommentDraft] = useState(scrap.comment ?? '');
   const [tagDraft, setTagDraft] = useState('');
+
+  // 본문 탭 — 글 기록 / 마인드맵
+  const [activeTab, setActiveTab] = useState<'notes' | 'mindmap'>('notes');
 
   // 진입 애니메이션
   const [isIn, setIsIn] = useState(false);
@@ -455,6 +459,48 @@ export default function ScrapDetailSheet({ scrap: initialScrap, onClose, onChang
               </div>
             </div>
 
+            {/* ── 탭 바: 글 기록 / 마인드맵 ── */}
+            <div
+              className="flex"
+              style={{
+                backgroundColor: t.bgSub,
+                border: `1px solid ${t.borderLight}`,
+                borderRadius: 12,
+                padding: 3,
+                gap: 2,
+              }}
+            >
+              {([
+                { value: 'notes' as const, label: '글 기록' },
+                { value: 'mindmap' as const, label: '마인드맵' },
+              ]).map(tab => {
+                const active = activeTab === tab.value;
+                return (
+                  <button
+                    key={tab.value}
+                    onClick={() => setActiveTab(tab.value)}
+                    style={{
+                      flex: 1,
+                      fontSize: 12,
+                      fontWeight: 700,
+                      padding: '8px 0',
+                      borderRadius: 9,
+                      backgroundColor: active ? t.card : 'transparent',
+                      color: active ? t.text : t.textSub,
+                      boxShadow: active ? '0 1px 3px rgba(0,0,0,0.08)' : 'none',
+                      transition: 'background-color .15s ease, color .15s ease',
+                    }}
+                  >
+                    {tab.label}
+                  </button>
+                );
+              })}
+            </div>
+
+            {activeTab === 'mindmap' ? (
+              <MindmapTab scrapId={initialScrap.id} />
+            ) : (
+            <>
             {/* ── 노트 패널 (핵심) ── */}
             <div>
               <div className="flex items-center justify-between" style={{ marginBottom: 8 }}>
@@ -639,6 +685,8 @@ export default function ScrapDetailSheet({ scrap: initialScrap, onClose, onChang
                 연결 기능은 곧 추가돼요
               </p>
             </div>
+            </>
+            )}
           </div>
         </div>
       </div>

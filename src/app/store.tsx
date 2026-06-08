@@ -340,6 +340,25 @@ export interface ScrapNote {
   createdAt: string;
 }
 
+// ── 마인드맵 (Phase 5-0) ──────────────────────────────────────────────────
+// 루트 직속 가지에만 의미 있는 방향. 그 아래는 부모 방향을 상속(클라이언트 계산).
+export type MindmapDir = 'right' | 'left' | 'up' | 'down';
+
+export interface MindmapNode {
+  id: string;
+  scrapId: string;
+  parentId: string | null;   // 루트는 null
+  text: string;
+  dir: MindmapDir | null;     // 루트 직속 가지에만 의미
+  sortOrder: number;
+  createdAt: string;
+}
+
+// 트리 조립 결과 — children 으로 자식 노드를 품는다.
+export interface MindmapTreeNode extends MindmapNode {
+  children: MindmapTreeNode[];
+}
+
 export interface PeriodRecord {
   id: string;
   startDate: string;        // yyyy-MM-dd
