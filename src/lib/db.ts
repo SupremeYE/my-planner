@@ -2342,5 +2342,24 @@ export const db = {
       if (error) { console.error('[db] mindmap listNodeScraps:', error.message); return []; }
       return (data ?? []).map(r => r.scrap_id);
     },
+
+    // 한 마인드맵(scrap_id)에 속한 모든 노드의 연결을 한 번에 조회 — 칩 렌더용 벌크.
+    // 반환: { nodeId, scrapId }[] (노드별로 묶는 건 호출 측에서).
+    listLinks: async (scrapId: string): Promise<{ nodeId: string; scrapId: string }[]> => {
+      const { data: nodes, error: nErr } = await supabase
+        .from('mindmap_nodes')
+        .select('id')
+        .eq('scrap_id', scrapId);
+      if (nErr) { console.error('[db] mindmap listLinks nodes:', nErr.message); return []; }
+      const nodeIds = (nodes ?? []).map(n => n.id);
+      if (nodeIds.length === 0) return [];
+
+      const { data, error } = await supabase
+        .from('mindmap_node_scraps')
+        .select('node_id, scrap_id')
+        .in('node_id', nodeIds);
+      if (error) { console.error('[db] mindmap listLinks:', error.message); return []; }
+      return (data ?? []).map(r => ({ nodeId: r.node_id, scrapId: r.scrap_id }));
+    },
   },
 };

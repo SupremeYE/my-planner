@@ -56,9 +56,10 @@ interface Props {
   scrap: Scrap;
   onClose: () => void;
   onChanged: () => void; // 그리드 즉시 반영 트리거 (상태/코멘트/태그 갱신용)
+  onNavigateScrap?: (scrapId: string) => void; // 마인드맵 칩 → 다른 스크랩 상세로 이동
 }
 
-export default function ScrapDetailSheet({ scrap: initialScrap, onClose, onChanged }: Props) {
+export default function ScrapDetailSheet({ scrap: initialScrap, onClose, onChanged, onNavigateScrap }: Props) {
   const { t } = useTheme();
 
   // 로컬 사본 — 낙관적 업데이트로 즉시 반영, 백그라운드 저장
@@ -498,7 +499,7 @@ export default function ScrapDetailSheet({ scrap: initialScrap, onClose, onChang
             </div>
 
             {activeTab === 'mindmap' ? (
-              <MindmapTab scrapId={initialScrap.id} />
+              <MindmapTab scrapId={initialScrap.id} onNavigateScrap={onNavigateScrap} />
             ) : (
             <>
             {/* ── 노트 패널 (핵심) ── */}
