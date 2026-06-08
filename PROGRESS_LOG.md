@@ -9,6 +9,7 @@
 ## 2026-06-08
 
 ### ✅ 완료
+- [x] 운동 모듈 **Stage 3** — 종목 이미지 GitHub raw 핫링크 → Supabase Storage(`exercise-images`) 이관(자립화). 버킷 생성 + 멱등 이관 스크립트/Edge Function + image_url 갱신 (UI 로직 무변경)
 - [x] 운동 모듈 **Stage 1** — 건강 메뉴 '운동' 탭(모바일): 스트릭 히어로 + 오늘의 루틴 + 부위별 마지막 운동 + 종목별 성장 그래프 + 오늘의 운동, 바텀시트 4종(종목선택/기록/주간루틴/지난기록). 색상 토큰만·PC 미변경·런타임 번역 호출 없음
 - [x] 운동 모듈 **Stage 0** — Supabase 스키마 5테이블 + free-exercise-db(873종목) import + 스타터 한글 9종목 (DB only, UI/컴포넌트 미변경, 런타임 번역 금지 원칙 명시)
 - [x] 통합 일기 **Stage 2** — 질문일기 탭: 오늘의 질문 카드(날짜 deterministic 기본 질문 + localStorage 고정) + 답변 작성·자동저장 + "다른 질문" 셔플 + 질문 탐색 시트(카테고리 필터/나만의 질문 추가·삭제) + 지난 질문일기 리스트 + 기존 `/question-journal` → `/diary` 리다이렉트
@@ -16,6 +17,14 @@
 - [x] **통합 일기 페이지(오늘 일기 / 질문일기 / 이날의 기억) 3탭 전체 완성**
 
 ### 🛠 오늘 작업 내용
+
+**운동 모듈 Stage 3 — 종목 이미지 Storage 이관(자립화)**
+- 목적: 종목 이미지를 외부 GitHub raw 핫링크 의존에서 벗어나 Supabase Storage 로 자체 호스팅(대역폭·가용성 안정화). UI 로직 변경 없이 `exercises.image_url` 값만 교체
+- 마이그레이션 `20260608020000_create_exercise_images_bucket.sql`: 공개 읽기 버킷 `exercise-images` 생성(scrap-thumbs/food-photos 패턴) — 공개 select 정책 + 인증 사용자 쓰기 정책(실제 이관은 service_role 로 RLS 우회 업로드)
+- 이관 로직(멱등): `source='free-exercise-db'` 이고 image_url 이 아직 GitHub raw 핫링크인 행만 대상 → 이미지 다운로드 → `exercise-images/{source_id}/0.jpg` upsert 업로드 → image_url 을 Storage 공개 URL 로 UPDATE. 실패 항목은 핫링크 유지(앱 무손상). 이미 Storage URL 인 행은 건너뜀(재실행 안전). `--adopted-only` 모드(채택 종목=name_ko 보유/logs·routines 등장만 우선 이관)
+- 두 가지 실행 경로 제공: ① `scripts/migrate-exercise-images.mjs`(서비스롤 키로 로컬 1회 실행) ② Edge Function `migrate-exercise-images`(서버 측 실행 — 네트워크 송신 제한 환경 대비, `?adoptedOnly`/`?limit` 파라미터·배치·토큰 가드)
+- **실행 결과**: 채택 8종목 우선 이관 후 전체 873종목 배치 이관 완료(`uploaded` 누계 = 873, `failed` 0, 남은 핫링크 0). 공개 URL 200·image/jpeg 응답 확인(예: `.../exercise-images/Romanian_Deadlift/0.jpg` 59,859 bytes). 무료 플랜 1GB 대비 합계 ~50MB 수준
+- `ExerciseThumb` 등 UI 는 image_url 을 그대로 읽으므로 코드 변경 0 — 핫링크와 동일 외형
 
 **운동 모듈 Stage 1 — 모바일 운동 탭 UI (`workout/`)**
 - `HealthView` 탭에 '운동' 추가(수면/컨디션/몸무게/생리/운동 5탭) — 모바일 탭바 `grid-cols-4`→`grid-cols-5`, PC 는 `lg:flex` 그대로(PC 레이아웃 무변경). 운동 탭 콘텐츠는 `max-w-440` 중앙 컬럼(모바일 기준, PC 별도 레이아웃은 Stage 2)
