@@ -2256,6 +2256,15 @@ export const db = {
       if (error) { console.error('[db] diary_entries question insert:', error.message); return null; }
       return data ? toDiaryEntry(data) : null;
     },
+    // "이날의 기억" — 기준 월/일과 같고 연도가 [fromYear, toYear] 범위인 기록 전부(type 무관).
+    // RPC diary_on_this_day → diary_entries_user_monthday_idx 사용. entry_date 내림차순.
+    listOnThisDay: async (month: number, day: number, fromYear: number, toYear: number): Promise<DiaryEntry[]> => {
+      const { data, error } = await supabase.rpc('diary_on_this_day', {
+        p_month: month, p_day: day, p_from_year: fromYear, p_to_year: toYear,
+      });
+      if (error) console.error('[db] diary_entries listOnThisDay:', error.message);
+      return ((data ?? []) as DiaryEntryRow[]).map(toDiaryEntry);
+    },
     delete: async (id: string) => {
       const { error } = await supabase.from('diary_entries').delete().eq('id', id);
       if (error) console.error('[db] diary_entries delete:', error.message);

@@ -6,6 +6,30 @@
 
 ---
 
+## 2026-06-08
+
+### ✅ 완료
+- [x] 통합 일기 **Stage 2** — 질문일기 탭: 오늘의 질문 카드(날짜 deterministic 기본 질문 + localStorage 고정) + 답변 작성·자동저장 + "다른 질문" 셔플 + 질문 탐색 시트(카테고리 필터/나만의 질문 추가·삭제) + 지난 질문일기 리스트 + 기존 `/question-journal` → `/diary` 리다이렉트
+- [x] 통합 일기 **Stage 3** — 이날의 기억(5년 일기) 탭: 기준 날짜의 월/일 같은 1~5년 전 기록 조회(월/일 expression 인덱스) + 연도 블록(자유/질문 type 뱃지) + 기록 없는 연도 흐린 빈 카드 + 전부 비면 안내 문구 + 읽기 전용 상세 시트
+- [x] **통합 일기 페이지(오늘 일기 / 질문일기 / 이날의 기억) 3탭 전체 완성**
+
+### 🛠 오늘 작업 내용
+
+**통합 일기 Stage 2 — 질문일기 탭 (`DiaryView.tsx`)**
+- 오늘의 질문 카드: 답변 있으면 `question_text` 스냅샷+답변 로드(편집), 없으면 날짜 deterministic 기본 질문(최근 답한 질문 가급적 제외) + `localStorage`로 같은 날 질문 고정. coral 좌측 강조 + 카테고리 태그(accentLight) + DM Serif 질문 문장
+- 답변: 개구 폰트 textarea + 자동저장(debounce 1.5s)·수동 저장. `(entry_date, type='question')` 앱 레벨 upsert(하루 1건), `question_id` + `question_text`(작성 시점 스냅샷) 함께 기록
+- "다른 질문" 셔플(미답 상태에서만, 현재/최근 제외) + 질문 탐색 시트(`ExploreSheet`): 카테고리 필터칩(전체/나만의 질문/12 카테고리 등장 순) + 질문 선택→오늘의 질문 지정 + 나만의 질문 추가(`is_default=false`)·삭제(기본 질문은 RLS 차단)
+- 지난 질문일기 7건(`entry_date` 내림차순): 날짜 + 질문(이탤릭 회색) + 답변 발췌(개구 2줄), 클릭 시 해당 날짜 로드
+- `db.diaryEntries`(fetchQuestionByDate/listRecentQuestion/upsertQuestion) + `db.journalQuestions`(fetchAll/createCustom/delete) + `JournalQuestion` 타입. `diary_entries`·`journal_questions` Realtime 구독
+- 기존 질문일기 데이터 0건 확인 → 마이그레이션 불필요. `/question-journal` 라우트 `/diary` 리다이렉트, 네비에서 '질문일기' 제거(`QuestionJournalView.tsx` 파일은 미변경)
+
+**통합 일기 Stage 3 — 이날의 기억(5년 일기) 탭 (`DiaryView.tsx`)**
+- 조회 RPC `diary_on_this_day(month, day, fromYear, toYear)` 신규(`20260608000000_diary_on_this_day_rpc.sql`, Supabase 적용 완료): `extract(month/day)` 필터 → `diary_entries_user_monthday_idx` 사용(쿼리 플랜 `Index Scan` 확인). security invoker + RLS로 본인 기록만. 2월 29일은 윤년만 매칭되어 평년 자연 제외
+- `MemoryTab`: 기준 날짜(기본 오늘, 달력으로 변경·미래 차단)의 월/일과 같고 연도 1~5년 전 기록 전부(자유·질문 무관) 조회 → 연도별 그룹(1년 전이 위)
+- `YearBlock`: "N년 전 · YYYY" 뱃지(gold) + 그 해 기록 카드. 기록 없는 연도는 흐린 빈 카드("이날의 기록이 아직 없어요"). 1~5년 전 전부 비면 안내 문구("매년 같은 날, 오늘의 기록이 이곳에 쌓여요…")
+- `MemoryCard`: type 뱃지(자유=success/질문=danger) + 좌측 강조선 + (질문이면 질문 문장 이탤릭) + 본문 발췌(개구). 클릭 → 읽기 전용 상세 시트(`MemoryDetailSheet`, 전체 본문 개구·whitespace 보존)
+- `db.diaryEntries.listOnThisDay` 추가. 색상 토큰만 사용(골드=accent/코랄=danger/그린=success), 본문 개구(`--font-hand`), PC 중앙 단일 컬럼·모바일 우선, 다른 페이지 무영향
+
 ## 2026-06-07
 
 ### 📋 TODO
