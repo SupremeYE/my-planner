@@ -129,18 +129,19 @@ function DateNav({ date, onChange, right }: { date: string; onChange: (d: string
 // 줄 간격(32px)과 line-height(32px)를 정확히 일치시키고, 기본 패딩을 0으로 둬
 // 글자 줄과 가로선의 위상을 맞춘다. background-attachment: local 로 스크롤 시에도
 // 선이 글자를 따라가도록 한다(고정선과 글자가 어긋나 보이는 문제 방지).
-// 가로선을 각 행의 '맨 위'(0, 32, 64…)에 그려 첫 줄 위에도 선이 생기게 한다.
+// display:block 으로 inline-block 사이 공백(여분 줄)이 생기지 않게 한다.
 const NOTE_LINE_H = 32;
 function noteAreaStyle(t: ThemeTokens): React.CSSProperties {
   const lineColor = t.borderLight || t.border;
   return {
+    display: 'block',
     width: '100%',
     resize: 'none',
     outline: 'none',
     border: 'none',
     padding: 0,
     backgroundColor: t.card,
-    backgroundImage: `repeating-linear-gradient(to bottom, ${lineColor} 0, ${lineColor} 1px, transparent 1px, transparent ${NOTE_LINE_H}px)`,
+    backgroundImage: `repeating-linear-gradient(to bottom, transparent 0, transparent ${NOTE_LINE_H - 1}px, ${lineColor} ${NOTE_LINE_H - 1}px, ${lineColor} ${NOTE_LINE_H}px)`,
     backgroundAttachment: 'local',
     fontFamily: 'var(--font-hand)',
     fontSize: 18,
@@ -301,7 +302,7 @@ function TodayDiaryTab() {
 
       {/* 작성 영역 — 제목칸 + 노트 줄 본문(손글씨) */}
       <div className="rounded-2xl p-4" style={{ backgroundColor: t.card, border: `1px solid ${t.border}` }}>
-        {/* 제목칸 */}
+        {/* 제목칸 — 한 줄(밑줄 포함)로 그리드에 맞춰 본문 줄과 연속되게 한다 */}
         <input
           value={title}
           onChange={e => setTitle(e.target.value)}
@@ -309,17 +310,22 @@ function TodayDiaryTab() {
           onBlur={() => { editingRef.current = false; }}
           placeholder="제목 (선택)"
           style={{
+            display: 'block',
+            boxSizing: 'border-box',
             width: '100%',
+            height: NOTE_LINE_H,
+            lineHeight: `${NOTE_LINE_H - 1}px`,
+            padding: 0,
             border: 'none',
+            borderBottom: `1px solid ${t.borderLight || t.border}`,
             outline: 'none',
             background: 'transparent',
             fontFamily: 'var(--font-hand)',
-            fontSize: 22,
+            fontSize: 19,
             fontWeight: 700,
             color: t.text,
           }}
         />
-        <div style={{ height: 1, background: t.border, margin: '8px 0 10px' }} />
         {/* 본문 — 원하는 줄을 클릭해 작성 */}
         <LinedTextarea
           value={content}
