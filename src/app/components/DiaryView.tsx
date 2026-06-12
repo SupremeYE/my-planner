@@ -1,11 +1,18 @@
-import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useImperativeHandle, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { addDays, format, parseISO, startOfWeek } from 'date-fns';
 import { ko } from 'date-fns/locale';
-import { CalendarDays, Check, ChevronDown, Compass, NotebookPen, PenLine, Pencil, Plus, Shuffle, Trash2, X } from 'lucide-react';
+import { CalendarDays, Check, ChevronDown, Compass, Loader2, Mic, NotebookPen, PenLine, Pencil, Plus, Shuffle, Square, Trash2, X } from 'lucide-react';
 import { useTheme, type ThemeTokens } from '../ThemeContext';
 import { db, type DiaryEntry, type JournalQuestion } from '../../lib/db';
 import { useRealtimeSync } from '../hooks/useRealtimeSync';
+import { useVoiceRecorder } from '../hooks/useVoiceRecorder';
 import ConfirmModal from './ConfirmModal';
+
+// 경과시간 m:ss 포맷
+function fmtElapsed(ms: number): string {
+  const s = Math.floor(ms / 1000);
+  return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
+}
 
 // 탭 정의 — Stage 1 오늘 일기, Stage 2 질문일기, Stage 3 이날의 기억(5년 일기).
 const TABS = [
@@ -393,26 +400,26 @@ function TodayDiaryTab() {
 
 // ── 작성 영역 자동 확장 textarea (A 모드 본문) ────────────────────────────────
 // 입력/마운트/값 로드 시 height='auto' → scrollHeight 로 자동 확장. overflow:hidden.
-function AutoGrowTextarea({
-  value, onChange, onFocus, onBlur, placeholder,
-}: {
+// forwardRef — 음성 변환 텍스트를 현재 커서 위치에 삽입하기 위해 외부에서 ref 접근.
+const AutoGrowTextarea = React.forwardRef<HTMLTextAreaElement, {
   value: string;
   onChange: (v: string) => void;
   onFocus?: () => void;
   onBlur?: () => void;
   placeholder?: string;
-}) {
+}>(function AutoGrowTextarea({ value, onChange, onFocus, onBlur, placeholder }, ref) {
   const { t } = useTheme();
-  const ref = useRef<HTMLTextAreaElement>(null);
+  const innerRef = useRef<HTMLTextAreaElement>(null);
+  useImperativeHandle(ref, () => innerRef.current as HTMLTextAreaElement, []);
   useLayoutEffect(() => {
-    const el = ref.current;
+    const el = innerRef.current;
     if (!el) return;
     el.style.height = 'auto';
     el.style.height = `${el.scrollHeight}px`;
   }, [value]);
   return (
     <textarea
-      ref={ref}
+      ref={innerRef}
       value={value}
       onChange={e => onChange(e.target.value)}
       onFocus={onFocus}
@@ -437,7 +444,7 @@ function AutoGrowTextarea({
       }}
     />
   );
-}
+});
 
 // ── 작성 카드 (A 모드: 줄 없음 · 옅은 점 질감 · 둥근 카드) ─────────────────────
 function WriteCard({
@@ -457,66 +464,184 @@ function WriteCard({
   const { t } = useTheme();
   // 점 질감 — 골드(accent) 아주 옅게(약 10%). 토큰 hex 에 알파 8자리로 부여.
   const dot = `${t.accent}1A`;
+
+  const taRef = useRef<HTMLTextAreaElement>(null);
+  const [sheetOpen, setSheetOpen] = useState(false);
+  const { status, elapsedMs, error, setError, start, stopAndTranscribe, cancel, analyserRef } = useVoiceRecorder();
+
+  // 변환된 텍스트를 현재 커서 위치(없으면 끝)에 삽입 → onContent 로 상태 갱신(자동 확장 따라감)
+  const insertText = useCallback((text: string) => {
+    if (!text) return;
+    const ta = taRef.current;
+    if (ta && ta.selectionStart != null) {
+      const s = ta.selectionStart;
+      const e = ta.selectionEnd ?? s;
+      const before = content.slice(0, s);
+      const after = content.slice(e);
+      const sep = before && !/\s$/.test(before) ? ' ' : '';
+      const next = before + sep + text + after;
+      onContent(next);
+      // 삽입 후 커서를 삽입 끝으로
+      const caret = (before + sep + text).length;
+      requestAnimationFrame(() => { try { ta.focus(); ta.setSelectionRange(caret, caret); } catch { /* noop */ } });
+    } else {
+      const sep = content && !/\s$/.test(content) ? ' ' : '';
+      onContent(content + sep + text);
+    }
+  }, [content, onContent]);
+
+  // PC: 버튼 한 번으로 시작/중지 토글
+  const onPcMic = useCallback(async () => {
+    if (status === 'idle') { await start(); }
+    else if (status === 'recording') { const text = await stopAndTranscribe(); insertText(text); }
+  }, [status, start, stopAndTranscribe, insertText]);
+
+  // 모바일: 플로팅 마이크 → 권한·시작 성공 시 녹음 시트 오픈
+  const onMobileMic = useCallback(async () => {
+    if (status !== 'idle') return;
+    const ok = await start();
+    if (ok) setSheetOpen(true);
+  }, [status, start]);
+
+  // 모바일 시트: 중지하고 변환 → 본문 삽입 후 시트 닫기
+  const onSheetStop = useCallback(async () => {
+    const text = await stopAndTranscribe();
+    setSheetOpen(false);
+    insertText(text);
+  }, [stopAndTranscribe, insertText]);
+
+  const onSheetCancel = useCallback(() => {
+    cancel();
+    setSheetOpen(false);
+  }, [cancel]);
+
+  const recording = status === 'recording';
+  const transcribing = status === 'transcribing';
+
+  // PC 마이크 버튼 (툴바 좌측에 배치, 모바일은 숨김)
+  const pcMic = (
+    <button
+      type="button"
+      onClick={onPcMic}
+      disabled={transcribing}
+      className="hidden lg:inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm transition-colors disabled:opacity-50"
+      style={{
+        border: `1px solid ${recording ? t.danger : t.border}`,
+        backgroundColor: recording ? t.dangerLight : t.card,
+        color: recording ? t.danger : t.textSub,
+      }}
+    >
+      {transcribing ? (
+        <><Loader2 size={15} className="animate-spin" /> 변환 중...</>
+      ) : recording ? (
+        <><span className="rounded-full animate-pulse" style={{ width: 8, height: 8, background: t.danger }} /> 듣고 있어요 · {fmtElapsed(elapsedMs)}</>
+      ) : (
+        <><Mic size={15} style={{ color: t.danger }} /> 음성으로 쓰기</>
+      )}
+    </button>
+  );
+
   return (
     <>
-      <div
-        className="rounded-2xl"
-        style={{
-          border: `1px solid ${t.border}`,
-          backgroundColor: t.card,
-          backgroundImage: `radial-gradient(${dot} 1px, transparent 1px)`,
-          backgroundSize: '7px 7px',
-          padding: '20px 22px',
-        }}
-      >
-        {/* 제목(선택) — DM Serif, 하단 보더 */}
-        <input
-          value={title}
-          onChange={e => onTitle(e.target.value)}
-          onFocus={onFocus}
-          onBlur={onBlur}
-          placeholder="제목 (선택)"
+      <div className="relative">
+        <div
+          className="rounded-2xl p-5 pb-14 lg:pb-5"
           style={{
-            display: 'block',
-            width: '100%',
-            border: 'none',
-            outline: 'none',
-            background: 'transparent',
-            padding: '0 0 10px',
-            marginBottom: 12,
-            borderBottom: `1px solid ${t.border}`,
-            fontFamily: "'DM Serif Display', serif",
-            fontSize: 20,
-            color: t.text,
+            border: `1px solid ${t.border}`,
+            backgroundColor: t.card,
+            backgroundImage: `radial-gradient(${dot} 1px, transparent 1px)`,
+            backgroundSize: '7px 7px',
           }}
-        />
-        {/* 본문 — 개구(Gaegu), 줄 없음, 자동 확장 */}
-        <AutoGrowTextarea
-          value={content}
-          onChange={onContent}
-          onFocus={onFocus}
-          onBlur={onBlur}
-          placeholder="오늘 하루는 어땠나요? 자유롭게 적어보세요..."
-        />
+        >
+          {/* 제목(선택) — DM Serif, 하단 보더 */}
+          <input
+            value={title}
+            onChange={e => onTitle(e.target.value)}
+            onFocus={onFocus}
+            onBlur={onBlur}
+            placeholder="제목 (선택)"
+            style={{
+              display: 'block',
+              width: '100%',
+              border: 'none',
+              outline: 'none',
+              background: 'transparent',
+              padding: '0 0 10px',
+              marginBottom: 12,
+              borderBottom: `1px solid ${t.border}`,
+              fontFamily: "'DM Serif Display', serif",
+              fontSize: 20,
+              color: t.text,
+            }}
+          />
+          {/* 본문 — 개구(Gaegu), 줄 없음, 자동 확장 */}
+          <AutoGrowTextarea
+            ref={taRef}
+            value={content}
+            onChange={onContent}
+            onFocus={onFocus}
+            onBlur={onBlur}
+            placeholder="오늘 하루는 어땠나요? 자유롭게 적어보세요..."
+          />
+        </div>
+
+        {/* 모바일 플로팅 마이크 (작성칸 우하단) */}
+        <button
+          type="button"
+          onClick={onMobileMic}
+          disabled={status !== 'idle'}
+          aria-label="음성으로 쓰기"
+          className="lg:hidden absolute grid place-items-center rounded-full disabled:opacity-60"
+          style={{
+            right: 14, bottom: 14, width: 46, height: 46,
+            background: t.danger, color: '#fff',
+            boxShadow: `0 6px 16px ${t.danger}66`,
+          }}
+        >
+          {transcribing ? <Loader2 size={20} className="animate-spin" /> : <Mic size={20} />}
+        </button>
       </div>
-      <SaveToolbar t={t} saveState={saveState} disabled={disabled} onSave={onSave} onDelete={onDelete} />
+
+      <SaveToolbar t={t} saveState={saveState} disabled={disabled} onSave={onSave} onDelete={onDelete} extra={pcMic} />
+
+      {/* 변환 중 안내(모바일 시트가 닫혀 있어도 PC/모바일 공통 표시) */}
+      {error && (
+        <p className="mt-2 text-sm" style={{ color: t.danger }}>
+          {error}{' '}
+          <button type="button" onClick={() => setError(null)} className="underline" style={{ color: t.textMuted }}>닫기</button>
+        </p>
+      )}
+
+      {/* 모바일 녹음 시트 */}
+      {sheetOpen && (
+        <VoiceSheet
+          analyserRef={analyserRef}
+          recording={recording}
+          transcribing={transcribing}
+          elapsedMs={elapsedMs}
+          onStop={onSheetStop}
+          onCancel={onSheetCancel}
+        />
+      )}
     </>
   );
 }
 
-// ── 저장 툴바 (coral 저장 버튼 + 저장 상태 + 삭제) ────────────────────────────
+// ── 저장 툴바 (coral 저장 버튼 + 저장 상태 + 삭제, 좌측 extra 슬롯) ─────────────
 function SaveToolbar({
-  t, saveState, disabled, onSave, onDelete,
+  t, saveState, disabled, onSave, onDelete, extra,
 }: {
   t: ThemeTokens;
   saveState: 'idle' | 'saving' | 'saved';
   disabled: boolean;
   onSave: () => void;
   onDelete?: () => void;
+  extra?: React.ReactNode;   // 음성으로 쓰기(PC) 등 좌측 추가 액션
 }) {
   return (
     <div className="flex items-center justify-between gap-3 mt-4">
-      <div>
+      <div className="flex items-center gap-2">
+        {extra}
         {onDelete && (
           <button
             type="button"
@@ -540,6 +665,104 @@ function SaveToolbar({
           style={{ backgroundColor: t.danger, color: '#fff', boxShadow: `0 6px 16px ${t.danger}4D` }}
         >
           <Check size={15} /> 저장
+        </button>
+      </div>
+    </div>
+  );
+}
+
+// ── 파형 비주얼라이저 (AnalyserNode 데이터로 막대 높이 구동) ───────────────────
+function WaveBars({
+  analyserRef, active,
+}: {
+  analyserRef: React.MutableRefObject<AnalyserNode | null>;
+  active: boolean;
+}) {
+  const { t } = useTheme();
+  const BARS = 24;
+  const barsRef = useRef<Array<HTMLDivElement | null>>([]);
+  useEffect(() => {
+    let raf = 0;
+    let buf: Uint8Array | null = null;
+    const tick = () => {
+      const an = analyserRef.current;
+      if (an && active) {
+        if (!buf || buf.length !== an.frequencyBinCount) buf = new Uint8Array(an.frequencyBinCount);
+        an.getByteFrequencyData(buf);
+        const bins = buf.length;
+        for (let i = 0; i < BARS; i++) {
+          const idx = Math.min(bins - 1, Math.floor((i / BARS) * bins));
+          const v = buf[idx] / 255;           // 0..1
+          const h = 6 + v * 44;               // 6~50px
+          const el = barsRef.current[i];
+          if (el) el.style.height = `${h}px`;
+        }
+      } else {
+        for (let i = 0; i < BARS; i++) {
+          const el = barsRef.current[i];
+          if (el) el.style.height = '8px';
+        }
+      }
+      raf = requestAnimationFrame(tick);
+    };
+    raf = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf);
+  }, [analyserRef, active]);
+  return (
+    <div className="flex items-center justify-center gap-1" style={{ height: 56 }}>
+      {Array.from({ length: BARS }).map((_, i) => (
+        <div
+          key={i}
+          ref={el => { barsRef.current[i] = el; }}
+          style={{ width: 5, height: 8, borderRadius: 3, background: t.danger, transition: 'height .08s linear' }}
+        />
+      ))}
+    </div>
+  );
+}
+
+// ── 모바일 녹음 시트 (큰 마이크 + 파형 + 경과시간 + 중지하고 변환) ──────────────
+function VoiceSheet({
+  analyserRef, recording, transcribing, elapsedMs, onStop, onCancel,
+}: {
+  analyserRef: React.MutableRefObject<AnalyserNode | null>;
+  recording: boolean;
+  transcribing: boolean;
+  elapsedMs: number;
+  onStop: () => void;
+  onCancel: () => void;
+}) {
+  const { t } = useTheme();
+  return (
+    <div className="fixed inset-0 z-50 flex items-end justify-center lg:hidden">
+      {/* dim — 변환 중이 아닐 때만 탭하면 취소 */}
+      <div
+        className="absolute inset-0"
+        style={{ background: 'rgba(60,53,46,0.32)' }}
+        onClick={transcribing ? undefined : onCancel}
+      />
+      <div
+        className="relative w-full rounded-t-3xl text-center"
+        style={{ background: t.card, padding: '22px 22px 30px', boxShadow: '0 -8px 30px rgba(60,53,46,0.22)' }}
+      >
+        <div className="mx-auto mb-4 rounded-full" style={{ width: 38, height: 4, background: t.border }} />
+        <WaveBars analyserRef={analyserRef} active={recording} />
+        <div className="mx-auto my-3 grid place-items-center rounded-full" style={{ width: 70, height: 70, background: t.danger, boxShadow: `0 8px 22px ${t.danger}66` }}>
+          {transcribing ? <Loader2 size={30} color="#fff" className="animate-spin" /> : <Mic size={30} color="#fff" fill="#fff" />}
+        </div>
+        <div className="mb-5" style={{ fontSize: 13, color: t.textSub }}>
+          {transcribing
+            ? '텍스트로 변환하고 있어요...'
+            : <>듣고 있어요 · <b style={{ color: t.danger, fontVariantNumeric: 'tabular-nums' }}>{fmtElapsed(elapsedMs)}</b></>}
+        </div>
+        <button
+          type="button"
+          onClick={onStop}
+          disabled={transcribing}
+          className="inline-flex items-center gap-2 rounded-full px-8 py-3 text-sm font-semibold disabled:opacity-60"
+          style={{ background: t.danger, color: '#fff' }}
+        >
+          {transcribing ? <><Loader2 size={15} className="animate-spin" /> 변환 중...</> : <><Square size={13} fill="#fff" /> 중지하고 변환</>}
         </button>
       </div>
     </div>
