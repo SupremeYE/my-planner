@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Plus, Pencil, Trash2, Check, X, Link2, ZoomIn, ZoomOut, Locate,
-  ArrowLeft, ArrowRight, ArrowUp, ArrowDown,
+  ArrowLeft, ArrowRight, ArrowUp, ArrowDown, Maximize2, Minimize2,
 } from 'lucide-react';
 import { useTheme } from '../../ThemeContext';
 import { db } from '../../../lib/db';
@@ -58,6 +58,7 @@ export default function MindmapTab({ scrapId, onNavigateScrap }: Props) {
   const [loading, setLoading] = useState(true);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [hoveredId, setHoveredId] = useState<string | null>(null); // PC hover 강조
+  const [fullscreen, setFullscreen] = useState(false);             // PC 전용 마인드맵 전체보기
 
   // 노드↔스크랩 연결: nodeId → scrapId[]
   const [links, setLinks] = useState<Map<string, string[]>>(new Map());
@@ -140,10 +141,19 @@ export default function MindmapTab({ scrapId, onNavigateScrap }: Props) {
   }, []);
 
   const recenter = useCallback(() => {
-    const { w, h } = sizeRef.current;
-    if (w === 0) return;
+    // 라이브 치수 사용 — 전체보기 토글 직후 sizeRef 가 아직 갱신 전이어도 정확히 중앙 정렬.
+    const el = containerRef.current;
+    const w = el?.clientWidth || sizeRef.current.w;
+    const h = el?.clientHeight || sizeRef.current.h;
+    if (!w) return;
     applyTf({ tx: w / 2, ty: h / 2, scale: DEFAULT_SCALE }); // 루트는 월드 (0,0)에 위치
   }, [applyTf]);
+
+  // 전체보기 전환 시 캔버스 크기가 크게 바뀌므로 다음 프레임에 다시 가운데 정렬.
+  useEffect(() => {
+    const id = requestAnimationFrame(() => recenter());
+    return () => cancelAnimationFrame(id);
+  }, [fullscreen, recenter]);
 
   // 최초 트리 로드 + 크기 확보 시 1회 자동 가운데 정렬
   useEffect(() => {
@@ -338,21 +348,22 @@ export default function MindmapTab({ scrapId, onNavigateScrap }: Props) {
         <span className="hidden lg:inline"> 휠로 확대, 더블클릭으로 바로 편집돼요.</span>
       </p>
 
-      {/* 캔버스 — 드래그 팬 / 핀치줌(모바일) · 휠줌(PC) */}
+      {/* 캔버스 — 드래그 팬 / 핀치줌(모바일) · 휠줌(PC)
+          전체보기(PC): 모달 안에서 absolute inset-0 오버레이로 확장(같은 엘리먼트 유지). */}
       <div
         ref={containerRef}
-        className="h-[380px] lg:h-[520px]"
+        className={fullscreen ? '' : 'h-[380px] lg:h-[520px]'}
         onPointerDown={onPointerDown}
         onPointerMove={onPointerMove}
         onPointerUp={onPointerUp}
         onPointerCancel={onPointerUp}
         onClick={() => { if (!movedRef.current) setSelectedId(null); }}
         style={{
-          position: 'relative',
-          width: '100%',
+          ...(fullscreen
+            ? { position: 'absolute', inset: 0, height: 'auto', width: 'auto', zIndex: 20, borderRadius: 0 }
+            : { position: 'relative', width: '100%', borderRadius: 14 }),
           overflow: 'hidden',
-          borderRadius: 14,
-          border: `1px solid ${t.borderLight}`,
+          border: fullscreen ? 'none' : `1px solid ${t.borderLight}`,
           backgroundColor: t.bgSub,
           backgroundImage: `radial-gradient(${t.borderLight} 1px, transparent 1px)`,
           backgroundSize: '20px 20px',
@@ -362,6 +373,23 @@ export default function MindmapTab({ scrapId, onNavigateScrap }: Props) {
           cursor: 'grab',
         }}
       >
+        {/* 전체보기 토글 (PC 전용) */}
+        <button
+          onClick={e => { e.stopPropagation(); setFullscreen(f => !f); }}
+          onPointerDown={e => e.stopPropagation()}
+          aria-label={fullscreen ? '마인드맵 축소' : '마인드맵 전체보기'}
+          title={fullscreen ? '축소' : '전체보기'}
+          className="hidden lg:flex"
+          style={{
+            position: 'absolute', top: 10, right: 10, zIndex: 9,
+            width: 34, height: 34, borderRadius: 10,
+            backgroundColor: t.card, border: `1px solid ${t.borderLight}`,
+            boxShadow: '0 1px 4px rgba(0,0,0,0.1)',
+            alignItems: 'center', justifyContent: 'center',
+          }}
+        >
+          {fullscreen ? <Minimize2 size={16} color={t.textSub} /> : <Maximize2 size={16} color={t.textSub} />}
+        </button>
         <svg width={size.w} height={size.h} style={{ display: 'block' }}>
           <g transform={`translate(${tf.tx}, ${tf.ty}) scale(${tf.scale})`}>
             {/* 커넥터(곡선 가지) */}

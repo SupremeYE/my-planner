@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ArrowLeft, X, ExternalLink, Youtube, Instagram, MessageCircle, Globe,
-  Trash2, Plus, Sparkles, CheckSquare, BookOpen,
+  Trash2, Plus, Sparkles, CheckSquare, BookOpen, Maximize2, Minimize2,
 } from 'lucide-react';
 import { useTheme } from '../../ThemeContext';
 import { db } from '../../../lib/db';
@@ -77,6 +77,9 @@ export default function ScrapDetailSheet({ scrap: initialScrap, onClose, onChang
 
   // 본문 탭 — 글 기록 / 마인드맵
   const [activeTab, setActiveTab] = useState<'notes' | 'mindmap'>('notes');
+
+  // PC 전용 — 팝업 최대화/복원
+  const [expanded, setExpanded] = useState(false);
 
   // 진입 애니메이션
   const [isIn, setIsIn] = useState(false);
@@ -196,15 +199,17 @@ export default function ScrapDetailSheet({ scrap: initialScrap, onClose, onChang
     >
       <div
         onClick={e => e.stopPropagation()}
-        className={`flex flex-col w-full lg:max-h-[92vh] lg:rounded-2xl overflow-hidden ${
-          activeTab === 'mindmap' ? 'lg:w-[860px]' : 'lg:w-[560px]'
+        className={`flex flex-col w-full lg:rounded-2xl overflow-hidden ${
+          expanded
+            ? 'lg:w-[95vw] lg:max-w-[1280px]'
+            : activeTab === 'mindmap' ? 'lg:w-[860px]' : 'lg:w-[560px]'
         }`}
         style={{
           backgroundColor: t.card,
           boxShadow: '0 24px 60px rgba(0,0,0,0.25)',
           transform: isIn ? 'translateY(0)' : 'translateY(24px)',
-          transition: 'transform 0.28s cubic-bezier(0.32, 0.72, 0, 1), width 0.2s ease',
-          maxHeight: '92vh',
+          transition: 'transform 0.28s cubic-bezier(0.32, 0.72, 0, 1), width 0.2s ease, max-width 0.2s ease',
+          maxHeight: expanded ? '96vh' : '92vh',
         }}
       >
         {/* ── 헤더 ── */}
@@ -220,7 +225,17 @@ export default function ScrapDetailSheet({ scrap: initialScrap, onClose, onChang
             <SourceIcon size={13} color={t.textSub} />
             <span style={{ fontSize: 12, fontWeight: 700 }}>{meta.label}</span>
           </div>
-          <div style={{ width: 30 }} />
+          {/* 최대화/복원 (PC 전용) */}
+          <div className="flex items-center justify-end" style={{ minWidth: 30 }}>
+            <button
+              onClick={() => setExpanded(v => !v)}
+              className="hidden lg:inline-flex p-1.5 rounded-lg"
+              aria-label={expanded ? '창 복원' : '창 최대화'}
+              title={expanded ? '복원' : '최대화'}
+            >
+              {expanded ? <Minimize2 size={18} color={t.text} /> : <Maximize2 size={18} color={t.text} />}
+            </button>
+          </div>
         </div>
 
         {/* ── 본문 (스크롤) ── */}
