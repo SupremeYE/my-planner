@@ -1,7 +1,7 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { format, parseISO } from 'date-fns';
+import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { addDays, format, parseISO, startOfWeek } from 'date-fns';
 import { ko } from 'date-fns/locale';
-import { CalendarDays, Check, Compass, NotebookPen, PenLine, Plus, Shuffle, Trash2, X } from 'lucide-react';
+import { CalendarDays, Check, ChevronDown, Compass, NotebookPen, PenLine, Pencil, Plus, Shuffle, Trash2, X } from 'lucide-react';
 import { useTheme, type ThemeTokens } from '../ThemeContext';
 import { db, type DiaryEntry, type JournalQuestion } from '../../lib/db';
 import { useRealtimeSync } from '../hooks/useRealtimeSync';
@@ -50,7 +50,7 @@ export function DiaryView() {
       <div className="w-full px-4 lg:px-10 pt-5 lg:pt-7 pb-24">
         {/* 헤더 */}
         <header className="mb-5">
-          <div style={{ fontFamily: 'var(--font-gaegu)', fontSize: 16, color: t.textSub }}>my diary</div>
+          <div style={{ fontFamily: 'var(--font-script)', fontSize: 22, color: t.accent, lineHeight: 1 }}>my diary</div>
           <h1 style={{ fontFamily: "'DM Serif Display', serif", fontSize: 32, color: t.text, lineHeight: 1.1, marginTop: 2 }}>
             일기
           </h1>
@@ -206,13 +206,18 @@ function LinedTextarea({
 }
 
 // ── 오늘 일기 탭 (자유일기) ───────────────────────────────────────────────────
+// PC: 좌측 최근 일기 타임라인 + 우측 작성/읽기. 모바일: 주간 스트립 + 작성/읽기 + 최근(접기).
+// 작성 = A 모드(줄 없음·점 질감·자동확장), 읽기 = D 모드(줄 친 종이).
+// 동작: 빈 날짜 = 작성(A) / 기록 있는 날짜 = 읽기(D) → 수정 시 작성(A).
 function TodayDiaryTab() {
   const { t } = useTheme();
   const [selectedDate, setSelectedDate] = useState(todayStr());
   const [title, setTitle]       = useState('');
   const [content, setContent]   = useState('');
   const [recent, setRecent]     = useState<DiaryEntry[]>([]);
+  const [writtenDates, setWrittenDates] = useState<Set<string>>(new Set());
   const [loading, setLoading]   = useState(true);
+  const [mode, setMode]         = useState<'read' | 'write'>('write');
   const [saveState, setSaveState] = useState<'idle' | 'saving' | 'saved'>('idle');
 
   const [existingId, setExistingId] = useState<string | null>(null);
@@ -223,6 +228,7 @@ function TodayDiaryTab() {
   const editingRef = useRef(false);
   const topRef = useRef<HTMLDivElement>(null);
 
+  // 날짜 로드 — 기록이 있으면 읽기(D), 없으면 작성(A)
   const loadForDate = useCallback(async (date: string) => {
     setLoading(true);
     const entry = await db.diaryEntries.fetchFreeByDate(date);
@@ -233,6 +239,7 @@ function TodayDiaryTab() {
     setContent(text);
     setTitle(ttl);
     setExistingId(entry?.id ?? null);
+    setMode(entry ? 'read' : 'write');
     setLoading(false);
   }, []);
 
@@ -240,19 +247,31 @@ function TodayDiaryTab() {
     setRecent(await db.diaryEntries.listRecentFree(7));
   }, []);
 
+  // 모바일 주간 스트립 '작성한 날' 점 — 선택 날짜가 속한 주(월~일)의 기록 날짜
+  const loadWeekDots = useCallback(async (date: string) => {
+    const start = startOfWeek(parseISO(date), { weekStartsOn: 1 });
+    const dates = await db.diaryEntries.listFreeDatesBetween(
+      format(start, 'yyyy-MM-dd'),
+      format(addDays(start, 6), 'yyyy-MM-dd'),
+    );
+    setWrittenDates(new Set(dates));
+  }, []);
+
   useEffect(() => { loadForDate(selectedDate); }, [selectedDate, loadForDate]);
+  useEffect(() => { loadWeekDots(selectedDate); }, [selectedDate, loadWeekDots]);
   useEffect(() => { loadRecent(); }, [loadRecent]);
 
   useRealtimeSync('diary_entries', () => {
     loadRecent();
+    loadWeekDots(selectedDate);
     if (!editingRef.current) loadForDate(selectedDate);
   });
 
-  // 저장 — 본문은 끝 공백/줄바꿈만 정리(앞쪽 줄 위치는 보존), 제목은 양끝 정리.
-  const save = useCallback(async (date: string, text: string, ttl: string) => {
+  // 저장(core) — 본문은 끝 공백/줄바꿈만 정리, 제목은 양끝 정리. 빈 입력이면 저장 안 함.
+  const persist = useCallback(async (date: string, text: string, ttl: string): Promise<DiaryEntry | null> => {
     const body = text.replace(/\s+$/, '');
     const titleVal = ttl.trim();
-    if (!body.trim() && !titleVal) return;
+    if (!body.trim() && !titleVal) return null;
     setSaveState('saving');
     const saved = await db.diaryEntries.upsertFree(date, body, titleVal || null);
     if (saved) setExistingId(saved.id);
@@ -260,23 +279,32 @@ function TodayDiaryTab() {
     loadedTitleRef.current = titleVal;
     setSaveState('saved');
     loadRecent();
+    loadWeekDots(date);
     setTimeout(() => setSaveState('idle'), 1500);
-  }, [loadRecent]);
+    return saved;
+  }, [loadRecent, loadWeekDots]);
 
+  // 자동 저장(안전망) — 작성 모드에서만 조용히 저장(모드 전환 X)
   useEffect(() => {
-    if (loading) return;
+    if (loading || mode !== 'write') return;
     if (content.replace(/\s+$/, '') === loadedRef.current.replace(/\s+$/, '')
         && title.trim() === loadedTitleRef.current.trim()) return;
-    const id = setTimeout(() => { save(selectedDate, content, title); }, 1500);
+    const id = setTimeout(() => { persist(selectedDate, content, title); }, 1500);
     return () => clearTimeout(id);
-  }, [content, title, selectedDate, loading, save]);
+  }, [content, title, selectedDate, loading, mode, persist]);
 
-  const onPickRecent = (date: string) => {
+  // 저장 버튼 — 저장 후 읽기(D)로 전환
+  const onSaveClick = async () => {
+    const saved = await persist(selectedDate, content, title);
+    if (saved) setMode('read');
+  };
+
+  const onPickDate = (date: string) => {
     setSelectedDate(date);
     topRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
   };
 
-  // 삭제 실행 — 현재 편집 중인 날짜의 일기면 작성칸도 비운다.
+  // 삭제 실행 — 현재 편집 중인 날짜의 일기면 작성칸도 비우고 작성(A)으로.
   const doDelete = async () => {
     if (!confirmDelete) return;
     const { id, isCurrent } = confirmDelete;
@@ -288,106 +316,66 @@ function TodayDiaryTab() {
       loadedRef.current = '';
       loadedTitleRef.current = '';
       setExistingId(null);
+      setMode('write');
     }
     loadRecent();
+    loadWeekDots(selectedDate);
   };
 
   const hasInput = !!content.trim() || !!title.trim();
+  const showRead = mode === 'read' && !!existingId;
 
   return (
-    <div className="flex flex-col">
-      <div ref={topRef} />
+    <div ref={topRef}>
+      <div
+        className="lg:grid lg:grid-cols-[290px_1fr] lg:rounded-2xl lg:overflow-hidden lg:border"
+        style={{ borderColor: t.border }}
+      >
+        {/* ── PC 좌측: 최근 일기 타임라인 ── */}
+        <aside
+          className="hidden lg:block"
+          style={{ borderRight: `1px solid ${t.border}`, background: t.bgSub, padding: '24px 22px 30px' }}
+        >
+          <RecentTimeline recent={recent} selectedDate={selectedDate} onPick={onPickDate} />
+        </aside>
 
-      <DateNav date={selectedDate} onChange={setSelectedDate} />
+        {/* ── 메인: 작성/읽기 ── */}
+        <section className="min-w-0 lg:px-8 lg:py-7">
+          {/* 모바일 주간 스트립 */}
+          <WeekStrip selectedDate={selectedDate} writtenDates={writtenDates} onPick={onPickDate} />
 
-      {/* 작성 영역 — 제목칸 + 노트 줄 본문(손글씨) */}
-      <div className="rounded-2xl p-4" style={{ backgroundColor: t.card, border: `1px solid ${t.border}` }}>
-        {/* 제목칸 — 한 줄(밑줄 포함)로 그리드에 맞춰 본문 줄과 연속되게 한다 */}
-        <input
-          value={title}
-          onChange={e => setTitle(e.target.value)}
-          onFocus={() => { editingRef.current = true; }}
-          onBlur={() => { editingRef.current = false; }}
-          placeholder="제목 (선택)"
-          style={{
-            display: 'block',
-            boxSizing: 'border-box',
-            width: '100%',
-            height: NOTE_LINE_H,
-            lineHeight: `${NOTE_LINE_H - 1}px`,
-            padding: 0,
-            border: 'none',
-            borderBottom: `1px solid ${t.borderLight || t.border}`,
-            outline: 'none',
-            background: 'transparent',
-            fontFamily: 'var(--font-hand)',
-            fontSize: 19,
-            fontWeight: 700,
-            color: t.text,
-          }}
-        />
-        {/* 본문 — 원하는 줄을 클릭해 작성 */}
-        <LinedTextarea
-          value={content}
-          onChange={setContent}
-          onFocus={() => { editingRef.current = true; }}
-          onBlur={() => { editingRef.current = false; }}
-          placeholder="오늘 하루는 어땠나요? 자유롭게 적어보세요..."
-          rows={9}
-        />
-        <SaveRow
-          t={t}
-          saveState={saveState}
-          disabled={!hasInput}
-          onSave={() => save(selectedDate, content, title)}
-          onDelete={existingId ? () => setConfirmDelete({ id: existingId, isCurrent: true }) : undefined}
-        />
+          {/* 날짜 헤더 + 달력 아이콘 */}
+          <DateNav date={selectedDate} onChange={setSelectedDate} />
+
+          {loading ? (
+            <div className="py-16 text-center" style={{ color: t.textMuted, fontSize: 13 }}>불러오는 중...</div>
+          ) : showRead ? (
+            <ReadCard
+              title={title}
+              content={content}
+              date={selectedDate}
+              onEdit={() => setMode('write')}
+              onDelete={existingId ? () => setConfirmDelete({ id: existingId, isCurrent: true }) : undefined}
+            />
+          ) : (
+            <WriteCard
+              title={title}
+              content={content}
+              onTitle={setTitle}
+              onContent={setContent}
+              onFocus={() => { editingRef.current = true; }}
+              onBlur={() => { editingRef.current = false; }}
+              saveState={saveState}
+              disabled={!hasInput}
+              onSave={onSaveClick}
+              onDelete={existingId ? () => setConfirmDelete({ id: existingId, isCurrent: true }) : undefined}
+            />
+          )}
+
+          {/* 모바일 최근 일기(접기/펼치기) */}
+          <MobileRecent recent={recent} selectedDate={selectedDate} onPick={onPickDate} />
+        </section>
       </div>
-
-      {/* 최근 일기 */}
-      <section className="mt-8">
-        <h2 style={{ fontSize: 14, fontWeight: 700, color: t.text, marginBottom: 10 }}>최근 일기</h2>
-        {recent.length === 0 ? (
-          <EmptyHint t={t} text="아직 작성한 일기가 없어요" />
-        ) : (
-          <ul className="flex flex-col gap-2">
-            {recent.map(entry => {
-              const { day: d, weekday: w } = dateLabel(entry.entryDate);
-              const isSel = entry.entryDate === selectedDate;
-              return (
-                <li key={entry.id} className="relative">
-                  <button
-                    type="button"
-                    onClick={() => onPickRecent(entry.entryDate)}
-                    className="w-full text-left rounded-2xl p-4 pr-12 transition-colors"
-                    style={{ backgroundColor: t.card, border: `1px solid ${isSel ? t.danger : t.border}` }}
-                  >
-                    <div className="flex items-baseline gap-2 mb-1.5">
-                      <span style={{ fontSize: 13, fontWeight: 700, color: t.text }}>{d}</span>
-                      <span style={{ fontSize: 12, color: t.textMuted }}>{w}</span>
-                    </div>
-                    {entry.title && (
-                      <p style={{ fontFamily: 'var(--font-hand)', fontSize: 17, fontWeight: 700, color: t.text, marginBottom: 2 }}>
-                        {entry.title}
-                      </p>
-                    )}
-                    <p style={excerptStyle(t)}>{entry.content}</p>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setConfirmDelete({ id: entry.id, isCurrent: entry.entryDate === selectedDate })}
-                    className="absolute top-3 right-3 p-1.5 rounded-lg"
-                    style={{ color: t.textMuted }}
-                    aria-label="일기 삭제"
-                  >
-                    <Trash2 size={15} />
-                  </button>
-                </li>
-              );
-            })}
-          </ul>
-        )}
-      </section>
 
       {confirmDelete && (
         <ConfirmModal
@@ -400,6 +388,390 @@ function TodayDiaryTab() {
         />
       )}
     </div>
+  );
+}
+
+// ── 작성 영역 자동 확장 textarea (A 모드 본문) ────────────────────────────────
+// 입력/마운트/값 로드 시 height='auto' → scrollHeight 로 자동 확장. overflow:hidden.
+function AutoGrowTextarea({
+  value, onChange, onFocus, onBlur, placeholder,
+}: {
+  value: string;
+  onChange: (v: string) => void;
+  onFocus?: () => void;
+  onBlur?: () => void;
+  placeholder?: string;
+}) {
+  const { t } = useTheme();
+  const ref = useRef<HTMLTextAreaElement>(null);
+  useLayoutEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    el.style.height = 'auto';
+    el.style.height = `${el.scrollHeight}px`;
+  }, [value]);
+  return (
+    <textarea
+      ref={ref}
+      value={value}
+      onChange={e => onChange(e.target.value)}
+      onFocus={onFocus}
+      onBlur={onBlur}
+      placeholder={placeholder}
+      rows={4}
+      style={{
+        display: 'block',
+        width: '100%',
+        resize: 'none',
+        outline: 'none',
+        border: 'none',
+        background: 'transparent',
+        padding: 0,
+        margin: 0,
+        overflow: 'hidden',
+        fontFamily: 'var(--font-hand)',
+        fontSize: 18,
+        lineHeight: `${NOTE_LINE_H}px`,
+        color: t.text,
+        minHeight: NOTE_LINE_H * 5,
+      }}
+    />
+  );
+}
+
+// ── 작성 카드 (A 모드: 줄 없음 · 옅은 점 질감 · 둥근 카드) ─────────────────────
+function WriteCard({
+  title, content, onTitle, onContent, onFocus, onBlur, saveState, disabled, onSave, onDelete,
+}: {
+  title: string;
+  content: string;
+  onTitle: (v: string) => void;
+  onContent: (v: string) => void;
+  onFocus: () => void;
+  onBlur: () => void;
+  saveState: 'idle' | 'saving' | 'saved';
+  disabled: boolean;
+  onSave: () => void;
+  onDelete?: () => void;
+}) {
+  const { t } = useTheme();
+  // 점 질감 — 골드(accent) 아주 옅게(약 10%). 토큰 hex 에 알파 8자리로 부여.
+  const dot = `${t.accent}1A`;
+  return (
+    <>
+      <div
+        className="rounded-2xl"
+        style={{
+          border: `1px solid ${t.border}`,
+          backgroundColor: t.card,
+          backgroundImage: `radial-gradient(${dot} 1px, transparent 1px)`,
+          backgroundSize: '7px 7px',
+          padding: '20px 22px',
+        }}
+      >
+        {/* 제목(선택) — DM Serif, 하단 보더 */}
+        <input
+          value={title}
+          onChange={e => onTitle(e.target.value)}
+          onFocus={onFocus}
+          onBlur={onBlur}
+          placeholder="제목 (선택)"
+          style={{
+            display: 'block',
+            width: '100%',
+            border: 'none',
+            outline: 'none',
+            background: 'transparent',
+            padding: '0 0 10px',
+            marginBottom: 12,
+            borderBottom: `1px solid ${t.border}`,
+            fontFamily: "'DM Serif Display', serif",
+            fontSize: 20,
+            color: t.text,
+          }}
+        />
+        {/* 본문 — 개구(Gaegu), 줄 없음, 자동 확장 */}
+        <AutoGrowTextarea
+          value={content}
+          onChange={onContent}
+          onFocus={onFocus}
+          onBlur={onBlur}
+          placeholder="오늘 하루는 어땠나요? 자유롭게 적어보세요..."
+        />
+      </div>
+      <SaveToolbar t={t} saveState={saveState} disabled={disabled} onSave={onSave} onDelete={onDelete} />
+    </>
+  );
+}
+
+// ── 저장 툴바 (coral 저장 버튼 + 저장 상태 + 삭제) ────────────────────────────
+function SaveToolbar({
+  t, saveState, disabled, onSave, onDelete,
+}: {
+  t: ThemeTokens;
+  saveState: 'idle' | 'saving' | 'saved';
+  disabled: boolean;
+  onSave: () => void;
+  onDelete?: () => void;
+}) {
+  return (
+    <div className="flex items-center justify-between gap-3 mt-4">
+      <div>
+        {onDelete && (
+          <button
+            type="button"
+            onClick={onDelete}
+            className="flex items-center gap-1 px-2 py-1.5 rounded-lg text-sm"
+            style={{ color: t.textMuted }}
+          >
+            <Trash2 size={14} /> 삭제
+          </button>
+        )}
+      </div>
+      <div className="flex items-center gap-3">
+        <span style={{ fontSize: 12, color: t.textMuted }}>
+          {saveState === 'saving' ? '저장 중...' : saveState === 'saved' ? '저장됨' : ''}
+        </span>
+        <button
+          type="button"
+          onClick={onSave}
+          disabled={disabled || saveState === 'saving'}
+          className="flex items-center gap-1.5 px-6 py-2.5 rounded-full text-sm font-semibold transition-opacity disabled:opacity-40"
+          style={{ backgroundColor: t.danger, color: '#fff', boxShadow: `0 6px 16px ${t.danger}4D` }}
+        >
+          <Check size={15} /> 저장
+        </button>
+      </div>
+    </div>
+  );
+}
+
+// ── 읽기 카드 (D 모드: 줄 친 종이 · 읽기 전용) ────────────────────────────────
+function ReadCard({
+  title, content, date, onEdit, onDelete,
+}: {
+  title: string;
+  content: string;
+  date: string;
+  onEdit: () => void;
+  onDelete?: () => void;
+}) {
+  const { t } = useTheme();
+  const dateText = format(parseISO(date), 'yyyy년 M월 d일 EEEE', { locale: ko });
+  const lineColor = t.borderLight || t.border;
+  return (
+    <div className="rounded-2xl" style={{ backgroundColor: t.card, border: `1px solid ${t.border}`, padding: '22px 24px' }}>
+      <div className="flex items-start justify-between gap-3 mb-3">
+        <div className="min-w-0">
+          {title && (
+            <h3 style={{ fontFamily: "'DM Serif Display', serif", fontSize: 20, color: t.text, marginBottom: 2 }}>
+              {title}
+            </h3>
+          )}
+          <div style={{ fontSize: 12, color: t.textMuted }}>{dateText}</div>
+        </div>
+        <div className="flex items-center gap-1 flex-none">
+          <button
+            type="button"
+            onClick={onEdit}
+            className="flex items-center gap-1 px-3 py-1.5 rounded-full text-sm font-semibold"
+            style={{ color: t.accent, backgroundColor: t.accentLight }}
+          >
+            <Pencil size={14} /> 수정
+          </button>
+          {onDelete && (
+            <button
+              type="button"
+              onClick={onDelete}
+              className="p-1.5 rounded-lg"
+              style={{ color: t.textMuted }}
+              aria-label="일기 삭제"
+            >
+              <Trash2 size={15} />
+            </button>
+          )}
+        </div>
+      </div>
+      {/* 줄 친 종이 — line-height 와 배경 줄 간격을 동일 px(32)로 맞춰 정렬이 깨지지 않음 */}
+      <div
+        style={{
+          fontFamily: 'var(--font-hand)',
+          fontSize: 18,
+          lineHeight: `${NOTE_LINE_H}px`,
+          color: t.text,
+          whiteSpace: 'pre-wrap',
+          wordBreak: 'break-word',
+          backgroundImage: `linear-gradient(to bottom, transparent ${NOTE_LINE_H - 1}px, ${lineColor} ${NOTE_LINE_H - 1}px, ${lineColor} ${NOTE_LINE_H}px)`,
+          backgroundSize: `100% ${NOTE_LINE_H}px`,
+          backgroundPosition: '0 0',
+          minHeight: NOTE_LINE_H * 4,
+        }}
+      >
+        {content}
+      </div>
+    </div>
+  );
+}
+
+// ── 모바일 주간 날짜 스트립 (월~일 칩, 오늘 강조, 작성한 날 골드 점) ──────────────
+function WeekStrip({
+  selectedDate, writtenDates, onPick,
+}: {
+  selectedDate: string;
+  writtenDates: Set<string>;
+  onPick: (date: string) => void;
+}) {
+  const { t } = useTheme();
+  const today = todayStr();
+  const start = startOfWeek(parseISO(selectedDate), { weekStartsOn: 1 });
+  const days = Array.from({ length: 7 }, (_, i) => addDays(start, i));
+  return (
+    <div className="flex gap-1.5 overflow-x-auto pb-1 mb-1 lg:hidden" style={{ scrollbarWidth: 'none' }}>
+      {days.map(d => {
+        const ds = format(d, 'yyyy-MM-dd');
+        const sel = ds === selectedDate;
+        const isToday = ds === today;
+        const future = ds > today;
+        const written = writtenDates.has(ds);
+        return (
+          <button
+            key={ds}
+            type="button"
+            disabled={future}
+            onClick={() => onPick(ds)}
+            className="flex-none rounded-2xl text-center transition-colors"
+            style={{
+              width: 44,
+              padding: '8px 0',
+              border: `1px solid ${sel ? t.danger : isToday ? t.accent : t.border}`,
+              backgroundColor: sel ? t.danger : t.card,
+              opacity: future ? 0.4 : 1,
+            }}
+          >
+            <div style={{ fontSize: 10, color: sel ? '#fff' : t.textMuted }}>
+              {format(d, 'EEEEE', { locale: ko })}
+            </div>
+            <div
+              className="relative"
+              style={{ fontFamily: "'DM Serif Display', serif", fontSize: 16, marginTop: 2, color: sel ? '#fff' : t.text }}
+            >
+              {format(d, 'd')}
+              {written && (
+                <span
+                  className="absolute rounded-full"
+                  style={{ left: '50%', bottom: -7, width: 4, height: 4, transform: 'translateX(-50%)', background: sel ? '#fff' : t.accent }}
+                />
+              )}
+            </div>
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+// ── PC 좌측 최근 일기 타임라인 (세로 라인 + 날짜·제목·발췌) ──────────────────────
+function RecentTimeline({
+  recent, selectedDate, onPick,
+}: {
+  recent: DiaryEntry[];
+  selectedDate: string;
+  onPick: (date: string) => void;
+}) {
+  const { t } = useTheme();
+  return (
+    <>
+      <div style={{ fontSize: 11, fontWeight: 700, color: t.accent, letterSpacing: '0.06em', textTransform: 'uppercase' }}>
+        최근 일기
+      </div>
+      {recent.length === 0 ? (
+        <EmptyHint t={t} text="아직 작성한 일기가 없어요" />
+      ) : (
+        <div className="relative" style={{ paddingLeft: 16, marginTop: 16 }}>
+          <span className="absolute" style={{ left: 4, top: 4, bottom: 4, width: 1.5, background: t.border }} />
+          {recent.map(entry => {
+            const { day, weekday } = dateLabel(entry.entryDate);
+            const sel = entry.entryDate === selectedDate;
+            return (
+              <button
+                key={entry.id}
+                type="button"
+                onClick={() => onPick(entry.entryDate)}
+                className="relative block w-full text-left"
+                style={{ paddingBottom: 16 }}
+              >
+                <span
+                  className="absolute rounded-full"
+                  style={{ left: -15, top: 4, width: 8, height: 8, background: sel ? t.danger : t.accent, border: `2px solid ${t.bgSub}` }}
+                />
+                <div style={{ fontSize: 11, color: t.textMuted }}>{day} · {weekday}</div>
+                {entry.title && (
+                  <div style={{ fontSize: 13, fontWeight: 600, color: t.text, margin: '1px 0 2px' }}>{entry.title}</div>
+                )}
+                <div style={excerptStyle(t)}>{entry.content}</div>
+              </button>
+            );
+          })}
+        </div>
+      )}
+    </>
+  );
+}
+
+// ── 모바일 최근 일기 (카드 + 접기/펼치기) ──────────────────────────────────────
+function MobileRecent({
+  recent, selectedDate, onPick,
+}: {
+  recent: DiaryEntry[];
+  selectedDate: string;
+  onPick: (date: string) => void;
+}) {
+  const { t } = useTheme();
+  const [open, setOpen] = useState(true);
+  return (
+    <section className="mt-8 lg:hidden">
+      <button
+        type="button"
+        onClick={() => setOpen(o => !o)}
+        className="flex items-center justify-between w-full"
+        style={{ fontSize: 11, fontWeight: 700, color: t.accent, letterSpacing: '0.06em', textTransform: 'uppercase' }}
+      >
+        최근 일기
+        <ChevronDown size={16} style={{ transition: 'transform .25s', transform: open ? 'none' : 'rotate(-90deg)' }} />
+      </button>
+      {open && (
+        <div className="mt-3">
+          {recent.length === 0 ? (
+            <EmptyHint t={t} text="아직 작성한 일기가 없어요" />
+          ) : (
+            <ul className="flex flex-col gap-2.5">
+              {recent.map(entry => {
+                const { day, weekday } = dateLabel(entry.entryDate);
+                const sel = entry.entryDate === selectedDate;
+                return (
+                  <li key={entry.id}>
+                    <button
+                      type="button"
+                      onClick={() => onPick(entry.entryDate)}
+                      className="w-full text-left rounded-2xl p-4"
+                      style={{ backgroundColor: t.card, border: `1px solid ${sel ? t.danger : t.border}` }}
+                    >
+                      <div className="flex items-baseline gap-2 mb-1">
+                        <span style={{ fontSize: 11, color: t.textMuted }}>{day} · {weekday}</span>
+                      </div>
+                      {entry.title && (
+                        <div style={{ fontSize: 13, fontWeight: 600, color: t.text, marginBottom: 2 }}>{entry.title}</div>
+                      )}
+                      <div style={excerptStyle(t)}>{entry.content}</div>
+                    </button>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+        </div>
+      )}
+    </section>
   );
 }
 

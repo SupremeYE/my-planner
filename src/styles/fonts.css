@@ -3,6 +3,7 @@
 @import url('https://fonts.googleapis.com/css2?family=Gowun+Batang:wght@400;700&family=Gowun+Dodum&display=swap');
 @import url('https://fonts.googleapis.com/css2?family=Gaegu:wght@400;700&display=swap');
 @import url('https://fonts.googleapis.com/css2?family=Nanum+Pen+Script&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Caveat:wght@500;600&display=swap');
 @import url('https://cdn.jsdelivr.net/gh/webfontworld/gmarket/GmarketSans.css');
 
 :root {
@@ -17,6 +18,8 @@
   --font-hand: var(--font-gaegu);
   /* 펜 손글씨 — 비전보드 eyebrow 등. 미로드 시 Gaegu/Gowun으로 폴백 */
   --font-nanum-pen: 'Nanum Pen Script', var(--font-gaegu);
+  /* 스크립트 포인트 — 일기 'my diary' 키커 등. 미로드 시 Gaegu/Gowun으로 폴백 */
+  --font-script: 'Caveat', var(--font-gaegu);
 }
 
 body {
