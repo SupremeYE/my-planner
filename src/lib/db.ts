@@ -2289,6 +2289,17 @@ export const db = {
       if (error) console.error('[db] diary_entries listRecentFree:', error.message);
       return (data ?? []).map(toDiaryEntry);
     },
+    // 특정 기간(포함)에 자유일기가 있는 날짜 목록 — 모바일 주간 스트립 '작성한 날' 점 표시용
+    listFreeDatesBetween: async (startDate: string, endDate: string): Promise<string[]> => {
+      const { data, error } = await supabase
+        .from('diary_entries')
+        .select('entry_date')
+        .eq('type', 'free')
+        .gte('entry_date', startDate)
+        .lte('entry_date', endDate);
+      if (error) console.error('[db] diary_entries listFreeDatesBetween:', error.message);
+      return (data ?? []).map((r: { entry_date: string }) => r.entry_date);
+    },
     // 자유일기 저장 — (entry_date, type='free') 기준 upsert.
     // 부분 유니크 인덱스라 onConflict upsert 대신 select 후 update/insert.
     // user_id 는 DB DEFAULT auth.uid() 가 자동 충전. title 은 선택(없으면 null).
