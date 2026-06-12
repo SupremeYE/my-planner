@@ -79,13 +79,15 @@ function HeroBanner({ w }: { w: UseWorkout }) {
                 key={part}
                 style={{
                   display: 'flex', alignItems: 'center', gap: 5,
-                  backgroundColor: isRested ? '#fff' : 'rgba(255,255,255,0.18)',
+                  backgroundColor: '#fff',
+                  border: `1px solid ${isRested ? t.danger : 'rgba(255,255,255,0.6)'}`,
                   borderRadius: 999, padding: '5px 11px',
+                  boxShadow: '0 1px 3px rgba(0,0,0,0.06)',
                 }}
               >
                 <span style={{ fontSize: 13 }} aria-hidden>{BODY_PART_EMOJI[part]}</span>
-                <span style={{ fontSize: 12, fontWeight: 700, color: isRested ? t.danger : '#fff' }}>{part}</span>
-                <span style={{ fontSize: 11, fontWeight: 600, color: isRested ? t.danger : 'rgba(255,255,255,0.85)' }}>
+                <span style={{ fontSize: 12, fontWeight: 700, color: isRested ? t.danger : t.text }}>{part}</span>
+                <span style={{ fontSize: 11, fontWeight: 600, color: isRested ? t.danger : t.textMuted }}>
                   {date ? agoLabel(date) : '휴식'}
                 </span>
               </div>
