@@ -675,6 +675,142 @@ const toWorkoutLog = (r: any): WorkoutLog => ({
   exercise: r.exercises ? toExercise(r.exercises) : null,
 });
 
+// ── 가고싶은 곳 (place_folders / places / place_folder_items / place_visits) ──────
+// 색상은 디자인 토큰 키 문자열(gold/coral/green 등)만 저장한다 — 하드코딩 hex 금지.
+// region_code 는 기억 탭 한국 SVG 지도의 path id 와 1:1 일치하는 시도 코드(예: "incheon").
+// user_id 는 DB DEFAULT auth.uid() 가 자동 충전 → 클라이언트는 보내지 않는다.
+export type PlaceFolder = {
+  id: string;
+  name: string;
+  icon: string | null;
+  color: string | null;        // 토큰 키 (예: "coral")
+  sortOrder: number;
+  createdAt: string;
+};
+
+type PlaceFolderRow = {
+  id: string; name: string; icon: string | null; color: string | null;
+  sort_order: number; created_at: string;
+};
+
+const toPlaceFolder = (r: PlaceFolderRow): PlaceFolder => ({
+  id: r.id,
+  name: r.name,
+  icon: r.icon ?? null,
+  color: r.color ?? null,
+  sortOrder: r.sort_order ?? 0,
+  createdAt: r.created_at,
+});
+
+export type Place = {
+  id: string;
+  name: string;
+  category: string | null;
+  address: string | null;
+  regionCode: string | null;   // 시도 코드 (예: "incheon")
+  lat: number | null;
+  lng: number | null;
+  kakaoPlaceId: string | null;
+  source: string | null;       // "instagram" / "youtube" / "직접 등록" 등
+  sourceUrl: string | null;
+  thumbnailUrl: string | null;
+  memo: string | null;
+  concept: string | null;      // cafe/charge/date/friend/culture/food
+  energy: number | null;       // 1~3
+  rating: number | null;       // 카카오 평점 캐시
+  reviewCount: number | null;  // 카카오 리뷰 수 캐시
+  hours: string | null;
+  createdAt: string;
+  updatedAt: string;
+};
+
+type PlaceRow = {
+  id: string; name: string; category: string | null; address: string | null;
+  region_code: string | null; lat: number | null; lng: number | null;
+  kakao_place_id: string | null; source: string | null; source_url: string | null;
+  thumbnail_url: string | null; memo: string | null; concept: string | null;
+  energy: number | null; rating: number | null; review_count: number | null;
+  hours: string | null; created_at: string; updated_at: string;
+};
+
+const toPlace = (r: PlaceRow): Place => ({
+  id: r.id,
+  name: r.name,
+  category: r.category ?? null,
+  address: r.address ?? null,
+  regionCode: r.region_code ?? null,
+  lat: r.lat ?? null,
+  lng: r.lng ?? null,
+  kakaoPlaceId: r.kakao_place_id ?? null,
+  source: r.source ?? null,
+  sourceUrl: r.source_url ?? null,
+  thumbnailUrl: r.thumbnail_url ?? null,
+  memo: r.memo ?? null,
+  concept: r.concept ?? null,
+  energy: r.energy ?? null,
+  rating: r.rating ?? null,
+  reviewCount: r.review_count ?? null,
+  hours: r.hours ?? null,
+  createdAt: r.created_at,
+  updatedAt: r.updated_at,
+});
+
+// places insert/update 시 카멜→스네이크 변환. undefined 키는 제외(부분 업데이트 지원).
+type PlaceInput = Partial<Omit<Place, 'id' | 'createdAt' | 'updatedAt'>>;
+const fromPlace = (p: PlaceInput): Record<string, unknown> => {
+  const row: Record<string, unknown> = {};
+  if (p.name !== undefined)         row.name = p.name;
+  if (p.category !== undefined)     row.category = p.category;
+  if (p.address !== undefined)      row.address = p.address;
+  if (p.regionCode !== undefined)   row.region_code = p.regionCode;
+  if (p.lat !== undefined)          row.lat = p.lat;
+  if (p.lng !== undefined)          row.lng = p.lng;
+  if (p.kakaoPlaceId !== undefined) row.kakao_place_id = p.kakaoPlaceId;
+  if (p.source !== undefined)       row.source = p.source;
+  if (p.sourceUrl !== undefined)    row.source_url = p.sourceUrl;
+  if (p.thumbnailUrl !== undefined) row.thumbnail_url = p.thumbnailUrl;
+  if (p.memo !== undefined)         row.memo = p.memo;
+  if (p.concept !== undefined)      row.concept = p.concept;
+  if (p.energy !== undefined)       row.energy = p.energy;
+  if (p.rating !== undefined)       row.rating = p.rating;
+  if (p.reviewCount !== undefined)  row.review_count = p.reviewCount;
+  if (p.hours !== undefined)        row.hours = p.hours;
+  return row;
+};
+
+export type PlaceVisit = {
+  id: string;
+  placeId: string | null;      // 저장된 place 연결 또는 null(직접 방문)
+  name: string;                // place 없이도 기록되게 비정규화 저장
+  regionCode: string;          // 히트맵 집계 키
+  visitedOn: string;           // yyyy-MM-dd
+  mood: number | null;         // 1~10
+  note: string | null;
+  diaryEntryId: string | null;
+  createdAt: string;
+};
+
+type PlaceVisitRow = {
+  id: string; place_id: string | null; name: string; region_code: string;
+  visited_on: string; mood: number | null; note: string | null;
+  diary_entry_id: string | null; created_at: string;
+};
+
+const toPlaceVisit = (r: PlaceVisitRow): PlaceVisit => ({
+  id: r.id,
+  placeId: r.place_id ?? null,
+  name: r.name,
+  regionCode: r.region_code,
+  visitedOn: r.visited_on,
+  mood: r.mood ?? null,
+  note: r.note ?? null,
+  diaryEntryId: r.diary_entry_id ?? null,
+  createdAt: r.created_at,
+});
+
+// 지역별 방문수 집계 (히트맵용). region_code → 방문 횟수.
+export type RegionVisitCount = { regionCode: string; count: number };
+
 // ── DB 객체 ──────────────────────────────────────────────────────────────────
 
 export const db = {
@@ -2798,6 +2934,260 @@ export const db = {
     removeRoutineExercise: async (id: string) => {
       const { error } = await supabase.from('routine_exercises').delete().eq('id', id);
       if (error) console.error('[db] routine_exercises remove:', error.message);
+    },
+  },
+
+  // ── 가고싶은 곳: 폴더 (place_folders) ─────────────────────────────────────────
+  placeFolders: {
+    fetchAll: async (): Promise<PlaceFolder[]> => {
+      const { data, error } = await supabase
+        .from('place_folders')
+        .select('*')
+        .order('sort_order', { ascending: true })
+        .order('created_at', { ascending: true });
+      if (error) console.error('[db] place_folders fetchAll:', error.message);
+      return (data ?? []).map(toPlaceFolder);
+    },
+    // 생성 — user_id 는 DB DEFAULT auth.uid(). sort_order 미지정 시 맨 뒤로.
+    create: async (input: { name: string; icon?: string | null; color?: string | null; sortOrder?: number }): Promise<PlaceFolder | null> => {
+      let sortOrder = input.sortOrder;
+      if (sortOrder === undefined) {
+        const { data: last } = await supabase
+          .from('place_folders')
+          .select('sort_order')
+          .order('sort_order', { ascending: false })
+          .limit(1);
+        sortOrder = (last?.[0]?.sort_order ?? -1) + 1;
+      }
+      const { data, error } = await supabase
+        .from('place_folders')
+        .insert({ name: input.name, icon: input.icon ?? null, color: input.color ?? null, sort_order: sortOrder })
+        .select('*')
+        .single();
+      if (error) { console.error('[db] place_folders create:', error.message); return null; }
+      return data ? toPlaceFolder(data) : null;
+    },
+    // 이름/아이콘/색 수정 (전달된 키만 부분 업데이트).
+    update: async (id: string, patch: { name?: string; icon?: string | null; color?: string | null }): Promise<void> => {
+      const row: Record<string, unknown> = {};
+      if (patch.name !== undefined)  row.name = patch.name;
+      if (patch.icon !== undefined)  row.icon = patch.icon;
+      if (patch.color !== undefined) row.color = patch.color;
+      if (Object.keys(row).length === 0) return;
+      const { error } = await supabase.from('place_folders').update(row).eq('id', id);
+      if (error) console.error('[db] place_folders update:', error.message);
+    },
+    delete: async (id: string): Promise<void> => {
+      // place_folder_items 는 ON DELETE CASCADE 로 함께 삭제됨(장소 자체는 보존).
+      const { error } = await supabase.from('place_folders').delete().eq('id', id);
+      if (error) console.error('[db] place_folders delete:', error.message);
+    },
+    // 정렬 — id 배열 순서대로 sort_order 재부여.
+    reorder: async (orderedIds: string[]): Promise<void> => {
+      await Promise.all(
+        orderedIds.map((id, i) =>
+          supabase.from('place_folders').update({ sort_order: i }).eq('id', id),
+        ),
+      );
+    },
+  },
+
+  // ── 가고싶은 곳: 장소 (places) ────────────────────────────────────────────────
+  places: {
+    // 목록 조회 — folderId(다대다) · concept 필터 옵션. 둘 다 없으면 전체.
+    fetchAll: async (opts?: { folderId?: string; concept?: string }): Promise<Place[]> => {
+      // 폴더 필터: place_folder_items 로 place_id 를 먼저 추린다.
+      if (opts?.folderId) {
+        const { data: links, error: linkErr } = await supabase
+          .from('place_folder_items')
+          .select('place_id')
+          .eq('folder_id', opts.folderId);
+        if (linkErr) { console.error('[db] places fetchAll links:', linkErr.message); return []; }
+        const ids = (links ?? []).map((r: any) => r.place_id);
+        if (ids.length === 0) return [];
+        let q = supabase.from('places').select('*').in('id', ids);
+        if (opts.concept) q = q.eq('concept', opts.concept);
+        const { data, error } = await q.order('created_at', { ascending: false });
+        if (error) console.error('[db] places fetchAll(folder):', error.message);
+        return (data ?? []).map(toPlace);
+      }
+      let q = supabase.from('places').select('*');
+      if (opts?.concept) q = q.eq('concept', opts.concept);
+      const { data, error } = await q.order('created_at', { ascending: false });
+      if (error) console.error('[db] places fetchAll:', error.message);
+      return (data ?? []).map(toPlace);
+    },
+    fetchOne: async (id: string): Promise<Place | null> => {
+      const { data, error } = await supabase.from('places').select('*').eq('id', id).maybeSingle();
+      if (error) console.error('[db] places fetchOne:', error.message);
+      return data ? toPlace(data) : null;
+    },
+    // 생성 — user_id 는 DB DEFAULT auth.uid(). 외부 API 호출 없음(좌표/주소는 Stage 3).
+    create: async (input: PlaceInput & { name: string }): Promise<Place | null> => {
+      const { data, error } = await supabase
+        .from('places')
+        .insert(fromPlace(input))
+        .select('*')
+        .single();
+      if (error) { console.error('[db] places create:', error.message); return null; }
+      return data ? toPlace(data) : null;
+    },
+    // 수정 — 전달된 키만 부분 업데이트 + updated_at 갱신(트리거 컨벤션 없음 → 앱에서 갱신).
+    update: async (id: string, patch: PlaceInput): Promise<void> => {
+      const row = fromPlace(patch);
+      if (Object.keys(row).length === 0) return;
+      row.updated_at = new Date().toISOString();
+      const { error } = await supabase.from('places').update(row).eq('id', id);
+      if (error) console.error('[db] places update:', error.message);
+    },
+    delete: async (id: string): Promise<void> => {
+      // place_folder_items 는 CASCADE, place_visits 는 ON DELETE SET NULL(방문 기록 보존).
+      const { error } = await supabase.from('places').delete().eq('id', id);
+      if (error) console.error('[db] places delete:', error.message);
+    },
+  },
+
+  // ── 가고싶은 곳: 장소 ↔ 폴더 다대다 (place_folder_items) ──────────────────────
+  placeFolderItems: {
+    // 장소를 폴더에 추가(이미 있으면 무시).
+    addToFolder: async (placeId: string, folderId: string): Promise<void> => {
+      const { error } = await supabase
+        .from('place_folder_items')
+        .upsert({ place_id: placeId, folder_id: folderId }, { onConflict: 'place_id,folder_id', ignoreDuplicates: true });
+      if (error) console.error('[db] place_folder_items add:', error.message);
+    },
+    // 장소를 폴더에서 제거.
+    removeFromFolder: async (placeId: string, folderId: string): Promise<void> => {
+      const { error } = await supabase
+        .from('place_folder_items')
+        .delete()
+        .eq('place_id', placeId)
+        .eq('folder_id', folderId);
+      if (error) console.error('[db] place_folder_items remove:', error.message);
+    },
+    // 한 장소가 소속된 폴더 id 목록.
+    foldersForPlace: async (placeId: string): Promise<string[]> => {
+      const { data, error } = await supabase
+        .from('place_folder_items')
+        .select('folder_id')
+        .eq('place_id', placeId);
+      if (error) { console.error('[db] place_folder_items foldersForPlace:', error.message); return []; }
+      return (data ?? []).map((r: any) => r.folder_id);
+    },
+    // 한 폴더에 속한 장소 id 목록.
+    placesInFolder: async (folderId: string): Promise<string[]> => {
+      const { data, error } = await supabase
+        .from('place_folder_items')
+        .select('place_id')
+        .eq('folder_id', folderId);
+      if (error) { console.error('[db] place_folder_items placesInFolder:', error.message); return []; }
+      return (data ?? []).map((r: any) => r.place_id);
+    },
+    // 한 장소의 소속 폴더를 한 번에 동기화(현재와 비교해 추가/삭제분만 반영).
+    setFoldersForPlace: async (placeId: string, folderIds: string[]): Promise<void> => {
+      const { data: current, error: curErr } = await supabase
+        .from('place_folder_items')
+        .select('folder_id')
+        .eq('place_id', placeId);
+      if (curErr) { console.error('[db] place_folder_items setFolders select:', curErr.message); return; }
+      const currentSet = new Set((current ?? []).map((r: any) => r.folder_id));
+      const nextSet = new Set(folderIds);
+      const toAdd = folderIds.filter(id => !currentSet.has(id));
+      const toRemove = [...currentSet].filter(id => !nextSet.has(id));
+      if (toAdd.length > 0) {
+        const { error } = await supabase
+          .from('place_folder_items')
+          .insert(toAdd.map(folderId => ({ place_id: placeId, folder_id: folderId })));
+        if (error) console.error('[db] place_folder_items setFolders insert:', error.message);
+      }
+      if (toRemove.length > 0) {
+        const { error } = await supabase
+          .from('place_folder_items')
+          .delete()
+          .eq('place_id', placeId)
+          .in('folder_id', toRemove);
+        if (error) console.error('[db] place_folder_items setFolders delete:', error.message);
+      }
+    },
+  },
+
+  // ── 가고싶은 곳: 방문 기록 (place_visits) — 기억 탭의 원천 ─────────────────────
+  placeVisits: {
+    // 전체 방문 목록(visited_on 내림차순).
+    fetchAll: async (): Promise<PlaceVisit[]> => {
+      const { data, error } = await supabase
+        .from('place_visits')
+        .select('*')
+        .order('visited_on', { ascending: false });
+      if (error) console.error('[db] place_visits fetchAll:', error.message);
+      return (data ?? []).map(toPlaceVisit);
+    },
+    // 최근 N건.
+    listRecent: async (limit = 5): Promise<PlaceVisit[]> => {
+      const { data, error } = await supabase
+        .from('place_visits')
+        .select('*')
+        .order('visited_on', { ascending: false })
+        .limit(limit);
+      if (error) console.error('[db] place_visits listRecent:', error.message);
+      return (data ?? []).map(toPlaceVisit);
+    },
+    // 생성 — 저장된 place 연결(placeId) 또는 place 없이 직접(name/regionCode 비정규화).
+    // user_id 는 DB DEFAULT auth.uid().
+    create: async (input: {
+      name: string;
+      regionCode: string;
+      visitedOn: string;
+      placeId?: string | null;
+      mood?: number | null;
+      note?: string | null;
+      diaryEntryId?: string | null;
+    }): Promise<PlaceVisit | null> => {
+      const { data, error } = await supabase
+        .from('place_visits')
+        .insert({
+          place_id: input.placeId ?? null,
+          name: input.name,
+          region_code: input.regionCode,
+          visited_on: input.visitedOn,
+          mood: input.mood ?? null,
+          note: input.note ?? null,
+          diary_entry_id: input.diaryEntryId ?? null,
+        })
+        .select('*')
+        .single();
+      if (error) { console.error('[db] place_visits create:', error.message); return null; }
+      return data ? toPlaceVisit(data) : null;
+    },
+    update: async (id: string, patch: {
+      name?: string; regionCode?: string; visitedOn?: string;
+      placeId?: string | null; mood?: number | null; note?: string | null; diaryEntryId?: string | null;
+    }): Promise<void> => {
+      const row: Record<string, unknown> = {};
+      if (patch.name !== undefined)         row.name = patch.name;
+      if (patch.regionCode !== undefined)   row.region_code = patch.regionCode;
+      if (patch.visitedOn !== undefined)    row.visited_on = patch.visitedOn;
+      if (patch.placeId !== undefined)      row.place_id = patch.placeId;
+      if (patch.mood !== undefined)         row.mood = patch.mood;
+      if (patch.note !== undefined)         row.note = patch.note;
+      if (patch.diaryEntryId !== undefined) row.diary_entry_id = patch.diaryEntryId;
+      if (Object.keys(row).length === 0) return;
+      const { error } = await supabase.from('place_visits').update(row).eq('id', id);
+      if (error) console.error('[db] place_visits update:', error.message);
+    },
+    delete: async (id: string): Promise<void> => {
+      const { error } = await supabase.from('place_visits').delete().eq('id', id);
+      if (error) console.error('[db] place_visits delete:', error.message);
+    },
+    // 지역별 방문수 집계(히트맵용) — region_code GROUP BY. 클라이언트 집계(RLS 로 본인 행만).
+    countByRegion: async (): Promise<RegionVisitCount[]> => {
+      const { data, error } = await supabase.from('place_visits').select('region_code');
+      if (error) { console.error('[db] place_visits countByRegion:', error.message); return []; }
+      const counts = new Map<string, number>();
+      for (const r of (data ?? []) as { region_code: string }[]) {
+        counts.set(r.region_code, (counts.get(r.region_code) ?? 0) + 1);
+      }
+      return [...counts.entries()].map(([regionCode, count]) => ({ regionCode, count }));
     },
   },
 };

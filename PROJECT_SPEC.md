@@ -290,6 +290,10 @@
 | `workout_sets` | 운동 세트 (근력 weight/reps · 유산소 duration_min/distance_km, log_id ON DELETE CASCADE) | `set_no` ASC | ✅ (건강>운동 탭) |
 | `routine_days` | 요일별 루틴 헤더 (day_of_week 1~7, unique(user_id,day_of_week)) | `day_of_week` ASC | ✅ (건강>운동 탭) |
 | `routine_exercises` | 요일 루틴 종목 (routine_day_id ON DELETE CASCADE, exercise_id) | `sort_order` ASC | ✅ (건강>운동 탭) |
+| `place_folders` | 가고싶은 곳 — 폴더=테마 지도 (color=토큰 키, sort_order) | `sort_order` ASC | ✅ (db.placeFolders, Stage 1) |
+| `places` | 가고싶은 곳 — 저장 장소 (region_code 시도 코드, concept 뽑기 분류, 카카오 캐시 컬럼) | `created_at` DESC | ✅ (db.places, Stage 1) |
+| `place_folder_items` | 장소 ↔ 폴더 다대다 (복합 PK, EXISTS RLS, ON DELETE CASCADE) | `added_at` | ✅ (db.placeFolderItems, Stage 1) |
+| `place_visits` | 방문 기록=기억 탭 원천 (place_id nullable·이름/지역 비정규화, diary_entries FK SET NULL) | `visited_on` DESC | ✅ (db.placeVisits, Stage 1) |
 
 ### 2-2. 테이블별 컬럼 상세
 
