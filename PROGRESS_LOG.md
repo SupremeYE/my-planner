@@ -6,6 +6,28 @@
 
 ---
 
+## 2026-06-12
+
+### ✅ 완료
+- [x] 운동 탭 **PC 전용 레이아웃** — 모바일 단일 컬럼을 넓은 화면 가운데 띄우던 문제 해소. 데이터 로직(`useWorkout`) 1벌 공유 + 레이아웃만 분리(`WorkoutTabMobile`/`WorkoutTabDesktop`). PC=전체폭 대시보드(상단 히어로 배너 + 2단 그리드) + 중앙 모달, 주간 루틴은 PC 7일 그리드(`RoutineWeekModal`). 모바일 Stage 1 무회귀
+
+### 🛠 오늘 작업 내용
+
+**운동 탭 PC 전용 레이아웃 — 로직 공유 + 레이아웃 분리**
+- 배경: PC에서 운동 탭이 "모바일 단일 컬럼(max-w 440)을 넓은 화면 가운데 띄운" 상태(좌측 여백 과다·좁은 한 줄)로 보였음 → PC를 가로 공간 쓰는 대시보드로 별도 레이아웃 구성
+- **① 공유 데이터 훅 추출** `useWorkout.ts`: 기존 `WorkoutTab` 안에 섞여 있던 쿼리/상태/파생값/CRUD 진입점/시트 열림 상태/Realtime 4구독을 훅 하나로 추출. 모바일·PC가 같은 훅 인스턴스를 공유(로직 1벌, 중복 0). `useIsDesktop`(matchMedia 1024px) 보조 훅도 동봉 — 시트 표현/루틴 에디터 분기에만 사용
+- **② 레이아웃 분리**: `WorkoutTabMobile`(Stage 1 그대로 단일 컬럼) / `WorkoutTabDesktop`(신규 PC 대시보드). `WorkoutTab`은 셸로서 `lg:hidden`/`hidden lg:block` 분기 + 공유 시트 1회 렌더(이중 마운트 방지). 한쪽 수정이 다른 쪽에 무영향
+- **③ PC 대시보드 명세 구현**:
+  - 컨테이너: `w-full`(모바일의 max-w 가운데 정렬 제거) → HealthView 콘텐츠 영역 전체폭 채움, 좌측 빈 여백 제거
+  - 상단 히어로 배너(가로 1줄, 전체폭, accent 그라데이션): 🔥 스트릭 | 마지막 운동일 | "오늘 뭐하지" 제안 | 부위별 휴식 칩(가장 오래 쉰 부위 흰 pill 강조)
+  - 2단 그리드(`1.5fr / 1fr`): 좌=오늘의 루틴 카드(2열)+오늘의 운동 카드(목록+운동 추가), 우=종목별 성장 그래프 카드+지난 기록(최근 6세션 인라인, "전체 보기"로 모달)
+  - 오늘의 운동 항목 hover 시 "편집" 라벨 노출(모바일엔 없음)
+- **④ 시트→모달**: Picker/Record/History 는 공용 `SheetShell`(모바일 바텀시트 / PC 중앙 모달)로 폼 본체 공유. `SheetShell`·`ExercisePickerSheet`에 `wide` prop 추가 — PC Picker 는 넓은 모달(760px) + 사진 그리드 `lg:grid-cols-4`(모바일은 동일 full-width·2열, `lg:` 한정이라 모바일 무변경)
+- **⑤ 주간 루틴(PC 강점)** `RoutineWeekModal.tsx`: 월~일 7일을 7열 그리드로 한 화면에 펼쳐 편집(요일별 라벨 input + 종목 목록/추가/삭제), 오늘 요일 컬럼 accent 강조. CRUD 는 모바일 `RoutineSheet` 와 동일한 `db.workouts` 메서드 공유. 모바일은 단일 요일 뷰(`RoutineSheet`) 유지
+- **원칙 준수**: 색상 토큰만(accent/accentSoft/accentLight/danger/dangerLight/success/bgSub/borderLight 등, 히어로 위 흰색/반투명만 실물 표현 고정) · 폰트 규칙 동일(제목 DM Serif/본문 Noto Sans KR) · PC 데이터 쿼리/CRUD 재사용(재구현 0) · 런타임 번역 호출 0 · `npm run build` 통과(vite 6). 뷰포트를 모바일 폭으로 줄이면 `WorkoutTabMobile`(Stage 1 그대로)로 자동 분기
+
+---
+
 ## 2026-06-08
 
 ### ✅ 완료

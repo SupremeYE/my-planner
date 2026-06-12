@@ -10,9 +10,10 @@ interface Props {
   children: React.ReactNode;
   headerRight?: React.ReactNode;   // 헤더 우측 액션(저장 등)
   footer?: React.ReactNode;        // 하단 고정 영역(저장 버튼 등)
+  wide?: boolean;                  // PC 에서 넓은 중앙 모달(예: 사진 그리드 4열). 모바일은 동일(full-width).
 }
 
-export function SheetShell({ title, onClose, children, headerRight, footer }: Props) {
+export function SheetShell({ title, onClose, children, headerRight, footer, wide }: Props) {
   const { t } = useTheme();
   const [isIn, setIsIn] = useState(false);
   useEffect(() => { requestAnimationFrame(() => setIsIn(true)); }, []);
@@ -32,7 +33,7 @@ export function SheetShell({ title, onClose, children, headerRight, footer }: Pr
     >
       <div
         onClick={e => e.stopPropagation()}
-        className="flex flex-col w-full lg:w-[460px] lg:max-h-[92vh] lg:rounded-2xl overflow-hidden"
+        className={`flex flex-col w-full ${wide ? 'lg:w-[760px]' : 'lg:w-[460px]'} lg:max-h-[92vh] lg:rounded-2xl overflow-hidden`}
         style={{
           backgroundColor: t.card,
           boxShadow: '0 24px 60px rgba(0,0,0,0.25)',

@@ -20,9 +20,10 @@ interface Props {
   loggedExerciseIds: Set<string>;     // "지난 기록 있음" 배지용
   onClose: () => void;
   onPick: (exercise: Exercise) => void;  // 채택/선택 완료 → 종목 반환
+  wide?: boolean;                      // PC 넓은 모달 + 사진 그리드 4열(모바일은 동일)
 }
 
-export function ExercisePickerSheet({ title = '종목 선택', loggedExerciseIds, onClose, onPick }: Props) {
+export function ExercisePickerSheet({ title = '종목 선택', loggedExerciseIds, onClose, onPick, wide }: Props) {
   const { t } = useTheme();
   const [mine, setMine] = useState<Exercise[]>([]);
   const [query, setQuery] = useState('');
@@ -75,7 +76,7 @@ export function ExercisePickerSheet({ title = '종목 선택', loggedExerciseIds
   };
 
   return (
-    <SheetShell title={title} onClose={onClose}>
+    <SheetShell title={title} onClose={onClose} wide={wide}>
       <div className="px-4 py-3 space-y-3">
         {/* 검색창 */}
         <div
@@ -150,7 +151,7 @@ export function ExercisePickerSheet({ title = '종목 선택', loggedExerciseIds
               : '아직 내 운동이 없어요.\n검색해서 종목을 추가해보세요.'}
           </div>
         ) : (
-          <div className="grid grid-cols-2 gap-2.5 pb-2">
+          <div className={`grid grid-cols-2 ${wide ? 'lg:grid-cols-4' : ''} gap-2.5 pb-2`}>
             {list.map(ex => {
               const hasLog = loggedExerciseIds.has(ex.id);
               const isCatalog = !ex.nameKo && !ex.userId;
