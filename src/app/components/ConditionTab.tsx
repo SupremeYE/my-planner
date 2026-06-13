@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { format, subDays, startOfMonth, endOfWeek, startOfWeek, addDays, getDaysInMonth, getDay, parseISO } from 'date-fns';
-import { Trash2, Plus, X, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Trash2, Plus, X, ChevronLeft, ChevronRight, Search } from 'lucide-react';
 import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
 } from 'recharts';
@@ -41,6 +41,7 @@ export function ConditionTab() {
   // 기록 영역 필터/검색 상태 (트리거 UI는 이후 Stage에서 연결)
   const [selectedDate, setSelectedDate] = useState<string | null>(null); // 날짜 필터 (yyyy-MM-dd)
   const [searchQuery, setSearchQuery] = useState(''); // 본문·태그 텍스트 검색
+  const [searchOpen, setSearchOpen] = useState(false); // 검색바 펼침 여부
 
   const symptomOptions = getSymptomOptions();
 
@@ -82,10 +83,21 @@ export function ConditionTab() {
   };
 
   // 날짜 칸(주간 셀·히트맵) 클릭 → 그 날짜로 필터 / 같은 날 재클릭 시 해제
-  // 검색과 날짜 필터는 동시 적용하지 않으므로 날짜 선택 시 검색어는 비운다
+  // 검색과 날짜 필터는 동시 적용하지 않으므로 날짜 선택 시 검색은 닫고 비운다
   const toggleDate = (d: string) => {
+    setSearchOpen(false);
     setSearchQuery('');
     setSelectedDate(prev => (prev === d ? null : d));
+  };
+
+  // 돋보기 토글 — 열면 날짜 필터 해제, 닫으면 검색어 비워 전체로 복귀
+  const toggleSearch = () => {
+    setSearchOpen(prev => {
+      const next = !prev;
+      if (next) setSelectedDate(null);
+      else setSearchQuery('');
+      return next;
+    });
   };
 
   // ── 통계 ──
@@ -385,10 +397,37 @@ export function ConditionTab() {
 
       {/* (C) 기록 리스트 */}
       <div>
-        <p style={{ fontSize: 13, fontWeight: 700, color: t.text, marginBottom: 6 }}>기록</p>
+        {/* 헤더: 제목 + 돋보기 */}
+        <div className="flex items-center justify-between mb-2">
+          <p style={{ fontSize: 13, fontWeight: 700, color: t.text }}>기록</p>
+          <button onClick={toggleSearch} aria-label="검색" aria-pressed={searchOpen}
+            className="p-1.5 rounded-lg"
+            style={{
+              backgroundColor: searchOpen ? t.dangerLight : t.bgSub,
+              color: searchOpen ? t.danger : t.textSub, border: 'none', cursor: 'pointer',
+            }}>
+            <Search size={15} />
+          </button>
+        </div>
 
-        {/* 필터 상태: 날짜 선택 시 칩, 미선택 시 힌트 */}
-        {selectedDate ? (
+        {searchOpen ? (
+          /* 검색바 */
+          <div className="flex items-center gap-2 mb-3 px-3 py-2 rounded-xl"
+            style={{ backgroundColor: t.bgSub, border: `1px solid ${t.border}` }}>
+            <Search size={14} color={t.textMuted} />
+            <input autoFocus value={searchQuery} onChange={e => setSearchQuery(e.target.value)}
+              placeholder="본문·증상·레벨 검색"
+              className="flex-1 bg-transparent outline-none"
+              style={{ fontSize: 13, color: t.text }} />
+            {searchQuery && (
+              <button onClick={() => setSearchQuery('')} aria-label="검색어 지우기"
+                style={{ color: t.textMuted, background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}>
+                <X size={14} />
+              </button>
+            )}
+          </div>
+        ) : selectedDate ? (
+          /* 날짜 필터 칩 */
           <button onClick={() => setSelectedDate(null)}
             className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full mb-3"
             style={{
@@ -403,7 +442,12 @@ export function ConditionTab() {
         )}
 
         {displayedRecords.length === 0 ? (
-          selectedDate ? (
+          searchQuery.trim() ? (
+            <div className="py-8 text-center rounded-2xl"
+              style={{ backgroundColor: t.bgSub, fontSize: 13, color: t.textMuted }}>
+              검색 결과가 없어요
+            </div>
+          ) : selectedDate ? (
             /* 빈 날 넛지 — 선택한 날짜에 기록이 없을 때 */
             <div className="py-6 px-4 text-center rounded-2xl"
               style={{ backgroundColor: t.card, border: `1px solid ${t.border}` }}>
