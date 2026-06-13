@@ -755,7 +755,7 @@ interface PlannerContextType {
   deleteMilestone: (id: string) => void;
 
   // Tag actions
-  addTag: (name: string, color: string) => void;
+  addTag: (name: string, color: string) => Tag;
   updateTag: (id: string, changes: Partial<Tag>) => void;
   deleteTag: (id: string) => void;
 
@@ -1797,10 +1797,11 @@ export function PlannerProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   // ── Tag actions ──
-  const addTag = useCallback((name: string, color: string) => {
+  const addTag = useCallback((name: string, color: string): Tag => {
     const newTag: Tag = { id: newId(), name, color };
     setTags(prev => [...prev, newTag]);
     db.tags.upsert(newTag);
+    return newTag;
   }, []);
 
   const updateTag = useCallback((id: string, changes: Partial<Tag>) => {

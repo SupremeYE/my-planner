@@ -8,14 +8,7 @@ import ConfirmModal from './ConfirmModal';
 import { TimePicker } from './TimePicker';
 import { RecurrenceBranchModal } from './RecurrenceBranchModal';
 import { isVirtualTodoId, parseVirtualTodoId, DOW_LABELS } from '../../lib/recurrenceExpansion';
-
-const DEFAULT_TAG_COLORS = [
-  '#E0795B', '#D4735A', '#E8A87C', '#F4A261',
-  '#4A82CC', '#3B82F6', '#45B899', '#34D399',
-  '#006b62', '#8B7CF8', '#22C55E', '#515f74', '#475569',
-];
-const TAG_PALETTE_KEY = 'tagPaletteColors';
-const MAX_TAG_COLORS = 13;
+import { DEFAULT_TAG_COLORS, TAG_PALETTE_KEY, MAX_TAG_COLORS } from '../../lib/tagPalette';
 
 interface TodoModalProps {
   /** date prop은 기본 날짜로 사용되며, 모달 안에서 변경/해제할 수 있다. */
