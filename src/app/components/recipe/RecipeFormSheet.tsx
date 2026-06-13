@@ -6,7 +6,7 @@ import { useTheme } from '../../ThemeContext';
 import { db } from '../../../lib/db';
 import { fetchYouTubeMetadata } from '../../../lib/youtube';
 import { detectRecipeSourcePlatform, sourcePlatformLabel } from '../../../lib/recipeSource';
-import { useSpeechRecognition } from '../../hooks/useSpeechRecognition';
+import { useVoiceInput } from '../../hooks/useVoiceInput';
 import type { Recipe, RecipeIngredient, RecipeStep } from '../../store';
 import { parseIngredientLine } from './recipeUtils';
 import { INTENT_TAG_PRESETS, MAIN_INGREDIENT_PRESETS } from './recipeTags';
@@ -132,16 +132,27 @@ export function RecipeFormSheet({ recipe, onSave, onDelete, onClose }: RecipeFor
     }
   };
 
-  // 음성 입력 — 각 textarea 별로 append
-  const [speechErr, setSpeechErr] = useState<string | null>(null);
-  const speechIng = useSpeechRecognition(
-    (text) => setIngredientsText(prev => (prev.trim() ? `${prev.trim()}\n${text}` : text)),
-    (code) => { setSpeechErr(code === 'not-allowed' ? '마이크 권한이 필요해요' : '음성 인식 오류'); setTimeout(() => setSpeechErr(null), 2500); },
-  );
-  const speechStep = useSpeechRecognition(
-    (text) => setStepsText(prev => (prev.trim() ? `${prev.trim()}\n${text}` : text)),
-    (code) => { setSpeechErr(code === 'not-allowed' ? '마이크 권한이 필요해요' : '음성 인식 오류'); setTimeout(() => setSpeechErr(null), 2500); },
-  );
+  // 음성 입력 — 각 textarea 별로 append (Whisper 단일 경로)
+  const voiceIng = useVoiceInput();
+  const voiceStep = useVoiceInput();
+  const ingListening = voiceIng.status === 'recording';
+  const ingBusy = voiceIng.status === 'transcribing';
+  const stepListening = voiceStep.status === 'recording';
+  const stepBusy = voiceStep.status === 'transcribing';
+  const speechErr = voiceIng.error ?? voiceStep.error;
+
+  useEffect(() => {
+    if (voiceIng.text) {
+      setIngredientsText(prev => (prev.trim() ? `${prev.trim()}\n${voiceIng.text}` : voiceIng.text));
+      voiceIng.setText('');
+    }
+  }, [voiceIng.text, voiceIng.setText]);
+  useEffect(() => {
+    if (voiceStep.text) {
+      setStepsText(prev => (prev.trim() ? `${prev.trim()}\n${voiceStep.text}` : voiceStep.text));
+      voiceStep.setText('');
+    }
+  }, [voiceStep.text, voiceStep.setText]);
 
   // 출처 URL: YouTube/쇼츠면 oEmbed 자동 채움 — 비어있을 때만 덮어쓰지 않음.
   // onBlur 처리 + paste 직후 처리.
@@ -581,17 +592,17 @@ export function RecipeFormSheet({ recipe, onSave, onDelete, onClose }: RecipeFor
                 <div>
                   <div className="flex items-center justify-between mb-1.5">
                     <label style={{ ...labelStyle, marginBottom: 0 }}>재료 — 한 줄에 하나</label>
-                    {speechIng.supported && (
-                      <button type="button" onClick={() => (speechIng.isListening ? speechIng.stop() : speechIng.start())}
-                        className="flex items-center gap-1 px-2 py-1 rounded-md"
-                        style={{ fontSize: 11, fontWeight: 600,
-                          color: speechIng.isListening ? '#fff' : t.textSub,
-                          backgroundColor: speechIng.isListening ? t.danger : t.bgSub,
-                          border: `1px solid ${speechIng.isListening ? t.danger : t.border}` }}>
-                        {speechIng.isListening ? <MicOff size={11} /> : <Mic size={11} />}
-                        {speechIng.isListening ? '정지' : '음성'}
-                      </button>
-                    )}
+                    <button type="button"
+                      onClick={() => (ingListening ? voiceIng.stopRecording() : voiceIng.startRecording())}
+                      disabled={ingBusy}
+                      className="flex items-center gap-1 px-2 py-1 rounded-md"
+                      style={{ fontSize: 11, fontWeight: 600,
+                        color: ingListening ? '#fff' : t.textSub,
+                        backgroundColor: ingListening ? t.danger : t.bgSub,
+                        border: `1px solid ${ingListening ? t.danger : t.border}` }}>
+                      {ingListening ? <MicOff size={11} /> : <Mic size={11} />}
+                      {ingBusy ? '변환…' : ingListening ? '정지' : '음성'}
+                    </button>
                   </div>
                   <textarea value={ingredientsText} onChange={e => setIngredientsText(e.target.value)}
                     onKeyDown={submitOnModEnter}
@@ -606,17 +617,17 @@ export function RecipeFormSheet({ recipe, onSave, onDelete, onClose }: RecipeFor
                 <div>
                   <div className="flex items-center justify-between mb-1.5">
                     <label style={{ ...labelStyle, marginBottom: 0 }}>요리 순서 — 한 줄에 한 단계</label>
-                    {speechStep.supported && (
-                      <button type="button" onClick={() => (speechStep.isListening ? speechStep.stop() : speechStep.start())}
-                        className="flex items-center gap-1 px-2 py-1 rounded-md"
-                        style={{ fontSize: 11, fontWeight: 600,
-                          color: speechStep.isListening ? '#fff' : t.textSub,
-                          backgroundColor: speechStep.isListening ? t.danger : t.bgSub,
-                          border: `1px solid ${speechStep.isListening ? t.danger : t.border}` }}>
-                        {speechStep.isListening ? <MicOff size={11} /> : <Mic size={11} />}
-                        {speechStep.isListening ? '정지' : '음성'}
-                      </button>
-                    )}
+                    <button type="button"
+                      onClick={() => (stepListening ? voiceStep.stopRecording() : voiceStep.startRecording())}
+                      disabled={stepBusy}
+                      className="flex items-center gap-1 px-2 py-1 rounded-md"
+                      style={{ fontSize: 11, fontWeight: 600,
+                        color: stepListening ? '#fff' : t.textSub,
+                        backgroundColor: stepListening ? t.danger : t.bgSub,
+                        border: `1px solid ${stepListening ? t.danger : t.border}` }}>
+                      {stepListening ? <MicOff size={11} /> : <Mic size={11} />}
+                      {stepBusy ? '변환…' : stepListening ? '정지' : '음성'}
+                    </button>
                   </div>
                   <textarea value={stepsText} onChange={e => setStepsText(e.target.value)}
                     onKeyDown={submitOnModEnter}

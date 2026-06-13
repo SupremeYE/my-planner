@@ -5,7 +5,7 @@ import { CalendarDays, Check, ChevronDown, Compass, Loader2, Mic, NotebookPen, P
 import { useTheme, type ThemeTokens } from '../ThemeContext';
 import { db, type DiaryEntry, type JournalQuestion } from '../../lib/db';
 import { useRealtimeSync } from '../hooks/useRealtimeSync';
-import { useVoiceRecorder } from '../hooks/useVoiceRecorder';
+import { useVoiceInput } from '../hooks/useVoiceInput';
 import ConfirmModal from './ConfirmModal';
 
 // 경과시간 m:ss 포맷
@@ -467,7 +467,7 @@ function WriteCard({
 
   const taRef = useRef<HTMLTextAreaElement>(null);
   const [sheetOpen, setSheetOpen] = useState(false);
-  const { status, elapsedMs, error, setError, start, stopAndTranscribe, cancel, analyserRef } = useVoiceRecorder();
+  const { status, elapsedMs, error, setError, startRecording, stopRecording, cancel, analyserRef } = useVoiceInput();
 
   // 변환된 텍스트를 현재 커서 위치(없으면 끝)에 삽입 → onContent 로 상태 갱신(자동 확장 따라감)
   const insertText = useCallback((text: string) => {
@@ -492,23 +492,23 @@ function WriteCard({
 
   // PC: 버튼 한 번으로 시작/중지 토글
   const onPcMic = useCallback(async () => {
-    if (status === 'idle') { await start(); }
-    else if (status === 'recording') { const text = await stopAndTranscribe(); insertText(text); }
-  }, [status, start, stopAndTranscribe, insertText]);
+    if (status === 'idle' || status === 'error') { await startRecording(); }
+    else if (status === 'recording') { const text = await stopRecording(); insertText(text); }
+  }, [status, startRecording, stopRecording, insertText]);
 
   // 모바일: 플로팅 마이크 → 권한·시작 성공 시 녹음 시트 오픈
   const onMobileMic = useCallback(async () => {
-    if (status !== 'idle') return;
-    const ok = await start();
+    if (status !== 'idle' && status !== 'error') return;
+    const ok = await startRecording();
     if (ok) setSheetOpen(true);
-  }, [status, start]);
+  }, [status, startRecording]);
 
   // 모바일 시트: 중지하고 변환 → 본문 삽입 후 시트 닫기
   const onSheetStop = useCallback(async () => {
-    const text = await stopAndTranscribe();
+    const text = await stopRecording();
     setSheetOpen(false);
     insertText(text);
-  }, [stopAndTranscribe, insertText]);
+  }, [stopRecording, insertText]);
 
   const onSheetCancel = useCallback(() => {
     cancel();
