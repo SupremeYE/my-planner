@@ -22,6 +22,7 @@ import { ProfileView } from './components/ProfileView';
 import { VisionBoardView } from './components/VisionBoardView';
 import { ScrapView } from './components/ScrapView';
 import { PlacesView } from './components/PlacesView';
+import { WalkView } from './components/WalkView';
 
 export const router = createBrowserRouter([
   {
@@ -54,6 +55,7 @@ export const router = createBrowserRouter([
       { path: 'vision',           Component: VisionBoardView },
       { path: 'scraps',           Component: ScrapView },
       { path: 'places',           Component: PlacesView },
+      { path: 'walk',             Component: WalkView },
       { path: 'profile',          Component: ProfileView },
     ],
   },
