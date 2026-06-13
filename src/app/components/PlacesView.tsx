@@ -4,6 +4,7 @@ import { useSearchParams } from 'react-router';
 import { useTheme } from '../ThemeContext';
 import { LibraryTab } from './places/LibraryTab';
 import { MapTab } from './places/MapTab';
+import { DrawTab } from './places/DrawTab';
 
 type PlacesTab = 'draw' | 'library' | 'map' | 'memory';
 
@@ -67,7 +68,7 @@ export function PlacesView() {
       <div className="flex-1 min-h-0 overflow-y-auto lg:overflow-hidden">
         {activeTab === 'library' && <LibraryTab />}
         {activeTab === 'map' && <MapTab />}
-        {activeTab === 'draw' && <Placeholder title="여기서 오늘 갈 곳을 뽑아요" desc="곧 만들어질 기능이에요 (Stage 4)" />}
+        {activeTab === 'draw' && <DrawTab />}
         {activeTab === 'memory' && <Placeholder title="다녀온 자리가 쌓일 곳" desc="곧 만들어질 기능이에요 (Stage 5)" />}
       </div>
     </div>
