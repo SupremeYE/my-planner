@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
-import { Search, X, Plus, BookOpen, ChevronRight, ChevronLeft, Tag, Trash2, BookMarked, Mic, Star } from 'lucide-react';
+import { Search, X, Plus, BookOpen, ChevronRight, ChevronLeft, Tag, Trash2, BookMarked, Mic, Star, Lightbulb } from 'lucide-react';
 import { useTheme } from '../ThemeContext';
 import { format } from 'date-fns';
 import ConfirmModal from './ConfirmModal';
@@ -17,6 +17,7 @@ type Quote = {
   tags: string[];
   starred: boolean;
   createdAt: string;
+  note?: string;
 };
 
 type Book = {
@@ -717,8 +718,10 @@ function BookDetailModal({
   const [totalPages, setTotalPages] = useState(String(book.totalPages || ''));
   const [status, setStatus] = useState<BookStatus>(book.status);
   const [quoteText, setQuoteText] = useState('');
+  const [quoteNote, setQuoteNote] = useState('');
   const [quotePage, setQuotePage] = useState('');
   const [quoteTags, setQuoteTags] = useState('');
+  const [expandedQuoteId, setExpandedQuoteId] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<'progress' | 'quotes'>('progress');
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [confirmDeleteQuote, setConfirmDeleteQuote] = useState<string | null>(null);
@@ -796,6 +799,7 @@ function BookDetailModal({
   const handleAddQuote = () => {
     if (!quoteText.trim()) return;
     const tags = quoteTags.split(/[,#\s]+/).map(t => t.trim()).filter(Boolean);
+    const noteTrimmed = quoteNote.trim();
     const quote: Quote = {
       id: nanoid(),
       text: quoteText.trim(),
@@ -803,6 +807,7 @@ function BookDetailModal({
       tags,
       starred: false,
       createdAt: format(new Date(), 'yyyy-MM-dd'),
+      note: noteTrimmed || undefined,
     };
     // Supabase 저장
     supabase.from('book_quotes').insert({
@@ -813,11 +818,13 @@ function BookDetailModal({
       tags: quote.tags,
       starred: false,
       created_at: quote.createdAt,
+      note: noteTrimmed || null,
     }).then(({ error }) => {
       if (error) console.error('[book_quotes] insert:', error.message);
     });
     onUpdate({ ...book, quotes: [quote, ...book.quotes] });
     setQuoteText('');
+    setQuoteNote('');
     setQuotePage('');
     setQuoteTags('');
   };
@@ -1020,6 +1027,26 @@ function BookDetailModal({
                       lineHeight: 1.75,
                     }}
                   />
+                  {/* 내 생각 (선택) — 전구 아이콘 + 옅은 톤으로 메모 영역 구분 */}
+                  <div
+                    className="flex items-start gap-2 pt-2"
+                    style={{ borderTop: `1px dashed ${t.borderLight ?? t.border}` }}
+                  >
+                    <Lightbulb size={13} style={{ color: t.textMuted, marginTop: 4, flexShrink: 0 }} />
+                    <textarea
+                      value={quoteNote}
+                      onChange={e => setQuoteNote(e.target.value)}
+                      placeholder="이 구절에 대한 내 생각…"
+                      className="w-full resize-none outline-none"
+                      style={{
+                        backgroundColor: 'transparent',
+                        color: t.textSub,
+                        fontSize: 12.5,
+                        minHeight: 44,
+                        lineHeight: 1.6,
+                      }}
+                    />
+                  </div>
                   {/* 1행: 페이지 + 태그 */}
                   <div className="flex gap-2">
                     <input
@@ -1078,30 +1105,21 @@ function BookDetailModal({
                     </p>
                   )}
                   {book.quotes.map(q => (
-                    <div key={q.id} className="flex rounded-xl overflow-hidden"
-                      style={{ border: `1px solid ${t.border}` }}>
-                      {/* 왼쪽 accent 라인 */}
-                      <div style={{ width: 3, backgroundColor: t.accent, flexShrink: 0 }} />
-                      {/* 내용 */}
-                      <div className="flex-1 p-3" style={{ backgroundColor: t.card }}>
-                        <div className="flex items-start justify-between gap-2">
-                          <p style={{
-                            fontSize: 13,
-                            color: t.text,
-                            lineHeight: 1.75,
-                            flex: 1,
-                            fontFamily: 'Georgia, "Noto Serif KR", serif',
-                          }}>
-                            {q.text}
-                          </p>
-                          <button
-                            onClick={() => setConfirmDeleteQuote(q.id)}
-                            style={{ color: t.textMuted, flexShrink: 0 }}
-                          >
-                            <X size={13} />
-                          </button>
-                        </div>
-                        <div className="flex items-center gap-2 mt-2 flex-wrap">
+                    <QuoteCard
+                      key={q.id}
+                      quote={q}
+                      expanded={expandedQuoteId === q.id}
+                      onClick={() => setExpandedQuoteId(prev => prev === q.id ? null : q.id)}
+                      rightSlot={
+                        <button
+                          onClick={(e) => { e.stopPropagation(); setConfirmDeleteQuote(q.id); }}
+                          style={{ color: t.textMuted }}
+                        >
+                          <X size={13} />
+                        </button>
+                      }
+                      meta={
+                        <>
                           <span style={{ fontSize: 11, color: t.textSub, fontWeight: 600 }} className="truncate max-w-[6rem]">
                             {book.title}
                           </span>
@@ -1116,15 +1134,15 @@ function BookDetailModal({
                             </span>
                           ))}
                           <button
-                            onClick={() => handleToggleFavorite(q.id)}
+                            onClick={(e) => { e.stopPropagation(); handleToggleFavorite(q.id); }}
                             className="ml-auto"
                             style={{ color: q.starred ? '#C4A882' : t.textMuted }}
                           >
                             <Star size={14} fill={q.starred ? '#C4A882' : 'none'} />
                           </button>
-                        </div>
-                      </div>
-                    </div>
+                        </>
+                      }
+                    />
                   ))}
                 </div>
               </>
@@ -1163,6 +1181,101 @@ function BookDetailModal({
   );
 }
 
+// ─── 구절 + 내 생각 표시 카드 (책 상세·구절 탭 공용) ───────────────────────
+// expanded=true → 내 생각 전체 노출, false → 2줄 말줄임
+// note 가 있으면 인용선(왼쪽 라인)을 강조 토큰(accent)으로, 없으면 옅은 토큰(borderLight)으로 칠해
+// 목록에서 메모 달린 구절을 한눈에 구분한다.
+function QuoteCard({
+  quote,
+  meta,
+  rightSlot,
+  expanded = false,
+  onClick,
+}: {
+  quote: Quote;
+  meta?: React.ReactNode;
+  rightSlot?: React.ReactNode;
+  expanded?: boolean;
+  onClick?: () => void;
+}) {
+  const { t } = useTheme();
+  const hasNote = !!(quote.note && quote.note.trim());
+  const accentColor = hasNote ? t.accent : (t.borderLight ?? t.border);
+
+  return (
+    <div
+      className="flex rounded-xl overflow-hidden"
+      style={{
+        border: `1px solid ${t.border}`,
+        cursor: onClick ? 'pointer' : 'default',
+      }}
+      onClick={onClick}
+    >
+      {/* 왼쪽 인용선 — 메모 있으면 강조 */}
+      <div style={{ width: 3, backgroundColor: accentColor, flexShrink: 0 }} />
+      {/* 내용 */}
+      <div className="flex-1 p-3" style={{ backgroundColor: t.card }}>
+        <div className="flex items-start justify-between gap-2">
+          {/* 구절 본문 — 살짝 들여쓰기로 인용 느낌 */}
+          <p
+            style={{
+              fontSize: 13,
+              color: t.text,
+              lineHeight: 1.75,
+              flex: 1,
+              fontFamily: 'Georgia, "Noto Serif KR", serif',
+              paddingLeft: 4,
+              fontWeight: 500,
+            }}
+          >
+            {quote.text}
+          </p>
+          {rightSlot && <div className="flex-shrink-0">{rightSlot}</div>}
+        </div>
+
+        {/* 내 생각 — 있을 때만, 옅은 색 + 들여쓰기 + 전구 아이콘 */}
+        {hasNote && (
+          <div
+            className="flex items-start gap-1.5 mt-2"
+            style={{
+              paddingLeft: 12,
+              borderLeft: `1.5px dashed ${t.borderLight ?? t.border}`,
+              marginLeft: 4,
+            }}
+          >
+            <Lightbulb
+              size={11}
+              style={{ color: t.textMuted, flexShrink: 0, marginTop: 3 }}
+            />
+            <p
+              style={{
+                fontSize: 12,
+                color: t.textSub,
+                lineHeight: 1.65,
+                flex: 1,
+                ...(expanded
+                  ? {}
+                  : {
+                      display: '-webkit-box',
+                      WebkitLineClamp: 2,
+                      WebkitBoxOrient: 'vertical' as const,
+                      overflow: 'hidden',
+                    }),
+              }}
+            >
+              {quote.note}
+            </p>
+          </div>
+        )}
+
+        {meta && (
+          <div className="flex items-center gap-2 mt-2 flex-wrap">{meta}</div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 // ─── 구절 패널 ──────────────────────────────────────────────────────────
 type QuoteWithBook = Quote & { bookTitle: string; bookId: string };
 
@@ -1177,6 +1290,8 @@ function QuotesPanel({
   const [searchText, setSearchText] = useState('');
   const [activeFilter, setActiveFilter] = useState<string>('all');
   const [sortBy, setSortBy] = useState<'recent' | 'book'>('recent');
+
+  const [expandedQuoteId, setExpandedQuoteId] = useState<string | null>(null);
 
   const allQuotes: QuoteWithBook[] = books.flatMap(b =>
     b.quotes.map(q => ({ ...q, bookTitle: b.title, bookId: b.id }))
@@ -1270,19 +1385,13 @@ function QuotesPanel({
       ) : (
         <div className="space-y-2">
           {filtered.map(q => (
-            <div key={q.id} className="flex rounded-xl overflow-hidden"
-              style={{ border: `1px solid ${t.border}` }}>
-              <div style={{ width: 3, backgroundColor: t.accent, flexShrink: 0 }} />
-              <div className="flex-1 p-3" style={{ backgroundColor: t.card }}>
-                <p style={{
-                  fontSize: 13,
-                  color: t.text,
-                  lineHeight: 1.75,
-                  fontFamily: 'Georgia, "Noto Serif KR", serif',
-                }}>
-                  {q.text}
-                </p>
-                <div className="flex items-center gap-2 mt-2 flex-wrap">
+            <QuoteCard
+              key={q.id}
+              quote={q}
+              expanded={expandedQuoteId === q.id}
+              onClick={() => setExpandedQuoteId(prev => prev === q.id ? null : q.id)}
+              meta={
+                <>
                   <span style={{ fontSize: 11, color: t.textSub, fontWeight: 600 }}>
                     {q.bookTitle}{q.page ? ` · p.${q.page}` : ''}
                   </span>
@@ -1293,15 +1402,15 @@ function QuotesPanel({
                     </span>
                   ))}
                   <button
-                    onClick={() => onToggleFavorite(q.bookId, q.id)}
+                    onClick={(e) => { e.stopPropagation(); onToggleFavorite(q.bookId, q.id); }}
                     className="ml-auto"
                     style={{ color: q.starred ? '#C4A882' : t.textMuted }}
                   >
                     <Star size={14} fill={q.starred ? '#C4A882' : 'none'} />
                   </button>
-                </div>
-              </div>
-            </div>
+                </>
+              }
+            />
           ))}
         </div>
       )}
@@ -1461,6 +1570,7 @@ export function BooksView() {
           tags: q.tags ?? [],
           starred: q.starred ?? false,
           createdAt: q.created_at,
+          note: q.note ?? undefined,
         });
       }
 
