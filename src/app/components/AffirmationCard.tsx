@@ -110,9 +110,11 @@ export function AffirmationCard({ date }: { date: string }) {
         <Sparkles size={13} color={accentColor} />
       </span>
 
-      {/* 모바일: 최대 3줄 줄바꿈, PC: 한 줄 말줄임 유지 */}
+      {/* 모바일: 최대 3줄 줄바꿈, PC: 한 줄 말줄임 유지
+          ⚠️ line-clamp는 Tailwind 클래스로 처리 — 인라인 display를 쓰면
+          lg:hidden(display:none)을 덮어써 PC에서 텍스트가 중복 노출됨 */}
       <span
-        className="lg:hidden"
+        className="lg:hidden line-clamp-3"
         style={{
           flex: 1,
           fontSize: 13,
@@ -120,10 +122,6 @@ export function AffirmationCard({ date }: { date: string }) {
           fontFamily: "'Gowun Dodum', 'Pretendard', sans-serif",
           letterSpacing: '-0.005em',
           lineHeight: 1.65,
-          display: '-webkit-box',
-          WebkitBoxOrient: 'vertical',
-          WebkitLineClamp: 3,
-          overflow: 'hidden',
           wordBreak: 'keep-all',
           overflowWrap: 'break-word',
         }}
