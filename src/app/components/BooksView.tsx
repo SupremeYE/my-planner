@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
-import { Search, X, Plus, BookOpen, ChevronRight, ChevronLeft, Tag, Trash2, BookMarked, Mic, Star } from 'lucide-react';
+import { Search, X, Plus, BookOpen, ChevronRight, ChevronLeft, Tag, Trash2, BookMarked, Mic, Star, Lightbulb } from 'lucide-react';
 import { useTheme } from '../ThemeContext';
 import { format } from 'date-fns';
 import ConfirmModal from './ConfirmModal';
@@ -17,6 +17,7 @@ type Quote = {
   tags: string[];
   starred: boolean;
   createdAt: string;
+  note?: string;
 };
 
 type Book = {
@@ -717,8 +718,19 @@ function BookDetailModal({
   const [totalPages, setTotalPages] = useState(String(book.totalPages || ''));
   const [status, setStatus] = useState<BookStatus>(book.status);
   const [quoteText, setQuoteText] = useState('');
+  const [quoteNote, setQuoteNote] = useState('');
   const [quotePage, setQuotePage] = useState('');
   const [quoteTags, setQuoteTags] = useState('');
+  const [expandedQuoteId, setExpandedQuoteId] = useState<string | null>(null);
+  // PC split 모달: 우측 패널 모드
+  //  'write'  → 새 구절 작성 폼
+  //  string   → 선택된 구절 id (상세 표시)
+  const [pcRightMode, setPcRightMode] = useState<'write' | string>('write');
+  // 모바일 풀스크린 작성/수정 시트
+  //  null     → 시트 닫힘 (목록 표시)
+  //  'write'  → 새 구절 작성
+  //  string   → 그 id 의 구절 수정
+  const [mobileSheetMode, setMobileSheetMode] = useState<null | 'write' | string>(null);
   const [activeTab, setActiveTab] = useState<'progress' | 'quotes'>('progress');
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [confirmDeleteQuote, setConfirmDeleteQuote] = useState<string | null>(null);
@@ -796,6 +808,7 @@ function BookDetailModal({
   const handleAddQuote = () => {
     if (!quoteText.trim()) return;
     const tags = quoteTags.split(/[,#\s]+/).map(t => t.trim()).filter(Boolean);
+    const noteTrimmed = quoteNote.trim();
     const quote: Quote = {
       id: nanoid(),
       text: quoteText.trim(),
@@ -803,6 +816,7 @@ function BookDetailModal({
       tags,
       starred: false,
       createdAt: format(new Date(), 'yyyy-MM-dd'),
+      note: noteTrimmed || undefined,
     };
     // Supabase 저장
     supabase.from('book_quotes').insert({
@@ -813,11 +827,13 @@ function BookDetailModal({
       tags: quote.tags,
       starred: false,
       created_at: quote.createdAt,
+      note: noteTrimmed || null,
     }).then(({ error }) => {
       if (error) console.error('[book_quotes] insert:', error.message);
     });
     onUpdate({ ...book, quotes: [quote, ...book.quotes] });
     setQuoteText('');
+    setQuoteNote('');
     setQuotePage('');
     setQuoteTags('');
   };
@@ -831,6 +847,60 @@ function BookDetailModal({
       .then(({ error }) => {
         if (error) console.error('[book_quotes] starred:', error.message);
       });
+  };
+
+  // 모바일 풀스크린 시트 진입 헬퍼
+  const enterMobileWrite = () => {
+    setQuoteText('');
+    setQuoteNote('');
+    setQuotePage('');
+    setQuoteTags('');
+    setMobileSheetMode('write');
+  };
+  const enterMobileEdit = (q: Quote) => {
+    setQuoteText(q.text);
+    setQuoteNote(q.note ?? '');
+    setQuotePage(q.page != null ? String(q.page) : '');
+    setQuoteTags(q.tags.join(', '));
+    setMobileSheetMode(q.id);
+  };
+
+  // 기존 구절 업데이트 (모바일 수정용)
+  const handleUpdateQuote = (qid: string) => {
+    if (!quoteText.trim()) return;
+    const tags = quoteTags.split(/[,#\s]+/).map(t => t.trim()).filter(Boolean);
+    const noteTrimmed = quoteNote.trim();
+    const updates = {
+      text: quoteText.trim(),
+      page: quotePage ? parseInt(quotePage) : null,
+      tags,
+      note: noteTrimmed || null,
+    };
+    supabase.from('book_quotes').update(updates).eq('id', qid).then(({ error }) => {
+      if (error) console.error('[book_quotes] update:', error.message);
+    });
+    onUpdate({
+      ...book,
+      quotes: book.quotes.map(q => q.id === qid
+        ? {
+            ...q,
+            text: updates.text,
+            page: updates.page ?? undefined,
+            tags: updates.tags,
+            note: noteTrimmed || undefined,
+          }
+        : q),
+    });
+  };
+
+  const handleSaveMobileSheet = () => {
+    if (!quoteText.trim()) return;
+    if (mobileSheetMode === 'write') {
+      handleAddQuote(); // 내부에서 fields 초기화
+    } else if (typeof mobileSheetMode === 'string') {
+      handleUpdateQuote(mobileSheetMode);
+    }
+    setMobileSheetMode(null);
   };
 
   const handleDeleteQuote = (qid: string) => {
@@ -848,7 +918,7 @@ function BookDetailModal({
         onClick={onClose}
       >
         <div
-          className="w-full lg:max-w-md rounded-t-2xl lg:rounded-2xl overflow-hidden flex flex-col"
+          className="w-full lg:w-[92vw] lg:max-w-[1280px] rounded-t-2xl lg:rounded-2xl overflow-hidden flex flex-col lg:h-[88vh]"
           style={{ backgroundColor: t.sidebar, maxHeight: '92vh' }}
           onClick={e => e.stopPropagation()}
         >
@@ -905,7 +975,13 @@ function BookDetailModal({
             ))}
           </div>
 
-          <div className="flex-1 overflow-y-auto px-5 py-4 space-y-4">
+          <div
+            className={`flex-1 overflow-y-auto px-5 py-4 space-y-4 ${
+              activeTab === 'quotes'
+                ? 'lg:overflow-hidden lg:px-0 lg:py-0 lg:space-y-0 lg:min-h-0'
+                : ''
+            }`}
+          >
             {/* 진도 탭 */}
             {activeTab === 'progress' && (
               <>
@@ -1003,135 +1079,473 @@ function BookDetailModal({
             {/* 구절 탭 */}
             {activeTab === 'quotes' && (
               <>
-                {/* 구절 입력 영역 */}
-                <div className="p-3 rounded-xl space-y-2"
-                  style={{ backgroundColor: t.card, border: `1px solid ${t.border}` }}>
-                  <textarea
-                    value={quoteText}
-                    onChange={e => setQuoteText(e.target.value)}
-                    placeholder="마음에 남는 문장을 기록해보세요..."
-                    className="w-full resize-none outline-none"
+                {/* ── 모바일 (lg 미만): 목록 + 풀스크린 작성 시트 push ── */}
+                <div className="lg:hidden space-y-3">
+                  {/* + 구절 추가 (목록 상단) */}
+                  <button
+                    onClick={enterMobileWrite}
+                    className="w-full py-2.5 rounded-xl flex items-center justify-center gap-1.5"
                     style={{
-                      backgroundColor: 'transparent',
-                      color: t.text,
-                      fontFamily: 'Georgia, "Noto Serif KR", serif',
-                      fontSize: 14,
-                      minHeight: 80,
-                      lineHeight: 1.75,
+                      backgroundColor: t.accent,
+                      color: '#fff',
+                      fontSize: 13,
+                      fontWeight: 700,
                     }}
-                  />
-                  {/* 1행: 페이지 + 태그 */}
-                  <div className="flex gap-2">
-                    <input
-                      type="number"
-                      value={quotePage}
-                      onChange={e => setQuotePage(e.target.value)}
-                      placeholder="페이지"
-                      className="rounded-lg px-2 py-1.5 outline-none text-xs flex-shrink-0"
-                      style={{ width: 72, backgroundColor: t.bgSub, border: `1px solid ${t.border}`, color: t.text }}
-                    />
-                    <input
-                      value={quoteTags}
-                      onChange={e => setQuoteTags(e.target.value)}
-                      placeholder="태그 (쉼표 구분)"
-                      className="flex-1 min-w-0 rounded-lg px-2 py-1.5 outline-none text-xs"
-                      style={{ backgroundColor: t.bgSub, border: `1px solid ${t.border}`, color: t.text }}
-                    />
-                  </div>
-                  {/* 2행: 음성 버튼 + 저장 버튼 */}
-                  <div className="flex gap-2">
-                    <button
-                      onClick={toggleRecording}
-                      disabled={isTranscribing}
-                      className="flex items-center justify-center gap-1.5 flex-1 py-1.5 rounded-lg transition-all"
-                      style={{
-                        backgroundColor: isRecording ? '#D4735A' : t.bgSub,
-                        border: `1px solid ${isRecording ? '#D4735A' : t.border}`,
-                        color: isRecording ? '#fff' : t.textMuted,
-                        fontSize: 12,
-                      }}
-                    >
-                      <Mic size={13} />
-                      {isTranscribing ? '변환 중...' : isRecording ? '녹음 중...' : '음성 입력'}
-                    </button>
-                    <button
-                      onClick={handleAddQuote}
-                      disabled={!quoteText.trim()}
-                      className="flex-1 py-1.5 rounded-lg"
-                      style={{
-                        backgroundColor: quoteText.trim() ? t.accent : t.bgSub,
-                        color: quoteText.trim() ? '#fff' : t.textMuted,
-                        fontSize: 12,
-                        fontWeight: 600,
-                      }}
-                    >
-                      저장
-                    </button>
-                  </div>
-                </div>
+                  >
+                    <Plus size={14} />
+                    구절 추가
+                  </button>
 
-                {/* 구절 목록 */}
-                <div className="space-y-2">
-                  {book.quotes.length === 0 && (
-                    <p style={{ fontSize: 13, color: t.textMuted, textAlign: 'center', paddingTop: 16 }}>
-                      저장된 구절이 없어요
-                    </p>
-                  )}
-                  {book.quotes.map(q => (
-                    <div key={q.id} className="flex rounded-xl overflow-hidden"
-                      style={{ border: `1px solid ${t.border}` }}>
-                      {/* 왼쪽 accent 라인 */}
-                      <div style={{ width: 3, backgroundColor: t.accent, flexShrink: 0 }} />
-                      {/* 내용 */}
-                      <div className="flex-1 p-3" style={{ backgroundColor: t.card }}>
-                        <div className="flex items-start justify-between gap-2">
-                          <p style={{
-                            fontSize: 13,
-                            color: t.text,
-                            lineHeight: 1.75,
-                            flex: 1,
-                            fontFamily: 'Georgia, "Noto Serif KR", serif',
-                          }}>
-                            {q.text}
-                          </p>
+                  {/* 구절 목록 — 탭 시 풀스크린 작성/상세 화면으로 push */}
+                  <div className="space-y-2">
+                    {book.quotes.length === 0 && (
+                      <p style={{ fontSize: 13, color: t.textMuted, textAlign: 'center', paddingTop: 16 }}>
+                        저장된 구절이 없어요
+                      </p>
+                    )}
+                    {book.quotes.map(q => (
+                      <QuoteCard
+                        key={q.id}
+                        quote={q}
+                        expanded={expandedQuoteId === q.id}
+                        onClick={() => enterMobileEdit(q)}
+                        rightSlot={
                           <button
-                            onClick={() => setConfirmDeleteQuote(q.id)}
-                            style={{ color: t.textMuted, flexShrink: 0 }}
+                            onClick={(e) => { e.stopPropagation(); setConfirmDeleteQuote(q.id); }}
+                            style={{ color: t.textMuted }}
                           >
                             <X size={13} />
                           </button>
-                        </div>
-                        <div className="flex items-center gap-2 mt-2 flex-wrap">
-                          <span style={{ fontSize: 11, color: t.textSub, fontWeight: 600 }} className="truncate max-w-[6rem]">
-                            {book.title}
-                          </span>
-                          {q.page && (
-                            <span style={{ fontSize: 10, color: t.textMuted }}>{q.page}p</span>
-                          )}
-                          {q.tags.map(tag => (
-                            <span key={tag}
-                              className="px-1.5 py-0.5 rounded-md"
-                              style={{ fontSize: 10, backgroundColor: t.accentLight, color: t.accent }}>
-                              #{tag}
+                        }
+                        meta={
+                          <>
+                            <span style={{ fontSize: 11, color: t.textSub, fontWeight: 600 }} className="truncate max-w-[6rem]">
+                              {book.title}
                             </span>
-                          ))}
+                            {q.page && (
+                              <span style={{ fontSize: 10, color: t.textMuted }}>{q.page}p</span>
+                            )}
+                            {q.tags.map(tag => (
+                              <span key={tag}
+                                className="px-1.5 py-0.5 rounded-md"
+                                style={{ fontSize: 10, backgroundColor: t.accentLight, color: t.accent }}>
+                                #{tag}
+                              </span>
+                            ))}
+                            <button
+                              onClick={(e) => { e.stopPropagation(); handleToggleFavorite(q.id); }}
+                              className="ml-auto"
+                              style={{ color: q.starred ? '#C4A882' : t.textMuted }}
+                            >
+                              <Star size={14} fill={q.starred ? '#C4A882' : 'none'} />
+                            </button>
+                          </>
+                        }
+                      />
+                    ))}
+                  </div>
+                </div>
+                {/* ── PC (lg 이상): 좌우 split ── */}
+                <div className="hidden lg:flex h-full min-h-0" style={{ minHeight: 0 }}>
+                  {/* 좌측: 구절 리스트 */}
+                  <div
+                    className="flex flex-col"
+                    style={{
+                      width: '40%',
+                      borderRight: `1px solid ${t.border}`,
+                      backgroundColor: t.bgSub,
+                    }}
+                  >
+                    {/* 좌측 헤더: + 구절 추가 */}
+                    <div className="px-4 py-3 flex items-center justify-between" style={{ borderBottom: `1px solid ${t.border}` }}>
+                      <span style={{ fontSize: 12, fontWeight: 700, color: t.textSub }}>
+                        구절 {book.quotes.length}
+                      </span>
+                      <button
+                        onClick={() => {
+                          setPcRightMode('write');
+                          setQuoteText('');
+                          setQuoteNote('');
+                          setQuotePage('');
+                          setQuoteTags('');
+                        }}
+                        className="flex items-center gap-1 px-2.5 py-1 rounded-lg"
+                        style={{
+                          fontSize: 12,
+                          backgroundColor: pcRightMode === 'write' ? t.accent : t.card,
+                          color: pcRightMode === 'write' ? '#fff' : t.accent,
+                          border: `1px solid ${t.accent}`,
+                          fontWeight: 600,
+                        }}
+                      >
+                        <Plus size={13} />
+                        구절 추가
+                      </button>
+                    </div>
+
+                    {/* 리스트 */}
+                    <div className="flex-1 overflow-y-auto px-3 py-3 space-y-1.5">
+                      {book.quotes.length === 0 && (
+                        <p style={{ fontSize: 12, color: t.textMuted, textAlign: 'center', paddingTop: 24 }}>
+                          저장된 구절이 없어요
+                        </p>
+                      )}
+                      {book.quotes.map(q => {
+                        const selected = pcRightMode === q.id;
+                        const hasNote = !!(q.note && q.note.trim());
+                        return (
                           <button
-                            onClick={() => handleToggleFavorite(q.id)}
-                            className="ml-auto"
-                            style={{ color: q.starred ? '#C4A882' : t.textMuted }}
+                            key={q.id}
+                            onClick={() => setPcRightMode(q.id)}
+                            className="w-full text-left flex items-start gap-2 px-3 py-2.5 rounded-lg transition-all"
+                            style={{
+                              backgroundColor: selected ? t.accentLight : t.card,
+                              border: `1px solid ${selected ? t.accent : t.border}`,
+                            }}
                           >
-                            <Star size={14} fill={q.starred ? '#C4A882' : 'none'} />
+                            {/* 인용선 */}
+                            <div
+                              style={{
+                                width: 2,
+                                alignSelf: 'stretch',
+                                borderRadius: 1,
+                                backgroundColor: hasNote ? t.accent : (t.borderLight ?? t.border),
+                                flexShrink: 0,
+                              }}
+                            />
+                            <p
+                              style={{
+                                fontSize: 12.5,
+                                color: t.text,
+                                lineHeight: 1.5,
+                                flex: 1,
+                                fontFamily: 'Georgia, "Noto Serif KR", serif',
+                                display: '-webkit-box',
+                                WebkitLineClamp: 1,
+                                WebkitBoxOrient: 'vertical' as const,
+                                overflow: 'hidden',
+                                wordBreak: 'break-word',
+                              }}
+                            >
+                              {q.text}
+                            </p>
+                            {hasNote && (
+                              <Lightbulb
+                                size={12}
+                                style={{ color: t.accent, flexShrink: 0, marginTop: 2 }}
+                                aria-label="내 생각 메모 있음"
+                              />
+                            )}
+                            {q.starred && (
+                              <Star size={12} fill="#C4A882" style={{ color: '#C4A882', flexShrink: 0, marginTop: 2 }} />
+                            )}
                           </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  {/* 우측: 작성/상세 */}
+                  <div className="flex-1 flex flex-col overflow-y-auto" style={{ backgroundColor: t.sidebar }}>
+                    {pcRightMode === 'write' ? (
+                      // ── 작성 모드 ──
+                      <div className="px-8 py-6 space-y-4 max-w-[720px] w-full mx-auto">
+                        <p style={{ fontSize: 14, fontWeight: 700, color: t.textSub }}>
+                          새 구절 기록
+                        </p>
+                        <div className="rounded-xl p-4 space-y-3"
+                          style={{ backgroundColor: t.card, border: `1px solid ${t.border}` }}>
+                          {/* 구절 입력 */}
+                          <textarea
+                            value={quoteText}
+                            onChange={e => setQuoteText(e.target.value)}
+                            placeholder="마음에 남는 문장을 기록해보세요..."
+                            className="w-full resize-none outline-none"
+                            style={{
+                              backgroundColor: 'transparent',
+                              color: t.text,
+                              fontFamily: 'Georgia, "Noto Serif KR", serif',
+                              fontSize: 16,
+                              minHeight: 140,
+                              lineHeight: 1.8,
+                            }}
+                          />
+                          {/* 내 생각 */}
+                          <div
+                            className="flex items-start gap-2 pt-3"
+                            style={{ borderTop: `1px dashed ${t.borderLight ?? t.border}` }}
+                          >
+                            <Lightbulb size={14} style={{ color: t.textMuted, marginTop: 4, flexShrink: 0 }} />
+                            <textarea
+                              value={quoteNote}
+                              onChange={e => setQuoteNote(e.target.value)}
+                              placeholder="이 구절에 대한 내 생각…"
+                              className="w-full resize-none outline-none"
+                              style={{
+                                backgroundColor: 'transparent',
+                                color: t.textSub,
+                                fontSize: 13.5,
+                                minHeight: 70,
+                                lineHeight: 1.65,
+                              }}
+                            />
+                          </div>
+                          {/* 페이지 + 태그 */}
+                          <div className="flex gap-2">
+                            <input
+                              type="number"
+                              value={quotePage}
+                              onChange={e => setQuotePage(e.target.value)}
+                              placeholder="페이지"
+                              className="rounded-lg px-3 py-2 outline-none text-sm flex-shrink-0"
+                              style={{ width: 96, backgroundColor: t.bgSub, border: `1px solid ${t.border}`, color: t.text }}
+                            />
+                            <input
+                              value={quoteTags}
+                              onChange={e => setQuoteTags(e.target.value)}
+                              placeholder="태그 (쉼표 구분)"
+                              className="flex-1 min-w-0 rounded-lg px-3 py-2 outline-none text-sm"
+                              style={{ backgroundColor: t.bgSub, border: `1px solid ${t.border}`, color: t.text }}
+                            />
+                          </div>
+                          {/* 음성 + 저장 */}
+                          <div className="flex gap-2">
+                            <button
+                              onClick={toggleRecording}
+                              disabled={isTranscribing}
+                              className="flex items-center justify-center gap-1.5 flex-1 py-2 rounded-lg transition-all"
+                              style={{
+                                backgroundColor: isRecording ? '#D4735A' : t.bgSub,
+                                border: `1px solid ${isRecording ? '#D4735A' : t.border}`,
+                                color: isRecording ? '#fff' : t.textMuted,
+                                fontSize: 13,
+                              }}
+                            >
+                              <Mic size={14} />
+                              {isTranscribing ? '변환 중...' : isRecording ? '녹음 중...' : '음성 입력'}
+                            </button>
+                            <button
+                              onClick={() => {
+                                if (!quoteText.trim()) return;
+                                handleAddQuote();
+                              }}
+                              disabled={!quoteText.trim()}
+                              className="flex-1 py-2 rounded-lg"
+                              style={{
+                                backgroundColor: quoteText.trim() ? t.accent : t.bgSub,
+                                color: quoteText.trim() ? '#fff' : t.textMuted,
+                                fontSize: 13,
+                                fontWeight: 700,
+                              }}
+                            >
+                              저장
+                            </button>
+                          </div>
                         </div>
                       </div>
-                    </div>
-                  ))}
+                    ) : (() => {
+                      const selected = book.quotes.find(q => q.id === pcRightMode);
+                      if (!selected) {
+                        return (
+                          <div className="flex-1 flex items-center justify-center">
+                            <p style={{ fontSize: 13, color: t.textMuted }}>
+                              왼쪽에서 구절을 선택하거나 + 구절 추가
+                            </p>
+                          </div>
+                        );
+                      }
+                      return (
+                        <div className="px-8 py-6 space-y-4 max-w-[720px] w-full mx-auto">
+                          <div className="flex items-center justify-between">
+                            <p style={{ fontSize: 14, fontWeight: 700, color: t.textSub }}>
+                              구절 상세
+                            </p>
+                            <div className="flex items-center gap-2">
+                              <button
+                                onClick={() => handleToggleFavorite(selected.id)}
+                                className="p-1.5 rounded-lg"
+                                style={{
+                                  color: selected.starred ? '#C4A882' : t.textMuted,
+                                  border: `1px solid ${t.border}`,
+                                }}
+                                title={selected.starred ? '즐겨찾기 해제' : '즐겨찾기'}
+                              >
+                                <Star size={15} fill={selected.starred ? '#C4A882' : 'none'} />
+                              </button>
+                              <button
+                                onClick={() => setConfirmDeleteQuote(selected.id)}
+                                className="p-1.5 rounded-lg"
+                                style={{ color: t.textMuted, border: `1px solid ${t.border}` }}
+                                title="삭제"
+                              >
+                                <Trash2 size={15} />
+                              </button>
+                            </div>
+                          </div>
+                          {/* 1단계 표시 컴포넌트 재사용 — 상세에선 expanded=true 로 내 생각 전체 노출 */}
+                          <QuoteCard
+                            quote={selected}
+                            expanded
+                            meta={
+                              <>
+                                <span style={{ fontSize: 12, color: t.textSub, fontWeight: 600 }}>
+                                  {book.title}
+                                </span>
+                                {selected.page && (
+                                  <span style={{ fontSize: 11, color: t.textMuted }}>{selected.page}p</span>
+                                )}
+                                {selected.tags.map(tag => (
+                                  <span
+                                    key={tag}
+                                    className="px-1.5 py-0.5 rounded-md"
+                                    style={{ fontSize: 11, backgroundColor: t.accentLight, color: t.accent }}
+                                  >
+                                    #{tag}
+                                  </span>
+                                ))}
+                                <span style={{ fontSize: 11, color: t.textMuted, marginLeft: 'auto' }}>
+                                  {selected.createdAt}
+                                </span>
+                              </>
+                            }
+                          />
+                        </div>
+                      );
+                    })()}
+                  </div>
                 </div>
               </>
             )}
           </div>
         </div>
       </div>
+
+      {/* ── 모바일 풀스크린 작성/수정 시트 (lg 미만 전용) ── */}
+      {mobileSheetMode !== null && (
+        <div
+          className="lg:hidden fixed inset-0 z-[60] flex flex-col"
+          style={{ backgroundColor: t.sidebar }}
+        >
+          {/* 헤더: 뒤로가기 + 제목 + 저장 */}
+          <div
+            className="flex items-center justify-between px-4 py-3 flex-shrink-0"
+            style={{ borderBottom: `1px solid ${t.border}`, paddingTop: 'calc(env(safe-area-inset-top, 0px) + 12px)' }}
+          >
+            <button
+              onClick={() => setMobileSheetMode(null)}
+              className="p-1 -ml-1"
+              style={{ color: t.text }}
+              aria-label="뒤로가기"
+            >
+              <ChevronLeft size={22} />
+            </button>
+            <p style={{ fontSize: 14, fontWeight: 700, color: t.text }}>
+              {mobileSheetMode === 'write' ? '새 구절' : '구절 수정'}
+            </p>
+            <button
+              onClick={handleSaveMobileSheet}
+              disabled={!quoteText.trim()}
+              style={{
+                fontSize: 14,
+                fontWeight: 700,
+                color: quoteText.trim() ? t.accent : t.textMuted,
+                padding: '4px 6px',
+              }}
+            >
+              저장
+            </button>
+          </div>
+
+          {/* 본문 */}
+          <div
+            className="flex-1 overflow-y-auto px-4 py-4 space-y-3"
+            style={{ paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 16px)' }}
+          >
+            {/* 구절 입력 */}
+            <div>
+              <label style={{ fontSize: 11, fontWeight: 700, color: t.textSub, marginBottom: 6, display: 'block' }}>
+                구절
+              </label>
+              <textarea
+                value={quoteText}
+                onChange={e => setQuoteText(e.target.value)}
+                placeholder="마음에 남는 문장을 기록해보세요..."
+                className="w-full resize-none outline-none rounded-xl p-3"
+                style={{
+                  backgroundColor: t.card,
+                  border: `1px solid ${t.border}`,
+                  color: t.text,
+                  fontFamily: 'Georgia, "Noto Serif KR", serif',
+                  fontSize: 15,
+                  minHeight: 160,
+                  lineHeight: 1.8,
+                }}
+                autoFocus={mobileSheetMode === 'write'}
+              />
+            </div>
+
+            {/* 내 생각 */}
+            <div>
+              <label
+                style={{ fontSize: 11, fontWeight: 700, color: t.textSub, marginBottom: 6, display: 'flex', alignItems: 'center', gap: 4 }}
+              >
+                <Lightbulb size={11} />
+                내 생각
+              </label>
+              <textarea
+                value={quoteNote}
+                onChange={e => setQuoteNote(e.target.value)}
+                placeholder="이 구절에 대한 내 생각…"
+                className="w-full resize-none outline-none rounded-xl p-3"
+                style={{
+                  backgroundColor: t.card,
+                  border: `1px solid ${t.border}`,
+                  color: t.textSub,
+                  fontSize: 13.5,
+                  minHeight: 110,
+                  lineHeight: 1.65,
+                }}
+              />
+            </div>
+
+            {/* 페이지 + 태그 */}
+            <div className="flex gap-2">
+              <input
+                type="number"
+                value={quotePage}
+                onChange={e => setQuotePage(e.target.value)}
+                placeholder="페이지"
+                className="rounded-xl px-3 py-2.5 outline-none text-sm flex-shrink-0"
+                style={{ width: 100, backgroundColor: t.card, border: `1px solid ${t.border}`, color: t.text }}
+              />
+              <input
+                value={quoteTags}
+                onChange={e => setQuoteTags(e.target.value)}
+                placeholder="태그 (쉼표 구분)"
+                className="flex-1 min-w-0 rounded-xl px-3 py-2.5 outline-none text-sm"
+                style={{ backgroundColor: t.card, border: `1px solid ${t.border}`, color: t.text }}
+              />
+            </div>
+
+            {/* 음성 입력 */}
+            <button
+              onClick={toggleRecording}
+              disabled={isTranscribing}
+              className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl transition-all"
+              style={{
+                backgroundColor: isRecording ? '#D4735A' : t.card,
+                border: `1px solid ${isRecording ? '#D4735A' : t.border}`,
+                color: isRecording ? '#fff' : t.textSub,
+                fontSize: 13,
+                fontWeight: 600,
+              }}
+            >
+              <Mic size={14} />
+              {isTranscribing ? '변환 중...' : isRecording ? '녹음 중...' : '음성으로 입력'}
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* 삭제 확인 모달 */}
       {confirmDelete && (
@@ -1163,6 +1577,101 @@ function BookDetailModal({
   );
 }
 
+// ─── 구절 + 내 생각 표시 카드 (책 상세·구절 탭 공용) ───────────────────────
+// expanded=true → 내 생각 전체 노출, false → 2줄 말줄임
+// note 가 있으면 인용선(왼쪽 라인)을 강조 토큰(accent)으로, 없으면 옅은 토큰(borderLight)으로 칠해
+// 목록에서 메모 달린 구절을 한눈에 구분한다.
+function QuoteCard({
+  quote,
+  meta,
+  rightSlot,
+  expanded = false,
+  onClick,
+}: {
+  quote: Quote;
+  meta?: React.ReactNode;
+  rightSlot?: React.ReactNode;
+  expanded?: boolean;
+  onClick?: () => void;
+}) {
+  const { t } = useTheme();
+  const hasNote = !!(quote.note && quote.note.trim());
+  const accentColor = hasNote ? t.accent : (t.borderLight ?? t.border);
+
+  return (
+    <div
+      className="flex rounded-xl overflow-hidden"
+      style={{
+        border: `1px solid ${t.border}`,
+        cursor: onClick ? 'pointer' : 'default',
+      }}
+      onClick={onClick}
+    >
+      {/* 왼쪽 인용선 — 메모 있으면 강조 */}
+      <div style={{ width: 3, backgroundColor: accentColor, flexShrink: 0 }} />
+      {/* 내용 */}
+      <div className="flex-1 p-3" style={{ backgroundColor: t.card }}>
+        <div className="flex items-start justify-between gap-2">
+          {/* 구절 본문 — 살짝 들여쓰기로 인용 느낌 */}
+          <p
+            style={{
+              fontSize: 13,
+              color: t.text,
+              lineHeight: 1.75,
+              flex: 1,
+              fontFamily: 'Georgia, "Noto Serif KR", serif',
+              paddingLeft: 4,
+              fontWeight: 500,
+            }}
+          >
+            {quote.text}
+          </p>
+          {rightSlot && <div className="flex-shrink-0">{rightSlot}</div>}
+        </div>
+
+        {/* 내 생각 — 있을 때만, 옅은 색 + 들여쓰기 + 전구 아이콘 */}
+        {hasNote && (
+          <div
+            className="flex items-start gap-1.5 mt-2"
+            style={{
+              paddingLeft: 12,
+              borderLeft: `1.5px dashed ${t.borderLight ?? t.border}`,
+              marginLeft: 4,
+            }}
+          >
+            <Lightbulb
+              size={11}
+              style={{ color: t.textMuted, flexShrink: 0, marginTop: 3 }}
+            />
+            <p
+              style={{
+                fontSize: 12,
+                color: t.textSub,
+                lineHeight: 1.65,
+                flex: 1,
+                ...(expanded
+                  ? {}
+                  : {
+                      display: '-webkit-box',
+                      WebkitLineClamp: 2,
+                      WebkitBoxOrient: 'vertical' as const,
+                      overflow: 'hidden',
+                    }),
+              }}
+            >
+              {quote.note}
+            </p>
+          </div>
+        )}
+
+        {meta && (
+          <div className="flex items-center gap-2 mt-2 flex-wrap">{meta}</div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 // ─── 구절 패널 ──────────────────────────────────────────────────────────
 type QuoteWithBook = Quote & { bookTitle: string; bookId: string };
 
@@ -1177,6 +1686,8 @@ function QuotesPanel({
   const [searchText, setSearchText] = useState('');
   const [activeFilter, setActiveFilter] = useState<string>('all');
   const [sortBy, setSortBy] = useState<'recent' | 'book'>('recent');
+
+  const [expandedQuoteId, setExpandedQuoteId] = useState<string | null>(null);
 
   const allQuotes: QuoteWithBook[] = books.flatMap(b =>
     b.quotes.map(q => ({ ...q, bookTitle: b.title, bookId: b.id }))
@@ -1270,19 +1781,13 @@ function QuotesPanel({
       ) : (
         <div className="space-y-2">
           {filtered.map(q => (
-            <div key={q.id} className="flex rounded-xl overflow-hidden"
-              style={{ border: `1px solid ${t.border}` }}>
-              <div style={{ width: 3, backgroundColor: t.accent, flexShrink: 0 }} />
-              <div className="flex-1 p-3" style={{ backgroundColor: t.card }}>
-                <p style={{
-                  fontSize: 13,
-                  color: t.text,
-                  lineHeight: 1.75,
-                  fontFamily: 'Georgia, "Noto Serif KR", serif',
-                }}>
-                  {q.text}
-                </p>
-                <div className="flex items-center gap-2 mt-2 flex-wrap">
+            <QuoteCard
+              key={q.id}
+              quote={q}
+              expanded={expandedQuoteId === q.id}
+              onClick={() => setExpandedQuoteId(prev => prev === q.id ? null : q.id)}
+              meta={
+                <>
                   <span style={{ fontSize: 11, color: t.textSub, fontWeight: 600 }}>
                     {q.bookTitle}{q.page ? ` · p.${q.page}` : ''}
                   </span>
@@ -1293,15 +1798,15 @@ function QuotesPanel({
                     </span>
                   ))}
                   <button
-                    onClick={() => onToggleFavorite(q.bookId, q.id)}
+                    onClick={(e) => { e.stopPropagation(); onToggleFavorite(q.bookId, q.id); }}
                     className="ml-auto"
                     style={{ color: q.starred ? '#C4A882' : t.textMuted }}
                   >
                     <Star size={14} fill={q.starred ? '#C4A882' : 'none'} />
                   </button>
-                </div>
-              </div>
-            </div>
+                </>
+              }
+            />
           ))}
         </div>
       )}
@@ -1461,6 +1966,7 @@ export function BooksView() {
           tags: q.tags ?? [],
           starred: q.starred ?? false,
           createdAt: q.created_at,
+          note: q.note ?? undefined,
         });
       }
 
