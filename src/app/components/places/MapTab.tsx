@@ -2,7 +2,7 @@
 // 외부 API 재호출 없음: 저장된 lat/lng 만 읽어 핀을 찍는다. (검색/지오코딩은 저장 시점 1회)
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { format } from 'date-fns';
-import { X, Navigation, ExternalLink, Check, MapPin, Loader2, RefreshCw } from 'lucide-react';
+import { X, Navigation, ExternalLink, RotateCcw, MapPin, Loader2, RefreshCw } from 'lucide-react';
 import { useTheme } from '../../ThemeContext';
 import { db } from '../../../lib/db';
 import type { Place, PlaceFolder } from '../../../lib/db';
@@ -124,12 +124,17 @@ export function MapTab() {
     }
   };
 
-  // ── 방문 완료 ──────────────────────────────────────────────────────────────
+  // ── 방문 완료 / 취소 (토글) ──────────────────────────────────────────────────
   const markVisited = async (p: Place) => {
     if (!p.regionCode) { toast('지역 정보가 없어 기록할 수 없어요. 위치를 먼저 저장해 주세요.'); return; }
     await db.placeVisits.create({ placeId: p.id, name: p.name, regionCode: p.regionCode, visitedOn: format(new Date(), 'yyyy-MM-dd') });
     await refresh();
     toast(`방문 완료! ${REGION_LABELS[p.regionCode] ?? ''}에 발자국 +1`);
+  };
+  const cancelVisit = async (p: Place) => {
+    await db.placeVisits.deleteByPlace(p.id);
+    await refresh();
+    toast(`방문 기록 취소됨 · ${REGION_LABELS[p.regionCode ?? ''] ?? ''} 발자국 -1`);
   };
 
   // 인리치먼트(블로그 후기) — 진행 중 placeId 집합 + 상세 열렸을 때 1회 자동 시도
@@ -252,9 +257,9 @@ export function MapTab() {
             <ExternalLink size={14} /> 카카오맵
           </a>
           {went ? (
-            <div className="flex items-center justify-center gap-1.5" style={{ flex: 1, padding: '11px 0', borderRadius: 12, backgroundColor: withAlpha(t.success, 0.12), color: t.success, fontSize: 13, fontWeight: 700 }}>
-              <Check size={15} /> 다녀온 곳
-            </div>
+            <button onClick={() => cancelVisit(p)} className="flex items-center justify-center gap-1.5" style={{ flex: 1, padding: '11px 0', borderRadius: 12, border: `1.5px solid ${t.success}`, backgroundColor: withAlpha(t.success, 0.1), color: t.success, fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>
+              <RotateCcw size={14} /> 방문 취소
+            </button>
           ) : (
             <button onClick={() => markVisited(p)} className="flex items-center justify-center gap-1.5" style={{ flex: 1, padding: '11px 0', borderRadius: 12, border: 'none', backgroundColor: t.accent, color: '#fff', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>
               방문 완료!

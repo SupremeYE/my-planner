@@ -3231,6 +3231,11 @@ export const db = {
       const { error } = await supabase.from('place_visits').delete().eq('id', id);
       if (error) console.error('[db] place_visits delete:', error.message);
     },
+    // 방문 취소(되돌리기) — 한 장소의 방문 행 전부 삭제. (v1: 장소당 방문 1회 토글)
+    deleteByPlace: async (placeId: string): Promise<void> => {
+      const { error } = await supabase.from('place_visits').delete().eq('place_id', placeId);
+      if (error) console.error('[db] place_visits deleteByPlace:', error.message);
+    },
     // 지역별 방문수 집계(히트맵용) — region_code GROUP BY. 클라이언트 집계(RLS 로 본인 행만).
     countByRegion: async (): Promise<RegionVisitCount[]> => {
       const { data, error } = await supabase.from('place_visits').select('region_code');
