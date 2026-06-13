@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
-import { Search, X, Plus, BookOpen, ChevronRight, ChevronLeft, Tag, Trash2, BookMarked, Mic, Star, Lightbulb } from 'lucide-react';
+import { Search, X, Plus, BookOpen, ChevronRight, ChevronLeft, Tag, Trash2, BookMarked, Mic, Star, Lightbulb, NotebookPen } from 'lucide-react';
 import { useTheme } from '../ThemeContext';
 import { format } from 'date-fns';
 import ConfirmModal from './ConfirmModal';
@@ -731,7 +731,13 @@ function BookDetailModal({
   //  'write'  → 새 구절 작성
   //  string   → 그 id 의 구절 수정
   const [mobileSheetMode, setMobileSheetMode] = useState<null | 'write' | string>(null);
-  const [activeTab, setActiveTab] = useState<'progress' | 'quotes'>('progress');
+  const [activeTab, setActiveTab] = useState<'progress' | 'quotes' | 'note'>('progress');
+  // 노트 탭: 책 전체에 대한 자유 메모 (목적/아웃풋)
+  const [notePurpose, setNotePurpose] = useState('');
+  const [noteOutput, setNoteOutput] = useState('');
+  const [noteSaved, setNoteSaved] = useState<{ purpose: string; output: string }>({ purpose: '', output: '' });
+  const [noteSaving, setNoteSaving] = useState(false);
+  const [noteSavedAt, setNoteSavedAt] = useState<number | null>(null);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [confirmDeleteQuote, setConfirmDeleteQuote] = useState<string | null>(null);
   const voice = useVoiceInput();
@@ -744,6 +750,59 @@ function BookDetailModal({
       voice.setText('');
     }
   }, [voice.text, voice.setText]);
+
+  // 노트 탭: book_notes 조회 (이 책 행만)
+  const fetchNotes = useCallback(async () => {
+    const { data, error } = await supabase
+      .from('book_notes')
+      .select('type, content')
+      .eq('book_id', book.id);
+    if (error) {
+      console.error('[book_notes] fetch:', error.message);
+      return;
+    }
+    const purpose = data?.find((r: any) => r.type === 'purpose')?.content ?? '';
+    const output = data?.find((r: any) => r.type === 'output')?.content ?? '';
+    setNotePurpose(purpose);
+    setNoteOutput(output);
+    setNoteSaved({ purpose, output });
+  }, [book.id]);
+  useEffect(() => { fetchNotes(); }, [fetchNotes]);
+  useRealtimeSync('book_notes', fetchNotes);
+
+  const noteDirty = notePurpose !== noteSaved.purpose || noteOutput !== noteSaved.output;
+
+  const handleSaveNotes = async () => {
+    if (!noteDirty || noteSaving) return;
+    setNoteSaving(true);
+    const rows: { id: string; book_id: string; type: string; content: string }[] = [];
+    const purposeTrim = notePurpose.trim();
+    const outputTrim = noteOutput.trim();
+    // 빈 입력은 행을 만들지 않는다. 이전에 저장된 값이 있고 비웠다면 DELETE.
+    if (purposeTrim) rows.push({ id: `${book.id}__purpose`, book_id: book.id, type: 'purpose', content: notePurpose });
+    if (outputTrim) rows.push({ id: `${book.id}__output`, book_id: book.id, type: 'output', content: noteOutput });
+    const toDelete: string[] = [];
+    if (!purposeTrim && noteSaved.purpose) toDelete.push('purpose');
+    if (!outputTrim && noteSaved.output) toDelete.push('output');
+
+    if (rows.length > 0) {
+      const { error } = await supabase
+        .from('book_notes')
+        .upsert(rows, { onConflict: 'book_id,type' });
+      if (error) console.error('[book_notes] upsert:', error.message);
+    }
+    if (toDelete.length > 0) {
+      const { error } = await supabase
+        .from('book_notes')
+        .delete()
+        .eq('book_id', book.id)
+        .in('type', toDelete);
+      if (error) console.error('[book_notes] delete:', error.message);
+    }
+    setNoteSaved({ purpose: notePurpose, output: noteOutput });
+    setNoteSaving(false);
+    setNoteSavedAt(Date.now());
+  };
 
   const parsedCurrentPage = parseInt(currentPage) || 0;
   const parsedTotalPages = parseInt(totalPages) || 0;
@@ -958,7 +1017,7 @@ function BookDetailModal({
 
           {/* 탭 */}
           <div className="flex px-5 pt-3 pb-0 gap-4 flex-shrink-0">
-            {(['progress', 'quotes'] as const).map(tab => (
+            {(['progress', 'quotes', 'note'] as const).map(tab => (
               <button
                 key={tab}
                 onClick={() => setActiveTab(tab)}
@@ -970,7 +1029,11 @@ function BookDetailModal({
                   borderBottom: activeTab === tab ? `2px solid ${t.accent}` : '2px solid transparent',
                 }}
               >
-                {tab === 'progress' ? '독서 진도' : `구절 (${book.quotes.length})`}
+                {tab === 'progress'
+                  ? '독서 진도'
+                  : tab === 'quotes'
+                    ? `구절 (${book.quotes.length})`
+                    : '노트'}
               </button>
             ))}
           </div>
@@ -1415,6 +1478,77 @@ function BookDetailModal({
                   </div>
                 </div>
               </>
+            )}
+
+            {/* 노트 탭 — 책 전체에 대한 자유 메모 (목적/아웃풋) */}
+            {activeTab === 'note' && (
+              <div className="space-y-4 lg:max-w-[820px] lg:mx-auto lg:px-2 lg:py-2">
+                {/* 왜 읽는가 (purpose) */}
+                <div>
+                  <div className="flex items-center gap-2 mb-1.5">
+                    <NotebookPen size={13} style={{ color: t.accent }} />
+                    <p style={{ fontSize: 13, fontWeight: 700, color: t.text }}>왜 읽는가</p>
+                    <span style={{ fontSize: 11, color: t.textMuted }}>목적</span>
+                  </div>
+                  <textarea
+                    value={notePurpose}
+                    onChange={e => setNotePurpose(e.target.value)}
+                    placeholder="이 책에서 무엇을 얻고 싶은가요?"
+                    className="w-full resize-none outline-none rounded-xl p-3"
+                    style={{
+                      backgroundColor: t.card,
+                      border: `1px solid ${t.border}`,
+                      color: t.text,
+                      fontSize: 14,
+                      minHeight: 140,
+                      lineHeight: 1.7,
+                    }}
+                  />
+                </div>
+
+                {/* 읽고 나서 (output) */}
+                <div>
+                  <div className="flex items-center gap-2 mb-1.5">
+                    <NotebookPen size={13} style={{ color: t.accent }} />
+                    <p style={{ fontSize: 13, fontWeight: 700, color: t.text }}>읽고 나서</p>
+                    <span style={{ fontSize: 11, color: t.textMuted }}>아웃풋</span>
+                  </div>
+                  <textarea
+                    value={noteOutput}
+                    onChange={e => setNoteOutput(e.target.value)}
+                    placeholder="다 읽고 남은 생각·실천할 것·핵심 요약 등을 자유롭게 남겨보세요."
+                    className="w-full resize-none outline-none rounded-xl p-3"
+                    style={{
+                      backgroundColor: t.card,
+                      border: `1px solid ${t.border}`,
+                      color: t.text,
+                      fontSize: 14,
+                      minHeight: 180,
+                      lineHeight: 1.7,
+                    }}
+                  />
+                </div>
+
+                {/* 저장 + 상태 */}
+                <div className="flex items-center gap-3">
+                  <button
+                    onClick={handleSaveNotes}
+                    disabled={!noteDirty || noteSaving}
+                    className="flex-1 py-2.5 rounded-xl"
+                    style={{
+                      backgroundColor: noteDirty && !noteSaving ? t.accent : t.bgSub,
+                      color: noteDirty && !noteSaving ? '#fff' : t.textMuted,
+                      fontSize: 13,
+                      fontWeight: 700,
+                    }}
+                  >
+                    {noteSaving ? '저장 중…' : '저장'}
+                  </button>
+                  {!noteDirty && noteSavedAt && (
+                    <span style={{ fontSize: 11, color: t.textMuted }}>저장됨</span>
+                  )}
+                </div>
+              </div>
             )}
           </div>
         </div>
