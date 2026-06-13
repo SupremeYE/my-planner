@@ -48,17 +48,28 @@ export function PlaceFormSheet({ place, folders, currentFolderIds, defaultFolder
   const [selectedKakao, setSelectedKakao] = useState<KakaoPlace | null>(null);
   const [candidates, setCandidates] = useState<KakaoPlace[] | null>(null); // null=미검색
   const [searching, setSearching] = useState(false);
+  const [searchError, setSearchError] = useState<string | null>(null);
+  // 검색어는 이름과 독립(이름이 비어도 검색 가능). 기본값은 현재 이름.
+  const [locQuery, setLocQuery] = useState(place?.name ?? '');
   // 편집 시 기존 좌표가 있으면 '확정된 위치'로 취급(주소 표시). 재검색하면 selectedKakao 로 갱신.
   const [locAddress, setLocAddress] = useState<string | null>(place?.address ?? null);
   const hasLocation = !!selectedKakao || (isEdit && place?.lat != null);
 
   const runSearch = async () => {
-    const q = name.trim();
+    const q = locQuery.trim();
     if (!q || searching) return;
     setSearching(true);
-    const results = await keywordSearch(q);
-    setCandidates(results);
-    setSearching(false);
+    setSearchError(null);
+    try {
+      const results = await keywordSearch(q);
+      setCandidates(results);
+    } catch {
+      // SDK 로드 실패(키 없음/도메인 미등록 등)
+      setSearchError('카카오 지도를 불러오지 못했어요. JS 키와 사이트 도메인 등록을 확인해 주세요.');
+      setCandidates(null);
+    } finally {
+      setSearching(false);
+    }
   };
 
   const pickCandidate = (c: KakaoPlace) => {
@@ -66,7 +77,7 @@ export function PlaceFormSheet({ place, folders, currentFolderIds, defaultFolder
     setLocAddress(c.road_address_name || c.address_name || null);
     setCandidates(null);
     // 카카오 이름/카테고리로 보정 (사용자가 이후 수정 가능)
-    if (c.place_name) setName(c.place_name);
+    if (c.place_name) { setName(c.place_name); setLocQuery(c.place_name); }
     const cat = shortCategory(c.category_name);
     if (cat && !category.trim()) setCategory(cat);
   };
@@ -75,6 +86,7 @@ export function PlaceFormSheet({ place, folders, currentFolderIds, defaultFolder
     setSelectedKakao(null);
     setLocAddress(isEdit ? place?.address ?? null : null);
     setCandidates(null);
+    setSearchError(null);
   };
 
   const inputStyle: React.CSSProperties = {
@@ -180,18 +192,29 @@ export function PlaceFormSheet({ place, folders, currentFolderIds, defaultFolder
                   {!hasKakaoKey() && (
                     <p style={{ fontSize: 11.5, color: t.danger, marginBottom: 6 }}>카카오 지도 키가 없어 검색을 쓸 수 없어요 (위치 없이 저장은 가능).</p>
                   )}
-                  <button
-                    onClick={runSearch}
-                    disabled={!name.trim() || searching || !hasKakaoKey()}
-                    className="flex items-center justify-center gap-1.5 w-full"
-                    style={{ padding: '10px 0', borderRadius: 11, border: `1.5px solid ${t.border}`, background: t.bg, color: t.text, fontSize: 13, fontWeight: 600, cursor: 'pointer', opacity: !name.trim() || !hasKakaoKey() ? 0.5 : 1 }}
-                  >
-                    {searching ? <Loader2 size={15} className="animate-spin" /> : <Search size={15} />}
-                    카카오에서 위치 찾기
-                  </button>
+                  <div className="flex gap-2">
+                    <input
+                      value={locQuery}
+                      onChange={e => setLocQuery(e.target.value)}
+                      onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); runSearch(); } }}
+                      placeholder="장소명으로 검색 (예: 브라운핸즈 송도)"
+                      disabled={!hasKakaoKey()}
+                      style={{ ...inputStyle, flex: 1 }}
+                    />
+                    <button
+                      onClick={runSearch}
+                      disabled={!locQuery.trim() || searching || !hasKakaoKey()}
+                      className="flex items-center justify-center gap-1"
+                      style={{ padding: '0 14px', borderRadius: 11, border: 'none', background: t.accent, color: '#fff', fontSize: 13, fontWeight: 700, cursor: 'pointer', flexShrink: 0, opacity: !locQuery.trim() || searching || !hasKakaoKey() ? 0.5 : 1 }}
+                    >
+                      {searching ? <Loader2 size={15} className="animate-spin" /> : <Search size={15} />}
+                      검색
+                    </button>
+                  </div>
+                  {searchError && <p style={{ fontSize: 11.5, color: t.danger, marginTop: 6 }}>{searchError}</p>}
                   {candidates && (
                     candidates.length === 0 ? (
-                      <p style={{ fontSize: 12, color: t.textSub, marginTop: 8, textAlign: 'center' }}>검색 결과가 없어요. 이름을 바꿔보세요.</p>
+                      <p style={{ fontSize: 12, color: t.textSub, marginTop: 8, textAlign: 'center' }}>검색 결과가 없어요. 검색어를 바꾸거나, 카카오 콘솔의 도메인 등록을 확인해 보세요.</p>
                     ) : (
                       <div className="flex flex-col gap-1 mt-2" style={{ maxHeight: 210, overflowY: 'auto' }}>
                         {candidates.map(c => (
