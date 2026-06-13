@@ -3,7 +3,7 @@ import { Outlet, NavLink, useNavigate } from 'react-router';
 import {
   Sun, CalendarDays, BarChart2, FolderKanban, ListTodo,
   ChevronLeft, ChevronRight, Calendar, Plus, Target, CheckCircle2,
-  ChevronDown, X, Home, Menu, Settings, Clapperboard, ChefHat, Sparkles, Bookmark,
+  ChevronDown, X, Home, Menu, Settings, Clapperboard, ChefHat, Sparkles, Bookmark, MapPin,
 } from 'lucide-react';
 import { usePlanner, getWeekKey } from '../store';
 import { useTheme } from '../ThemeContext';
@@ -22,6 +22,7 @@ const NAV_ITEMS = [
   { to: '/goals',     icon: BarChart2,    label: '목표관리' },
   { to: '/culture',   icon: Clapperboard, label: '문화 기록' },
   { to: '/recipes',   icon: ChefHat,      label: '레시피' },
+  { to: '/places',    icon: MapPin,       label: '가고싶은 곳' },
   { to: '/vision',    icon: Sparkles,     label: '비전보드' },
   { to: '/scraps',    icon: Bookmark,     label: '스크랩' },
   { to: '/projects',  icon: FolderKanban, label: '프로젝트' },

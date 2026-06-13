@@ -3065,6 +3065,14 @@ export const db = {
         .eq('folder_id', folderId);
       if (error) console.error('[db] place_folder_items remove:', error.message);
     },
+    // 전체 장소↔폴더 연결을 한 번에 조회 (보관함 벌크 렌더용 — N+1 방지).
+    allLinks: async (): Promise<{ placeId: string; folderId: string }[]> => {
+      const { data, error } = await supabase
+        .from('place_folder_items')
+        .select('place_id, folder_id');
+      if (error) { console.error('[db] place_folder_items allLinks:', error.message); return []; }
+      return (data ?? []).map((r: any) => ({ placeId: r.place_id, folderId: r.folder_id }));
+    },
     // 한 장소가 소속된 폴더 id 목록.
     foldersForPlace: async (placeId: string): Promise<string[]> => {
       const { data, error } = await supabase
