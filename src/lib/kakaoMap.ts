@@ -152,3 +152,10 @@ export function kakaoMapUrl(opts: { kakaoPlaceId?: string | null; name: string; 
   if (opts.lat != null && opts.lng != null) return `https://map.kakao.com/link/map/${encodeURIComponent(opts.name)},${opts.lat},${opts.lng}`;
   return `https://map.kakao.com/?q=${encodeURIComponent(opts.name)}`;
 }
+
+// 코스(경유) 길찾기 — 카카오맵이 경로를 그려준다(앱에서 경로 API 호출 아님).
+// mode: walk(도보) / traffic(버스·지하철) / car(차) / bicycle(자전거). 기본 car.
+export function courseDirectionsUrl(stops: { name: string; lat: number; lng: number }[], mode = 'car'): string {
+  const path = stops.map(s => `${encodeURIComponent(s.name)},${s.lat},${s.lng}`).join('/');
+  return `https://map.kakao.com/link/by/${mode}/${path}`;
+}
