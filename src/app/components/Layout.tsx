@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect, useLayoutEffect } from 'react';
 import { Outlet, NavLink, useLocation, useNavigate } from 'react-router';
 import {
-  Sun, CalendarDays, BarChart2, ListTodo,
+  Sun, CalendarDays, BarChart2, ListTodo, Inbox,
   ChevronLeft, ChevronRight, Target, FolderKanban, Plus, Home,
   Menu, Heart, Repeat, BookOpen, Library, Settings, BarChart3,
   Smile, Utensils, Camera, Clapperboard, ChefHat,
@@ -146,6 +146,7 @@ const mainNavItems = [
   { to: '/daily', icon: Sun, label: '일간' },
   { to: '/calendar', icon: CalendarDays, label: '캘린더' },
   { to: '/todos', icon: ListTodo, label: '할일' },
+  { to: '/inbox', icon: Inbox, label: '인박스' },
   { to: '/goals', icon: BarChart2, label: '목표관리' },
 ];
 
@@ -526,8 +527,13 @@ function MobileMenuOverlay({ onClose }: { onClose: () => void }) {
 
 // ── Main Layout ──
 export function Layout() {
-  const { projects } = usePlanner();
+  const { projects, todos } = usePlanner();
   const { t } = useTheme();
+
+  // Inbox 미정리(날짜 미지정·미완료) 개수 — 사이드바 배지
+  const inboxCount = todos.filter(
+    td => td.date === null && td.status !== 'backlog' && td.status !== 'cancelled' && td.status !== 'done',
+  ).length;
   const [showNewProject, setShowNewProject] = useState(false);
   const [leftSidebarOpen, setLeftSidebarOpen] = useState(true);
   const [rightPanelOpen, setRightPanelOpen] = useState(true);
@@ -615,8 +621,22 @@ export function Layout() {
               >
                 {({ isActive }) => (
                   <>
-                    <Icon size={18} color={isActive ? t.text : t.textMuted} />
-                    {leftSidebarOpen && <span>{label}</span>}
+                    <div className="relative">
+                      <Icon size={18} color={isActive ? t.text : t.textMuted} />
+                      {/* 사이드바 접힘 상태: 아이콘 우상단 미니 점 */}
+                      {to === '/inbox' && inboxCount > 0 && !leftSidebarOpen && (
+                        <span className="absolute -top-1 -right-1 w-2 h-2 rounded-full" style={{ backgroundColor: t.accent }} />
+                      )}
+                    </div>
+                    {leftSidebarOpen && <span className="flex-1">{label}</span>}
+                    {to === '/inbox' && inboxCount > 0 && leftSidebarOpen && (
+                      <span
+                        className="rounded-full px-1.5 min-w-[18px] text-center"
+                        style={{ fontSize: 10, fontWeight: 700, color: '#fff', backgroundColor: t.accent }}
+                      >
+                        {inboxCount}
+                      </span>
+                    )}
                   </>
                 )}
               </NavLink>
