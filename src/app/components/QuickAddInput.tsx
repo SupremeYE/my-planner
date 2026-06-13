@@ -100,6 +100,14 @@ export function QuickAddInput({ defaultDate = null, onSubmitted, autoFocus, plac
     setAsEvent(false);
   };
 
+  // "자세히" 로 모달을 열 때 파싱 값을 함께 넘기기 위해 한 번 계산한다.
+  // 태그는 제출과 동일하게 id 로 해석(없으면 생성)해 모달에 prefill 한다.
+  const [detailSeed, setDetailSeed] = useState<{ tagIds: string[] } | null>(null);
+  const openDetail = (mode: 'todo' | 'event') => {
+    setDetailSeed({ tagIds: resolveTagIds() });
+    setDetailModal(mode);
+  };
+
   const submit = () => {
     if (!hasInput) return;
     const tagIds = resolveTagIds();
@@ -247,7 +255,7 @@ export function QuickAddInput({ defaultDate = null, onSubmitted, autoFocus, plac
           {/* 자세히 → 기존 모달 열기 */}
           <button
             type="button"
-            onClick={() => setDetailModal(asEvent ? 'event' : 'todo')}
+            onClick={() => openDetail(asEvent ? 'event' : 'todo')}
             className="ml-auto"
             style={{ fontSize: 11, fontWeight: 600, color: t.textSub, textDecoration: 'underline' }}
           >
@@ -259,16 +267,24 @@ export function QuickAddInput({ defaultDate = null, onSubmitted, autoFocus, plac
       {detailModal === 'todo' && (
         <TodoModal
           date={effectiveDate ?? undefined}
+          initialText={finalTitle}
           initialPlanStart={parsed.startTime}
           initialPlanEnd={parsed.endTime}
           initialProjectId={matchedProject?.id}
-          onClose={() => { setDetailModal(null); reset(); onSubmitted?.(); }}
+          initialTags={detailSeed?.tagIds}
+          initialIsTop3={parsed.isTop3}
+          initialRecurrenceRule={toTodoRecurrence(parsed.recurrenceRule)}
+          onClose={() => { setDetailModal(null); setDetailSeed(null); reset(); onSubmitted?.(); }}
         />
       )}
       {detailModal === 'event' && (
         <EventModal
           date={effectiveDate ?? undefined}
-          onClose={() => { setDetailModal(null); reset(); onSubmitted?.(); }}
+          initialTitle={finalTitle}
+          initialStartTime={parsed.startTime}
+          initialEndTime={parsed.endTime}
+          initialTags={detailSeed?.tagIds}
+          onClose={() => { setDetailModal(null); setDetailSeed(null); reset(); onSubmitted?.(); }}
         />
       )}
     </div>

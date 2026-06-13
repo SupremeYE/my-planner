@@ -9,6 +9,11 @@ import { TimePicker } from './TimePicker';
 interface EventModalProps {
   date?: string;
   event?: Event;
+  /** 새 일정 생성 시 기본값 (통합 빠른 입력 "자세히") */
+  initialTitle?: string;
+  initialStartTime?: string;
+  initialEndTime?: string;
+  initialTags?: string[];
   onClose: () => void;
 }
 
@@ -26,16 +31,16 @@ const ALERT_OPTIONS: { value: string; label: string }[] = [
   { value: '60', label: '1시간 전' },
 ];
 
-export function EventModal({ date, event, onClose }: EventModalProps) {
+export function EventModal({ date, event, initialTitle, initialStartTime, initialEndTime, initialTags, onClose }: EventModalProps) {
   const { addEvent, updateEvent, deleteEvent, projects } = usePlanner();
   const { t } = useTheme();
   const todayStr = format(new Date(), 'yyyy-MM-dd');
-  const [title, setTitle] = useState(event?.title ?? '');
+  const [title, setTitle] = useState(event?.title ?? initialTitle ?? '');
   const [isAllDay, setIsAllDay] = useState(event?.isAllDay ?? false);
   const [startDate, setStartDate] = useState(event?.startDate ?? event?.date ?? date ?? todayStr);
   const [endDate, setEndDate] = useState(event?.endDate ?? event?.date ?? date ?? todayStr);
-  const [startTime, setStartTime] = useState(event?.startTime ?? '09:00');
-  const [endTime, setEndTime] = useState(event?.endTime ?? '10:00');
+  const [startTime, setStartTime] = useState(event?.startTime ?? initialStartTime ?? '09:00');
+  const [endTime, setEndTime] = useState(event?.endTime ?? initialEndTime ?? '10:00');
   const [location, setLocation] = useState(event?.location ?? '');
   const [linkUrl, setLinkUrl] = useState(event?.linkUrl ?? '');
   const [repeatType, setRepeatType] = useState<Event['repeatType']>(event?.repeatType ?? 'none');
@@ -92,7 +97,7 @@ export function EventModal({ date, event, onClose }: EventModalProps) {
       memo: memo.trim() || undefined,
       projectId: projectId || undefined,
       color,
-      tags: event?.tags ?? [],
+      tags: event?.tags ?? initialTags ?? [],
     };
 
     if (event) {

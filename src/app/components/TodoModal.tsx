@@ -22,10 +22,19 @@ interface TodoModalProps {
   initialProjectId?: string;
   /** 새 할일 생성 시 자동 지정할 마일스톤 id (마일스톤 카드 내부에서 추가 시) */
   initialMilestoneId?: string;
+  /** 새 할일 생성 시 본문 기본값 (통합 빠른 입력 "자세히") */
+  initialText?: string;
+  /** 새 할일 생성 시 태그 id 기본값 (통합 빠른 입력 "자세히") */
+  initialTags?: string[];
+  /** 새 할일 생성 시 Top3 기본값 (통합 빠른 입력 "자세히") */
+  initialIsTop3?: boolean;
+  /** 새 할일 생성 시 반복 기본값 (통합 빠른 입력 "자세히") */
+  initialRecurrenceRule?: Todo['recurrenceRule'];
+  initialRecurrenceDays?: number[];
   onClose: () => void;
 }
 
-export function TodoModal({ date, todo, initialPlanStart, initialPlanEnd, initialWeeklyGoalId, initialProjectId, initialMilestoneId, onClose }: TodoModalProps) {
+export function TodoModal({ date, todo, initialPlanStart, initialPlanEnd, initialWeeklyGoalId, initialProjectId, initialMilestoneId, initialText, initialTags, initialIsTop3, initialRecurrenceRule, initialRecurrenceDays, onClose }: TodoModalProps) {
   const { addTodo, updateTodo, deleteTodo, deleteRecurringTodo, updateRecurringTodo, tags: allTags, projects, milestones, addTag, updateTag, deleteTag } = usePlanner();
   const { t } = useTheme();
 
@@ -49,11 +58,11 @@ export function TodoModal({ date, todo, initialPlanStart, initialPlanEnd, initia
     : '미지정';
 
   // 폼 fields
-  const [text, setText] = useState(todo?.text ?? '');
+  const [text, setText] = useState(todo?.text ?? initialText ?? '');
   const [planStart, setPlanStart] = useState(todo?.planStart ?? initialPlanStart ?? '');
   const [planEnd, setPlanEnd] = useState(todo?.planEnd ?? initialPlanEnd ?? '');
-  const [isTop3, setIsTop3] = useState(todo?.isTop3 ?? false);
-  const [selectedTags, setSelectedTags] = useState<string[]>(todo?.tags ?? []);
+  const [isTop3, setIsTop3] = useState(todo?.isTop3 ?? initialIsTop3 ?? false);
+  const [selectedTags, setSelectedTags] = useState<string[]>(todo?.tags ?? initialTags ?? []);
   const [projectId, setProjectId] = useState(todo?.projectId ?? initialProjectId ?? '');
   const [milestoneId, setMilestoneId] = useState(todo?.milestoneId ?? initialMilestoneId ?? '');
   const [showNewTag, setShowNewTag] = useState(false);
@@ -69,8 +78,8 @@ export function TodoModal({ date, todo, initialPlanStart, initialPlanEnd, initia
   const [deletingTagId, setDeletingTagId] = useState<string | null>(null);
 
   // 반복 일정 state
-  const [recurrenceRule, setRecurrenceRule] = useState<Todo['recurrenceRule']>(todo?.recurrenceRule ?? undefined);
-  const [recurrenceDays, setRecurrenceDays] = useState<number[]>(todo?.recurrenceDays ?? []);
+  const [recurrenceRule, setRecurrenceRule] = useState<Todo['recurrenceRule']>(todo?.recurrenceRule ?? initialRecurrenceRule ?? undefined);
+  const [recurrenceDays, setRecurrenceDays] = useState<number[]>(todo?.recurrenceDays ?? initialRecurrenceDays ?? []);
   const [recurrenceEndDate, setRecurrenceEndDate] = useState<string>(todo?.recurrenceEndDate ?? '');
   const [recurrenceBranchFor, setRecurrenceBranchFor] = useState<'save' | 'delete' | null>(null);
 
