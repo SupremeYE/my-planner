@@ -27,7 +27,7 @@
 | `/question-journal` | `QuestionJournalView` | 질문일기(기존) — 오늘의 질문 답변, 질문 탐색, 질문별 모아보기(5년 다이어리 스타일). ※통합 일기(`/diary`)로 대체 예정 |
 | `/culture` | `CultureRecordView` | 문화 기록 — 상위 섹션 탭 **[영상 / 음악]**. 영상: 영화/드라마/예능/유튜브 등 시청 콘텐츠 기록(포스터 그리드, 칩 필터, 별점, 리뷰/인사이트). 음악(`MusicSection`): iTunes 검색으로 추가한 곡을 **LP판 그리드**(회전)로 보여주고 무드 필터·셔플·상세(미리듣기 재생) 제공 |
 | `/recipes` | `RecipeView` (모듈 셸) | 레시피 모듈 — 내부 탭 네비(레시피/냉장고/장보기). **Phase 1a + 2a + D**: 레시피 직접입력 CRUD + 냉장고(요약·카테고리 섹션·D-day·수량 스테퍼) + 레시피↔냉장고 연결(목록 상단 `지금 만들 수 있어요`/`유통기한 임박 재료 레시피`, 카드 매칭 배지, 상세 재료 있음/부족 + `부족 재료 장보기 담기`) |
-| `/places` | `PlacesView` | 가고싶은 곳 — 상단 탭 4개(뽑기·보관함·지도·기억, `?tab=` 쿼리). **Stage 2**: **보관함** 탭 구현 — 모바일(전체/폴더 서브탭, 폴더 드릴다운) + PC(폴더 레일 + 3열 카드 그리드). 폴더(테마) CRUD·정렬, 장소 CRUD(지오코딩 없이), 한 장소를 **여러 폴더에 동시 소속**(다대다 picker), 미분류 장소 `＋폴더 지정`. 뽑기/지도/기억은 placeholder(Stage 3·4·5). Stage 1 의 `db.placeFolders/places/placeFolderItems/placeVisits` + `constants/places` 사용, `place_*` 4테이블 Realtime 구독 |
+| `/places` | `PlacesView` | 가고싶은 곳 — 상단 탭 4개(뽑기·보관함·지도·기억, `?tab=` 쿼리). **Stage 2**: **보관함** — 모바일(전체/폴더 서브탭, 폴더 드릴다운) + PC(폴더 레일 + 3열 카드). 폴더 CRUD·정렬, 장소 CRUD, **여러 폴더 동시 소속**(다대다 picker), 미분류 `＋폴더 지정`. **Stage 3A**: **지도**(`MapTab`) — 카카오맵 SDK(`VITE_KAKAO_JS_KEY`, `services,clusterer`) + 저장 장소 핀(가고싶은=빈/다녀온=채움, 토큰색 SVG) + 클러스터러 + 테마 바(폴더=지도 테마) + 상세(길찾기·카카오맵 외부링크·블로그후기 placeholder) + **방문 완료→`place_visits` insert**. 장소 추가 폼(`PlaceFormSheet`)에 **카카오 키워드 검색→후보 선택→저장 시점 1회 지오코딩**(lat/lng·address·region_code·kakao_place_id·phone). 외부 API는 저장 시점만, 지도는 저장값만 읽음. 뽑기/기억은 placeholder(Stage 4·5). `usePlacesData` 훅(보관함·지도 공용) + `place_*` 4테이블 Realtime |
 
 > 참고: `BrainstormView.tsx`, `BacklogView.tsx` 파일은 남아 있지만 현재 `routes.tsx`에는 연결되어 있지 않다.
 

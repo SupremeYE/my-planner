@@ -1,13 +1,12 @@
 // 보관함 탭 — 모바일(전체/폴더 서브탭) + PC(폴더 레일 + 3열 그리드)
 // Stage 1 의 db hooks + 상수만 사용. Realtime 4테이블 구독으로 PC↔모바일 즉시 반영.
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useMemo, useState } from 'react';
 import { Plus, ChevronLeft, ArrowUpRight, Pencil } from 'lucide-react';
 import { useTheme } from '../../ThemeContext';
-import { db } from '../../../lib/db';
 import type { Place, PlaceFolder } from '../../../lib/db';
-import { useRealtimeSync } from '../../hooks/useRealtimeSync';
 import { REGION_LABELS } from '../../../constants/places';
 import { placeEmoji, sourceLabel, colorFromKey, withAlpha } from './placeHelpers';
+import { usePlacesData } from './usePlacesData';
 import { PlaceFormSheet } from './PlaceFormSheet';
 import { FolderFormSheet } from './FolderFormSheet';
 import { FolderPickerSheet } from './FolderPickerSheet';
@@ -15,34 +14,8 @@ import { FolderPickerSheet } from './FolderPickerSheet';
 export function LibraryTab() {
   const { t } = useTheme();
 
-  // ── 데이터 ──────────────────────────────────────────────────────────────
-  const [folders, setFolders] = useState<PlaceFolder[]>([]);
-  const [places, setPlaces] = useState<Place[]>([]);
-  const [linkMap, setLinkMap] = useState<Map<string, string[]>>(new Map());
-  const [visitedIds, setVisitedIds] = useState<Set<string>>(new Set());
-  const [loading, setLoading] = useState(true);
-
-  const refresh = useCallback(async () => {
-    const [f, p, links, visits] = await Promise.all([
-      db.placeFolders.fetchAll(),
-      db.places.fetchAll(),
-      db.placeFolderItems.allLinks(),
-      db.placeVisits.fetchAll(),
-    ]);
-    setFolders(f);
-    setPlaces(p);
-    const m = new Map<string, string[]>();
-    links.forEach(l => { const a = m.get(l.placeId) ?? []; a.push(l.folderId); m.set(l.placeId, a); });
-    setLinkMap(m);
-    setVisitedIds(new Set(visits.filter(v => v.placeId).map(v => v.placeId as string)));
-    setLoading(false);
-  }, []);
-
-  useEffect(() => { refresh(); }, [refresh]);
-  useRealtimeSync('place_folders', refresh);
-  useRealtimeSync('places', refresh);
-  useRealtimeSync('place_folder_items', refresh);
-  useRealtimeSync('place_visits', refresh);
+  // ── 데이터 (공용 훅) ──────────────────────────────────────────────────────
+  const { folders, places, linkMap, visitedIds, loading, refresh } = usePlacesData();
 
   // ── 파생 ───────────────────────────────────────────────────────────────
   const foldersById = useMemo(() => {

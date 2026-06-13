@@ -1,11 +1,12 @@
-// 장소 추가/수정 시트 (지오코딩 없음 — 좌표/주소/region 은 Stage 3에서 채움)
-// Stage 3 에서 이 폼에 '저장 시점 1회' 지오코딩을 끼워넣을 수 있게 save 흐름을 분리해 둠.
+// 장소 추가/수정 시트
+// Stage 3A: 카카오 키워드 검색 → 후보 선택 → "저장 시점 1회" 지오코딩(좌표·주소·region_code·전화).
 import React, { useState } from 'react';
-import { Trash2 } from 'lucide-react';
+import { Trash2, Search, MapPin, Loader2 } from 'lucide-react';
 import { useTheme } from '../../ThemeContext';
 import { db } from '../../../lib/db';
 import type { Place, PlaceFolder } from '../../../lib/db';
 import { CONCEPTS } from '../../../constants/places';
+import { keywordSearch, geocodeFromKakao, shortCategory, hasKakaoKey, type KakaoPlace } from '../../../lib/kakaoMap';
 import ConfirmModal from '../ConfirmModal';
 import { PlaceSheet, Field } from './PlaceSheet';
 import { SOURCE_OPTIONS, colorFromKey, withAlpha } from './placeHelpers';
@@ -43,6 +44,39 @@ export function PlaceFormSheet({ place, folders, currentFolderIds, defaultFolder
   const [saving, setSaving] = useState(false);
   const [confirmDel, setConfirmDel] = useState(false);
 
+  // ── 위치 검색(지오코딩) 상태 ──────────────────────────────────────────────
+  const [selectedKakao, setSelectedKakao] = useState<KakaoPlace | null>(null);
+  const [candidates, setCandidates] = useState<KakaoPlace[] | null>(null); // null=미검색
+  const [searching, setSearching] = useState(false);
+  // 편집 시 기존 좌표가 있으면 '확정된 위치'로 취급(주소 표시). 재검색하면 selectedKakao 로 갱신.
+  const [locAddress, setLocAddress] = useState<string | null>(place?.address ?? null);
+  const hasLocation = !!selectedKakao || (isEdit && place?.lat != null);
+
+  const runSearch = async () => {
+    const q = name.trim();
+    if (!q || searching) return;
+    setSearching(true);
+    const results = await keywordSearch(q);
+    setCandidates(results);
+    setSearching(false);
+  };
+
+  const pickCandidate = (c: KakaoPlace) => {
+    setSelectedKakao(c);
+    setLocAddress(c.road_address_name || c.address_name || null);
+    setCandidates(null);
+    // 카카오 이름/카테고리로 보정 (사용자가 이후 수정 가능)
+    if (c.place_name) setName(c.place_name);
+    const cat = shortCategory(c.category_name);
+    if (cat && !category.trim()) setCategory(cat);
+  };
+
+  const clearLocation = () => {
+    setSelectedKakao(null);
+    setLocAddress(isEdit ? place?.address ?? null : null);
+    setCandidates(null);
+  };
+
   const inputStyle: React.CSSProperties = {
     width: '100%', padding: '11px 12px', borderRadius: 11,
     border: `1.5px solid ${t.border}`, backgroundColor: t.bg, color: t.text, fontSize: 14,
@@ -59,7 +93,7 @@ export function PlaceFormSheet({ place, folders, currentFolderIds, defaultFolder
   const save = async (close: () => void) => {
     if (!name.trim() || saving) return;
     setSaving(true);
-    const payload = {
+    const payload: Record<string, unknown> = {
       name: name.trim(),
       category: category.trim() || null,
       source: source.trim() || null,
@@ -68,11 +102,21 @@ export function PlaceFormSheet({ place, folders, currentFolderIds, defaultFolder
       concept,
       energy,
     };
+    // 새 후보를 골랐으면 "저장 시점 1회" 지오코딩 → 좌표·주소·region_code·전화 확정
+    if (selectedKakao) {
+      const geo = await geocodeFromKakao(selectedKakao);
+      payload.address = geo.address;
+      payload.lat = geo.lat;
+      payload.lng = geo.lng;
+      payload.kakaoPlaceId = geo.kakaoPlaceId;
+      payload.phone = geo.phone;
+      payload.regionCode = geo.regionCode;
+    }
     let placeId = place?.id;
     if (isEdit && place) {
-      await db.places.update(place.id, payload);
+      await db.places.update(place.id, payload as Partial<Place>);
     } else {
-      const created = await db.places.create(payload);
+      const created = await db.places.create(payload as Partial<Place> & { name: string });
       placeId = created?.id;
     }
     // 폴더 연결 동기화 (다대다)
@@ -120,6 +164,46 @@ export function PlaceFormSheet({ place, folders, currentFolderIds, defaultFolder
 
             <Field label="카테고리">
               <input value={category} onChange={e => setCategory(e.target.value)} placeholder="예: 카페 · 맛집·냉면" style={inputStyle} />
+            </Field>
+
+            <Field label="위치 (카카오 검색)">
+              {hasLocation ? (
+                <div className="flex items-center gap-2" style={{ padding: '10px 12px', borderRadius: 11, border: `1.5px solid ${t.success}`, backgroundColor: withAlpha(t.success, 0.08) }}>
+                  <MapPin size={15} color={t.success} />
+                  <span style={{ flex: 1, fontSize: 12.5, color: t.text, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{locAddress || '위치 확정됨'}</span>
+                  <button onClick={clearLocation} style={{ fontSize: 12, color: t.textSub, background: 'none', border: 'none', cursor: 'pointer', flexShrink: 0 }}>변경</button>
+                </div>
+              ) : (
+                <>
+                  {!hasKakaoKey() && (
+                    <p style={{ fontSize: 11.5, color: t.danger, marginBottom: 6 }}>카카오 지도 키가 없어 검색을 쓸 수 없어요 (위치 없이 저장은 가능).</p>
+                  )}
+                  <button
+                    onClick={runSearch}
+                    disabled={!name.trim() || searching || !hasKakaoKey()}
+                    className="flex items-center justify-center gap-1.5 w-full"
+                    style={{ padding: '10px 0', borderRadius: 11, border: `1.5px solid ${t.border}`, background: t.bg, color: t.text, fontSize: 13, fontWeight: 600, cursor: 'pointer', opacity: !name.trim() || !hasKakaoKey() ? 0.5 : 1 }}
+                  >
+                    {searching ? <Loader2 size={15} className="animate-spin" /> : <Search size={15} />}
+                    카카오에서 위치 찾기
+                  </button>
+                  {candidates && (
+                    candidates.length === 0 ? (
+                      <p style={{ fontSize: 12, color: t.textSub, marginTop: 8, textAlign: 'center' }}>검색 결과가 없어요. 이름을 바꿔보세요.</p>
+                    ) : (
+                      <div className="flex flex-col gap-1 mt-2" style={{ maxHeight: 210, overflowY: 'auto' }}>
+                        {candidates.map(c => (
+                          <button key={c.id} onClick={() => pickCandidate(c)} className="text-left" style={{ padding: '9px 11px', borderRadius: 10, border: `1px solid ${t.borderLight}`, background: t.card, cursor: 'pointer' }}>
+                            <div style={{ fontSize: 13, fontWeight: 700, color: t.text }}>{c.place_name}</div>
+                            <div style={{ fontSize: 11, color: t.textSub, marginTop: 1 }}>{c.road_address_name || c.address_name}</div>
+                            {shortCategory(c.category_name) && <div style={{ fontSize: 10.5, color: t.textMuted, marginTop: 1 }}>{shortCategory(c.category_name)}</div>}
+                          </button>
+                        ))}
+                      </div>
+                    )
+                  )}
+                </>
+              )}
             </Field>
 
             <Field label="출처">
@@ -181,11 +265,6 @@ export function PlaceFormSheet({ place, folders, currentFolderIds, defaultFolder
                 </div>
               </Field>
             )}
-
-            {/* 주소·좌표는 Stage 3 지오코딩에서 자동으로 채워져요 (입력 불필요) */}
-            <p style={{ fontSize: 11.5, color: t.textMuted, marginTop: -4, marginBottom: 6 }}>
-              위치(지도 핀)는 나중에 자동으로 채워져요.
-            </p>
 
             {isEdit && (
               <button

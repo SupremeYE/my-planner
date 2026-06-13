@@ -711,6 +711,7 @@ export type Place = {
   lat: number | null;
   lng: number | null;
   kakaoPlaceId: string | null;
+  phone: string | null;        // 카카오 검색 결과 전화번호
   source: string | null;       // "instagram" / "youtube" / "직접 등록" 등
   sourceUrl: string | null;
   thumbnailUrl: string | null;
@@ -727,7 +728,7 @@ export type Place = {
 type PlaceRow = {
   id: string; name: string; category: string | null; address: string | null;
   region_code: string | null; lat: number | null; lng: number | null;
-  kakao_place_id: string | null; source: string | null; source_url: string | null;
+  kakao_place_id: string | null; phone: string | null; source: string | null; source_url: string | null;
   thumbnail_url: string | null; memo: string | null; concept: string | null;
   energy: number | null; rating: number | null; review_count: number | null;
   hours: string | null; created_at: string; updated_at: string;
@@ -742,6 +743,7 @@ const toPlace = (r: PlaceRow): Place => ({
   lat: r.lat ?? null,
   lng: r.lng ?? null,
   kakaoPlaceId: r.kakao_place_id ?? null,
+  phone: r.phone ?? null,
   source: r.source ?? null,
   sourceUrl: r.source_url ?? null,
   thumbnailUrl: r.thumbnail_url ?? null,
@@ -766,6 +768,7 @@ const fromPlace = (p: PlaceInput): Record<string, unknown> => {
   if (p.lat !== undefined)          row.lat = p.lat;
   if (p.lng !== undefined)          row.lng = p.lng;
   if (p.kakaoPlaceId !== undefined) row.kakao_place_id = p.kakaoPlaceId;
+  if (p.phone !== undefined)        row.phone = p.phone;
   if (p.source !== undefined)       row.source = p.source;
   if (p.sourceUrl !== undefined)    row.source_url = p.sourceUrl;
   if (p.thumbnailUrl !== undefined) row.thumbnail_url = p.thumbnailUrl;
