@@ -1,10 +1,10 @@
-// 가고싶은 곳 — 페이지 셸 + 상단 탭 4개(뽑기·보관함·지도·기억)
-// Stage 2 는 '보관함'만 구현. 나머지는 골격 placeholder (라우팅/탭만).
+// 가고싶은 곳 — 페이지 셸 + 상단 탭 4개(뽑기·보관함·지도·기억). v1 4탭 전부 구현.
 import { useSearchParams } from 'react-router';
 import { useTheme } from '../ThemeContext';
 import { LibraryTab } from './places/LibraryTab';
 import { MapTab } from './places/MapTab';
 import { DrawTab } from './places/DrawTab';
+import { MemoryTab } from './places/MemoryTab';
 
 type PlacesTab = 'draw' | 'library' | 'map' | 'memory';
 
@@ -14,16 +14,6 @@ const TABS: { key: PlacesTab; label: string }[] = [
   { key: 'map',     label: '지도' },
   { key: 'memory',  label: '기억' },
 ];
-
-function Placeholder({ title, desc }: { title: string; desc: string }) {
-  const { t } = useTheme();
-  return (
-    <div className="flex flex-col items-center justify-center" style={{ minHeight: 320, textAlign: 'center', padding: '40px 20px' }}>
-      <div style={{ fontFamily: "'Nanum Pen Script', cursive", fontSize: 24, color: t.textSub }}>{title}</div>
-      <div style={{ fontSize: 13, color: t.textMuted, marginTop: 6 }}>{desc}</div>
-    </div>
-  );
-}
 
 export function PlacesView() {
   const { t } = useTheme();
@@ -69,7 +59,7 @@ export function PlacesView() {
         {activeTab === 'library' && <LibraryTab />}
         {activeTab === 'map' && <MapTab />}
         {activeTab === 'draw' && <DrawTab />}
-        {activeTab === 'memory' && <Placeholder title="다녀온 자리가 쌓일 곳" desc="곧 만들어질 기능이에요 (Stage 5)" />}
+        {activeTab === 'memory' && <MemoryTab />}
       </div>
     </div>
   );
