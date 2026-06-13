@@ -322,7 +322,7 @@ export function ConditionTab() {
         <p style={{ fontSize: 13, fontWeight: 700, color: t.text, marginBottom: 10 }}>
           {format(today, 'M월')} 스트레스 히트맵
         </p>
-        <div className="lg:max-w-[420px]">
+        <div className="lg:max-w-[460px] lg:mx-auto">
           <div className="grid grid-cols-7 gap-1 mb-1">
             {['일', '월', '화', '수', '목', '금', '토'].map(d => (
               <div key={d} className="text-center" style={{ fontSize: 10, color: t.textMuted }}>{d}</div>
