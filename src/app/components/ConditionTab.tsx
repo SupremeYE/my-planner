@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { format, subDays, startOfMonth, getDaysInMonth, getDay, parseISO } from 'date-fns';
+import { format, subDays, startOfMonth, endOfWeek, startOfWeek, getDaysInMonth, getDay, parseISO } from 'date-fns';
 import { Trash2, Plus, X } from 'lucide-react';
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell,
@@ -8,7 +8,7 @@ import { useTheme } from '../ThemeContext';
 import { db } from '../../lib/db';
 import { useRealtimeSync } from '../hooks/useRealtimeSync';
 import { getSymptomOptions, STRESS_LEVELS } from '../../constants/symptoms';
-import type { ConditionRecord } from '../store';
+import { usePlanner, type ConditionRecord } from '../store';
 import ConfirmModal from './ConfirmModal';
 
 const STRESS_COLOR = '#D4735A'; // 코랄 — 히트맵/막대 색
@@ -21,6 +21,8 @@ const stressShade = (level: number) => {
 
 export function ConditionTab() {
   const { t } = useTheme();
+  const { appSettings } = usePlanner();
+  const weekStartsOn = appSettings.weekStartsOn ?? 1;
 
   const [records, setRecords] = useState<ConditionRecord[]>([]);
 
@@ -76,10 +78,12 @@ export function ConditionTab() {
 
   // ── 통계 ──
   const today = new Date();
-  const weekCutoff = format(subDays(today, 6), 'yyyy-MM-dd');
+  // 이번주 = 설정된 주 시작 요일 기준 실제 달력 주(시작~끝), 롤링 7일이 아님
+  const weekStart = format(startOfWeek(today, { weekStartsOn }), 'yyyy-MM-dd');
+  const weekEnd = format(endOfWeek(today, { weekStartsOn }), 'yyyy-MM-dd');
   const monthPrefix = format(today, 'yyyy-MM');
 
-  const weekRecs = records.filter(r => r.date >= weekCutoff);
+  const weekRecs = records.filter(r => r.date >= weekStart && r.date <= weekEnd);
   const monthRecs = records.filter(r => r.date.startsWith(monthPrefix));
 
   const avg = (arr: ConditionRecord[]) =>
