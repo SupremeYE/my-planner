@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { format, subDays, startOfMonth, endOfWeek, startOfWeek, addDays, getDaysInMonth, getDay, parseISO } from 'date-fns';
 import { Trash2, Plus, X, ChevronLeft, ChevronRight } from 'lucide-react';
 import {
-  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell,
+  LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
 } from 'recharts';
 import { useTheme } from '../ThemeContext';
 import { db } from '../../lib/db';
@@ -275,12 +275,6 @@ export function ConditionTab() {
         </div>
       </div>
 
-      {/* 이번달 평균 카드 */}
-      <div className="p-3 rounded-2xl" style={{ backgroundColor: t.card, border: `1px solid ${t.border}` }}>
-        <p style={{ fontSize: 11, color: t.textMuted, marginBottom: 4 }}>이번달 평균 스트레스</p>
-        <p style={{ fontSize: 18, fontWeight: 700, color: t.text }}>{monthAvg}</p>
-      </div>
-
       {/* 자주 나타난 증상 Top 3 */}
       {topSymptoms.length > 0 && (
         <div className="p-4 rounded-2xl" style={{ backgroundColor: t.card, border: `1px solid ${t.border}` }}>
@@ -296,54 +290,61 @@ export function ConditionTab() {
         </div>
       )}
 
-      {/* 스트레스 추이 차트 */}
-      <div className="p-4 rounded-2xl" style={{ backgroundColor: t.card, border: `1px solid ${t.border}` }}>
-        <p style={{ fontSize: 13, fontWeight: 700, color: t.text, marginBottom: 10 }}>최근 30일 스트레스 추이</p>
-        {trend.length > 0 ? (
-          <ResponsiveContainer width="100%" height={180}>
-            <BarChart data={trend} margin={{ top: 5, right: 8, left: -24, bottom: 0 }}>
-              <CartesianGrid strokeDasharray="3 3" stroke={t.borderLight} vertical={false} />
-              <XAxis dataKey="date" tick={{ fontSize: 10, fill: t.textMuted }} tickLine={false} axisLine={false} />
-              <YAxis domain={[0, 5]} ticks={[1, 2, 3, 4, 5]} tick={{ fontSize: 10, fill: t.textMuted }} tickLine={false} axisLine={false} />
-              <Tooltip contentStyle={{ fontSize: 12, borderRadius: 12, border: `1px solid ${t.border}`, backgroundColor: t.card }} />
-              <Bar dataKey="stress" radius={[4, 4, 0, 0]}>
-                {trend.map((d, i) => <Cell key={i} fill={stressShade(d.stress)} />)}
-              </Bar>
-            </BarChart>
-          </ResponsiveContainer>
-        ) : (
-          <div className="py-10 text-center" style={{ fontSize: 13, color: t.textMuted }}>기록이 쌓이면 추이가 표시됩니다</div>
-        )}
-      </div>
+      {/* 히트맵(좌) · 추이 선그래프(우) — PC 2단, 모바일 세로 */}
+      <div className="grid gap-3 lg:grid-cols-2 lg:items-start">
+        {/* 스트레스 히트맵 (이번달) + 이번달 평균 */}
+        <div className="p-4 rounded-2xl" style={{ backgroundColor: t.card, border: `1px solid ${t.border}` }}>
+          <div className="flex items-baseline justify-between mb-3">
+            <p style={{ fontSize: 13, fontWeight: 700, color: t.text }}>
+              {format(today, 'M월')} 스트레스 히트맵
+            </p>
+            <p style={{ fontSize: 11, color: t.textMuted }}>
+              이번달 평균 <span style={{ fontSize: 15, fontWeight: 700, color: t.text }}>{monthAvg}</span>
+            </p>
+          </div>
+          <div className="lg:max-w-[360px] lg:mx-auto">
+            <div className="grid grid-cols-7 gap-1 mb-1">
+              {['일', '월', '화', '수', '목', '금', '토'].map(d => (
+                <div key={d} className="text-center" style={{ fontSize: 10, color: t.textMuted }}>{d}</div>
+              ))}
+            </div>
+            <div className="grid grid-cols-7 gap-1">
+              {heatmap.map((cell, i) => cell === null ? (
+                <div key={i} style={{ aspectRatio: '1' }} />
+              ) : (
+                <div key={i} className="flex items-center justify-center rounded-lg"
+                  style={{
+                    aspectRatio: '1',
+                    backgroundColor: cell.stress != null ? stressShade(cell.stress) : t.bgSub,
+                    border: `1px solid ${t.border}`,
+                  }}
+                  title={cell.stress != null ? `${cell.dateStr} · 스트레스 ${cell.stress}` : cell.dateStr}>
+                  <span style={{ fontSize: 10, color: cell.stress != null && cell.stress >= 3 ? '#fff' : t.textMuted }}>
+                    {cell.day}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
 
-      {/* 스트레스 히트맵 (이번달) */}
-      <div className="p-4 rounded-2xl" style={{ backgroundColor: t.card, border: `1px solid ${t.border}` }}>
-        <p style={{ fontSize: 13, fontWeight: 700, color: t.text, marginBottom: 10 }}>
-          {format(today, 'M월')} 스트레스 히트맵
-        </p>
-        <div className="lg:max-w-[460px] lg:mx-auto">
-          <div className="grid grid-cols-7 gap-1 mb-1">
-            {['일', '월', '화', '수', '목', '금', '토'].map(d => (
-              <div key={d} className="text-center" style={{ fontSize: 10, color: t.textMuted }}>{d}</div>
-            ))}
-          </div>
-          <div className="grid grid-cols-7 gap-1">
-            {heatmap.map((cell, i) => cell === null ? (
-              <div key={i} style={{ aspectRatio: '1' }} />
-            ) : (
-              <div key={i} className="flex items-center justify-center rounded-lg"
-                style={{
-                  aspectRatio: '1',
-                  backgroundColor: cell.stress != null ? stressShade(cell.stress) : t.bgSub,
-                  border: `1px solid ${t.border}`,
-                }}
-                title={cell.stress != null ? `${cell.dateStr} · 스트레스 ${cell.stress}` : cell.dateStr}>
-                <span style={{ fontSize: 10, color: cell.stress != null && cell.stress >= 3 ? '#fff' : t.textMuted }}>
-                  {cell.day}
-                </span>
-              </div>
-            ))}
-          </div>
+        {/* 스트레스 추이 선그래프 */}
+        <div className="p-4 rounded-2xl" style={{ backgroundColor: t.card, border: `1px solid ${t.border}` }}>
+          <p style={{ fontSize: 13, fontWeight: 700, color: t.text, marginBottom: 10 }}>최근 30일 스트레스 추이</p>
+          {trend.length > 0 ? (
+            <ResponsiveContainer width="100%" height={200}>
+              <LineChart data={trend} margin={{ top: 5, right: 8, left: -24, bottom: 0 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke={t.borderLight} vertical={false} />
+                <XAxis dataKey="date" tick={{ fontSize: 10, fill: t.textMuted }} tickLine={false} axisLine={false} />
+                <YAxis domain={[0, 5]} ticks={[1, 2, 3, 4, 5]} tick={{ fontSize: 10, fill: t.textMuted }} tickLine={false} axisLine={false} />
+                <Tooltip contentStyle={{ fontSize: 12, borderRadius: 12, border: `1px solid ${t.border}`, backgroundColor: t.card }} />
+                <Line type="monotone" dataKey="stress" stroke={STRESS_COLOR} strokeWidth={2}
+                  dot={{ r: 3, fill: STRESS_COLOR, strokeWidth: 0 }} activeDot={{ r: 5 }} />
+              </LineChart>
+            </ResponsiveContainer>
+          ) : (
+            <div className="py-10 text-center" style={{ fontSize: 13, color: t.textMuted }}>기록이 쌓이면 추이가 표시됩니다</div>
+          )}
         </div>
       </div>
 
