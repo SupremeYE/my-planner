@@ -81,6 +81,13 @@ export function ConditionTab() {
     setSymptoms(prev => prev.includes(s) ? prev.filter(x => x !== s) : [...prev, s]);
   };
 
+  // 날짜 칸(주간 셀·히트맵) 클릭 → 그 날짜로 필터 / 같은 날 재클릭 시 해제
+  // 검색과 날짜 필터는 동시 적용하지 않으므로 날짜 선택 시 검색어는 비운다
+  const toggleDate = (d: string) => {
+    setSearchQuery('');
+    setSelectedDate(prev => (prev === d ? null : d));
+  };
+
   // ── 통계 ──
   const today = new Date();
   const todayStr = format(today, 'yyyy-MM-dd');
@@ -275,19 +282,23 @@ export function ConditionTab() {
           {weekDays.map((d, i) => {
             const s = stressByDate[d] ?? null;
             const isToday = d === todayStr;
+            const isSelected = selectedDate === d;
             return (
               <div key={d} className="flex flex-col items-center gap-1">
                 <span style={{ fontSize: 10, color: t.textMuted }}>{WEEK_LABELS[i]}</span>
-                <div className="w-full flex items-center justify-center rounded-lg aspect-square lg:aspect-auto lg:h-14"
+                <button onClick={() => toggleDate(d)} aria-pressed={isSelected}
+                  className="w-full flex items-center justify-center rounded-lg aspect-square lg:aspect-auto lg:h-14"
                   style={{
                     backgroundColor: s != null ? stressShade(s) : t.bgSub,
-                    border: `1px solid ${isToday ? t.accent : t.border}`,
+                    border: `1px solid ${isSelected ? t.danger : isToday ? t.accent : t.border}`,
+                    boxShadow: isSelected ? `0 0 0 2px ${t.danger}` : 'none',
+                    cursor: 'pointer',
                   }}
                   title={s != null ? `${d} · 스트레스 ${s}` : d}>
                   <span style={{ fontSize: 11, fontWeight: 600, color: s != null && s >= 3 ? '#fff' : t.textMuted }}>
                     {parseInt(d.slice(8), 10)}
                   </span>
-                </div>
+                </button>
               </div>
             );
           })}
@@ -331,17 +342,20 @@ export function ConditionTab() {
               {heatmap.map((cell, i) => cell === null ? (
                 <div key={i} style={{ aspectRatio: '1' }} />
               ) : (
-                <div key={i} className="flex items-center justify-center rounded-lg"
+                <button key={i} onClick={() => toggleDate(cell.dateStr)} aria-pressed={selectedDate === cell.dateStr}
+                  className="flex items-center justify-center rounded-lg"
                   style={{
                     aspectRatio: '1',
                     backgroundColor: cell.stress != null ? stressShade(cell.stress) : t.bgSub,
-                    border: `1px solid ${t.border}`,
+                    border: `1px solid ${selectedDate === cell.dateStr ? t.danger : t.border}`,
+                    boxShadow: selectedDate === cell.dateStr ? `0 0 0 2px ${t.danger}` : 'none',
+                    cursor: 'pointer',
                   }}
                   title={cell.stress != null ? `${cell.dateStr} · 스트레스 ${cell.stress}` : cell.dateStr}>
                   <span style={{ fontSize: 10, color: cell.stress != null && cell.stress >= 3 ? '#fff' : t.textMuted }}>
                     {cell.day}
                   </span>
-                </div>
+                </button>
               ))}
             </div>
           </div>
@@ -371,12 +385,45 @@ export function ConditionTab() {
 
       {/* (C) 기록 리스트 */}
       <div>
-        <p style={{ fontSize: 13, fontWeight: 700, color: t.text, marginBottom: 10 }}>기록</p>
+        <p style={{ fontSize: 13, fontWeight: 700, color: t.text, marginBottom: 6 }}>기록</p>
+
+        {/* 필터 상태: 날짜 선택 시 칩, 미선택 시 힌트 */}
+        {selectedDate ? (
+          <button onClick={() => setSelectedDate(null)}
+            className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full mb-3"
+            style={{
+              fontSize: 12, fontWeight: 600,
+              backgroundColor: t.dangerLight, color: t.danger, border: `1px solid ${t.danger}`,
+            }}>
+            {format(parseISO(selectedDate), 'M월 d일')}
+            <X size={12} />
+          </button>
+        ) : (
+          <p style={{ fontSize: 11, color: t.textMuted, marginBottom: 10 }}>전체 기록 · 최신순</p>
+        )}
+
         {displayedRecords.length === 0 ? (
-          <div className="py-8 text-center rounded-2xl"
-            style={{ backgroundColor: t.bgSub, fontSize: 13, color: t.textMuted }}>
-            아직 컨디션 기록이 없습니다
-          </div>
+          selectedDate ? (
+            /* 빈 날 넛지 — 선택한 날짜에 기록이 없을 때 */
+            <div className="py-6 px-4 text-center rounded-2xl"
+              style={{ backgroundColor: t.card, border: `1px solid ${t.border}` }}>
+              <p style={{ fontSize: 13, fontWeight: 600, color: t.text }}>
+                {format(parseISO(selectedDate), 'M월 d일')}은 아직 기록이 없어요.
+              </p>
+              <p style={{ fontSize: 12, color: t.textMuted, marginTop: 4 }}>이 날은 어땠나요?</p>
+              <button
+                onClick={() => { /* Stage 4: 선택 날짜 prefill하여 기록 추가 플로우 재사용 */ }}
+                className="inline-flex items-center gap-1.5 mt-3 px-4 py-2 rounded-xl"
+                style={{ fontSize: 13, fontWeight: 600, color: '#fff', backgroundColor: t.accent }}>
+                <Plus size={14} /> 기록하기
+              </button>
+            </div>
+          ) : (
+            <div className="py-8 text-center rounded-2xl"
+              style={{ backgroundColor: t.bgSub, fontSize: 13, color: t.textMuted }}>
+              아직 컨디션 기록이 없습니다
+            </div>
+          )
         ) : (
           <div className="space-y-2">
             {displayedRecords.map(r => (
