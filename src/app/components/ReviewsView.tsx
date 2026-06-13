@@ -1,7 +1,8 @@
-import React, { useRef, useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Plus, X, ChevronRight, Mic } from 'lucide-react';
 import { usePlanner, ReviewRecord, WeeklyReview, MonthlyReview, getWeekKey } from '../store';
 import { useTheme } from '../ThemeContext';
+import { useVoiceInput } from '../hooks/useVoiceInput';
 import { format } from 'date-fns';
 
 // ─── 음성 입력 버튼 ───
@@ -13,70 +14,39 @@ function VoiceInputButton({
   disabled?: boolean;
 }) {
   const { t } = useTheme();
-  const [isListening, setIsListening] = useState(false);
-  const recognitionRef = useRef<any>(null);
-  const isListeningRef = useRef(false);
+  const { status, startRecording, stopRecording, text, setText } = useVoiceInput();
+  const isRec = status === 'recording';
+  const isBusy = status === 'transcribing';
 
-  const SpeechRecognitionAPI =
-    (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
-  if (!SpeechRecognitionAPI) return null;
-
-  const startRecognition = () => {
-    const recognition = new SpeechRecognitionAPI();
-    recognition.lang = 'ko-KR';
-    recognition.interimResults = false;
-    recognition.maxAlternatives = 1;
-    recognition.onresult = (e: any) => {
-      const text: string = e.results[0][0].transcript;
+  useEffect(() => {
+    if (text) {
       onResult(text);
-    };
-    recognition.onend = () => {
-      // 유저가 수동으로 멈추지 않았으면 iOS 마이크 해제 시간 후 자동 재시작
-      if (isListeningRef.current) {
-        setTimeout(() => {
-          if (isListeningRef.current) startRecognition();
-        }, 300);
-      } else {
-        setIsListening(false);
-      }
-    };
-    recognition.onerror = (e: any) => {
-      if (e.error === 'aborted') return; // 수동 중단 시 발생하는 정상 에러
-      isListeningRef.current = false;
-      setIsListening(false);
-    };
-    recognitionRef.current = recognition;
-    recognition.start();
-  };
-
-  const toggle = () => {
-    if (isListening) {
-      isListeningRef.current = false;
-      recognitionRef.current?.stop();
-      setIsListening(false);
-      return;
+      setText('');
     }
-    isListeningRef.current = true;
-    setIsListening(true);
-    startRecognition();
+  }, [text, onResult, setText]);
+
+  const toggle = async () => {
+    if (isBusy) return;
+    if (isRec) await stopRecording();
+    else await startRecording();
   };
 
   return (
     <button
       type="button"
       onClick={toggle}
-      disabled={disabled}
-      title={isListening ? '녹음 중지' : '음성으로 입력'}
+      disabled={disabled || isBusy}
+      title={isRec ? '녹음 중지' : '음성으로 입력'}
       className="flex items-center justify-center rounded-lg flex-shrink-0 transition-colors"
       style={{
         width: 30,
         height: 30,
-        backgroundColor: isListening ? '#fee2e2' : t.bgSub,
-        border: `1px solid ${isListening ? '#fca5a5' : t.borderLight}`,
-        color: isListening ? '#ef4444' : t.textMuted,
+        backgroundColor: isRec ? '#fee2e2' : t.bgSub,
+        border: `1px solid ${isRec ? '#fca5a5' : t.borderLight}`,
+        color: isRec ? '#ef4444' : t.textMuted,
       }}
     >
-      {isListening ? (
+      {isRec ? (
         <span
           className="animate-pulse rounded-full"
           style={{ width: 9, height: 9, backgroundColor: '#ef4444', display: 'block' }}

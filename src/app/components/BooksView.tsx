@@ -5,6 +5,7 @@ import { format } from 'date-fns';
 import ConfirmModal from './ConfirmModal';
 import { supabase } from '../../lib/supabase';
 import { useRealtimeSync } from '../hooks/useRealtimeSync';
+import { useVoiceInput } from '../hooks/useVoiceInput';
 
 // ─── 타입 ──────────────────────────────────────────────────────────────
 type BookStatus = 'reading' | 'want' | 'done';
@@ -721,10 +722,16 @@ function BookDetailModal({
   const [activeTab, setActiveTab] = useState<'progress' | 'quotes'>('progress');
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [confirmDeleteQuote, setConfirmDeleteQuote] = useState<string | null>(null);
-  const [isRecording, setIsRecording] = useState(false);
-  const recognitionRef = useRef<any>(null);
-  const hasSpeechApi = typeof window !== 'undefined' &&
-    ('SpeechRecognition' in window || 'webkitSpeechRecognition' in window);
+  const voice = useVoiceInput();
+  const isRecording = voice.status === 'recording';
+  const isTranscribing = voice.status === 'transcribing';
+
+  useEffect(() => {
+    if (voice.text) {
+      setQuoteText(prev => prev ? prev + ' ' + voice.text : voice.text);
+      voice.setText('');
+    }
+  }, [voice.text, voice.setText]);
 
   const parsedCurrentPage = parseInt(currentPage) || 0;
   const parsedTotalPages = parseInt(totalPages) || 0;
@@ -780,24 +787,10 @@ function BookDetailModal({
     onClose();
   };
 
-  const toggleRecording = () => {
-    if (isRecording) {
-      recognitionRef.current?.stop();
-      setIsRecording(false);
-      return;
-    }
-    const SR = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
-    const recognition = new SR();
-    recognition.lang = 'ko-KR';
-    recognition.interimResults = false;
-    recognition.onresult = (e: any) => {
-      const transcript = e.results[0][0].transcript;
-      setQuoteText(prev => prev ? prev + ' ' + transcript : transcript);
-    };
-    recognition.onend = () => setIsRecording(false);
-    recognitionRef.current = recognition;
-    recognition.start();
-    setIsRecording(true);
+  const toggleRecording = async () => {
+    if (isTranscribing) return;
+    if (isRecording) await voice.stopRecording();
+    else await voice.startRecording();
   };
 
   const handleAddQuote = () => {
@@ -1047,21 +1040,20 @@ function BookDetailModal({
                   </div>
                   {/* 2행: 음성 버튼 + 저장 버튼 */}
                   <div className="flex gap-2">
-                    {hasSpeechApi && (
-                      <button
-                        onClick={toggleRecording}
-                        className="flex items-center justify-center gap-1.5 flex-1 py-1.5 rounded-lg transition-all"
-                        style={{
-                          backgroundColor: isRecording ? '#D4735A' : t.bgSub,
-                          border: `1px solid ${isRecording ? '#D4735A' : t.border}`,
-                          color: isRecording ? '#fff' : t.textMuted,
-                          fontSize: 12,
-                        }}
-                      >
-                        <Mic size={13} />
-                        {isRecording ? '녹음 중...' : '음성 입력'}
-                      </button>
-                    )}
+                    <button
+                      onClick={toggleRecording}
+                      disabled={isTranscribing}
+                      className="flex items-center justify-center gap-1.5 flex-1 py-1.5 rounded-lg transition-all"
+                      style={{
+                        backgroundColor: isRecording ? '#D4735A' : t.bgSub,
+                        border: `1px solid ${isRecording ? '#D4735A' : t.border}`,
+                        color: isRecording ? '#fff' : t.textMuted,
+                        fontSize: 12,
+                      }}
+                    >
+                      <Mic size={13} />
+                      {isTranscribing ? '변환 중...' : isRecording ? '녹음 중...' : '음성 입력'}
+                    </button>
                     <button
                       onClick={handleAddQuote}
                       disabled={!quoteText.trim()}

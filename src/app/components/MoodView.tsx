@@ -4,6 +4,7 @@ import { format } from 'date-fns';
 import { useTheme } from '../ThemeContext';
 import { supabase } from '../../lib/supabase';
 import { useRealtimeSync } from '../hooks/useRealtimeSync';
+import { useVoiceInput } from '../hooks/useVoiceInput';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -105,50 +106,28 @@ function getDaysBetween(start: string, end: string): string[] {
 
 function VoiceInputButton({ onResult, disabled }: { onResult: (text: string) => void; disabled?: boolean }) {
   const { t } = useTheme();
-  const [isListening, setIsListening] = useState(false);
-  const recognitionRef = useRef<any>(null);
-  const isListeningRef = useRef(false);
-  const SpeechRecognitionAPI = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
-  if (!SpeechRecognitionAPI) return null;
+  const { status, startRecording, stopRecording, text, setText } = useVoiceInput();
+  const isRec = status === 'recording';
+  const isBusy = status === 'transcribing';
 
-  const startRecognition = () => {
-    const r = new SpeechRecognitionAPI();
-    r.lang = 'ko-KR'; r.interimResults = false; r.maxAlternatives = 1;
-    r.onresult = (e: any) => onResult(e.results[0][0].transcript);
-    r.onend = () => {
-      // 유저가 수동으로 멈추지 않았으면 iOS 마이크 해제 시간 후 자동 재시작
-      if (isListeningRef.current) {
-        setTimeout(() => { if (isListeningRef.current) startRecognition(); }, 300);
-      } else {
-        setIsListening(false);
-      }
-    };
-    r.onerror = (e: any) => {
-      if (e.error === 'aborted') return; // 수동 중단 시 발생하는 정상 에러
-      isListeningRef.current = false;
-      setIsListening(false);
-    };
-    recognitionRef.current = r;
-    r.start();
-  };
-
-  const toggle = () => {
-    if (isListening) {
-      isListeningRef.current = false;
-      recognitionRef.current?.stop();
-      setIsListening(false);
-      return;
+  useEffect(() => {
+    if (text) {
+      onResult(text);
+      setText('');
     }
-    isListeningRef.current = true;
-    setIsListening(true);
-    startRecognition();
+  }, [text, onResult, setText]);
+
+  const toggle = async () => {
+    if (isBusy) return;
+    if (isRec) await stopRecording();
+    else await startRecording();
   };
 
   return (
-    <button type="button" onClick={toggle} disabled={disabled}
+    <button type="button" onClick={toggle} disabled={disabled || isBusy}
       className="flex items-center justify-center rounded-lg flex-shrink-0"
-      style={{ width: 30, height: 30, backgroundColor: isListening ? '#fee2e2' : t.bgSub, border: `1px solid ${isListening ? '#fca5a5' : t.borderLight}`, color: isListening ? '#ef4444' : t.textMuted }}>
-      {isListening
+      style={{ width: 30, height: 30, backgroundColor: isRec ? '#fee2e2' : t.bgSub, border: `1px solid ${isRec ? '#fca5a5' : t.borderLight}`, color: isRec ? '#ef4444' : t.textMuted }}>
+      {isRec
         ? <span className="animate-pulse rounded-full" style={{ width: 9, height: 9, backgroundColor: '#ef4444', display: 'block' }} />
         : <Mic size={13} />}
     </button>

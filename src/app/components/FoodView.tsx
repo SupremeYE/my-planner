@@ -17,6 +17,7 @@ import {
 import { usePlanner, FoodRecord, MealType, DiningType, TasteRating } from '../store';
 import { useTheme } from '../ThemeContext';
 import { db } from '../../lib/db';
+import { useVoiceInput } from '../hooks/useVoiceInput';
 import ConfirmModal from './ConfirmModal';
 
 // ─── 상수 ───────────────────────────────────────────────────────────
@@ -81,35 +82,29 @@ const initForm = (meal: MealType = 'breakfast'): FormState => ({
 
 // ─── 음성 입력 버튼 ─────────────────────────────────────────────────
 function VoiceInputButton({ onResult }: { onResult: (text: string) => void }) {
-  const [listening, setListening] = useState(false);
-  const recogRef = useRef<any>(null);
+  const { status, startRecording, stopRecording, text, setText } = useVoiceInput();
+  const isRec = status === 'recording';
+  const isBusy = status === 'transcribing';
 
-  const toggle = () => {
-    const SR = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
-    if (!SR) return;
-    if (listening) {
-      recogRef.current?.stop();
-      setListening(false);
-      return;
+  useEffect(() => {
+    if (text) {
+      onResult(text);
+      setText('');
     }
-    const r = new SR();
-    r.lang = 'ko-KR';
-    r.onresult = (e: any) => {
-      onResult(e.results[0][0].transcript);
-      setListening(false);
-    };
-    r.onend = () => setListening(false);
-    r.start();
-    recogRef.current = r;
-    setListening(true);
+  }, [text, onResult, setText]);
+
+  const toggle = async () => {
+    if (isBusy) return;
+    if (isRec) await stopRecording();
+    else await startRecording();
   };
 
   return (
-    <button type="button" onClick={toggle}
+    <button type="button" onClick={toggle} disabled={isBusy}
       className="p-2 rounded-full transition-colors"
-      style={{ backgroundColor: listening ? '#D4735A20' : 'transparent' }}
+      style={{ backgroundColor: isRec ? '#D4735A20' : 'transparent' }}
     >
-      {listening ? <MicOff size={16} color="#D4735A" /> : <Mic size={16} color="#C4A882" />}
+      {isRec ? <MicOff size={16} color="#D4735A" /> : <Mic size={16} color="#C4A882" />}
     </button>
   );
 }

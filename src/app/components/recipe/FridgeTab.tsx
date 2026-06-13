@@ -3,7 +3,7 @@ import { Plus, Refrigerator, Snowflake, Package, Minus, Mic, MicOff, Sparkles, C
 import { useTheme } from '../../ThemeContext';
 import { db } from '../../../lib/db';
 import { useRealtimeSync } from '../../hooks/useRealtimeSync';
-import { useSpeechRecognition } from '../../hooks/useSpeechRecognition';
+import { useVoiceInput } from '../../hooks/useVoiceInput';
 import type { FridgeItem, FridgeCategory } from '../../store';
 import { FridgeItemSheet } from './FridgeItemSheet';
 import { FridgeQuickAddSheet, draftsFromParsed } from './FridgeQuickAddSheet';
@@ -213,15 +213,16 @@ export function FridgeTab() {
   // 빠른 입력 상태
   const [quickText, setQuickText] = useState('');
   const [quickDrafts, setQuickDrafts] = useState<ReturnType<typeof draftsFromParsed> | null>(null);
-  const [speechError, setSpeechError] = useState<string | null>(null);
-  const speech = useSpeechRecognition(
-    (text) => setQuickText(prev => (prev.trim() ? `${prev.trim()}, ${text}` : text)),
-    (code) => {
-      // not-allowed: 마이크 권한 거부, audio-capture: 마이크 없음 등
-      setSpeechError(code === 'not-allowed' ? '마이크 권한이 필요해요' : '음성 인식 오류');
-      setTimeout(() => setSpeechError(null), 2500);
-    },
-  );
+  const voice = useVoiceInput();
+  const voiceListening = voice.status === 'recording';
+  const voiceBusy = voice.status === 'transcribing';
+
+  useEffect(() => {
+    if (voice.text) {
+      setQuickText(prev => (prev.trim() ? `${prev.trim()}, ${voice.text}` : voice.text));
+      voice.setText('');
+    }
+  }, [voice.text, voice.setText]);
 
   const refresh = useCallback(() => {
     db.fridgeItems.fetchAll().then(rs => { setItems(rs); setLoading(false); });
@@ -341,26 +342,26 @@ export function FridgeTab() {
                   if (quickText.trim()) handleQuickParse();
                 }
               }}
-              rows={2} placeholder={speech.isListening ? '🎙️ 듣고 있어요…' : '쉼표로 구분해서 적어주세요'}
+              rows={2} placeholder={voiceListening ? '🎙️ 듣고 있어요…' : '쉼표로 구분해서 적어주세요'}
               className="flex-1 rounded-xl outline-none"
               style={{ padding: '9px 11px', fontSize: 14, lineHeight: 1.4, resize: 'none',
-                border: `1px solid ${speech.isListening ? t.accent : t.border}`,
+                border: `1px solid ${voiceListening ? t.accent : t.border}`,
                 backgroundColor: t.bg, color: t.text }} />
-            {speech.supported && (
-              <button type="button" onClick={() => (speech.isListening ? speech.stop() : speech.start())}
-                aria-label={speech.isListening ? '음성 인식 정지' : '음성 입력 시작'}
-                className="flex-shrink-0 rounded-xl flex items-center justify-center active:scale-95 transition-all"
-                style={{ width: 44, height: 44,
-                  backgroundColor: speech.isListening ? t.danger : t.bgSub,
-                  color: speech.isListening ? '#fff' : t.textSub,
-                  border: `1px solid ${speech.isListening ? t.danger : t.border}` }}>
-                {speech.isListening ? <MicOff size={18} /> : <Mic size={18} />}
-              </button>
-            )}
+            <button type="button"
+              onClick={() => (voiceListening ? voice.stopRecording() : voice.startRecording())}
+              disabled={voiceBusy}
+              aria-label={voiceListening ? '음성 인식 정지' : '음성 입력 시작'}
+              className="flex-shrink-0 rounded-xl flex items-center justify-center active:scale-95 transition-all"
+              style={{ width: 44, height: 44,
+                backgroundColor: voiceListening ? t.danger : t.bgSub,
+                color: voiceListening ? '#fff' : t.textSub,
+                border: `1px solid ${voiceListening ? t.danger : t.border}` }}>
+              {voiceListening ? <MicOff size={18} /> : <Mic size={18} />}
+            </button>
           </div>
           <div className="flex items-center justify-between mt-2 gap-2">
-            <span style={{ fontSize: 11, color: speechError ? t.danger : t.textMuted, minHeight: 14 }}>
-              {speechError ?? (speech.isListening ? '말씀이 끝나면 자동으로 멈춰요' : '')}
+            <span style={{ fontSize: 11, color: voice.error ? t.danger : t.textMuted, minHeight: 14 }}>
+              {voice.error ?? (voiceListening ? '말씀이 끝나면 정지 버튼을 눌러주세요' : voiceBusy ? '변환 중…' : '')}
             </span>
             <button type="button" onClick={handleQuickParse}
               disabled={!quickText.trim()}
