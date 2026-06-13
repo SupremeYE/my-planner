@@ -259,9 +259,8 @@ export function ConditionTab() {
             return (
               <div key={d} className="flex flex-col items-center gap-1">
                 <span style={{ fontSize: 10, color: t.textMuted }}>{WEEK_LABELS[i]}</span>
-                <div className="w-full flex items-center justify-center rounded-lg"
+                <div className="w-full flex items-center justify-center rounded-lg aspect-square lg:aspect-auto lg:h-14"
                   style={{
-                    aspectRatio: '1',
                     backgroundColor: s != null ? stressShade(s) : t.bgSub,
                     border: `1px solid ${isToday ? t.accent : t.border}`,
                   }}
