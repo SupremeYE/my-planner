@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { format, subDays, startOfMonth, endOfWeek, startOfWeek, getDaysInMonth, getDay, parseISO } from 'date-fns';
-import { Trash2, Plus, X } from 'lucide-react';
+import { format, subDays, startOfMonth, endOfWeek, startOfWeek, addDays, getDaysInMonth, getDay, parseISO } from 'date-fns';
+import { Trash2, Plus, X, ChevronLeft, ChevronRight } from 'lucide-react';
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell,
 } from 'recharts';
@@ -36,6 +36,7 @@ export function ConditionTab() {
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [listLimit, setListLimit] = useState(10);
   const [inputOpen, setInputOpen] = useState(false); // 입력 폼 기본 접힘
+  const [weekOffset, setWeekOffset] = useState(0); // 0=이번주, -1=지난주 ...
 
   const symptomOptions = getSymptomOptions();
 
@@ -78,9 +79,13 @@ export function ConditionTab() {
 
   // ── 통계 ──
   const today = new Date();
-  // 이번주 = 설정된 주 시작 요일 기준 실제 달력 주(시작~끝), 롤링 7일이 아님
-  const weekStart = format(startOfWeek(today, { weekStartsOn }), 'yyyy-MM-dd');
-  const weekEnd = format(endOfWeek(today, { weekStartsOn }), 'yyyy-MM-dd');
+  const todayStr = format(today, 'yyyy-MM-dd');
+  // 선택된 주 = 설정된 주 시작 요일 기준 실제 달력 주(시작~끝), 롤링 7일이 아님
+  // weekOffset: 0=이번주, -1=지난주 ... 과거 주로 이동 가능
+  const weekStartDate = addDays(startOfWeek(today, { weekStartsOn }), weekOffset * 7);
+  const weekEndDate = addDays(weekStartDate, 6);
+  const weekStart = format(weekStartDate, 'yyyy-MM-dd');
+  const weekEnd = format(weekEndDate, 'yyyy-MM-dd');
   const monthPrefix = format(today, 'yyyy-MM');
 
   const weekRecs = records.filter(r => r.date >= weekStart && r.date <= weekEnd);
@@ -90,6 +95,16 @@ export function ConditionTab() {
     arr.length ? (arr.reduce((s, r) => s + r.stress, 0) / arr.length).toFixed(1) : '—';
   const weekAvg = avg(weekRecs);
   const monthAvg = avg(monthRecs);
+
+  // 선택된 주의 요일별 스트레스 (주 시작 요일 설정 반영)
+  const WEEK_LABELS = weekStartsOn === 1
+    ? ['월', '화', '수', '목', '금', '토', '일']
+    : ['일', '월', '화', '수', '목', '금', '토'];
+  const weekDays = Array.from({ length: 7 }, (_, i) => format(addDays(weekStartDate, i), 'yyyy-MM-dd'));
+  const stressByDate: Record<string, number> = {};
+  weekRecs.forEach(r => { stressByDate[r.date] = r.stress; });
+  const weekRangeLabel = `${format(weekStartDate, 'M.d')} – ${format(weekEndDate, 'M.d')}`;
+  const weekTitle = weekOffset === 0 ? '이번주' : weekOffset === -1 ? '지난주' : weekRangeLabel;
 
   // 자주 나타난 증상 Top 3 (이번달)
   const topSymptoms = useMemo(() => {
@@ -207,16 +222,64 @@ export function ConditionTab() {
       </div>
       )}
 
-      {/* (B) 통계 — 평균 카드 */}
-      <div className="grid grid-cols-2 gap-3">
-        <div className="p-3 rounded-2xl" style={{ backgroundColor: t.card, border: `1px solid ${t.border}` }}>
-          <p style={{ fontSize: 11, color: t.textMuted, marginBottom: 4 }}>이번주 평균 스트레스</p>
-          <p style={{ fontSize: 18, fontWeight: 700, color: t.text }}>{weekAvg}</p>
+      {/* (B) 통계 — 주별 컨디션 (과거 주로 이동 가능) */}
+      <div className="p-4 rounded-2xl" style={{ backgroundColor: t.card, border: `1px solid ${t.border}` }}>
+        {/* 헤더: 주 이동 */}
+        <div className="flex items-center justify-between mb-3">
+          <button onClick={() => setWeekOffset(o => o - 1)}
+            className="p-1.5 rounded-lg" aria-label="이전 주"
+            style={{ backgroundColor: t.bgSub, color: t.textSub, border: 'none', cursor: 'pointer' }}>
+            <ChevronLeft size={16} />
+          </button>
+          <div className="text-center">
+            <p style={{ fontSize: 13, fontWeight: 700, color: t.text }}>{weekTitle} 평균 스트레스</p>
+            <p style={{ fontSize: 11, color: t.textMuted }}>{weekRangeLabel}</p>
+          </div>
+          <button onClick={() => setWeekOffset(o => Math.min(0, o + 1))} disabled={weekOffset >= 0}
+            className="p-1.5 rounded-lg" aria-label="다음 주"
+            style={{
+              backgroundColor: t.bgSub, color: t.textSub, border: 'none',
+              cursor: weekOffset >= 0 ? 'default' : 'pointer', opacity: weekOffset >= 0 ? 0.4 : 1,
+            }}>
+            <ChevronRight size={16} />
+          </button>
         </div>
-        <div className="p-3 rounded-2xl" style={{ backgroundColor: t.card, border: `1px solid ${t.border}` }}>
-          <p style={{ fontSize: 11, color: t.textMuted, marginBottom: 4 }}>이번달 평균 스트레스</p>
-          <p style={{ fontSize: 18, fontWeight: 700, color: t.text }}>{monthAvg}</p>
+
+        {/* 평균 */}
+        <div className="flex items-baseline justify-center gap-2 mb-3">
+          <span style={{ fontSize: 24, fontWeight: 700, color: t.text }}>{weekAvg}</span>
+          <span style={{ fontSize: 11, color: t.textMuted }}>· 기록 {weekRecs.length}일</span>
         </div>
+
+        {/* 요일별 컨디션 셀 */}
+        <div className="grid grid-cols-7 gap-1">
+          {weekDays.map((d, i) => {
+            const s = stressByDate[d] ?? null;
+            const isToday = d === todayStr;
+            return (
+              <div key={d} className="flex flex-col items-center gap-1">
+                <span style={{ fontSize: 10, color: t.textMuted }}>{WEEK_LABELS[i]}</span>
+                <div className="w-full flex items-center justify-center rounded-lg"
+                  style={{
+                    aspectRatio: '1',
+                    backgroundColor: s != null ? stressShade(s) : t.bgSub,
+                    border: `1px solid ${isToday ? t.accent : t.border}`,
+                  }}
+                  title={s != null ? `${d} · 스트레스 ${s}` : d}>
+                  <span style={{ fontSize: 11, fontWeight: 600, color: s != null && s >= 3 ? '#fff' : t.textMuted }}>
+                    {parseInt(d.slice(8), 10)}
+                  </span>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* 이번달 평균 카드 */}
+      <div className="p-3 rounded-2xl" style={{ backgroundColor: t.card, border: `1px solid ${t.border}` }}>
+        <p style={{ fontSize: 11, color: t.textMuted, marginBottom: 4 }}>이번달 평균 스트레스</p>
+        <p style={{ fontSize: 18, fontWeight: 700, color: t.text }}>{monthAvg}</p>
       </div>
 
       {/* 자주 나타난 증상 Top 3 */}
