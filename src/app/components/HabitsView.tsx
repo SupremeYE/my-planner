@@ -510,7 +510,7 @@ function HabitModal({ habit, onClose }: { habit?: Habit; onClose: () => void }) 
 }
 
 // ─── HabitChip ────────────────────────────────────────────────────────────────
-function HabitChip({ habit, date }: { habit: Habit; date: string }) {
+export function HabitChip({ habit, date }: { habit: Habit; date: string }) {
   const { toggleHabit, updateHabitProgress, updateHabitMemo } = usePlanner();
   const { t } = useTheme();
 

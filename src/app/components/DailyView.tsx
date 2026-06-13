@@ -4,7 +4,7 @@ import { useSearchParams, NavLink } from 'react-router';
 import {
   ChevronLeft, ChevronRight, Plus, Star, Play,
   Check, Clock, Trash2, X, MoreHorizontal,
-  Settings, Edit3, Pause, Ban, CalendarDays, Copy,
+  Settings, Edit3, Pause, Ban, CalendarDays, Copy, MessageSquare,
 } from 'lucide-react';
 import { format, addDays, subDays, addMonths, subMonths, startOfMonth, getDaysInMonth, getDay as getDayOfWeek, parseISO } from 'date-fns';
 import { ko } from 'date-fns/locale';
@@ -12,6 +12,7 @@ import { usePlanner, Todo, Event, Tag as TagType, TimelineLog, SelfCareRecord, g
 import { useTheme } from '../ThemeContext';
 import { useNotification } from '../hooks/useNotification';
 import { TimePicker } from './TimePicker';
+import { HabitChip } from './HabitsView';
 import ConfirmModal from './ConfirmModal';
 import { TodoModal } from './TodoModal';
 import { MandalartSourceBadge } from './mandalart/MandalartSourceBadge';
@@ -978,7 +979,7 @@ function SleepTimeEditModal({ record, onClose, onConfirm }: {
 // ─── Main Daily View ───
 export function DailyView() {
   const {
-    selectedDate, setSelectedDate, todos, events, updateTodo, deleteRecurringTodo, habits, toggleHabit,
+    selectedDate, setSelectedDate, todos, events, updateTodo, deleteRecurringTodo, habits, updateHabitMemo,
     activeTimer, startTimer, stopTimer, tags, projects, weeklyGoals, milestones,
     selfCareRecords, updateSelfCareRecord,
     dayStartHour: tlStartHour, dayEndHour: tlEndHour, setDayHours,
@@ -993,6 +994,8 @@ export function DailyView() {
   const highlightTodoId = searchParams.get('todoId');
   const [showAddModal, setShowAddModal] = useState(false);
   const [showAddEventModal, setShowAddEventModal] = useState(false);
+  // 메모 유형 습관의 일별 메모 임시 입력값 (id → text)
+  const [habitMemoEditing, setHabitMemoEditing] = useState<Record<string, string>>({});
   const [editingTodo, setEditingTodo] = useState<Todo | null>(null);
   const [focusingTodo, setFocusingTodo] = useState<Todo | null>(null);
   const [snoozingTodo, setSnoozingTodo] = useState<Todo | null>(null);
@@ -2356,19 +2359,42 @@ export function DailyView() {
             </div>
             <div className="flex flex-wrap gap-2">
               {todayHabits.map(h => {
+                const habitType = h.habitType ?? 'check';
                 const checked = h.checkedDates.includes(selectedDate);
+                const showMemoRow = habitType === 'memo' && checked;
+                const memoVal = habitMemoEditing[h.id] ?? h.dailyMemos?.[selectedDate] ?? '';
                 return (
-                  <button key={h.id} onClick={() => toggleHabit(h.id, selectedDate)}
-                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl transition-all"
-                    style={{
-                      fontSize: 12,
-                      backgroundColor: checked ? t.accentLight : t.bgSub,
-                      color: checked ? t.accent : t.textSub,
-                      border: `1px solid ${checked ? t.accent : t.border}`,
-                    }}>
-                    {checked ? <Check size={12} /> : <span style={{ width: 12, height: 12, borderRadius: '50%', border: `1.5px solid ${t.border}`, display: 'inline-block', flexShrink: 0 }} />}
-                    {h.icon || ''} {h.name}
-                  </button>
+                  <div key={h.id} className={`flex flex-col gap-1.5${showMemoRow ? ' w-full' : ''}`}>
+                    {/* 유형별 컨트롤(HabitChip) + 아이콘 + 이름 — 습관&루틴 페이지와 동일 동작 */}
+                    <div className="flex items-center gap-2 px-2.5 py-1.5 rounded-xl"
+                      style={{ backgroundColor: t.bgSub, border: `1px solid ${t.border}` }}>
+                      <HabitChip habit={h} date={selectedDate} />
+                      {h.icon && <span style={{ fontSize: 14, lineHeight: 1 }}>{h.icon}</span>}
+                      <span style={{ fontSize: 12, fontWeight: 600, color: t.text, whiteSpace: 'nowrap' }}>{h.name}</span>
+                    </div>
+                    {showMemoRow && (
+                      <div className="flex items-center gap-2 pl-1">
+                        <MessageSquare size={13} color={t.textMuted} style={{ flexShrink: 0 }} />
+                        <input
+                          value={memoVal}
+                          onChange={e => setHabitMemoEditing(prev => ({ ...prev, [h.id]: e.target.value }))}
+                          onBlur={() => {
+                            updateHabitMemo(h.id, selectedDate, memoVal);
+                            setHabitMemoEditing(prev => { const n = { ...prev }; delete n[h.id]; return n; });
+                          }}
+                          onKeyDown={e => {
+                            if (e.key === 'Enter') {
+                              updateHabitMemo(h.id, selectedDate, memoVal);
+                              setHabitMemoEditing(prev => { const n = { ...prev }; delete n[h.id]; return n; });
+                            }
+                          }}
+                          placeholder="오늘 메모를 남겨보세요…"
+                          className="flex-1 rounded-lg px-3 py-1.5 border outline-none"
+                          style={{ fontSize: 12, borderColor: t.border, backgroundColor: t.bgSub, color: t.text }}
+                        />
+                      </div>
+                    )}
+                  </div>
                 );
               })}
             </div>
