@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { format, subDays, startOfMonth, endOfWeek, startOfWeek, addDays, getDaysInMonth, getDay, parseISO } from 'date-fns';
 import { Trash2, Plus, X, ChevronLeft, ChevronRight, Search } from 'lucide-react';
 import {
@@ -44,6 +44,7 @@ export function ConditionTab() {
   const [searchOpen, setSearchOpen] = useState(false); // 검색바 펼침 여부
 
   const symptomOptions = getSymptomOptions();
+  const formRef = useRef<HTMLDivElement>(null); // 입력 카드 — 넛지에서 열 때 스크롤 대상
 
   // ── fetch + realtime ──
   const refresh = useCallback(() => {
@@ -99,6 +100,17 @@ export function ConditionTab() {
       return next;
     });
   };
+
+  // 빈 날 넛지 [기록하기] → 기존 인라인 입력 카드를 그 날짜로 prefill하여 연다 (새 UI 없음)
+  const openRecordFor = (d: string) => {
+    resetForm();
+    setDate(d);
+    setInputOpen(true);
+  };
+  // 입력 카드가 열리면 화면에 보이도록 스크롤(이미 보이면 이동 없음)
+  useEffect(() => {
+    if (inputOpen) formRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  }, [inputOpen]);
 
   // ── 통계 ──
   const today = new Date();
@@ -191,7 +203,7 @@ export function ConditionTab() {
         </button>
       )}
       {inputOpen && (
-      <div className="p-4 rounded-2xl" style={{ backgroundColor: t.card, border: `1px solid ${t.border}` }}>
+      <div ref={formRef} className="p-4 rounded-2xl" style={{ backgroundColor: t.card, border: `1px solid ${t.border}` }}>
         <div className="flex items-center justify-between mb-3">
           <span style={{ fontSize: 13, fontWeight: 700, color: t.text }}>컨디션 기록</span>
           <button onClick={() => { setInputOpen(false); resetForm(); }} className="p-1 rounded"
@@ -456,7 +468,7 @@ export function ConditionTab() {
               </p>
               <p style={{ fontSize: 12, color: t.textMuted, marginTop: 4 }}>이 날은 어땠나요?</p>
               <button
-                onClick={() => { /* Stage 4: 선택 날짜 prefill하여 기록 추가 플로우 재사용 */ }}
+                onClick={() => openRecordFor(selectedDate)}
                 className="inline-flex items-center gap-1.5 mt-3 px-4 py-2 rounded-xl"
                 style={{ fontSize: 13, fontWeight: 600, color: '#fff', backgroundColor: t.accent }}>
                 <Plus size={14} /> 기록하기
