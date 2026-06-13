@@ -322,27 +322,29 @@ export function ConditionTab() {
         <p style={{ fontSize: 13, fontWeight: 700, color: t.text, marginBottom: 10 }}>
           {format(today, 'M월')} 스트레스 히트맵
         </p>
-        <div className="grid grid-cols-7 gap-1 mb-1">
-          {['일', '월', '화', '수', '목', '금', '토'].map(d => (
-            <div key={d} className="text-center" style={{ fontSize: 10, color: t.textMuted }}>{d}</div>
-          ))}
-        </div>
-        <div className="grid grid-cols-7 gap-1">
-          {heatmap.map((cell, i) => cell === null ? (
-            <div key={i} style={{ aspectRatio: '1' }} />
-          ) : (
-            <div key={i} className="flex items-center justify-center rounded-lg"
-              style={{
-                aspectRatio: '1',
-                backgroundColor: cell.stress != null ? stressShade(cell.stress) : t.bgSub,
-                border: `1px solid ${t.border}`,
-              }}
-              title={cell.stress != null ? `${cell.dateStr} · 스트레스 ${cell.stress}` : cell.dateStr}>
-              <span style={{ fontSize: 10, color: cell.stress != null && cell.stress >= 3 ? '#fff' : t.textMuted }}>
-                {cell.day}
-              </span>
-            </div>
-          ))}
+        <div className="lg:max-w-[420px]">
+          <div className="grid grid-cols-7 gap-1 mb-1">
+            {['일', '월', '화', '수', '목', '금', '토'].map(d => (
+              <div key={d} className="text-center" style={{ fontSize: 10, color: t.textMuted }}>{d}</div>
+            ))}
+          </div>
+          <div className="grid grid-cols-7 gap-1">
+            {heatmap.map((cell, i) => cell === null ? (
+              <div key={i} style={{ aspectRatio: '1' }} />
+            ) : (
+              <div key={i} className="flex items-center justify-center rounded-lg"
+                style={{
+                  aspectRatio: '1',
+                  backgroundColor: cell.stress != null ? stressShade(cell.stress) : t.bgSub,
+                  border: `1px solid ${t.border}`,
+                }}
+                title={cell.stress != null ? `${cell.dateStr} · 스트레스 ${cell.stress}` : cell.dateStr}>
+                <span style={{ fontSize: 10, color: cell.stress != null && cell.stress >= 3 ? '#fff' : t.textMuted }}>
+                  {cell.day}
+                </span>
+              </div>
+            ))}
+          </div>
         </div>
       </div>
 
