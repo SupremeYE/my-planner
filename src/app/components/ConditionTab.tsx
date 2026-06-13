@@ -291,7 +291,7 @@ export function ConditionTab() {
       )}
 
       {/* 히트맵(좌) · 추이 선그래프(우) — PC 2단, 모바일 세로 */}
-      <div className="grid gap-3 lg:grid-cols-2 lg:items-start">
+      <div className="grid gap-3 lg:grid-cols-2">
         {/* 스트레스 히트맵 (이번달) + 이번달 평균 */}
         <div className="p-4 rounded-2xl" style={{ backgroundColor: t.card, border: `1px solid ${t.border}` }}>
           <div className="flex items-baseline justify-between mb-3">
@@ -329,21 +329,23 @@ export function ConditionTab() {
         </div>
 
         {/* 스트레스 추이 선그래프 */}
-        <div className="p-4 rounded-2xl" style={{ backgroundColor: t.card, border: `1px solid ${t.border}` }}>
+        <div className="p-4 rounded-2xl flex flex-col" style={{ backgroundColor: t.card, border: `1px solid ${t.border}` }}>
           <p style={{ fontSize: 13, fontWeight: 700, color: t.text, marginBottom: 10 }}>최근 30일 스트레스 추이</p>
           {trend.length > 0 ? (
-            <ResponsiveContainer width="100%" height={200}>
-              <LineChart data={trend} margin={{ top: 5, right: 8, left: -24, bottom: 0 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke={t.borderLight} vertical={false} />
-                <XAxis dataKey="date" tick={{ fontSize: 10, fill: t.textMuted }} tickLine={false} axisLine={false} />
-                <YAxis domain={[0, 5]} ticks={[1, 2, 3, 4, 5]} tick={{ fontSize: 10, fill: t.textMuted }} tickLine={false} axisLine={false} />
-                <Tooltip contentStyle={{ fontSize: 12, borderRadius: 12, border: `1px solid ${t.border}`, backgroundColor: t.card }} />
-                <Line type="monotone" dataKey="stress" stroke={STRESS_COLOR} strokeWidth={2}
-                  dot={{ r: 3, fill: STRESS_COLOR, strokeWidth: 0 }} activeDot={{ r: 5 }} />
-              </LineChart>
-            </ResponsiveContainer>
+            <div className="flex-1 min-h-[200px]">
+              <ResponsiveContainer width="100%" height="100%">
+                <LineChart data={trend} margin={{ top: 5, right: 8, left: -24, bottom: 0 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke={t.borderLight} vertical={false} />
+                  <XAxis dataKey="date" tick={{ fontSize: 10, fill: t.textMuted }} tickLine={false} axisLine={false} />
+                  <YAxis domain={[0, 5]} ticks={[1, 2, 3, 4, 5]} tick={{ fontSize: 10, fill: t.textMuted }} tickLine={false} axisLine={false} />
+                  <Tooltip contentStyle={{ fontSize: 12, borderRadius: 12, border: `1px solid ${t.border}`, backgroundColor: t.card }} />
+                  <Line type="monotone" dataKey="stress" stroke={STRESS_COLOR} strokeWidth={2}
+                    dot={{ r: 3, fill: STRESS_COLOR, strokeWidth: 0 }} activeDot={{ r: 5 }} />
+                </LineChart>
+              </ResponsiveContainer>
+            </div>
           ) : (
-            <div className="py-10 text-center" style={{ fontSize: 13, color: t.textMuted }}>기록이 쌓이면 추이가 표시됩니다</div>
+            <div className="flex-1 min-h-[200px] flex items-center justify-center text-center" style={{ fontSize: 13, color: t.textMuted }}>기록이 쌓이면 추이가 표시됩니다</div>
           )}
         </div>
       </div>
