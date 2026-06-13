@@ -38,6 +38,10 @@ export function ConditionTab() {
   const [inputOpen, setInputOpen] = useState(false); // 입력 폼 기본 접힘
   const [weekOffset, setWeekOffset] = useState(0); // 0=이번주, -1=지난주 ...
 
+  // 기록 영역 필터/검색 상태 (트리거 UI는 이후 Stage에서 연결)
+  const [selectedDate, setSelectedDate] = useState<string | null>(null); // 날짜 필터 (yyyy-MM-dd)
+  const [searchQuery, setSearchQuery] = useState(''); // 본문·태그 텍스트 검색
+
   const symptomOptions = getSymptomOptions();
 
   // ── fetch + realtime ──
@@ -138,9 +142,24 @@ export function ConditionTab() {
     return cells;
   }, [monthRecs]);
 
-  const visibleRecords = sorted.slice(0, listLimit);
-
   const stressLabel = (v: number) => STRESS_LEVELS.find(s => s.value === v)?.label ?? String(v);
+
+  // 표시할 기록 도출: 검색어 > 선택 날짜 > 전체 최신순
+  // (검색과 날짜 필터는 동시 적용하지 않음 — 검색이 우선)
+  const displayedRecords = useMemo(() => {
+    const q = searchQuery.trim().toLowerCase();
+    if (q) {
+      return sorted.filter(r =>
+        [r.memo ?? '', ...(r.symptoms ?? []), stressLabel(r.stress)]
+          .join(' ').toLowerCase().includes(q)
+      );
+    }
+    if (selectedDate) return sorted.filter(r => r.date === selectedDate);
+    return sorted.slice(0, listLimit);
+  }, [sorted, searchQuery, selectedDate, listLimit]);
+
+  // 필터/검색이 없는 기본 상태에서만 "더보기" 노출 (필터 결과는 전체 표시)
+  const isDefaultView = !searchQuery.trim() && !selectedDate;
 
   return (
     <div className="space-y-5">
@@ -353,14 +372,14 @@ export function ConditionTab() {
       {/* (C) 기록 리스트 */}
       <div>
         <p style={{ fontSize: 13, fontWeight: 700, color: t.text, marginBottom: 10 }}>기록</p>
-        {visibleRecords.length === 0 ? (
+        {displayedRecords.length === 0 ? (
           <div className="py-8 text-center rounded-2xl"
             style={{ backgroundColor: t.bgSub, fontSize: 13, color: t.textMuted }}>
             아직 컨디션 기록이 없습니다
           </div>
         ) : (
           <div className="space-y-2">
-            {visibleRecords.map(r => (
+            {displayedRecords.map(r => (
               <div key={r.id} className="flex items-start gap-3 px-3 py-2.5 rounded-xl"
                 style={{ backgroundColor: t.card, border: `1px solid ${t.border}` }}>
                 <span style={{ fontSize: 12, color: t.textSub, width: 50, flexShrink: 0, paddingTop: 2 }}>{r.date.slice(5)}</span>
@@ -386,7 +405,7 @@ export function ConditionTab() {
             ))}
           </div>
         )}
-        {sorted.length > listLimit && (
+        {isDefaultView && sorted.length > listLimit && (
           <button onClick={() => setListLimit(n => n + 10)}
             className="w-full mt-3 py-2 rounded-xl" style={{ backgroundColor: t.bgSub, color: t.textSub, fontSize: 13 }}>
             더보기
