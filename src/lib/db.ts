@@ -829,6 +829,86 @@ const toPlaceVisit = (r: PlaceVisitRow): PlaceVisit => ({
 // 지역별 방문수 집계 (히트맵용). region_code → 방문 횟수.
 export type RegionVisitCount = { regionCode: string; count: number };
 
+// ── 산책 (walk_sessions) ───────────────────────────────────────────────────────
+// 걸은 길을 기록하고 완료 시 사진·경로·손글씨 메모로 기록 카드를 남긴다.
+// mode: free(자유) / course(코스) / repeat(내 코스 다시).
+// path = 실제 걸은 좌표, plannedRoute = 코스/내코스 목표 경로(자유 모드는 null).
+// 거리/시간/페이스는 클라이언트(하버사인)에서 계산해 저장한다.
+// user_id 는 DB DEFAULT auth.uid() 가 자동 충전 → 클라이언트는 보내지 않는다.
+export type WalkMode = 'free' | 'course' | 'repeat';
+export type WalkPoint = { lat: number; lng: number; t: number }; // t = 경과 시간(ms) 또는 epoch
+
+export type WalkSession = {
+  id: string;
+  mode: WalkMode;
+  startedAt: string | null;
+  endedAt: string | null;
+  distanceM: number;             // 총 이동 거리(미터)
+  durationS: number;             // 총 소요 시간(초)
+  avgPaceSPerKm: number | null;  // 평균 페이스(초/km)
+  path: WalkPoint[];             // 실제 걸은 좌표
+  plannedRoute: WalkPoint[] | null; // 코스/내코스 목표 경로
+  startLat: number | null;
+  startLng: number | null;
+  regionCode: string | null;     // 시작점 시도 코드(기억/지도 연동 여지)
+  photoUrl: string | null;       // 완료 카드 사진(walk-photos 버킷)
+  memo: string | null;           // 손글씨 메모
+  routeName: string | null;      // "내 코스 다시" 저장용 코스 이름
+  isSavedRoute: boolean;         // 재사용 가능한 내 코스 여부
+  createdAt: string;
+};
+
+type WalkSessionRow = {
+  id: string; mode: WalkMode; started_at: string | null; ended_at: string | null;
+  distance_m: number; duration_s: number; avg_pace_s_per_km: number | null;
+  path: WalkPoint[] | null; planned_route: WalkPoint[] | null;
+  start_lat: number | null; start_lng: number | null; region_code: string | null;
+  photo_url: string | null; memo: string | null; route_name: string | null;
+  is_saved_route: boolean; created_at: string;
+};
+
+const toWalkSession = (r: WalkSessionRow): WalkSession => ({
+  id: r.id,
+  mode: r.mode,
+  startedAt: r.started_at ?? null,
+  endedAt: r.ended_at ?? null,
+  distanceM: r.distance_m ?? 0,
+  durationS: r.duration_s ?? 0,
+  avgPaceSPerKm: r.avg_pace_s_per_km ?? null,
+  path: r.path ?? [],
+  plannedRoute: r.planned_route ?? null,
+  startLat: r.start_lat ?? null,
+  startLng: r.start_lng ?? null,
+  regionCode: r.region_code ?? null,
+  photoUrl: r.photo_url ?? null,
+  memo: r.memo ?? null,
+  routeName: r.route_name ?? null,
+  isSavedRoute: r.is_saved_route ?? false,
+  createdAt: r.created_at,
+});
+
+// walk_sessions insert/update 시 카멜→스네이크 변환. undefined 키는 제외(부분 업데이트 지원).
+type WalkSessionInput = Partial<Omit<WalkSession, 'id' | 'createdAt'>>;
+const fromWalkSession = (w: WalkSessionInput): Record<string, unknown> => {
+  const row: Record<string, unknown> = {};
+  if (w.mode !== undefined)          row.mode = w.mode;
+  if (w.startedAt !== undefined)     row.started_at = w.startedAt;
+  if (w.endedAt !== undefined)       row.ended_at = w.endedAt;
+  if (w.distanceM !== undefined)     row.distance_m = w.distanceM;
+  if (w.durationS !== undefined)     row.duration_s = w.durationS;
+  if (w.avgPaceSPerKm !== undefined) row.avg_pace_s_per_km = w.avgPaceSPerKm;
+  if (w.path !== undefined)          row.path = w.path;
+  if (w.plannedRoute !== undefined)  row.planned_route = w.plannedRoute;
+  if (w.startLat !== undefined)      row.start_lat = w.startLat;
+  if (w.startLng !== undefined)      row.start_lng = w.startLng;
+  if (w.regionCode !== undefined)    row.region_code = w.regionCode;
+  if (w.photoUrl !== undefined)      row.photo_url = w.photoUrl;
+  if (w.memo !== undefined)          row.memo = w.memo;
+  if (w.routeName !== undefined)     row.route_name = w.routeName;
+  if (w.isSavedRoute !== undefined)  row.is_saved_route = w.isSavedRoute;
+  return row;
+};
+
 // ── DB 객체 ──────────────────────────────────────────────────────────────────
 
 export const db = {
@@ -3245,6 +3325,65 @@ export const db = {
         counts.set(r.region_code, (counts.get(r.region_code) ?? 0) + 1);
       }
       return [...counts.entries()].map(([regionCode, count]) => ({ regionCode, count }));
+    },
+  },
+
+  // ── 산책 (walk_sessions) ──────────────────────────────────────────────────────
+  walkSessions: {
+    // 전체 세션 목록(시작 시각 내림차순). started_at 이 null 이면(미완료) created_at 보조 정렬.
+    fetchAll: async (): Promise<WalkSession[]> => {
+      const { data, error } = await supabase
+        .from('walk_sessions')
+        .select('*')
+        .order('started_at', { ascending: false, nullsFirst: false })
+        .order('created_at', { ascending: false });
+      if (error) console.error('[db] walk_sessions fetchAll:', error.message);
+      return (data ?? []).map(toWalkSession);
+    },
+    fetchOne: async (id: string): Promise<WalkSession | null> => {
+      const { data, error } = await supabase.from('walk_sessions').select('*').eq('id', id).maybeSingle();
+      if (error) console.error('[db] walk_sessions fetchOne:', error.message);
+      return data ? toWalkSession(data) : null;
+    },
+    // 저장해 둔 "내 코스"만(재사용용). is_saved_route = true.
+    fetchSavedRoutes: async (): Promise<WalkSession[]> => {
+      const { data, error } = await supabase
+        .from('walk_sessions')
+        .select('*')
+        .eq('is_saved_route', true)
+        .order('created_at', { ascending: false });
+      if (error) console.error('[db] walk_sessions fetchSavedRoutes:', error.message);
+      return (data ?? []).map(toWalkSession);
+    },
+    // 생성 — user_id 는 DB DEFAULT auth.uid(). 거리/페이스는 호출부에서 계산해 넘긴다.
+    create: async (input: WalkSessionInput): Promise<WalkSession | null> => {
+      const { data, error } = await supabase
+        .from('walk_sessions')
+        .insert(fromWalkSession(input))
+        .select('*')
+        .single();
+      if (error) { console.error('[db] walk_sessions create:', error.message); return null; }
+      return data ? toWalkSession(data) : null;
+    },
+    // 수정 — 전달된 키만 부분 업데이트(완료 후 메모/사진/코스 저장 등).
+    update: async (id: string, patch: WalkSessionInput): Promise<void> => {
+      const row = fromWalkSession(patch);
+      if (Object.keys(row).length === 0) return;
+      const { error } = await supabase.from('walk_sessions').update(row).eq('id', id);
+      if (error) console.error('[db] walk_sessions update:', error.message);
+    },
+    delete: async (id: string): Promise<void> => {
+      const { error } = await supabase.from('walk_sessions').delete().eq('id', id);
+      if (error) console.error('[db] walk_sessions delete:', error.message);
+    },
+    // 완료 카드 사진 업로드 → publicUrl 반환 (food-photos/moment-photos 패턴 동일).
+    uploadPhoto: async (file: File, sessionId: string): Promise<string | null> => {
+      const ext = file.name.split('.').pop() ?? 'jpg';
+      const path = `${sessionId}.${ext}`;
+      const { error } = await supabase.storage.from('walk-photos').upload(path, file, { upsert: true, contentType: file.type });
+      if (error) { console.error('[db] walk photo upload:', error.message); return null; }
+      const { data } = supabase.storage.from('walk-photos').getPublicUrl(path);
+      return data.publicUrl;
     },
   },
 };
