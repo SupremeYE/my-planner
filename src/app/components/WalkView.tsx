@@ -9,12 +9,14 @@ import { useWalkData } from './walk/useWalkData';
 import { FreeWalkSession, type WalkDraft } from './walk/FreeWalkSession';
 import { CourseSetup, type CoursePoint } from './walk/CourseSetup';
 import { CourseWalkSession } from './walk/CourseWalkSession';
+import { RepeatPicker } from './walk/RepeatPicker';
+import { RepeatWalkSession } from './walk/RepeatWalkSession';
 import { CompletionCard } from './walk/CompletionCard';
 import { WalkRecordDetail } from './walk/WalkRecordDetail';
 import { RouteGlyph } from './walk/RouteGlyph';
 import { formatDistance, formatDuration } from './walk/walkUtils';
 import { withAlpha } from './places/placeHelpers';
-import type { WalkSession } from '../../lib/db';
+import type { WalkSession, WalkPoint } from '../../lib/db';
 
 type WalkTab = 'free' | 'course' | 'repeat' | 'records';
 
@@ -28,6 +30,7 @@ const TABS: { key: WalkTab; label: string }[] = [
 type Overlay =
   | { kind: 'tracking' }
   | { kind: 'courseTracking'; start: CoursePoint; dest: CoursePoint }
+  | { kind: 'repeatTracking'; target: WalkPoint[]; name: string }
   | { kind: 'completion'; draft: WalkDraft }
   | { kind: 'detail'; session: WalkSession }
   | null;
@@ -146,7 +149,7 @@ export function WalkView() {
           <CourseSetup onStart={(start, dest) => setOverlay({ kind: 'courseTracking', start, dest })} />
         )}
         {activeTab === 'repeat' && (
-          <ComingSoon title="내 코스 다시 — 준비 중" desc="마음에 들었던 산책 경로를 저장해두고 다시 걸을 수 있어요. (Phase 3)" />
+          <RepeatPicker onPick={(source, target) => setOverlay({ kind: 'repeatTracking', target, name: source.routeName ?? '지난 산책 코스' })} />
         )}
 
         {activeTab === 'records' && (
@@ -173,6 +176,14 @@ export function WalkView() {
         <CourseWalkSession
           start={overlay.start}
           dest={overlay.dest}
+          onCancel={() => setOverlay(null)}
+          onFinish={draft => setOverlay({ kind: 'completion', draft })}
+        />
+      )}
+      {overlay?.kind === 'repeatTracking' && (
+        <RepeatWalkSession
+          target={overlay.target}
+          name={overlay.name}
           onCancel={() => setOverlay(null)}
           onFinish={draft => setOverlay({ kind: 'completion', draft })}
         />

@@ -1,11 +1,12 @@
 // 산책 기록 카드 상세 — 사진 배경 + 경로 미니맵 + 지표 + 손글씨가 한 장의 카드로(일기 느낌).
 // 메모 수정 / 삭제 가능. (저장된 walk_sessions 한 건을 보여준다)
 import { useState } from 'react';
-import { X, Trash2, Pencil, Check, Loader2 } from 'lucide-react';
+import { X, Trash2, Pencil, Check, Loader2, Bookmark } from 'lucide-react';
 import { useTheme } from '../../ThemeContext';
 import { db } from '../../../lib/db';
 import type { WalkSession } from '../../../lib/db';
 import { RouteGlyph } from './RouteGlyph';
+import { targetRouteOf } from './RepeatPicker';
 import { formatDistance, formatDuration, formatPace } from './walkUtils';
 import { withAlpha } from '../places/placeHelpers';
 import ConfirmModal from '../ConfirmModal';
@@ -18,8 +19,25 @@ export function WalkRecordDetail({ session, onClose, onChanged }: { session: Wal
   const [memo, setMemo] = useState(session.memo ?? '');
   const [saving, setSaving] = useState(false);
   const [confirmDel, setConfirmDel] = useState(false);
+  const [courseInput, setCourseInput] = useState(false);
+  const [courseName, setCourseName] = useState(session.routeName ?? '');
+  const [savingCourse, setSavingCourse] = useState(false);
 
   const photo = session.photoUrl;
+  const canBeCourse = targetRouteOf(session).length >= 2; // 따라 걸을 점이 있어야 코스로 저장 가능
+
+  const saveAsCourse = async () => {
+    if (!courseName.trim()) return;
+    setSavingCourse(true);
+    await db.walkSessions.update(session.id, { isSavedRoute: true, routeName: courseName.trim() });
+    setSavingCourse(false);
+    setCourseInput(false);
+    onChanged();
+  };
+  const unsaveCourse = async () => {
+    await db.walkSessions.update(session.id, { isSavedRoute: false });
+    onChanged();
+  };
   const dateLabel = session.startedAt ? new Date(session.startedAt).toLocaleString('ko-KR', { dateStyle: 'long', timeStyle: 'short' }) : new Date(session.createdAt).toLocaleDateString('ko-KR');
 
   const saveMemo = async () => {
@@ -87,6 +105,36 @@ export function WalkRecordDetail({ session, onClose, onChanged }: { session: Wal
             </button>
           )}
         </div>
+
+        {/* 코스로 저장 (내 코스 다시용) */}
+        {canBeCourse && (
+          <div style={{ marginTop: 14, padding: 14, borderRadius: 14, backgroundColor: t.bgSub, border: `1px solid ${t.borderLight}` }}>
+            {session.isSavedRoute ? (
+              <div className="flex items-center justify-between">
+                <span className="flex items-center gap-1.5" style={{ fontSize: 13, color: t.text }}>
+                  <Bookmark size={14} style={{ color: t.accent }} fill={t.accent} /> 저장된 코스 · "{session.routeName}"
+                </span>
+                <button onClick={unsaveCourse} style={{ fontSize: 12, color: t.textSub, background: 'none', border: 'none', cursor: 'pointer' }}>해제</button>
+              </div>
+            ) : courseInput ? (
+              <div className="flex items-center gap-2">
+                <input value={courseName} onChange={e => setCourseName(e.target.value)} autoFocus
+                  onKeyDown={e => e.key === 'Enter' && saveAsCourse()}
+                  placeholder="코스 이름 (예: 한강 야경길)"
+                  style={{ flex: 1, padding: '9px 12px', borderRadius: 10, border: `1px solid ${t.border}`, backgroundColor: t.card, fontSize: 13.5, color: t.text, outline: 'none' }} />
+                <button onClick={saveAsCourse} disabled={savingCourse || !courseName.trim()}
+                  className="flex items-center gap-1" style={{ padding: '9px 14px', borderRadius: 10, border: 'none', backgroundColor: courseName.trim() ? t.accent : t.border, color: courseName.trim() ? '#fff' : t.textMuted, fontSize: 13, fontWeight: 700, cursor: courseName.trim() ? 'pointer' : 'not-allowed' }}>
+                  {savingCourse ? <Loader2 size={14} className="animate-spin" /> : <Check size={14} />} 저장
+                </button>
+              </div>
+            ) : (
+              <button onClick={() => setCourseInput(true)} className="flex items-center gap-2 w-full justify-center"
+                style={{ padding: '4px', background: 'none', border: 'none', color: t.accent, fontSize: 13.5, fontWeight: 600, cursor: 'pointer' }}>
+                <Bookmark size={15} /> 이 경로 코스로 저장 — "내 코스 다시"에서 또 걸어요
+              </button>
+            )}
+          </div>
+        )}
       </div>
 
       {confirmDel && (

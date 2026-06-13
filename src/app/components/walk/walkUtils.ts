@@ -57,6 +57,31 @@ export function formatPace(paceSecPerKm: number | null): string {
   return `${m}'${String(s).padStart(2, '0')}"/km`;
 }
 
+// ── "내 코스 다시"용 — 목표 경로 위 진행도 ──────────────────────────────────────
+// 현재 위치에서 가장 가까운 목표 경로 점을 찾아, 그 지점까지의 경로 누적거리로 진행도를 낸다.
+// (정밀 맵매칭이 아니라 가벼운 근사 — 따라 걷기 안내용으로 충분)
+export function routeProgress(
+  target: WalkPoint[],
+  current: { lat: number; lng: number } | null,
+): { pct: number; remainingM: number; totalM: number; nearestIdx: number } {
+  const totalM = totalDistanceM(target);
+  if (!current || target.length < 2 || totalM <= 0) {
+    return { pct: 0, remainingM: totalM, totalM, nearestIdx: 0 };
+  }
+  // 가장 가까운 목표 점 인덱스
+  let nearestIdx = 0;
+  let best = Infinity;
+  for (let i = 0; i < target.length; i++) {
+    const d = haversineMeters(current, target[i]);
+    if (d < best) { best = d; nearestIdx = i; }
+  }
+  // 시작~nearestIdx 누적거리
+  let covered = 0;
+  for (let i = 1; i <= nearestIdx; i++) covered += haversineMeters(target[i - 1], target[i]);
+  const pct = Math.max(0, Math.min(100, (covered / totalM) * 100));
+  return { pct, remainingM: Math.max(0, totalM - covered), totalM, nearestIdx };
+}
+
 // 세션 한 건에서 거리·페이스를 한 번에 계산(저장 직전 호출용).
 export function computeWalkStats(path: WalkPoint[], durationS: number): {
   distanceM: number;
