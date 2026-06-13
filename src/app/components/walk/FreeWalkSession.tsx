@@ -19,6 +19,8 @@ export interface WalkDraft {
   startLng: number | null;
   startedAt: string;
   endedAt: string;
+  mode?: 'free' | 'course' | 'repeat';   // 미지정 = free
+  plannedRoute?: WalkPoint[] | null;      // 코스/내코스 목표 경로(있으면 저장)
 }
 
 export function FreeWalkSession({ onFinish, onCancel }: { onFinish: (d: WalkDraft) => void; onCancel: () => void }) {

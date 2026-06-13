@@ -47,8 +47,9 @@ export function CompletionCard({ draft, onSaved, onDiscard }: { draft: WalkDraft
     }
 
     const session = await db.walkSessions.create({
-      mode: 'free',
+      mode: draft.mode ?? 'free',
       path: draft.path,
+      plannedRoute: draft.plannedRoute ?? null,
       distanceM: draft.distanceM,
       durationS: draft.durationS,
       avgPaceSPerKm: pace,

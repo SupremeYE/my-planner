@@ -7,6 +7,8 @@ import { Footprints, Play, ChevronRight } from 'lucide-react';
 import { useTheme } from '../ThemeContext';
 import { useWalkData } from './walk/useWalkData';
 import { FreeWalkSession, type WalkDraft } from './walk/FreeWalkSession';
+import { CourseSetup, type CoursePoint } from './walk/CourseSetup';
+import { CourseWalkSession } from './walk/CourseWalkSession';
 import { CompletionCard } from './walk/CompletionCard';
 import { WalkRecordDetail } from './walk/WalkRecordDetail';
 import { RouteGlyph } from './walk/RouteGlyph';
@@ -23,7 +25,12 @@ const TABS: { key: WalkTab; label: string }[] = [
   { key: 'records', label: '기록' },
 ];
 
-type Overlay = { kind: 'tracking' } | { kind: 'completion'; draft: WalkDraft } | { kind: 'detail'; session: WalkSession } | null;
+type Overlay =
+  | { kind: 'tracking' }
+  | { kind: 'courseTracking'; start: CoursePoint; dest: CoursePoint }
+  | { kind: 'completion'; draft: WalkDraft }
+  | { kind: 'detail'; session: WalkSession }
+  | null;
 
 function ComingSoon({ title, desc }: { title: string; desc: string }) {
   const { t } = useTheme();
@@ -136,7 +143,7 @@ export function WalkView() {
         )}
 
         {activeTab === 'course' && (
-          <ComingSoon title="코스 산책 — 준비 중" desc="저장한 장소들을 잇는 추천 코스를 따라 걷는 모드예요. (Phase 2)" />
+          <CourseSetup onStart={(start, dest) => setOverlay({ kind: 'courseTracking', start, dest })} />
         )}
         {activeTab === 'repeat' && (
           <ComingSoon title="내 코스 다시 — 준비 중" desc="마음에 들었던 산책 경로를 저장해두고 다시 걸을 수 있어요. (Phase 3)" />
@@ -158,6 +165,14 @@ export function WalkView() {
       {/* 오버레이: 추적 → 완료 → 상세 */}
       {overlay?.kind === 'tracking' && (
         <FreeWalkSession
+          onCancel={() => setOverlay(null)}
+          onFinish={draft => setOverlay({ kind: 'completion', draft })}
+        />
+      )}
+      {overlay?.kind === 'courseTracking' && (
+        <CourseWalkSession
+          start={overlay.start}
+          dest={overlay.dest}
           onCancel={() => setOverlay(null)}
           onFinish={draft => setOverlay({ kind: 'completion', draft })}
         />
