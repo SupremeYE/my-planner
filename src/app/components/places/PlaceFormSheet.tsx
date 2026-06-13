@@ -121,6 +121,8 @@ export function PlaceFormSheet({ place, folders, currentFolderIds, defaultFolder
     }
     // 폴더 연결 동기화 (다대다)
     if (placeId) await db.placeFolderItems.setFoldersForPlace(placeId, [...selFolders]);
+    // 위치를 새로 확정했으면 인리치먼트(블로그 후기) 저장 시점 1회 — 보조 처리(await 안 함, 실패 무시)
+    if (placeId && selectedKakao) void db.places.enrich(placeId);
     onSaved();
     close();
   };

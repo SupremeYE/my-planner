@@ -702,6 +702,14 @@ const toPlaceFolder = (r: PlaceFolderRow): PlaceFolder => ({
   createdAt: r.created_at,
 });
 
+export type BlogReview = {
+  title: string;
+  link: string;
+  description: string;
+  bloggername: string;
+  postdate: string;
+};
+
 export type Place = {
   id: string;
   name: string;
@@ -721,6 +729,9 @@ export type Place = {
   rating: number | null;       // 카카오 평점 캐시
   reviewCount: number | null;  // 카카오 리뷰 수 캐시
   hours: string | null;
+  blogReviews: BlogReview[];   // 네이버 블로그 후기 캐시 (인리치먼트)
+  aiSummary: string | null;    // Haiku 요약 (선택)
+  enrichedAt: string | null;   // 인리치먼트 성공 시각 (null = 아직/실패)
   createdAt: string;
   updatedAt: string;
 };
@@ -731,7 +742,8 @@ type PlaceRow = {
   kakao_place_id: string | null; phone: string | null; source: string | null; source_url: string | null;
   thumbnail_url: string | null; memo: string | null; concept: string | null;
   energy: number | null; rating: number | null; review_count: number | null;
-  hours: string | null; created_at: string; updated_at: string;
+  hours: string | null; blog_reviews: BlogReview[] | null; ai_summary: string | null; enriched_at: string | null;
+  created_at: string; updated_at: string;
 };
 
 const toPlace = (r: PlaceRow): Place => ({
@@ -753,6 +765,9 @@ const toPlace = (r: PlaceRow): Place => ({
   rating: r.rating ?? null,
   reviewCount: r.review_count ?? null,
   hours: r.hours ?? null,
+  blogReviews: r.blog_reviews ?? [],
+  aiSummary: r.ai_summary ?? null,
+  enrichedAt: r.enriched_at ?? null,
   createdAt: r.created_at,
   updatedAt: r.updated_at,
 });
@@ -3058,6 +3073,21 @@ export const db = {
       // place_folder_items 는 CASCADE, place_visits 는 ON DELETE SET NULL(방문 기록 보존).
       const { error } = await supabase.from('places').delete().eq('id', id);
       if (error) console.error('[db] places delete:', error.message);
+    },
+    // 인리치먼트(네이버 블로그 후기 + 선택 AI 요약) — 저장 시점 1회 호출.
+    // 보조 처리라 실패해도 throw 하지 않는다(저장 자체는 이미 성공). 성공 시 enrich-place 가
+    // blog_reviews/ai_summary/enriched_at 을 채우고 Realtime 으로 화면이 갱신된다.
+    enrich: async (placeId: string, summarize = true): Promise<boolean> => {
+      try {
+        const { data, error } = await supabase.functions.invoke('enrich-place', {
+          body: { place_id: placeId, summarize },
+        });
+        if (error) { console.error('[db] places enrich:', error.message); return false; }
+        return !!(data as any)?.ok;
+      } catch (e) {
+        console.error('[db] places enrich exception:', e);
+        return false;
+      }
     },
   },
 

@@ -2,7 +2,7 @@
 // 외부 API 재호출 없음: 저장된 lat/lng 만 읽어 핀을 찍는다. (검색/지오코딩은 저장 시점 1회)
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { format } from 'date-fns';
-import { X, Navigation, ExternalLink, Check, MapPin, Plus } from 'lucide-react';
+import { X, Navigation, ExternalLink, Check, MapPin, Loader2, RefreshCw } from 'lucide-react';
 import { useTheme } from '../../ThemeContext';
 import { db } from '../../../lib/db';
 import type { Place, PlaceFolder } from '../../../lib/db';
@@ -16,6 +16,11 @@ import { FolderFormSheet } from './FolderFormSheet';
 function pinDataUri(fill: string, stroke: string, inner: string): string {
   const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="26" height="36" viewBox="0 0 26 36"><path d="M13 0C5.82 0 0 5.82 0 13c0 9.2 13 23 13 23s13-13.8 13-23C26 5.82 20.18 0 13 0z" fill="${fill}" stroke="${stroke}" stroke-width="2"/><circle cx="13" cy="13" r="4.8" fill="${inner}"/></svg>`;
   return 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svg);
+}
+
+// 네이버 postdate "20260613" → "2026.06.13"
+function fmtPostdate(d: string): string {
+  return d?.length === 8 ? `${d.slice(0, 4)}.${d.slice(4, 6)}.${d.slice(6, 8)}` : d;
 }
 
 const SEOUL_INCHEON = { lat: 37.4563, lng: 126.7052 }; // 기본 중심(인천)
@@ -127,7 +132,30 @@ export function MapTab() {
     toast(`방문 완료! ${REGION_LABELS[p.regionCode] ?? ''}에 발자국 +1`);
   };
 
-  const selectedWent = selected ? visitedIds.has(selected.id) : false;
+  // 인리치먼트(블로그 후기) — 진행 중 placeId 집합 + 상세 열렸을 때 1회 자동 시도
+  const [enriching, setEnriching] = useState<Set<string>>(new Set());
+  const autoTried = useRef<Set<string>>(new Set());
+
+  // selected 는 스냅샷이라 Realtime 갱신 반영 위해 최신 places 에서 다시 찾는다.
+  const liveSelected = selected ? places.find(p => p.id === selected.id) ?? selected : null;
+  const selectedWent = liveSelected ? visitedIds.has(liveSelected.id) : false;
+
+  const runEnrich = async (placeId: string) => {
+    setEnriching(prev => new Set(prev).add(placeId));
+    await db.places.enrich(placeId);
+    await refresh();
+    setEnriching(prev => { const n = new Set(prev); n.delete(placeId); return n; });
+  };
+
+  useEffect(() => {
+    const p = liveSelected;
+    if (!p || p.lat == null || p.lng == null) return;
+    if (!p.enrichedAt && p.blogReviews.length === 0 && !autoTried.current.has(p.id)) {
+      autoTried.current.add(p.id);
+      runEnrich(p.id);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [liveSelected?.id, liveSelected?.enrichedAt]);
 
   // ── 테마 바 ─────────────────────────────────────────────────────────────────
   const ThemeBar = () => (
@@ -177,10 +205,38 @@ export function MapTab() {
           )}
         </div>
 
-        {/* 블로그 후기 — 3B 에서 채움 */}
+        {/* 블로그 후기 + (선택) AI 요약 — 인리치먼트 결과 */}
         <div style={{ padding: '11px 16px', borderTop: `1px solid ${t.borderLight}`, backgroundColor: t.bgSub }}>
-          <div style={{ fontSize: 10.5, color: t.textMuted, marginBottom: 4 }}>블로그·방문자 후기</div>
-          <div style={{ fontSize: 12, color: t.textMuted }}>곧 후기를 모아서 보여드릴게요 (준비 중)</div>
+          {p.aiSummary && (
+            <div style={{ marginBottom: 10 }}>
+              <div className="flex items-center gap-1" style={{ fontSize: 10.5, color: t.accent, fontWeight: 700, marginBottom: 3 }}>✨ AI 요약</div>
+              <div style={{ fontSize: 12.5, color: t.text, lineHeight: 1.5 }}>{p.aiSummary}</div>
+            </div>
+          )}
+          <div style={{ fontSize: 10.5, color: t.textMuted, marginBottom: 6 }}>블로그·방문자 후기</div>
+          {enriching.has(p.id) ? (
+            <div className="flex items-center gap-1.5" style={{ fontSize: 12, color: t.textMuted }}>
+              <Loader2 size={13} className="animate-spin" /> 후기 불러오는 중…
+            </div>
+          ) : p.blogReviews.length > 0 ? (
+            <div className="flex flex-col gap-2">
+              {p.blogReviews.map((r, i) => (
+                <a key={i} href={r.link} target="_blank" rel="noopener noreferrer" style={{ textDecoration: 'none', display: 'block' }}>
+                  <div style={{ fontSize: 12, color: t.text, fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.title || r.description}</div>
+                  <div style={{ fontSize: 10.5, color: t.textSub, marginTop: 1 }}>{r.bloggername}{r.postdate ? ` · ${fmtPostdate(r.postdate)}` : ''}</div>
+                </a>
+              ))}
+            </div>
+          ) : (
+            <div className="flex items-center justify-between gap-2">
+              <span style={{ fontSize: 12, color: t.textMuted }}>{p.enrichedAt ? '찾은 후기가 없었어요' : '아직 후기를 안 불러왔어요'}</span>
+              {p.lat != null && (
+                <button onClick={() => runEnrich(p.id)} className="flex items-center gap-1" style={{ fontSize: 11.5, color: t.accent, background: 'none', border: 'none', cursor: 'pointer', flexShrink: 0 }}>
+                  <RefreshCw size={12} /> {p.enrichedAt ? '다시 찾기' : '불러오기'}
+                </button>
+              )}
+            </div>
+          )}
         </div>
 
         {/* 액션 */}
@@ -258,18 +314,18 @@ export function MapTab() {
           )}
 
           {/* PC 상세 패널 (우상단 슬라이드) */}
-          {selected && (
+          {liveSelected && (
             <div className="hidden lg:block" style={{ position: 'absolute', top: 16, right: 16, width: 300, zIndex: 6, borderRadius: 14, overflow: 'hidden', border: `1px solid ${t.borderLight}`, boxShadow: `0 14px 32px -14px ${withAlpha(t.text, 0.45)}` }}>
-              <DetailCard p={selected} went={selectedWent} />
+              <DetailCard p={liveSelected} went={selectedWent} />
             </div>
           )}
         </div>
       </div>
 
       {/* 모바일 상세 바텀시트 */}
-      {selected && (
+      {liveSelected && (
         <div className="lg:hidden" style={{ position: 'absolute', left: 10, right: 10, bottom: 10, zIndex: 6, borderRadius: 16, overflow: 'hidden', border: `1px solid ${t.borderLight}`, boxShadow: `0 -8px 30px -10px ${withAlpha(t.text, 0.4)}` }}>
-          <DetailCard p={selected} went={selectedWent} />
+          <DetailCard p={liveSelected} went={selectedWent} />
         </div>
       )}
 
