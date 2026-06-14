@@ -48,9 +48,14 @@ export function TodoModal({ date, todo, initialPlanStart, initialPlanEnd, initia
 
   const todayStr = format(new Date(), 'yyyy-MM-dd');
 
-  const [modalDate, setModalDate] = useState<string>(
+  const [modalDate, setModalDateRaw] = useState<string>(
     date ?? todo?.date ?? '',
   );
+  const setModalDate = (v: string) => {
+    setModalDateRaw(v);
+    if (!v) setEndDate('');
+    else if (endDate && v > endDate) setEndDate('');
+  };
 
   const effectiveDate = modalDate;
   const dateLabel = effectiveDate
@@ -76,6 +81,9 @@ export function TodoModal({ date, todo, initialPlanStart, initialPlanEnd, initia
   const [editingTagPaletteColor, setEditingTagPaletteColor] = useState<string | null>(null);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [deletingTagId, setDeletingTagId] = useState<string | null>(null);
+
+  // 멀티데이 종료일
+  const [endDate, setEndDate] = useState<string>(todo?.endDate ?? '');
 
   // 반복 일정 state
   const [recurrenceRule, setRecurrenceRule] = useState<Todo['recurrenceRule']>(todo?.recurrenceRule ?? initialRecurrenceRule ?? undefined);
@@ -216,6 +224,7 @@ export function TodoModal({ date, todo, initialPlanStart, initialPlanEnd, initia
   const buildChanges = () => ({
     text: text.trim(),
     date: effectiveDate || null,
+    endDate: endDate || undefined,
     planStart: planStart || undefined,
     planEnd: planEnd || undefined,
     isTop3,
@@ -346,6 +355,28 @@ export function TodoModal({ date, todo, initialPlanStart, initialPlanEnd, initia
                 미지정
               </button>
             </div>
+
+            {/* 멀티데이 종료일 — 시작일이 있고 반복이 없을 때만 표시 */}
+            {effectiveDate && !recurrenceRule && (
+              <div className="flex items-center gap-2 mt-2">
+                <span style={{ fontSize: 11, color: t.textSub, fontWeight: 600, whiteSpace: 'nowrap' }}>종료일</span>
+                <input
+                  type="date"
+                  value={endDate}
+                  min={effectiveDate}
+                  onChange={e => {
+                    setEndDate(e.target.value);
+                    if (e.target.value) setRecurrenceRule(undefined);
+                  }}
+                  className="flex-1 rounded-lg px-3 py-1.5 outline-none"
+                  style={{ border: `1px solid ${t.border}`, backgroundColor: t.bgSub, color: t.text, fontSize: 12 }}
+                />
+                {endDate && (
+                  <button type="button" onClick={() => setEndDate('')}
+                    style={{ fontSize: 11, color: t.textMuted }}>지우기</button>
+                )}
+              </div>
+            )}
           </div>
 
           {/* 할일 텍스트 */}
@@ -403,7 +434,10 @@ export function TodoModal({ date, todo, initialPlanStart, initialPlanEnd, initia
                   <button
                     key={opt.label}
                     type="button"
-                    onClick={() => setRecurrenceRule(opt.value)}
+                    onClick={() => {
+                      setRecurrenceRule(opt.value);
+                      if (opt.value) setEndDate('');
+                    }}
                     className="px-3 py-1 rounded-full"
                     style={{
                       fontSize: 11, fontWeight: recurrenceRule === opt.value ? 700 : 500,

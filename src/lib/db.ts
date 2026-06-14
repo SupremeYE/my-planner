@@ -31,6 +31,7 @@ function parseAnnualProfilesFromDb(raw: unknown): Record<string, { identity: str
 
 type TodoRow = {
   id: string; text: string; date: string | null; due_date: string | null;
+  end_date: string | null;
   status: string; is_top3: boolean; plan_start: string | null; plan_end: string | null;
   do_start: string | null; do_end: string | null; do_elapsed_sec: number | null;
   category: string | null;
@@ -221,6 +222,7 @@ const toMindmapNode = (r: MindmapNodeRow): MindmapNode => ({
 
 const toTodo = (r: TodoRow): Todo => ({
   id: r.id, text: r.text, date: r.date, dueDate: r.due_date ?? undefined,
+  endDate: r.end_date ?? undefined,
   status: r.status as Todo['status'], isTop3: r.is_top3,
   planStart: r.plan_start ?? undefined, planEnd: r.plan_end ?? undefined,
   doStart: r.do_start ?? undefined, doEnd: r.do_end ?? undefined,
@@ -239,6 +241,7 @@ const toTodo = (r: TodoRow): Todo => ({
 
 const fromTodo = (t: Todo): TodoRow => ({
   id: t.id, text: t.text, date: t.date ?? null, due_date: t.dueDate ?? null,
+  end_date: t.endDate ?? null,
   status: t.status, is_top3: t.isTop3,
   plan_start: t.planStart ?? null, plan_end: t.planEnd ?? null,
   do_start: t.doStart ?? null, do_end: t.doEnd ?? null,

@@ -19,6 +19,7 @@ export interface Todo {
   text: string;
   date: string | null;
   dueDate?: string | null;
+  endDate?: string | null;
   status: TodoStatus;
   isTop3: boolean;
   planStart?: string;
