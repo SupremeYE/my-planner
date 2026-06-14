@@ -6,13 +6,9 @@ import {
 } from 'lucide-react';
 import { usePlanner, Todo } from '../store';
 import { useTheme } from '../ThemeContext';
-import { isVirtualTodoId } from '../../lib/recurrenceExpansion';
+import { isInboxCandidate } from '../../lib/inbox';
 import { QuickAddInput } from './QuickAddInput';
 import ConfirmModal from './ConfirmModal';
-
-/** Inbox 표시 대상: 날짜 미지정 + backlog/cancelled 제외(backlog 는 BacklogView 소관) */
-const isInboxCandidate = (t: Todo) =>
-  t.date === null && t.status !== 'backlog' && t.status !== 'cancelled' && !isVirtualTodoId(t.id);
 
 const RECURRENCE_LABEL: Record<NonNullable<Todo['recurrenceRule']>, string> = {
   daily: '매일', weekdays: '평일', weekly: '매주', custom: '요일 반복',

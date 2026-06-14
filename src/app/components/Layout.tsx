@@ -9,6 +9,7 @@ import {
   User, LogOut, Mail,
 } from 'lucide-react';
 import { usePlanner, getWeekKey } from '../store';
+import { countInboxActive } from '../../lib/inbox';
 import { useTheme } from '../ThemeContext';
 import { useAuth } from '../AuthContext';
 import { format, startOfMonth, getDaysInMonth, getDay, addMonths, subMonths } from 'date-fns';
@@ -392,6 +393,8 @@ function RightPanel() {
 function MobileMenuOverlay({ onClose }: { onClose: () => void }) {
   const { t } = useTheme();
   const location = useLocation();
+  const { todos } = usePlanner();
+  const inboxCount = countInboxActive(todos);
   const [isIn, setIsIn] = useState(false);
   const [pressedItem, setPressedItem] = useState<string | null>(null);
 
@@ -485,6 +488,7 @@ function MobileMenuOverlay({ onClose }: { onClose: () => void }) {
                 {/* 원형 아이콘 버튼 */}
                 <div
                   style={{
+                    position: 'relative',
                     width: 52, height: 52,
                     borderRadius: '50%',
                     display: 'flex', alignItems: 'center', justifyContent: 'center',
@@ -505,6 +509,18 @@ function MobileMenuOverlay({ onClose }: { onClose: () => void }) {
                   }}
                 >
                   <Icon size={20} color={isActive ? t.accent : t.textMuted} />
+                  {to === '/inbox' && inboxCount > 0 && (
+                    <span
+                      className="absolute flex items-center justify-center rounded-full"
+                      style={{
+                        top: -2, right: -2, minWidth: 18, height: 18, padding: '0 4px',
+                        fontSize: 10, fontWeight: 700, color: '#fff', backgroundColor: t.accent,
+                        border: `2px solid ${t.card}`,
+                      }}
+                    >
+                      {inboxCount}
+                    </span>
+                  )}
                 </div>
                 {/* 레이블 */}
                 <span style={{
@@ -531,9 +547,7 @@ export function Layout() {
   const { t } = useTheme();
 
   // Inbox 미정리(날짜 미지정·미완료) 개수 — 사이드바 배지
-  const inboxCount = todos.filter(
-    td => td.date === null && td.status !== 'backlog' && td.status !== 'cancelled' && td.status !== 'done',
-  ).length;
+  const inboxCount = countInboxActive(todos);
   const [showNewProject, setShowNewProject] = useState(false);
   const [leftSidebarOpen, setLeftSidebarOpen] = useState(true);
   const [rightPanelOpen, setRightPanelOpen] = useState(true);

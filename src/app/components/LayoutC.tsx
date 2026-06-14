@@ -6,6 +6,7 @@ import {
   ChevronDown, X, Home, Menu, Settings, Clapperboard, ChefHat, Sparkles, Bookmark, MapPin, Footprints,
 } from 'lucide-react';
 import { usePlanner, getWeekKey } from '../store';
+import { countInboxActive } from '../../lib/inbox';
 import { useTheme } from '../ThemeContext';
 import {
   format, startOfMonth, getDaysInMonth, getDay,
@@ -342,6 +343,8 @@ function NewProjectModal({ onClose }: { onClose: () => void }) {
 // ── Layout C: Top Nav + 2-Column ──
 export function LayoutC() {
   const { t } = useTheme();
+  const { todos } = usePlanner();
+  const inboxCount = countInboxActive(todos);
   const [showNewProject, setShowNewProject] = useState(false);
 
   return (
@@ -380,6 +383,17 @@ export function LayoutC() {
                 <>
                   <Icon size={14} color={isActive ? t.accent : 'currentColor'} />
                   {label}
+                  {to === '/inbox' && inboxCount > 0 && (
+                    <span
+                      className="flex items-center justify-center rounded-full"
+                      style={{
+                        minWidth: 16, height: 16, padding: '0 4px',
+                        fontSize: 9, fontWeight: 700, color: '#fff', backgroundColor: t.accent,
+                      }}
+                    >
+                      {inboxCount}
+                    </span>
+                  )}
                   {isActive && (
                     <span className="absolute bottom-0 left-0 right-0 h-0.5 rounded-t-full"
                       style={{ backgroundColor: t.accent }} />
