@@ -8,7 +8,7 @@ import { useTheme } from '../ThemeContext';
 import { db } from '../../lib/db';
 import { useRealtimeSync } from '../hooks/useRealtimeSync';
 import { getSymptomOptions, STRESS_LEVELS } from '../../constants/symptoms';
-import { usePlanner, type ConditionRecord } from '../store';
+import { usePlanner, type ConditionRecord, type UserSymptom } from '../store';
 import ConfirmModal from './ConfirmModal';
 
 const STRESS_COLOR = '#D4735A'; // 코랄 — 히트맵/막대 색
@@ -25,6 +25,7 @@ export function ConditionTab() {
   const weekStartsOn = appSettings.weekStartsOn ?? 1;
 
   const [records, setRecords] = useState<ConditionRecord[]>([]);
+  const [userSymptoms, setUserSymptoms] = useState<UserSymptom[]>([]);
 
   // 입력 폼
   const [date, setDate] = useState(format(new Date(), 'yyyy-MM-dd'));
@@ -44,15 +45,23 @@ export function ConditionTab() {
   const [searchQuery, setSearchQuery] = useState(''); // 본문·태그 텍스트 검색
   const [searchOpen, setSearchOpen] = useState(false); // 검색바 펼침 여부
 
-  const symptomOptions = getSymptomOptions();
+  // 기본 칩 + 커스텀 칩 (정규화로 중복 제거) — 통계·검색은 칩 이름 자체로 동작
+  const symptomOptions = useMemo(
+    () => getSymptomOptions(userSymptoms.map(u => u.name)),
+    [userSymptoms]
+  );
   const formRef = useRef<HTMLDivElement>(null); // 입력 카드 — 넛지에서 열 때 스크롤 대상
 
   // ── fetch + realtime ──
   const refresh = useCallback(() => {
     db.conditionRecords.fetchAll().then(setRecords);
   }, []);
-  useEffect(() => { refresh(); }, [refresh]);
+  const refreshSymptoms = useCallback(() => {
+    db.userSymptoms.fetchAll().then(setUserSymptoms);
+  }, []);
+  useEffect(() => { refresh(); refreshSymptoms(); }, [refresh, refreshSymptoms]);
   useRealtimeSync('condition_records', refresh);
+  useRealtimeSync('user_symptoms', refreshSymptoms);
 
   const sorted = useMemo(() => [...records].sort((a, b) => b.date.localeCompare(a.date)), [records]);
 

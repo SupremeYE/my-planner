@@ -194,6 +194,12 @@ export interface ConditionRecord {
   memo?: string | null;
 }
 
+// 사용자 커스텀 증상 (컨디션 칩 재사용 풀)
+export interface UserSymptom {
+  id: string;
+  name: string;
+}
+
 // ── 문화 기록 (영화/드라마/예능/유튜브 등 시청 콘텐츠) ──
 export type CulturePlatform =
   'netflix' | 'youtube' | 'disney_plus' | 'coupang_play' | 'tving' | 'watcha' | 'theater' | 'other';
