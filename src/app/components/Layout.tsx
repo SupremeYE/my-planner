@@ -17,6 +17,7 @@ import { PROJECT_COLORS } from './ProjectView';
 import { NotificationPermissionBanner } from './NotificationPermissionBanner';
 import { HaonLogo } from './HaonLogo';
 import { AccountWidget } from './AccountWidget';
+import { FloatingAddFab } from './FloatingAddFab';
 
 // 디자인 토큰(hex)에 투명도를 입혀 rgba 로 변환 — 글래스 배경을 토큰 기반으로 생성
 // (색상값을 새로 하드코딩하지 않고 t.card 등 기존 토큰의 알파 변형만 만든다)
@@ -567,6 +568,9 @@ export function Layout() {
   const isDashboardRoute = location.pathname === '/dashboard';
   const showRightPanel = !isDashboardRoute;
 
+  // 전역 빠른 캡처 FAB — /daily·/calendar 는 자체 FAB(날짜 맥락 상세 포함)가 있어 중복 방지로 제외
+  const showQuickFab = location.pathname !== '/daily' && location.pathname !== '/calendar';
+
   const navActiveStyle = { backgroundColor: t.accentLight, color: t.text, fontWeight: 600 };
   const navInactiveStyle = { backgroundColor: 'transparent', color: t.textSub, fontWeight: 400 };
 
@@ -814,6 +818,7 @@ export function Layout() {
         <main ref={desktopMainRef} className="flex-1 overflow-hidden flex flex-col" style={{ backgroundColor: t.bg }}>
           <NotificationPermissionBanner />
           <Outlet />
+          {showQuickFab && <FloatingAddFab />}
         </main>
 
         {/* Right Panel */}
@@ -881,6 +886,7 @@ export function Layout() {
         <main ref={mobileMainRef} className="flex-1 overflow-y-auto overflow-x-hidden overscroll-contain" style={{ backgroundColor: t.bg, paddingBottom: 'calc(5.5rem + env(safe-area-inset-bottom))' }}>
           <NotificationPermissionBanner />
           <Outlet />
+          {showQuickFab && <FloatingAddFab />}
         </main>
 
         {/* Bottom Nav — 바닥에서 떠 있는 반투명 유리 알약 (5 fixed tabs) */}

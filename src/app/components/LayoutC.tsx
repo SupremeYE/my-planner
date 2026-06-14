@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Outlet, NavLink, useNavigate } from 'react-router';
+import { Outlet, NavLink, useNavigate, useLocation } from 'react-router';
 import {
   Sun, CalendarDays, BarChart2, FolderKanban, ListTodo, Inbox,
   ChevronLeft, ChevronRight, Calendar, Plus, Target, CheckCircle2,
@@ -14,6 +14,7 @@ import {
 } from 'date-fns';
 import { PROJECT_COLORS } from './ProjectView';
 import { HaonLogo } from './HaonLogo';
+import { FloatingAddFab } from './FloatingAddFab';
 
 const NAV_ITEMS = [
   { to: '/dashboard', icon: Home,         label: '대시보드' },
@@ -344,8 +345,12 @@ function NewProjectModal({ onClose }: { onClose: () => void }) {
 export function LayoutC() {
   const { t } = useTheme();
   const { todos } = usePlanner();
+  const location = useLocation();
   const inboxCount = countInboxActive(todos);
   const [showNewProject, setShowNewProject] = useState(false);
+
+  // 전역 빠른 캡처 FAB — /daily·/calendar 는 자체 FAB 보유로 제외
+  const showQuickFab = location.pathname !== '/daily' && location.pathname !== '/calendar';
 
   return (
     <div className="min-h-screen flex flex-col" style={{ backgroundColor: t.bg, fontFamily: t.font }}>
@@ -434,6 +439,7 @@ export function LayoutC() {
         {/* Left: main view (60%) */}
         <main className="overflow-hidden flex flex-col" style={{ flex: '0 0 60%', minWidth: 0 }}>
           <Outlet />
+          {showQuickFab && <FloatingAddFab />}
         </main>
 
         {/* Right: dashboard (40%) */}
