@@ -846,8 +846,10 @@ export function SleepSection() {
         </div>
       )}
 
-      {/* 최근 30일 수면 추이 선그래프 — 컨디션 탭 30일 추이와 동일 위치/형태 */}
-      <div className="p-3 lg:p-4 rounded-2xl mb-3 flex flex-col" style={{ backgroundColor: t.card, border: `1px solid ${t.borderLight}` }}>
+      {/* PC 2열 그룹: 30일 추이 + 이번주 부채 (모바일은 세로 스택 유지) */}
+      <div className="grid gap-3 mb-3 lg:grid-cols-2">
+      {/* 최근 30일 수면 추이 선그래프 */}
+      <div className="p-3 lg:p-4 rounded-2xl flex flex-col" style={{ backgroundColor: t.card, border: `1px solid ${t.borderLight}` }}>
         <div className="flex items-baseline justify-between mb-2">
           <p style={{ fontSize: 13, fontWeight: 700, color: t.text }}>최근 30일 수면 추이</p>
           <p style={{ fontSize: 10, color: t.textMuted }}>
@@ -914,7 +916,7 @@ export function SleepSection() {
         const debtMax = sleepGoalMin;
 
         return (
-          <div className="p-3 lg:p-4 rounded-2xl mb-3" style={{ backgroundColor: t.card, border: `1px solid ${t.borderLight}` }}>
+          <div className="p-3 lg:p-4 rounded-2xl" style={{ backgroundColor: t.card, border: `1px solid ${t.borderLight}` }}>
             <div className="flex items-baseline justify-between mb-2">
               <p style={{ fontSize: 13, fontWeight: 700, color: t.text }}>{titleLabel}</p>
               <p style={{ fontSize: 10, color: t.textMuted }}>
@@ -976,9 +978,12 @@ export function SleepSection() {
           </div>
         );
       })()}
+      </div>
 
+      {/* PC 2열 그룹: 규칙성 + 상관 (모바일은 세로 스택 유지) */}
+      <div className="grid gap-3 mb-3 lg:grid-cols-2">
       {/* 최근 30일 취침·기상 규칙성 */}
-      <div className="p-3 lg:p-4 rounded-2xl mb-3" style={{ backgroundColor: t.card, border: `1px solid ${t.borderLight}` }}>
+      <div className="p-3 lg:p-4 rounded-2xl" style={{ backgroundColor: t.card, border: `1px solid ${t.borderLight}` }}>
         <div className="flex items-baseline justify-between mb-3">
           <p style={{ fontSize: 13, fontWeight: 700, color: t.text }}>취침·기상 규칙성</p>
           <p style={{ fontSize: 10, color: t.textMuted }}>최근 30일 · 기록 {regularity.count}일</p>
@@ -1059,7 +1064,7 @@ export function SleepSection() {
         const totalPairs = correlation.pairs.length;
 
         return (
-          <div className="p-3 lg:p-4 rounded-2xl mb-3" style={{ backgroundColor: t.card, border: `1px solid ${t.borderLight}` }}>
+          <div className="p-3 lg:p-4 rounded-2xl" style={{ backgroundColor: t.card, border: `1px solid ${t.borderLight}` }}>
             <div className="flex items-baseline justify-between mb-3">
               <p style={{ fontSize: 13, fontWeight: 700, color: t.text }}>수면 ↔ 다음날 컨디션</p>
               <p style={{ fontSize: 10, color: t.textMuted }}>
@@ -1136,6 +1141,7 @@ export function SleepSection() {
           </div>
         );
       })()}
+      </div>
 
       {/* 기록 영역 (컨디션 탭 패턴) */}
       {(() => {
