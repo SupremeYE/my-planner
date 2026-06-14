@@ -1,8 +1,9 @@
 // 보관함 탭 — 모바일(전체/폴더 서브탭) + PC(폴더 레일 + 3열 그리드)
 // Stage 1 의 db hooks + 상수만 사용. Realtime 4테이블 구독으로 PC↔모바일 즉시 반영.
 import React, { useCallback, useMemo, useState } from 'react';
-import { Plus, ChevronLeft, ArrowUpRight, Pencil } from 'lucide-react';
+import { Plus, ChevronLeft, ArrowUpRight, Pencil, Trash2, CheckSquare, X } from 'lucide-react';
 import { useTheme } from '../../ThemeContext';
+import { db } from '../../../lib/db';
 import type { Place, PlaceFolder } from '../../../lib/db';
 import { REGION_LABELS } from '../../../constants/places';
 import { placeEmoji, sourceLabel, colorFromKey, withAlpha } from './placeHelpers';
@@ -10,6 +11,7 @@ import { usePlacesData } from './usePlacesData';
 import { PlaceFormSheet } from './PlaceFormSheet';
 import { FolderFormSheet } from './FolderFormSheet';
 import { FolderPickerSheet } from './FolderPickerSheet';
+import ConfirmModal from '../ConfirmModal';
 
 export function LibraryTab() {
   const { t } = useTheme();
@@ -52,6 +54,29 @@ export function LibraryTab() {
   const [addFolder, setAddFolder] = useState(false);
   const [editFolder, setEditFolder] = useState<PlaceFolder | null>(null);
   const [pickerPlace, setPickerPlace] = useState<Place | null>(null);
+
+  // 다중 선택 삭제
+  const [selectMode, setSelectMode] = useState(false);
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [confirmBulkDel, setConfirmBulkDel] = useState(false);
+
+  const toggleSelect = (id: string) => {
+    setSelected(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  };
+  const exitSelectMode = () => { setSelectMode(false); setSelected(new Set()); };
+  const enterSelectMode = () => { setSelectMode(true); setSelected(new Set()); };
+  const selectAll = (list: Place[]) => setSelected(new Set(list.map(p => p.id)));
+  const doBulkDelete = async () => {
+    const ids = Array.from(selected);
+    await Promise.all(ids.map(id => db.places.delete(id)));
+    setConfirmBulkDel(false);
+    exitSelectMode();
+    refresh();
+  };
 
   const metaLine = (p: Place) => {
     const region = p.regionCode ? REGION_LABELS[p.regionCode] : null;
@@ -97,12 +122,18 @@ export function LibraryTab() {
     const emo = placeEmoji({ concept: p.concept, category: p.category });
     const src = sourceLabel(p.source);
     const went = visitedIds.has(p.id);
+    const isSelected = selected.has(p.id);
     return (
       <div
-        onClick={() => setEditPlace(p)}
+        onClick={() => selectMode ? toggleSelect(p.id) : setEditPlace(p)}
         className="flex items-center gap-3"
-        style={{ padding: '11px 4px', borderBottom: `1px solid ${t.borderLight}`, cursor: 'pointer' }}
+        style={{ padding: '11px 4px', borderBottom: `1px solid ${t.borderLight}`, cursor: 'pointer', backgroundColor: isSelected ? withAlpha(t.accent, 0.08) : undefined, borderRadius: isSelected ? 10 : undefined }}
       >
+        {selectMode && (
+          <div style={{ width: 22, height: 22, borderRadius: 6, border: `2px solid ${isSelected ? t.accent : t.border}`, backgroundColor: isSelected ? t.accent : 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, transition: 'all .15s' }}>
+            {isSelected && <span style={{ color: '#fff', fontSize: 13, fontWeight: 700, lineHeight: 1 }}>✓</span>}
+          </div>
+        )}
         <div className="flex items-center justify-center" style={{ width: 48, height: 48, borderRadius: 11, fontSize: 22, flexShrink: 0, backgroundColor: withAlpha(colorFromKey(p.concept ? CONCEPT_COLOR(p.concept) : 'gold', t), 0.14) }}>
           {emo}
         </div>
@@ -153,20 +184,26 @@ export function LibraryTab() {
     const src = sourceLabel(p.source);
     const went = visitedIds.has(p.id);
     const coverColor = colorFromKey(p.concept ? CONCEPT_COLOR(p.concept) : 'gold', t);
+    const isSelected = selected.has(p.id);
     return (
       <div
-        onClick={() => setEditPlace(p)}
+        onClick={() => selectMode ? toggleSelect(p.id) : setEditPlace(p)}
         className="places-card"
-        style={{ backgroundColor: t.card, border: `1px solid ${t.borderLight}`, borderRadius: 13, overflow: 'hidden', cursor: 'pointer' }}
+        style={{ backgroundColor: t.card, border: `2px solid ${isSelected ? t.accent : t.borderLight}`, borderRadius: 13, overflow: 'hidden', cursor: 'pointer', transition: 'border-color .15s' }}
       >
         <div className="flex items-center justify-center" style={{ height: 84, fontSize: 30, position: 'relative', backgroundColor: withAlpha(coverColor, 0.14) }}>
           {emo}
+          {selectMode && (
+            <div style={{ position: 'absolute', top: 8, left: 9, width: 22, height: 22, borderRadius: 6, border: `2px solid ${isSelected ? t.accent : 'rgba(255,255,255,0.8)'}`, backgroundColor: isSelected ? t.accent : 'rgba(255,255,255,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all .15s', zIndex: 1 }}>
+              {isSelected && <span style={{ color: '#fff', fontSize: 13, fontWeight: 700, lineHeight: 1 }}>✓</span>}
+            </div>
+          )}
           {src && (
             <span style={{ position: 'absolute', top: 8, right: 9, fontSize: 9.5, backgroundColor: withAlpha(t.card, 0.9), borderRadius: 5, padding: '2px 6px', color: t.textSub, display: 'inline-flex', alignItems: 'center', gap: 1 }}>
               <ArrowUpRight size={10} />{src}
             </span>
           )}
-          {went && (
+          {went && !selectMode && (
             <span style={{ position: 'absolute', top: 8, left: 9, fontSize: 9.5, backgroundColor: t.success, color: '#fff', borderRadius: 5, padding: '2px 6px', fontWeight: 700 }}>✓</span>
           )}
         </div>
@@ -191,7 +228,7 @@ export function LibraryTab() {
         {mobileFolder ? (
           /* 폴더 드릴다운 */
           <div className="pt-2">
-            <button onClick={() => setMobileFolder(null)} className="flex items-center gap-1" style={{ fontSize: 13, color: t.textSub, background: 'none', border: 'none', cursor: 'pointer', padding: '4px 0 8px' }}>
+            <button onClick={() => { setMobileFolder(null); exitSelectMode(); }} className="flex items-center gap-1" style={{ fontSize: 13, color: t.textSub, background: 'none', border: 'none', cursor: 'pointer', padding: '4px 0 8px' }}>
               <ChevronLeft size={16} /> 폴더
             </button>
             <div className="flex items-center gap-2 mb-1">
@@ -199,7 +236,22 @@ export function LibraryTab() {
               <span style={{ fontFamily: "'DM Serif Display', serif", fontSize: 20, color: t.text }}>{mobileFolder.name}</span>
               <button onClick={() => setEditFolder(mobileFolder)} style={{ marginLeft: 'auto', color: t.textSub, background: 'none', border: 'none', cursor: 'pointer', padding: 4 }}><Pencil size={15} /></button>
             </div>
-            <AddPlaceRow folderId={mobileFolder.id} />
+            {!selectMode ? (
+              <div className="flex items-center gap-2">
+                <div style={{ flex: 1 }}><AddPlaceRow folderId={mobileFolder.id} /></div>
+                {placesInFolder(mobileFolder.id).length > 0 && (
+                  <button onClick={enterSelectMode} style={{ flexShrink: 0, padding: '8px 12px', borderRadius: 10, border: `1px solid ${t.border}`, background: 'transparent', color: t.textSub, fontSize: 12.5, fontWeight: 600, cursor: 'pointer', marginBottom: 4 }}>
+                    <CheckSquare size={14} style={{ display: 'inline', verticalAlign: -2, marginRight: 3 }} />선택
+                  </button>
+                )}
+              </div>
+            ) : (
+              <div className="flex items-center gap-2 mb-2">
+                <button onClick={() => selectAll(placesInFolder(mobileFolder.id))} style={{ padding: '7px 12px', borderRadius: 9, border: `1px solid ${t.border}`, background: 'transparent', color: t.textSub, fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>전체 선택</button>
+                <span style={{ flex: 1, fontSize: 12.5, color: t.textSub, textAlign: 'center' }}>{selected.size}개 선택됨</span>
+                <button onClick={exitSelectMode} style={{ padding: '5px', borderRadius: 8, border: 'none', background: 'transparent', color: t.textSub, cursor: 'pointer' }}><X size={18} /></button>
+              </div>
+            )}
             {placesInFolder(mobileFolder.id).length === 0
               ? <div style={{ textAlign: 'center', padding: '28px 0', color: t.textSub, fontSize: 13 }}>아직 비어있어요</div>
               : placesInFolder(mobileFolder.id).map(p => <PlaceRow key={p.id} p={p} />)}
@@ -211,7 +263,7 @@ export function LibraryTab() {
               {([['all', `전체 ${places.length}`], ['fold', `폴더 ${folders.length}`]] as const).map(([k, label]) => {
                 const on = mobileSub === k;
                 return (
-                  <button key={k} onClick={() => setMobileSub(k)} style={{ padding: '8px 0 10px', fontSize: 14, fontWeight: 700, color: on ? t.accent : t.textSub, borderBottom: `2px solid ${on ? t.accent : 'transparent'}`, marginBottom: -1, background: 'none', cursor: 'pointer' }}>
+                  <button key={k} onClick={() => { setMobileSub(k); exitSelectMode(); }} style={{ padding: '8px 0 10px', fontSize: 14, fontWeight: 700, color: on ? t.accent : t.textSub, borderBottom: `2px solid ${on ? t.accent : 'transparent'}`, marginBottom: -1, background: 'none', cursor: 'pointer' }}>
                     {label}
                   </button>
                 );
@@ -221,7 +273,20 @@ export function LibraryTab() {
             {mobileSub === 'all' && (
               loading ? null : !hasPlaces ? <EmptyPlaces /> : (
                 <div className="pt-1">
-                  <AddPlaceRow />
+                  {!selectMode ? (
+                    <div className="flex items-center gap-2">
+                      <div style={{ flex: 1 }}><AddPlaceRow /></div>
+                      <button onClick={enterSelectMode} style={{ flexShrink: 0, padding: '8px 12px', borderRadius: 10, border: `1px solid ${t.border}`, background: 'transparent', color: t.textSub, fontSize: 12.5, fontWeight: 600, cursor: 'pointer', marginBottom: 4 }}>
+                        <CheckSquare size={14} style={{ display: 'inline', verticalAlign: -2, marginRight: 3 }} />선택
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="flex items-center gap-2 mb-2">
+                      <button onClick={() => selectAll(places)} style={{ padding: '7px 12px', borderRadius: 9, border: `1px solid ${t.border}`, background: 'transparent', color: t.textSub, fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>전체 선택</button>
+                      <span style={{ flex: 1, fontSize: 12.5, color: t.textSub, textAlign: 'center' }}>{selected.size}개 선택됨</span>
+                      <button onClick={exitSelectMode} style={{ padding: '5px', borderRadius: 8, border: 'none', background: 'transparent', color: t.textSub, cursor: 'pointer' }}><X size={18} /></button>
+                    </div>
+                  )}
                   {places.map(p => <PlaceRow key={p.id} p={p} />)}
                 </div>
               )
@@ -296,16 +361,39 @@ export function LibraryTab() {
               return <EmptyPlaces />;
             }
             return (
-              <div className="grid gap-3.5" style={{ gridTemplateColumns: 'repeat(3, 1fr)', alignContent: 'start' }}>
-                <button
-                  onClick={() => setAddPlaceFor(pcFolder === 'all' ? null : pcFolder)}
-                  className="flex flex-col items-center justify-center gap-1"
-                  style={{ minHeight: 150, borderRadius: 13, border: `1.5px dashed ${t.border}`, color: t.textSub, background: 'transparent', cursor: 'pointer', fontSize: 13, fontWeight: 600 }}
-                >
-                  <Plus size={20} /> 장소 추가
-                </button>
-                {list.map(p => <PlaceCard key={p.id} p={p} />)}
-              </div>
+              <>
+                {!selectMode ? (
+                  <div className="flex items-center gap-2 mb-3">
+                    <div style={{ flex: 1 }} />
+                    <button onClick={enterSelectMode} style={{ padding: '7px 14px', borderRadius: 9, border: `1px solid ${t.border}`, background: 'transparent', color: t.textSub, fontSize: 12.5, fontWeight: 600, cursor: 'pointer' }}>
+                      <CheckSquare size={14} style={{ display: 'inline', verticalAlign: -2, marginRight: 4 }} />선택 삭제
+                    </button>
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-2 mb-3">
+                    <button onClick={() => selectAll(list)} style={{ padding: '7px 14px', borderRadius: 9, border: `1px solid ${t.border}`, background: 'transparent', color: t.textSub, fontSize: 12.5, fontWeight: 600, cursor: 'pointer' }}>전체 선택</button>
+                    <span style={{ flex: 1, fontSize: 13, color: t.textSub, textAlign: 'center' }}>{selected.size}개 선택됨</span>
+                    {selected.size > 0 && (
+                      <button onClick={() => setConfirmBulkDel(true)} className="flex items-center gap-1" style={{ padding: '7px 14px', borderRadius: 9, border: 'none', backgroundColor: '#E53E3E', color: '#fff', fontSize: 12.5, fontWeight: 700, cursor: 'pointer' }}>
+                        <Trash2 size={14} />삭제 ({selected.size})
+                      </button>
+                    )}
+                    <button onClick={exitSelectMode} style={{ padding: '5px', borderRadius: 8, border: 'none', background: 'transparent', color: t.textSub, cursor: 'pointer' }}><X size={20} /></button>
+                  </div>
+                )}
+                <div className="grid gap-3.5" style={{ gridTemplateColumns: 'repeat(3, 1fr)', alignContent: 'start' }}>
+                  {!selectMode && (
+                    <button
+                      onClick={() => setAddPlaceFor(pcFolder === 'all' ? null : pcFolder)}
+                      className="flex flex-col items-center justify-center gap-1"
+                      style={{ minHeight: 150, borderRadius: 13, border: `1.5px dashed ${t.border}`, color: t.textSub, background: 'transparent', cursor: 'pointer', fontSize: 13, fontWeight: 600 }}
+                    >
+                      <Plus size={20} /> 장소 추가
+                    </button>
+                  )}
+                  {list.map(p => <PlaceCard key={p.id} p={p} />)}
+                </div>
+              </>
             );
           })()}
         </div>
@@ -343,6 +431,27 @@ export function LibraryTab() {
           onClose={() => setPickerPlace(null)}
           onSaved={refresh}
           onCreateFolder={() => { setPickerPlace(null); setAddFolder(true); }}
+        />
+      )}
+
+      {/* 모바일 하단 삭제 바 */}
+      {selectMode && selected.size > 0 && (
+        <div className="lg:hidden fixed left-0 right-0 flex items-center justify-between" style={{ bottom: 60, padding: '10px 18px', backgroundColor: 'rgba(229,62,62,0.95)', backdropFilter: 'blur(6px)', zIndex: 50 }}>
+          <span style={{ color: '#fff', fontSize: 13.5, fontWeight: 700 }}>{selected.size}개 선택됨</span>
+          <button onClick={() => setConfirmBulkDel(true)} className="flex items-center gap-1.5" style={{ padding: '8px 16px', borderRadius: 9, border: 'none', backgroundColor: '#fff', color: '#E53E3E', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>
+            <Trash2 size={15} />삭제
+          </button>
+        </div>
+      )}
+
+      {confirmBulkDel && (
+        <ConfirmModal
+          message={`선택한 ${selected.size}개 장소를 삭제할까요?`}
+          description="보관함에서 사라지고, 폴더 연결도 해제돼요. 방문 기록은 남아요."
+          confirmText="삭제"
+          confirmDanger
+          onConfirm={doBulkDelete}
+          onCancel={() => setConfirmBulkDel(false)}
         />
       )}
 
