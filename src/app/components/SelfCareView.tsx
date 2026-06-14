@@ -523,7 +523,8 @@ export function SleepSection() {
       .map(r => ({ date: r.date.slice(5), hours: +(r.duration / 60).toFixed(2), minutes: r.duration }));
   }, [sleepRecords, today]);
 
-  // 수면 ↔ 다음날 컨디션 페어링 + SLEEP_GOAL 경계 그룹 비교
+  // 수면 ↔ 같은 날 컨디션 페어링 + SLEEP_GOAL 경계 그룹 비교
+  // 수면 r.date 는 '일어난 날(기상일)' 기준이므로, 같은 날의 컨디션 = 그 수면 직후의 컨디션
   const correlation = useMemo(() => {
     const stressByDate = new Map<string, number>();
     conditionRecords.forEach(c => stressByDate.set(c.date, c.stress));
@@ -532,7 +533,7 @@ export function SleepSection() {
       .map(r => ({
         sleepDate: r.date,
         duration: r.duration,
-        nextStress: stressByDate.get(format(addDays(parseISO(r.date), 1), 'yyyy-MM-dd')),
+        nextStress: stressByDate.get(r.date),
       }))
       .filter((p): p is { sleepDate: string; duration: number; nextStress: number } => p.nextStress != null);
 
@@ -694,6 +695,9 @@ export function SleepSection() {
             className="w-full rounded-xl px-3 py-2 border outline-none"
             style={{ borderColor: t.borderLight, backgroundColor: t.bgSub, color: t.text, fontSize: 13 }}
           />
+          <p style={{ fontSize: 10.5, color: t.textMuted, marginTop: 6, paddingLeft: 2 }}>
+            일어난 날 기준으로 기록해요
+          </p>
         </div>
 
         {/* 취침 / 기상 버튼 */}
