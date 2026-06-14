@@ -6,7 +6,7 @@ import type {
   SelfCareRecord, ReviewRecord, WeeklyReview, MonthlyReview, TimelineLog,
   FoodRecord, DiningType, TasteRating, Event, WeeklyGoal, MonthlyGoal, BrainstormItem, Tag, Routine,
   PeriodRecord, HabitMonthlyMemo, AnnualGoal, QuarterlyGoal,
-  WeightRecord, WeightGoal, ConditionRecord, CultureRecord, MusicRecord,
+  WeightRecord, WeightGoal, ConditionRecord, UserSymptom, CultureRecord, MusicRecord,
   Recipe, RecipeIngredient, RecipeStep, RecipeCookLog,
   FridgeItem, ShoppingItem,
   Scrap, ScrapNote, ScrapSource, ScrapStatus,
@@ -1604,6 +1604,40 @@ export const db = {
     delete: async (id: string) => {
       const { error } = await supabase.from('condition_records').delete().eq('id', id);
       if (error) console.error('[db] condition_records delete:', error.message);
+    },
+  },
+
+  // 사용자 커스텀 증상 — 한 번 저장하면 이후 칩 풀에서 계속 재사용
+  userSymptoms: {
+    fetchAll: async (): Promise<UserSymptom[]> => {
+      const { data, error } = await supabase
+        .from('user_symptoms').select('id,name').order('created_at', { ascending: true });
+      if (error) console.error('[db] user_symptoms fetch:', error.message);
+      return (data ?? []).map((r: any): UserSymptom => ({ id: r.id, name: r.name }));
+    },
+    // 정규화 기준 중복이면 새로 만들지 않고 기존 행을 반환
+    add: async (name: string): Promise<
+      | { ok: true; created: UserSymptom }
+      | { ok: false; reason: 'duplicate'; existing: UserSymptom }
+      | { ok: false; reason: 'error' }
+    > => {
+      const trimmed = name.trim().replace(/\s+/g, ' ');
+      const norm = trimmed.toLowerCase();
+      if (!trimmed) return { ok: false, reason: 'error' };
+      const { data: existing } = await supabase
+        .from('user_symptoms').select('id,name').eq('name_norm', norm).maybeSingle();
+      if (existing) return { ok: false, reason: 'duplicate', existing: { id: existing.id, name: existing.name } };
+      const row = { id: crypto.randomUUID(), name: trimmed, name_norm: norm };
+      const { error } = await supabase.from('user_symptoms').insert(row);
+      if (error) {
+        // UNIQUE 제약 동시성 충돌 — 다른 클라이언트가 먼저 insert
+        const { data: race } = await supabase
+          .from('user_symptoms').select('id,name').eq('name_norm', norm).maybeSingle();
+        if (race) return { ok: false, reason: 'duplicate', existing: { id: race.id, name: race.name } };
+        console.error('[db] user_symptoms add:', error.message);
+        return { ok: false, reason: 'error' };
+      }
+      return { ok: true, created: { id: row.id, name: row.name } };
     },
   },
 
