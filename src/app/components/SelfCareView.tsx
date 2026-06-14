@@ -3,8 +3,10 @@ import { Plus, X, Dumbbell, BookOpen, Sparkles, Moon, ChevronDown, ChevronLeft, 
 import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine,
 } from 'recharts';
-import { usePlanner, SelfCareRecord, SLEEP_GOAL_DEFAULT_MIN } from '../store';
+import { usePlanner, SelfCareRecord, SLEEP_GOAL_DEFAULT_MIN, type ConditionRecord } from '../store';
 import { useTheme } from '../ThemeContext';
+import { db } from '../../lib/db';
+import { useRealtimeSync } from '../hooks/useRealtimeSync';
 import { format, subDays, differenceInDays, parseISO, addDays, startOfWeek } from 'date-fns';
 
 const CATEGORIES = [
@@ -398,6 +400,15 @@ export function SleepSection() {
 
   const formRef = useRef<HTMLDivElement>(null); // 입력 카드 — 넛지에서 열 때 스크롤 대상
 
+  // 수면 ↔ 다음날 컨디션 상관 계산용 (Stage 6) — store 에 미연동이므로 직접 fetch + Realtime
+  const [conditionRecords, setConditionRecords] = useState<ConditionRecord[]>([]);
+  useEffect(() => {
+    db.conditionRecords.fetchAll().then(setConditionRecords);
+  }, []);
+  useRealtimeSync('condition_records', () => {
+    db.conditionRecords.fetchAll().then(setConditionRecords);
+  });
+
   const nowHHMM = () => format(new Date(), 'HH:mm');
 
   // 날짜 칸(주간 막대) 클릭 → 그 날짜로 필터 / 같은 날 재클릭 시 해제
@@ -511,6 +522,27 @@ export function SleepSection() {
       .sort((a, b) => a.date.localeCompare(b.date))
       .map(r => ({ date: r.date.slice(5), hours: +(r.duration / 60).toFixed(2), minutes: r.duration }));
   }, [sleepRecords, today]);
+
+  // 수면 ↔ 같은 날 컨디션 페어링 + SLEEP_GOAL 경계 그룹 비교
+  // 수면 r.date 는 '일어난 날(기상일)' 기준이므로, 같은 날의 컨디션 = 그 수면 직후의 컨디션
+  const correlation = useMemo(() => {
+    const stressByDate = new Map<string, number>();
+    conditionRecords.forEach(c => stressByDate.set(c.date, c.stress));
+    const pairs = sleepRecords
+      .filter(r => r.duration > 0)
+      .map(r => ({
+        sleepDate: r.date,
+        duration: r.duration,
+        nextStress: stressByDate.get(r.date),
+      }))
+      .filter((p): p is { sleepDate: string; duration: number; nextStress: number } => p.nextStress != null);
+
+    const well = pairs.filter(p => p.duration >= sleepGoalMin);
+    const poor = pairs.filter(p => p.duration < sleepGoalMin);
+    const wellAvg = well.length ? well.reduce((s, p) => s + p.nextStress, 0) / well.length : null;
+    const poorAvg = poor.length ? poor.reduce((s, p) => s + p.nextStress, 0) / poor.length : null;
+    return { pairs, well, poor, wellAvg, poorAvg };
+  }, [sleepRecords, conditionRecords, sleepGoalMin]);
 
   // 최근 30일 취침·기상 규칙성 — sleepStart/sleepEnd 가 있는 기록만 사용
   const regularity = useMemo(() => {
@@ -663,6 +695,9 @@ export function SleepSection() {
             className="w-full rounded-xl px-3 py-2 border outline-none"
             style={{ borderColor: t.borderLight, backgroundColor: t.bgSub, color: t.text, fontSize: 13 }}
           />
+          <p style={{ fontSize: 10.5, color: t.textMuted, marginTop: 6, paddingLeft: 2 }}>
+            일어난 날 기준으로 기록해요
+          </p>
         </div>
 
         {/* 취침 / 기상 버튼 */}
@@ -815,8 +850,10 @@ export function SleepSection() {
         </div>
       )}
 
-      {/* 최근 30일 수면 추이 선그래프 — 컨디션 탭 30일 추이와 동일 위치/형태 */}
-      <div className="p-3 lg:p-4 rounded-2xl mb-3 flex flex-col" style={{ backgroundColor: t.card, border: `1px solid ${t.borderLight}` }}>
+      {/* PC 2열 그룹: 30일 추이 + 이번주 부채 (모바일은 세로 스택 유지) */}
+      <div className="grid gap-3 mb-3 lg:grid-cols-2">
+      {/* 최근 30일 수면 추이 선그래프 */}
+      <div className="p-3 lg:p-4 rounded-2xl flex flex-col" style={{ backgroundColor: t.card, border: `1px solid ${t.borderLight}` }}>
         <div className="flex items-baseline justify-between mb-2">
           <p style={{ fontSize: 13, fontWeight: 700, color: t.text }}>최근 30일 수면 추이</p>
           <p style={{ fontSize: 10, color: t.textMuted }}>
@@ -866,8 +903,91 @@ export function SleepSection() {
         )}
       </div>
 
+      {/* 주간 수면 부채 — 기록된 날만 부족분 누적 */}
+      {(() => {
+        const debtPerDay = weekData.map(d => ({
+          date: d.date,
+          label: d.label,
+          isToday: d.isToday,
+          recorded: d.duration > 0,
+          deficit: d.duration > 0 ? Math.max(0, sleepGoalMin - d.duration) : 0,
+        }));
+        const totalDebt = debtPerDay.reduce((s, d) => s + d.deficit, 0);
+        const recordedDays = debtPerDay.filter(d => d.recorded).length;
+        const titleLabel = weekOffset === 0 ? '이번주 수면 부채' : `${weekRangeLabel} 수면 부채`;
+        const sentenceLabel = weekOffset === 0 ? '이번 주' : '이 주';
+        // 일별 미니 막대 정규화: 최대값 = 권장 시간(가장 부족한 경우)
+        const debtMax = sleepGoalMin;
+
+        return (
+          <div className="p-3 lg:p-4 rounded-2xl" style={{ backgroundColor: t.card, border: `1px solid ${t.borderLight}` }}>
+            <div className="flex items-baseline justify-between mb-2">
+              <p style={{ fontSize: 13, fontWeight: 700, color: t.text }}>{titleLabel}</p>
+              <p style={{ fontSize: 10, color: t.textMuted }}>
+                권장 <span style={{ color: SLEEP_COLOR, fontWeight: 700 }}>{fmtSleep(sleepGoalMin)}</span> 기준 · 기록 {recordedDays}일
+              </p>
+            </div>
+
+            {recordedDays === 0 ? (
+              <div className="py-6 text-center" style={{ fontSize: 13, color: t.textMuted }}>
+                이 주에는 아직 수면 기록이 없어요
+              </div>
+            ) : (
+              <>
+                {/* 큰 숫자 */}
+                <div className="text-center mb-3">
+                  <div style={{
+                    fontSize: 30, fontWeight: 700,
+                    color: totalDebt > 0 ? '#D4735A' : SLEEP_COLOR,
+                    fontFamily: 'var(--font-gmarket)', lineHeight: 1.1,
+                  }}>
+                    {totalDebt > 0 ? `−${fmtSleep(totalDebt)}` : '0시간'}
+                  </div>
+                  <p style={{ fontSize: 11, color: t.textMuted, marginTop: 4 }}>
+                    {totalDebt > 0
+                      ? `권장 ${fmtSleep(sleepGoalMin)} 대비 ${sentenceLabel} 누적 부족분`
+                      : `${sentenceLabel}는 권장 ${fmtSleep(sleepGoalMin)}을 모두 채웠어요`}
+                  </p>
+                </div>
+
+                {/* 일별 부족분 미니 막대 */}
+                <div className="flex items-end justify-between gap-1.5" style={{ height: 56 }}>
+                  {debtPerDay.map(d => {
+                    const h = d.deficit > 0 ? Math.max(4, Math.round((d.deficit / debtMax) * 40)) : (d.recorded ? 3 : 3);
+                    const bg = d.deficit > 0 ? '#D4735A' : d.recorded ? SLEEP_COLOR : t.borderLight;
+                    const mLabel = d.deficit > 0
+                      ? (d.deficit >= 60 ? `${Math.floor(d.deficit / 60)}h${d.deficit % 60 > 0 ? (d.deficit % 60) + 'm' : ''}` : `${d.deficit}m`)
+                      : '';
+                    return (
+                      <div key={d.date} className="flex flex-col items-center flex-1" style={{ minWidth: 0 }}>
+                        <span style={{ fontSize: 8, color: bg, fontWeight: 700, height: 12, lineHeight: '12px', whiteSpace: 'nowrap' }}>
+                          {mLabel}
+                        </span>
+                        <div
+                          title={d.recorded ? `${d.date.slice(5)} · 부족 ${fmtSleep(d.deficit)}` : `${d.date.slice(5)} · 기록 없음`}
+                          style={{
+                            width: '70%', minWidth: 6, height: h, backgroundColor: bg,
+                            borderRadius: '3px 3px 1px 1px', opacity: d.recorded ? 1 : 0.5,
+                          }}
+                        />
+                        <span style={{ fontSize: 9, color: d.isToday ? SLEEP_COLOR : t.textMuted, marginTop: 4, fontWeight: d.isToday ? 700 : 400 }}>
+                          {d.label}
+                        </span>
+                      </div>
+                    );
+                  })}
+                </div>
+              </>
+            )}
+          </div>
+        );
+      })()}
+      </div>
+
+      {/* PC 2열 그룹: 규칙성 + 상관 (모바일은 세로 스택 유지) */}
+      <div className="grid gap-3 mb-3 lg:grid-cols-2">
       {/* 최근 30일 취침·기상 규칙성 */}
-      <div className="p-3 lg:p-4 rounded-2xl mb-3" style={{ backgroundColor: t.card, border: `1px solid ${t.borderLight}` }}>
+      <div className="p-3 lg:p-4 rounded-2xl" style={{ backgroundColor: t.card, border: `1px solid ${t.borderLight}` }}>
         <div className="flex items-baseline justify-between mb-3">
           <p style={{ fontSize: 13, fontWeight: 700, color: t.text }}>취침·기상 규칙성</p>
           <p style={{ fontSize: 10, color: t.textMuted }}>최근 30일 · 기록 {regularity.count}일</p>
@@ -938,6 +1058,93 @@ export function SleepSection() {
             )}
           </>
         )}
+      </div>
+
+      {/* 수면 ↔ 다음날 컨디션 상관 (Stage 6) */}
+      {(() => {
+        const STRESS_COLOR = '#D4735A'; // 컨디션 탭과 동일 코랄 — 시각적 일관성
+        const MIN_SAMPLES = 3;
+        const enoughBoth = correlation.well.length >= MIN_SAMPLES && correlation.poor.length >= MIN_SAMPLES;
+        const totalPairs = correlation.pairs.length;
+
+        return (
+          <div className="p-3 lg:p-4 rounded-2xl" style={{ backgroundColor: t.card, border: `1px solid ${t.borderLight}` }}>
+            <div className="flex items-baseline justify-between mb-3">
+              <p style={{ fontSize: 13, fontWeight: 700, color: t.text }}>수면 ↔ 다음날 컨디션</p>
+              <p style={{ fontSize: 10, color: t.textMuted }}>
+                권장 <span style={{ color: SLEEP_COLOR, fontWeight: 700 }}>{fmtSleep(sleepGoalMin)}</span> 기준 · 페어 {totalPairs}건
+              </p>
+            </div>
+
+            {totalPairs === 0 ? (
+              <div className="py-6 text-center" style={{ fontSize: 13, color: t.textMuted }}>
+                수면을 기록한 다음날 컨디션 기록이 쌓이면 비교가 표시돼요
+              </div>
+            ) : (
+              <>
+                {/* 두 그룹 평균 */}
+                <div className="flex gap-3 mb-3">
+                  <div className="flex-1 text-center p-3 rounded-xl" style={{ backgroundColor: `${SLEEP_COLOR}0F`, border: `1px solid ${SLEEP_COLOR}30` }}>
+                    <div style={{ fontSize: 10, color: SLEEP_COLOR, fontWeight: 700, letterSpacing: '0.06em' }}>
+                      잘 잔 다음날
+                    </div>
+                    <div style={{ fontSize: 20, fontWeight: 700, color: t.text, fontFamily: 'var(--font-gmarket)', marginTop: 4 }}>
+                      {correlation.wellAvg != null ? correlation.wellAvg.toFixed(1) : '—'}
+                    </div>
+                    <div style={{ fontSize: 10, color: t.textMuted, marginTop: 2 }}>
+                      {correlation.well.length}건 · 평균 스트레스
+                    </div>
+                  </div>
+                  <div className="flex-1 text-center p-3 rounded-xl" style={{ backgroundColor: `${STRESS_COLOR}10`, border: `1px solid ${STRESS_COLOR}30` }}>
+                    <div style={{ fontSize: 10, color: STRESS_COLOR, fontWeight: 700, letterSpacing: '0.06em' }}>
+                      못 잔 다음날
+                    </div>
+                    <div style={{ fontSize: 20, fontWeight: 700, color: t.text, fontFamily: 'var(--font-gmarket)', marginTop: 4 }}>
+                      {correlation.poorAvg != null ? correlation.poorAvg.toFixed(1) : '—'}
+                    </div>
+                    <div style={{ fontSize: 10, color: t.textMuted, marginTop: 2 }}>
+                      {correlation.poor.length}건 · 평균 스트레스
+                    </div>
+                  </div>
+                </div>
+
+                {/* 인사이트 — 표본이 충분할 때만 단정적 문구 */}
+                {enoughBoth && correlation.wellAvg != null && correlation.poorAvg != null ? (
+                  (() => {
+                    const diff = correlation.poorAvg - correlation.wellAvg;
+                    const abs = Math.abs(diff).toFixed(1);
+                    if (Math.abs(diff) < 0.3) {
+                      return (
+                        <p style={{ fontSize: 12, color: t.textSub, lineHeight: 1.5, padding: '2px 4px' }}>
+                          수면시간에 따른 다음날 스트레스 차이는 크지 않아요
+                        </p>
+                      );
+                    }
+                    const better = diff > 0;
+                    return (
+                      <p style={{ fontSize: 12, color: t.text, lineHeight: 1.5, padding: '2px 4px' }}>
+                        {better ? (
+                          <>
+                            잘 잔 다음날 스트레스가 평균 <b style={{ color: SLEEP_COLOR }}>{abs} 낮았어요</b>
+                          </>
+                        ) : (
+                          <>
+                            잘 잔 다음날 스트레스가 평균 <b style={{ color: STRESS_COLOR }}>{abs} 높았어요</b>
+                          </>
+                        )}
+                      </p>
+                    );
+                  })()
+                ) : (
+                  <p style={{ fontSize: 11, color: t.textMuted, lineHeight: 1.5, padding: '2px 4px' }}>
+                    각 그룹에 {MIN_SAMPLES}건 이상 쌓이면 더 정확한 인사이트를 보여드릴게요
+                  </p>
+                )}
+              </>
+            )}
+          </div>
+        );
+      })()}
       </div>
 
       {/* 기록 영역 (컨디션 탭 패턴) */}
