@@ -1,7 +1,7 @@
 import { useState, useMemo } from 'react';
 import { format, isToday, isTomorrow, isPast, parseISO } from 'date-fns';
 import {
-  Plus, Trash2, CalendarClock, ChevronDown, ChevronUp,
+  Plus, Trash2, ChevronDown, ChevronUp,
   Check, Star, Pencil, ListTodo, Play,
 } from 'lucide-react';
 import { usePlanner, Todo, TodoStatus } from '../store';
@@ -50,23 +50,19 @@ function getDateLabel(dateStr: string): string {
 // ─── Todo Row ──────────────────────────────────────────────────
 interface TodoRowProps {
   todo: Todo;
-  showDateAssign?: boolean;
   onStatusToggle: () => void;
   onEdit: () => void;
   onDelete: () => void;
   onTop3Toggle: () => void;
-  onAssignDate?: (date: string) => void;
 }
 
 function TodoRow({
-  todo, showDateAssign, onStatusToggle, onEdit, onDelete, onTop3Toggle, onAssignDate,
+  todo, onStatusToggle, onEdit, onDelete, onTop3Toggle,
 }: TodoRowProps) {
   const { t } = useTheme();
   const { projects, weeklyGoals, milestones } = usePlanner();
   const weeklyGoal = todo.weeklyGoalId ? weeklyGoals.find(w => w.id === todo.weeklyGoalId) : null;
   const milestone = todo.milestoneId ? milestones.find(m => m.id === todo.milestoneId) : null;
-  const [assignMode, setAssignMode] = useState(false);
-  const [assignDate, setAssignDate] = useState('');
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
   const isDone = todo.status === 'done';
@@ -173,15 +169,6 @@ function TodoRow({
 
           {/* Action buttons */}
           <div className="flex items-center gap-0.5 flex-shrink-0">
-            {showDateAssign && !assignMode && (
-              <button
-                onClick={() => setAssignMode(true)}
-                className="p-1.5 rounded-lg hover:opacity-70"
-                title="날짜 배정"
-              >
-                <CalendarClock size={14} color={t.textMuted} />
-              </button>
-            )}
             <button onClick={onTop3Toggle} className="p-1.5 rounded-lg hover:opacity-70">
               <Star
                 size={13}
@@ -197,43 +184,6 @@ function TodoRow({
             </button>
           </div>
         </div>
-
-        {/* Date assign panel (미지정 탭) */}
-        {showDateAssign && assignMode && (
-          <div
-            className="flex gap-2 px-3 pb-3 pt-1"
-            style={{ borderTop: `1px solid ${t.borderLight}` }}
-          >
-            <div className="flex-1" />
-            <input
-              type="date"
-              value={assignDate}
-              onChange={e => setAssignDate(e.target.value)}
-              className="px-2 py-1.5 rounded-xl outline-none"
-              style={{ fontSize: 12, backgroundColor: t.bgSub, border: `1px solid ${t.border}`, color: t.text }}
-            />
-            <button
-              onClick={() => {
-                if (assignDate && onAssignDate) {
-                  onAssignDate(assignDate);
-                  setAssignMode(false);
-                  setAssignDate('');
-                }
-              }}
-              className="px-3 py-1.5 rounded-xl"
-              style={{ fontSize: 12, backgroundColor: t.accent, color: '#fff', fontWeight: 600 }}
-            >
-              배정
-            </button>
-            <button
-              onClick={() => { setAssignMode(false); setAssignDate(''); }}
-              className="px-3 py-1.5 rounded-xl"
-              style={{ fontSize: 12, backgroundColor: t.bgSub, color: t.textSub }}
-            >
-              취소
-            </button>
-          </div>
-        )}
       </div>
 
       {showDeleteConfirm && (
@@ -389,71 +339,12 @@ function AllTodosTab() {
   );
 }
 
-// ─── Tab 2: Unassigned Todos ───────────────────────────────────
-function UnassignedTab() {
-  const { todos, updateTodo, deleteTodo, toggleTop3 } = usePlanner();
-  const { t } = useTheme();
-  const [editingTodo, setEditingTodo] = useState<Todo | null>(null);
-  const [showAddModal, setShowAddModal] = useState(false);
-
-  const unassigned = todos.filter(td => td.date === null || td.status === 'backlog');
-
-  return (
-    <div className="px-4 space-y-4">
-      {unassigned.length === 0 && (
-        <div className="text-center py-16">
-          <ListTodo size={36} color={t.borderLight} className="mx-auto mb-3" />
-          <p style={{ fontSize: 13, color: t.textMuted }}>미지정 할일이 없어요</p>
-          <p style={{ fontSize: 12, color: t.textMuted, marginTop: 4 }}>날짜 없이 아이디어를 적어두세요</p>
-        </div>
-      )}
-
-      <div className="space-y-2">
-        {unassigned.map(todo => (
-          <TodoRow
-            key={todo.id}
-            todo={todo}
-            showDateAssign
-            onStatusToggle={() => updateTodo(todo.id, { status: STATUS_NEXT[todo.status] })}
-            onEdit={() => setEditingTodo(todo)}
-            onDelete={() => deleteTodo(todo.id)}
-            onTop3Toggle={() => toggleTop3(todo.id)}
-            onAssignDate={date => updateTodo(todo.id, { date, status: 'active' })}
-          />
-        ))}
-      </div>
-
-      {/* 미지정 할일 추가: 날짜 네비 있는 TodoModal, 추가 후 날짜가 지정되면 전체 탭으로 이동 */}
-      {showAddModal && (
-        <TodoModal
-          onClose={() => setShowAddModal(false)}
-        />
-      )}
-      {editingTodo && (
-        <TodoModal
-          todo={editingTodo}
-          onClose={() => setEditingTodo(null)}
-        />
-      )}
-    </div>
-  );
-}
-
 // ─── Main Export ───────────────────────────────────────────────
 export function TodosView() {
-  const { todos, selectedDate } = usePlanner();
+  const { selectedDate } = usePlanner();
   const { t } = useTheme();
-  const [tab, setTab] = useState<'all' | 'unassigned'>('all');
   const [showAddModal, setShowAddModal] = useState(false);
   const [showAddEventModal, setShowAddEventModal] = useState(false);
-
-  const allCount        = todos.filter(td => td.date !== null && td.status !== 'backlog').length;
-  const unassignedCount = todos.filter(td => td.date === null  || td.status === 'backlog').length;
-
-  const tabs = [
-    { key: 'all' as const,        label: '전체 할일', count: allCount },
-    { key: 'unassigned' as const, label: '미지정',    count: unassignedCount },
-  ];
 
   return (
     <div className="flex flex-col h-full" style={{ backgroundColor: t.bg }}>
@@ -473,49 +364,12 @@ export function TodosView() {
               onAddEvent={() => setShowAddEventModal(true)}
             />
           </div>
-
-          {/* Tab bar */}
-          <div className="flex gap-0 mt-2">
-            {tabs.map(({ key, label, count }) => (
-              <button
-                key={key}
-                onClick={() => setTab(key)}
-                className="relative px-4 py-2 flex items-center gap-1.5 transition-colors"
-                style={{
-                  fontSize: 13,
-                  fontWeight: tab === key ? 700 : 400,
-                  color: tab === key ? t.accent : t.textSub,
-                }}
-              >
-                {label}
-                {count > 0 && (
-                  <span
-                    className="px-1.5 py-0.5 rounded-full"
-                    style={{
-                      fontSize: 10,
-                      fontWeight: 600,
-                      backgroundColor: tab === key ? t.accentLight : t.bgSub,
-                      color: tab === key ? t.accent : t.textMuted,
-                    }}
-                  >
-                    {count}
-                  </span>
-                )}
-                {tab === key && (
-                  <span
-                    className="absolute bottom-0 left-0 right-0 h-0.5 rounded-t-full"
-                    style={{ backgroundColor: t.accent }}
-                  />
-                )}
-              </button>
-            ))}
-          </div>
         </div>
       </div>
 
-      {/* Content */}
+      {/* Content — 날짜 배정된 할일만 (미지정은 Inbox 전담) */}
       <div className="flex-1 overflow-y-auto py-4">
-        {tab === 'all' ? <AllTodosTab /> : <UnassignedTab />}
+        <AllTodosTab />
       </div>
 
       {/* 상단 헤더 할일 추가 버튼용 모달 (날짜 네비 포함) */}
