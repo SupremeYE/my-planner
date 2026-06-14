@@ -7,7 +7,7 @@ import {
 import { useTheme } from '../ThemeContext';
 import { db } from '../../lib/db';
 import { useRealtimeSync } from '../hooks/useRealtimeSync';
-import { getSymptomOptions, STRESS_LEVELS } from '../../constants/symptoms';
+import { getSymptomOptions, STRESS_LEVELS, normalizeSymptom, DEFAULT_SYMPTOMS } from '../../constants/symptoms';
 import { usePlanner, type ConditionRecord, type UserSymptom } from '../store';
 import ConfirmModal from './ConfirmModal';
 
@@ -26,6 +26,11 @@ export function ConditionTab() {
 
   const [records, setRecords] = useState<ConditionRecord[]>([]);
   const [userSymptoms, setUserSymptoms] = useState<UserSymptom[]>([]);
+
+  // "+ 증상 추가" 인라인 입력
+  const [symptomAddOpen, setSymptomAddOpen] = useState(false);
+  const [symptomDraft, setSymptomDraft] = useState('');
+  const [symptomNotice, setSymptomNotice] = useState<string | null>(null); // "OO은(는) 이미 있어서 선택했어요"
 
   // 입력 폼
   const [date, setDate] = useState(format(new Date(), 'yyyy-MM-dd'));
@@ -66,7 +71,10 @@ export function ConditionTab() {
   const sorted = useMemo(() => [...records].sort((a, b) => b.date.localeCompare(a.date)), [records]);
 
   // ── 저장 ──
-  const resetForm = () => { setStress(null); setSymptoms([]); setMemo(''); };
+  const resetForm = () => {
+    setStress(null); setSymptoms([]); setMemo('');
+    setSymptomAddOpen(false); setSymptomDraft(''); setSymptomNotice(null);
+  };
 
   const buildRecord = (existingId?: string): ConditionRecord => ({
     id: existingId ?? crypto.randomUUID(),
@@ -91,6 +99,55 @@ export function ConditionTab() {
 
   const toggleSymptom = (s: string) => {
     setSymptoms(prev => prev.includes(s) ? prev.filter(x => x !== s) : [...prev, s]);
+  };
+
+  // 커스텀 칩 판별 — 기본과 정규화 동일한 건 기본 취급(점선 강조 X)
+  const defaultNormSet = useMemo(() => new Set(DEFAULT_SYMPTOMS.map(normalizeSymptom)), []);
+  const isCustomChip = (label: string) => !defaultNormSet.has(normalizeSymptom(label));
+
+  // 안내 메시지는 잠시 후 사라짐
+  useEffect(() => {
+    if (!symptomNotice) return;
+    const id = setTimeout(() => setSymptomNotice(null), 3000);
+    return () => clearTimeout(id);
+  }, [symptomNotice]);
+
+  // "+ 증상 추가" 처리:
+  // - 빈 값 → 무시
+  // - 기존 칩(기본+커스텀)과 정규화 일치 → 그 칩을 선택 + 안내 표시
+  // - 신규 → db.userSymptoms.add → 이번 기록에 즉시 선택 + 칩 풀에 영구 저장 + 입력창 닫힘
+  const handleAddSymptom = async () => {
+    const raw = symptomDraft.trim().replace(/\s+/g, ' ');
+    if (!raw) return;
+    const norm = normalizeSymptom(raw);
+
+    // 1) 화면에 이미 노출 중인 칩(기본+커스텀)에서 매칭 — 사용자가 보는 그대로의 라벨로 선택
+    const existing = symptomOptions.find(opt => normalizeSymptom(opt) === norm);
+    if (existing) {
+      setSymptoms(prev => prev.includes(existing) ? prev : [...prev, existing]);
+      setSymptomNotice(`${existing}은(는) 이미 있어서 선택했어요`);
+      setSymptomDraft('');
+      setSymptomAddOpen(false);
+      return;
+    }
+
+    // 2) 신규 저장 — DB race로 duplicate가 와도 그 칩을 선택
+    const res = await db.userSymptoms.add(raw);
+    if (res.ok) {
+      const label = res.created.name;
+      setUserSymptoms(prev => prev.some(u => normalizeSymptom(u.name) === norm) ? prev : [...prev, res.created]);
+      setSymptoms(prev => prev.includes(label) ? prev : [...prev, label]);
+    } else if (res.reason === 'duplicate') {
+      const label = res.existing.name;
+      setUserSymptoms(prev => prev.some(u => u.id === res.existing.id) ? prev : [...prev, res.existing]);
+      setSymptoms(prev => prev.includes(label) ? prev : [...prev, label]);
+      setSymptomNotice(`${label}은(는) 이미 있어서 선택했어요`);
+    } else {
+      setSymptomNotice('저장에 실패했어요. 다시 시도해 주세요');
+      return;
+    }
+    setSymptomDraft('');
+    setSymptomAddOpen(false);
   };
 
   // 날짜 칸(주간 셀·히트맵) 클릭 → 그 날짜로 필터 / 같은 날 재클릭 시 해제
@@ -251,21 +308,66 @@ export function ConditionTab() {
 
         {/* 증상 태그 */}
         <label style={{ fontSize: 12, color: t.textSub, display: 'block', marginTop: 14 }}>증상 (선택)</label>
-        <div className="flex flex-wrap gap-1.5 mt-1">
+        <div className="flex flex-wrap gap-1.5 mt-1 items-center">
           {symptomOptions.map(s => {
             const active = symptoms.includes(s);
+            const custom = isCustomChip(s);
             return (
               <button key={s} onClick={() => toggleSymptom(s)}
                 className="px-3 py-1.5 rounded-full transition-all"
                 style={{
                   fontSize: 12, fontWeight: active ? 600 : 500,
                   backgroundColor: active ? STRESS_COLOR : t.bgSub,
-                  color: active ? '#fff' : t.textSub,
-                  border: `1px solid ${active ? STRESS_COLOR : t.border}`,
+                  color: active ? '#fff' : custom ? t.accent : t.textSub,
+                  border: active
+                    ? `1px solid ${STRESS_COLOR}`
+                    : custom
+                      ? `1px dashed ${t.accent}`
+                      : `1px solid ${t.border}`,
                 }}>{s}</button>
             );
           })}
+
+          {/* "+ 증상 추가" — 인라인 입력 토글 */}
+          {!symptomAddOpen ? (
+            <button onClick={() => { setSymptomAddOpen(true); setSymptomNotice(null); }}
+              className="px-3 py-1.5 rounded-full transition-all inline-flex items-center gap-1"
+              style={{
+                fontSize: 12, fontWeight: 500,
+                backgroundColor: t.bgSub, color: t.accent,
+                border: `1px dashed ${t.accent}`,
+              }}>
+              <Plus size={12} /> 증상 추가
+            </button>
+          ) : (
+            <div className="inline-flex items-center gap-1 px-2 py-1 rounded-full"
+              style={{ backgroundColor: t.bgSub, border: `1px dashed ${t.accent}` }}>
+              <input autoFocus value={symptomDraft}
+                onChange={e => setSymptomDraft(e.target.value)}
+                onKeyDown={e => {
+                  if (e.key === 'Enter') { e.preventDefault(); handleAddSymptom(); }
+                  else if (e.key === 'Escape') { setSymptomAddOpen(false); setSymptomDraft(''); }
+                }}
+                placeholder="증상 이름"
+                maxLength={20}
+                className="bg-transparent outline-none"
+                style={{ fontSize: 12, color: t.text, width: 90 }} />
+              <button onClick={handleAddSymptom}
+                style={{
+                  fontSize: 12, fontWeight: 600, color: t.accent,
+                  background: 'none', border: 'none', cursor: 'pointer', padding: '0 4px',
+                }}>추가</button>
+              <button onClick={() => { setSymptomAddOpen(false); setSymptomDraft(''); }}
+                aria-label="닫기"
+                style={{ color: t.textMuted, background: 'none', border: 'none', cursor: 'pointer', padding: 0, display: 'inline-flex' }}>
+                <X size={12} />
+              </button>
+            </div>
+          )}
         </div>
+        {symptomNotice && (
+          <p style={{ fontSize: 11, color: t.textMuted, marginTop: 6 }}>{symptomNotice}</p>
+        )}
 
         {/* 메모 */}
         <label style={{ fontSize: 12, color: t.textSub, display: 'block', marginTop: 14 }}>메모 (선택)</label>
