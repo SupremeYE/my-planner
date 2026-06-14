@@ -65,6 +65,7 @@ export interface Event {
   endAt?: string;
   isOccurrence?: boolean;
   tags?: string[];
+  completed?: boolean;
 }
 
 export interface Habit {
@@ -1246,6 +1247,7 @@ export function PlannerProvider({ children }: { children: React.ReactNode }) {
       sourceEventId: undefined,
       tags: event.tags ?? [],
       repeatType: event.repeatType ?? 'none',
+      completed: event.completed ?? false,
     };
     void db.events.upsert(newEvent).then(() => {
       void db.events.fetchAll().then(setEvents);
@@ -1666,6 +1668,7 @@ export function PlannerProvider({ children }: { children: React.ReactNode }) {
         location: eventData.location,
         tags: eventData.tags ?? [],
         repeatType: 'none',
+        completed: false,
       };
       void db.events.upsert(newEvent).then(() => {
         void db.events.fetchAll().then(setEvents);

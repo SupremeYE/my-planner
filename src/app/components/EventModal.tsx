@@ -98,6 +98,7 @@ export function EventModal({ date, event, initialTitle, initialStartTime, initia
       projectId: projectId || undefined,
       color,
       tags: event?.tags ?? initialTags ?? [],
+      completed: event?.completed ?? false,
     };
 
     if (event) {

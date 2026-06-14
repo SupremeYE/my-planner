@@ -16,6 +16,7 @@ import { ko } from 'date-fns/locale';
 import { usePlanner, Event, PeriodRecord, SelfCareRecord, Todo } from '../store';
 import { isDoOvertimeVsPlan, doElapsedTitleSuffix } from '../../lib/todoDoDuration';
 import { expandRecurringTodos, isVirtualTodoId, parseVirtualTodoId } from '../../lib/recurrenceExpansion';
+import { isEventPast } from '../../api/events';
 import { useTheme } from '../ThemeContext';
 import { TimePicker } from './TimePicker';
 import { TodoModal } from './TodoModal';
@@ -450,6 +451,8 @@ function WeekView({ viewDate, selectedDate, onSelectDate, viewDays, weekStartsOn
                       const eventColor = event.color || '#7B9ED9';
                       const top = timeToTop(event.startTime!, startHour);
                       const height = durationToPx(event.startTime!, event.endTime!);
+                      const isDone = !!event.completed;
+                      const isPast = !isDone && isEventPast(event);
                       return (
                         <button
                           key={`event-${event.id}`}
@@ -466,9 +469,14 @@ function WeekView({ viewDate, selectedDate, onSelectDate, viewDays, weekStartsOn
                             padding: '6px 8px',
                             zIndex: 3,
                             cursor: 'pointer',
+                            opacity: isDone ? 0.5 : (isPast ? 0.7 : 1),
                           }}
                         >
-                          <div style={{ fontSize: isMobile ? 10 : 11, fontWeight: 700, color: eventColor, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                          <div style={{
+                            fontSize: isMobile ? 10 : 11, fontWeight: 700, color: eventColor,
+                            whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+                            textDecoration: isDone ? 'line-through' : 'none',
+                          }}>
                             {event.title}
                           </div>
                           {height >= 40 && (
@@ -905,18 +913,41 @@ export function CalendarView() {
     );
   };
 
-  // 일정 카드 — 완료 체크 없음. 항목 탭 → 수정, → 미루기, x 삭제.
+  // 일정 카드 — 완료 체크/수정/미루기/삭제.
   const renderEventCard = (event: Event) => {
     const eventColor = event.color || t.info;
+    const isDone = !!event.completed;
+    const isPast = !isDone && isEventPast(event);
     return (
       <div
         key={event.id}
         className="flex items-start gap-2.5 py-2 px-3 rounded-xl"
-        style={{ backgroundColor: t.card, border: `1px solid ${eventColor}20`, borderLeft: `3px solid ${eventColor}` }}
+        style={{
+          backgroundColor: isDone ? t.bgSub + '80' : t.card,
+          border: `1px solid ${eventColor}20`,
+          borderLeft: `3px solid ${eventColor}${isDone ? '40' : ''}`,
+          opacity: isDone ? 0.65 : (isPast ? 0.8 : 1),
+        }}
       >
-        <span className="w-1.5 h-1.5 rounded-full flex-shrink-0 mt-2" style={{ backgroundColor: eventColor }} />
+        <button
+          onClick={() => updateEvent(event.id, { completed: !isDone })}
+          className="w-5 h-5 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5 transition-all"
+          style={{
+            border: isDone ? 'none' : `2px solid ${eventColor}80`,
+            backgroundColor: isDone ? t.checkDone : 'transparent',
+          }}
+          aria-label={isDone ? '완료 취소' : '완료'}
+          title={isDone ? '완료 취소' : '완료'}
+        >
+          {isDone && <Check size={11} color="#fff" strokeWidth={3} />}
+        </button>
         <div className="flex-1 min-w-0 cursor-pointer" onClick={() => setEditingEvent(event)}>
-          <div style={{ fontSize: 13, fontWeight: 600, color: t.text, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+          <div style={{
+            fontSize: 13, fontWeight: 600,
+            color: isDone ? t.textMuted : t.text,
+            textDecoration: isDone ? 'line-through' : 'none',
+            overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+          }}>
             {event.title}
           </div>
           <div className="flex items-center gap-1.5 mt-1 flex-wrap">

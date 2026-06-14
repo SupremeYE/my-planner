@@ -21,6 +21,7 @@ export interface EventMutationInput {
   memo?: string;
   projectId?: string;
   color?: string;
+  completed?: boolean;
 }
 
 type EventRow = {
@@ -38,6 +39,7 @@ type EventRow = {
   memo: string | null;
   project_id: string | null;
   color: string | null;
+  completed: boolean | null;
   created_at: string | null;
 };
 
@@ -66,6 +68,7 @@ function toEventInput(event: Event | EventMutationInput): EventMutationInput {
     memo: event.memo,
     projectId: event.projectId,
     color: event.color,
+    completed: event.completed,
   };
 }
 
@@ -91,6 +94,7 @@ function toRowPayload(event: Event | EventMutationInput) {
     memo: input.memo?.trim() || null,
     project_id: input.projectId || null,
     color: input.color || null,
+    completed: input.completed ?? false,
   };
 }
 
@@ -116,11 +120,29 @@ function toLegacyEvent(row: EventRow, occurrenceDate?: string): Event {
     alertMinutes: row.alert_minutes ?? undefined,
     projectId: row.project_id ?? undefined,
     color: row.color ?? undefined,
+    completed: row.completed ?? false,
     startAt: row.start_at,
     endAt: row.end_at,
     isOccurrence: Boolean(occurrenceDate),
     tags: [],
   };
+}
+
+/**
+ * 일정이 현재 시각보다 "지났는지" 여부.
+ * 완료 체크와는 별개로, endTime/endAt 이 과거이면 true.
+ * - 종일 일정: endDate 가 오늘보다 과거이면 true (오늘은 false)
+ * - 시간 일정: endDate + endTime 이 현재보다 과거이면 true
+ */
+export function isEventPast(event: Event, now: Date = new Date()): boolean {
+  const endDate = event.endDate || event.date;
+  if (!endDate) return false;
+  if (event.isAllDay || !event.endTime) {
+    const todayStr = format(now, 'yyyy-MM-dd');
+    return endDate < todayStr;
+  }
+  const endDateTime = parseISO(`${endDate}T${event.endTime}:00`);
+  return isBefore(endDateTime, now);
 }
 
 function overlapsRange(date: string, startDate: string, endDate: string) {

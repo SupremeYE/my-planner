@@ -22,6 +22,7 @@ import { FloatingAddFab } from './FloatingAddFab';
 import { AddEntryMenu } from './AddEntryMenu';
 import { formatDuration, formatTotalDoKo, todoDoDurationSeconds } from '../../lib/todoDoDuration';
 import { expandRecurringTodos, isVirtualTodoId, parseVirtualTodoId } from '../../lib/recurrenceExpansion';
+import { isEventPast } from '../../api/events';
 import { sleepRectsForColumn } from '../../lib/sleepTimeline';
 import { RecurrenceBranchModal } from './RecurrenceBranchModal';
 
@@ -979,7 +980,7 @@ function SleepTimeEditModal({ record, onClose, onConfirm }: {
 // ─── Main Daily View ───
 export function DailyView() {
   const {
-    selectedDate, setSelectedDate, todos, events, updateTodo, deleteRecurringTodo, habits, updateHabitMemo,
+    selectedDate, setSelectedDate, todos, events, updateTodo, updateEvent, deleteRecurringTodo, habits, updateHabitMemo,
     activeTimer, startTimer, stopTimer, tags, projects, weeklyGoals, milestones,
     selfCareRecords, updateSelfCareRecord,
     dayStartHour: tlStartHour, dayEndHour: tlEndHour, setDayHours,
@@ -1930,6 +1931,8 @@ export function DailyView() {
     const top = (startMin / 60 - tlStartHour) * HOUR_HEIGHT;
     const height = Math.max((endMin - startMin) * PX_PER_MIN, 20);
     const eventColor = evt.color || '#7B9ED9';
+    const isDone = !!evt.completed;
+    const isPast = !isDone && isEventPast(evt);
 
     return (
       <div key={`ev-${evt.id}`}
@@ -1940,8 +1943,13 @@ export function DailyView() {
           backgroundColor: `${eventColor}24`,
           border: `1.5px solid ${eventColor}`,
           zIndex: 3,
+          opacity: isDone ? 0.5 : (isPast ? 0.7 : 1),
         }}>
-        <div style={{ fontSize: 11, fontWeight: 600, color: eventColor, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+        <div style={{
+          fontSize: 11, fontWeight: 600, color: eventColor,
+          overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+          textDecoration: isDone ? 'line-through' : 'none',
+        }}>
           📅 {evt.title}
         </div>
         {height > 30 && (
@@ -2326,27 +2334,47 @@ export function DailyView() {
                   일정
                 </span>
               </div>
-              {dateEvents.map(evt => (
-                <div key={evt.id} className="flex items-center gap-2.5 py-2 px-2 rounded-xl"
-                  style={{ backgroundColor: t.bgSub }}>
-                  <div className="w-1 h-8 rounded-full" style={{ backgroundColor: t.info }} />
-                  <div>
-                    <span style={{ fontSize: 13, color: t.text }}>{evt.title}</span>
-                    <div className="flex items-center gap-2 mt-0.5">
-                      {evt.startTime && (
-                        <span style={{ fontSize: 10, color: t.textMuted }}>
-                          {evt.startTime}{evt.endTime ? ` - ${evt.endTime}` : ''}
-                        </span>
-                      )}
-                      {evt.location && (
-                        <span style={{ fontSize: 10, color: t.textMuted }}>
-                          📍 {evt.location}
-                        </span>
-                      )}
+              {dateEvents.map(evt => {
+                const isDone = !!evt.completed;
+                const isPast = !isDone && isEventPast(evt);
+                const accentColor = evt.color || t.info;
+                return (
+                  <div key={evt.id} className="flex items-center gap-2.5 py-2 px-2 rounded-xl"
+                    style={{ backgroundColor: t.bgSub, opacity: isDone ? 0.55 : (isPast ? 0.75 : 1) }}>
+                    <button
+                      onClick={() => updateEvent(evt.id, { completed: !isDone })}
+                      className="w-5 h-5 rounded-full flex items-center justify-center flex-shrink-0 transition-all"
+                      style={{
+                        border: isDone ? 'none' : `2px solid ${accentColor}80`,
+                        backgroundColor: isDone ? t.checkDone : 'transparent',
+                      }}
+                      aria-label={isDone ? '완료 취소' : '완료'}
+                      title={isDone ? '완료 취소' : '완료'}
+                    >
+                      {isDone && <Check size={11} color="#fff" strokeWidth={3} />}
+                    </button>
+                    <div>
+                      <span style={{
+                        fontSize: 13,
+                        color: isDone ? t.textMuted : t.text,
+                        textDecoration: isDone ? 'line-through' : 'none',
+                      }}>{evt.title}</span>
+                      <div className="flex items-center gap-2 mt-0.5">
+                        {evt.startTime && (
+                          <span style={{ fontSize: 10, color: t.textMuted }}>
+                            {evt.startTime}{evt.endTime ? ` - ${evt.endTime}` : ''}
+                          </span>
+                        )}
+                        {evt.location && (
+                          <span style={{ fontSize: 10, color: t.textMuted }}>
+                            📍 {evt.location}
+                          </span>
+                        )}
+                      </div>
                     </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           )}
 
