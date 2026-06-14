@@ -980,7 +980,7 @@ function SleepTimeEditModal({ record, onClose, onConfirm }: {
 // ─── Main Daily View ───
 export function DailyView() {
   const {
-    selectedDate, setSelectedDate, todos, events, updateTodo, updateEvent, deleteRecurringTodo, habits, updateHabitMemo,
+    selectedDate, setSelectedDate, todos, events, updateTodo, toggleEventCompleted, deleteRecurringTodo, habits, updateHabitMemo,
     activeTimer, startTimer, stopTimer, tags, projects, weeklyGoals, milestones,
     selfCareRecords, updateSelfCareRecord,
     dayStartHour: tlStartHour, dayEndHour: tlEndHour, setDayHours,
@@ -2342,7 +2342,7 @@ export function DailyView() {
                   <div key={evt.id} className="flex items-center gap-2.5 py-2 px-2 rounded-xl"
                     style={{ backgroundColor: t.bgSub, opacity: isDone ? 0.55 : (isPast ? 0.75 : 1) }}>
                     <button
-                      onClick={() => updateEvent(evt.id, { completed: !isDone })}
+                      onClick={() => toggleEventCompleted(evt.id, !isDone)}
                       className="w-5 h-5 rounded-full flex items-center justify-center flex-shrink-0 transition-all"
                       style={{
                         border: isDone ? 'none' : `2px solid ${accentColor}80`,

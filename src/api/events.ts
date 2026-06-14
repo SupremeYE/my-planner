@@ -22,6 +22,9 @@ export interface EventMutationInput {
   projectId?: string;
   color?: string;
   completed?: boolean;
+  parentEventId?: string;
+  occurrenceDate?: string;
+  isException?: boolean;
 }
 
 type EventRow = {
@@ -40,6 +43,9 @@ type EventRow = {
   project_id: string | null;
   color: string | null;
   completed: boolean | null;
+  parent_event_id: string | null;
+  occurrence_date: string | null;
+  is_exception: boolean | null;
   created_at: string | null;
 };
 
@@ -69,6 +75,9 @@ function toEventInput(event: Event | EventMutationInput): EventMutationInput {
     projectId: event.projectId,
     color: event.color,
     completed: event.completed,
+    parentEventId: event.parentEventId,
+    occurrenceDate: event.occurrenceDate,
+    isException: event.isException,
   };
 }
 
@@ -95,6 +104,9 @@ function toRowPayload(event: Event | EventMutationInput) {
     project_id: input.projectId || null,
     color: input.color || null,
     completed: input.completed ?? false,
+    parent_event_id: input.parentEventId || null,
+    occurrence_date: input.occurrenceDate || null,
+    is_exception: input.isException ?? false,
   };
 }
 
@@ -103,7 +115,7 @@ function toLegacyEvent(row: EventRow, occurrenceDate?: string): Event {
   const endAt = parseISO(row.end_at);
   const date = occurrenceDate || format(startAt, 'yyyy-MM-dd');
   return {
-    id: occurrenceDate ? `${row.id}__${date}` : row.id,
+    id: occurrenceDate ? `${row.id}::${date}` : row.id,
     sourceEventId: row.id,
     title: row.title,
     date,
@@ -121,11 +133,25 @@ function toLegacyEvent(row: EventRow, occurrenceDate?: string): Event {
     projectId: row.project_id ?? undefined,
     color: row.color ?? undefined,
     completed: row.completed ?? false,
+    parentEventId: row.parent_event_id ?? undefined,
+    occurrenceDate: row.occurrence_date ?? undefined,
+    isException: row.is_exception ?? false,
     startAt: row.start_at,
     endAt: row.end_at,
     isOccurrence: Boolean(occurrenceDate),
     tags: [],
   };
+}
+
+/** 가상 occurrence id ("{masterId}::{yyyy-MM-dd}") 판별/파싱 — 할일 패턴과 동일 */
+export function isVirtualEventId(id: string): boolean {
+  return id.includes('::');
+}
+
+export function parseVirtualEventId(id: string): { parentId: string; instanceDate: string } | null {
+  const idx = id.indexOf('::');
+  if (idx < 0) return null;
+  return { parentId: id.slice(0, idx), instanceDate: id.slice(idx + 2) };
 }
 
 /**
@@ -153,7 +179,21 @@ export function getRepeatedEvents(rows: EventRow[], startDate: string, endDate: 
   const rangeStart = parseISO(`${startDate}T00:00:00`);
   const rangeEnd = parseISO(`${endDate}T23:59:59`);
 
-  return rows.flatMap((row) => {
+  // 예외 행은 마스터 펼침 시 대체용으로만 쓰이고, 그 외 경로로는 렌더되지 않는다.
+  const exceptionRows: EventRow[] = [];
+  const otherRows: EventRow[] = [];
+  for (const row of rows) {
+    if (row.is_exception) exceptionRows.push(row);
+    else otherRows.push(row);
+  }
+  const exMap = new Map<string, EventRow>();
+  for (const ex of exceptionRows) {
+    if (ex.parent_event_id && ex.occurrence_date) {
+      exMap.set(`${ex.parent_event_id}|${ex.occurrence_date}`, ex);
+    }
+  }
+
+  return otherRows.flatMap((row) => {
     const repeatType = row.repeat_type ?? 'none';
     const firstDate = format(parseISO(row.start_at), 'yyyy-MM-dd');
     const repeatUntil = row.repeat_end_date ?? endDate;
@@ -168,7 +208,14 @@ export function getRepeatedEvents(rows: EventRow[], startDate: string, endDate: 
 
     while (!isAfter(cursor, rangeEnd) && !isAfter(cursor, limit)) {
       if (!isBefore(cursor, rangeStart)) {
-        items.push(toLegacyEvent(row, format(cursor, 'yyyy-MM-dd')));
+        const dateStr = format(cursor, 'yyyy-MM-dd');
+        const ex = exMap.get(`${row.id}|${dateStr}`);
+        if (ex) {
+          // 그 회차에 예외 행이 있으면 가상 occurrence 대신 예외 행을 emit (실제 id)
+          items.push(toLegacyEvent(ex));
+        } else {
+          items.push(toLegacyEvent(row, dateStr));
+        }
       }
 
       if (repeatType === 'daily') cursor = addDays(cursor, 1);
@@ -179,6 +226,9 @@ export function getRepeatedEvents(rows: EventRow[], startDate: string, endDate: 
     return items;
   });
 }
+
+/** 할일의 expandRecurringTodos 와 같은 역할 — 기존 getRepeatedEvents 에 대한 별칭 */
+export const expandRecurringEvents = getRepeatedEvents;
 
 export async function getEvents(userId?: string, startDate = FAR_PAST, endDate = FAR_FUTURE): Promise<Event[]> {
   let query = supabase.from('events').select('*').order('start_at');

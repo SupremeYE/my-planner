@@ -654,7 +654,7 @@ export function CalendarView() {
     selectedDate, setSelectedDate, appSettings, tags, events, todos, habits, brainstormMemos,
     projects, selfCareRecords,
     updateTodo, deleteTodo, deleteRecurringTodo, addTodo,
-    updateEvent, deleteEvent,
+    updateEvent, deleteEvent, toggleEventCompleted,
   } = usePlanner();
   const { t } = useTheme();
   const [tab, setTab] = useState<TabType>('month');
@@ -930,7 +930,7 @@ export function CalendarView() {
         }}
       >
         <button
-          onClick={() => updateEvent(event.id, { completed: !isDone })}
+          onClick={() => toggleEventCompleted(event.id, !isDone)}
           className="w-5 h-5 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5 transition-all"
           style={{
             border: isDone ? 'none' : `2px solid ${eventColor}80`,

@@ -3,6 +3,7 @@ import { supabase } from '../lib/supabase';
 import { format, getISOWeek, getYear, subDays, addDays, parseISO } from 'date-fns';
 import { db } from '../lib/db';
 import { isVirtualTodoId, parseVirtualTodoId } from '../lib/recurrenceExpansion';
+import { isVirtualEventId, parseVirtualEventId } from '../api/events';
 
 // ───── Types ─────
 export type TodoStatus = 'active' | 'done' | 'cancelled' | 'snoozed' | 'backlog' | 'inProgress';
@@ -66,6 +67,9 @@ export interface Event {
   isOccurrence?: boolean;
   tags?: string[];
   completed?: boolean;
+  parentEventId?: string;   // 반복 마스터의 id (예외 행에만 채움)
+  occurrenceDate?: string;  // 예외 행이 가리키는 회차 날짜 'yyyy-MM-dd'
+  isException?: boolean;    // 이 회차만 변경된 예외 행
 }
 
 export interface Habit {
@@ -670,6 +674,8 @@ interface PlannerContextType {
   addEvent: (event: Omit<Event, 'id'>) => void;
   updateEvent: (id: string, changes: Partial<Event>) => void;
   deleteEvent: (id: string) => void;
+  /** 완료 토글 전용. 반복 가상 occurrence 면 그 회차만 예외 행으로 구체화 후 completed 저장. */
+  toggleEventCompleted: (id: string, completed: boolean) => void;
 
   // Habit actions
   addHabit: (name: string) => void;
@@ -807,6 +813,9 @@ export function PlannerProvider({ children }: { children: React.ReactNode }) {
   const [reviewRecords, setReviewRecords] = useState<ReviewRecord[]>([]);
   const [timelineLogs, setTimelineLogs] = useState<TimelineLog[]>([]);
   const [events, setEvents] = useState<Event[]>([]);
+  // 최신 events 스냅샷 (반복 가상 occurrence → 실제 예외 레코드 동기 구체화 시 참조)
+  const eventsRef = useRef<Event[]>([]);
+  useEffect(() => { eventsRef.current = events; }, [events]);
   const [weeklyGoals, setWeeklyGoals] = useState<WeeklyGoal[]>([]);
   const [monthlyGoals, setMonthlyGoals] = useState<MonthlyGoal[]>([]);
   const [annualGoals, setAnnualGoals] = useState<AnnualGoal[]>([]);
@@ -1248,10 +1257,51 @@ export function PlannerProvider({ children }: { children: React.ReactNode }) {
       tags: event.tags ?? [],
       repeatType: event.repeatType ?? 'none',
       completed: event.completed ?? false,
+      isException: event.isException ?? false,
     };
     void db.events.upsert(newEvent).then(() => {
       void db.events.fetchAll().then(setEvents);
     });
+  }, []);
+
+  // 반복 가상 occurrence(`parentId::date`)를 실제 예외 행으로 구체화하고 실제 event id 를 반환.
+  // - 비가상 id: 그대로 반환
+  // - 이미 같은 (parent, occurrence_date) 예외 행이 있으면 그 id 반환
+  // - 처음이면 가상 occurrence 의 데이터를 복제한 예외 행을 즉시 state/ref 에 반영하고,
+  //   호출자는 그 id 로 updateEvent → db.events.upsert 를 호출해 DB 에 저장한다.
+  // 할일 ensureMaterializedTodoId 패턴과 동일.
+  const ensureMaterializedEventId = useCallback((id: string): string => {
+    if (!isVirtualEventId(id)) return id;
+    const info = parseVirtualEventId(id);
+    if (!info) return id;
+    const { parentId, instanceDate } = info;
+    const list = eventsRef.current;
+    const existing = list.find(e => e.isException && e.parentEventId === parentId && e.occurrenceDate === instanceDate);
+    if (existing) return existing.id;
+    const occurrence = list.find(e => e.id === id);
+    if (!occurrence) return id;
+    const exId = newEventId();
+    const exception: Event = {
+      ...occurrence,
+      id: exId,
+      sourceEventId: undefined,
+      isOccurrence: false,
+      parentEventId: parentId,
+      occurrenceDate: instanceDate,
+      isException: true,
+      // 예외 행은 그 회차 1일짜리 단일 일정으로 저장한다.
+      // 반복은 마스터가 담당하므로 예외 행은 repeat 정보를 비움.
+      date: instanceDate,
+      startDate: instanceDate,
+      endDate: instanceDate,
+      repeatType: 'none',
+      repeatEndDate: undefined,
+    };
+    // 가상 occurrence 자리를 예외 행으로 교체 (브리프 중복 렌더 방지).
+    // 이후 fetchAll 이 완료되면 expandRecurringEvents 가 exMap 으로 동일 결과를 반환.
+    eventsRef.current = list.filter(e => e.id !== id).concat(exception);
+    setEvents(prev => prev.filter(e => e.id !== id).concat(exception));
+    return exId;
   }, []);
 
   const updateEvent = useCallback((id: string, changes: Partial<Event>) => {
@@ -1266,6 +1316,22 @@ export function PlannerProvider({ children }: { children: React.ReactNode }) {
       return updated;
     });
   }, []);
+
+  // 완료 토글 전용: 반복 가상 occurrence 면 그 회차를 예외 행으로 구체화 후 그 행에만 completed 저장.
+  // 분기 모달 없이 그 회차만 조용히 처리한다.
+  const toggleEventCompleted = useCallback((id: string, completed: boolean) => {
+    const realId = ensureMaterializedEventId(id);
+    setEvents(prev => {
+      const updated = prev.map(e => e.id === realId ? { ...e, completed } : e);
+      const event = updated.find(e => e.id === realId);
+      if (event) {
+        void db.events.upsert(event).then(() => {
+          void db.events.fetchAll().then(setEvents);
+        });
+      }
+      return updated;
+    });
+  }, [ensureMaterializedEventId]);
 
   const deleteEvent = useCallback((id: string) => {
     setEvents(prev => prev.filter(e => e.id !== id));
@@ -1879,7 +1945,7 @@ export function PlannerProvider({ children }: { children: React.ReactNode }) {
       dailyAffirmations, setDailyAffirmation,
       appSettings, updateAppSettings,
       addTodo, updateTodo, deleteTodo, toggleTop3, deleteRecurringTodo, updateRecurringTodo,
-      addEvent, updateEvent, deleteEvent,
+      addEvent, updateEvent, deleteEvent, toggleEventCompleted,
       addHabit, addHabitFull, updateHabit, deleteHabit, toggleHabit,
       updateHabitProgress, updateHabitMemo,
       habitMonthlyMemos, setHabitMonthlyMemo,
