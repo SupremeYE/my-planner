@@ -1,6 +1,9 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Plus, X, Dumbbell, BookOpen, Sparkles, Moon, ChevronDown, ChevronLeft, ChevronRight, Heart, Trash2, Pencil, Sun, Search } from 'lucide-react';
-import { usePlanner, SelfCareRecord } from '../store';
+import {
+  LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine,
+} from 'recharts';
+import { usePlanner, SelfCareRecord, SLEEP_GOAL_DEFAULT_MIN } from '../store';
 import { useTheme } from '../ThemeContext';
 import { format, subDays, differenceInDays, parseISO, addDays, startOfWeek } from 'date-fns';
 
@@ -336,8 +339,10 @@ function TimeEditInput({ value, onChange, onDone }: {
 }
 
 export function SleepSection() {
-  const { selfCareRecords, addSelfCareRecord, deleteSelfCareRecord } = usePlanner();
+  const { selfCareRecords, addSelfCareRecord, deleteSelfCareRecord, appSettings } = usePlanner();
   const { t } = useTheme();
+  const sleepGoalMin = appSettings.sleepGoalMinutes ?? SLEEP_GOAL_DEFAULT_MIN;
+  const sleepGoalHours = sleepGoalMin / 60;
   const [date, setDate] = useState(format(new Date(), 'yyyy-MM-dd'));
   const [sleepStart, setSleepStart] = useState('');
   const [sleepEnd, setSleepEnd] = useState('');
@@ -457,6 +462,19 @@ export function SleepSection() {
   const weekTitle = weekOffset === 0 ? '이번주' : weekOffset === -1 ? '지난주' : weekRangeLabel;
 
   const hasStats = sleepRecords.length > 0;
+
+  // 최근 30일 수면시간 추이 (오름차순) — 기록이 있는 날만 점 표시
+  const trend = useMemo(() => {
+    const cutoff = format(subDays(today, 29), 'yyyy-MM-dd');
+    return sleepRecords
+      .filter(r => r.date >= cutoff)
+      .slice()
+      .sort((a, b) => a.date.localeCompare(b.date))
+      .map(r => ({ date: r.date.slice(5), hours: +(r.duration / 60).toFixed(2), minutes: r.duration }));
+  }, [sleepRecords, today]);
+  // Y축 상한: 최대 기록과 권장선 중 큰 값 + 1시간 여유, 최소 10시간
+  const trendMax = Math.max(10, Math.ceil(Math.max(sleepGoalHours, ...trend.map(d => d.hours))) + 1);
+  const trendTicks = Array.from({ length: Math.floor(trendMax / 2) + 1 }, (_, i) => i * 2);
 
   // 취침/기상 버튼 공통 렌더
   const renderTimeSlot = (
@@ -726,6 +744,57 @@ export function SleepSection() {
           </div>
         </div>
       )}
+
+      {/* 최근 30일 수면 추이 선그래프 — 컨디션 탭 30일 추이와 동일 위치/형태 */}
+      <div className="p-3 lg:p-4 rounded-2xl mb-3 flex flex-col" style={{ backgroundColor: t.card, border: `1px solid ${t.borderLight}` }}>
+        <div className="flex items-baseline justify-between mb-2">
+          <p style={{ fontSize: 13, fontWeight: 700, color: t.text }}>최근 30일 수면 추이</p>
+          <p style={{ fontSize: 10, color: t.textMuted }}>
+            권장 <span style={{ color: SLEEP_COLOR, fontWeight: 700 }}>{fmtSleep(sleepGoalMin)}</span>
+          </p>
+        </div>
+        {trend.length >= 2 ? (
+          <div className="min-h-[200px]" style={{ height: 220 }}>
+            <ResponsiveContainer width="100%" height="100%">
+              <LineChart data={trend} margin={{ top: 8, right: 8, left: -18, bottom: 0 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke={t.borderLight} vertical={false} />
+                <XAxis dataKey="date" tick={{ fontSize: 10, fill: t.textMuted }} tickLine={false} axisLine={false} />
+                <YAxis
+                  domain={[0, trendMax]}
+                  ticks={trendTicks}
+                  tick={{ fontSize: 10, fill: t.textMuted }}
+                  tickLine={false}
+                  axisLine={false}
+                  tickFormatter={v => `${v}h`}
+                />
+                <Tooltip
+                  contentStyle={{ fontSize: 12, borderRadius: 12, border: `1px solid ${t.borderLight}`, backgroundColor: t.card }}
+                  formatter={(_v: number, _n, p) => [fmtSleep((p.payload as { minutes: number }).minutes), '수면']}
+                />
+                <ReferenceLine
+                  y={sleepGoalHours}
+                  stroke={SLEEP_COLOR}
+                  strokeDasharray="4 4"
+                  strokeWidth={1.5}
+                  label={{ value: '권장', position: 'right', fontSize: 10, fill: SLEEP_COLOR }}
+                />
+                <Line
+                  type="monotone"
+                  dataKey="hours"
+                  stroke={SLEEP_COLOR}
+                  strokeWidth={2}
+                  dot={{ r: 3, fill: SLEEP_COLOR, strokeWidth: 0 }}
+                  activeDot={{ r: 5 }}
+                />
+              </LineChart>
+            </ResponsiveContainer>
+          </div>
+        ) : (
+          <div className="min-h-[200px] flex items-center justify-center text-center" style={{ fontSize: 13, color: t.textMuted }}>
+            기록이 쌓이면 추이가 표시됩니다
+          </div>
+        )}
+      </div>
 
       {/* 기록 영역 (컨디션 탭 패턴) */}
       {(() => {
