@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Plus, X, Dumbbell, BookOpen, Sparkles, Moon, ChevronDown, ChevronLeft, ChevronRight, Heart, Trash2, Pencil, Sun } from 'lucide-react';
+import { Plus, X, Dumbbell, BookOpen, Sparkles, Moon, ChevronDown, ChevronLeft, ChevronRight, Heart, Trash2, Pencil, Sun, Search } from 'lucide-react';
 import { usePlanner, SelfCareRecord } from '../store';
 import { useTheme } from '../ThemeContext';
 import { format, subDays, differenceInDays, parseISO, addDays, startOfWeek } from 'date-fns';
@@ -345,7 +345,48 @@ export function SleepSection() {
   const [inputOpen, setInputOpen] = useState(false);
   const [weekOffset, setWeekOffset] = useState(0); // 0=이번주, -1=지난주 ...
 
+  // 기록 영역 필터/검색 (컨디션 탭과 동일 패턴)
+  // 기본값 = 오늘(로컬 기준) — 탭 진입 시 오늘 날짜로 필터된 상태로 시작
+  const [selectedDate, setSelectedDate] = useState<string | null>(format(new Date(), 'yyyy-MM-dd'));
+  const [searchQuery, setSearchQuery] = useState('');
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [listLimit, setListLimit] = useState(5);
+
+  const formRef = useRef<HTMLDivElement>(null); // 입력 카드 — 넛지에서 열 때 스크롤 대상
+
   const nowHHMM = () => format(new Date(), 'HH:mm');
+
+  // 날짜 칸(주간 막대) 클릭 → 그 날짜로 필터 / 같은 날 재클릭 시 해제
+  // 검색과 날짜 필터는 동시 적용하지 않으므로 날짜 선택 시 검색은 닫고 비운다
+  const toggleDate = (d: string) => {
+    setSearchOpen(false);
+    setSearchQuery('');
+    setSelectedDate(prev => (prev === d ? null : d));
+  };
+
+  // 돋보기 토글 — 열면 날짜 필터 해제, 닫으면 검색어 비워 전체로 복귀
+  const toggleSearch = () => {
+    setSearchOpen(prev => {
+      const next = !prev;
+      if (next) setSelectedDate(null);
+      else setSearchQuery('');
+      return next;
+    });
+  };
+
+  // 빈 날 넛지 [수면 기록하기] → 기존 인라인 입력 카드를 그 날짜로 prefill하여 연다
+  const openRecordFor = (d: string) => {
+    setSleepStart('');
+    setSleepEnd('');
+    setEditingField(null);
+    setDate(d);
+    setInputOpen(true);
+  };
+
+  // 입력 카드가 열리면 화면에 보이도록 스크롤
+  useEffect(() => {
+    if (inputOpen) formRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  }, [inputOpen]);
 
   const sleepRecords = selfCareRecords
     .filter(r => r.category === 'sleep')
@@ -512,7 +553,7 @@ export function SleepSection() {
 
       {/* 입력 카드 (펼침 상태에서만) */}
       {inputOpen && (
-      <div className="p-3 lg:p-4 rounded-2xl mb-3" style={{ backgroundColor: t.card, border: `1px solid ${t.borderLight}` }}>
+      <div ref={formRef} className="p-3 lg:p-4 rounded-2xl mb-3" style={{ backgroundColor: t.card, border: `1px solid ${t.borderLight}` }}>
         {/* 입력 헤더 + 닫기 */}
         <div className="flex items-center justify-between mb-3">
           <span style={{ fontSize: 12, fontWeight: 700, color: SLEEP_COLOR }}>수면 기록</span>
@@ -630,16 +671,30 @@ export function SleepSection() {
                 const hLabel = d.duration > 0
                   ? (d.duration >= 60 ? `${Math.floor(d.duration / 60)}h${d.duration % 60 > 0 ? (d.duration % 60) + 'm' : ''}` : `${d.duration}m`)
                   : '';
+                const isSelected = selectedDate === d.date;
 
                 return (
-                  <div key={d.date} className="flex flex-col items-center flex-1" style={{ minWidth: 0 }}>
+                  <button
+                    key={d.date}
+                    type="button"
+                    onClick={() => toggleDate(d.date)}
+                    aria-pressed={isSelected}
+                    title={d.duration > 0 ? `${d.start ?? '?'} ~ ${d.end ?? '?'} · ${fmtSleep(d.duration)}` : d.date}
+                    className="flex flex-col items-center flex-1 rounded-lg py-1 transition-colors"
+                    style={{
+                      minWidth: 0,
+                      background: isSelected ? `${SLEEP_COLOR}14` : 'none',
+                      border: `1px solid ${isSelected ? SLEEP_COLOR : 'transparent'}`,
+                      boxShadow: isSelected ? `0 0 0 2px ${SLEEP_COLOR}40` : 'none',
+                      cursor: 'pointer',
+                    }}
+                  >
                     {/* 수면시간 레이블 */}
                     <span style={{ fontSize: 8, color: barColor, fontWeight: 700, height: 14, lineHeight: '14px', textAlign: 'center', whiteSpace: 'nowrap' }}>
                       {hLabel}
                     </span>
                     {/* 바 */}
                     <div
-                      title={d.duration > 0 ? `${d.start ?? '?'} ~ ${d.end ?? '?'} · ${fmtSleep(d.duration)}` : ''}
                       style={{
                         width: '70%',
                         minWidth: 8,
@@ -653,7 +708,7 @@ export function SleepSection() {
                     <span style={{ fontSize: 9, color: d.isToday ? SLEEP_COLOR : t.textMuted, marginTop: 4, fontWeight: d.isToday ? 700 : 400 }}>
                       {d.label}
                     </span>
-                  </div>
+                  </button>
                 );
               })}
             </div>
@@ -672,27 +727,122 @@ export function SleepSection() {
         </div>
       )}
 
-      {/* 최근 기록 목록 */}
-      <div className="space-y-2">
-        {sleepRecords.slice(0, 5).map(r => (
-          <div key={r.id} className="flex items-center gap-3 px-4 py-2.5 rounded-xl"
-            style={{ backgroundColor: t.card, border: `1px solid ${t.borderLight}` }}>
-            <Moon size={12} color={SLEEP_COLOR} />
-            <span style={{ fontSize: 11, color: t.textMuted, width: 44, flexShrink: 0 }}>{r.date.slice(5)}</span>
-            <span style={{ fontSize: 13, color: t.text, flex: 1 }}>{r.content}</span>
-            <span style={{ fontSize: 11, color: SLEEP_COLOR, fontWeight: 600, flexShrink: 0 }}>
-              {fmtSleep(r.duration)}
-            </span>
-            <button onClick={() => deleteSelfCareRecord(r.id)}
-              className="p-1 rounded" style={{ color: t.textMuted, background: 'none', border: 'none', cursor: 'pointer' }}>
-              <X size={13} />
-            </button>
+      {/* 기록 영역 (컨디션 탭 패턴) */}
+      {(() => {
+        const q = searchQuery.trim().toLowerCase();
+        const displayed = q
+          ? sleepRecords.filter(r => {
+              const dur = fmtSleep(r.duration).toLowerCase();
+              return (
+                r.date.toLowerCase().includes(q) ||
+                (r.content ?? '').toLowerCase().includes(q) ||
+                dur.includes(q)
+              );
+            })
+          : selectedDate
+            ? sleepRecords.filter(r => r.date === selectedDate)
+            : sleepRecords.slice(0, listLimit);
+        const isDefaultView = !q && !selectedDate;
+
+        return (
+          <div>
+            {/* 헤더: 제목 + 돋보기 */}
+            <div className="flex items-center justify-between mb-2">
+              <p style={{ fontSize: 13, fontWeight: 700, color: t.text }}>기록</p>
+              <button onClick={toggleSearch} aria-label="검색" aria-pressed={searchOpen}
+                className="p-1.5 rounded-lg"
+                style={{
+                  backgroundColor: searchOpen ? `${SLEEP_COLOR}1A` : t.bgSub,
+                  color: searchOpen ? SLEEP_COLOR : t.textSub, border: 'none', cursor: 'pointer',
+                }}>
+                <Search size={15} />
+              </button>
+            </div>
+
+            {searchOpen ? (
+              /* 검색바 */
+              <div className="flex items-center gap-2 mb-3 px-3 py-2 rounded-xl"
+                style={{ backgroundColor: t.bgSub, border: `1px solid ${t.borderLight}` }}>
+                <Search size={14} color={t.textMuted} />
+                <input autoFocus value={searchQuery} onChange={e => setSearchQuery(e.target.value)}
+                  placeholder="날짜·시간·수면시간 검색"
+                  className="flex-1 bg-transparent outline-none"
+                  style={{ fontSize: 13, color: t.text }} />
+                {searchQuery && (
+                  <button onClick={() => setSearchQuery('')} aria-label="검색어 지우기"
+                    style={{ color: t.textMuted, background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}>
+                    <X size={14} />
+                  </button>
+                )}
+              </div>
+            ) : selectedDate ? (
+              /* 날짜 필터 칩 */
+              <button onClick={() => setSelectedDate(null)}
+                className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full mb-3"
+                style={{
+                  fontSize: 12, fontWeight: 600,
+                  backgroundColor: `${SLEEP_COLOR}1A`, color: SLEEP_COLOR, border: `1px solid ${SLEEP_COLOR}`,
+                }}>
+                {format(parseISO(selectedDate), 'M월 d일')}
+                <X size={12} />
+              </button>
+            ) : (
+              <p style={{ fontSize: 11, color: t.textMuted, marginBottom: 10 }}>전체 기록 · 최신순</p>
+            )}
+
+            {displayed.length === 0 ? (
+              q ? (
+                <div className="py-8 text-center rounded-2xl"
+                  style={{ backgroundColor: t.bgSub, fontSize: 13, color: t.textMuted }}>
+                  검색 결과가 없어요
+                </div>
+              ) : selectedDate ? (
+                /* 빈 날 넛지 — 선택한 날짜에 수면 기록이 없을 때 */
+                <div className="py-6 px-4 text-center rounded-2xl"
+                  style={{ backgroundColor: t.card, border: `1px solid ${t.borderLight}` }}>
+                  <p style={{ fontSize: 13, fontWeight: 600, color: t.text }}>
+                    {selectedDate === todayStr ? '오늘은' : `${format(parseISO(selectedDate), 'M월 d일')}은`} 아직 수면 기록이 없어요
+                  </p>
+                  <p style={{ fontSize: 12, color: t.textMuted, marginTop: 4 }}>이 날 수면은 어땠나요?</p>
+                  <button
+                    onClick={() => openRecordFor(selectedDate)}
+                    className="inline-flex items-center gap-1.5 mt-3 px-4 py-2 rounded-xl"
+                    style={{ fontSize: 13, fontWeight: 600, color: '#fff', backgroundColor: SLEEP_COLOR }}>
+                    <Plus size={14} /> 수면 기록하기
+                  </button>
+                </div>
+              ) : (
+                <p style={{ fontSize: 12, color: t.textMuted, padding: '4px 0' }}>아직 수면 기록이 없습니다</p>
+              )
+            ) : (
+              <div className="space-y-2">
+                {displayed.map(r => (
+                  <div key={r.id} className="flex items-center gap-3 px-4 py-2.5 rounded-xl"
+                    style={{ backgroundColor: t.card, border: `1px solid ${t.borderLight}` }}>
+                    <Moon size={12} color={SLEEP_COLOR} />
+                    <span style={{ fontSize: 11, color: t.textMuted, width: 44, flexShrink: 0 }}>{r.date.slice(5)}</span>
+                    <span style={{ fontSize: 13, color: t.text, flex: 1 }}>{r.content}</span>
+                    <span style={{ fontSize: 11, color: SLEEP_COLOR, fontWeight: 600, flexShrink: 0 }}>
+                      {fmtSleep(r.duration)}
+                    </span>
+                    <button onClick={() => deleteSelfCareRecord(r.id)}
+                      className="p-1 rounded" style={{ color: t.textMuted, background: 'none', border: 'none', cursor: 'pointer' }}>
+                      <X size={13} />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {isDefaultView && sleepRecords.length > listLimit && (
+              <button onClick={() => setListLimit(n => n + 10)}
+                className="w-full mt-3 py-2 rounded-xl" style={{ backgroundColor: t.bgSub, color: t.textSub, fontSize: 13 }}>
+                더보기
+              </button>
+            )}
           </div>
-        ))}
-        {sleepRecords.length === 0 && (
-          <p style={{ fontSize: 12, color: t.textMuted, padding: '4px 0' }}>아직 수면 기록이 없습니다</p>
-        )}
-      </div>
+        );
+      })()}
     </div>
   );
 }
