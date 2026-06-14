@@ -39,7 +39,8 @@ export function ConditionTab() {
   const [weekOffset, setWeekOffset] = useState(0); // 0=이번주, -1=지난주 ...
 
   // 기록 영역 필터/검색 상태 (트리거 UI는 이후 Stage에서 연결)
-  const [selectedDate, setSelectedDate] = useState<string | null>(null); // 날짜 필터 (yyyy-MM-dd)
+  // 기본값 = 오늘(로컬 기준) — 탭 진입 시 오늘 날짜로 필터된 상태로 시작. 칩 ×로 전체(null) 전환
+  const [selectedDate, setSelectedDate] = useState<string | null>(format(new Date(), 'yyyy-MM-dd'));
   const [searchQuery, setSearchQuery] = useState(''); // 본문·태그 텍스트 검색
   const [searchOpen, setSearchOpen] = useState(false); // 검색바 펼침 여부
 
@@ -464,7 +465,7 @@ export function ConditionTab() {
             <div className="py-6 px-4 text-center rounded-2xl"
               style={{ backgroundColor: t.card, border: `1px solid ${t.border}` }}>
               <p style={{ fontSize: 13, fontWeight: 600, color: t.text }}>
-                {format(parseISO(selectedDate), 'M월 d일')}은 아직 기록이 없어요.
+                {selectedDate === todayStr ? '오늘은' : `${format(parseISO(selectedDate), 'M월 d일')}은`} 아직 기록이 없어요.
               </p>
               <p style={{ fontSize: 12, color: t.textMuted, marginTop: 4 }}>이 날은 어땠나요?</p>
               <button
