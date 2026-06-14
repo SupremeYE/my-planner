@@ -6,6 +6,19 @@
 
 ---
 
+## 2026-06-14
+
+### 🛠 오늘 작업 내용
+
+**통합 빠른 입력(Quick Add) + Inbox 독립 화면 — Stage 0~3**
+- **Stage 0 (자연어 파서, UI 무관 순수 함수)** — `src/lib/quickParse.ts` `parseQuickEntry(input, now?)` → `ParsedEntry`. 토큰 인식: `#태그`(복수)·`@프로젝트`(첫 매치, id 매칭은 호출부)·단독/선두 `!`(중요=isTop3)·반복(`매일`→daily/`평일`→weekday/`매주 [요일]`→weekly+요일)·날짜(`오늘`/`내일`/`모레`/`X요일`/`M/D`/`M.D`/`M월 D일`, 지난 날짜는 내년으로)·시간(`(오전|오후)? N시 (반|N분)?`/`HH:MM`/`N-N시` 범위). 날짜·시간 분기: 날짜 토큰 우선 → 시간만 있으면 오늘 → 둘 다 없으면 `date=null`(Inbox). **weekly 는 다가오는 해당 요일로 `date` 를 맞춰** 기존 `TodoModal`/`recurrenceExpansion`(weekly=시작일 요일 기준 확장)과 정합. 새 라이브러리 없이 date-fns 재사용, 데이터 모델 변경 0. `quickParse.test.ts`(`node:test`) 9건 전부 통과.
+- **Stage 1 (통합 입력 컴포넌트)** — `QuickAddInput.tsx`: 입력 중 실시간 칩 미리보기([할일=그린/일정=블루]·[날짜 or Inbox]·[시간]·[반복]·[#태그=코랄]·[@프로젝트]·[중요], 토큰+`${color}1A` 알파 파생, 하드코딩 색 0). 시간 감지 시 "일정으로?" 토글 칩(누르면 addEvent, 다시 누르면 addTodo, 시간 사라지면 자동 할일 복귀). 프로젝트는 이름 매칭 성공 시 `projectId`·실패 시 `@토큰`을 제목에 되돌려 무시(새 프로젝트 안 생김). 태그는 기존 매칭, 없으면 공통 팔레트로 새 태그 생성 후 id 매핑. 저장은 기존 `addTodo({...changes,status:'active'})`/`addEvent(payload)` 그대로(Realtime 경로 유지). `defaultDate` 폴백(파싱 날짜 없을 때, Inbox 는 null). "자세히" → 기존 모달 오픈. 부수: `src/lib/tagPalette.ts`(13색 팔레트/localStorage 공통화, TodoModal 도 import), `addTag` 가 생성 `Tag` 반환(하위 호환), `TodoModal`/`EventModal` 에 `initial*` optional prop 추가(자세히 prefill — 제목·시간·태그·중요·반복).
+- **Stage 2 (Inbox 독립 화면)** — `InboxView.tsx` + `/inbox` 라우트. 대상 = `date===null && status ∉ {backlog,cancelled}`(완료는 접기). 헤더("Inbox"/"막 던지고, 한가할 때 비우기") + 상단 `QuickAddInput(defaultDate=null)` + 항목 카드(체크 동그라미 완료 토글 + 본문 + 메타 칩 + triage `[오늘][내일][날짜(네이티브 picker)][완료][삭제(ConfirmModal)]` → `updateTodo`/`deleteTodo`). 정렬 = `created_at` ASC 적재를 reverse(최신순, 추후 토글 여지). 빈 상태(체크 아이콘 + "Inbox를 다 비웠어요"). PC max-w 760 중앙·액션 우측, 모바일 헤더+입력 상단 sticky·triage 44px 터치 타겟·하단 safe-area.
+- **Stage 3 (네비 진입점 + 카운트 배지)** — `src/lib/inbox.ts`(`isInboxCandidate`/`countInboxActive`=날짜 미지정·미완료 수)로 카운트 단일화. PC 사이드바(테마 A/B/D, `Layout`) 메인 네비 '인박스' + 배지(펼침=숫자/접힘=점), 모바일 햄버거 오버레이 원형 아이콘 우상단 배지, 테마 C(`LayoutC`) 상단 네비 라벨 옆 배지. 0 이면 모두 숨김, store `todos` 의존이라 추가/배정/삭제 시 4곳 Realtime 동시 갱신. 기존 네비 레이아웃 DOM 무변경(항목/배지만 추가).
+- 원칙 준수: 색 디자인 토큰만(배지 텍스트 #fff·이벤트 기본색만 기존 관례 유지)·PC 레이아웃 보존(모바일 `lg:` 분기)·Todo/Event 데이터 모델 무변경(파서 한 겹만)·기존 TodoModal/EventModal/TodoRow/반복 분기 무손상·`npm run build` 통과.
+
+---
+
 ## 2026-06-13
 
 ### 🛠 오늘 작업 내용
