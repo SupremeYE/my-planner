@@ -1,6 +1,6 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { format, subDays, startOfMonth, endOfWeek, startOfWeek, addDays, getDaysInMonth, getDay, parseISO } from 'date-fns';
-import { Trash2, Plus, X, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Trash2, Plus, X, ChevronLeft, ChevronRight, Search } from 'lucide-react';
 import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
 } from 'recharts';
@@ -38,7 +38,14 @@ export function ConditionTab() {
   const [inputOpen, setInputOpen] = useState(false); // 입력 폼 기본 접힘
   const [weekOffset, setWeekOffset] = useState(0); // 0=이번주, -1=지난주 ...
 
+  // 기록 영역 필터/검색 상태 (트리거 UI는 이후 Stage에서 연결)
+  // 기본값 = 오늘(로컬 기준) — 탭 진입 시 오늘 날짜로 필터된 상태로 시작. 칩 ×로 전체(null) 전환
+  const [selectedDate, setSelectedDate] = useState<string | null>(format(new Date(), 'yyyy-MM-dd'));
+  const [searchQuery, setSearchQuery] = useState(''); // 본문·태그 텍스트 검색
+  const [searchOpen, setSearchOpen] = useState(false); // 검색바 펼침 여부
+
   const symptomOptions = getSymptomOptions();
+  const formRef = useRef<HTMLDivElement>(null); // 입력 카드 — 넛지에서 열 때 스크롤 대상
 
   // ── fetch + realtime ──
   const refresh = useCallback(() => {
@@ -76,6 +83,35 @@ export function ConditionTab() {
   const toggleSymptom = (s: string) => {
     setSymptoms(prev => prev.includes(s) ? prev.filter(x => x !== s) : [...prev, s]);
   };
+
+  // 날짜 칸(주간 셀·히트맵) 클릭 → 그 날짜로 필터 / 같은 날 재클릭 시 해제
+  // 검색과 날짜 필터는 동시 적용하지 않으므로 날짜 선택 시 검색은 닫고 비운다
+  const toggleDate = (d: string) => {
+    setSearchOpen(false);
+    setSearchQuery('');
+    setSelectedDate(prev => (prev === d ? null : d));
+  };
+
+  // 돋보기 토글 — 열면 날짜 필터 해제, 닫으면 검색어 비워 전체로 복귀
+  const toggleSearch = () => {
+    setSearchOpen(prev => {
+      const next = !prev;
+      if (next) setSelectedDate(null);
+      else setSearchQuery('');
+      return next;
+    });
+  };
+
+  // 빈 날 넛지 [기록하기] → 기존 인라인 입력 카드를 그 날짜로 prefill하여 연다 (새 UI 없음)
+  const openRecordFor = (d: string) => {
+    resetForm();
+    setDate(d);
+    setInputOpen(true);
+  };
+  // 입력 카드가 열리면 화면에 보이도록 스크롤(이미 보이면 이동 없음)
+  useEffect(() => {
+    if (inputOpen) formRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  }, [inputOpen]);
 
   // ── 통계 ──
   const today = new Date();
@@ -138,9 +174,24 @@ export function ConditionTab() {
     return cells;
   }, [monthRecs]);
 
-  const visibleRecords = sorted.slice(0, listLimit);
-
   const stressLabel = (v: number) => STRESS_LEVELS.find(s => s.value === v)?.label ?? String(v);
+
+  // 표시할 기록 도출: 검색어 > 선택 날짜 > 전체 최신순
+  // (검색과 날짜 필터는 동시 적용하지 않음 — 검색이 우선)
+  const displayedRecords = useMemo(() => {
+    const q = searchQuery.trim().toLowerCase();
+    if (q) {
+      return sorted.filter(r =>
+        [r.memo ?? '', ...(r.symptoms ?? []), stressLabel(r.stress)]
+          .join(' ').toLowerCase().includes(q)
+      );
+    }
+    if (selectedDate) return sorted.filter(r => r.date === selectedDate);
+    return sorted.slice(0, listLimit);
+  }, [sorted, searchQuery, selectedDate, listLimit]);
+
+  // 필터/검색이 없는 기본 상태에서만 "더보기" 노출 (필터 결과는 전체 표시)
+  const isDefaultView = !searchQuery.trim() && !selectedDate;
 
   return (
     <div className="space-y-5">
@@ -153,7 +204,7 @@ export function ConditionTab() {
         </button>
       )}
       {inputOpen && (
-      <div className="p-4 rounded-2xl" style={{ backgroundColor: t.card, border: `1px solid ${t.border}` }}>
+      <div ref={formRef} className="p-4 rounded-2xl" style={{ backgroundColor: t.card, border: `1px solid ${t.border}` }}>
         <div className="flex items-center justify-between mb-3">
           <span style={{ fontSize: 13, fontWeight: 700, color: t.text }}>컨디션 기록</span>
           <button onClick={() => { setInputOpen(false); resetForm(); }} className="p-1 rounded"
@@ -256,19 +307,23 @@ export function ConditionTab() {
           {weekDays.map((d, i) => {
             const s = stressByDate[d] ?? null;
             const isToday = d === todayStr;
+            const isSelected = selectedDate === d;
             return (
               <div key={d} className="flex flex-col items-center gap-1">
                 <span style={{ fontSize: 10, color: t.textMuted }}>{WEEK_LABELS[i]}</span>
-                <div className="w-full flex items-center justify-center rounded-lg aspect-square lg:aspect-auto lg:h-14"
+                <button onClick={() => toggleDate(d)} aria-pressed={isSelected}
+                  className="w-full flex items-center justify-center rounded-lg aspect-square lg:aspect-auto lg:h-14"
                   style={{
                     backgroundColor: s != null ? stressShade(s) : t.bgSub,
-                    border: `1px solid ${isToday ? t.accent : t.border}`,
+                    border: `1px solid ${isSelected ? t.danger : isToday ? t.accent : t.border}`,
+                    boxShadow: isSelected ? `0 0 0 2px ${t.danger}` : 'none',
+                    cursor: 'pointer',
                   }}
                   title={s != null ? `${d} · 스트레스 ${s}` : d}>
                   <span style={{ fontSize: 11, fontWeight: 600, color: s != null && s >= 3 ? '#fff' : t.textMuted }}>
                     {parseInt(d.slice(8), 10)}
                   </span>
-                </div>
+                </button>
               </div>
             );
           })}
@@ -312,17 +367,20 @@ export function ConditionTab() {
               {heatmap.map((cell, i) => cell === null ? (
                 <div key={i} style={{ aspectRatio: '1' }} />
               ) : (
-                <div key={i} className="flex items-center justify-center rounded-lg"
+                <button key={i} onClick={() => toggleDate(cell.dateStr)} aria-pressed={selectedDate === cell.dateStr}
+                  className="flex items-center justify-center rounded-lg"
                   style={{
                     aspectRatio: '1',
                     backgroundColor: cell.stress != null ? stressShade(cell.stress) : t.bgSub,
-                    border: `1px solid ${t.border}`,
+                    border: `1px solid ${selectedDate === cell.dateStr ? t.danger : t.border}`,
+                    boxShadow: selectedDate === cell.dateStr ? `0 0 0 2px ${t.danger}` : 'none',
+                    cursor: 'pointer',
                   }}
                   title={cell.stress != null ? `${cell.dateStr} · 스트레스 ${cell.stress}` : cell.dateStr}>
                   <span style={{ fontSize: 10, color: cell.stress != null && cell.stress >= 3 ? '#fff' : t.textMuted }}>
                     {cell.day}
                   </span>
-                </div>
+                </button>
               ))}
             </div>
           </div>
@@ -352,15 +410,80 @@ export function ConditionTab() {
 
       {/* (C) 기록 리스트 */}
       <div>
-        <p style={{ fontSize: 13, fontWeight: 700, color: t.text, marginBottom: 10 }}>기록</p>
-        {visibleRecords.length === 0 ? (
-          <div className="py-8 text-center rounded-2xl"
-            style={{ backgroundColor: t.bgSub, fontSize: 13, color: t.textMuted }}>
-            아직 컨디션 기록이 없습니다
+        {/* 헤더: 제목 + 돋보기 */}
+        <div className="flex items-center justify-between mb-2">
+          <p style={{ fontSize: 13, fontWeight: 700, color: t.text }}>기록</p>
+          <button onClick={toggleSearch} aria-label="검색" aria-pressed={searchOpen}
+            className="p-1.5 rounded-lg"
+            style={{
+              backgroundColor: searchOpen ? t.dangerLight : t.bgSub,
+              color: searchOpen ? t.danger : t.textSub, border: 'none', cursor: 'pointer',
+            }}>
+            <Search size={15} />
+          </button>
+        </div>
+
+        {searchOpen ? (
+          /* 검색바 */
+          <div className="flex items-center gap-2 mb-3 px-3 py-2 rounded-xl"
+            style={{ backgroundColor: t.bgSub, border: `1px solid ${t.border}` }}>
+            <Search size={14} color={t.textMuted} />
+            <input autoFocus value={searchQuery} onChange={e => setSearchQuery(e.target.value)}
+              placeholder="본문·증상·레벨 검색"
+              className="flex-1 bg-transparent outline-none"
+              style={{ fontSize: 13, color: t.text }} />
+            {searchQuery && (
+              <button onClick={() => setSearchQuery('')} aria-label="검색어 지우기"
+                style={{ color: t.textMuted, background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}>
+                <X size={14} />
+              </button>
+            )}
           </div>
+        ) : selectedDate ? (
+          /* 날짜 필터 칩 */
+          <button onClick={() => setSelectedDate(null)}
+            className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full mb-3"
+            style={{
+              fontSize: 12, fontWeight: 600,
+              backgroundColor: t.dangerLight, color: t.danger, border: `1px solid ${t.danger}`,
+            }}>
+            {format(parseISO(selectedDate), 'M월 d일')}
+            <X size={12} />
+          </button>
+        ) : (
+          <p style={{ fontSize: 11, color: t.textMuted, marginBottom: 10 }}>전체 기록 · 최신순</p>
+        )}
+
+        {displayedRecords.length === 0 ? (
+          searchQuery.trim() ? (
+            <div className="py-8 text-center rounded-2xl"
+              style={{ backgroundColor: t.bgSub, fontSize: 13, color: t.textMuted }}>
+              검색 결과가 없어요
+            </div>
+          ) : selectedDate ? (
+            /* 빈 날 넛지 — 선택한 날짜에 기록이 없을 때 */
+            <div className="py-6 px-4 text-center rounded-2xl"
+              style={{ backgroundColor: t.card, border: `1px solid ${t.border}` }}>
+              <p style={{ fontSize: 13, fontWeight: 600, color: t.text }}>
+                {selectedDate === todayStr ? '오늘은' : `${format(parseISO(selectedDate), 'M월 d일')}은`} 아직 기록이 없어요.
+              </p>
+              <p style={{ fontSize: 12, color: t.textMuted, marginTop: 4 }}>이 날은 어땠나요?</p>
+              <button
+                onClick={() => openRecordFor(selectedDate)}
+                className="inline-flex items-center gap-1.5 mt-3 px-4 py-2 rounded-xl"
+                style={{ fontSize: 13, fontWeight: 600, color: '#fff', backgroundColor: t.accent }}>
+                <Plus size={14} /> 기록하기
+              </button>
+            </div>
+          ) : (
+            <div className="py-8 text-center rounded-2xl"
+              style={{ backgroundColor: t.bgSub, fontSize: 13, color: t.textMuted }}>
+              아직 컨디션 기록이 없습니다
+            </div>
+          )
         ) : (
           <div className="space-y-2">
-            {visibleRecords.map(r => (
+            {displayedRecords.map(r => (
               <div key={r.id} className="flex items-start gap-3 px-3 py-2.5 rounded-xl"
                 style={{ backgroundColor: t.card, border: `1px solid ${t.border}` }}>
                 <span style={{ fontSize: 12, color: t.textSub, width: 50, flexShrink: 0, paddingTop: 2 }}>{r.date.slice(5)}</span>
@@ -386,7 +509,7 @@ export function ConditionTab() {
             ))}
           </div>
         )}
-        {sorted.length > listLimit && (
+        {isDefaultView && sorted.length > listLimit && (
           <button onClick={() => setListLimit(n => n + 10)}
             className="w-full mt-3 py-2 rounded-xl" style={{ backgroundColor: t.bgSub, color: t.textSub, fontSize: 13 }}>
             더보기
