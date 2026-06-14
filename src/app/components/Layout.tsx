@@ -868,7 +868,7 @@ export function Layout() {
       {/* ── Mobile ── */}
       <div className="lg:hidden flex flex-col h-[100dvh]">
         {/* Mobile top bar — PWA standalone 시 노치/상태바 영역 회피 (safe-area-inset-top) */}
-        <div className="flex items-center justify-between px-4 py-3 border-b flex-shrink-0 sticky top-0 z-30"
+        <div className="flex items-center justify-between px-4 py-3 border-b flex-shrink-0 relative z-30"
           style={{ backgroundColor: t.sidebar, borderColor: t.border, paddingTop: 'calc(0.75rem + env(safe-area-inset-top))' }}>
           <HaonLogo height={28} />
           <div className="flex items-center gap-2">

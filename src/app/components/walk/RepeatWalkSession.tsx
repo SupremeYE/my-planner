@@ -62,7 +62,14 @@ export function RepeatWalkSession({ target, name, onFinish, onCancel }: {
       setMapReady(true);
       setTimeout(() => map.relayout(), 80);
     }).catch(() => { /* 폴백: 글리프 */ });
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+      if (mapRef.current) {
+        const k = window.kakao;
+        if (k?.maps?.event) k.maps.event.removeListener(mapRef.current);
+        mapRef.current = null;
+      }
+    };
   }, [useMap, target, t.accent, t.success, t.danger, t.textMuted]);
 
   // 실제 경로 갱신

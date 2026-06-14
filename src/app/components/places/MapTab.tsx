@@ -76,7 +76,15 @@ export function MapTab() {
         setTimeout(() => map.relayout(), 260);
       })
       .catch(e => setMapError(e?.message ?? '지도를 불러오지 못했어요.'));
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+      if (clustererRef.current) { clustererRef.current.clear(); clustererRef.current = null; }
+      if (mapRef.current) {
+        const k = window.kakao;
+        if (k?.maps?.event) k.maps.event.removeListener(mapRef.current);
+        mapRef.current = null;
+      }
+    };
   }, []);
 
   // 창 크기 변화(모바일↔PC 분기 등) 시 relayout

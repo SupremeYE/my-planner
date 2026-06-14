@@ -68,7 +68,14 @@ export function CourseWalkSession({ start, dest, onFinish, onCancel }: {
       setMapReady(true);
       setTimeout(() => map.relayout(), 80);
     }).catch(() => { /* 폴백: 글리프 */ });
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+      if (mapRef.current) {
+        const k = window.kakao;
+        if (k?.maps?.event) k.maps.event.removeListener(mapRef.current);
+        mapRef.current = null;
+      }
+    };
   }, [useMap, start, dest, t.accent, t.success, t.danger]);
 
   // 참고선 / ORS 점선 — planned 유무에 따라 한 번 그림

@@ -55,7 +55,14 @@ export function FreeWalkSession({ onFinish, onCancel }: { onFinish: (d: WalkDraf
       setMapReady(true);
       setTimeout(() => map.relayout(), 80);
     }).catch(() => { /* 키/로드 실패 → 글리프 폴백 */ });
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+      if (mapRef.current) {
+        const k = window.kakao;
+        if (k?.maps?.event) k.maps.event.removeListener(mapRef.current);
+        mapRef.current = null;
+      }
+    };
   }, [useMap, t.accent]);
 
   // 경로 갱신 → 폴리라인 setPath + 현재 위치 마커 + 부드러운 팬
