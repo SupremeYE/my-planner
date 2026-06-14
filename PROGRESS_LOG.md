@@ -10,6 +10,23 @@
 
 ### 🛠 오늘 작업 내용
 
+**컨디션 탭 기록 영역 — 날짜 필터 / 검색 / 빈날 넛지 (Stage 1~5 + 패치)**
+- **Stage 1 (필터/검색 파생 로직 기반)** — `ConditionTab.tsx` 에 `selectedDate`/`searchQuery` 상태 + `displayedRecords` useMemo(검색어 우선 → 선택 날짜 → 전체 최신순 `listLimit` 적용). 기존 리스트 UI를 파생 결과로 교체(겉모습 무변화), `isDefaultView`일 때만 "더보기" 노출. PC/모바일 외형 변화 0.
+- **Stage 2 (날짜 트리거 + 칩 + 빈날 넛지)** — 주간 셀·히트맵 칸 `<div>→<button>`, `toggleDate`(같은 날 재클릭/칩 × 해제), 선택칸 강조(`border t.danger` + `0 0 0 2px` 코랄 링, 오늘 `t.accent` 보다 우선). 기록 헤더: 날짜 선택 시 `M월 d일 ×` 칩(`t.dangerLight`/`t.danger`) / 미선택 시 `전체 기록 · 최신순` 힌트. 선택 날짜에 기록 없으면 **빈 날 넛지 카드**(문구 + [기록하기] 버튼, Stage 4에서 동작 연결) — 모두 디자인 토큰.
+- **Stage 3 (검색)** — 기록 헤더 우측 돋보기 토글로 검색바 펼침/접힘. 활성 시 `t.dangerLight`/`t.danger` 강조 + autoFocus input(본문·증상·레벨 라벨 텍스트). **상호 배타**: 검색 열 때 `selectedDate=null`, 날짜 클릭 시 검색 닫힘+비움 → 검색·날짜 필터 동시 적용 X. 검색바 닫으면 전체로 복귀, 결과 0이면 "검색 결과가 없어요"(빈날 넛지보다 우선).
+- **Stage 4 (빈 날 넛지 → 기존 입력 카드 재사용)** — `openRecordFor(d)` = `resetForm()`+`setDate(d)`+`setInputOpen(true)`. 새 UI 만들지 않고 컴포넌트 내 기존 인라인 입력 카드에 prefill. 카드 열림 시 `formRef.scrollIntoView({block:'nearest'})` — 이미 보이면 이동 없음. 저장 후 기존 `refresh()`로 records 갱신 → `selectedDate` 유지로 새 기록이 즉시 그 날짜 뷰에 등장(Realtime 구독도 그대로).
+- **Stage 5 (반응형 확인, 무코드)** — PC 2열(`lg:grid-cols-2` 히트맵+추이) 보존, 모바일 세로 스택 정상. `lg:` 클래스 0건 변경. 단일 반응형 컴포넌트라 필터/검색/넛지 로직이 PC/모바일 공통 동작.
+- **패치 (기본값을 "오늘"로 변경)** — `selectedDate` 초기값을 `null`(전체) → `format(new Date(),'yyyy-MM-dd')`(오늘). 빈 날 넛지 문구는 `selectedDate===todayStr`이면 "오늘은 아직 기록이 없어요" 분기, 아니면 기존 "M월 d일은…". 칩 × → `null` → 전체 최신순으로 전환(전체 보기는 기본이 아니라 ×로 진입하는 상태).
+
+**컨디션 기록 입력 폼 — 커스텀 증상 추가 + 재사용 칩 (Stage 1~3)**
+- **Stage 1 (데이터 레이어)** — 마이그레이션 `20260614020000_create_user_symptoms.sql` 적용: `user_symptoms(id text PK, name text, name_norm text UNIQUE, created_at)` + 컨디션과 동일한 owner uid 하드코딩 RLS(단일 사용자 패턴) + Realtime publication. `src/constants/symptoms.ts`에 `normalizeSymptom(s)`(`trim + /\s+/→' ' + lower`) 추가, `getSymptomOptions(custom)`이 정규화 기준으로 기본과 중복되는 커스텀 자동 배제. `db.userSymptoms.fetchAll/add`(정규화 사전 조회 + UNIQUE race 방어, `{ok,created}|{ok:false,reason:'duplicate',existing}|{ok:false,reason:'error'}`). `UserSymptom { id, name }` 타입 추가. `ConditionTab.tsx`에서 `userSymptoms` 상태 + `useRealtimeSync('user_symptoms')` + `symptomOptions` useMemo로 기본+커스텀 합산.
+- **Stage 2 (입력 UI)** — 증상 영역에 점선 골드 **"+ 증상 추가"** 칩 → 클릭 시 인라인 input(autoFocus, maxLength 20) + [추가] + [×]. Enter로 추가, ESC로 취소. `handleAddSymptom`: ① 빈 값 무시 ② 화면 칩(기본+커스텀)에서 정규화 일치 → 그 칩 선택 + "OO은(는) 이미 있어서 선택했어요" 안내(3초 후 자동 사라짐) ③ 신규면 `db.userSymptoms.add` → 즉시 선택 + 칩 풀 영구 저장 + 입력 닫힘. 커스텀 미선택 칩은 **점선 골드**(`1px dashed t.accent` + `color: t.accent`), 선택 시 둘 다 코랄(`STRESS_COLOR`) 강조 — `defaultNormSet`(useMemo)으로 기본/커스텀 구분. `resetForm`에 인라인 입력 상태 포함.
+- **Stage 3 (통계·표시 연동 확인, 무코드)** — `symptoms text[]`에 칩 이름 그대로 저장되는 평등 모델이라 자동 편입: `topSymptoms` useMemo(빈도 키=문자열)에서 같은 이름 합산, 기록 카드 `(r.symptoms ?? []).map(s => …)`에서 그대로 노출, `displayedRecords` 검색 파생에서 `[...r.symptoms]` 텍스트 매칭으로 커스텀 증상명 검색 가능.
+
+- 원칙 준수: 색 디자인 토큰만(코랄=`t.danger`/`t.dangerLight`, 골드=`t.accent`, `t.bgSub`/`t.border`/`t.textSub` 등) · PC 레이아웃 보존(`lg:` 분기 0건 추가/변경, 단일 반응형 컴포넌트라 PC/모바일 로직 공통) · DB "한 번 저장 → 이후 읽기만" 원칙(`name_norm` UNIQUE + 사전 조회로 중복 차단) · `npm run build` 통과.
+
+---
+
 **통합 빠른 입력(Quick Add) + Inbox 독립 화면 — Stage 0~3**
 - **Stage 0 (자연어 파서, UI 무관 순수 함수)** — `src/lib/quickParse.ts` `parseQuickEntry(input, now?)` → `ParsedEntry`. 토큰 인식: `#태그`(복수)·`@프로젝트`(첫 매치, id 매칭은 호출부)·단독/선두 `!`(중요=isTop3)·반복(`매일`→daily/`평일`→weekday/`매주 [요일]`→weekly+요일)·날짜(`오늘`/`내일`/`모레`/`X요일`/`M/D`/`M.D`/`M월 D일`, 지난 날짜는 내년으로)·시간(`(오전|오후)? N시 (반|N분)?`/`HH:MM`/`N-N시` 범위). 날짜·시간 분기: 날짜 토큰 우선 → 시간만 있으면 오늘 → 둘 다 없으면 `date=null`(Inbox). **weekly 는 다가오는 해당 요일로 `date` 를 맞춰** 기존 `TodoModal`/`recurrenceExpansion`(weekly=시작일 요일 기준 확장)과 정합. 새 라이브러리 없이 date-fns 재사용, 데이터 모델 변경 0. `quickParse.test.ts`(`node:test`) 9건 전부 통과.
 - **Stage 1 (통합 입력 컴포넌트)** — `QuickAddInput.tsx`: 입력 중 실시간 칩 미리보기([할일=그린/일정=블루]·[날짜 or Inbox]·[시간]·[반복]·[#태그=코랄]·[@프로젝트]·[중요], 토큰+`${color}1A` 알파 파생, 하드코딩 색 0). 시간 감지 시 "일정으로?" 토글 칩(누르면 addEvent, 다시 누르면 addTodo, 시간 사라지면 자동 할일 복귀). 프로젝트는 이름 매칭 성공 시 `projectId`·실패 시 `@토큰`을 제목에 되돌려 무시(새 프로젝트 안 생김). 태그는 기존 매칭, 없으면 공통 팔레트로 새 태그 생성 후 id 매핑. 저장은 기존 `addTodo({...changes,status:'active'})`/`addEvent(payload)` 그대로(Realtime 경로 유지). `defaultDate` 폴백(파싱 날짜 없을 때, Inbox 는 null). "자세히" → 기존 모달 오픈. 부수: `src/lib/tagPalette.ts`(13색 팔레트/localStorage 공통화, TodoModal 도 import), `addTag` 가 생성 `Tag` 반환(하위 호환), `TodoModal`/`EventModal` 에 `initial*` optional prop 추가(자세히 prefill — 제목·시간·태그·중요·반복).
