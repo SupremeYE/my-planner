@@ -3,6 +3,7 @@ import { format, isToday, isTomorrow, isPast, parseISO } from 'date-fns';
 import {
   Plus, Trash2, ChevronDown, ChevronUp,
   Check, Star, Pencil, ListTodo, Play,
+  AlertTriangle, ArrowDownToLine,
 } from 'lucide-react';
 import { usePlanner, Todo, TodoStatus } from '../store';
 import { useTheme } from '../ThemeContext';
@@ -54,10 +55,12 @@ interface TodoRowProps {
   onEdit: () => void;
   onDelete: () => void;
   onTop3Toggle: () => void;
+  /** 밀림 섹션에서 노출되는 '오늘로' 버튼 */
+  onMoveToToday?: () => void;
 }
 
 function TodoRow({
-  todo, onStatusToggle, onEdit, onDelete, onTop3Toggle,
+  todo, onStatusToggle, onEdit, onDelete, onTop3Toggle, onMoveToToday,
 }: TodoRowProps) {
   const { t } = useTheme();
   const { projects, weeklyGoals, milestones } = usePlanner();
@@ -169,6 +172,17 @@ function TodoRow({
 
           {/* Action buttons */}
           <div className="flex items-center gap-0.5 flex-shrink-0">
+            {onMoveToToday && (
+              <button
+                onClick={onMoveToToday}
+                title="오늘로 이동"
+                className="flex items-center gap-1 px-2 py-1 rounded-lg transition-colors"
+                style={{ fontSize: 11, fontWeight: 600, color: t.danger, backgroundColor: t.dangerLight }}
+              >
+                <ArrowDownToLine size={12} />
+                오늘로
+              </button>
+            )}
             <button onClick={onTop3Toggle} className="p-1.5 rounded-lg hover:opacity-70">
               <Star
                 size={13}
@@ -199,87 +213,88 @@ function TodoRow({
   );
 }
 
-// ─── Tab 1: All Todos ──────────────────────────────────────────
-function AllTodosTab() {
+// ─── Tab 1: 할 일 (미완료 중심: 밀림 / 오늘 / 예정) ─────────────────
+function TodoListTab() {
   const { todos, updateTodo, deleteTodo, toggleTop3 } = usePlanner();
   const { t } = useTheme();
   const [editingTodo, setEditingTodo] = useState<Todo | null>(null);
   const [showAddModal, setShowAddModal] = useState(false);
   const [addDefaultDate, setAddDefaultDate] = useState<string | undefined>(undefined);
-  const [collapsedDone, setCollapsedDone] = useState<Set<string>>(new Set());
 
-  const allTodos = todos.filter(td => td.date !== null && td.status !== 'backlog');
+  const todayStr = format(new Date(), 'yyyy-MM-dd');
 
-  const grouped = useMemo(() => {
+  // 날짜 배정된 미완료 할일만 (done/cancelled/backlog 제외, 미지정은 /inbox 전담)
+  const incompleteAssigned = useMemo(
+    () => todos.filter(td =>
+      td.date !== null &&
+      td.status !== 'done' &&
+      td.status !== 'cancelled' &&
+      td.status !== 'backlog'
+    ),
+    [todos]
+  );
+
+  // 밀림: date < 오늘 AND status in (active, inProgress)
+  const overdue = useMemo(
+    () => incompleteAssigned
+      .filter(td => td.date! < todayStr && (td.status === 'active' || td.status === 'inProgress'))
+      .sort((a, b) => a.date!.localeCompare(b.date!)),
+    [incompleteAssigned, todayStr]
+  );
+
+  // 오늘
+  const todayTodos = useMemo(
+    () => incompleteAssigned.filter(td => td.date === todayStr),
+    [incompleteAssigned, todayStr]
+  );
+
+  // 예정: 날짜별 그룹 오름차순
+  const upcomingGrouped = useMemo(() => {
     const groups: Record<string, Todo[]> = {};
-    allTodos.forEach(td => {
-      const d = td.date!;
-      if (!groups[d]) groups[d] = [];
-      groups[d].push(td);
-    });
+    incompleteAssigned
+      .filter(td => td.date! > todayStr)
+      .forEach(td => { (groups[td.date!] ??= []).push(td); });
     return Object.entries(groups).sort(([a], [b]) => a.localeCompare(b));
-  }, [allTodos]);
-
-  const toggleDoneGroup = (date: string) => {
-    setCollapsedDone(prev => {
-      const next = new Set(prev);
-      next.has(date) ? next.delete(date) : next.add(date);
-      return next;
-    });
-  };
+  }, [incompleteAssigned, todayStr]);
 
   const openAdd = (date?: string) => {
     setAddDefaultDate(date);
     setShowAddModal(true);
   };
 
+  const total = overdue.length + todayTodos.length + upcomingGrouped.reduce((s, [, list]) => s + list.length, 0);
+
   return (
     <div className="space-y-5">
-      {grouped.length === 0 && (
+      {total === 0 && (
         <div className="text-center py-16">
           <ListTodo size={36} color={t.borderLight} className="mx-auto mb-3" />
-          <p style={{ fontSize: 13, color: t.textMuted }}>등록된 할일이 없어요</p>
-          <p style={{ fontSize: 12, color: t.textMuted, marginTop: 4 }}>상단 버튼으로 추가해보세요</p>
+          <p style={{ fontSize: 13, color: t.textMuted }}>미완료 할일이 없어요</p>
+          <p style={{ fontSize: 12, color: t.textMuted, marginTop: 4 }}>상단 + 버튼으로 추가해보세요</p>
         </div>
       )}
 
-      {grouped.map(([date, dateTodos]) => {
-        const activeTodos = dateTodos.filter(td => td.status !== 'done' && td.status !== 'cancelled');
-        const doneTodos   = dateTodos.filter(td => td.status === 'done' || td.status === 'cancelled');
-        const doneHidden  = collapsedDone.has(date);
-        const isPastDate  = date < format(new Date(), 'yyyy-MM-dd');
-
-        return (
-          <div key={date} className="px-4">
-            {/* Date header */}
+      {/* ── 밀림 (최상단, 강조) ── */}
+      {overdue.length > 0 && (
+        <div className="px-4">
+          <div
+            className="rounded-2xl p-3"
+            style={{
+              backgroundColor: t.dangerLight,
+              border: `1px solid ${t.danger}33`,
+            }}
+          >
             <div className="flex items-center gap-2 mb-2.5">
-              <span
-                style={{
-                  fontSize: 11,
-                  fontWeight: 700,
-                  color: isPastDate ? t.textMuted : t.accent,
-                  letterSpacing: '0.02em',
-                }}
-              >
-                {getDateLabel(date)}
+              <AlertTriangle size={14} color={t.danger} />
+              <span style={{ fontSize: 11, fontWeight: 700, color: t.danger, letterSpacing: '0.04em' }}>
+                밀림 {overdue.length}개
               </span>
-              <div className="flex-1 h-px" style={{ backgroundColor: t.borderLight }} />
-              {/* 해당 날짜로 할일 추가 */}
-              <button
-                onClick={() => openAdd(date)}
-                className="p-1 rounded-lg hover:opacity-70"
-                style={{ color: t.textMuted }}
-              >
-                <Plus size={13} />
-              </button>
-              <span style={{ fontSize: 10, color: t.textMuted }}>
-                {activeTodos.length + doneTodos.length}개
+              <span style={{ fontSize: 10, color: t.danger, opacity: 0.8 }}>
+                지난 날짜의 미완료 할일이에요. '오늘로' 로 끌어오세요.
               </span>
             </div>
-
-            {/* Active / In-progress todos */}
             <div className="space-y-2">
-              {activeTodos.map(todo => (
+              {overdue.map(todo => (
                 <TodoRow
                   key={todo.id}
                   todo={todo}
@@ -287,42 +302,87 @@ function AllTodosTab() {
                   onEdit={() => setEditingTodo(todo)}
                   onDelete={() => deleteTodo(todo.id)}
                   onTop3Toggle={() => toggleTop3(todo.id)}
+                  onMoveToToday={() => updateTodo(todo.id, { date: todayStr })}
                 />
               ))}
             </div>
-
-            {/* Completed / Cancelled (collapsible) */}
-            {doneTodos.length > 0 && (
-              <div className="mt-2">
-                <button
-                  onClick={() => toggleDoneGroup(date)}
-                  className="flex items-center gap-1.5 py-1 mb-2"
-                  style={{ fontSize: 11, color: t.textMuted }}
-                >
-                  {doneHidden ? <ChevronDown size={12} /> : <ChevronUp size={12} />}
-                  완료 {doneTodos.length}개
-                </button>
-                {!doneHidden && (
-                  <div className="space-y-2">
-                    {doneTodos.map(todo => (
-                      <TodoRow
-                        key={todo.id}
-                        todo={todo}
-                        onStatusToggle={() => updateTodo(todo.id, { status: 'active' })}
-                        onEdit={() => setEditingTodo(todo)}
-                        onDelete={() => deleteTodo(todo.id)}
-                        onTop3Toggle={() => toggleTop3(todo.id)}
-                      />
-                    ))}
-                  </div>
-                )}
-              </div>
-            )}
           </div>
-        );
-      })}
+        </div>
+      )}
 
-      {/* 할일 추가 모달 (공통 TodoModal, date 없으면 오늘 기본값 + 날짜 네비) */}
+      {/* ── 오늘 ── */}
+      <div className="px-4">
+        <div className="flex items-center gap-2 mb-2.5">
+          <span style={{ fontSize: 11, fontWeight: 700, color: t.accent, letterSpacing: '0.02em' }}>
+            오늘 · {format(new Date(), 'M/d')} ({DAYS[new Date().getDay()]})
+          </span>
+          <div className="flex-1 h-px" style={{ backgroundColor: t.borderLight }} />
+          <button
+            onClick={() => openAdd(todayStr)}
+            className="p-1 rounded-lg hover:opacity-70"
+            style={{ color: t.textMuted }}
+            title="오늘 할일 추가"
+          >
+            <Plus size={13} />
+          </button>
+          <span style={{ fontSize: 10, color: t.textMuted }}>{todayTodos.length}개</span>
+        </div>
+        {todayTodos.length === 0 ? (
+          <p style={{ fontSize: 12, color: t.textMuted }} className="py-3 text-center">
+            오늘 할일이 없어요
+          </p>
+        ) : (
+          <div className="space-y-2">
+            {todayTodos.map(todo => (
+              <TodoRow
+                key={todo.id}
+                todo={todo}
+                onStatusToggle={() => updateTodo(todo.id, { status: STATUS_NEXT[todo.status] })}
+                onEdit={() => setEditingTodo(todo)}
+                onDelete={() => deleteTodo(todo.id)}
+                onTop3Toggle={() => toggleTop3(todo.id)}
+              />
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* ── 예정 (날짜별 오름차순) ── */}
+      {upcomingGrouped.length > 0 && (
+        <div className="space-y-5">
+          {upcomingGrouped.map(([date, dateTodos]) => (
+            <div key={date} className="px-4">
+              <div className="flex items-center gap-2 mb-2.5">
+                <span style={{ fontSize: 11, fontWeight: 700, color: t.textSub, letterSpacing: '0.02em' }}>
+                  {getDateLabel(date)}
+                </span>
+                <div className="flex-1 h-px" style={{ backgroundColor: t.borderLight }} />
+                <button
+                  onClick={() => openAdd(date)}
+                  className="p-1 rounded-lg hover:opacity-70"
+                  style={{ color: t.textMuted }}
+                >
+                  <Plus size={13} />
+                </button>
+                <span style={{ fontSize: 10, color: t.textMuted }}>{dateTodos.length}개</span>
+              </div>
+              <div className="space-y-2">
+                {dateTodos.map(todo => (
+                  <TodoRow
+                    key={todo.id}
+                    todo={todo}
+                    onStatusToggle={() => updateTodo(todo.id, { status: STATUS_NEXT[todo.status] })}
+                    onEdit={() => setEditingTodo(todo)}
+                    onDelete={() => deleteTodo(todo.id)}
+                    onTop3Toggle={() => toggleTop3(todo.id)}
+                  />
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
       {showAddModal && (
         <TodoModal
           date={addDefaultDate}
@@ -339,12 +399,126 @@ function AllTodosTab() {
   );
 }
 
-// ─── Main Export ───────────────────────────────────────────────
-export function TodosView() {
-  const { selectedDate } = usePlanner();
+// ─── Tab 2: 완료함 (done + cancelled, 날짜별 최신 위) ─────────────
+function DoneTodosTab() {
+  const { todos, updateTodo, deleteTodo, toggleTop3 } = usePlanner();
   const { t } = useTheme();
+  const [editingTodo, setEditingTodo] = useState<Todo | null>(null);
+  const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
+
+  // done + cancelled (기존 AllTodosTab 의 doneTodos 정책과 동일)
+  const doneOrCancelled = useMemo(
+    () => todos.filter(td =>
+      td.date !== null &&
+      (td.status === 'done' || td.status === 'cancelled')
+    ),
+    [todos]
+  );
+
+  const grouped = useMemo(() => {
+    const groups: Record<string, Todo[]> = {};
+    doneOrCancelled.forEach(td => { (groups[td.date!] ??= []).push(td); });
+    // 최신 날짜 위
+    return Object.entries(groups).sort(([a], [b]) => b.localeCompare(a));
+  }, [doneOrCancelled]);
+
+  const toggleGroup = (date: string) => {
+    setCollapsed(prev => {
+      const next = new Set(prev);
+      next.has(date) ? next.delete(date) : next.add(date);
+      return next;
+    });
+  };
+
+  return (
+    <div className="space-y-5">
+      {grouped.length === 0 && (
+        <div className="text-center py-16">
+          <Check size={36} color={t.borderLight} className="mx-auto mb-3" />
+          <p style={{ fontSize: 13, color: t.textMuted }}>아직 완료한 할일이 없어요</p>
+        </div>
+      )}
+
+      {grouped.map(([date, dateTodos]) => {
+        const isHidden = collapsed.has(date);
+        return (
+          <div key={date} className="px-4">
+            <button
+              onClick={() => toggleGroup(date)}
+              className="flex items-center gap-2 mb-2.5 w-full"
+            >
+              <span style={{ fontSize: 11, fontWeight: 700, color: t.textSub, letterSpacing: '0.02em' }}>
+                {getDateLabel(date)}
+              </span>
+              <div className="flex-1 h-px" style={{ backgroundColor: t.borderLight }} />
+              <span style={{ fontSize: 10, color: t.textMuted }}>{dateTodos.length}개</span>
+              {isHidden ? <ChevronDown size={12} color={t.textMuted} /> : <ChevronUp size={12} color={t.textMuted} />}
+            </button>
+            {!isHidden && (
+              <div className="space-y-2">
+                {dateTodos.map(todo => (
+                  <TodoRow
+                    key={todo.id}
+                    todo={todo}
+                    onStatusToggle={() => updateTodo(todo.id, { status: 'active' })}
+                    onEdit={() => setEditingTodo(todo)}
+                    onDelete={() => deleteTodo(todo.id)}
+                    onTop3Toggle={() => toggleTop3(todo.id)}
+                  />
+                ))}
+              </div>
+            )}
+          </div>
+        );
+      })}
+
+      {editingTodo && (
+        <TodoModal
+          todo={editingTodo}
+          onClose={() => setEditingTodo(null)}
+        />
+      )}
+    </div>
+  );
+}
+
+// ─── Main Export ───────────────────────────────────────────────
+type Tab = 'list' | 'done';
+
+export function TodosView() {
+  const { todos, selectedDate } = usePlanner();
+  const { t } = useTheme();
+  const [tab, setTab] = useState<Tab>('list');
   const [showAddModal, setShowAddModal] = useState(false);
   const [showAddEventModal, setShowAddEventModal] = useState(false);
+
+  // 탭 카운트 뱃지 — 할 일(미완료) / 완료함(done+cancelled)
+  const todayStr = format(new Date(), 'yyyy-MM-dd');
+  const listCount = useMemo(
+    () => todos.filter(td =>
+      td.date !== null &&
+      td.status !== 'done' &&
+      td.status !== 'cancelled' &&
+      td.status !== 'backlog'
+    ).length,
+    [todos]
+  );
+  const doneCount = useMemo(
+    () => todos.filter(td =>
+      td.date !== null &&
+      (td.status === 'done' || td.status === 'cancelled')
+    ).length,
+    [todos]
+  );
+  // 밀림 카운트 — '할 일' 탭 카운트 뱃지 옆에 작게 표시할 강조 숫자
+  const overdueCount = useMemo(
+    () => todos.filter(td =>
+      td.date !== null &&
+      td.date < todayStr &&
+      (td.status === 'active' || td.status === 'inProgress')
+    ).length,
+    [todos, todayStr]
+  );
 
   return (
     <div className="flex flex-col h-full" style={{ backgroundColor: t.bg }}>
@@ -364,15 +538,71 @@ export function TodosView() {
               onAddEvent={() => setShowAddEventModal(true)}
             />
           </div>
+
+          {/* 탭 */}
+          <div className="flex gap-1 mt-3 p-1 rounded-xl" style={{ backgroundColor: t.bgSub, border: `1px solid ${t.border}` }}>
+            {([
+              { value: 'list' as Tab, label: '할 일', count: listCount, badge: overdueCount },
+              { value: 'done' as Tab, label: '완료함', count: doneCount, badge: 0 },
+            ]).map(({ value, label, count, badge }) => {
+              const isActive = tab === value;
+              return (
+                <button
+                  key={value}
+                  onClick={() => setTab(value)}
+                  className="flex-1 py-1.5 rounded-lg transition-all flex items-center justify-center gap-1.5"
+                  style={{
+                    fontSize: 12,
+                    fontWeight: isActive ? 700 : 500,
+                    color: isActive ? '#fff' : t.textSub,
+                    backgroundColor: isActive ? t.accent : 'transparent',
+                  }}
+                >
+                  <span>{label}</span>
+                  {count > 0 && (
+                    <span
+                      className="inline-flex items-center justify-center px-1.5 rounded-full"
+                      style={{
+                        fontSize: 10,
+                        minWidth: 18,
+                        height: 16,
+                        fontWeight: 700,
+                        backgroundColor: isActive ? 'rgba(255,255,255,0.25)' : t.borderLight,
+                        color: isActive ? '#fff' : t.textSub,
+                      }}
+                    >
+                      {count}
+                    </span>
+                  )}
+                  {badge > 0 && (
+                    <span
+                      className="inline-flex items-center justify-center px-1.5 rounded-full"
+                      style={{
+                        fontSize: 10,
+                        minWidth: 18,
+                        height: 16,
+                        fontWeight: 700,
+                        backgroundColor: t.danger,
+                        color: '#fff',
+                      }}
+                      title="밀린 할일"
+                    >
+                      !{badge}
+                    </span>
+                  )}
+                </button>
+              );
+            })}
+          </div>
         </div>
       </div>
 
-      {/* Content — 날짜 배정된 할일만 (미지정은 Inbox 전담) */}
+      {/* Content */}
       <div className="flex-1 overflow-y-auto py-4">
-        <AllTodosTab />
+        {tab === 'list' ? <TodoListTab /> : <DoneTodosTab />}
       </div>
 
-      {/* 상단 헤더 할일 추가 버튼용 모달 (날짜 네비 포함) */}
+      {/* 상단 헤더 할일 추가 버튼용 모달 */}
       {showAddModal && (
         <TodoModal onClose={() => setShowAddModal(false)} />
       )}
