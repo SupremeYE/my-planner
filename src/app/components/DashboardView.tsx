@@ -5,11 +5,11 @@ import { usePlanner, DEFAULT_AFFIRMATIONS, today, getWeekKey, Todo, Event } from
 import { isEventPast } from '../../api/events';
 import {
   CheckCircle2, Target, TrendingUp, ChevronDown, ChevronRight,
-  Calendar, AlertTriangle, Zap, ArrowRight,
+  Calendar, Zap, ArrowRight,
   Star,
 } from 'lucide-react';
 import {
-  format, addDays, differenceInDays, subDays,
+  format, addDays, subDays,
   startOfWeek, endOfWeek, getDaysInMonth,
 } from 'date-fns';
 import { ko } from 'date-fns/locale';
@@ -448,10 +448,6 @@ export function DashboardView() {
 
   const currentWeekKey = getWeekKey(new Date());
   const currentMonth = format(new Date(), 'yyyy-MM');
-  const todayBase = new Date();
-  todayBase.setHours(0, 0, 0, 0);
-  const toDateOnly = (dateString: string) => new Date(`${dateString}T00:00:00`);
-  const getDateDiff = (dateString: string) => differenceInDays(toDateOnly(dateString), todayBase);
 
   // ── Stats ──
   const todayTodos = todos.filter((t) => t.date === today);
@@ -585,34 +581,17 @@ export function DashboardView() {
     [todos]
   );
 
-  // 3) 기한 임박·초과: dueDate 있는 미완료, 초과(<오늘) 또는 0~3일 이내
-  const dueOverdueItems = useMemo<TodayItem[]>(() =>
-    todos
-      .filter(td =>
-        td.dueDate &&
-        (td.status === 'active' || td.status === 'inProgress')
-      )
-      .filter(td => {
-        const diff = getDateDiff(td.dueDate!);
-        return diff < 0 || (diff >= 0 && diff <= 3);
-      })
-      .sort((a, b) => a.dueDate!.localeCompare(b.dueDate!))
-      .map(td => {
-        const diff = getDateDiff(td.dueDate!);
-        return {
-          kind: 'todo' as const,
-          id: td.id,
-          time: null,
-          todo: td,
-          tone: (diff < 0 ? 'overdue' : 'dueSoon') as 'overdue' | 'dueSoon',
-        };
-      }),
-    [todos, todayBase]
+  // 3) 내일 미리보기 — 일정 + 할일 통합 (시간 있는 항목 위, 시간 없는 할일 아래)
+  const tomorrowTodos = useMemo(() =>
+    todos.filter(td =>
+      td.date === tomorrow &&
+      (td.status === 'active' || td.status === 'inProgress')
+    ),
+    [todos, tomorrow]
   );
 
-  // 4) 내일 일정 — 기존 tomorrowEvents 그대로 사용(완료 제외)
-  const tomorrowItems = useMemo<TodayItem[]>(() =>
-    tomorrowEvents
+  const tomorrowItems = useMemo<TodayItem[]>(() => {
+    const evtItems: TodayItem[] = tomorrowEvents
       .filter(e => !e.completed)
       .map(e => ({
         kind: 'event' as const,
@@ -620,9 +599,24 @@ export function DashboardView() {
         time: e.isAllDay ? null : (e.startTime || null),
         event: e,
         tone: 'normal' as const,
-      })),
-    [tomorrowEvents]
-  );
+      }));
+
+    const todoItems: TodayItem[] = tomorrowTodos.map(td => ({
+      kind: 'todo' as const,
+      id: td.id,
+      time: td.planStart || null,
+      todo: td,
+      tone: 'normal' as const,
+    }));
+
+    return [...evtItems, ...todoItems].sort((a, b) => {
+      // 시간 있는 항목 위로, 시간 없는 항목 아래로
+      if (a.time === null && b.time === null) return 0;
+      if (a.time === null) return 1;
+      if (b.time === null) return -1;
+      return a.time.localeCompare(b.time);
+    });
+  }, [tomorrowEvents, tomorrowTodos]);
 
   // 진행률: 상단 StatCard '할일 완료' 와 동일 분모/분자
   const todayProgressDone = todayDone;
@@ -648,8 +642,7 @@ export function DashboardView() {
 
   const todayCardEmpty =
     timeSortedItems.length === 0 &&
-    untimedTodayTodos.length === 0 &&
-    dueOverdueItems.length === 0;
+    untimedTodayTodos.length === 0;
 
   // ── Projects ──
   const activeProjects = projects.filter((p) => p.status === 'active');
@@ -1024,30 +1017,7 @@ export function DashboardView() {
             </section>
           )}
 
-          {/* 3) 기한 임박·초과 */}
-          {dueOverdueItems.length > 0 && (
-            <section style={{ marginBottom: 14 }}>
-              <TodaySectionLabel t={t}>
-                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
-                  <AlertTriangle size={11} color={t.danger} />
-                  기한 임박·초과
-                </span>
-              </TodaySectionLabel>
-              <div className="space-y-1">
-                {dueOverdueItems.map(item => (
-                  <TodayItemRow
-                    key={`d-${item.id}`}
-                    item={item}
-                    t={t}
-                    onComplete={() => handleTodoComplete(item.id)}
-                    onJump={handleTodoJump}
-                  />
-                ))}
-              </div>
-            </section>
-          )}
-
-          {/* 4) 내일 일정 — 접이식 (기본 접힘) */}
+          {/* 3) 내일 미리보기 — 일정+할일 접이식 (기본 접힘) */}
           <div style={{ borderTop: `1px solid ${t.borderLight}`, paddingTop: 10, marginTop: 4 }}>
             <button
               onClick={() => setTomorrowOpen(o => !o)}
@@ -1064,7 +1034,7 @@ export function DashboardView() {
             >
               <Calendar size={13} color={t.info} />
               <span style={{ fontSize: 12, color: t.text, fontWeight: 600, flex: 1, textAlign: 'left' }}>
-                내일 일정
+                내일
               </span>
               <span
                 style={{
@@ -1083,16 +1053,24 @@ export function DashboardView() {
             {tomorrowOpen && (
               <div style={{ paddingTop: 6 }}>
                 {tomorrowItems.length === 0 ? (
-                  <p style={{ fontSize: 11, color: t.textMuted, padding: '6px 2px' }}>내일 일정이 없어요</p>
+                  <p style={{ fontSize: 11, color: t.textMuted, padding: '6px 2px' }}>내일 일정·할일이 없어요</p>
                 ) : (
                   <div className="space-y-1">
                     {tomorrowItems.map(item => (
                       <TodayItemRow
-                        key={`tm-${item.id}`}
+                        key={`tm-${item.kind}-${item.id}`}
                         item={item}
                         t={t}
-                        onComplete={() => handleEventComplete(item.id)}
-                        onJump={() => handleEventJump((item as { event: Event }).event)}
+                        onComplete={() =>
+                          item.kind === 'todo'
+                            ? handleTodoComplete(item.id)
+                            : handleEventComplete(item.id)
+                        }
+                        onJump={() =>
+                          item.kind === 'todo'
+                            ? handleTodoJump()
+                            : handleEventJump(item.event)
+                        }
                       />
                     ))}
                   </div>
