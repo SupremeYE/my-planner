@@ -31,10 +31,16 @@ export function MapTab() {
 
   const [theme, setTheme] = useState<string>('all'); // 'all' | folderId
   const [selected, setSelected] = useState<Place | null>(null);
+  // Stage 2 — 모바일 전용: 단일 필터·줌인 대상 장소 id (PC 동작은 selected 만 사용)
+  const [selectedPlace, setSelectedPlace] = useState<string | null>(null);
   const [addFolder, setAddFolder] = useState(false);
   const [toastMsg, setToastMsg] = useState<string | null>(null);
   const [mapReady, setMapReady] = useState(false);
   const [mapError, setMapError] = useState<string | null>(null);
+
+  // Tailwind lg 브레이크포인트(1024px) 기준 — 핀 클릭 시 동작 분기
+  const isMobileNow = () =>
+    typeof window !== 'undefined' && !window.matchMedia('(min-width: 1024px)').matches;
 
   const mapElRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<any>(null);
@@ -48,6 +54,15 @@ export function MapTab() {
     [places, linkMap, theme],
   );
   const mapped = useMemo(() => themePlaces.filter(p => p.lat != null && p.lng != null), [themePlaces]);
+
+  // Stage 2 — selectedPlace 가 설정되면 그 장소 핀 하나만(좌표 있을 때) 표시
+  const displayPins = useMemo(() => {
+    if (!selectedPlace) return mapped;
+    const p = mapped.find(x => x.id === selectedPlace);
+    return p ? [p] : [];
+  }, [mapped, selectedPlace]);
+  // 단일 필터 모드일 때 카드용 장소 (좌표 없어도 보여줘야 함 → places 에서 찾음)
+  const singlePlace = selectedPlace ? places.find(p => p.id === selectedPlace) ?? null : null;
 
   // 핀 이미지 (토큰 색 기반). want=빈(테두리), went=채움
   const pinImages = useMemo(() => {
@@ -87,9 +102,14 @@ export function MapTab() {
     };
   }, []);
 
-  // 창 크기 변화(모바일↔PC 분기 등) 시 relayout
+  // 창 크기 변화(모바일↔PC 분기 등) 시 relayout + PC 진입 시 모바일 단일 필터 해제
   useEffect(() => {
-    const onResize = () => mapRef.current?.relayout();
+    const onResize = () => {
+      mapRef.current?.relayout();
+      if (window.matchMedia('(min-width: 1024px)').matches) {
+        setSelectedPlace(null);
+      }
+    };
     window.addEventListener('resize', onResize);
     return () => window.removeEventListener('resize', onResize);
   }, []);
@@ -101,7 +121,7 @@ export function MapTab() {
     const map = mapRef.current;
     clustererRef.current.clear();
 
-    const markers = mapped.map(p => {
+    const markers = displayPins.map(p => {
       const went = visitedIds.has(p.id);
       const img = new k.maps.MarkerImage(
         went ? pinImages.went : pinImages.want,
@@ -109,20 +129,36 @@ export function MapTab() {
         { offset: new k.maps.Point(13, 36) },
       );
       const marker = new k.maps.Marker({ position: new k.maps.LatLng(p.lat as number, p.lng as number), image: img, title: p.name });
-      k.maps.event.addListener(marker, 'click', () => { setSelected(p); map.panTo(new k.maps.LatLng(p.lat as number, p.lng as number)); });
+      k.maps.event.addListener(marker, 'click', () => {
+        if (isMobileNow()) {
+          // 모바일: 단일 필터 + 줌인 (selectedPlace 사용 / 바텀시트 안 띄움)
+          setSelectedPlace(p.id);
+        } else {
+          // PC: 기존 동작 — 우상단 상세 패널 + panTo
+          setSelected(p);
+          map.panTo(new k.maps.LatLng(p.lat as number, p.lng as number));
+        }
+      });
       return marker;
     });
     clustererRef.current.addMarkers(markers);
 
-    if (mapped.length === 1) {
-      map.setCenter(new k.maps.LatLng(mapped[0].lat as number, mapped[0].lng as number));
+    if (selectedPlace) {
+      // 단일 필터 모드 — 좌표 있으면 줌인, 없으면 지도 그대로
+      if (displayPins.length === 1) {
+        const p = displayPins[0];
+        map.setCenter(new k.maps.LatLng(p.lat as number, p.lng as number));
+        map.setLevel(3);
+      }
+    } else if (displayPins.length === 1) {
+      map.setCenter(new k.maps.LatLng(displayPins[0].lat as number, displayPins[0].lng as number));
       map.setLevel(4);
-    } else if (mapped.length > 1) {
+    } else if (displayPins.length > 1) {
       const bounds = new k.maps.LatLngBounds();
-      mapped.forEach(p => bounds.extend(new k.maps.LatLng(p.lat as number, p.lng as number)));
+      displayPins.forEach(p => bounds.extend(new k.maps.LatLng(p.lat as number, p.lng as number)));
       map.setBounds(bounds);
     }
-  }, [mapReady, mapped, visitedIds, pinImages]);
+  }, [mapReady, displayPins, visitedIds, pinImages, selectedPlace]);
 
   const focusPlace = (p: Place) => {
     setSelected(p);
@@ -178,7 +214,7 @@ export function MapTab() {
         return (
           <button
             key={opt.id}
-            onClick={() => { setTheme(opt.id); setSelected(null); }}
+            onClick={() => { setTheme(opt.id); setSelected(null); setSelectedPlace(null); }}
             className="flex items-center gap-1.5 whitespace-nowrap"
             style={{ flexShrink: 0, fontSize: 12.5, padding: '7px 13px', borderRadius: 999, cursor: 'pointer', border: `1.5px solid ${on ? t.accent : t.border}`, backgroundColor: on ? t.accent : t.card, color: on ? '#fff' : t.textSub, fontWeight: on ? 700 : 500 }}
           >
@@ -320,10 +356,35 @@ export function MapTab() {
             <div ref={mapElRef} style={{ position: 'absolute', inset: 0, backgroundColor: t.bgSub }} />
           )}
 
-          {!mapError && noCoordCount > 0 && (
+          {!mapError && noCoordCount > 0 && !selectedPlace && (
             <div className="lg:block" style={{ position: 'absolute', left: 12, top: 12, zIndex: 4, fontSize: 11, color: t.textSub, backgroundColor: withAlpha(t.card, 0.92), borderRadius: 9, padding: '5px 10px', boxShadow: `0 2px 8px ${withAlpha(t.text, 0.15)}` }}>
               위치 미설정 {noCoordCount}곳은 핀에서 빠져요
             </div>
+          )}
+
+          {/* 모바일 단일 필터 모드 — 전체 보기 버튼 */}
+          {!mapError && selectedPlace && (
+            <button
+              onClick={() => setSelectedPlace(null)}
+              className="lg:hidden"
+              style={{
+                position: 'absolute',
+                left: 12,
+                top: 12,
+                zIndex: 5,
+                fontSize: 12,
+                color: t.text,
+                fontWeight: 700,
+                backgroundColor: withAlpha(t.card, 0.96),
+                borderRadius: 999,
+                padding: '7px 14px',
+                border: `1px solid ${t.borderLight}`,
+                boxShadow: `0 2px 8px ${withAlpha(t.text, 0.15)}`,
+                cursor: 'pointer',
+              }}
+            >
+              ← 전체 보기
+            </button>
           )}
 
           {/* PC 상세 패널 (우상단 슬라이드) */}
@@ -340,90 +401,183 @@ export function MapTab() {
         className="lg:hidden flex-[2] min-h-0 overflow-y-auto"
         style={{ borderTop: `1px solid ${t.borderLight}`, backgroundColor: t.bg }}
       >
-        <div style={{ padding: '10px 16px 4px', fontSize: 11.5, color: t.textSub }}>
-          {theme === 'all' ? '전체' : folders.find(f => f.id === theme)?.name} · {themePlaces.length}곳
-        </div>
-        <div style={{ padding: '0 10px 16px' }}>
-          {themePlaces.map(p => {
-            const went = visitedIds.has(p.id);
-            const placeFolderIds = linkMap.get(p.id) ?? [];
-            const currentFolder = theme !== 'all' ? folders.find(f => f.id === theme) : null;
-            const fallbackFolder = folders.find(f => placeFolderIds.includes(f.id));
-            const folderIcon =
-              currentFolder?.icon ||
-              fallbackFolder?.icon ||
-              placeEmoji({ concept: p.concept, category: p.category });
-            const subtitle =
-              p.address ||
-              p.memo ||
-              [p.category, p.regionCode ? REGION_LABELS[p.regionCode] : null].filter(Boolean).join(' · ');
-            return (
-              <div
-                key={p.id}
-                className="flex items-center gap-2.5"
-                style={{ padding: '9px 10px', borderRadius: 11 }}
-              >
-                <span
-                  className="flex items-center justify-center"
+        {singlePlace ? (
+          // 단일 필터 모드 — 메모 등 상세 펼친 카드 하나
+          <div style={{ padding: '10px 10px 14px' }}>
+            {(() => {
+              const p = singlePlace;
+              const placeFolders = (linkMap.get(p.id) ?? [])
+                .map(id => folders.find(f => f.id === id))
+                .filter(Boolean) as PlaceFolder[];
+              return (
+                <div
                   style={{
-                    width: 38,
-                    height: 38,
-                    borderRadius: 9,
-                    fontSize: 18,
-                    flexShrink: 0,
-                    backgroundColor: withAlpha(t.accent, 0.12),
+                    borderRadius: 14,
+                    overflow: 'hidden',
+                    border: `1px solid ${t.borderLight}`,
+                    backgroundColor: t.card,
+                    padding: '14px 16px 16px',
                   }}
                 >
-                  {folderIcon}
-                </span>
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div
-                    style={{
-                      fontSize: 13,
-                      fontWeight: 700,
-                      color: t.text,
-                      overflow: 'hidden',
-                      textOverflow: 'ellipsis',
-                      whiteSpace: 'nowrap',
-                    }}
-                  >
+                  <div style={{ fontFamily: "'DM Serif Display', serif", fontSize: 20, color: t.text }}>
                     {p.name}
                   </div>
-                  <div
-                    style={{
-                      fontSize: 11,
-                      color: t.textSub,
-                      overflow: 'hidden',
-                      textOverflow: 'ellipsis',
-                      whiteSpace: 'nowrap',
-                    }}
-                  >
-                    {subtitle}
-                  </div>
+                  {p.category && (
+                    <div style={{ fontSize: 12, color: t.textSub, marginTop: 2 }}>{p.category}</div>
+                  )}
+                  {p.address && (
+                    <div
+                      className="flex items-start gap-1.5"
+                      style={{ fontSize: 12, color: t.textSub, marginTop: 8 }}
+                    >
+                      <MapPin size={13} style={{ marginTop: 1, flexShrink: 0 }} />
+                      {p.address}
+                    </div>
+                  )}
+                  {p.phone && (
+                    <div style={{ fontSize: 12, color: t.textSub, marginTop: 4 }}>☎ {p.phone}</div>
+                  )}
+                  {placeFolders.length > 0 && (
+                    <div className="flex flex-wrap gap-1.5" style={{ marginTop: 10 }}>
+                      {placeFolders.map(f => {
+                        const c = colorFromKey(f.color, t);
+                        return (
+                          <span
+                            key={f.id}
+                            style={{
+                              fontSize: 10.5,
+                              color: c,
+                              backgroundColor: withAlpha(c, 0.13),
+                              borderRadius: 7,
+                              padding: '2px 8px',
+                            }}
+                          >
+                            {f.icon ? `${f.icon} ` : ''}
+                            {f.name}
+                          </span>
+                        );
+                      })}
+                    </div>
+                  )}
+                  {p.memo && (
+                    <div
+                      style={{
+                        fontSize: 13,
+                        color: t.text,
+                        marginTop: 12,
+                        lineHeight: 1.5,
+                        padding: '10px 12px',
+                        borderRadius: 10,
+                        backgroundColor: t.bgSub,
+                      }}
+                    >
+                      {p.memo}
+                    </div>
+                  )}
+                  {p.lat == null && (
+                    <div
+                      style={{
+                        fontSize: 11.5,
+                        color: t.textMuted,
+                        marginTop: 10,
+                      }}
+                    >
+                      위치 좌표가 없어 지도 확대는 생략됐어요
+                    </div>
+                  )}
                 </div>
-                <span
-                  style={{
-                    width: 11,
-                    height: 11,
-                    borderRadius: '50%',
-                    flexShrink: 0,
-                    backgroundColor: went ? t.accent : 'transparent',
-                    border: `2px solid ${t.accent}`,
-                  }}
-                />
-              </div>
-            );
-          })}
-          {themePlaces.length === 0 && (
-            <div style={{ padding: '24px 12px', textAlign: 'center', fontSize: 12.5, color: t.textSub }}>
-              이 테마엔 아직 장소가 없어요
+              );
+            })()}
+          </div>
+        ) : (
+          <>
+            <div style={{ padding: '10px 16px 4px', fontSize: 11.5, color: t.textSub }}>
+              {theme === 'all' ? '전체' : folders.find(f => f.id === theme)?.name} · {themePlaces.length}곳
             </div>
-          )}
-        </div>
+            <div style={{ padding: '0 10px 16px' }}>
+              {themePlaces.map(p => {
+                const went = visitedIds.has(p.id);
+                const placeFolderIds = linkMap.get(p.id) ?? [];
+                const currentFolder = theme !== 'all' ? folders.find(f => f.id === theme) : null;
+                const fallbackFolder = folders.find(f => placeFolderIds.includes(f.id));
+                const folderIcon =
+                  currentFolder?.icon ||
+                  fallbackFolder?.icon ||
+                  placeEmoji({ concept: p.concept, category: p.category });
+                const subtitle =
+                  p.address ||
+                  p.memo ||
+                  [p.category, p.regionCode ? REGION_LABELS[p.regionCode] : null].filter(Boolean).join(' · ');
+                return (
+                  <div
+                    key={p.id}
+                    onClick={() => setSelectedPlace(p.id)}
+                    className="flex items-center gap-2.5"
+                    style={{ padding: '9px 10px', borderRadius: 11, cursor: 'pointer' }}
+                  >
+                    <span
+                      className="flex items-center justify-center"
+                      style={{
+                        width: 38,
+                        height: 38,
+                        borderRadius: 9,
+                        fontSize: 18,
+                        flexShrink: 0,
+                        backgroundColor: withAlpha(t.accent, 0.12),
+                      }}
+                    >
+                      {folderIcon}
+                    </span>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div
+                        style={{
+                          fontSize: 13,
+                          fontWeight: 700,
+                          color: t.text,
+                          overflow: 'hidden',
+                          textOverflow: 'ellipsis',
+                          whiteSpace: 'nowrap',
+                        }}
+                      >
+                        {p.name}
+                      </div>
+                      <div
+                        style={{
+                          fontSize: 11,
+                          color: t.textSub,
+                          overflow: 'hidden',
+                          textOverflow: 'ellipsis',
+                          whiteSpace: 'nowrap',
+                        }}
+                      >
+                        {subtitle}
+                      </div>
+                    </div>
+                    <span
+                      style={{
+                        width: 11,
+                        height: 11,
+                        borderRadius: '50%',
+                        flexShrink: 0,
+                        backgroundColor: went ? t.accent : 'transparent',
+                        border: `2px solid ${t.accent}`,
+                      }}
+                    />
+                  </div>
+                );
+              })}
+              {themePlaces.length === 0 && (
+                <div style={{ padding: '24px 12px', textAlign: 'center', fontSize: 12.5, color: t.textSub }}>
+                  이 테마엔 아직 장소가 없어요
+                </div>
+              )}
+            </div>
+          </>
+        )}
       </div>
 
-      {/* 모바일 상세 바텀시트 */}
-      {liveSelected && (
+      {/* 모바일 상세 바텀시트 — 단일 필터 모드(selectedPlace)에서는 리스트 카드가 대신함 */}
+      {liveSelected && !selectedPlace && (
         <div className="lg:hidden" style={{ position: 'absolute', left: 10, right: 10, bottom: 10, zIndex: 6, borderRadius: 16, overflow: 'hidden', border: `1px solid ${t.borderLight}`, boxShadow: `0 -8px 30px -10px ${withAlpha(t.text, 0.4)}` }}>
           <DetailCard p={liveSelected} went={selectedWent} />
         </div>
