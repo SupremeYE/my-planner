@@ -585,7 +585,12 @@ export interface AppSettings {
   foodGoalDelivery?: number;
   foodGoalRestaurant?: number;
   foodGoalCalories?: number;
+  /** 수면 목표 시간 (분 단위, 미설정 시 undefined → 읽는 쪽에서 SLEEP_GOAL_DEFAULT_MIN 기본값 사용) */
+  sleepGoalMinutes?: number;
 }
+
+/** 수면 목표 기본값 (분). 설정 미입력 시 전 화면에서 이 값을 기준으로 계산. */
+export const SLEEP_GOAL_DEFAULT_MIN = 7 * 60;
 
 export const DEFAULT_APP_SETTINGS: AppSettings = {
   showQuarterlyGoals: false,

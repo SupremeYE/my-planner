@@ -1311,6 +1311,7 @@ export const db = {
           foodGoalDelivery: data.food_goal_delivery ?? undefined,
           foodGoalRestaurant: data.food_goal_restaurant ?? undefined,
           foodGoalCalories: data.food_goal_calories ?? undefined,
+          sleepGoalMinutes: data.sleep_goal_minutes ?? undefined,
         },
       };
     },
@@ -1334,6 +1335,7 @@ export const db = {
         payload.food_goal_delivery = appSettings.foodGoalDelivery ?? null;
         payload.food_goal_restaurant = appSettings.foodGoalRestaurant ?? null;
         payload.food_goal_calories = appSettings.foodGoalCalories ?? null;
+        payload.sleep_goal_minutes = appSettings.sleepGoalMinutes ?? null;
       }
       const { error } = await supabase.from('user_settings').upsert(payload);
       if (error) console.error('[db] settings upsert:', error.message);

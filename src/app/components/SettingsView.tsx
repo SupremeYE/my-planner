@@ -432,6 +432,68 @@ function FoodGoalsSection() {
   );
 }
 
+// ─── 수면 목표 섹션 ───
+function SleepGoalSection() {
+  const { t } = useTheme();
+  const { appSettings, updateAppSettings } = usePlanner();
+
+  // 분 → 시간(정수) 변환. 미설정(undefined)이면 빈 문자열.
+  const minutesToHours = (m?: number) =>
+    m == null ? '' : String(Math.round(m / 60));
+
+  const [hours, setHours] = useState(minutesToHours(appSettings.sleepGoalMinutes));
+
+  useEffect(() => {
+    setHours(minutesToHours(appSettings.sleepGoalMinutes));
+  }, [appSettings.sleepGoalMinutes]);
+
+  function save() {
+    const raw = hours.trim();
+    if (raw === '') {
+      updateAppSettings({ sleepGoalMinutes: undefined });
+      return;
+    }
+    const n = Number(raw);
+    if (!Number.isFinite(n) || n <= 0) {
+      // 잘못된 입력은 무시하고 기존값으로 되돌림
+      setHours(minutesToHours(appSettings.sleepGoalMinutes));
+      return;
+    }
+    updateAppSettings({ sleepGoalMinutes: Math.round(n) * 60 });
+  }
+
+  const inputStyle = {
+    borderColor: t.border, backgroundColor: t.card, color: t.text,
+    fontSize: 13, borderRadius: 8, padding: '6px 10px', outline: 'none',
+    border: `1px solid ${t.border}`,
+  } as const;
+
+  return (
+    <Section title="수면 목표" icon={<span style={{ fontSize: 16 }}>😴</span>}>
+      <p style={{ fontSize: 11, color: t.textMuted, marginTop: -8 }}>
+        수면 추이·부채·충족률·상관 통계의 기준이 되는 목표 시간이에요. 비워두면 기본 7시간으로 계산해요.
+      </p>
+      <div className="flex items-center justify-between gap-3">
+        <span style={{ fontSize: 13, fontWeight: 500, color: t.text, flexShrink: 0 }}>하루 수면 목표</span>
+        <div className="flex items-center gap-1.5">
+          <input
+            type="number"
+            inputMode="numeric"
+            min={1}
+            max={24}
+            value={hours}
+            onChange={e => setHours(e.target.value)}
+            onBlur={save}
+            placeholder="기본 7"
+            style={{ ...inputStyle, width: 80, textAlign: 'right' }}
+          />
+          <span style={{ fontSize: 12, color: t.textSub, flexShrink: 0 }}>시간</span>
+        </div>
+      </div>
+    </Section>
+  );
+}
+
 // ─── 메인 뷰 ───
 export function SettingsView() {
   const { t } = useTheme();
@@ -449,6 +511,7 @@ export function SettingsView() {
         <TimelineSection />
         <CalendarSection />
         <FoodGoalsSection />
+        <SleepGoalSection />
         <TagsSection />
         <AffirmationSection />
         <FeatureTogglesSection />
