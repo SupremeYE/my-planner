@@ -866,6 +866,86 @@ export function SleepSection() {
         )}
       </div>
 
+      {/* 주간 수면 부채 — 기록된 날만 부족분 누적 */}
+      {(() => {
+        const debtPerDay = weekData.map(d => ({
+          date: d.date,
+          label: d.label,
+          isToday: d.isToday,
+          recorded: d.duration > 0,
+          deficit: d.duration > 0 ? Math.max(0, sleepGoalMin - d.duration) : 0,
+        }));
+        const totalDebt = debtPerDay.reduce((s, d) => s + d.deficit, 0);
+        const recordedDays = debtPerDay.filter(d => d.recorded).length;
+        const titleLabel = weekOffset === 0 ? '이번주 수면 부채' : `${weekRangeLabel} 수면 부채`;
+        const sentenceLabel = weekOffset === 0 ? '이번 주' : '이 주';
+        // 일별 미니 막대 정규화: 최대값 = 권장 시간(가장 부족한 경우)
+        const debtMax = sleepGoalMin;
+
+        return (
+          <div className="p-3 lg:p-4 rounded-2xl mb-3" style={{ backgroundColor: t.card, border: `1px solid ${t.borderLight}` }}>
+            <div className="flex items-baseline justify-between mb-2">
+              <p style={{ fontSize: 13, fontWeight: 700, color: t.text }}>{titleLabel}</p>
+              <p style={{ fontSize: 10, color: t.textMuted }}>
+                권장 <span style={{ color: SLEEP_COLOR, fontWeight: 700 }}>{fmtSleep(sleepGoalMin)}</span> 기준 · 기록 {recordedDays}일
+              </p>
+            </div>
+
+            {recordedDays === 0 ? (
+              <div className="py-6 text-center" style={{ fontSize: 13, color: t.textMuted }}>
+                이 주에는 아직 수면 기록이 없어요
+              </div>
+            ) : (
+              <>
+                {/* 큰 숫자 */}
+                <div className="text-center mb-3">
+                  <div style={{
+                    fontSize: 30, fontWeight: 700,
+                    color: totalDebt > 0 ? '#D4735A' : SLEEP_COLOR,
+                    fontFamily: 'var(--font-gmarket)', lineHeight: 1.1,
+                  }}>
+                    {totalDebt > 0 ? `−${fmtSleep(totalDebt)}` : '0시간'}
+                  </div>
+                  <p style={{ fontSize: 11, color: t.textMuted, marginTop: 4 }}>
+                    {totalDebt > 0
+                      ? `권장 ${fmtSleep(sleepGoalMin)} 대비 ${sentenceLabel} 누적 부족분`
+                      : `${sentenceLabel}는 권장 ${fmtSleep(sleepGoalMin)}을 모두 채웠어요`}
+                  </p>
+                </div>
+
+                {/* 일별 부족분 미니 막대 */}
+                <div className="flex items-end justify-between gap-1.5" style={{ height: 56 }}>
+                  {debtPerDay.map(d => {
+                    const h = d.deficit > 0 ? Math.max(4, Math.round((d.deficit / debtMax) * 40)) : (d.recorded ? 3 : 3);
+                    const bg = d.deficit > 0 ? '#D4735A' : d.recorded ? SLEEP_COLOR : t.borderLight;
+                    const mLabel = d.deficit > 0
+                      ? (d.deficit >= 60 ? `${Math.floor(d.deficit / 60)}h${d.deficit % 60 > 0 ? (d.deficit % 60) + 'm' : ''}` : `${d.deficit}m`)
+                      : '';
+                    return (
+                      <div key={d.date} className="flex flex-col items-center flex-1" style={{ minWidth: 0 }}>
+                        <span style={{ fontSize: 8, color: bg, fontWeight: 700, height: 12, lineHeight: '12px', whiteSpace: 'nowrap' }}>
+                          {mLabel}
+                        </span>
+                        <div
+                          title={d.recorded ? `${d.date.slice(5)} · 부족 ${fmtSleep(d.deficit)}` : `${d.date.slice(5)} · 기록 없음`}
+                          style={{
+                            width: '70%', minWidth: 6, height: h, backgroundColor: bg,
+                            borderRadius: '3px 3px 1px 1px', opacity: d.recorded ? 1 : 0.5,
+                          }}
+                        />
+                        <span style={{ fontSize: 9, color: d.isToday ? SLEEP_COLOR : t.textMuted, marginTop: 4, fontWeight: d.isToday ? 700 : 400 }}>
+                          {d.label}
+                        </span>
+                      </div>
+                    );
+                  })}
+                </div>
+              </>
+            )}
+          </div>
+        );
+      })()}
+
       {/* 최근 30일 취침·기상 규칙성 */}
       <div className="p-3 lg:p-4 rounded-2xl mb-3" style={{ backgroundColor: t.card, border: `1px solid ${t.borderLight}` }}>
         <div className="flex items-baseline justify-between mb-3">
