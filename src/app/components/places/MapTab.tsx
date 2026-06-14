@@ -284,7 +284,7 @@ export function MapTab() {
     <div className="h-full flex flex-col relative" style={{ backgroundColor: t.bg }}>
       <ThemeBar />
 
-      <div className="flex-1 min-h-0 flex">
+      <div className="flex-[3] lg:flex-1 min-h-0 flex">
         {/* PC 좌측 목록 */}
         <div className="hidden lg:flex lg:flex-col" style={{ width: 300, borderRight: `1px solid ${t.borderLight}`, flexShrink: 0 }}>
           <div style={{ padding: '12px 16px 6px', fontSize: 11.5, color: t.textSub }}>
@@ -330,6 +330,93 @@ export function MapTab() {
           {liveSelected && (
             <div className="hidden lg:block" style={{ position: 'absolute', top: 16, right: 16, width: 300, zIndex: 6, borderRadius: 14, overflow: 'hidden', border: `1px solid ${t.borderLight}`, boxShadow: `0 14px 32px -14px ${withAlpha(t.text, 0.45)}` }}>
               <DetailCard p={liveSelected} went={selectedWent} />
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* 모바일 - 지도 아래 폴더 장소 리스트 (PC 좌측 목록은 그대로) */}
+      <div
+        className="lg:hidden flex-[2] min-h-0 overflow-y-auto"
+        style={{ borderTop: `1px solid ${t.borderLight}`, backgroundColor: t.bg }}
+      >
+        <div style={{ padding: '10px 16px 4px', fontSize: 11.5, color: t.textSub }}>
+          {theme === 'all' ? '전체' : folders.find(f => f.id === theme)?.name} · {themePlaces.length}곳
+        </div>
+        <div style={{ padding: '0 10px 16px' }}>
+          {themePlaces.map(p => {
+            const went = visitedIds.has(p.id);
+            const placeFolderIds = linkMap.get(p.id) ?? [];
+            const currentFolder = theme !== 'all' ? folders.find(f => f.id === theme) : null;
+            const fallbackFolder = folders.find(f => placeFolderIds.includes(f.id));
+            const folderIcon =
+              currentFolder?.icon ||
+              fallbackFolder?.icon ||
+              placeEmoji({ concept: p.concept, category: p.category });
+            const subtitle =
+              p.address ||
+              p.memo ||
+              [p.category, p.regionCode ? REGION_LABELS[p.regionCode] : null].filter(Boolean).join(' · ');
+            return (
+              <div
+                key={p.id}
+                className="flex items-center gap-2.5"
+                style={{ padding: '9px 10px', borderRadius: 11 }}
+              >
+                <span
+                  className="flex items-center justify-center"
+                  style={{
+                    width: 38,
+                    height: 38,
+                    borderRadius: 9,
+                    fontSize: 18,
+                    flexShrink: 0,
+                    backgroundColor: withAlpha(t.accent, 0.12),
+                  }}
+                >
+                  {folderIcon}
+                </span>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div
+                    style={{
+                      fontSize: 13,
+                      fontWeight: 700,
+                      color: t.text,
+                      overflow: 'hidden',
+                      textOverflow: 'ellipsis',
+                      whiteSpace: 'nowrap',
+                    }}
+                  >
+                    {p.name}
+                  </div>
+                  <div
+                    style={{
+                      fontSize: 11,
+                      color: t.textSub,
+                      overflow: 'hidden',
+                      textOverflow: 'ellipsis',
+                      whiteSpace: 'nowrap',
+                    }}
+                  >
+                    {subtitle}
+                  </div>
+                </div>
+                <span
+                  style={{
+                    width: 11,
+                    height: 11,
+                    borderRadius: '50%',
+                    flexShrink: 0,
+                    backgroundColor: went ? t.accent : 'transparent',
+                    border: `2px solid ${t.accent}`,
+                  }}
+                />
+              </div>
+            );
+          })}
+          {themePlaces.length === 0 && (
+            <div style={{ padding: '24px 12px', textAlign: 'center', fontSize: 12.5, color: t.textSub }}>
+              이 테마엔 아직 장소가 없어요
             </div>
           )}
         </div>
