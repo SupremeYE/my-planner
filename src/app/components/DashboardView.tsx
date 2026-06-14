@@ -1,10 +1,12 @@
 import React, { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router';
 import { useTheme } from '../ThemeContext';
-import { usePlanner, DEFAULT_AFFIRMATIONS, today, getWeekKey } from '../store';
+import { usePlanner, DEFAULT_AFFIRMATIONS, today, getWeekKey, Todo, Event } from '../store';
+import { isEventPast } from '../../api/events';
 import {
   CheckCircle2, Target, TrendingUp, ChevronDown, ChevronRight,
-  Calendar, AlertTriangle, AlertCircle, Zap, ArrowRight,
+  Calendar, AlertTriangle, Zap, ArrowRight,
+  Star,
 } from 'lucide-react';
 import {
   format, addDays, differenceInDays, subDays,
@@ -187,145 +189,126 @@ function WeeklyHabitMiniTracker({ habits, t }: { habits: any[]; t: any }) {
   );
 }
 
-// ── Reminder Section (Accordion) ──
-function ReminderSection({
-  icon,
-  title,
-  items,
-  emptyText,
-  color,
-  defaultOpen,
-  t,
-  onItemClick,
+// ─── 오늘 챙길 것들 — 통합 항목 행 (할일·일정 공용) ───
+type TodayItem =
+  | { kind: 'todo'; id: string; time: string | null; todo: Todo; tone?: 'normal' | 'overdue' | 'dueSoon' }
+  | { kind: 'event'; id: string; time: string | null; event: Event; tone?: 'normal' | 'past' };
+
+function TodayItemRow({
+  item, t, onComplete, onJump,
 }: {
-  icon: React.ReactNode;
-  title: string;
-  items: { id: string; label: string; sub?: string; meta?: string; badge?: string; badgeColor?: string; date?: string; route?: 'daily' | 'calendar' }[];
-  emptyText: string;
-  color: string;
-  defaultOpen?: boolean;
+  item: TodayItem;
   t: any;
-  onItemClick?: (item: { id: string; label: string; sub?: string; meta?: string; badge?: string; badgeColor?: string; date?: string; route?: 'daily' | 'calendar' }) => void;
+  onComplete: () => void;
+  onJump: () => void;
 }) {
-  const [open, setOpen] = useState(defaultOpen ?? true);
+  const isTodo = item.kind === 'todo';
+  const todo = isTodo ? (item as { todo: Todo }).todo : null;
+  const event = !isTodo ? (item as { event: Event }).event : null;
+  const title = isTodo ? todo!.text : event!.title;
+  const eventColor = !isTodo ? (event!.color || t.info) : null;
+  const tone = item.tone ?? 'normal';
+  const badgeBg = isTodo ? `${t.success}1A` : `${t.info}1A`;
+  const badgeColor = isTodo ? t.success : t.info;
+  const badgeLabel = isTodo ? '할일' : '일정';
+
+  const overdueAccent = tone === 'overdue' ? t.danger : tone === 'dueSoon' ? '#E0A030' : null;
 
   return (
-    <div style={{ borderBottom: `1px solid ${t.borderLight}` }}>
+    <div
+      className="flex items-start gap-2 rounded-lg transition-colors"
+      style={{
+        padding: '7px 8px',
+        border: `1px solid ${overdueAccent ? `${overdueAccent}40` : t.borderLight}`,
+        backgroundColor: overdueAccent ? `${overdueAccent}10` : 'transparent',
+      }}
+    >
+      {/* 완료 체크 동그라미 */}
       <button
-        onClick={() => setOpen(!open)}
+        onClick={onComplete}
+        className="flex-shrink-0 w-4 h-4 rounded-full flex items-center justify-center transition-all mt-0.5"
         style={{
-          width: '100%',
-          display: 'flex',
-          alignItems: 'center',
-          gap: 8,
-          padding: '12px 0',
-          background: 'none',
-          border: 'none',
-          cursor: 'pointer',
+          border: `2px solid ${overdueAccent || (isTodo ? t.success : (eventColor || t.info))}80`,
+          backgroundColor: 'transparent',
         }}
+        aria-label="완료"
+        title="완료"
       >
-        <div style={{ color }}>{icon}</div>
-        <span style={{ fontSize: 13, color: t.text, fontWeight: 600, flex: 1, textAlign: 'left' }}>
-          {title}
-        </span>
+        {/* 빈 상태: 호버시 강조 효과는 생략(단순화) */}
+      </button>
+
+      {/* 본문 — 클릭 시 점프 */}
+      <button
+        onClick={onJump}
+        className="flex-1 min-w-0 flex items-center gap-1.5 text-left"
+        style={{ background: 'transparent', border: 'none', padding: 0, cursor: 'pointer' }}
+      >
+        {/* 일정 컬러닷 */}
+        {!isTodo && (
+          <span
+            className="flex-shrink-0 rounded-full"
+            style={{ width: 6, height: 6, backgroundColor: eventColor || t.info }}
+          />
+        )}
+        {/* 시간 */}
+        {item.time && (
+          <span style={{ fontSize: 11, color: t.textSub, fontVariantNumeric: 'tabular-nums', flexShrink: 0 }}>
+            {item.time}
+          </span>
+        )}
+        {!item.time && !isTodo && (
+          <span style={{ fontSize: 11, color: t.textMuted, flexShrink: 0 }}>종일</span>
+        )}
+        {/* 제목 */}
         <span
           style={{
-            fontSize: 11,
-            color: items.length > 0 ? color : t.textMuted,
-            fontWeight: 600,
-            background: `${color}15`,
-            padding: '2px 8px',
-            borderRadius: 10,
+            fontSize: 12.5,
+            color: t.text,
+            minWidth: 0,
+            overflow: 'hidden',
+            textOverflow: 'ellipsis',
+            whiteSpace: 'nowrap',
           }}
         >
-          {items.length}
+          {title}
         </span>
-        {open ? <ChevronDown size={14} color={t.textMuted} /> : <ChevronRight size={14} color={t.textMuted} />}
+        {/* Top3 별 */}
+        {isTodo && todo?.isTop3 && (
+          <Star size={10} fill={t.accent} color={t.accent} style={{ flexShrink: 0 }} />
+        )}
+        {/* 장소 (일정) */}
+        {!isTodo && event?.location && (
+          <span style={{ fontSize: 10, color: t.textMuted, flexShrink: 0 }}>
+            · 📍 {event.location}
+          </span>
+        )}
       </button>
-      {open && (
-        <div style={{ paddingBottom: 10, paddingLeft: 28 }}>
-          {items.length === 0 ? (
-            <p style={{ fontSize: 12, color: t.textMuted }}>{emptyText}</p>
-          ) : (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-              {items.map((item, idx) => (
-                <div
-                  key={item.id || idx}
-                  onClick={() => onItemClick?.(item)}
-                  style={{
-                    display: 'flex',
-                    alignItems: 'flex-start',
-                    gap: 8,
-                    justifyContent: 'space-between',
-                    padding: '8px 10px',
-                    borderRadius: 10,
-                    cursor: onItemClick ? 'pointer' : 'default',
-                    transition: 'background 0.15s',
-                    border: `1px solid ${t.borderLight}`,
-                  }}
-                  onMouseEnter={(e) => {
-                    if (onItemClick) e.currentTarget.style.background = t.bgSub;
-                  }}
-                  onMouseLeave={(e) => {
-                    e.currentTarget.style.background = 'transparent';
-                  }}
-                >
-                  <div style={{ minWidth: 0, display: 'flex', flexDirection: 'column', gap: 3, flex: 1 }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0, flexWrap: 'wrap' }}>
-                      {item.sub && (
-                        <span
-                          style={{
-                            fontSize: 11,
-                            color: t.accent,
-                            fontFamily: SERIF,
-                            flexShrink: 0,
-                          }}
-                        >
-                          {item.sub}
-                        </span>
-                      )}
-                      <span
-                        style={{
-                          fontSize: 13,
-                          color: t.text,
-                          minWidth: 0,
-                          overflow: 'hidden',
-                          textOverflow: 'ellipsis',
-                          whiteSpace: 'nowrap',
-                        }}
-                      >
-                        {item.label}
-                      </span>
-                    </div>
-                    {item.meta && (
-                      <span style={{ fontSize: 11, color: t.textMuted }}>
-                        {item.meta}
-                      </span>
-                    )}
-                  </div>
-                  {item.badge && (
-                    <span
-                      style={{
-                        fontSize: 10,
-                        fontWeight: 700,
-                        color: item.badgeColor || t.textSub,
-                        background: `${item.badgeColor || t.bgSub}18`,
-                        border: `1px solid ${(item.badgeColor || t.border)}40`,
-                        borderRadius: 999,
-                        padding: '3px 8px',
-                        flexShrink: 0,
-                        alignSelf: 'center',
-                      }}
-                    >
-                      {item.badge}
-                    </span>
-                  )}
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-      )}
+
+      {/* 뱃지 */}
+      <span
+        className="inline-flex items-center px-1.5 rounded-full flex-shrink-0"
+        style={{
+          fontSize: 9,
+          fontWeight: 700,
+          color: badgeColor,
+          backgroundColor: badgeBg,
+          border: `1px solid ${badgeColor}33`,
+          height: 16,
+          lineHeight: '14px',
+          alignSelf: 'center',
+        }}
+      >
+        {badgeLabel}
+      </span>
+    </div>
+  );
+}
+
+// 섹션 헤더 (간단 라벨)
+function TodaySectionLabel({ children, t }: { children: React.ReactNode; t: any }) {
+  return (
+    <div style={{ fontSize: 11, color: t.textSub, fontWeight: 700, letterSpacing: '0.04em', marginBottom: 6 }}>
+      {children}
     </div>
   );
 }
@@ -459,6 +442,8 @@ export function DashboardView() {
     setSelectedDate,
     toggleHabit,
     toggleWeeklyGoal,
+    updateTodo,
+    toggleEventCompleted,
   } = usePlanner();
 
   const currentWeekKey = getWeekKey(new Date());
@@ -467,7 +452,6 @@ export function DashboardView() {
   todayBase.setHours(0, 0, 0, 0);
   const toDateOnly = (dateString: string) => new Date(`${dateString}T00:00:00`);
   const getDateDiff = (dateString: string) => differenceInDays(toDateOnly(dateString), todayBase);
-  const formatDateLabel = (dateString: string) => format(toDateOnly(dateString), 'M/d', { locale: ko });
 
   // ── Stats ──
   const todayTodos = todos.filter((t) => t.date === today);
@@ -556,113 +540,116 @@ export function DashboardView() {
   const todayEvents = events.filter((e) => e.date === today).sort((a, b) => (a.startTime || '').localeCompare(b.startTime || ''));
   const tomorrow = format(addDays(new Date(), 1), 'yyyy-MM-dd');
   const tomorrowEvents = events.filter((e) => e.date === tomorrow).sort((a, b) => (a.startTime || '').localeCompare(b.startTime || ''));
-  const dueSoonTodos = todos.filter((t) => {
-    if (!t.dueDate || t.status !== 'active') return false;
-    const d = getDateDiff(t.dueDate);
-    return d >= 0 && d <= 3;
-  });
-  const overdueTodos = todos.filter((t) => {
-    if (!t.dueDate || t.status !== 'active') return false;
-    return getDateDiff(t.dueDate) < 0;
-  });
-  const dueSoonEvents = events.filter((e) => {
-    const d = getDateDiff(e.date);
-    return d >= 0 && d <= 3;
-  });
-  const overdueEvents = events.filter((e) => getDateDiff(e.date) < 0);
 
-  const reminderTodayItems = todayEvents.map((e) => ({
-    id: `today-event-${e.id}`,
-    label: e.title,
-    sub: e.startTime || '하루 일정',
-    meta: e.location || formatDateLabel(e.date),
-    badge: '일정',
-    badgeColor: t.info,
-    date: e.date,
-    route: 'calendar' as const,
-  }));
+  // ─────────────────────────────────────────────────────────────
+  // 📋 오늘 챙길 것들 — 통합 리스트 데이터
+  // ─────────────────────────────────────────────────────────────
+  // 1) 시간순 통합: 오늘 미완료 할일(planStart 있음) + 오늘 미완료 일정
+  const timeSortedItems = useMemo<TodayItem[]>(() => {
+    const timedTodos: TodayItem[] = todos
+      .filter(td =>
+        td.date === today &&
+        (td.status === 'active' || td.status === 'inProgress') &&
+        td.planStart
+      )
+      .map(td => ({ kind: 'todo' as const, id: td.id, time: td.planStart!, todo: td, tone: 'normal' as const }));
 
-  const reminderTomorrowItems = tomorrowEvents.map((e) => ({
-    id: `tomorrow-event-${e.id}`,
-    label: e.title,
-    sub: e.startTime || '하루 일정',
-    meta: e.location || formatDateLabel(e.date),
-    badge: '일정',
-    badgeColor: t.info,
-    date: e.date,
-    route: 'calendar' as const,
-  }));
+    const todayEvts: TodayItem[] = events
+      .filter(e => e.date === today && !e.completed)
+      .map(e => ({
+        kind: 'event' as const,
+        id: e.id,
+        time: e.isAllDay ? null : (e.startTime || null),
+        event: e,
+        tone: isEventPast(e) ? 'past' as const : 'normal' as const,
+      }));
 
-  const dueSoonItems = [
-    ...dueSoonTodos.map((todo) => {
-      const diff = getDateDiff(todo.dueDate!);
-      return {
-        id: `due-soon-todo-${todo.id}`,
-        label: todo.text,
-        sub: diff === 0 ? 'D-Day' : `D-${diff}`,
-        meta: `${formatDateLabel(todo.dueDate!)} 마감`,
-        badge: '할일',
-        badgeColor: t.accent,
-        date: todo.date || todo.dueDate!,
-        route: 'daily' as const,
-      };
-    }),
-    ...dueSoonEvents.map((event) => {
-      const diff = getDateDiff(event.date);
-      return {
-        id: `due-soon-event-${event.id}`,
-        label: event.title,
-        sub: diff === 0 ? 'D-Day' : `D-${diff}`,
-        meta: `${formatDateLabel(event.date)}${event.startTime ? ` · ${event.startTime}` : ''}`,
-        badge: '일정',
-        badgeColor: t.info,
-        date: event.date,
-        route: 'calendar' as const,
-      };
-    }),
-  ].sort((a, b) => {
-    const dateDiff = getDateDiff(a.date!) - getDateDiff(b.date!);
-    if (dateDiff !== 0) return dateDiff;
-    return a.label.localeCompare(b.label);
-  });
+    return [...timedTodos, ...todayEvts].sort((a, b) => {
+      // null(종일) 먼저
+      if (a.time === null && b.time === null) return 0;
+      if (a.time === null) return -1;
+      if (b.time === null) return 1;
+      return a.time.localeCompare(b.time);
+    });
+  }, [todos, events]);
 
-  const overdueItems = [
-    ...overdueTodos.map((todo) => {
-      const diff = Math.abs(getDateDiff(todo.dueDate!));
-      return {
-        id: `overdue-todo-${todo.id}`,
-        label: todo.text,
-        sub: `D+${diff}`,
-        meta: `${formatDateLabel(todo.dueDate!)} 마감`,
-        badge: '할일',
-        badgeColor: t.accent,
-        date: todo.date || todo.dueDate!,
-        route: 'daily' as const,
-      };
-    }),
-    ...overdueEvents.map((event) => {
-      const diff = Math.abs(getDateDiff(event.date));
-      return {
-        id: `overdue-event-${event.id}`,
-        label: event.title,
-        sub: `D+${diff}`,
-        meta: `${formatDateLabel(event.date)}${event.startTime ? ` · ${event.startTime}` : ''}`,
-        badge: '일정',
-        badgeColor: t.info,
-        date: event.date,
-        route: 'calendar' as const,
-      };
-    }),
-  ].sort((a, b) => {
-    const dateDiff = getDateDiff(a.date!) - getDateDiff(b.date!);
-    if (dateDiff !== 0) return dateDiff;
-    return a.label.localeCompare(b.label);
-  });
+  // 2) 오늘 할 일 (시간 미정): planStart 없음, 미완료
+  const untimedTodayTodos = useMemo<TodayItem[]>(() =>
+    todos
+      .filter(td =>
+        td.date === today &&
+        (td.status === 'active' || td.status === 'inProgress') &&
+        !td.planStart
+      )
+      .map(td => ({ kind: 'todo' as const, id: td.id, time: null, todo: td, tone: 'normal' as const })),
+    [todos]
+  );
 
-  const handleReminderClick = (item: { date?: string; route?: 'daily' | 'calendar' }) => {
-    if (item.date) setSelectedDate(item.date);
-    navigate(item.route === 'calendar' ? '/calendar' : '/daily');
+  // 3) 기한 임박·초과: dueDate 있는 미완료, 초과(<오늘) 또는 0~3일 이내
+  const dueOverdueItems = useMemo<TodayItem[]>(() =>
+    todos
+      .filter(td =>
+        td.dueDate &&
+        (td.status === 'active' || td.status === 'inProgress')
+      )
+      .filter(td => {
+        const diff = getDateDiff(td.dueDate!);
+        return diff < 0 || (diff >= 0 && diff <= 3);
+      })
+      .sort((a, b) => a.dueDate!.localeCompare(b.dueDate!))
+      .map(td => {
+        const diff = getDateDiff(td.dueDate!);
+        return {
+          kind: 'todo' as const,
+          id: td.id,
+          time: null,
+          todo: td,
+          tone: (diff < 0 ? 'overdue' : 'dueSoon') as 'overdue' | 'dueSoon',
+        };
+      }),
+    [todos, todayBase]
+  );
+
+  // 4) 내일 일정 — 기존 tomorrowEvents 그대로 사용(완료 제외)
+  const tomorrowItems = useMemo<TodayItem[]>(() =>
+    tomorrowEvents
+      .filter(e => !e.completed)
+      .map(e => ({
+        kind: 'event' as const,
+        id: e.id,
+        time: e.isAllDay ? null : (e.startTime || null),
+        event: e,
+        tone: 'normal' as const,
+      })),
+    [tomorrowEvents]
+  );
+
+  // 진행률: 상단 StatCard '할일 완료' 와 동일 분모/분자
+  const todayProgressDone = todayDone;
+  const todayProgressTotal = todayActive;
+  const todayProgressPct = todayProgressTotal > 0
+    ? Math.round((todayProgressDone / todayProgressTotal) * 100)
+    : 0;
+
+  // 내일 일정 접이식 상태 (기본 접힘)
+  const [tomorrowOpen, setTomorrowOpen] = useState(false);
+
+  // 핸들러
+  const handleTodoComplete = (todoId: string) => updateTodo(todoId, { status: 'done' });
+  const handleEventComplete = (evtId: string) => toggleEventCompleted(evtId, true);
+  const handleTodoJump = () => {
+    setSelectedDate(today);
+    navigate('/daily');
   };
+  const handleEventJump = (e: Event) => {
+    setSelectedDate(e.date);
+    navigate('/calendar');
+  };
+
+  const todayCardEmpty =
+    timeSortedItems.length === 0 &&
+    untimedTodayTodos.length === 0 &&
+    dueOverdueItems.length === 0;
 
   // ── Projects ──
   const activeProjects = projects.filter((p) => p.status === 'active');
@@ -942,7 +929,7 @@ export function DashboardView() {
           )}
         </div>
 
-        {/* 📋 오늘 챙길 것들 */}
+        {/* 📋 오늘 챙길 것들 — 실제 오늘 할일+일정 연결 */}
         <div
           style={{
             background: t.card,
@@ -952,54 +939,167 @@ export function DashboardView() {
             boxShadow: t.shadow,
           }}
         >
+          {/* 헤더 + 진행률 */}
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
             <span style={{ fontSize: 16 }}>📋</span>
             <span style={{ fontSize: 15, color: t.text, fontWeight: 600 }}>오늘 챙길 것들</span>
+            <span
+              style={{
+                marginLeft: 'auto',
+                fontSize: 12,
+                color: t.accent,
+                fontFamily: SERIF,
+                fontWeight: 600,
+              }}
+            >
+              할일 {todayProgressDone}/{todayProgressTotal} 완료
+            </span>
+          </div>
+          {/* 진행률 바 */}
+          <div style={{ height: 4, background: t.borderLight, borderRadius: 2, overflow: 'hidden', marginBottom: 14 }}>
+            <div
+              style={{
+                width: `${todayProgressPct}%`,
+                height: '100%',
+                background: t.success,
+                transition: 'width 0.4s',
+              }}
+            />
           </div>
 
-          <ReminderSection
-            icon={<Calendar size={14} />}
-            title="오늘 일정"
-            items={reminderTodayItems}
-            emptyText="일정 없음"
-            color={t.accent}
-            defaultOpen={true}
-            t={t}
-            onItemClick={handleReminderClick}
-          />
+          {/* 빈 상태 (오늘 섹션 1~3 모두 비었을 때) */}
+          {todayCardEmpty && (
+            <div style={{ textAlign: 'center', padding: '20px 0' }}>
+              <div style={{ fontSize: 28 }}>✨</div>
+              <p style={{ fontSize: 13, color: t.textMuted, marginTop: 6, fontWeight: 600 }}>
+                오늘은 다 챙겼어요
+              </p>
+              <p style={{ fontSize: 11, color: t.textMuted, marginTop: 3 }}>
+                일정·할일이 모두 정리됐어요
+              </p>
+            </div>
+          )}
 
-          <ReminderSection
-            icon={<Calendar size={14} />}
-            title="내일 일정"
-            items={reminderTomorrowItems}
-            emptyText="일정 없음"
-            color={t.info}
-            defaultOpen={false}
-            t={t}
-            onItemClick={handleReminderClick}
-          />
+          {/* 1) 시간순 통합 */}
+          {timeSortedItems.length > 0 && (
+            <section style={{ marginBottom: 14 }}>
+              <TodaySectionLabel t={t}>시간순</TodaySectionLabel>
+              <div className="space-y-1">
+                {timeSortedItems.map(item => (
+                  <TodayItemRow
+                    key={`${item.kind}-${item.id}`}
+                    item={item}
+                    t={t}
+                    onComplete={() =>
+                      item.kind === 'todo'
+                        ? handleTodoComplete(item.id)
+                        : handleEventComplete(item.id)
+                    }
+                    onJump={() =>
+                      item.kind === 'todo'
+                        ? handleTodoJump()
+                        : handleEventJump(item.event)
+                    }
+                  />
+                ))}
+              </div>
+            </section>
+          )}
 
-          <ReminderSection
-            icon={<AlertTriangle size={14} />}
-            title="⚠️ 기한 3일 이내"
-            items={dueSoonItems}
-            emptyText="해당 없음"
-            color="#E0A030"
-            defaultOpen={true}
-            t={t}
-            onItemClick={handleReminderClick}
-          />
+          {/* 2) 오늘 할 일 (시간 미정) */}
+          {untimedTodayTodos.length > 0 && (
+            <section style={{ marginBottom: 14 }}>
+              <TodaySectionLabel t={t}>오늘 할 일 (시간 미정)</TodaySectionLabel>
+              <div className="space-y-1">
+                {untimedTodayTodos.map(item => (
+                  <TodayItemRow
+                    key={`u-${item.id}`}
+                    item={item}
+                    t={t}
+                    onComplete={() => handleTodoComplete(item.id)}
+                    onJump={handleTodoJump}
+                  />
+                ))}
+              </div>
+            </section>
+          )}
 
-          <ReminderSection
-            icon={<AlertCircle size={14} />}
-            title="🔴 기한 초과"
-            items={overdueItems}
-            emptyText="해당 없음"
-            color={t.danger}
-            defaultOpen={true}
-            t={t}
-            onItemClick={handleReminderClick}
-          />
+          {/* 3) 기한 임박·초과 */}
+          {dueOverdueItems.length > 0 && (
+            <section style={{ marginBottom: 14 }}>
+              <TodaySectionLabel t={t}>
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                  <AlertTriangle size={11} color={t.danger} />
+                  기한 임박·초과
+                </span>
+              </TodaySectionLabel>
+              <div className="space-y-1">
+                {dueOverdueItems.map(item => (
+                  <TodayItemRow
+                    key={`d-${item.id}`}
+                    item={item}
+                    t={t}
+                    onComplete={() => handleTodoComplete(item.id)}
+                    onJump={handleTodoJump}
+                  />
+                ))}
+              </div>
+            </section>
+          )}
+
+          {/* 4) 내일 일정 — 접이식 (기본 접힘) */}
+          <div style={{ borderTop: `1px solid ${t.borderLight}`, paddingTop: 10, marginTop: 4 }}>
+            <button
+              onClick={() => setTomorrowOpen(o => !o)}
+              style={{
+                width: '100%',
+                display: 'flex',
+                alignItems: 'center',
+                gap: 8,
+                padding: '6px 0',
+                background: 'none',
+                border: 'none',
+                cursor: 'pointer',
+              }}
+            >
+              <Calendar size={13} color={t.info} />
+              <span style={{ fontSize: 12, color: t.text, fontWeight: 600, flex: 1, textAlign: 'left' }}>
+                내일 일정
+              </span>
+              <span
+                style={{
+                  fontSize: 10,
+                  color: tomorrowItems.length > 0 ? t.info : t.textMuted,
+                  fontWeight: 700,
+                  background: `${t.info}15`,
+                  padding: '2px 8px',
+                  borderRadius: 10,
+                }}
+              >
+                {tomorrowItems.length}
+              </span>
+              {tomorrowOpen ? <ChevronDown size={13} color={t.textMuted} /> : <ChevronRight size={13} color={t.textMuted} />}
+            </button>
+            {tomorrowOpen && (
+              <div style={{ paddingTop: 6 }}>
+                {tomorrowItems.length === 0 ? (
+                  <p style={{ fontSize: 11, color: t.textMuted, padding: '6px 2px' }}>내일 일정이 없어요</p>
+                ) : (
+                  <div className="space-y-1">
+                    {tomorrowItems.map(item => (
+                      <TodayItemRow
+                        key={`tm-${item.id}`}
+                        item={item}
+                        t={t}
+                        onComplete={() => handleEventComplete(item.id)}
+                        onJump={() => handleEventJump((item as { event: Event }).event)}
+                      />
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
         </div>
       </div>
 
