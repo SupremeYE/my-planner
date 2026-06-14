@@ -39,6 +39,45 @@ function fmtSleep(min: number): string {
   return m === 0 ? `${h}시간` : `${h}시간 ${m}분`;
 }
 
+// HH:mm 시각들의 원형 평균(자정 넘김 안전) — 분 단위(0..1440) + 원형 표준편차 분
+function circularMeanHHMM(times: string[]): { mean: number; stdMin: number } | null {
+  if (times.length === 0) return null;
+  let sumX = 0, sumY = 0;
+  for (const s of times) {
+    const [h, m] = s.split(':').map(Number);
+    const angle = ((h * 60 + m) / 1440) * 2 * Math.PI;
+    sumX += Math.cos(angle);
+    sumY += Math.sin(angle);
+  }
+  const meanX = sumX / times.length;
+  const meanY = sumY / times.length;
+  const R = Math.sqrt(meanX * meanX + meanY * meanY);
+  let theta = Math.atan2(meanY, meanX);
+  if (theta < 0) theta += 2 * Math.PI;
+  const mean = (theta / (2 * Math.PI)) * 1440;
+  // 원형 표준편차(rad) → 분
+  const stdMin = R > 0 && R <= 1
+    ? Math.sqrt(-2 * Math.log(R)) * (1440 / (2 * Math.PI))
+    : 0;
+  return { mean, stdMin };
+}
+
+// 분 → "HH:mm" (24시간 normalize)
+function minutesToHHMM(m: number): string {
+  const total = ((Math.round(m) % 1440) + 1440) % 1440;
+  const h = Math.floor(total / 60);
+  const mm = total % 60;
+  return `${String(h).padStart(2, '0')}:${String(mm).padStart(2, '0')}`;
+}
+
+// 원형 차이(분) — b 가 a 보다 얼마나 늦은지 (-720~720), 자정 넘김 안전
+function circularDiffMin(a: number, b: number): number {
+  let d = b - a;
+  d = ((d % 1440) + 1440) % 1440;
+  if (d > 720) d -= 1440;
+  return d;
+}
+
 export function PeriodSection() {
   const { periodRecords, addPeriodRecord, updatePeriodRecord, deletePeriodRecord } = usePlanner();
   const { t } = useTheme();
@@ -472,6 +511,37 @@ export function SleepSection() {
       .sort((a, b) => a.date.localeCompare(b.date))
       .map(r => ({ date: r.date.slice(5), hours: +(r.duration / 60).toFixed(2), minutes: r.duration }));
   }, [sleepRecords, today]);
+
+  // 최근 30일 취침·기상 규칙성 — sleepStart/sleepEnd 가 있는 기록만 사용
+  const regularity = useMemo(() => {
+    const cutoff = format(subDays(today, 29), 'yyyy-MM-dd');
+    const recent = sleepRecords.filter(r => r.date >= cutoff && r.sleepStart && r.sleepEnd);
+    const starts = recent.map(r => r.sleepStart as string);
+    const ends = recent.map(r => r.sleepEnd as string);
+    const startStat = circularMeanHHMM(starts);
+    const endStat = circularMeanHHMM(ends);
+
+    // 주중(월~금)/주말(토·일) 분리 — date-fns getDay(): 0=일, 6=토
+    const weekdayStarts: string[] = [];
+    const weekendStarts: string[] = [];
+    recent.forEach(r => {
+      const dow = parseISO(r.date).getDay();
+      const isWeekend = dow === 0 || dow === 6;
+      (isWeekend ? weekendStarts : weekdayStarts).push(r.sleepStart as string);
+    });
+    const weekdayStat = circularMeanHHMM(weekdayStarts);
+    const weekendStat = circularMeanHHMM(weekendStarts);
+    const weekendOffsetMin = weekdayStat && weekendStat
+      ? circularDiffMin(weekdayStat.mean, weekendStat.mean)
+      : null;
+
+    return {
+      count: recent.length,
+      weekdayCount: weekdayStarts.length,
+      weekendCount: weekendStarts.length,
+      startStat, endStat, weekdayStat, weekendStat, weekendOffsetMin,
+    };
+  }, [sleepRecords, today]);
   // Y축 상한: 최대 기록과 권장선 중 큰 값 + 1시간 여유, 최소 10시간
   const trendMax = Math.max(10, Math.ceil(Math.max(sleepGoalHours, ...trend.map(d => d.hours))) + 1);
   const trendTicks = Array.from({ length: Math.floor(trendMax / 2) + 1 }, (_, i) => i * 2);
@@ -793,6 +863,80 @@ export function SleepSection() {
           <div className="min-h-[200px] flex items-center justify-center text-center" style={{ fontSize: 13, color: t.textMuted }}>
             기록이 쌓이면 추이가 표시됩니다
           </div>
+        )}
+      </div>
+
+      {/* 최근 30일 취침·기상 규칙성 */}
+      <div className="p-3 lg:p-4 rounded-2xl mb-3" style={{ backgroundColor: t.card, border: `1px solid ${t.borderLight}` }}>
+        <div className="flex items-baseline justify-between mb-3">
+          <p style={{ fontSize: 13, fontWeight: 700, color: t.text }}>취침·기상 규칙성</p>
+          <p style={{ fontSize: 10, color: t.textMuted }}>최근 30일 · 기록 {regularity.count}일</p>
+        </div>
+
+        {regularity.count < 3 ? (
+          <div className="py-6 text-center" style={{ fontSize: 13, color: t.textMuted }}>
+            취침·기상 시각이 3일 이상 모이면 규칙성을 보여드릴게요
+          </div>
+        ) : (
+          <>
+            {/* 평균 취침 / 평균 기상 */}
+            <div className="flex gap-4 mb-3">
+              <div className="flex-1 text-center">
+                <div className="flex items-center justify-center gap-1 mb-1" style={{ fontSize: 10, color: SLEEP_COLOR, fontWeight: 700, letterSpacing: '0.06em' }}>
+                  <Moon size={10} /> 평균 취침
+                </div>
+                <div style={{ fontSize: 20, fontWeight: 700, color: t.text, fontFamily: 'var(--font-gmarket)' }}>
+                  {regularity.startStat ? minutesToHHMM(regularity.startStat.mean) : '—'}
+                </div>
+                <div style={{ fontSize: 10, color: t.textMuted, marginTop: 2 }}>
+                  편차 ±{regularity.startStat ? Math.round(regularity.startStat.stdMin) : 0}분
+                </div>
+              </div>
+              <div style={{ width: 1, backgroundColor: t.borderLight, flexShrink: 0 }} />
+              <div className="flex-1 text-center">
+                <div className="flex items-center justify-center gap-1 mb-1" style={{ fontSize: 10, color: SLEEP_COLOR, fontWeight: 700, letterSpacing: '0.06em' }}>
+                  <Sun size={10} /> 평균 기상
+                </div>
+                <div style={{ fontSize: 20, fontWeight: 700, color: t.text, fontFamily: 'var(--font-gmarket)' }}>
+                  {regularity.endStat ? minutesToHHMM(regularity.endStat.mean) : '—'}
+                </div>
+                <div style={{ fontSize: 10, color: t.textMuted, marginTop: 2 }}>
+                  편차 ±{regularity.endStat ? Math.round(regularity.endStat.stdMin) : 0}분
+                </div>
+              </div>
+            </div>
+
+            {/* 주중/주말 인사이트 */}
+            {regularity.weekdayCount > 0 && regularity.weekendCount > 0 && regularity.weekendOffsetMin != null ? (
+              <div className="px-3 py-2.5 rounded-xl" style={{ backgroundColor: `${SLEEP_COLOR}10`, border: `1px solid ${SLEEP_COLOR}30` }}>
+                <p style={{ fontSize: 12, color: t.text, lineHeight: 1.5 }}>
+                  {(() => {
+                    const diff = regularity.weekendOffsetMin;
+                    const wd = regularity.weekdayStat ? minutesToHHMM(regularity.weekdayStat.mean) : '—';
+                    const we = regularity.weekendStat ? minutesToHHMM(regularity.weekendStat.mean) : '—';
+                    if (Math.abs(diff) < 10) {
+                      return (
+                        <>
+                          주중·주말 취침 시각이 비슷해요 (<b style={{ color: SLEEP_COLOR }}>{wd}</b> vs <b style={{ color: SLEEP_COLOR }}>{we}</b>)
+                        </>
+                      );
+                    }
+                    const dir = diff > 0 ? '늦게' : '일찍';
+                    const min = Math.abs(Math.round(diff));
+                    return (
+                      <>
+                        주말엔 평균 <b style={{ color: SLEEP_COLOR }}>{min}분 {dir}</b> 잠들어요 (주중 {wd} · 주말 {we})
+                      </>
+                    );
+                  })()}
+                </p>
+              </div>
+            ) : (
+              <p style={{ fontSize: 11, color: t.textMuted, textAlign: 'center', padding: '4px 0' }}>
+                주중·주말 비교는 양쪽 요일에 기록이 모두 있을 때 표시돼요
+              </p>
+            )}
+          </>
         )}
       </div>
 
