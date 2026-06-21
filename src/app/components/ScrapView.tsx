@@ -99,7 +99,7 @@ function ScrapCard({ scrap, onClick }: { scrap: Scrap; onClick?: () => void }) {
             src={scrap.thumbnailUrl!}
             alt={scrap.title ?? ''}
             loading="lazy"
-            style={{ width: '100%', display: 'block', objectFit: 'cover' }}
+            style={{ width: '100%', maxWidth: '100%', display: 'block', objectFit: 'cover' }}
           />
           {/* 좌상단 출처 칩 */}
           <div
@@ -511,7 +511,7 @@ export function ScrapView() {
   }, [dustyCandidates, dustyIndex, searchResults]);
 
   return (
-    <div className="h-full overflow-y-auto relative" style={{ backgroundColor: t.bg }}>
+    <div className="h-full overflow-y-auto relative" style={{ backgroundColor: t.bg, overflowX: 'clip' }}>
       {/* 메이슨리 column 폭 — 모바일 2열, lg 3열, xl 4열 */}
       <style>{`
         .scrap-grid { column-count: 2; column-gap: 12px; padding: 16px 24px 0; }
@@ -559,7 +559,7 @@ export function ScrapView() {
       {/* ── 검색창 + 안 본 것만 토글 (Stage 3) ── */}
       <div className="px-6 lg:px-14 mt-5 flex items-center gap-2">
         <div
-          className="flex-1 flex items-center gap-2 px-3 py-2 rounded-full"
+          className="flex-1 min-w-0 flex items-center gap-2 px-3 py-2 rounded-full"
           style={{ backgroundColor: t.bgSub, border: `1px solid ${t.borderLight}` }}
         >
           <Search size={14} color={t.textMuted} />
@@ -570,6 +570,7 @@ export function ScrapView() {
             placeholder="제목·코멘트·태그로 찾기"
             style={{
               flex: 1,
+              minWidth: 0,
               backgroundColor: 'transparent',
               color: t.text,
               fontSize: 13,
