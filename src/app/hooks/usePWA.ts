@@ -143,9 +143,12 @@ export function usePWA() {
     // (iOS standalone 콜드런치 시점에 읽혀야 safe-area inset 이 올바르게 계산됨)
     injectMeta('apple-mobile-web-app-title', 'My Planner');
     injectMeta('mobile-web-app-capable', 'yes');
+    // viewport-fit=cover 제거: status-bar-style=default 기기에서 inset이 0으로 보고되면
+    // cover가 웹뷰를 상태바 밑까지 풀블리드로 깔아 전역 탑바가 가려짐.
+    // cover를 빼면 iOS가 웹뷰를 상태바 아래·홈인디케이터 위로 자동 inset 처리함.
     injectMeta(
       'viewport',
-      'width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover'
+      'width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no'
     );
 
     if (!document.querySelector('link[rel="apple-touch-icon"]')) {

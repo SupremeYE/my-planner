@@ -2,7 +2,9 @@
 <html lang="ko">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <!-- viewport-fit=cover 제거: status-bar-style=default 기기에서 inset이 0으로 보고될 때
+         cover가 콘텐츠를 상태바 밑까지 풀블리드로 깔아 전역 탑바가 가려지는 문제 → iOS 자동 inset에 맡김 -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="theme-color" content="#515f74" />
     <!-- iOS PWA standalone: 콜드런치 시점에 iOS가 직접 읽어야 하므로 정적 태그로 둠 (런타임 JS 주입은 너무 늦어 safe-area inset이 0으로 해석되는 버그 유발). status-bar-style은 라이트 베이지 테마용 default 고정 — black-translucent로 바꾸지 말 것 -->
     <meta name="apple-mobile-web-app-capable" content="yes" />
