@@ -7,7 +7,7 @@ import {
 import { ko } from 'date-fns/locale';
 import {
   ChevronLeft, ChevronRight, ChevronDown, X, Camera, Image as ImageIcon,
-  Mic, MicOff, Trash2, Pencil,
+  Mic, MicOff, Trash2, Pencil, Plus,
 } from 'lucide-react';
 import { MEAL_ICONS, MEAL_LABELS, DINING_ICONS, DINING_LABELS, FASTING_ICON, FASTING_LABEL } from '../../constants/foodIcons';
 import {
@@ -16,6 +16,7 @@ import {
 } from 'recharts';
 import { usePlanner, FoodRecord, MealType, DiningType, TasteRating } from '../store';
 import { useTheme } from '../ThemeContext';
+import { useFabAction } from '../FabContext';
 import { db } from '../../lib/db';
 import { useVoiceInput } from '../hooks/useVoiceInput';
 import ConfirmModal from './ConfirmModal';
@@ -1541,6 +1542,13 @@ export function FoodView() {
     setEditRecord(r);
     setShowSheet(true);
   }, []);
+
+  // 전역 FAB — 식단 추가(현재 시간대 기본 끼니). 시트 1단계에서 끼니 변경 가능
+  useFabAction({ kind: 'action', label: '식단 추가', icon: Plus, onPress: () => {
+    const h = new Date().getHours();
+    const meal: MealType = h < 11 ? 'breakfast' : h < 15 ? 'lunch' : h < 21 ? 'dinner' : 'snack';
+    openAdd(meal);
+  } });
 
   const handleSave = useCallback((data: Omit<FoodRecord, 'id'> & { id?: string }) => {
     if (data.id) {

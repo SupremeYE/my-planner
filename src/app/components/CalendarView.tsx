@@ -23,7 +23,7 @@ import { TodoModal } from './TodoModal';
 import { EventModal } from './EventModal';
 import ConfirmModal from './ConfirmModal';
 import { RecurrenceBranchModal } from './RecurrenceBranchModal';
-import { FloatingAddFab } from './FloatingAddFab';
+import { useFabAction } from '../FabContext';
 import { WeekViewPC } from './WeekViewPC';
 import { WeekViewMobile } from './WeekViewMobile';
 
@@ -662,6 +662,15 @@ export function CalendarView() {
   const [viewDate, setViewDate] = useState(parseISO(selectedDate));
   const [showAddTodoModal, setShowAddTodoModal] = useState(false);
   const [showAddEventModal, setShowAddEventModal] = useState(false);
+
+  // 전역 FAB — 캘린더는 선택 날짜 맥락 빠른 입력 + 할일/일정 상세 단축
+  useFabAction({
+    kind: 'quick',
+    defaultDate: selectedDate,
+    onAddTodo: () => setShowAddTodoModal(true),
+    onAddEvent: () => setShowAddEventModal(true),
+  });
+
   const [selectedTagIds, setSelectedTagIds] = useState<string[]>([]);
   const [panelDate, setPanelDate] = useState<string | null>(null);
   const [isCalendarExpanded, setIsCalendarExpanded] = useState(true);
@@ -1238,11 +1247,6 @@ export function CalendarView() {
           </div>
         </div>
       )}
-
-      <FloatingAddFab
-        onAddTodo={() => setShowAddTodoModal(true)}
-        onAddEvent={() => setShowAddEventModal(true)}
-      />
 
       {showAddTodoModal && <TodoModal date={selectedDate} onClose={() => setShowAddTodoModal(false)} />}
       {showAddEventModal && <EventModal date={selectedDate} onClose={() => setShowAddEventModal(false)} />}

@@ -9,6 +9,7 @@ import { useTheme } from '../ThemeContext';
 import { format, subDays, startOfMonth, getDaysInMonth, getDay, addDays, startOfWeek, addMonths, subMonths } from 'date-fns';
 import { RoutineModal, ExecutionPanel, RoutineCard, today as routineToday } from './RoutinesView';
 import { useNotification } from '../hooks/useNotification';
+import { useFabAction } from '../FabContext';
 
 const HABIT_COLORS = ['#515f74', '#D4735A', '#006b62', '#7B9ED9', '#A07BE0', '#6B7280'];
 const REPEAT_OPTIONS = [
@@ -1261,6 +1262,11 @@ export function HabitsView() {
   const [runningRoutine, setRunningRoutine] = useState<Routine | null>(null);
   // memo inline editing per habit id
   const [memoEditing, setMemoEditing] = useState<Record<string, string>>({});
+
+  // 전역 FAB — 루틴 탭이면 루틴 추가, 그 외(습관/통계)는 습관 추가
+  useFabAction(tab === 'routines'
+    ? { kind: 'action', label: '루틴 추가', icon: Plus, onPress: () => setShowAddRoutine(true) }
+    : { kind: 'action', label: '습관 추가', icon: Plus, onPress: () => setShowAddHabit(true) });
 
   const todayDow = new Date().getDay();
   const isRoutineApplicableToday = (r: Routine) => {

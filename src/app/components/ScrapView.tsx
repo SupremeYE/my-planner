@@ -6,6 +6,7 @@ import { useRealtimeSync } from '../hooks/useRealtimeSync';
 import type { Scrap, ScrapSource, ScrapStatus } from '../store';
 import AddScrapModal from './scrap/AddScrapModal';
 import ScrapDetailSheet from './scrap/ScrapDetailSheet';
+import { useFabAction } from '../FabContext';
 
 // 토큰 hex → rgba (다른 뷰들과 동일 패턴)
 function withAlpha(hex: string, alpha: number): string {
@@ -479,6 +480,8 @@ export function ScrapView() {
   }, [scraps, searchResults, filter, onlyUnread]);
 
   const handleAddClick = useCallback(() => setModalOpen(true), []);
+  // 전역 FAB — 스크랩 추가
+  useFabAction({ kind: 'action', label: '스크랩 추가', icon: Plus, onPress: handleAddClick });
   const handleCardClick = useCallback((id: string) => setOpenId(id), []);
   const handleClearSearch = useCallback(() => { setSearchQuery(''); setSearchResults(null); }, []);
 
@@ -680,31 +683,6 @@ export function ScrapView() {
             <ScrapCard key={scrap.id} scrap={scrap} onClick={() => handleCardClick(scrap.id)} />
           ))
         )}
-      </div>
-
-      {/* ── FAB (확장형 라벨 버튼) ── */}
-      <div
-        className="fixed left-0 right-0 flex z-30 pointer-events-none justify-center lg:justify-end lg:pr-[312px]"
-        style={{ bottom: 'calc(env(safe-area-inset-bottom) + 84px)' }}
-      >
-        <button
-          onClick={handleAddClick}
-          className="pointer-events-auto flex items-center gap-2 transition-transform active:scale-95"
-          style={{
-            backgroundColor: t.accent,
-            color: '#fff',
-            fontWeight: 700,
-            fontSize: 14,
-            padding: '15px 26px',
-            borderRadius: 999,
-            boxShadow: `0 8px 22px ${withAlpha(t.accent, 0.4)}`,
-            border: 'none',
-          }}
-          aria-label="스크랩 추가"
-        >
-          <Plus size={18} strokeWidth={2.4} />
-          스크랩 추가
-        </button>
       </div>
 
       {/* 추가 모달 */}

@@ -1,35 +1,44 @@
 import { useEffect, useRef, useState } from 'react';
 import { CalendarDays, CheckSquare, Plus, X } from 'lucide-react';
 import { useTheme } from '../ThemeContext';
+import { useFab, type FabAction } from '../FabContext';
 import { QuickAddInput } from './QuickAddInput';
 
 interface FloatingAddFabProps {
-  /** QuickAddInput 기본 날짜. 파싱에 날짜가 없을 때 폴백(없으면 null=Inbox) */
-  defaultDate?: string | null;
-  /** (선택) 상세 할일 추가 — 패널 안 "상세" 단축 버튼으로 노출 (날짜 맥락 모달 등) */
-  onAddTodo?: () => void;
-  /** (선택) 상세 일정 추가 */
-  onAddEvent?: () => void;
   mobileBottomClassName?: string;
   desktopBottomClassName?: string;
 }
 
 /**
- * 전역 빠른 캡처 FAB — 어느 화면에서든 우하단 + 버튼으로 통합 입력(QuickAddInput)을 띄운다.
- * PC: FAB 위 팝오버 패널 / 모바일: 하단 바텀시트.
- * 날짜 토큰 유무에 따라 해당 날짜 또는 Inbox 로 저장(QuickAddInput/Stage 1 로직 그대로).
- * onAddTodo/onAddEvent 가 주어지면 "상세 입력" 단축(기존 모달)도 함께 제공한다.
+ * 전역 컨텍스트 FAB — 우하단에 항상 1개만 떠서, 현재 페이지가 등록한 주(主) 추가 액션을 수행한다.
+ * (라우트→액션 매핑은 각 페이지가 `useFabAction` 으로 등록하는 단일 소스)
+ *
+ * - 등록 액션이 `kind:'action'` → 누르면 그 페이지의 추가 모달/시트를 바로 연다.
+ * - 등록 액션이 `kind:'quick'` 또는 미등록 → 통합 빠른 입력(QuickAddInput) 팝오버/시트를 띄운다.
  */
 export function FloatingAddFab({
-  defaultDate = null,
-  onAddTodo,
-  onAddEvent,
   mobileBottomClassName = 'bottom-20',
   desktopBottomClassName = 'lg:bottom-6',
 }: FloatingAddFabProps) {
   const { t } = useTheme();
+  const { action } = useFab();
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
+
+  // 미등록이면 기본 빠른 입력(Inbox 캡처)
+  const effective: FabAction = action ?? { kind: 'quick', defaultDate: null };
+  const isQuick = effective.kind === 'quick';
+
+  // 페이지가 위치 클래스를 지정하면(예: 내부 탭바가 있는 레시피 모듈) 그것으로 대체
+  const fabClassName = effective.kind === 'hidden' ? undefined : effective.fabClassName;
+  const posClass = fabClassName
+    ? `fixed lg:absolute right-4 lg:right-6 z-30 ${fabClassName}`
+    : `fixed lg:absolute right-4 lg:right-6 z-30 ${mobileBottomClassName} ${desktopBottomClassName}`;
+
+  // quick 모드가 아니면 팝오버/시트를 쓰지 않으므로 닫아둔다
+  useEffect(() => {
+    if (!isQuick && open) setOpen(false);
+  }, [isQuick, open]);
 
   // PC: 바깥 클릭 닫기 (모바일은 dim 오버레이 탭으로 닫음)
   useEffect(() => {
@@ -49,6 +58,39 @@ export function FloatingAddFab({
     return () => document.removeEventListener('keydown', onKey);
   }, [open]);
 
+  // ── kind:'hidden' — 이 페이지에서는 FAB 숨김 ──
+  if (effective.kind === 'hidden') return null;
+
+  // ── kind:'action' — 누르면 페이지 모달 직접 오픈 (팝오버 없음) ──
+  if (effective.kind === 'action') {
+    const Icon = effective.icon ?? Plus;
+    return (
+      <div className={posClass}>
+        <button
+          type="button"
+          onClick={() => effective.onPress()}
+          className="flex items-center justify-center rounded-full"
+          style={{
+            width: 46,
+            height: 46,
+            backgroundColor: t.accent,
+            color: '#fff',
+            boxShadow: '0 10px 24px rgba(38,52,61,0.16)',
+          }}
+          aria-label={effective.label}
+          title={effective.label}
+        >
+          <Icon size={20} />
+        </button>
+      </div>
+    );
+  }
+
+  // ── kind:'quick' — 통합 빠른 입력 팝오버/시트 ──
+  const defaultDate = effective.defaultDate ?? null;
+  const onAddTodo = effective.onAddTodo;
+  const onAddEvent = effective.onAddEvent;
+  const headingLabel = effective.label ?? '빠른 입력';
   const hasDetail = !!(onAddTodo || onAddEvent);
 
   const detailRow = hasDetail ? (
@@ -79,7 +121,7 @@ export function FloatingAddFab({
 
   const heading = (
     <p className="mb-2" style={{ fontSize: 11, color: t.textMuted, fontWeight: 700, letterSpacing: '0.04em' }}>
-      빠른 입력
+      {headingLabel}
     </p>
   );
 
@@ -88,7 +130,7 @@ export function FloatingAddFab({
       {/* FAB 버튼 + PC 팝오버 */}
       <div
         ref={ref}
-        className={`fixed lg:absolute right-4 lg:right-6 z-30 ${mobileBottomClassName} ${desktopBottomClassName}`}
+        className={posClass}
       >
         {/* PC 팝오버 (hidden lg:block) */}
         <div
@@ -128,7 +170,7 @@ export function FloatingAddFab({
             transition: 'transform 0.15s ease',
             transform: open ? 'rotate(45deg)' : 'rotate(0deg)',
           }}
-          aria-label="빠른 입력"
+          aria-label={headingLabel}
         >
           <Plus size={20} />
         </button>
@@ -153,7 +195,7 @@ export function FloatingAddFab({
             onClick={e => e.stopPropagation()}
           >
             <div className="flex items-center justify-between mb-2">
-              <span style={{ fontSize: 12, color: t.textMuted, fontWeight: 700 }}>빠른 입력</span>
+              <span style={{ fontSize: 12, color: t.textMuted, fontWeight: 700 }}>{headingLabel}</span>
               <button type="button" onClick={() => setOpen(false)} style={{ color: t.textMuted }} aria-label="닫기">
                 <X size={18} />
               </button>

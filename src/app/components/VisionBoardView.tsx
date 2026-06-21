@@ -11,6 +11,7 @@ import { useRealtimeSync } from '../hooks/useRealtimeSync';
 import VisionFormModal from './vision/VisionFormModal';
 import CategoryManagerModal from './vision/CategoryManagerModal';
 import ConfirmModal from './ConfirmModal';
+import { useFabAction } from '../FabContext';
 
 // ── 토큰 hex → rgba (Layout.tsx의 withAlpha와 동일 패턴, 토큰 기반 투명도 표현)
 function withAlpha(hex: string, alpha: number): string {
@@ -246,6 +247,9 @@ export function VisionBoardView() {
     setModalOpen(true);
   }, []);
 
+  // 전역 FAB — 비전 추가
+  useFabAction({ kind: 'action', label: '비전 추가하기', icon: Plus, onPress: handleAddClick });
+
   const handleCardClick = useCallback((item: Item) => {
     setEditingItem(item);
     setModalOpen(true);
@@ -416,33 +420,6 @@ export function VisionBoardView() {
             메이슨리 회전·column-flow와 충돌하지 않게 단순 처리. */}
         <DragOverlay />
       </DndContext>
-
-      {/* ── FAB (코랄 토큰) ── */}
-      <div
-        className="fixed left-0 right-0 flex z-30 pointer-events-none justify-center lg:justify-end lg:pr-10"
-        style={{
-          // 모바일: 떠 있는 하단 알약(약 56px) + 12px 여백 + safe-area를 피해 위로
-          bottom: 'calc(env(safe-area-inset-bottom) + 84px)',
-        }}
-      >
-        <button
-          onClick={handleAddClick}
-          className="pointer-events-auto flex items-center gap-2 transition-transform active:scale-95"
-          style={{
-            backgroundColor: t.accent,                   // 코랄 토큰
-            color: '#fff',
-            fontWeight: 700,
-            fontSize: 14,
-            padding: '15px 26px',
-            borderRadius: 999,
-            boxShadow: `0 8px 22px ${withAlpha(t.accent, 0.4)}`,
-            border: 'none',
-          }}
-        >
-          <Plus size={18} strokeWidth={2.4} />
-          비전 추가하기
-        </button>
-      </div>
 
       {/* 추가/편집 모달 */}
       {modalOpen && (
