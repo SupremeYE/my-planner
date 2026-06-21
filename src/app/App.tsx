@@ -11,7 +11,6 @@ import { PWABanner, IOSInstallGuide } from './components/PWABanner';
 import { LoginView } from './components/LoginView';
 import { ResetPasswordView } from './components/ResetPasswordView';
 import SplashScreen from '../components/SplashScreen';
-import { SafeAreaProbe } from './components/SafeAreaProbe'; // ⚠️ TEMP — 검증 후 제거
 
 function AppContent() {
   const { session, loading, recovery } = useAuth();
@@ -57,7 +56,6 @@ function AppContent() {
         <CookingTimers />
         <PWABanner />
         <IOSInstallGuide />
-        <SafeAreaProbe /> {/* ⚠️ TEMP — safe-area inset 실측 배지, 검증 후 제거 */}
       </TimerProvider>
     </PlannerProvider>
   );
