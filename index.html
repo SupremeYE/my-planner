@@ -4,6 +4,9 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     <meta name="theme-color" content="#515f74" />
+    <!-- iOS PWA standalone: 콜드런치 시점에 iOS가 직접 읽어야 하므로 정적 태그로 둠 (런타임 JS 주입은 너무 늦어 safe-area inset이 0으로 해석되는 버그 유발). status-bar-style은 라이트 베이지 테마용 default 고정 — black-translucent로 바꾸지 말 것 -->
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
     <meta name="description" content="나만의 생산성 플래너 - 일간, 주간, 월간 계획 관리" />
     <title>My Planner</title>
     <!-- 탭 아이콘 (하온 로고 PNG) -->

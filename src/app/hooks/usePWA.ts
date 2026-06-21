@@ -139,8 +139,8 @@ export function usePWA() {
     injectMeta('description', '나만의 생산성 플래너');
     injectMeta('theme-color', '#515f74');
     injectMeta('msapplication-TileColor', '#515f74');
-    injectMeta('apple-mobile-web-app-capable', 'yes');
-    injectMeta('apple-mobile-web-app-status-bar-style', 'default');
+    // apple-mobile-web-app-capable / status-bar-style 는 index.html 정적 태그로 이전
+    // (iOS standalone 콜드런치 시점에 읽혀야 safe-area inset 이 올바르게 계산됨)
     injectMeta('apple-mobile-web-app-title', 'My Planner');
     injectMeta('mobile-web-app-capable', 'yes');
     injectMeta(
