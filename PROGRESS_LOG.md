@@ -24,6 +24,14 @@
 - **기본 빠른 입력 유지(미등록 폴백)**: `/dashboard`·`/inbox`·`/goals`·`/health`·`/reviews`·`/moments`·`/diary`·`/walk`·`/settings`·`/profile` — 기존처럼 빠른 입력 FAB(회귀 없음).
 - 검증: 모든 페이지 FAB 1개 · 각 페이지 올바른 추가 모달 실행 · 겹쳐 가려지는 버튼 없음 · 색/간격 디자인 토큰만(기존 FAB 스타일 그대로) · PC 레이아웃 무변경(`lg:` 분기 보존) · Figma 생성 파일 미수정 · `npm run build` 통과.
 
+**전역 FAB — 모바일 long-press speed dial — Stage 2**
+- 모바일(`lg` 미만)에서만 FAB를 **길게 누르면(480ms) speed dial** 펼침 → "할일 빠르게 추가"(어느 페이지에서든 Inbox 빠른 캡처, `QuickAddInput` 시트). **짧은 탭 = Stage 1 컨텍스트 액션 그대로**.
+- 구현: `FloatingAddFab` 에 pointer 이벤트(`onPointerDown/Up/Leave/Cancel`) + 타이머. `pointerType==='touch'` 이고 `matchMedia('(min-width:1024px)')` 미충족(=모바일)일 때만 long-press 활성. long-press 발화 시 `longPressFired` ref 로 직후 click(탭) 1회 무시. speed dial 펼침 동안 FAB 컨테이너 `z-50`(dim `z-40` 위) + `+` 45° 회전, dim 탭/ESC 로 닫힘. `navigator.vibrate(10)` 햅틱(지원 시).
+- PC: pointerType='mouse' + lg 게이트로 long-press/ speed dial **완전 비활성**(탭 = 컨텍스트 액션만). PC 빠른 입력은 별도 inbox 경로 사용 — FAB speed dial 미노출.
+- speed dial 항목은 배열로 관리(현재 1개: 할일 빠르게 추가) — 확장 용이. 항목/배지 색은 토큰만(`t.card`/`t.border`/`t.accent`/`t.text`).
+- ⚠️ **발견성(discoverability) 보완책은 미적용(리뷰 결정 대기)** — 제안: ① 최초 1회 힌트 툴팁("길게 눌러 더 보기", localStorage 1회) ② FAB에 작은 도트/그립 인디케이터. 둘 중 택1 또는 생략.
+- 검증: 모바일 long-press → speed dial 펼침/바깥 탭 닫힘 ☑ · 모바일 짧은 탭 = 컨텍스트 액션 유지 ☑ · PC long-press/speed dial 미동작 ☑ · 디자인 토큰만·PC 레이아웃 회귀 없음 ☑ · `npm run build` 통과.
+
 ---
 
 ## 2026-06-14
