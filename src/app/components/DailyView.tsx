@@ -6,7 +6,7 @@ import {
   Check, Clock, Trash2, X, MoreHorizontal,
   Settings, Edit3, Pause, Ban, CalendarDays, Copy, MessageSquare,
 } from 'lucide-react';
-import { format, addDays, subDays, addMonths, subMonths, startOfMonth, getDaysInMonth, getDay as getDayOfWeek, parseISO } from 'date-fns';
+import { format, addDays, subDays, addMonths, subMonths, startOfMonth, getDaysInMonth, getDay as getDayOfWeek, parseISO, addMinutes } from 'date-fns';
 import { ko } from 'date-fns/locale';
 import { usePlanner, Todo, Event, Tag as TagType, TimelineLog, SelfCareRecord, getTimerElapsedSec } from '../store';
 import { useTheme } from '../ThemeContext';
@@ -1408,7 +1408,8 @@ export function DailyView() {
     .filter(td => td.doStart && td.doEnd)
     .reduce((sum, td) => sum + todoDoDurationSeconds(td), 0) + activeTimerSec;
   const totalDoMinEquiv = totalDoSec / 60;
-  const achieveRate = totalPlanMin > 0 ? Math.min(100, Math.round((totalDoMinEquiv / totalPlanMin) * 100)) : 0;
+  const doneCount = dateTodos.filter(td => td.status === 'done').length;
+  const achieveRate = dateTodos.length > 0 ? Math.round((doneCount / dateTodos.length) * 100) : 0;
 
   // 오늘 날짜인 경우에만 알림 스케줄 등록
   const todayStr2 = format(new Date(), 'yyyy-MM-dd');
@@ -1454,11 +1455,18 @@ export function DailyView() {
       return;
     }
     if (todo.status === 'done') {
-      updateTodo(todo.id, { status: 'active', doStart: undefined, doEnd: undefined, doElapsedSec: undefined });
+      updateTodo(todo.id, { status: 'active' });
       return;
     }
-    const doneAt = format(new Date(), 'HH:mm');
-    updateTodo(todo.id, { status: 'done', doStart: doneAt, doEnd: doneAt, doElapsedSec: 0 });
+    if (todo.doStart && todo.doEnd) {
+      updateTodo(todo.id, { status: 'done' });
+    } else if (todo.planStart && todo.planEnd) {
+      updateTodo(todo.id, { status: 'done', doStart: todo.planStart, doEnd: todo.planEnd });
+    } else {
+      const s = format(new Date(), 'HH:mm');
+      const e = format(addMinutes(new Date(), 30), 'HH:mm');
+      updateTodo(todo.id, { status: 'done', doStart: s, doEnd: e });
+    }
   };
 
   const handleTodoFocusAction = (todo: Todo) => {
@@ -2512,17 +2520,21 @@ export function DailyView() {
               )}
             </div>
             {/* 요약: 계획 시간/실제 시간/달성률 */}
-            {(totalPlanMin > 0 || totalDoSec > 0) && (
+            {(totalPlanMin > 0 || totalDoSec > 0 || dateTodos.length > 0) && (
               <div className="flex items-center gap-3 mt-1.5">
-                <span style={{ fontSize: 10, color: '#7D6347' }}>
-                  계획 시간 {Math.floor(totalPlanMin / 60) > 0 ? `${Math.floor(totalPlanMin / 60)}h ` : ''}{totalPlanMin % 60 > 0 ? `${totalPlanMin % 60}m` : ''}
-                </span>
-                <span style={{ fontSize: 10, color: '#4A8A5A' }}>
-                  실제 시간 {formatTotalDoKo(totalDoSec)}
-                </span>
                 {totalPlanMin > 0 && (
+                  <span style={{ fontSize: 10, color: '#7D6347' }}>
+                    계획 시간 {Math.floor(totalPlanMin / 60) > 0 ? `${Math.floor(totalPlanMin / 60)}h ` : ''}{totalPlanMin % 60 > 0 ? `${totalPlanMin % 60}m` : ''}
+                  </span>
+                )}
+                {totalDoSec > 0 && (
+                  <span style={{ fontSize: 10, color: '#4A8A5A' }}>
+                    실제 시간 {formatTotalDoKo(totalDoSec)}
+                  </span>
+                )}
+                {dateTodos.length > 0 && (
                   <span style={{ fontSize: 10, fontWeight: 700, color: achieveRate >= 100 ? '#059669' : t.accent }}>
-                    달성률 {achieveRate}%
+                    달성률 {achieveRate}% ({doneCount}/{dateTodos.length})
                   </span>
                 )}
               </div>
