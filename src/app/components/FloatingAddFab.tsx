@@ -9,7 +9,10 @@ interface FloatingAddFabProps {
   desktopBottomClassName?: string;
 }
 
-const LONG_PRESS_MS = 480;
+const LONG_PRESS_MS = 480;          // long-press 인식 임계값
+const MOVE_CANCEL_PX = 10;          // 누르는 중 이 거리 이상 움직이면 스크롤로 간주 → 취소
+const HINT_KEY = 'haon_fab_longpress_hint_seen';
+const HINT_AUTO_HIDE_MS = 4500;
 const isDesktopViewport = () =>
   typeof window !== 'undefined' && window.matchMedia('(min-width: 1024px)').matches;
 
@@ -32,9 +35,12 @@ export function FloatingAddFab({
   const [open, setOpen] = useState(false);          // 빠른 입력 팝오버/시트
   const [quickDate, setQuickDate] = useState<string | null>(null); // 빠른 입력 기본 날짜
   const [speedOpen, setSpeedOpen] = useState(false); // 모바일 speed dial
+  const [showHint, setShowHint] = useState(false);   // 모바일 최초 1회 long-press 힌트
   const ref = useRef<HTMLDivElement>(null);
   const pressTimer = useRef<number | null>(null);
+  const hintTimer = useRef<number | null>(null);
   const longPressFired = useRef(false);
+  const pressStart = useRef<{ x: number; y: number } | null>(null);
 
   // 미등록이면 기본 빠른 입력(Inbox 캡처)
   const effective: FabAction = action ?? { kind: 'quick', defaultDate: null };
@@ -68,7 +74,31 @@ export function FloatingAddFab({
   }, [open, speedOpen]);
 
   // 언마운트 시 타이머 정리
-  useEffect(() => () => { if (pressTimer.current) clearTimeout(pressTimer.current); }, []);
+  useEffect(() => () => {
+    if (pressTimer.current) clearTimeout(pressTimer.current);
+    if (hintTimer.current) clearTimeout(hintTimer.current);
+  }, []);
+
+  // 최초 1회 long-press 힌트 — 모바일(lg 미만)에서만, PC 절대 표시 금지.
+  // FAB 는 Layout 의 PC/모바일 트리 양쪽에 마운트되므로 "실제로 보이는 인스턴스"
+  // (getBoundingClientRect 폭 > 0)에서만 1회 노출하고 그때 localStorage 키를 찍는다.
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    if (localStorage.getItem(HINT_KEY)) return;
+    const raf = window.requestAnimationFrame(() => {
+      const visible = !!ref.current && ref.current.getBoundingClientRect().width > 0;
+      if (!visible || isDesktopViewport()) return; // PC/숨김 인스턴스는 표시 안 함
+      localStorage.setItem(HINT_KEY, '1');
+      setShowHint(true);
+      hintTimer.current = window.setTimeout(() => setShowHint(false), HINT_AUTO_HIDE_MS);
+    });
+    return () => cancelAnimationFrame(raf);
+  }, []);
+
+  const dismissHint = () => {
+    if (hintTimer.current) { clearTimeout(hintTimer.current); hintTimer.current = null; }
+    setShowHint(false);
+  };
 
   // ── kind:'hidden' — 이 페이지에서는 FAB 숨김 ──
   if (effective.kind === 'hidden') return null;
@@ -91,6 +121,7 @@ export function FloatingAddFab({
   };
 
   const handleClick = () => {
+    dismissHint();
     if (longPressFired.current) { longPressFired.current = false; return; } // long-press 직후 탭 무시
     if (speedOpen) { setSpeedOpen(false); return; }
     runPrimary();
@@ -99,15 +130,25 @@ export function FloatingAddFab({
   // 모바일 long-press → speed dial (터치 + lg 미만에서만)
   const startPress = (e: React.PointerEvent) => {
     if (e.pointerType !== 'touch' || isDesktopViewport()) return;
+    dismissHint();
     longPressFired.current = false;
+    pressStart.current = { x: e.clientX, y: e.clientY };
     pressTimer.current = window.setTimeout(() => {
       longPressFired.current = true;
       setSpeedOpen(true);
       if ('vibrate' in navigator) navigator.vibrate?.(10);
     }, LONG_PRESS_MS);
   };
+  // 누르는 중 일정 거리 이상 움직이면 스크롤로 간주하고 long-press 취소
+  const movePress = (e: React.PointerEvent) => {
+    if (pressTimer.current == null || !pressStart.current) return;
+    const dx = e.clientX - pressStart.current.x;
+    const dy = e.clientY - pressStart.current.y;
+    if (dx * dx + dy * dy > MOVE_CANCEL_PX * MOVE_CANCEL_PX) endPress();
+  };
   const endPress = () => {
     if (pressTimer.current) { clearTimeout(pressTimer.current); pressTimer.current = null; }
+    pressStart.current = null;
   };
 
   // speed dial 보조 액션 — 어느 페이지에서든 "할일 빠르게 추가"(Inbox 캡처)
@@ -205,14 +246,35 @@ export function FloatingAddFab({
           </div>
         )}
 
+        {/* 모바일 최초 1회 long-press 힌트 (lg:hidden) */}
+        {showHint && !speedOpen && !open && (
+          <button
+            type="button"
+            onClick={dismissHint}
+            className="lg:hidden absolute right-0 bottom-[58px] flex items-center gap-1.5 px-3 py-2 rounded-xl whitespace-nowrap"
+            style={{
+              backgroundColor: t.text,
+              color: t.card,
+              fontSize: 12,
+              fontWeight: 600,
+              boxShadow: '0 6px 18px rgba(38,52,61,0.22)',
+            }}
+            aria-label="힌트 닫기"
+          >
+            길게 눌러 빠른 추가
+          </button>
+        )}
+
         {/* FAB 버튼 (탭 = 컨텍스트 액션 / 모바일 long-press = speed dial) */}
         <button
           type="button"
           onClick={handleClick}
           onPointerDown={startPress}
+          onPointerMove={movePress}
           onPointerUp={endPress}
           onPointerLeave={endPress}
           onPointerCancel={endPress}
+          onContextMenu={e => e.preventDefault()}
           className="flex items-center justify-center rounded-full"
           style={{
             width: 46,
