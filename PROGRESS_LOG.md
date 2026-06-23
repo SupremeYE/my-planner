@@ -29,8 +29,13 @@
 - 구현: `FloatingAddFab` 에 pointer 이벤트(`onPointerDown/Up/Leave/Cancel`) + 타이머. `pointerType==='touch'` 이고 `matchMedia('(min-width:1024px)')` 미충족(=모바일)일 때만 long-press 활성. long-press 발화 시 `longPressFired` ref 로 직후 click(탭) 1회 무시. speed dial 펼침 동안 FAB 컨테이너 `z-50`(dim `z-40` 위) + `+` 45° 회전, dim 탭/ESC 로 닫힘. `navigator.vibrate(10)` 햅틱(지원 시).
 - PC: pointerType='mouse' + lg 게이트로 long-press/ speed dial **완전 비활성**(탭 = 컨텍스트 액션만). PC 빠른 입력은 별도 inbox 경로 사용 — FAB speed dial 미노출.
 - speed dial 항목은 배열로 관리(현재 1개: 할일 빠르게 추가) — 확장 용이. 항목/배지 색은 토큰만(`t.card`/`t.border`/`t.accent`/`t.text`).
-- ⚠️ **발견성(discoverability) 보완책은 미적용(리뷰 결정 대기)** — 제안: ① 최초 1회 힌트 툴팁("길게 눌러 더 보기", localStorage 1회) ② FAB에 작은 도트/그립 인디케이터. 둘 중 택1 또는 생략.
 - 검증: 모바일 long-press → speed dial 펼침/바깥 탭 닫힘 ☑ · 모바일 짧은 탭 = 컨텍스트 액션 유지 ☑ · PC long-press/speed dial 미동작 ☑ · 디자인 토큰만·PC 레이아웃 회귀 없음 ☑ · `npm run build` 통과.
+
+**전역 FAB — Stage 2 보완 (힌트 툴팁 + long-press 견고화)**
+- **발견성 보완책 A 채택 — 최초 1회 힌트 툴팁**: 모바일(lg 미만)에서 첫 진입 시 FAB 위에 "길게 눌러 빠른 추가" 말풍선 1회 노출. `localStorage` 키 `haon_fab_longpress_hint_seen` 로 1회 제한, 4.5초 후 자동 사라짐 + 탭 시 즉시 닫힘. 색은 디자인 토큰만(`t.text`/`t.card`). **PC 절대 미표시** — FAB가 Layout PC/모바일 트리 양쪽에 마운트되므로 "실제로 보이는 인스턴스"(`getBoundingClientRect().width>0`) + `!isDesktopViewport()` 조건에서만 노출·키 기록(숨김/PC 인스턴스가 키를 선점하지 않게). speed dial/빠른입력 열리면 힌트 자동 닫힘.
+- **long-press 견고화**(iOS 스크롤/콜아웃 충돌 방지): 임계값 480ms · 누르는 중 **10px 이상 이동 시 스크롤로 간주해 long-press 취소**(`onPointerMove` 거리 체크) · `onContextMenu preventDefault` + `WebkitTouchCallout:none`/`userSelect:none`/`touchAction:manipulation` 로 iOS 기본 콜아웃·선택 억제 · touchstart 에서 preventDefault 안 함(스크롤 보존).
+- speed dial 항목은 **"할일 빠르게 추가" 단일 항목 유지**(일정 추가 등 미추가 — 캘린더 탭 별도 존재).
+- 검증 추가: long-press 중 스크롤(이동)하면 speed dial 미발동 ☑ · iOS 콜아웃/선택 억제 ☑ · 바깥 영역 탭 시 speed dial 닫힘 ☑ · 힌트 PC 미표시·1회만 ☑ · `npm run build` 통과.
 
 ---
 
