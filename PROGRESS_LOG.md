@@ -6,6 +6,34 @@
 
 ---
 
+## 2026-06-21
+
+### 🛠 오늘 작업 내용
+
+**전역 FAB를 "컨텍스트형 단일 버튼"으로 통일 — Stage 1**
+- 배경: 우하단 전역 FAB(할일 빠른 추가)가 모든 페이지에 고정 표시되어, 페이지마다 따로 있던 추가 버튼(문화 FAB·레시피 3탭 FAB·스크랩/비전 pill 등)과 **위치가 겹쳐** 눌리지 않던 문제. 목표: 우하단 FAB는 항상 1개만, 현재 페이지 맥락의 추가 액션을 수행.
+- **단일 소스 `FabContext` 도입** (`src/app/FabContext.tsx`): 각 페이지가 mount 시 `useFabAction({...})` 으로 자기 주(主) 추가 액션을 등록, unmount 시 해제. `App.tsx` 에서 `RouterProvider` 를 `FabProvider` 로 감쌈. 액션 종류 3가지 — `kind:'action'`(누르면 그 페이지 모달/시트 바로 오픈) · `kind:'quick'`(통합 빠른 입력 QuickAddInput 팝오버/시트, 날짜 맥락+할일/일정 상세 단축) · `kind:'hidden'`(다중 선택 모드 등에서 FAB 숨김). 등록이 없으면 기본 = 빠른 입력(Inbox 캡처). 콜백은 ref 로 최신값 유지(불필요 재등록 방지), label/icon/kind/defaultDate/fabClassName 변경 시에만 재등록(서브탭 전환 대응). children 참조가 안정적이라 register/unregister 가 전체 트리를 리렌더하지 않음(컨텍스트 소비자만 갱신).
+- **`FloatingAddFab` 재작성**: 컨텍스트의 등록 액션을 읽어 `action`→직접 onPress 버튼 / `quick`→기존 QuickAddInput 팝오버·바텀시트 / `hidden`→렌더 안 함. 위치는 페이지가 `fabClassName` 을 주면 그것으로 대체(내부 탭바가 있는 레시피 모듈 대응).
+- **레이아웃**: `Layout`(A/B/D)·`LayoutC`(C) 에서 `showQuickFab` 라우트 제외 로직 제거 → FAB 를 모든 페이지에 항상 1개만 마운트.
+- **겹치던 페이지의 별도 추가 버튼 제거 → FAB 일원화**:
+  - `/daily`·`/calendar`: 자체 `FloatingAddFab` 마운트 제거 + `useFabAction({kind:'quick', defaultDate: 선택날짜, onAddTodo, onAddEvent})` 등록(날짜 맥락 빠른 입력 + 상세 단축 유지)
+  - `/culture`: `fixed right-4` FAB 제거 → 영상 섹션 `kind:'action'`("문화 기록 추가"), 음악 섹션은 `MusicSection` 이 자체 등록("음악 추가")
+  - `/recipes` 3탭(`RecipeListTab`/`FridgeTab`/`ShoppingTab`): `recipe-mod-fab fixed` FAB 제거 → 각 탭이 `kind:'action'`("레시피/냉장고 품목/장보기 항목 추가") + `fabClassName:'recipe-mod-fab'`(내부 탭바 위로 위치). 다중 선택 모드에서는 `kind:'hidden'`
+  - `/vision`·`/scraps`: 하단 pill("비전 추가하기"/"스크랩 추가") 제거 → `kind:'action'`
+- **충돌은 없지만 맥락 정렬을 위해 추가 등록**: `/projects`(새 프로젝트), `/projects/:id`(할일 추가), `/habits`(루틴 탭→루틴 추가/그 외→습관 추가), `/food`(식단 추가, 현재 시간대 기본 끼니), `/mood`(감정 기록), `/time-report`(기록 추가), `/books`(책 추가), `/places` 보관함(장소 추가).
+- **기본 빠른 입력 유지(미등록 폴백)**: `/dashboard`·`/inbox`·`/goals`·`/health`·`/reviews`·`/moments`·`/diary`·`/walk`·`/settings`·`/profile` — 기존처럼 빠른 입력 FAB(회귀 없음).
+- 검증: 모든 페이지 FAB 1개 · 각 페이지 올바른 추가 모달 실행 · 겹쳐 가려지는 버튼 없음 · 색/간격 디자인 토큰만(기존 FAB 스타일 그대로) · PC 레이아웃 무변경(`lg:` 분기 보존) · Figma 생성 파일 미수정 · `npm run build` 통과.
+
+**전역 FAB — 모바일 long-press speed dial — Stage 2**
+- 모바일(`lg` 미만)에서만 FAB를 **길게 누르면(480ms) speed dial** 펼침 → "할일 빠르게 추가"(어느 페이지에서든 Inbox 빠른 캡처, `QuickAddInput` 시트). **짧은 탭 = Stage 1 컨텍스트 액션 그대로**.
+- 구현: `FloatingAddFab` 에 pointer 이벤트(`onPointerDown/Up/Leave/Cancel`) + 타이머. `pointerType==='touch'` 이고 `matchMedia('(min-width:1024px)')` 미충족(=모바일)일 때만 long-press 활성. long-press 발화 시 `longPressFired` ref 로 직후 click(탭) 1회 무시. speed dial 펼침 동안 FAB 컨테이너 `z-50`(dim `z-40` 위) + `+` 45° 회전, dim 탭/ESC 로 닫힘. `navigator.vibrate(10)` 햅틱(지원 시).
+- PC: pointerType='mouse' + lg 게이트로 long-press/ speed dial **완전 비활성**(탭 = 컨텍스트 액션만). PC 빠른 입력은 별도 inbox 경로 사용 — FAB speed dial 미노출.
+- speed dial 항목은 배열로 관리(현재 1개: 할일 빠르게 추가) — 확장 용이. 항목/배지 색은 토큰만(`t.card`/`t.border`/`t.accent`/`t.text`).
+- ⚠️ **발견성(discoverability) 보완책은 미적용(리뷰 결정 대기)** — 제안: ① 최초 1회 힌트 툴팁("길게 눌러 더 보기", localStorage 1회) ② FAB에 작은 도트/그립 인디케이터. 둘 중 택1 또는 생략.
+- 검증: 모바일 long-press → speed dial 펼침/바깥 탭 닫힘 ☑ · 모바일 짧은 탭 = 컨텍스트 액션 유지 ☑ · PC long-press/speed dial 미동작 ☑ · 디자인 토큰만·PC 레이아웃 회귀 없음 ☑ · `npm run build` 통과.
+
+---
+
 ## 2026-06-14
 
 ### 🛠 오늘 작업 내용

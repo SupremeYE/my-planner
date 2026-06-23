@@ -4,6 +4,7 @@ import { router } from './routes';
 import { ThemeProvider } from './ThemeContext';
 import { AuthProvider, useAuth } from './AuthContext';
 import { PlannerProvider } from './store';
+import { FabProvider } from './FabContext';
 import { TimerProvider } from './timers/TimerProvider';
 import { GlobalFloatingTimer } from './components/GlobalFloatingTimer';
 import { CookingTimers } from './components/CookingTimers';
@@ -51,7 +52,9 @@ function AppContent() {
   return (
     <PlannerProvider>
       <TimerProvider>
-        <RouterProvider router={router} />
+        <FabProvider>
+          <RouterProvider router={router} />
+        </FabProvider>
         <GlobalFloatingTimer />
         <CookingTimers />
         <PWABanner />

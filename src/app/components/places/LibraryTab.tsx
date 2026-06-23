@@ -9,6 +9,7 @@ import { REGION_LABELS } from '../../../constants/places';
 import { placeEmoji, sourceLabel, colorFromKey, withAlpha } from './placeHelpers';
 import { usePlacesData } from './usePlacesData';
 import { PlaceFormSheet } from './PlaceFormSheet';
+import { useFabAction } from '../../FabContext';
 import { FolderFormSheet } from './FolderFormSheet';
 import { FolderPickerSheet } from './FolderPickerSheet';
 import ConfirmModal from '../ConfirmModal';
@@ -51,6 +52,9 @@ export function LibraryTab() {
   // 시트
   const [addPlaceFor, setAddPlaceFor] = useState<string | null | undefined>(undefined); // undefined=닫힘, null=폴더없음, id=기본폴더
   const [editPlace, setEditPlace] = useState<Place | null>(null);
+
+  // 전역 FAB — 장소 추가 (폴더는 폼에서 선택)
+  useFabAction({ kind: 'action', label: '장소 추가', icon: Plus, onPress: () => setAddPlaceFor(null) });
   const [addFolder, setAddFolder] = useState(false);
   const [editFolder, setEditFolder] = useState<PlaceFolder | null>(null);
   const [pickerPlace, setPickerPlace] = useState<Place | null>(null);

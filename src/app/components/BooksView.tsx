@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { Search, X, Plus, BookOpen, ChevronRight, ChevronLeft, Tag, Trash2, BookMarked, Mic, Star, Lightbulb, NotebookPen } from 'lucide-react';
 import { useTheme } from '../ThemeContext';
+import { useFabAction } from '../FabContext';
 import { format } from 'date-fns';
 import ConfirmModal from './ConfirmModal';
 import { supabase } from '../../lib/supabase';
@@ -2078,6 +2079,9 @@ export function BooksView() {
   const [activeTab, setActiveTab] = useState<BookStatus | 'quotes' | 'stats'>('reading');
   const [showSearch, setShowSearch] = useState(false);
   const [selectedBook, setSelectedBook] = useState<Book | null>(null);
+
+  // 전역 FAB — 책 추가
+  useFabAction({ kind: 'action', label: '책 추가', icon: Plus, onPress: () => setShowSearch(true) });
 
   // ── Supabase에서 불러오기 ──
   const fetchBooksData = useCallback(async () => {

@@ -18,7 +18,7 @@ import { TodoModal } from './TodoModal';
 import { MandalartSourceBadge } from './mandalart/MandalartSourceBadge';
 import { EventModal } from './EventModal';
 import { FocusModal } from './FocusModal';
-import { FloatingAddFab } from './FloatingAddFab';
+import { useFabAction } from '../FabContext';
 import { AddEntryMenu } from './AddEntryMenu';
 import { formatDuration, formatTotalDoKo, todoDoDurationSeconds } from '../../lib/todoDoDuration';
 import { expandRecurringTodos, isVirtualTodoId, parseVirtualTodoId } from '../../lib/recurrenceExpansion';
@@ -995,6 +995,14 @@ export function DailyView() {
   const highlightTodoId = searchParams.get('todoId');
   const [showAddModal, setShowAddModal] = useState(false);
   const [showAddEventModal, setShowAddEventModal] = useState(false);
+
+  // 전역 FAB — 일간은 날짜 맥락 빠른 입력 + 할일/일정 상세 단축
+  useFabAction({
+    kind: 'quick',
+    defaultDate: selectedDate,
+    onAddTodo: () => setShowAddModal(true),
+    onAddEvent: () => setShowAddEventModal(true),
+  });
   // 메모 유형 습관의 일별 메모 임시 입력값 (id → text)
   const [habitMemoEditing, setHabitMemoEditing] = useState<Record<string, string>>({});
   const [editingTodo, setEditingTodo] = useState<Todo | null>(null);
@@ -2625,11 +2633,6 @@ export function DailyView() {
         </div>
         </div>{/* /Columns Wrapper */}
       </div>
-
-      <FloatingAddFab
-        onAddTodo={() => setShowAddModal(true)}
-        onAddEvent={() => setShowAddEventModal(true)}
-      />
 
       {/* Modals */}
       {showAddModal && <TodoModal date={selectedDate} onClose={() => setShowAddModal(false)} />}

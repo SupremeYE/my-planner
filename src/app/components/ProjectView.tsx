@@ -11,6 +11,7 @@ import { ko } from 'date-fns/locale';
 import ConfirmModal from './ConfirmModal';
 import { TodoModal } from './TodoModal';
 import { useTheme } from '../ThemeContext';
+import { useFabAction } from '../FabContext';
 
 // ── Project color palette ──
 export const PROJECT_COLORS = [
@@ -227,6 +228,9 @@ export function ProjectsView() {
   const { t } = useTheme();
   const { projects, addProject } = usePlanner();
   const [showNewModal, setShowNewModal] = useState(false);
+
+  // 전역 FAB — 새 프로젝트
+  useFabAction({ kind: 'action', label: '새 프로젝트', icon: Plus, onPress: () => setShowNewModal(true) });
 
   const activeProjects = projects.filter(p => p.status === 'active');
   const otherProjects = projects.filter(p => p.status !== 'active');
@@ -591,6 +595,9 @@ export function ProjectDetailView() {
   const [tab, setTab] = useState<'milestones' | 'todos'>('milestones');
   const [editingTodo, setEditingTodo] = useState<Todo | null>(null);
   const [addingTodoForProject, setAddingTodoForProject] = useState(false);
+
+  // 전역 FAB — 이 프로젝트에 할일 추가
+  useFabAction({ kind: 'action', label: '할일 추가', icon: Plus, onPress: () => setAddingTodoForProject(true) });
 
   const project = projects.find(p => p.id === id);
 

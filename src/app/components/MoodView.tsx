@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { Plus, X, Mic, Pencil, Trash2, ChevronLeft, ChevronRight } from 'lucide-react';
 import { format } from 'date-fns';
 import { useTheme } from '../ThemeContext';
+import { useFabAction } from '../FabContext';
 import { supabase } from '../../lib/supabase';
 import { useRealtimeSync } from '../hooks/useRealtimeSync';
 import { useVoiceInput } from '../hooks/useVoiceInput';
@@ -855,6 +856,9 @@ export function MoodView() {
 
   const openEdit = (record: MoodRecord) => { setEditingRecord(record); setNewRecordDate(undefined); setShowSheet(true); };
   const openNewForDate = (date: string) => { setEditingRecord(null); setNewRecordDate(date); setShowSheet(true); };
+
+  // 전역 FAB — 감정 기록
+  useFabAction({ kind: 'action', label: '감정 기록', icon: Plus, onPress: () => { setEditingRecord(null); setNewRecordDate(undefined); setShowSheet(true); } });
 
   const todayRecords = records.filter(r => r.date === today);
   const pastRecords = records.filter(r => r.date !== today);
