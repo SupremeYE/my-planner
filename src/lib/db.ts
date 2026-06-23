@@ -9,6 +9,7 @@ import type {
   WeightRecord, WeightGoal, ConditionRecord, UserSymptom, CultureRecord, MusicRecord,
   Recipe, RecipeIngredient, RecipeStep, RecipeCookLog,
   FridgeItem, ShoppingItem,
+  BeautyProduct, BeautySpecialCare, HouseholdItem, ConsumableCycle, CleaningZone,
   Scrap, ScrapNote, ScrapSource, ScrapStatus,
   MindmapNode, MindmapTreeNode, MindmapDir,
 } from '../app/store';
@@ -3423,6 +3424,300 @@ export const db = {
       if (error) { console.error('[db] walk photo upload:', error.message); return null; }
       const { data } = supabase.storage.from('walk-photos').getPublicUrl(path);
       return data.publicUrl;
+    },
+  },
+
+  // ── 뷰티 케어 · 살림 (Stage 2) ─────────────────────────────────────────────
+  // user_id 는 DB DEFAULT auth.uid() 로 자동. 클라이언트 저장 시 보내지 않는다(fridge 패턴).
+  // 날짜 배열(done/replaced/cleaned)은 read-modify-write 로 today 1개만 추가(같은 날 중복 무시).
+
+  // 뷰티 보유함
+  beautyProducts: {
+    fetchAll: async (): Promise<BeautyProduct[]> => {
+      const { data, error } = await supabase
+        .from('beauty_products').select('*').order('created_at', { ascending: false });
+      if (error) console.error('[db] beauty_products fetch:', error.message);
+      return (data ?? []).map((r: any): BeautyProduct => ({
+        id: r.id,
+        name: r.name,
+        brand: r.brand ?? null,
+        category: r.category ?? null,
+        photoUrl: r.photo_url ?? null,
+        openedAt: r.opened_at ?? null,
+        expiryMonths: r.expiry_months != null ? Number(r.expiry_months) : null,
+        purchasePlace: r.purchase_place ?? null,
+        price: r.price != null ? Number(r.price) : null,
+        link: r.link ?? null,
+        memo: r.memo ?? null,
+        isActive: r.is_active ?? true,
+        createdAt: r.created_at ?? undefined,
+      }));
+    },
+    upsert: async (item: BeautyProduct) => {
+      const { error } = await supabase.from('beauty_products').upsert({
+        id: item.id,
+        name: item.name,
+        brand: item.brand ?? null,
+        category: item.category ?? null,
+        photo_url: item.photoUrl ?? null,
+        opened_at: item.openedAt ?? null,
+        expiry_months: item.expiryMonths ?? null,
+        purchase_place: item.purchasePlace ?? null,
+        price: item.price ?? null,
+        link: item.link ?? null,
+        memo: item.memo ?? null,
+        is_active: item.isActive ?? true,
+      }, { onConflict: 'id' });
+      if (error) console.error('[db] beauty_products upsert:', error.message);
+    },
+    delete: async (id: string) => {
+      const { error } = await supabase.from('beauty_products').delete().eq('id', id);
+      if (error) console.error('[db] beauty_products delete:', error.message);
+    },
+    // 사진 업로드 → beauty-photos 버킷 (food/walk uploadPhoto 패턴 동일)
+    uploadPhoto: async (recordId: string, file: File): Promise<string | null> => {
+      const ext = file.name.split('.').pop() ?? 'jpg';
+      const path = `${recordId}.${ext}`;
+      const { error } = await supabase.storage.from('beauty-photos').upload(path, file, { upsert: true, contentType: file.type });
+      if (error) { console.error('[db] beauty photo upload:', error.message); return null; }
+      const { data } = supabase.storage.from('beauty-photos').getPublicUrl(path);
+      return data.publicUrl;
+    },
+    // 재구매 = 같은 제품을 새 id 로 복제 insert. opened_at=오늘, is_active=true.
+    // 원본은 그대로 둔다(사용자가 원하면 따로 삭제). 새 행을 반환.
+    repurchase: async (product: BeautyProduct): Promise<BeautyProduct | null> => {
+      const today = format(new Date(), 'yyyy-MM-dd');
+      const newId = crypto.randomUUID();
+      const { data, error } = await supabase.from('beauty_products').insert({
+        id: newId,
+        name: product.name,
+        brand: product.brand ?? null,
+        category: product.category ?? null,
+        photo_url: product.photoUrl ?? null,
+        opened_at: today,
+        expiry_months: product.expiryMonths ?? null,
+        purchase_place: product.purchasePlace ?? null,
+        price: product.price ?? null,
+        link: product.link ?? null,
+        memo: product.memo ?? null,
+        is_active: true,
+      }).select('*').single();
+      if (error) { console.error('[db] beauty_products repurchase:', error.message); return null; }
+      return data ? {
+        id: data.id, name: data.name, brand: data.brand, category: data.category,
+        photoUrl: data.photo_url, openedAt: data.opened_at,
+        expiryMonths: data.expiry_months != null ? Number(data.expiry_months) : null,
+        purchasePlace: data.purchase_place, price: data.price != null ? Number(data.price) : null,
+        link: data.link, memo: data.memo, isActive: data.is_active ?? true,
+        createdAt: data.created_at ?? undefined,
+      } : null;
+    },
+    // 다 쓴 제품 보관(false) / 복원(true)
+    setActive: async (id: string, active: boolean) => {
+      const { error } = await supabase.from('beauty_products').update({ is_active: active }).eq('id', id);
+      if (error) console.error('[db] beauty_products setActive:', error.message);
+    },
+  },
+
+  // 스페셜케어 (마지막 N일 + 오늘 했어요)
+  beautySpecialCare: {
+    fetchAll: async (): Promise<BeautySpecialCare[]> => {
+      const { data, error } = await supabase
+        .from('beauty_special_care').select('*').order('created_at', { ascending: false });
+      if (error) console.error('[db] beauty_special_care fetch:', error.message);
+      return (data ?? []).map((r: any): BeautySpecialCare => ({
+        id: r.id,
+        name: r.name,
+        icon: r.icon ?? null,
+        cycleDays: r.cycle_days != null ? Number(r.cycle_days) : null,
+        doneDates: r.done_dates ?? [],
+        createdAt: r.created_at ?? undefined,
+      }));
+    },
+    upsert: async (item: BeautySpecialCare) => {
+      const { error } = await supabase.from('beauty_special_care').upsert({
+        id: item.id,
+        name: item.name,
+        icon: item.icon ?? null,
+        cycle_days: item.cycleDays ?? null,
+        done_dates: item.doneDates ?? [],
+      }, { onConflict: 'id' });
+      if (error) console.error('[db] beauty_special_care upsert:', error.message);
+    },
+    delete: async (id: string) => {
+      const { error } = await supabase.from('beauty_special_care').delete().eq('id', id);
+      if (error) console.error('[db] beauty_special_care delete:', error.message);
+    },
+    // 오늘 했어요 — done_dates 에 today 추가(같은 날 중복 무시). read-modify-write.
+    markDone: async (id: string, today: string) => {
+      const { data, error: e1 } = await supabase
+        .from('beauty_special_care').select('done_dates').eq('id', id).maybeSingle();
+      if (e1) { console.error('[db] beauty_special_care markDone fetch:', e1.message); return; }
+      const dates: string[] = data?.done_dates ?? [];
+      if (dates.includes(today)) return;
+      const { error } = await supabase
+        .from('beauty_special_care').update({ done_dates: [...dates, today] }).eq('id', id);
+      if (error) console.error('[db] beauty_special_care markDone:', error.message);
+    },
+  },
+
+  // 살림 재고
+  householdItems: {
+    fetchAll: async (): Promise<HouseholdItem[]> => {
+      const { data, error } = await supabase
+        .from('household_items').select('*').order('created_at', { ascending: false });
+      if (error) console.error('[db] household_items fetch:', error.message);
+      return (data ?? []).map((r: any): HouseholdItem => ({
+        id: r.id,
+        name: r.name,
+        category: r.category ?? null,
+        quantity: r.quantity != null ? Number(r.quantity) : 1,
+        unit: r.unit ?? null,
+        thresholdQty: r.threshold_qty != null ? Number(r.threshold_qty) : 1,
+        brand: r.brand ?? null,
+        purchasePlace: r.purchase_place ?? null,
+        price: r.price != null ? Number(r.price) : null,
+        link: r.link ?? null,
+        memo: r.memo ?? null,
+        photoUrl: r.photo_url ?? null,
+        createdAt: r.created_at ?? undefined,
+      }));
+    },
+    upsert: async (item: HouseholdItem) => {
+      const { error } = await supabase.from('household_items').upsert({
+        id: item.id,
+        name: item.name,
+        category: item.category ?? null,
+        quantity: item.quantity,
+        unit: item.unit ?? null,
+        threshold_qty: item.thresholdQty,
+        brand: item.brand ?? null,
+        purchase_place: item.purchasePlace ?? null,
+        price: item.price ?? null,
+        link: item.link ?? null,
+        memo: item.memo ?? null,
+        photo_url: item.photoUrl ?? null,
+      }, { onConflict: 'id' });
+      if (error) console.error('[db] household_items upsert:', error.message);
+    },
+    delete: async (id: string) => {
+      const { error } = await supabase.from('household_items').delete().eq('id', id);
+      if (error) console.error('[db] household_items delete:', error.message);
+    },
+    uploadPhoto: async (recordId: string, file: File): Promise<string | null> => {
+      const ext = file.name.split('.').pop() ?? 'jpg';
+      const path = `${recordId}.${ext}`;
+      const { error } = await supabase.storage.from('household-photos').upload(path, file, { upsert: true, contentType: file.type });
+      if (error) { console.error('[db] household photo upload:', error.message); return null; }
+      const { data } = supabase.storage.from('household-photos').getPublicUrl(path);
+      return data.publicUrl;
+    },
+    // 수량 증감 — fridge updateQuantity 동일한 낙관적 업데이트. 0 미만 금지.
+    // delta 만큼 증감하기 위해 현재값을 읽어 clamp 한다(read-modify-write).
+    updateQuantity: async (id: string, delta: number): Promise<number | null> => {
+      const { data, error: e1 } = await supabase
+        .from('household_items').select('quantity').eq('id', id).maybeSingle();
+      if (e1) { console.error('[db] household_items updateQuantity fetch:', e1.message); return null; }
+      const cur = data?.quantity != null ? Number(data.quantity) : 0;
+      const next = Math.max(0, cur + delta);
+      const { error } = await supabase.from('household_items').update({ quantity: next }).eq('id', id);
+      if (error) { console.error('[db] household_items updateQuantity:', error.message); return null; }
+      return next;
+    },
+    // 재구매 완료 = 다시 채움. amount 주면 그 값, 없으면 threshold_qty 로.
+    refill: async (id: string, amount?: number): Promise<number | null> => {
+      let next = amount;
+      if (next == null) {
+        const { data, error: e1 } = await supabase
+          .from('household_items').select('threshold_qty').eq('id', id).maybeSingle();
+        if (e1) { console.error('[db] household_items refill fetch:', e1.message); return null; }
+        next = data?.threshold_qty != null ? Number(data.threshold_qty) : 1;
+      }
+      const { error } = await supabase.from('household_items').update({ quantity: next }).eq('id', id);
+      if (error) { console.error('[db] household_items refill:', error.message); return null; }
+      return next;
+    },
+  },
+
+  // 소모품 교체주기
+  consumableCycles: {
+    fetchAll: async (): Promise<ConsumableCycle[]> => {
+      const { data, error } = await supabase
+        .from('consumable_cycles').select('*').order('created_at', { ascending: false });
+      if (error) console.error('[db] consumable_cycles fetch:', error.message);
+      return (data ?? []).map((r: any): ConsumableCycle => ({
+        id: r.id,
+        name: r.name,
+        cycleDays: r.cycle_days != null ? Number(r.cycle_days) : 0,
+        replacedDates: r.replaced_dates ?? [],
+        createdAt: r.created_at ?? undefined,
+      }));
+    },
+    upsert: async (item: ConsumableCycle) => {
+      const { error } = await supabase.from('consumable_cycles').upsert({
+        id: item.id,
+        name: item.name,
+        cycle_days: item.cycleDays,
+        replaced_dates: item.replacedDates ?? [],
+      }, { onConflict: 'id' });
+      if (error) console.error('[db] consumable_cycles upsert:', error.message);
+    },
+    delete: async (id: string) => {
+      const { error } = await supabase.from('consumable_cycles').delete().eq('id', id);
+      if (error) console.error('[db] consumable_cycles delete:', error.message);
+    },
+    // 교체(restart) — replaced_dates 에 today 추가(같은 날 중복 무시).
+    replace: async (id: string, today: string) => {
+      const { data, error: e1 } = await supabase
+        .from('consumable_cycles').select('replaced_dates').eq('id', id).maybeSingle();
+      if (e1) { console.error('[db] consumable_cycles replace fetch:', e1.message); return; }
+      const dates: string[] = data?.replaced_dates ?? [];
+      if (dates.includes(today)) return;
+      const { error } = await supabase
+        .from('consumable_cycles').update({ replaced_dates: [...dates, today] }).eq('id', id);
+      if (error) console.error('[db] consumable_cycles replace:', error.message);
+    },
+    setCycle: async (id: string, days: number) => {
+      const { error } = await supabase.from('consumable_cycles').update({ cycle_days: days }).eq('id', id);
+      if (error) console.error('[db] consumable_cycles setCycle:', error.message);
+    },
+  },
+
+  // 청소구역 (먼지 히트맵)
+  cleaningZones: {
+    fetchAll: async (): Promise<CleaningZone[]> => {
+      const { data, error } = await supabase
+        .from('cleaning_zones').select('*').order('created_at', { ascending: false });
+      if (error) console.error('[db] cleaning_zones fetch:', error.message);
+      return (data ?? []).map((r: any): CleaningZone => ({
+        id: r.id,
+        name: r.name,
+        cleanedDates: r.cleaned_dates ?? [],
+        createdAt: r.created_at ?? undefined,
+      }));
+    },
+    upsert: async (item: CleaningZone) => {
+      const { error } = await supabase.from('cleaning_zones').upsert({
+        id: item.id,
+        name: item.name,
+        cleaned_dates: item.cleanedDates ?? [],
+      }, { onConflict: 'id' });
+      if (error) console.error('[db] cleaning_zones upsert:', error.message);
+    },
+    delete: async (id: string) => {
+      const { error } = await supabase.from('cleaning_zones').delete().eq('id', id);
+      if (error) console.error('[db] cleaning_zones delete:', error.message);
+    },
+    // 청소 완료 — cleaned_dates 에 today 추가(같은 날 중복 무시).
+    markCleaned: async (id: string, today: string) => {
+      const { data, error: e1 } = await supabase
+        .from('cleaning_zones').select('cleaned_dates').eq('id', id).maybeSingle();
+      if (e1) { console.error('[db] cleaning_zones markCleaned fetch:', e1.message); return; }
+      const dates: string[] = data?.cleaned_dates ?? [];
+      if (dates.includes(today)) return;
+      const { error } = await supabase
+        .from('cleaning_zones').update({ cleaned_dates: [...dates, today] }).eq('id', id);
+      if (error) console.error('[db] cleaning_zones markCleaned:', error.message);
     },
   },
 };

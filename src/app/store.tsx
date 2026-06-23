@@ -327,6 +327,70 @@ export interface ShoppingItem {
   createdAt?: string;
 }
 
+// ── 뷰티 케어 · 살림 (Stage 2 데이터 레이어) ──────────────────────────────
+// DB snake_case ↔ TS camelCase. user_id 는 DB DEFAULT auth.uid() 로 채워지므로
+// 클라이언트 매핑/저장에서 다루지 않지만(fridge 패턴), 타입에는 userId 를 둔다.
+export interface BeautyProduct {
+  id: string;
+  userId?: string;
+  name: string;
+  brand?: string | null;
+  category?: string | null;
+  photoUrl?: string | null;
+  openedAt?: string | null;     // yyyy-MM-dd (개봉일)
+  expiryMonths?: number | null; // 개봉 후 사용기한(PAO)
+  purchasePlace?: string | null;
+  price?: number | null;
+  link?: string | null;
+  memo?: string | null;
+  isActive: boolean;            // 다 쓴 제품 보관 시 false
+  createdAt?: string;
+}
+
+export interface BeautySpecialCare {
+  id: string;
+  userId?: string;
+  name: string;
+  icon?: string | null;
+  cycleDays?: number | null;
+  doneDates: string[];          // 'yyyy-MM-dd' 배열
+  createdAt?: string;
+}
+
+export interface HouseholdItem {
+  id: string;
+  userId?: string;
+  name: string;
+  category?: string | null;
+  quantity: number;
+  unit?: string | null;
+  thresholdQty: number;         // "곧 떨어져요" 임계
+  brand?: string | null;
+  purchasePlace?: string | null;
+  price?: number | null;
+  link?: string | null;
+  memo?: string | null;
+  photoUrl?: string | null;
+  createdAt?: string;
+}
+
+export interface ConsumableCycle {
+  id: string;
+  userId?: string;
+  name: string;
+  cycleDays: number;
+  replacedDates: string[];      // 'yyyy-MM-dd' 배열 (교체=restart)
+  createdAt?: string;
+}
+
+export interface CleaningZone {
+  id: string;
+  userId?: string;
+  name: string;
+  cleanedDates: string[];       // 'yyyy-MM-dd' 배열
+  createdAt?: string;
+}
+
 // ── 스크랩 / 영감 보관함 (Stage 0) ────────────────────────────────────────
 export type ScrapSource = 'youtube' | 'instagram' | 'threads' | 'web';
 export type ScrapStatus = 'unread' | 'revisit' | 'done';
