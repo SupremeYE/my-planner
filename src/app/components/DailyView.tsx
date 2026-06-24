@@ -1157,7 +1157,9 @@ export function DailyView() {
 
   const activateBlockDrag = (d: BlockDrag) => {
     d.activated = true;
-    d.el.style.touchAction = 'none'; // 이동/리사이즈 활성 중 스크롤 잠금
+    d.el.style.touchAction = 'none';
+    // 터치 드래그 중 스크롤 컨테이너가 스크롤되는 것을 막기 위해 컨테이너에도 잠금
+    if (scrollRef.current) scrollRef.current.style.touchAction = 'none';
     if (d.pointerType !== 'mouse') {
       // 터치/펜 이동 모드 진입 피드백
       d.el.style.transform = 'scale(1.03)';
@@ -1174,6 +1176,7 @@ export function DailyView() {
     cancelBlockLongPress(d);
     try { d.el.releasePointerCapture(d.pointerId); } catch { /* noop */ }
     d.el.style.touchAction = '';
+    if (scrollRef.current) scrollRef.current.style.touchAction = '';
     d.el.style.transform = '';
     d.el.style.boxShadow = '';
     if (pointerDragRef.current === d) pointerDragRef.current = null;
