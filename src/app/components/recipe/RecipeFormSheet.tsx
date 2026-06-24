@@ -10,6 +10,8 @@ import { useVoiceInput } from '../../hooks/useVoiceInput';
 import type { Recipe, RecipeIngredient, RecipeStep } from '../../store';
 import { parseIngredientLine } from './recipeUtils';
 import { INTENT_TAG_PRESETS, MAIN_INGREDIENT_PRESETS } from './recipeTags';
+import { PhotoCaptureSheet } from '../capture/PhotoCaptureSheet';
+import type { ExtractedRecipe } from '../capture/useVisionExtract';
 
 const newId = () =>
   (typeof crypto !== 'undefined' && 'randomUUID' in crypto)
@@ -121,6 +123,7 @@ export function RecipeFormSheet({ recipe, onSave, onDelete, onClose }: RecipeFor
   const [ingredientsText, setIngredientsText] = useState(recipe ? ingredientsToText(recipe.ingredients) : '');
   const [stepsText, setStepsText] = useState(recipe ? stepsToText(recipe.steps) : '');
   const [pasteText, setPasteText] = useState('');
+  const [showCapture, setShowCapture] = useState(false);
 
   const [submitting, setSubmitting] = useState(false);
 
@@ -244,6 +247,23 @@ export function RecipeFormSheet({ recipe, onSave, onDelete, onClose }: RecipeFor
     setPasteText('');
   };
 
+  // 사진 AI 추출 결과 → 재료/순서 텍스트에 추가(붙여넣기 정리와 동일한 텍스트 경로).
+  //  - ingredients/steps 줄은 그대로 textarea 에 합치고, 저장 시 기존 parseIngredientLine·detectTimerSeconds 가 처리.
+  //  - title 은 제목이 비어 있을 때만 채움. (사진 자체는 레시피 대표 사진과 무관 — 캡처 화면이므로 버림)
+  const handlePhotoConfirm = (r: ExtractedRecipe) => {
+    if (r.title && !title.trim()) setTitle(r.title);
+    if (r.ingredients.length) {
+      const block = r.ingredients.join('\n');
+      setIngredientsText(prev => (prev.trim() ? `${prev.trim()}\n${block}` : block));
+    }
+    if (r.steps.length) {
+      const block = r.steps.join('\n');
+      setStepsText(prev => (prev.trim() ? `${prev.trim()}\n${block}` : block));
+    }
+    if (r.ingredients.length || r.steps.length) setDetailsOpen(true);
+    setShowCapture(false);
+  };
+
   // 저장
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -352,6 +372,7 @@ export function RecipeFormSheet({ recipe, onSave, onDelete, onClose }: RecipeFor
   );
 
   return (
+    <>
     <div className="fixed inset-0 z-50 flex justify-center items-end p-0 lg:items-center lg:p-4"
       style={{ backgroundColor: 'rgba(0,0,0,0.35)' }} onClick={onClose}>
       <style>{`@keyframes recipeSheetUp{from{transform:translateY(100%)}to{transform:translateY(0)}}
@@ -567,6 +588,18 @@ export function RecipeFormSheet({ recipe, onSave, onDelete, onClose }: RecipeFor
 
             {detailsOpen && (
               <div className="mt-3 space-y-4">
+                {/* 사진으로 자동 채우기 (AI) */}
+                <div>
+                  <button type="button" onClick={() => setShowCapture(true)}
+                    className="flex items-center gap-1.5 px-3 py-2.5 rounded-xl w-full justify-center active:scale-[0.99] transition-transform"
+                    style={{ fontSize: 13, fontWeight: 700, color: t.accent, backgroundColor: t.accentLight, border: `1px dashed ${t.accent}` }}>
+                    📸 사진으로 채우기
+                  </button>
+                  <p style={{ fontSize: 11, color: t.textMuted, marginTop: 4 }}>
+                    레시피 화면(숏츠/블로그)을 캡처해서 올리면 재료·순서를 자동으로 읽어와요.
+                  </p>
+                </div>
+
                 {/* 붙여넣기 + 정리 버튼 */}
                 <div>
                   <label style={labelStyle}>캡션/메모 붙여넣기 (자동 정리)</label>
@@ -665,5 +698,16 @@ export function RecipeFormSheet({ recipe, onSave, onDelete, onClose }: RecipeFor
         </form>
       </div>
     </div>
+
+    {/* 사진 캡처 시트 — 폼 위에 떠야 하므로 폼 div 뒤(상단 스택)에 렌더 */}
+    {showCapture && (
+      <PhotoCaptureSheet
+        domain="recipe"
+        onConfirmRecipe={handlePhotoConfirm}
+        onManualFallback={() => setShowCapture(false)}
+        onClose={() => setShowCapture(false)}
+      />
+    )}
+    </>
   );
 }

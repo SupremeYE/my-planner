@@ -7,9 +7,9 @@
 import React, { useRef, useState } from 'react';
 import { X, ChevronLeft, Camera, Image as ImageIcon, Loader2, Plus, Trash2, Sparkles, AlertTriangle } from 'lucide-react';
 import { useTheme } from '../../ThemeContext';
-import { useVisionExtract, type CaptureDomain, type ExtractedItem } from './useVisionExtract';
+import { useVisionExtract, type CaptureDomain, type ExtractedItem, type ExtractedRecipe } from './useVisionExtract';
 
-const LOW_CONF = 0.6; // 이 미만이면 "확인 필요" 시각 힌트
+const LOW_CONF = 0.6; // 이 미만이면 "확인 필요" 시각 힌트 (beauty/household 만)
 
 interface Draft {
   key: string;
@@ -22,9 +22,16 @@ interface Draft {
   confidence: number;
 }
 
+// recipe 모드 — 한 줄 = 한 항목으로 편집(재료/순서)
+interface LineDraft {
+  key: string;
+  value: string;
+}
+
 interface Props {
   domain: CaptureDomain;
-  onConfirm: (items: ExtractedItem[], photoUrl: string | null) => void;
+  onConfirm?: (items: ExtractedItem[], photoUrl: string | null) => void;          // beauty/household
+  onConfirmRecipe?: (recipe: ExtractedRecipe, photoUrl: string | null) => void;   // recipe
   onManualFallback: () => void;   // "직접 입력으로 추가" — 기존 수동 시트 연결
   onClose: () => void;
 }
@@ -34,7 +41,7 @@ const newKey = () =>
     ? crypto.randomUUID()
     : `${Date.now()}-${Math.random().toString(36).slice(2)}`;
 
-export function PhotoCaptureSheet({ domain, onConfirm, onManualFallback, onClose }: Props) {
+export function PhotoCaptureSheet({ domain, onConfirm, onConfirmRecipe, onManualFallback, onClose }: Props) {
   const { t } = useTheme();
   const { extract, loading } = useVisionExtract();
 
@@ -43,10 +50,16 @@ export function PhotoCaptureSheet({ domain, onConfirm, onManualFallback, onClose
   const [drafts, setDrafts] = useState<Draft[]>([]);
   const [errMsg, setErrMsg] = useState<string | null>(null);
 
+  // recipe 모드 편집 state
+  const [recipeTitle, setRecipeTitle] = useState('');
+  const [ingLines, setIngLines] = useState<LineDraft[]>([]);
+  const [stepLines, setStepLines] = useState<LineDraft[]>([]);
+
   const camRef = useRef<HTMLInputElement>(null);
   const galRef = useRef<HTMLInputElement>(null);
 
   const isHousehold = domain === 'household';
+  const isRecipe = domain === 'recipe';
 
   const toDraft = (it: ExtractedItem): Draft => ({
     key: newKey(),
@@ -64,6 +77,22 @@ export function PhotoCaptureSheet({ domain, onConfirm, onManualFallback, onClose
     setErrMsg(null);
     const res = await extract(file, domain);
     setPhotoUrl(res.photoUrl);
+
+    if (isRecipe) {
+      const r = res.recipe;
+      const hasAny = !!r && (r.ingredients.length > 0 || r.steps.length > 0 || !!r.title?.trim());
+      if (res.ok && hasAny) {
+        setRecipeTitle(r!.title?.trim() ?? '');
+        setIngLines(r!.ingredients.map(v => ({ key: newKey(), value: v })));
+        setStepLines(r!.steps.map(v => ({ key: newKey(), value: v })));
+        setStep('review');
+      } else {
+        setErrMsg(res.error ?? null);
+        setStep('empty');
+      }
+      return;
+    }
+
     if (res.ok && res.items.length > 0) {
       setDrafts(res.items.map(toDraft));
       setStep('review');
@@ -71,6 +100,21 @@ export function PhotoCaptureSheet({ domain, onConfirm, onManualFallback, onClose
       setErrMsg(res.error ?? null);
       setStep('empty');
     }
+  };
+
+  // recipe 줄 편집 헬퍼
+  const patchLine = (set: React.Dispatch<React.SetStateAction<LineDraft[]>>) =>
+    (key: string, value: string) => set(prev => prev.map(l => (l.key === key ? { ...l, value } : l)));
+  const removeLine = (set: React.Dispatch<React.SetStateAction<LineDraft[]>>) =>
+    (key: string) => set(prev => prev.filter(l => l.key !== key));
+  const addLine = (set: React.Dispatch<React.SetStateAction<LineDraft[]>>) =>
+    () => set(prev => [...prev, { key: newKey(), value: '' }]);
+
+  const confirmRecipe = () => {
+    const ingredients = ingLines.map(l => l.value.trim()).filter(Boolean);
+    const steps = stepLines.map(l => l.value.trim()).filter(Boolean);
+    if (ingredients.length === 0 && steps.length === 0 && !recipeTitle.trim()) return;
+    onConfirmRecipe?.({ title: recipeTitle.trim() || undefined, ingredients, steps }, photoUrl);
   };
 
   const patch = (key: string, field: keyof Draft, value: string) =>
@@ -94,7 +138,7 @@ export function PhotoCaptureSheet({ domain, onConfirm, onManualFallback, onClose
         return out;
       });
     if (items.length === 0) return;
-    onConfirm(items, photoUrl);
+    onConfirm?.(items, photoUrl);
   };
 
   const labelStyle: React.CSSProperties = { display: 'block', fontSize: 11, fontWeight: 600, color: t.textSub, marginBottom: 4 };
@@ -103,7 +147,8 @@ export function PhotoCaptureSheet({ domain, onConfirm, onManualFallback, onClose
     border: `1px solid ${t.border}`, backgroundColor: t.card, color: t.text, outline: 'none',
   };
 
-  const title = step === 'review' ? '읽은 내용을 확인해요' : step === 'empty' ? '못 읽었어요' : (isHousehold ? '영수증/사진으로 추가' : '사진으로 추가');
+  const title = step === 'review' ? '읽은 내용을 확인해요' : step === 'empty' ? '못 읽었어요'
+    : isRecipe ? '레시피 사진으로 채우기' : (isHousehold ? '영수증/사진으로 추가' : '사진으로 추가');
 
   return (
     <div className="fixed inset-0 z-50 flex justify-center items-end p-0 lg:items-center lg:p-4"
@@ -152,8 +197,12 @@ export function PhotoCaptureSheet({ domain, onConfirm, onManualFallback, onClose
           {!loading && step === 'pick' && (
             <div className="space-y-2.5">
               <p style={{ fontSize: 13, color: t.textSub, marginBottom: 2 }}>
-                {isHousehold ? '생필품 사진이나 영수증을 찍으면 품목을 자동으로 읽어와요.' : '제품 사진을 찍으면 이름·브랜드를 자동으로 읽어와요.'}
-                <br />찍은 사진은 그대로 카드 썸네일로 저장돼요.
+                {isRecipe
+                  ? '레시피 화면(숏츠/블로그 등)을 캡처해서 올리면 재료·조리 순서를 자동으로 읽어와요.'
+                  : isHousehold
+                    ? '생필품 사진이나 영수증을 찍으면 품목을 자동으로 읽어와요.'
+                    : '제품 사진을 찍으면 이름·브랜드를 자동으로 읽어와요.'}
+                <br />{isRecipe ? '읽은 내용은 다음 화면에서 확인·수정할 수 있어요.' : '찍은 사진은 그대로 카드 썸네일로 저장돼요.'}
               </p>
               <button onClick={() => camRef.current?.click()}
                 className="w-full flex items-center gap-3 rounded-2xl px-3.5 py-3 active:scale-[0.98] transition-transform text-left"
@@ -161,7 +210,7 @@ export function PhotoCaptureSheet({ domain, onConfirm, onManualFallback, onClose
                 <span className="flex items-center justify-center rounded-xl flex-shrink-0" style={{ width: 42, height: 42, backgroundColor: t.accentLight, color: t.accent }}><Camera size={20} /></span>
                 <span className="min-w-0">
                   <span className="block" style={{ fontSize: 15, fontWeight: 700, color: t.text }}>카메라로 촬영</span>
-                  <span className="block" style={{ fontSize: 12, color: t.textSub, marginTop: 1 }}>{isHousehold ? '영수증/제품을 바로 찍기' : '제품을 바로 찍기'}</span>
+                  <span className="block" style={{ fontSize: 12, color: t.textSub, marginTop: 1 }}>{isRecipe ? '레시피 화면을 바로 찍기' : isHousehold ? '영수증/제품을 바로 찍기' : '제품을 바로 찍기'}</span>
                 </span>
               </button>
               <button onClick={() => galRef.current?.click()}
@@ -205,8 +254,84 @@ export function PhotoCaptureSheet({ domain, onConfirm, onManualFallback, onClose
             </div>
           )}
 
+          {/* ── review: recipe (재료/순서 편집) ── */}
+          {!loading && step === 'review' && isRecipe && (
+            <div className="space-y-4">
+              <p style={{ fontSize: 12.5, color: t.textSub, lineHeight: 1.45 }}>
+                사진에서 읽은 재료·순서예요. 틀린 줄은 고치고, 필요 없는 줄은 지워주세요.
+              </p>
+
+              {/* 제목(선택) */}
+              <div>
+                <label style={labelStyle}>레시피 이름 (선택)</label>
+                <input value={recipeTitle} onChange={e => setRecipeTitle(e.target.value)} placeholder="예: 김치볶음밥" style={fieldStyle} />
+              </div>
+
+              {/* 재료 */}
+              <div>
+                <label style={labelStyle}>재료 — 한 줄에 하나</label>
+                <div className="space-y-1.5">
+                  {ingLines.map(l => (
+                    <div key={l.key} className="flex items-center gap-1.5">
+                      <input value={l.value} onChange={e => patchLine(setIngLines)(l.key, e.target.value)}
+                        placeholder="예: 양파 1개" style={fieldStyle} />
+                      <button onClick={() => removeLine(setIngLines)(l.key)} className="rounded-lg flex items-center justify-center flex-shrink-0"
+                        style={{ width: 32, height: 32, color: t.textMuted }} aria-label="재료 삭제">
+                        <Trash2 size={14} />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+                <button onClick={addLine(setIngLines)}
+                  className="mt-1.5 w-full flex items-center justify-center gap-1.5 py-2 rounded-xl active:scale-[0.99] transition-transform"
+                  style={{ fontSize: 12.5, fontWeight: 700, color: t.accent, backgroundColor: t.accentLight, border: `1px dashed ${t.accent}` }}>
+                  <Plus size={14} /> 재료 추가
+                </button>
+              </div>
+
+              {/* 순서 */}
+              <div>
+                <label style={labelStyle}>요리 순서 — 한 줄에 한 단계</label>
+                <div className="space-y-1.5">
+                  {stepLines.map((l, idx) => (
+                    <div key={l.key} className="flex items-start gap-1.5">
+                      <span className="flex items-center justify-center rounded-md flex-shrink-0"
+                        style={{ width: 24, height: 32, fontSize: 12, fontWeight: 700, color: t.textSub }}>{idx + 1}</span>
+                      <textarea value={l.value} onChange={e => patchLine(setStepLines)(l.key, e.target.value)}
+                        rows={2} placeholder="조리 단계" style={{ ...fieldStyle, resize: 'vertical', lineHeight: 1.5 }} />
+                      <button onClick={() => removeLine(setStepLines)(l.key)} className="rounded-lg flex items-center justify-center flex-shrink-0"
+                        style={{ width: 32, height: 32, color: t.textMuted }} aria-label="순서 삭제">
+                        <Trash2 size={14} />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+                <button onClick={addLine(setStepLines)}
+                  className="mt-1.5 w-full flex items-center justify-center gap-1.5 py-2 rounded-xl active:scale-[0.99] transition-transform"
+                  style={{ fontSize: 12.5, fontWeight: 700, color: t.accent, backgroundColor: t.accentLight, border: `1px dashed ${t.accent}` }}>
+                  <Plus size={14} /> 순서 추가
+                </button>
+                <p style={{ fontSize: 11, color: t.textMuted, marginTop: 6 }}>
+                  ⏱ "5분", "30초" 같은 시간 표현은 그대로 두면 요리 뷰에서 타이머로 인식돼요.
+                </p>
+              </div>
+
+              {/* 채우기 */}
+              <button onClick={confirmRecipe}
+                disabled={ingLines.every(l => !l.value.trim()) && stepLines.every(l => !l.value.trim()) && !recipeTitle.trim()}
+                className="w-full flex items-center justify-center gap-1.5 py-3 rounded-xl active:scale-[0.99] transition-transform"
+                style={{ fontSize: 15, fontWeight: 700, color: '#fff', backgroundColor: t.accent,
+                  opacity: (ingLines.every(l => !l.value.trim()) && stepLines.every(l => !l.value.trim()) && !recipeTitle.trim()) ? 0.5 : 1 }}>
+                <Sparkles size={16} /> 이 내용으로 채우기
+              </button>
+              <button onClick={onManualFallback} className="w-full text-center py-1.5" style={{ fontSize: 12.5, fontWeight: 600, color: t.textMuted }}>
+                직접 입력으로 추가
+              </button>
+            </div>
+          )}
+
           {/* ── review (편집) ── */}
-          {!loading && step === 'review' && (
+          {!loading && step === 'review' && !isRecipe && (
             <div className="space-y-3">
               {/* 사진 썸네일 */}
               {photoUrl && (

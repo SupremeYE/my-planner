@@ -10,7 +10,7 @@ import { useState, useCallback } from 'react';
 import { supabase } from '../../../lib/supabase';
 import { db } from '../../../lib/db';
 
-export type CaptureDomain = 'beauty' | 'household';
+export type CaptureDomain = 'beauty' | 'household' | 'recipe';
 
 export interface ExtractedItem {
   name: string;
@@ -22,9 +22,17 @@ export interface ExtractedItem {
   confidence: number;       // 0~1
 }
 
+// recipe domain 전용 — 레시피 캡처에서 재료/순서/제목을 분리해 받는다(confidence 없음).
+export interface ExtractedRecipe {
+  title?: string;
+  ingredients: string[];  // "이름 수량 단위" 한 줄 문자열
+  steps: string[];        // 한 단계 한 줄 (시간 표현 보존)
+}
+
 export interface ExtractResult {
   ok: boolean;
   items: ExtractedItem[];
+  recipe?: ExtractedRecipe | null;  // domain==='recipe' 일 때만 채워짐
   photoUrl: string | null;  // 촬영/선택한 사진의 public url (등록 시 카드 썸네일로 재사용)
   error?: string;
 }
@@ -42,11 +50,13 @@ export function useVisionExtract() {
     setLoading(true);
     setError(null);
     try {
-      // 1) 사진 업로드 → public url (기존 uploadPhoto 시그니처 (recordId, file) 그대로 사용)
+      // 1) 사진 업로드 → public url (도메인별 기존 버킷 재사용 — recipe 는 recipe-photos)
       const uploadId = newId();
       const photoUrl = domain === 'beauty'
         ? await db.beautyProducts.uploadPhoto(uploadId, file)
-        : await db.householdItems.uploadPhoto(uploadId, file);
+        : domain === 'recipe'
+          ? await db.recipes.uploadPhoto(uploadId, file)
+          : await db.householdItems.uploadPhoto(uploadId, file);
 
       if (!photoUrl) {
         const msg = '사진 업로드에 실패했어요.';
@@ -70,6 +80,17 @@ export function useVisionExtract() {
         const msg = (data?.error as string) || 'AI가 항목을 찾지 못했어요.';
         setError(msg);
         return { ok: false, items: [], photoUrl, error: msg };
+      }
+
+      // recipe 는 items 가 아니라 recipe 객체로 응답 — 분기 반환.
+      if (domain === 'recipe') {
+        const r = data.recipe as ExtractedRecipe | undefined;
+        const recipe: ExtractedRecipe = {
+          title: typeof r?.title === 'string' ? r.title : undefined,
+          ingredients: Array.isArray(r?.ingredients) ? r!.ingredients.filter((x): x is string => typeof x === 'string') : [],
+          steps: Array.isArray(r?.steps) ? r!.steps.filter((x): x is string => typeof x === 'string') : [],
+        };
+        return { ok: true, items: [], recipe, photoUrl };
       }
 
       const items: ExtractedItem[] = Array.isArray(data.items) ? data.items : [];
