@@ -1,6 +1,6 @@
 import { createBrowserRouter, Navigate } from 'react-router';
 import { RootLayout } from './components/RootLayout';
-import { DashboardView } from './components/DashboardView';
+import { DashboardRoute } from './components/DashboardRoute';
 import { DailyView } from './components/DailyView';
 import { CalendarView } from './components/CalendarView';
 import { GoalsHubView } from './components/GoalsHubView';
@@ -33,7 +33,7 @@ export const router = createBrowserRouter([
     element: <RootLayout />,
     children: [
       { index: true, element: <Navigate to="/dashboard" replace /> },
-      { path: 'dashboard',    Component: DashboardView },
+      { path: 'dashboard',    Component: DashboardRoute },
       { path: 'daily',        Component: DailyView },
       { path: 'calendar',     Component: CalendarView },
       { path: 'todos',        Component: TodosView },

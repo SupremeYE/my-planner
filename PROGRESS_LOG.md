@@ -6,6 +6,38 @@
 
 ---
 
+## 2026-06-24 — 모바일 빠른 기록 홈 (QuickCaptureHome) 출시
+
+### 🛠 구현
+
+- **모바일(<1024px) `/dashboard` 진입 시 빠른 기록 홈 표시** — `useMediaQuery('(min-width:1024px)')` 기반 **조건부 렌더링**(`DashboardRoute`). PC(≥1024px)는 기존 `DashboardView` 그대로 유지.
+- **13개 타일**: 취침/기상(instant 1탭 즉시기록) + 11개 navigate(해당 페이지 이동). 라우트 매핑 = diary `/diary` · todo `/inbox` · moment `/moments` · scrap `/scraps` · mood `/mood` · stress `/health?tab=condition` · weight `/health?tab=weight` · period `/health?tab=period` · walk `/walk` · reading `/books` · habit `/habits`.
+- **시간대별 '지금 추천' 히어로 자동 승격**: 기상(5–9시·골드 `t.accent`) · 일기(20–23시·코랄 `t.danger`) · 취침(21–4시·잉크 `t.text`) · 10–19시는 히어로 미렌더. 승격 우선순위는 `lib/quickCapturePromote.ts`의 `PROMOTE_ORDER` 단일 소스(diary > sleep_in) — `node:test` 16케이스로 보호(21~23시 겹침 구간 diary 우선 검증).
+- **취침/기상 페어링 모델**(정책 B): `self_care_records`(category='sleep') 재사용 — 취침=`sleepStart`만 든 미해결 레코드 insert(date=취침일), 기상=16h 윈도우 내 미해결 레코드를 찾아 `sleepEnd`+`duration` 채우고 date=기상일로 정규화. 포맷은 기존 수면 페이지와 동일("HH:mm"/분/`"start ~ end"`). 더블탭 가드(`busyRef`). 히어로 부제에 짝 힌트 표시.
+
+### 🧭 결정 사항
+
+- 라우팅 분기는 CSS `lg:hidden` 대신 `useMediaQuery` **조건부 렌더링** — 모바일에서 DashboardView 자체를 마운트하지 않아 불필요한 Supabase 쿼리 차단.
+- 페어링 매칭은 **기상 시점 정규화** 정책(취침 시점 기상일 예측 안 함 — 18시 컷오프 자의성 회피).
+- 매칭 실패 시 토스트 안내, **빈 레코드 생성 금지**.
+- 색상은 테마 토큰만(hex 0), 기존 `addSelfCareRecord`/`updateSelfCareRecord` 재사용(store 단일 state + Realtime이라 별도 캐시 무효화 불필요).
+
+### ⚠️ 알려진 한계점
+
+- **gratitude 타일 보류**: ReviewsView에 감사 기록 딥링크 지원 추가 후 별도 작업으로 연결.
+- **idea 타일 보류**: `BrainstormView`가 `routes.tsx`에 미연결. 라우트 연결 + 타일 추가 별도 작업.
+- **mood / condition 별개 운영**: 현재 별개 페이지로 공존. 통합 결정 시 mood 타일 → condition 라우트로 재매핑.
+- **자정 경계 자동 재계산 없음**: 23:59에 띄워둔 채 00:01이 되어도 자동 재계산 없음(재진입/새로고침 시 반영). 일반 사용 패턴에선 비문제.
+- **방금 기록 토스트는 휘발성**: 컴포넌트 state로만 보관, 이탈 시 초기화(영속 기록은 각 페이지 책임).
+
+### ⏭ 후속 후보
+
+- [ ] gratitude 딥링크(ReviewsView 수정 + 타일 추가)
+- [ ] BrainstormView 라우트 연결 + idea 타일 추가
+- [ ] QuickCaptureHome PWA 실기기 검증(safe-area·홈 인디케이터)
+
+---
+
 ## 2026-06-24
 
 ### 🛠 오늘 작업 내용
