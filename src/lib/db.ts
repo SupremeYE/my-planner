@@ -1911,11 +1911,12 @@ export const db = {
       return true;
     },
 
-    // 내가 만든 사진 업로드 → publicUrl 반환 (앱의 food-photos/moment-photos 패턴 동일)
+    // 내가 만든 사진 업로드 → publicUrl 반환 (food/moment/beauty 와 동일한 "평면 경로 + contentType" 패턴)
+    //  ⚠️ 경로에 슬래시(하위폴더)를 쓰면 클라이언트 업로드가 400 으로 실패 → 평면 경로(언더스코어) 사용.
     uploadPhoto: async (recipeId: string, file: File): Promise<string | null> => {
       const ext = (file.name.split('.').pop() ?? 'jpg').toLowerCase();
-      const path = `${recipeId}/${crypto.randomUUID()}.${ext}`;
-      const { error } = await supabase.storage.from('recipe-photos').upload(path, file, { upsert: true });
+      const path = `${recipeId}_${crypto.randomUUID()}.${ext}`;
+      const { error } = await supabase.storage.from('recipe-photos').upload(path, file, { upsert: true, contentType: file.type });
       if (error) { console.error('[db] recipe-photos upload:', error.message); return null; }
       const { data } = supabase.storage.from('recipe-photos').getPublicUrl(path);
       return data.publicUrl ?? null;
@@ -1973,11 +1974,11 @@ export const db = {
       return true;
     },
 
-    // 기존 recipe-photos 버킷 재사용 — 경로: <recipeId>/cooklog/<uuid>.<ext>
+    // 기존 recipe-photos 버킷 재사용 — 평면 경로(언더스코어). 슬래시 경로는 클라이언트 업로드 400 유발.
     uploadPhoto: async (recipeId: string, file: File): Promise<string | null> => {
       const ext = (file.name.split('.').pop() ?? 'jpg').toLowerCase();
-      const path = `${recipeId}/cooklog/${crypto.randomUUID()}.${ext}`;
-      const { error } = await supabase.storage.from('recipe-photos').upload(path, file, { upsert: true });
+      const path = `${recipeId}_cooklog_${crypto.randomUUID()}.${ext}`;
+      const { error } = await supabase.storage.from('recipe-photos').upload(path, file, { upsert: true, contentType: file.type });
       if (error) { console.error('[db] recipe-photos cooklog upload:', error.message); return null; }
       const { data } = supabase.storage.from('recipe-photos').getPublicUrl(path);
       return data.publicUrl ?? null;
