@@ -136,15 +136,15 @@ export function BeautyProductSheet({ product, onSave, onRepurchase, onSetActive,
             </div>
           </div>
 
-          {/* 개봉일 + 사용기한 */}
-          <div className="flex gap-3">
-            <div className="flex-1">
+          {/* 개봉일 + 사용기한 — 좁은 폰은 세로로(네이티브 date 입력 폭 침범 방지), sm↑·PC는 가로 */}
+          <div className="flex flex-col gap-3 sm:flex-row">
+            <div className="flex-1 min-w-0">
               <label style={labelStyle}>개봉일</label>
-              <input type="date" value={openedAt} onChange={e => setOpenedAt(e.target.value)} style={fieldStyle} />
+              <input type="date" value={openedAt} onChange={e => setOpenedAt(e.target.value)} style={{ ...fieldStyle, minWidth: 0 }} />
             </div>
-            <div className="w-32">
+            <div className="sm:w-32 min-w-0">
               <label style={labelStyle}>사용기한(개월)</label>
-              <input type="number" inputMode="numeric" min={1} value={expiryMonths} onChange={e => setExpiryMonths(e.target.value)} placeholder="12" style={fieldStyle} />
+              <input type="number" inputMode="numeric" min={1} value={expiryMonths} onChange={e => setExpiryMonths(e.target.value)} placeholder="12" style={{ ...fieldStyle, minWidth: 0 }} />
             </div>
           </div>
 
