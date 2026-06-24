@@ -5,6 +5,7 @@ import {
 } from 'recharts';
 import { usePlanner, SelfCareRecord, SLEEP_GOAL_DEFAULT_MIN, type ConditionRecord } from '../store';
 import { useTheme } from '../ThemeContext';
+import { useFabAction } from '../FabContext';
 import { db } from '../../lib/db';
 import { useRealtimeSync } from '../hooks/useRealtimeSync';
 import { format, subDays, differenceInDays, parseISO, addDays, startOfWeek } from 'date-fns';
@@ -1345,6 +1346,9 @@ export function SelfCareView() {
   const { t } = useTheme();
   const [showAdd, setShowAdd] = useState(false);
   const [editRecord, setEditRecord] = useState<SelfCareRecord | null>(null);
+
+  // 전역 FAB — 기록 추가
+  useFabAction({ kind: 'action', label: '기록 추가', icon: Plus, onPress: () => setShowAdd(true) });
 
   const currentMonth = format(new Date(), 'yyyy-MM');
   const monthRecords = selfCareRecords.filter(r => r.date.startsWith(currentMonth));

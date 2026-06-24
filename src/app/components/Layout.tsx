@@ -573,8 +573,8 @@ export function Layout() {
   const isDashboardRoute = location.pathname === '/dashboard';
   const showRightPanel = !isDashboardRoute;
 
-  // 전역 빠른 캡처 FAB — /daily·/calendar 는 자체 FAB(날짜 맥락 상세 포함)가 있어 중복 방지로 제외
-  const showQuickFab = location.pathname !== '/daily' && location.pathname !== '/calendar';
+  // 전역 컨텍스트 FAB — 모든 페이지에서 항상 1개. 각 페이지가 등록한 주(主) 추가 액션을 수행
+  // (미등록 페이지는 빠른 입력으로 폴백). 라우트별 매핑은 useFabAction 단일 소스.
 
   const navActiveStyle = { backgroundColor: t.accentLight, color: t.text, fontWeight: 600 };
   const navInactiveStyle = { backgroundColor: 'transparent', color: t.textSub, fontWeight: 400 };
@@ -823,7 +823,7 @@ export function Layout() {
         <main ref={desktopMainRef} className="flex-1 overflow-hidden flex flex-col" style={{ backgroundColor: t.bg }}>
           <NotificationPermissionBanner />
           <Outlet />
-          {showQuickFab && <FloatingAddFab />}
+          <FloatingAddFab />
         </main>
 
         {/* Right Panel */}
@@ -891,7 +891,7 @@ export function Layout() {
         <main ref={mobileMainRef} className="flex-1 overflow-y-auto overflow-x-hidden overscroll-contain" style={{ backgroundColor: t.bg, paddingBottom: 'calc(5.5rem + env(safe-area-inset-bottom))' }}>
           <NotificationPermissionBanner />
           <Outlet />
-          {showQuickFab && <FloatingAddFab />}
+          <FloatingAddFab />
         </main>
 
         {/* Bottom Nav — 바닥에서 떠 있는 반투명 유리 알약 (5 fixed tabs) */}

@@ -6,7 +6,7 @@ import {
   Check, Clock, Trash2, X, MoreHorizontal,
   Settings, Edit3, Pause, Ban, CalendarDays, Copy, MessageSquare,
 } from 'lucide-react';
-import { format, addDays, subDays, addMonths, subMonths, startOfMonth, getDaysInMonth, getDay as getDayOfWeek, parseISO } from 'date-fns';
+import { format, addDays, subDays, addMonths, subMonths, startOfMonth, getDaysInMonth, getDay as getDayOfWeek, parseISO, addMinutes } from 'date-fns';
 import { ko } from 'date-fns/locale';
 import { usePlanner, Todo, Event, Tag as TagType, TimelineLog, SelfCareRecord, getTimerElapsedSec } from '../store';
 import { useTheme } from '../ThemeContext';
@@ -18,7 +18,7 @@ import { TodoModal } from './TodoModal';
 import { MandalartSourceBadge } from './mandalart/MandalartSourceBadge';
 import { EventModal } from './EventModal';
 import { FocusModal } from './FocusModal';
-import { FloatingAddFab } from './FloatingAddFab';
+import { useFabAction } from '../FabContext';
 import { AddEntryMenu } from './AddEntryMenu';
 import { formatDuration, formatTotalDoKo, todoDoDurationSeconds } from '../../lib/todoDoDuration';
 import { expandRecurringTodos, isVirtualTodoId, parseVirtualTodoId } from '../../lib/recurrenceExpansion';
@@ -995,6 +995,14 @@ export function DailyView() {
   const highlightTodoId = searchParams.get('todoId');
   const [showAddModal, setShowAddModal] = useState(false);
   const [showAddEventModal, setShowAddEventModal] = useState(false);
+
+  // 전역 FAB — 일간은 날짜 맥락 빠른 입력 + 할일/일정 상세 단축
+  useFabAction({
+    kind: 'quick',
+    defaultDate: selectedDate,
+    onAddTodo: () => setShowAddModal(true),
+    onAddEvent: () => setShowAddEventModal(true),
+  });
   // 메모 유형 습관의 일별 메모 임시 입력값 (id → text)
   const [habitMemoEditing, setHabitMemoEditing] = useState<Record<string, string>>({});
   const [editingTodo, setEditingTodo] = useState<Todo | null>(null);
@@ -1004,7 +1012,6 @@ export function DailyView() {
   const [recurringDeleteTarget, setRecurringDeleteTarget] = useState<Todo | null>(null);
   const [planBlockMenu, setPlanBlockMenu] = useState<{ todo: Todo; pos: { x: number; y: number } } | null>(null);
   const [timeEditBlock, setTimeEditBlock] = useState<{ todo: Todo; type: 'plan' | 'do' } | null>(null);
-  const longPressTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   // Sleep block drag state
   const [sleepDragState, setSleepDragState] = useState<{
     recordId: string;
@@ -1092,87 +1099,166 @@ export function DailyView() {
     return () => window.removeEventListener('snoozeTodo', handler);
   }, []);
 
-  // Drag move/resize handlers for timeline blocks
-  useEffect(() => {
-    if (!dragState) return;
-    const handleMouseMove = (e: MouseEvent) => {
-      dragMovedRef.current = true;
-      const dy = e.clientY - dragState.startY;
-      const dMin = Math.round(dy / PX_PER_MIN / 5) * 5; // snap to 5 min
-      if (dragState.mode === 'move') {
-        const newStart = Math.max(tlStartHour * 60, dragState.origStartMin + dMin);
-        const duration = dragState.origEndMin - dragState.origStartMin;
-        const newEnd = Math.min(tlEndHour * 60, newStart + duration);
-        setDragPreview({ startMin: newEnd - duration, endMin: newEnd });
-      } else {
-        const newEnd = Math.max(dragState.origStartMin + 5, dragState.origEndMin + dMin);
-        setDragPreview({ startMin: dragState.origStartMin, endMin: Math.min(tlEndHour * 60, newEnd) });
-      }
-    };
-    const handleMouseUp = () => {
-      if (dragPreview && dragMovedRef.current) {
-        const startField = dragState.type === 'plan' ? 'planStart' : 'doStart';
-        const endField = dragState.type === 'plan' ? 'planEnd' : 'doEnd';
-        updateTodo(dragState.todoId, {
-          [startField]: minutesToTime(dragPreview.startMin),
-          [endField]: minutesToTime(dragPreview.endMin),
-          ...(dragState.type === 'do' ? { doElapsedSec: undefined } : {}),
-        });
-      }
-      setDragState(null);
-      setDragPreview(null);
-      // Reset dragMoved after a tick so onClick can check it
-      setTimeout(() => { dragMovedRef.current = false; }, 50);
-    };
-    window.addEventListener('mousemove', handleMouseMove);
-    window.addEventListener('mouseup', handleMouseUp);
-    return () => {
-      window.removeEventListener('mousemove', handleMouseMove);
-      window.removeEventListener('mouseup', handleMouseUp);
-    };
-  }, [dragState, dragPreview, tlStartHour, tlEndHour, updateTodo]);
+  // ── Timeline block move/resize — unified Pointer Events (mouse + touch + pen) ──
+  // 좌표계/스냅(15분)/클램프 로직은 기존 마우스 드래그와 동일. setPointerCapture 로
+  // document 리스너 의존 없이 드래그 시작 엘리먼트에서 move/up/cancel 을 모두 받는다.
+  type BlockDrag = {
+    pointerId: number;
+    el: HTMLElement;
+    todo: Todo;
+    type: 'plan' | 'do';
+    mode: 'move' | 'resize';
+    canDrag: boolean;
+    pointerType: string;
+    startX: number;
+    startY: number;
+    origStartMin: number;
+    origEndMin: number;
+    activated: boolean;
+    moved: boolean;
+    longPressTimer: ReturnType<typeof setTimeout> | null;
+    preview: { startMin: number; endMin: number } | null;
+  };
+  const pointerDragRef = useRef<BlockDrag | null>(null);
+  const BLOCK_SNAP_MIN = 15;
 
-  // Touch drag for timeline block resize (parallel to mouse drag)
-  useEffect(() => {
-    if (!dragState) return;
-    const handleTouchMove = (e: TouchEvent) => {
-      e.preventDefault();
-      dragMovedRef.current = true;
-      const touch = e.touches[0];
-      if (!touch) return;
-      const dy = touch.clientY - dragState.startY;
-      const dMin = Math.round(dy / PX_PER_MIN / 5) * 5;
-      if (dragState.mode === 'move') {
-        const newStart = Math.max(tlStartHour * 60, dragState.origStartMin + dMin);
-        const duration = dragState.origEndMin - dragState.origStartMin;
-        const newEnd = Math.min(tlEndHour * 60, newStart + duration);
-        setDragPreview({ startMin: newEnd - duration, endMin: newEnd });
+  const cancelBlockLongPress = (d: BlockDrag) => {
+    if (d.longPressTimer) { clearTimeout(d.longPressTimer); d.longPressTimer = null; }
+  };
+
+  const activateBlockDrag = (d: BlockDrag) => {
+    d.activated = true;
+    d.el.style.touchAction = 'none'; // 이동/리사이즈 활성 중 스크롤 잠금
+    if (d.pointerType !== 'mouse') {
+      // 터치/펜 이동 모드 진입 피드백
+      d.el.style.transform = 'scale(1.03)';
+      d.el.style.boxShadow = '0 6px 16px rgba(0,0,0,0.18)';
+      if (navigator.vibrate) { try { navigator.vibrate(10); } catch { /* noop */ } }
+    }
+    setDragState({
+      todoId: d.todo.id, type: d.type, mode: d.mode,
+      startY: d.startY, origStartMin: d.origStartMin, origEndMin: d.origEndMin,
+    });
+  };
+
+  const clearBlockDrag = (d: BlockDrag) => {
+    cancelBlockLongPress(d);
+    try { d.el.releasePointerCapture(d.pointerId); } catch { /* noop */ }
+    d.el.style.touchAction = '';
+    d.el.style.transform = '';
+    d.el.style.boxShadow = '';
+    if (pointerDragRef.current === d) pointerDragRef.current = null;
+    dragMovedRef.current = d.moved;
+    setDragState(null);
+    setDragPreview(null);
+    setTimeout(() => { dragMovedRef.current = false; }, 50);
+  };
+
+  const handleBlockPointerMove = (e: React.PointerEvent) => {
+    const d = pointerDragRef.current;
+    if (!d || e.pointerId !== d.pointerId) return;
+    if (!d.activated) {
+      const dx = e.clientX - d.startX;
+      const dy = e.clientY - d.startY;
+      if (d.pointerType === 'mouse') {
+        // 마우스: 5px 이상 움직이면 이동 시작 (미만이면 pointerup 에서 탭=편집)
+        if (d.canDrag && (Math.abs(dx) > 5 || Math.abs(dy) > 5)) activateBlockDrag(d);
+        else return;
       } else {
-        const newEnd = Math.max(dragState.origStartMin + 5, dragState.origEndMin + dMin);
-        setDragPreview({ startMin: dragState.origStartMin, endMin: Math.min(tlEndHour * 60, newEnd) });
+        // 터치/펜: 롱프레스 전 움직임은 스크롤로 간주 → 대기 취소(캡처 미보유라 스크롤 진행)
+        if (Math.abs(dx) > 8 || Math.abs(dy) > 8) clearBlockDrag(d);
+        return;
       }
+    }
+    const dy = e.clientY - d.startY;
+    const dMin = Math.round(dy / PX_PER_MIN / BLOCK_SNAP_MIN) * BLOCK_SNAP_MIN; // 15분 스냅
+    let preview: { startMin: number; endMin: number };
+    if (d.mode === 'move') {
+      const duration = d.origEndMin - d.origStartMin;
+      const newStart = Math.max(tlStartHour * 60, d.origStartMin + dMin);
+      const newEnd = Math.min(tlEndHour * 60, newStart + duration); // 길이 유지 + 클램프
+      preview = { startMin: newEnd - duration, endMin: newEnd };
+    } else {
+      const newEnd = Math.max(d.origStartMin + BLOCK_SNAP_MIN, Math.min(tlEndHour * 60, d.origEndMin + dMin)); // start 고정, 최소 15분
+      preview = { startMin: d.origStartMin, endMin: newEnd };
+    }
+    d.preview = preview;
+    d.moved = true;
+    setDragPreview(preview);
+  };
+
+  const handleBlockPointerUp = (e: React.PointerEvent) => {
+    const d = pointerDragRef.current;
+    if (!d || e.pointerId !== d.pointerId) return;
+    cancelBlockLongPress(d);
+    if (d.activated && d.moved && d.preview) {
+      // PLAN → planStart/End, DO → doStart/End 만 갱신(서로 안 섞임)
+      const startField = d.type === 'plan' ? 'planStart' : 'doStart';
+      const endField = d.type === 'plan' ? 'planEnd' : 'doEnd';
+      updateTodo(d.todo.id, {
+        [startField]: minutesToTime(d.preview.startMin),
+        [endField]: minutesToTime(d.preview.endMin),
+        ...(d.type === 'do' ? { doElapsedSec: undefined } : {}),
+      });
+    } else if (!d.activated) {
+      // 탭(마우스 5px 미만 / 터치 짧게) → 편집 모달
+      window.dispatchEvent(new CustomEvent('editTodo', { detail: d.todo }));
+    }
+    clearBlockDrag(d);
+  };
+
+  const handleBlockPointerCancel = (e: React.PointerEvent) => {
+    const d = pointerDragRef.current;
+    if (!d || e.pointerId !== d.pointerId) return;
+    clearBlockDrag(d);
+  };
+
+  const handleBlockPointerDown = (
+    e: React.PointerEvent, todo: Todo, type: 'plan' | 'do', canDrag: boolean,
+    origStartMin: number, origEndMin: number,
+  ) => {
+    if (e.button === 2) return; // 우클릭은 onContextMenu 가 처리
+    const el = e.currentTarget as HTMLElement;
+    const d: BlockDrag = {
+      pointerId: e.pointerId, el, todo, type, mode: 'move', canDrag,
+      pointerType: e.pointerType, startX: e.clientX, startY: e.clientY,
+      origStartMin, origEndMin, activated: false, moved: false,
+      longPressTimer: null, preview: null,
     };
-    const handleTouchEnd = () => {
-      if (dragPreview && dragMovedRef.current) {
-        const startField = dragState.type === 'plan' ? 'planStart' : 'doStart';
-        const endField = dragState.type === 'plan' ? 'planEnd' : 'doEnd';
-        updateTodo(dragState.todoId, {
-          [startField]: minutesToTime(dragPreview.startMin),
-          [endField]: minutesToTime(dragPreview.endMin),
-          ...(dragState.type === 'do' ? { doElapsedSec: undefined } : {}),
-        });
-      }
-      setDragState(null);
-      setDragPreview(null);
-      setTimeout(() => { dragMovedRef.current = false; }, 50);
+    pointerDragRef.current = d;
+    if (e.pointerType === 'mouse') {
+      try { el.setPointerCapture(d.pointerId); } catch { /* noop */ }
+      // 이동 시작은 5px 이동 시점까지 보류 (탭=편집 구분)
+    } else if (canDrag) {
+      // 터치/펜: 250ms 롱프레스 → 이동 모드. 대기 중 스크롤 허용(캡처 보류).
+      d.longPressTimer = setTimeout(() => {
+        d.longPressTimer = null;
+        if (pointerDragRef.current !== d) return;
+        try { el.setPointerCapture(d.pointerId); } catch { /* noop */ }
+        activateBlockDrag(d);
+      }, 250);
+    }
+  };
+
+  const handleResizePointerDown = (
+    e: React.PointerEvent, todo: Todo, type: 'plan' | 'do',
+    origStartMin: number, origEndMin: number,
+  ) => {
+    if (e.button === 2) return;
+    e.stopPropagation(); // 본체 이동과 분리
+    e.preventDefault();
+    const el = e.currentTarget as HTMLElement;
+    const d: BlockDrag = {
+      pointerId: e.pointerId, el, todo, type, mode: 'resize', canDrag: true,
+      pointerType: e.pointerType, startX: e.clientX, startY: e.clientY,
+      origStartMin, origEndMin, activated: true, moved: false, // 손잡이는 롱프레스 없이 즉시
+      longPressTimer: null, preview: null,
     };
-    window.addEventListener('touchmove', handleTouchMove, { passive: false });
-    window.addEventListener('touchend', handleTouchEnd);
-    return () => {
-      window.removeEventListener('touchmove', handleTouchMove);
-      window.removeEventListener('touchend', handleTouchEnd);
-    };
-  }, [dragState, dragPreview, tlStartHour, tlEndHour, updateTodo]);
+    pointerDragRef.current = d;
+    try { el.setPointerCapture(d.pointerId); } catch { /* noop */ }
+    el.style.touchAction = 'none';
+    setDragState({ todoId: todo.id, type, mode: 'resize', startY: e.clientY, origStartMin, origEndMin });
+  };
 
   // Sleep block drag (mouse)
   useEffect(() => {
@@ -1400,7 +1486,8 @@ export function DailyView() {
     .filter(td => td.doStart && td.doEnd)
     .reduce((sum, td) => sum + todoDoDurationSeconds(td), 0) + activeTimerSec;
   const totalDoMinEquiv = totalDoSec / 60;
-  const achieveRate = totalPlanMin > 0 ? Math.min(100, Math.round((totalDoMinEquiv / totalPlanMin) * 100)) : 0;
+  const doneCount = dateTodos.filter(td => td.status === 'done').length;
+  const achieveRate = dateTodos.length > 0 ? Math.round((doneCount / dateTodos.length) * 100) : 0;
 
   // 오늘 날짜인 경우에만 알림 스케줄 등록
   const todayStr2 = format(new Date(), 'yyyy-MM-dd');
@@ -1446,11 +1533,18 @@ export function DailyView() {
       return;
     }
     if (todo.status === 'done') {
-      updateTodo(todo.id, { status: 'active', doStart: undefined, doEnd: undefined, doElapsedSec: undefined });
+      updateTodo(todo.id, { status: 'active' });
       return;
     }
-    const doneAt = format(new Date(), 'HH:mm');
-    updateTodo(todo.id, { status: 'done', doStart: doneAt, doEnd: doneAt, doElapsedSec: 0 });
+    if (todo.doStart && todo.doEnd) {
+      updateTodo(todo.id, { status: 'done' });
+    } else if (todo.planStart && todo.planEnd) {
+      updateTodo(todo.id, { status: 'done', doStart: todo.planStart, doEnd: todo.planEnd });
+    } else {
+      const s = format(new Date(), 'HH:mm');
+      const e = format(addMinutes(new Date(), 30), 'HH:mm');
+      updateTodo(todo.id, { status: 'done', doStart: s, doEnd: e });
+    }
   };
 
   const handleTodoFocusAction = (todo: Todo) => {
@@ -1753,20 +1847,6 @@ export function DailyView() {
       borderClr = '#6BAA7A';
     }
 
-    const handleDragStart = (e: React.MouseEvent, mode: 'move' | 'resize') => {
-      e.preventDefault();
-      e.stopPropagation();
-      dragMovedRef.current = false;
-      setDragState({
-        todoId: todo.id,
-        type,
-        mode,
-        startY: e.clientY,
-        origStartMin: timeToMinutes(start),
-        origEndMin: timeToMinutes(end),
-      });
-    };
-
     const baseTimeLabel = isDragging && dragPreview
       ? `${minutesToTime(dragPreview.startMin)}-${minutesToTime(dragPreview.endMin)}`
       : `${start}-${end}`;
@@ -1802,10 +1882,10 @@ export function DailyView() {
           transition: isDragging ? 'none' : 'opacity 0.15s',
           boxShadow: `0 2px 8px ${borderClr}14, 0 1px 2px rgba(0,0,0,0.04)`,
         }}
-        onMouseDown={canDrag ? ((e) => handleDragStart(e, 'move')) : undefined}
-        onClick={(e) => {
-          if (!dragState && !dragMovedRef.current) window.dispatchEvent(new CustomEvent('editTodo', { detail: todo }));
-        }}
+        onPointerDown={(e) => handleBlockPointerDown(e, todo, type, canDrag, timeToMinutes(start), timeToMinutes(end))}
+        onPointerMove={handleBlockPointerMove}
+        onPointerUp={handleBlockPointerUp}
+        onPointerCancel={handleBlockPointerCancel}
         onContextMenu={e => {
           e.preventDefault();
           if (isPlan) {
@@ -1814,24 +1894,26 @@ export function DailyView() {
             setContextMenu({ todo, pos: { x: e.clientX, y: e.clientY }, source: 'do' });
           }
         }}
-        onTouchStart={(e) => {
-          const touch = e.touches[0];
-          if (!touch) return;
-          const px = touch.clientX, py = touch.clientY;
-          longPressTimerRef.current = setTimeout(() => {
-            if (navigator.vibrate) navigator.vibrate(50);
-            if (isPlan) setPlanBlockMenu({ todo, pos: { x: px, y: py } });
-            else setContextMenu({ todo, pos: { x: px, y: py }, source: 'do' });
-          }, 500);
-        }}
-        onTouchEnd={() => {
-          if (longPressTimerRef.current) { clearTimeout(longPressTimerRef.current); longPressTimerRef.current = null; }
-        }}
-        onTouchMove={() => {
-          if (longPressTimerRef.current) { clearTimeout(longPressTimerRef.current); longPressTimerRef.current = null; }
-        }}
         title={titleLabel}
       >
+        {/* 모바일 임시 ⋯ 메뉴 버튼 — PC는 우클릭 유지, 모바일은 본체 롱프레스가 '이동'으로 바뀌어 메뉴 접근용 (Stage 4 재정비) */}
+        <button
+          type="button"
+          aria-label="메뉴"
+          className="absolute lg:hidden flex items-center justify-center"
+          style={{
+            top: 1, right: 1, width: 22, height: 22, borderRadius: 6,
+            color: textColor, opacity: 0.55, zIndex: 6, lineHeight: 1,
+            fontSize: 15, fontWeight: 700, background: 'transparent', touchAction: 'none',
+          }}
+          onPointerDown={(e) => e.stopPropagation()}
+          onClick={(e) => {
+            e.stopPropagation();
+            const r = (e.currentTarget as HTMLElement).getBoundingClientRect();
+            if (isPlan) setPlanBlockMenu({ todo, pos: { x: r.left, y: r.bottom } });
+            else setContextMenu({ todo, pos: { x: r.left, y: r.bottom }, source: 'do' });
+          }}
+        >⋯</button>
         {isCompact ? (
           <div className="flex items-center gap-2 h-full">
             {isCheckOnlyDo && (
@@ -1890,31 +1972,28 @@ export function DailyView() {
         )}
         {canDrag && (
           <>
+            {/* PC 리사이즈 손잡이 (hover 노출) */}
             <div
-              className="absolute left-0 right-0 bottom-0 flex justify-center items-center opacity-0 group-hover:opacity-100 transition-opacity"
-              style={{ height: 8, cursor: 'ns-resize', backgroundColor: isDragging ? 'transparent' : (isPlan ? '#515f7440' : '#00000015') }}
-              onMouseDown={(e) => handleDragStart(e, 'resize')}
+              className="absolute left-0 right-0 bottom-0 hidden lg:flex justify-center items-center opacity-0 group-hover:opacity-100 transition-opacity"
+              style={{ height: 8, cursor: 'ns-resize', touchAction: 'none', backgroundColor: isDragging ? 'transparent' : (isPlan ? '#515f7440' : '#00000015') }}
+              onPointerDown={(e) => handleResizePointerDown(e, todo, type, timeToMinutes(start), timeToMinutes(end))}
+              onPointerMove={handleBlockPointerMove}
+              onPointerUp={handleBlockPointerUp}
+              onPointerCancel={handleBlockPointerCancel}
             >
               <div style={{ width: 20, height: 2, borderRadius: 1, backgroundColor: isPlan ? PLAN_BAR_BORDER : `${textColor}80` }} />
             </div>
+            {/* 모바일 리사이즈 손잡이 (터치 타깃 + 가시 grip) */}
             <div
-              className="absolute left-0 right-0 bottom-0 lg:hidden"
-              style={{ height: 44, touchAction: 'none' }}
-              onTouchStart={(e) => {
-                e.stopPropagation();
-                const touch = e.touches[0];
-                if (!touch) return;
-                dragMovedRef.current = false;
-                setDragState({
-                  todoId: todo.id,
-                  type,
-                  mode: 'resize',
-                  startY: touch.clientY,
-                  origStartMin: timeToMinutes(start),
-                  origEndMin: timeToMinutes(end),
-                });
-              }}
-            />
+              className="absolute left-0 right-0 bottom-0 lg:hidden flex justify-center items-end"
+              style={{ height: 22, touchAction: 'none', paddingBottom: 3, cursor: 'ns-resize' }}
+              onPointerDown={(e) => handleResizePointerDown(e, todo, type, timeToMinutes(start), timeToMinutes(end))}
+              onPointerMove={handleBlockPointerMove}
+              onPointerUp={handleBlockPointerUp}
+              onPointerCancel={handleBlockPointerCancel}
+            >
+              <div style={{ width: 24, height: 3, borderRadius: 2, backgroundColor: isPlan ? PLAN_BAR_BORDER : `${textColor}66` }} />
+            </div>
           </>
         )}
       </div>
@@ -2504,17 +2583,21 @@ export function DailyView() {
               )}
             </div>
             {/* 요약: 계획 시간/실제 시간/달성률 */}
-            {(totalPlanMin > 0 || totalDoSec > 0) && (
+            {(totalPlanMin > 0 || totalDoSec > 0 || dateTodos.length > 0) && (
               <div className="flex items-center gap-3 mt-1.5">
-                <span style={{ fontSize: 10, color: '#7D6347' }}>
-                  계획 시간 {Math.floor(totalPlanMin / 60) > 0 ? `${Math.floor(totalPlanMin / 60)}h ` : ''}{totalPlanMin % 60 > 0 ? `${totalPlanMin % 60}m` : ''}
-                </span>
-                <span style={{ fontSize: 10, color: '#4A8A5A' }}>
-                  실제 시간 {formatTotalDoKo(totalDoSec)}
-                </span>
                 {totalPlanMin > 0 && (
+                  <span style={{ fontSize: 10, color: '#7D6347' }}>
+                    계획 시간 {Math.floor(totalPlanMin / 60) > 0 ? `${Math.floor(totalPlanMin / 60)}h ` : ''}{totalPlanMin % 60 > 0 ? `${totalPlanMin % 60}m` : ''}
+                  </span>
+                )}
+                {totalDoSec > 0 && (
+                  <span style={{ fontSize: 10, color: '#4A8A5A' }}>
+                    실제 시간 {formatTotalDoKo(totalDoSec)}
+                  </span>
+                )}
+                {dateTodos.length > 0 && (
                   <span style={{ fontSize: 10, fontWeight: 700, color: achieveRate >= 100 ? '#059669' : t.accent }}>
-                    달성률 {achieveRate}%
+                    달성률 {achieveRate}% ({doneCount}/{dateTodos.length})
                   </span>
                 )}
               </div>
@@ -2625,11 +2708,6 @@ export function DailyView() {
         </div>
         </div>{/* /Columns Wrapper */}
       </div>
-
-      <FloatingAddFab
-        onAddTodo={() => setShowAddModal(true)}
-        onAddEvent={() => setShowAddEventModal(true)}
-      />
 
       {/* Modals */}
       {showAddModal && <TodoModal date={selectedDate} onClose={() => setShowAddModal(false)} />}

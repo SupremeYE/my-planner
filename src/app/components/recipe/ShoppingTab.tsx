@@ -8,6 +8,7 @@ import { ShoppingItemSheet } from './ShoppingItemSheet';
 import { MoveToFridgeSheet } from './MoveToFridgeSheet';
 import { getFoodIcon } from './foodIcons';
 import ConfirmModal from '../ConfirmModal';
+import { useFabAction } from '../../FabContext';
 
 const newId = () =>
   (typeof crypto !== 'undefined' && 'randomUUID' in crypto)
@@ -135,6 +136,8 @@ export function ShoppingTab() {
 
   const openAdd = () => { setEditing(null); setSheetOpen(true); };
   const openEdit = (it: ShoppingItem) => { setEditing(it); setSheetOpen(true); };
+  // 전역 FAB — 장보기 항목 추가 (선택 모드에서는 숨김)
+  useFabAction(selectMode ? { kind: 'hidden' } : { kind: 'action', label: '장보기 항목 추가', icon: Plus, onPress: openAdd, fabClassName: 'recipe-mod-fab' });
 
   const handleSave = async (item: ShoppingItem) => {
     const wasEdit = !!editing;
@@ -314,14 +317,6 @@ export function ShoppingTab() {
         )}
       </div>
 
-      {/* FAB (선택 모드에서는 숨김) */}
-      {!selectMode && (
-        <button onClick={openAdd} aria-label="장보기 항목 추가"
-          className="recipe-mod-fab fixed right-4 z-40 flex items-center justify-center rounded-full active:scale-95 transition-transform"
-          style={{ width: 56, height: 56, backgroundColor: t.accent, color: '#fff', boxShadow: '0 6px 20px rgba(0,0,0,0.28)' }}>
-          <Plus size={26} />
-        </button>
-      )}
 
       {/* 토스트 */}
       {toast && (

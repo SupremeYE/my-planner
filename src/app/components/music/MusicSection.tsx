@@ -11,6 +11,7 @@ import { MusicDetailSheet } from './MusicDetailSheet';
 import { MusicDetailPanel } from './MusicDetailPanel';
 import { useToasts, ToastHost } from '../culture/CultureToast';
 import ConfirmModal from '../ConfirmModal';
+import { useFabAction } from '../../FabContext';
 
 export type CultureSection = 'video' | 'music';
 
@@ -61,6 +62,9 @@ export function MusicSection({ section, setSection }: {
   const [addOpen, setAddOpen] = useState(false);
   const [detail, setDetail] = useState<MusicRecord | null>(null);
   const [deleteId, setDeleteId] = useState<string | null>(null);
+
+  // 전역 FAB — 음악 섹션 "음악 추가"
+  useFabAction({ kind: 'action', label: '음악 추가', icon: Plus, onPress: () => setAddOpen(true) });
 
   // PC 패널 닫힘 애니메이션 동안 직전 곡을 잠시 유지(트랜지션 종료 후 비움)
   const [panelRecord, setPanelRecord] = useState<MusicRecord | null>(null);

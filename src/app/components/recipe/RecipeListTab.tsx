@@ -10,6 +10,7 @@ import ConfirmModal from '../ConfirmModal';
 import { detectRecipeSourcePlatform, type RecipeSourcePlatform } from '../../../lib/recipeSource';
 import { INTENT_TAG_PRESETS, MAIN_INGREDIENT_PRESETS } from './recipeTags';
 import { classifyCookable, findUrgentRecipes, type RecipeMatchResult, type UrgentRecipeHit } from './fridgeMatch';
+import { useFabAction } from '../../FabContext';
 
 // 대표 이미지 결정 — coverSource 기준, 비어 있으면 다른 쪽 폴백
 function coverImage(r: Recipe): string | null {
@@ -273,6 +274,8 @@ export function RecipeListTab() {
   useEffect(() => { setShuffled(null); }, [search, activeIntents, activeMains]);
 
   const openAdd = () => { setEditing(null); setSheetOpen(true); };
+  // 전역 FAB — 레시피 추가 (모듈 내부 탭바 위로 위치)
+  useFabAction({ kind: 'action', label: '레시피 추가', icon: Plus, onPress: openAdd, fabClassName: 'recipe-mod-fab' });
   // 카드 탭 → 상세 화면 진입
   const openDetail = (r: Recipe) => { setDetailId(r.id); };
   // 상세 → 편집: 상세를 닫고 폼 시트(편집 모드) 오픈
@@ -468,13 +471,6 @@ export function RecipeListTab() {
           </div>
         )}
       </div>
-
-      {/* FAB — 모듈 탭바 + 글로벌 네비 위(safe-area) */}
-      <button onClick={openAdd} aria-label="레시피 추가"
-        className="recipe-mod-fab fixed right-4 z-40 flex items-center justify-center rounded-full active:scale-95 transition-transform"
-        style={{ width: 56, height: 56, backgroundColor: t.accent, color: '#fff', boxShadow: '0 6px 20px rgba(0,0,0,0.28)' }}>
-        <Plus size={26} />
-      </button>
 
       {detailId && (() => {
         // Realtime/refresh로 최신 객체를 항상 찾아 전달 (편집 직후 반영)

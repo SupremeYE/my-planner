@@ -10,6 +10,7 @@ import { FridgeQuickAddSheet, draftsFromParsed } from './FridgeQuickAddSheet';
 import { parseFridgeQuickInput } from './recipeUtils';
 import { getFoodIcon } from './foodIcons';
 import ConfirmModal from '../ConfirmModal';
+import { useFabAction } from '../../FabContext';
 
 const CATEGORY_ORDER: FridgeCategory[] = ['냉장', '냉동', '실온'];
 const CATEGORY_ICON: Record<FridgeCategory, React.ComponentType<{ size?: number; color?: string }>> = {
@@ -278,6 +279,8 @@ export function FridgeTab() {
 
   const openAdd = () => { setEditing(null); setSheetOpen(true); };
   const openEdit = (it: FridgeItem) => { setEditing(it); setSheetOpen(true); };
+  // 전역 FAB — 냉장고 품목 추가 (선택 모드에서는 숨김)
+  useFabAction(selectMode ? { kind: 'hidden' } : { kind: 'action', label: '냉장고 품목 추가', icon: Plus, onPress: openAdd, fabClassName: 'recipe-mod-fab' });
 
   const handleQty = (it: FridgeItem, delta: number) => {
     const next = Math.max(0, Math.round((it.quantity + delta) * 10) / 10);
@@ -474,14 +477,6 @@ export function FridgeTab() {
         )}
       </div>
 
-      {/* FAB (선택 모드에서는 숨김) */}
-      {!selectMode && (
-        <button onClick={openAdd} aria-label="냉장고 품목 추가"
-          className="recipe-mod-fab fixed right-4 z-40 flex items-center justify-center rounded-full active:scale-95 transition-transform"
-          style={{ width: 56, height: 56, backgroundColor: t.accent, color: '#fff', boxShadow: '0 6px 20px rgba(0,0,0,0.28)' }}>
-          <Plus size={26} />
-        </button>
-      )}
 
       {/* 토스트 */}
       {toast && (

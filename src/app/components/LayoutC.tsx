@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Outlet, NavLink, useNavigate, useLocation } from 'react-router';
+import { Outlet, NavLink, useNavigate } from 'react-router';
 import {
   Sun, CalendarDays, BarChart2, FolderKanban, ListTodo, Inbox,
   ChevronLeft, ChevronRight, Calendar, Plus, Target, CheckCircle2,
@@ -348,12 +348,10 @@ function NewProjectModal({ onClose }: { onClose: () => void }) {
 export function LayoutC() {
   const { t } = useTheme();
   const { todos } = usePlanner();
-  const location = useLocation();
   const inboxCount = countInboxActive(todos);
   const [showNewProject, setShowNewProject] = useState(false);
 
-  // 전역 빠른 캡처 FAB — /daily·/calendar 는 자체 FAB 보유로 제외
-  const showQuickFab = location.pathname !== '/daily' && location.pathname !== '/calendar';
+  // 전역 컨텍스트 FAB — 모든 페이지에서 항상 1개(각 페이지가 등록한 주 추가 액션 수행)
 
   return (
     <div className="min-h-screen flex flex-col" style={{ backgroundColor: t.bg, fontFamily: t.font }}>
@@ -442,7 +440,7 @@ export function LayoutC() {
         {/* Left: main view (60%) */}
         <main className="overflow-hidden flex flex-col" style={{ flex: '0 0 60%', minWidth: 0 }}>
           <Outlet />
-          {showQuickFab && <FloatingAddFab />}
+          <FloatingAddFab />
         </main>
 
         {/* Right: dashboard (40%) */}

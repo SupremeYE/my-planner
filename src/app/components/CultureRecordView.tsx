@@ -14,6 +14,7 @@ import {
   SORT_LABELS, type CultureSortKey,
 } from './culture/cultureMeta';
 import { MusicSection, SectionTabs, type CultureSection } from './music/MusicSection';
+import { useFabAction } from '../FabContext';
 
 type SortKey = CultureSortKey;
 
@@ -122,6 +123,9 @@ export function CultureRecordView() {
   );
 
   const mobileFiltersActive = platformFilter !== 'all' || typeFilter !== 'all';
+
+  // 전역 FAB — 영상 섹션일 때 "문화 기록 추가" (음악 섹션은 MusicSection 이 자체 등록)
+  useFabAction(section === 'video' ? { kind: 'action', label: '문화 기록 추가', icon: Plus, onPress: openAdd } : null);
 
   // 음악 섹션 — 단일 반응형 컴포넌트로 한 번만 마운트 (영상 PC 레이아웃과 분리)
   if (section === 'music') {
@@ -308,13 +312,6 @@ export function CultureRecordView() {
         )}
       </div>
 
-      {/* FAB — 하단 탭바 위, safe-area 고려 */}
-      <button onClick={openAdd} aria-label="문화 기록 추가"
-        className="fixed right-4 z-30 flex items-center justify-center rounded-full active:scale-95 transition-transform"
-        style={{ bottom: 'calc(72px + env(safe-area-inset-bottom))', width: 56, height: 56,
-          backgroundColor: t.accent, color: '#fff', boxShadow: '0 6px 20px rgba(0,0,0,0.28)' }}>
-        <Plus size={26} />
-      </button>
     </div>
 
     {/* ════════ 공용 오버레이 ════════ */}
