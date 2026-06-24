@@ -1,5 +1,6 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router';
+import { format } from 'date-fns';
 import type { LucideIcon } from 'lucide-react';
 import {
   Bed, Sun, Scale, Activity, Droplet,
@@ -7,6 +8,7 @@ import {
   Footprints, BookMarked, CheckCircle2, ArrowUpRight, Check,
 } from 'lucide-react';
 import { useTheme } from '../ThemeContext';
+import { usePlanner, type SelfCareRecord } from '../store';
 
 /* ============================================================
  *  CAPTURE_REGISTRY  ── 런처 모델 (Stage 0 확정 13개 타일)
@@ -83,15 +85,45 @@ const greeting = (h: number) =>
   : h >= 17 && h < 21 ? '좋은 저녁이에요'
   : '좋은 밤이에요';
 
+// ── 취침/기상 페어링 (정책 B) ──
+// 취침 = sleepStart 만 든 미해결 레코드 insert (date=취침일)
+// 기상 = 지난 16h 내 미해결 레코드를 찾아 sleepEnd+duration 채우고 date=기상일로 정규화
+const SLEEP_PAIR_WINDOW_MS = 16 * 60 * 60 * 1000;
+
+// 레코드의 취침 시점 datetime 재구성 ("yyyy-MM-dd" + "HH:mm" → 로컬 Date ms). 실패 시 NaN
+const sleepStartMs = (r: SelfCareRecord): number =>
+  r.sleepStart ? new Date(`${r.date}T${r.sleepStart}:00`).getTime() : NaN;
+
+// 미해결(취침만, 기상 없음) 레코드 중 now 기준 16h 이내 시작된 최신 1개
+const findUnresolvedSleep = (records: SelfCareRecord[], now: Date): SelfCareRecord | null => {
+  const cutoff = now.getTime() - SLEEP_PAIR_WINDOW_MS;
+  return records
+    .filter(r => r.category === 'sleep' && r.sleepStart && !r.sleepEnd)
+    .filter(r => {
+      const ms = sleepStartMs(r);
+      return !Number.isNaN(ms) && ms >= cutoff && ms <= now.getTime();
+    })
+    .sort((a, b) => sleepStartMs(b) - sleepStartMs(a))[0] ?? null;
+};
+
+const fmtDuration = (min: number): string => {
+  const h = Math.floor(min / 60);
+  const m = min % 60;
+  if (h <= 0) return `${m}분`;
+  return m === 0 ? `${h}시간` : `${h}시간 ${m}분`;
+};
+
 export function QuickCaptureHome() {
   const { t } = useTheme();
   const navigate = useNavigate();
+  const { selfCareRecords, addSelfCareRecord, updateSelfCareRecord } = usePlanner();
 
   const now = useMemo(() => new Date(), []);
   const hour = now.getHours();
   const min = now.getMinutes();
   const time = `${pad(hour)}:${pad(min)}`;
   const [toast, setToast] = useState<string | null>(null);
+  const busyRef = useRef(false); // 더블탭 중복 기록 방지
 
   // accent 역할 키 → 실제 토큰(bg/fg/bd) 매핑. hex 하드코딩 없이 토큰만 사용.
   const palette = (role: AccentRole): { bg: string; fg: string; bd: string } => {
@@ -107,21 +139,87 @@ export function QuickCaptureHome() {
     [hour]
   );
 
-  // TODO Stage 3: 취침/기상 실제 self_care_records insert/update (페어링 모델)
-  const record = (label: string) => {
-    setToast(`${label} 기록됨 (임시) · ${time}`);
-    window.setTimeout(() => setToast(null), 1800);
+  const showToast = (msg: string) => {
+    setToast(msg);
+    window.setTimeout(() => setToast(null), 2200);
+  };
+
+  // 더블탭 가드 — 동기 ref 로 막고 잠시 후 해제
+  const guard = (): boolean => {
+    if (busyRef.current) return false;
+    busyRef.current = true;
+    window.setTimeout(() => { busyRef.current = false; }, 1500);
+    return true;
+  };
+
+  // 취침: sleepStart 만 든 미해결 레코드 insert (date=취침일). 빈 레코드 생성 아님 — 시작 시각은 항상 기록됨
+  const handleSleepIn = () => {
+    if (!guard()) return;
+    try {
+      const ts = new Date();
+      const hhmm = format(ts, 'HH:mm');
+      addSelfCareRecord({
+        date: format(ts, 'yyyy-MM-dd'),
+        category: 'sleep',
+        content: `${hhmm} ~`,
+        duration: 0,
+        sleepStart: hhmm,
+        // sleepEnd 미지정(undefined) → DB null → 미해결 상태
+      });
+      showToast(`취침 기록됨 · ${hhmm}`);
+    } catch (e) {
+      console.error('[QuickCaptureHome] sleep_in failed', e);
+      showToast('기록 실패. 잠시 후 다시 시도해주세요.');
+    }
+  };
+
+  // 기상: 16h 내 미해결 레코드를 찾아 sleepEnd+duration 채우고 date=기상일로 정규화. 없으면 토스트만(레코드 생성 안 함)
+  const handleWakeUp = () => {
+    if (!guard()) return;
+    try {
+      const ts = new Date();
+      const pending = findUnresolvedSleep(selfCareRecords, ts);
+      if (!pending) {
+        showToast('어제 취침 기록이 없어요. 수면 페이지에서 추가해주세요');
+        return;
+      }
+      const hhmm = format(ts, 'HH:mm');
+      const durationMin = Math.max(0, Math.round((ts.getTime() - sleepStartMs(pending)) / 60000));
+      updateSelfCareRecord(pending.id, {
+        sleepEnd: hhmm,
+        duration: durationMin,
+        content: `${pending.sleepStart} ~ ${hhmm}`,
+        date: format(ts, 'yyyy-MM-dd'), // 기상일로 정규화
+      });
+      showToast(`기상 기록됨 · ${hhmm} (${fmtDuration(durationMin)})`);
+    } catch (e) {
+      console.error('[QuickCaptureHome] wake_up failed', e);
+      showToast('기록 실패. 잠시 후 다시 시도해주세요.');
+    }
   };
 
   const trigger = (b: CaptureButton) => {
-    if (b.type === 'instant') record(b.label);
-    else navigate(b.route);
+    if (b.type !== 'instant') { navigate(b.route); return; }
+    if (b.id === 'sleep_in') handleSleepIn();
+    else if (b.id === 'wake_up') handleWakeUp();
   };
 
   const pal = palette(promoted?.accent ?? 'accent');
-  const heroSubtitle = promoted?.type === 'instant'
-    ? `1탭이면 끝 · ${time}로 기록돼요`
-    : '눌러서 페이지에서 적기';
+
+  // 히어로 부제 — instant 면 짝 상태 힌트(있으면), 아니면 안내
+  const heroSubtitle = (() => {
+    if (promoted?.type !== 'instant') return '눌러서 페이지에서 적기';
+    if (promoted.id === 'wake_up') {
+      const pending = findUnresolvedSleep(selfCareRecords, now);
+      return pending ? `${pending.sleepStart} 취침과 짝` : `1탭이면 끝 · ${time}로 기록돼요`;
+    }
+    if (promoted.id === 'sleep_in') {
+      const todayStr = format(now, 'yyyy-MM-dd');
+      const wokeToday = selfCareRecords.find(r => r.category === 'sleep' && r.date === todayStr && r.sleepEnd);
+      return wokeToday ? `오늘 ${wokeToday.sleepEnd} 기상과 짝` : `1탭이면 끝 · ${time}로 기록돼요`;
+    }
+    return `1탭이면 끝 · ${time}로 기록돼요`;
+  })();
 
   const tiles = CAPTURE_REGISTRY.filter((b) => b.id !== promoted?.id);
 
