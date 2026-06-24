@@ -9,6 +9,7 @@ import {
 } from 'lucide-react';
 import { useTheme } from '../ThemeContext';
 import { usePlanner, type SelfCareRecord } from '../store';
+import { promotedIdAt } from '../../lib/quickCapturePromote';
 
 /* ============================================================
  *  CAPTURE_REGISTRY  ── 런처 모델 (Stage 0 확정 13개 타일)
@@ -18,9 +19,9 @@ import { usePlanner, type SelfCareRecord } from '../store';
  *    navigate  해당 페이지로 이동
  *
  *  accent: 히어로(지금 추천) 승격 시 색 역할 토큰 키
- *  promote: [from,to] 24h 윈도우. find() 첫 매칭 승격 →
- *           겹치는 구간(21~23시 diary vs sleep_in)은 배열 앞쪽이 우선.
- *           ⚠️ 그래서 diary 가 sleep_in 보다 앞에 와야 함.
+ *
+ *  ⚠️ 시간대 승격 우선순위(diary > sleep_in 등)는 lib/quickCapturePromote.ts 의
+ *     PROMOTE_ORDER 가 단일 소스(단위 테스트로 보호). 여기선 id 로 조회만 한다.
  * ========================================================== */
 
 type AccentRole = 'accent' | 'danger' | 'text';
@@ -32,7 +33,6 @@ type CaptureButton =
       label: string;
       icon: LucideIcon;
       accent: AccentRole;
-      promote?: [number, number];
       pairWith?: string;
     }
   | {
@@ -41,20 +41,16 @@ type CaptureButton =
       label: string;
       icon: LucideIcon;
       route: string;
-      promote?: [number, number];
       accent?: AccentRole;
     };
 
 const CAPTURE_REGISTRY: CaptureButton[] = [
-  // ── 회고 (저녁 승격) — sleep_in 보다 앞에 둬야 21~23시 우선순위가 맞음 ──
-  { id: 'diary', label: '오늘 일기', icon: BookOpen, type: 'navigate', route: '/diary',
-    promote: [20, 23], accent: 'danger' },
+  // ── 회고 ──
+  { id: 'diary', label: '오늘 일기', icon: BookOpen, type: 'navigate', route: '/diary', accent: 'danger' },
 
   // ── 즉시 기록 (취침/기상만) ──
-  { id: 'wake_up',  label: '기상', icon: Sun, type: 'instant',
-    promote: [5, 9],  accent: 'accent', pairWith: 'sleep_in' },
-  { id: 'sleep_in', label: '취침', icon: Bed, type: 'instant',
-    promote: [21, 4], accent: 'text',   pairWith: 'wake_up' },
+  { id: 'wake_up',  label: '기상', icon: Sun, type: 'instant', accent: 'accent', pairWith: 'sleep_in' },
+  { id: 'sleep_in', label: '취침', icon: Bed, type: 'instant', accent: 'text',   pairWith: 'wake_up' },
 
   // ── 캡처 ──
   { id: 'todo',   label: '할 일',  icon: Plus,     type: 'navigate', route: '/inbox' },
@@ -73,11 +69,6 @@ const CAPTURE_REGISTRY: CaptureButton[] = [
   { id: 'habit',   label: '습관', icon: CheckCircle2, type: 'navigate', route: '/habits' },
 ];
 
-const inWindow = (h: number, w?: [number, number]) => {
-  if (!w) return false;
-  const [a, b] = w;
-  return a <= b ? h >= a && h <= b : h >= a || h <= b;
-};
 const pad = (n: number) => String(n).padStart(2, '0');
 const greeting = (h: number) =>
   h >= 5 && h < 11 ? '좋은 아침이에요'
@@ -134,10 +125,10 @@ export function QuickCaptureHome() {
     }
   };
 
-  const promoted = useMemo(
-    () => CAPTURE_REGISTRY.find((b) => inWindow(hour, b.promote)),
-    [hour]
-  );
+  const promoted = useMemo(() => {
+    const id = promotedIdAt(hour);
+    return id ? CAPTURE_REGISTRY.find((b) => b.id === id) : undefined;
+  }, [hour]);
 
   const showToast = (msg: string) => {
     setToast(msg);
