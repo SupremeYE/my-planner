@@ -3,16 +3,17 @@
 //  · 입력 폼 자체는 BeautyProductSheet / SpecialCareSheet 가 담당(여기선 분기만).
 //  · ⚠️ 사진/AI 추가 경로는 만들지 않는다(S6). 수동 입력만.
 import React from 'react';
-import { X, Sparkles, Flower2 } from 'lucide-react';
+import { X, Sparkles, Flower2, Camera } from 'lucide-react';
 import { useTheme } from '../../ThemeContext';
 
 interface Props {
   onPickProduct: () => void;
   onPickCare: () => void;
+  onPickPhoto: () => void;   // 📸 사진으로 (vision-extract)
   onClose: () => void;
 }
 
-export function BeautyAddSheet({ onPickProduct, onPickCare, onClose }: Props) {
+export function BeautyAddSheet({ onPickProduct, onPickCare, onPickPhoto, onClose }: Props) {
   const { t } = useTheme();
 
   const PickButton = ({ icon, title, desc, onClick }: { icon: React.ReactNode; title: string; desc: string; onClick: () => void }) => (
@@ -48,6 +49,8 @@ export function BeautyAddSheet({ onPickProduct, onPickCare, onClose }: Props) {
         </div>
 
         <div className="px-4 lg:px-5 pb-5 space-y-2.5" style={{ paddingBottom: 'calc(24px + env(safe-area-inset-bottom))' }}>
+          <PickButton icon={<Camera size={20} />} title="📸 사진으로" desc="제품 사진 한 장이면 이름·브랜드 자동 입력"
+            onClick={() => { onClose(); onPickPhoto(); }} />
           <PickButton icon={<Flower2 size={20} />} title="화장품" desc="보유함에 등록 · 개봉일/사용기한 관리"
             onClick={() => { onClose(); onPickProduct(); }} />
           <PickButton icon={<Sparkles size={20} />} title="스페셜케어" desc="모공팩·발각질처럼 주기로 챙기는 케어"

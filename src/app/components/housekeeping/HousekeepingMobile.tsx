@@ -14,7 +14,14 @@ import { ConsumableCycleCard } from './ConsumableCycleCard';
 import { CleaningHeatmap, zoneDust } from './CleaningHeatmap';
 import { HouseholdStockSheet } from './HouseholdStockSheet';
 import { HousekeepingAddSheet } from './HousekeepingAddSheet';
+import { PhotoCaptureSheet } from '../capture/PhotoCaptureSheet';
+import type { ExtractedItem } from '../capture/useVisionExtract';
 import type { HouseholdItem } from '../../store';
+
+const newId = () =>
+  (typeof crypto !== 'undefined' && 'randomUUID' in crypto)
+    ? crypto.randomUUID()
+    : `${Date.now()}-${Math.random().toString(36).slice(2)}`;
 
 // ── 넛지 우선순위 (높을수록 위) ──
 //   4 소진(다 씀) > 3 교체 지난 소모품(over) > 2 저재고(곧 떨어짐) > 1 오래된 청소구역.
@@ -101,11 +108,32 @@ export function HousekeepingMobile() {
   // 시트/모달 상태
   const [stockSheet, setStockSheet] = useState<{ item: HouseholdItem | null } | null>(null);
   const [addOpen, setAddOpen] = useState(false);
+  const [photoOpen, setPhotoOpen] = useState(false);
   const [deleteItemId, setDeleteItemId] = useState<string | null>(null);
   const [deleteCycleId, setDeleteCycleId] = useState<string | null>(null);
   const [deleteZoneId, setDeleteZoneId] = useState<string | null>(null);
   const [toast, setToast] = useState<string | null>(null);
   const notify = (msg: string) => { setToast(msg); window.setTimeout(() => setToast(null), 1900); };
+
+  // 사진/영수증 AI 등록 — 추출 품목을 생필품 재고로 등록(찍은 사진을 대표 썸네일로 공유).
+  const handlePhotoConfirm = (items: ExtractedItem[], photoUrl: string | null) => {
+    items.forEach(it => hk.addItem({
+      id: newId(),
+      name: it.name,
+      category: it.category ?? null,
+      quantity: it.quantity != null && it.quantity > 0 ? it.quantity : 1,
+      unit: null,
+      thresholdQty: 1,
+      brand: it.brand ?? null,
+      purchasePlace: it.purchase_place ?? null,
+      price: it.price ?? null,
+      link: null,
+      memo: null,
+      photoUrl: photoUrl ?? null,
+    }));
+    setPhotoOpen(false);
+    notify(`${items.length}개 등록했어요`);
+  };
 
   // ── 넛지 생성 + 우선순위 정렬 ──
   const nudges = useMemo<Nudge[]>(() => {
@@ -251,9 +279,19 @@ export function HousekeepingMobile() {
       {addOpen && (
         <HousekeepingAddSheet
           onPickStock={() => setStockSheet({ item: null })}
+          onPickPhoto={() => setPhotoOpen(true)}
           onAddCycle={(c) => { hk.addCycle(c); notify('추가했어요'); }}
           onAddZone={(z) => { hk.addZone(z); notify('추가했어요'); }}
           onClose={() => setAddOpen(false)} />
+      )}
+
+      {/* 사진/영수증 AI 등록 */}
+      {photoOpen && (
+        <PhotoCaptureSheet
+          domain="household"
+          onConfirm={handlePhotoConfirm}
+          onManualFallback={() => { setPhotoOpen(false); setStockSheet({ item: null }); }}
+          onClose={() => setPhotoOpen(false)} />
       )}
 
       {/* 삭제 확인 */}

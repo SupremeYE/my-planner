@@ -4,7 +4,7 @@
 //  · 소모품주기/청소구역은 간단해서 이 시트 안에서 폼 처리 → 부모 액션(add*) 호출.
 //  · ⚠️ 사진/영수증 AI 추가 경로는 만들지 않는다(S6). 수동 입력만.
 import React, { useState } from 'react';
-import { X, ChevronLeft, Package, RefreshCw, SprayCan } from 'lucide-react';
+import { X, ChevronLeft, Package, RefreshCw, SprayCan, Receipt } from 'lucide-react';
 import { useTheme } from '../../ThemeContext';
 import type { ConsumableCycle, CleaningZone } from '../../store';
 
@@ -17,12 +17,13 @@ type Step = 'pick' | 'cycle' | 'zone';
 
 interface Props {
   onPickStock: () => void;                    // 재고 추가는 부모가 HouseholdStockSheet 오픈
+  onPickPhoto: () => void;                    // 🧾 영수증/사진으로 (vision-extract)
   onAddCycle: (item: ConsumableCycle) => void;
   onAddZone: (item: CleaningZone) => void;
   onClose: () => void;
 }
 
-export function HousekeepingAddSheet({ onPickStock, onAddCycle, onAddZone, onClose }: Props) {
+export function HousekeepingAddSheet({ onPickStock, onPickPhoto, onAddCycle, onAddZone, onClose }: Props) {
   const { t } = useTheme();
   const [step, setStep] = useState<Step>('pick');
 
@@ -92,6 +93,8 @@ export function HousekeepingAddSheet({ onPickStock, onAddCycle, onAddZone, onClo
         <div className="px-4 lg:px-5 pb-5" style={{ paddingBottom: 'calc(24px + env(safe-area-inset-bottom))' }}>
           {step === 'pick' && (
             <div className="space-y-2.5">
+              <PickButton icon={<Receipt size={20} />} title="🧾 영수증/사진으로" desc="영수증·사진 한 장이면 품목 자동 입력"
+                onClick={() => { onClose(); onPickPhoto(); }} />
               <PickButton icon={<Package size={20} />} title="생필품 재고" desc="휴지·세제처럼 수량을 챙기는 물건"
                 onClick={() => { onClose(); onPickStock(); }} />
               <PickButton icon={<RefreshCw size={20} />} title="소모품 교체주기" desc="수세미·칫솔처럼 주기로 교체하는 것"

@@ -6,6 +6,7 @@
 //  · PC(hidden lg:block)는 S7에서 — 이 컴포넌트는 lg:hidden 래퍼 안에서만 렌더된다.
 import { useState } from 'react';
 import { Plus } from 'lucide-react';
+import { format } from 'date-fns';
 import { useTheme } from '../../ThemeContext';
 import ConfirmModal from '../ConfirmModal';
 import { useBeauty, type CareDerived } from './useBeauty';
@@ -15,7 +16,14 @@ import { SpecialCareSheet } from './SpecialCareSheet';
 import { BeautyShelfPreview, BeautyShelfFull } from './BeautyShelf';
 import { BeautyProductSheet } from './BeautyProductSheet';
 import { BeautyAddSheet } from './BeautyAddSheet';
+import { PhotoCaptureSheet } from '../capture/PhotoCaptureSheet';
+import type { ExtractedItem } from '../capture/useVisionExtract';
 import type { BeautyProduct, BeautySpecialCare } from '../../store';
+
+const newId = () =>
+  (typeof crypto !== 'undefined' && 'randomUUID' in crypto)
+    ? crypto.randomUUID()
+    : `${Date.now()}-${Math.random().toString(36).slice(2)}`;
 
 function SectionTitle({ children, count, action }: { children: React.ReactNode; count?: number; action?: React.ReactNode }) {
   const { t } = useTheme();
@@ -37,11 +45,33 @@ export function BeautyCareMobile() {
   const [careSheet, setCareSheet] = useState<{ care: BeautySpecialCare | null } | null>(null);
   const [productSheet, setProductSheet] = useState<{ product: BeautyProduct | null } | null>(null);
   const [addOpen, setAddOpen] = useState(false);
+  const [photoOpen, setPhotoOpen] = useState(false);
   const [shelfFull, setShelfFull] = useState(false);
   const [deleteCareId, setDeleteCareId] = useState<string | null>(null);
   const [deleteProductId, setDeleteProductId] = useState<string | null>(null);
   const [toast, setToast] = useState<string | null>(null);
   const notify = (msg: string) => { setToast(msg); window.setTimeout(() => setToast(null), 1900); };
+
+  // 사진 AI 등록 — 추출 항목을 화장품으로 등록(개봉일 오늘, 찍은 사진을 썸네일로 재사용).
+  const handlePhotoConfirm = (items: ExtractedItem[], photoUrl: string | null) => {
+    const today = format(new Date(), 'yyyy-MM-dd');
+    items.forEach(it => b.addProduct({
+      id: newId(),
+      name: it.name,
+      brand: it.brand ?? null,
+      category: it.category ?? null,
+      photoUrl: photoUrl ?? null,
+      openedAt: today,
+      expiryMonths: null,
+      purchasePlace: null,
+      price: null,
+      link: null,
+      memo: null,
+      isActive: true,
+    }));
+    setPhotoOpen(false);
+    notify(`${items.length}개 등록했어요`);
+  };
 
   return (
     <div className="min-h-full" style={{ backgroundColor: t.bg }}>
@@ -141,7 +171,17 @@ export function BeautyCareMobile() {
         <BeautyAddSheet
           onPickProduct={() => setProductSheet({ product: null })}
           onPickCare={() => setCareSheet({ care: null })}
+          onPickPhoto={() => setPhotoOpen(true)}
           onClose={() => setAddOpen(false)} />
+      )}
+
+      {/* 사진 AI 등록 */}
+      {photoOpen && (
+        <PhotoCaptureSheet
+          domain="beauty"
+          onConfirm={handlePhotoConfirm}
+          onManualFallback={() => { setPhotoOpen(false); setProductSheet({ product: null }); }}
+          onClose={() => setPhotoOpen(false)} />
       )}
 
       {/* 삭제 확인 */}
