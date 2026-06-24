@@ -1,9 +1,10 @@
 // Supabase Edge Function: vision-extract
 //
-// 입력: { image_url: string, domain: 'beauty' | 'household' }
+// 입력: { image_url: string, domain: 'beauty' | 'household' | 'recipe' }
 // 출력(항상 200 JSON, 실패도 graceful):
 //   beauty    → { ok:true, items:[{ name, brand?, category?, confidence }] }
 //   household → { ok:true, items:[{ name, brand?, category?, quantity?, price?, purchase_place?, confidence }] }
+//   recipe    → { ok:true, recipe:{ title?, ingredients:string[], steps:string[] } }   (items 와 키가 다름 — 클라가 domain 으로 분기)
 //   실패/파싱불가 → { ok:false, error }   (클라가 수동 입력으로 폴백)
 //
 // 동작: 사진(제품/영수증) 1장을 OpenAI gpt-4o-mini vision 으로 읽어 항목을 추출한다.
@@ -31,7 +32,17 @@ function json(body: unknown, status = 200): Response {
 }
 
 // domain 별 추출 지시 + JSON 스키마 강제.
-function promptFor(domain: 'beauty' | 'household'): string {
+function promptFor(domain: 'beauty' | 'household' | 'recipe'): string {
+  if (domain === 'recipe') {
+    return [
+      '이 이미지는 레시피가 담긴 화면 캡처(유튜브 숏츠/블로그 등)야. 보이는 글자를 읽고 재료와 조리 순서를 분리해줘.',
+      '- ingredients: 재료 배열. 각 원소는 한 줄 문자열로 "이름 수량 단위" 순(예: "양파 1개", "간장 2큰술"). 수량/단위 안 보이면 이름만.',
+      '- steps: 조리 순서 배열. 각 원소는 한 단계 문장(요리 view 타이머 인식 위해 "5분","30초" 같은 시간 표현은 그대로 보존).',
+      '- title: 음식명이 보이면 추출(없으면 생략)',
+      '출력은 JSON 객체 하나만: {"title":"...","ingredients":[...],"steps":[...]}',
+      '마크다운/코드펜스/설명 없이 JSON만. 못 읽으면 {"ingredients":[],"steps":[]}.',
+    ].join('\n');
+  }
   if (domain === 'household') {
     return [
       '이 이미지는 생필품 사진 또는 영수증이야. 보이는 "생활용품/소모품" 품목을 추출해줘.',
@@ -82,13 +93,40 @@ function parseItems(text: string): Array<Record<string, unknown>> | null {
   }
 }
 
+// recipe domain 전용: {title?, ingredients[], steps[]} 안전 파싱.
+//  - parseItems 와 동일한 가드(코드펜스 제거 → 첫 { ~ 마지막 } → JSON.parse) 재사용.
+//  - ingredients/steps 는 "문자열 원소만" 통과(빈 문자열·non-string 제거), title 은 문자열일 때만.
+function parseRecipe(text: string): { title?: string; ingredients: string[]; steps: string[] } | null {
+  if (!text) return null;
+  let s = text.trim();
+  s = s.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/i, '').trim();
+  const first = s.indexOf('{');
+  const last = s.lastIndexOf('}');
+  if (first === -1 || last === -1 || last < first) return null;
+  try {
+    const obj = JSON.parse(s.slice(first, last + 1));
+    const toLines = (arr: unknown): string[] =>
+      Array.isArray(arr)
+        ? arr.filter((x): x is string => typeof x === 'string').map((x) => x.trim()).filter(Boolean)
+        : [];
+    const out: { title?: string; ingredients: string[]; steps: string[] } = {
+      ingredients: toLines(obj?.ingredients),
+      steps: toLines(obj?.steps),
+    };
+    if (typeof obj?.title === 'string' && obj.title.trim()) out.title = obj.title.trim();
+    return out;
+  } catch {
+    return null;
+  }
+}
+
 Deno.serve(async (req: Request) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: CORS_HEADERS });
 
   try {
     const { image_url, domain } = await req.json().catch(() => ({}));
-    if (!image_url || (domain !== 'beauty' && domain !== 'household')) {
-      return json({ ok: false, error: 'image_url 과 domain(beauty|household) 이 필요해요' });
+    if (!image_url || (domain !== 'beauty' && domain !== 'household' && domain !== 'recipe')) {
+      return json({ ok: false, error: 'image_url 과 domain(beauty|household|recipe) 이 필요해요' });
     }
 
     const key = Deno.env.get('OPENAI_API_KEY');
@@ -99,7 +137,8 @@ Deno.serve(async (req: Request) => {
       headers: { 'Authorization': `Bearer ${key}`, 'Content-Type': 'application/json' },
       body: JSON.stringify({
         model: 'gpt-4o-mini',
-        max_tokens: 1024,
+        // recipe 는 재료+순서가 길 수 있어 토큰을 더 준다(잘리면 JSON 파싱 실패). beauty/household 는 1024 유지.
+        max_tokens: domain === 'recipe' ? 2048 : 1024,
         response_format: { type: 'json_object' }, // JSON 강제(파싱 안정화)
         messages: [{
           role: 'user',
@@ -119,6 +158,14 @@ Deno.serve(async (req: Request) => {
 
     const j = await res.json();
     const text = j?.choices?.[0]?.message?.content;
+
+    // recipe domain 은 items 가 아니라 {title,ingredients,steps} 구조 — 별도 출력 키(recipe)로 반환.
+    if (domain === 'recipe') {
+      const recipe = typeof text === 'string' ? parseRecipe(text) : null;
+      if (recipe == null) return json({ ok: false, error: '추출 결과를 해석하지 못했어요' });
+      return json({ ok: true, recipe });
+    }
+
     const parsed = typeof text === 'string' ? parseItems(text) : null;
     if (parsed == null) return json({ ok: false, error: '추출 결과를 해석하지 못했어요' });
 
