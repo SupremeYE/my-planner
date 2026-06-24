@@ -1,8 +1,9 @@
-// 뷰티 케어 — 페이지 셸 (Stage 3: 라우팅/메뉴 노출용 플레이스홀더).
-//  · 래퍼만 lg:hidden / hidden lg:block 로 모바일·PC 분기해 둠(지금은 동일 내용).
-//  · 데이터·CRUD·FAB·사진·훅(useBeauty) 연결은 다음 스테이지. 여기선 순수 정적.
+// 뷰티 케어 — 페이지 셸.
+//  · 모바일(lg:hidden): 실제 기능 화면 BeautyCareMobile (Stage 5).
+//  · PC(hidden lg:block): S3 플레이스홀더 유지 — 데스크톱 뷰는 S7에서 마감.
 import { Flower2 } from 'lucide-react';
 import { useTheme } from '../../ThemeContext';
+import { BeautyCareMobile } from './BeautyCareMobile';
 
 function BeautyCarePlaceholder() {
   const { t } = useTheme();
@@ -48,9 +49,9 @@ function BeautyCarePlaceholder() {
 export function BeautyCareView() {
   return (
     <>
-      {/* 레이아웃 분기 — 한쪽을 고쳐도 다른 쪽 무영향 (지금은 동일 플레이스홀더) */}
+      {/* 레이아웃 분기 — 한쪽을 고쳐도 다른 쪽 무영향 */}
       <div className="lg:hidden">
-        <BeautyCarePlaceholder />
+        <BeautyCareMobile />
       </div>
       <div className="hidden lg:block">
         <BeautyCarePlaceholder />
