@@ -6,12 +6,12 @@
 //   household → { ok:true, items:[{ name, brand?, category?, quantity?, price?, purchase_place?, confidence }] }
 //   실패/파싱불가 → { ok:false, error }   (클라가 수동 입력으로 폴백)
 //
-// 동작: 사진(제품/영수증) 1장을 Claude Haiku vision 으로 읽어 항목을 추출한다.
+// 동작: 사진(제품/영수증) 1장을 OpenAI gpt-4o-mini vision 으로 읽어 항목을 추출한다.
 //   ⚠️ "등록 시점 1회"만 호출하는 보조 추출기다. 조회/렌더 경로에서 호출 금지(클라이언트 규칙).
 //   추출 결과(confidence·원문)는 영속 저장하지 않는다 — 사용자가 확정·편집한 값만 db 에 들어간다.
 //
-// 시크릿(이미 세팅됨, enrich-place 와 공유):
-//   ANTHROPIC_API_KEY
+// 시크릿(이미 세팅됨, transcribe 와 공유):
+//   OPENAI_API_KEY
 //
 // 비전보드(vision/)와 무관 — 폴더/함수명은 vision-extract.
 
@@ -91,20 +91,21 @@ Deno.serve(async (req: Request) => {
       return json({ ok: false, error: 'image_url 과 domain(beauty|household) 이 필요해요' });
     }
 
-    const key = Deno.env.get('ANTHROPIC_API_KEY');
-    if (!key) return json({ ok: false, error: 'ANTHROPIC_API_KEY 가 설정되지 않았어요' });
+    const key = Deno.env.get('OPENAI_API_KEY');
+    if (!key) return json({ ok: false, error: 'OPENAI_API_KEY 가 설정되지 않았어요' });
 
-    const res = await fetch('https://api.anthropic.com/v1/messages', {
+    const res = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
-      headers: { 'x-api-key': key, 'anthropic-version': '2023-06-01', 'content-type': 'application/json' },
+      headers: { 'Authorization': `Bearer ${key}`, 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        model: 'claude-haiku-4-5-20251001',
+        model: 'gpt-4o-mini',
         max_tokens: 1024,
+        response_format: { type: 'json_object' }, // JSON 강제(파싱 안정화)
         messages: [{
           role: 'user',
           content: [
-            { type: 'image', source: { type: 'url', url: image_url } },
             { type: 'text', text: promptFor(domain) },
+            { type: 'image_url', image_url: { url: image_url } },
           ],
         }],
       }),
@@ -112,12 +113,12 @@ Deno.serve(async (req: Request) => {
 
     if (!res.ok) {
       const detail = await res.text().catch(() => '');
-      console.error('[vision-extract] anthropic 실패:', res.status, detail.slice(0, 300));
+      console.error('[vision-extract] openai 실패:', res.status, detail.slice(0, 300));
       return json({ ok: false, error: `이미지를 읽지 못했어요 (${res.status})` });
     }
 
     const j = await res.json();
-    const text = j?.content?.[0]?.text;
+    const text = j?.choices?.[0]?.message?.content;
     const parsed = typeof text === 'string' ? parseItems(text) : null;
     if (parsed == null) return json({ ok: false, error: '추출 결과를 해석하지 못했어요' });
 
