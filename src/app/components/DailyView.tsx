@@ -4,7 +4,7 @@ import { useSearchParams, NavLink } from 'react-router';
 import {
   ChevronLeft, ChevronRight, Plus, Star, Play,
   Check, Clock, Trash2, X, MoreHorizontal,
-  Settings, Edit3, Pause, Ban, CalendarDays, Copy, MessageSquare,
+  Settings, Edit3, Pause, Ban, CalendarDays, MessageSquare, ArrowRight,
 } from 'lucide-react';
 import { format, addDays, subDays, addMonths, subMonths, startOfMonth, getDaysInMonth, getDay as getDayOfWeek, parseISO, addMinutes } from 'date-fns';
 import { ko } from 'date-fns/locale';
@@ -304,13 +304,14 @@ function SnoozeModal({ todo, onClose }: { todo: Todo; onClose: () => void }) {
 }
 
 // ─── Context Menu ───
-function ContextMenu({ todo, position, onClose, onFocus, onDelete, deleteMessage }: {
+function ContextMenu({ todo, position, onClose, onFocus, onDelete, deleteMessage, variant = 'list' }: {
   todo: Todo;
   position: { x: number; y: number };
   onClose: () => void;
   onFocus: (todo: Todo) => void;
   onDelete?: () => void;
   deleteMessage?: string;
+  variant?: 'list' | 'block'; // 'block' = 타임라인 블록/우클릭 공통 (편집·미루기·삭제만)
 }) {
   const { updateTodo, deleteTodo } = usePlanner();
   const { t } = useTheme();
@@ -328,16 +329,24 @@ function ContextMenu({ todo, position, onClose, onFocus, onDelete, deleteMessage
     return () => document.removeEventListener('mousedown', handler);
   }, [onClose, showDeleteConfirm]);
 
-  const menuItems = [
-    { label: '편집', icon: Edit3, action: 'edit' },
-    { divider: true },
-    { label: '예정', icon: Clock, action: 'active', status: 'active' },
-    { label: '포커스 시작', icon: Play, action: 'focus' },
-    { label: '미루기', icon: Pause, action: 'snoozed', status: 'snoozed' },
-    { label: '취소', icon: Ban, action: 'cancelled', status: 'cancelled' },
-    { divider: true },
-    { label: '삭제', icon: Trash2, action: 'delete', danger: true },
-  ];
+  const menuItems = variant === 'block'
+    ? [
+        { label: '편집', icon: Edit3, action: 'edit' },
+        { divider: true },
+        { label: '미루기', icon: ArrowRight, action: 'snooze-modal' },
+        { divider: true },
+        { label: '삭제', icon: Trash2, action: 'delete', danger: true },
+      ]
+    : [
+        { label: '편집', icon: Edit3, action: 'edit' },
+        { divider: true },
+        { label: '예정', icon: Clock, action: 'active', status: 'active' },
+        { label: '포커스 시작', icon: Play, action: 'focus' },
+        { label: '미루기', icon: Pause, action: 'snoozed', status: 'snoozed' },
+        { label: '취소', icon: Ban, action: 'cancelled', status: 'cancelled' },
+        { divider: true },
+        { label: '삭제', icon: Trash2, action: 'delete', danger: true },
+      ];
 
   return (
     <>
@@ -373,7 +382,7 @@ function ContextMenu({ todo, position, onClose, onFocus, onDelete, deleteMessage
                 } else if ((item as any).action === 'focus') {
                   onFocus(todo);
                   onClose();
-                } else if ((item as any).action === 'snoozed') {
+                } else if ((item as any).action === 'snoozed' || (item as any).action === 'snooze-modal') {
                   onClose();
                   window.dispatchEvent(new CustomEvent('snoozeTodo', { detail: todo }));
                 } else if ((item as any).action === 'delete') {
@@ -943,142 +952,6 @@ function DailyDatePickerModal({ selectedDate, onClose, onConfirm }: {
   );
 }
 
-// ─── Plan Block Context Menu ───
-function PlanBlockContextMenu({ todo, position, onClose, onClone, onEditTime }: {
-  todo: Todo;
-  position: { x: number; y: number };
-  onClose: () => void;
-  onClone: () => void;
-  onEditTime: () => void;
-}) {
-  const { updateTodo } = usePlanner();
-  const { t } = useTheme();
-  const ref = useRef<HTMLDivElement>(null);
-  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
-
-  useEffect(() => {
-    const handler = (e: MouseEvent) => {
-      if (showDeleteConfirm) return;
-      if (ref.current && !ref.current.contains(e.target as Node)) onClose();
-    };
-    document.addEventListener('mousedown', handler);
-    return () => document.removeEventListener('mousedown', handler);
-  }, [onClose, showDeleteConfirm]);
-
-  const left = Math.min(position.x, window.innerWidth - 160);
-  const top = Math.min(position.y, window.innerHeight - 120);
-
-  const btnStyle = (danger?: boolean) => ({
-    fontSize: 12,
-    color: danger ? '#DC2626' : t.text,
-  });
-
-  return (
-    <>
-      <div ref={ref} className="fixed z-50 rounded-xl py-1.5" style={{
-        top, left,
-        minWidth: 148,
-        backgroundColor: t.card,
-        border: `1px solid ${t.border}`,
-        boxShadow: '0 10px 15px -3px rgba(0,0,0,0.1), 0 4px 6px -4px rgba(0,0,0,0.1)',
-      }}>
-        <button className="w-full flex items-center gap-2 px-3 py-1.5 text-left transition-colors"
-          style={btnStyle()}
-          onMouseEnter={e => (e.currentTarget.style.backgroundColor = t.bgHover)}
-          onMouseLeave={e => (e.currentTarget.style.backgroundColor = 'transparent')}
-          onClick={onClone}>
-          <Copy size={13} />
-          <span>Do로 복제</span>
-        </button>
-        <button className="w-full flex items-center gap-2 px-3 py-1.5 text-left transition-colors"
-          style={btnStyle()}
-          onMouseEnter={e => (e.currentTarget.style.backgroundColor = t.bgHover)}
-          onMouseLeave={e => (e.currentTarget.style.backgroundColor = 'transparent')}
-          onClick={onEditTime}>
-          <Clock size={13} />
-          <span>시간 편집</span>
-        </button>
-        <div className="my-1" style={{ borderBottom: `1px solid ${t.border}` }} />
-        <button className="w-full flex items-center gap-2 px-3 py-1.5 text-left transition-colors"
-          style={btnStyle(true)}
-          onMouseEnter={e => (e.currentTarget.style.backgroundColor = '#FEE2E2')}
-          onMouseLeave={e => (e.currentTarget.style.backgroundColor = 'transparent')}
-          onClick={() => setShowDeleteConfirm(true)}>
-          <Trash2 size={13} />
-          <span>삭제</span>
-        </button>
-      </div>
-      {showDeleteConfirm && (
-        <ConfirmModal
-          message="PLAN 블록을 삭제할까요?"
-          confirmText="삭제"
-          confirmDanger
-          onConfirm={() => {
-            updateTodo(todo.id, { planStart: undefined, planEnd: undefined });
-            setShowDeleteConfirm(false);
-            onClose();
-          }}
-          onCancel={() => setShowDeleteConfirm(false)}
-        />
-      )}
-    </>
-  );
-}
-
-// ─── Plan/Do Time Edit Modal ───
-function PlanDoTimeEditModal({ todo, type, onClose, onConfirm }: {
-  todo: Todo;
-  type: 'plan' | 'do';
-  onClose: () => void;
-  onConfirm: (start: string, end: string) => void;
-}) {
-  const { t } = useTheme();
-  const [startTime, setStartTime] = useState(
-    type === 'plan' ? (todo.planStart || '') : (todo.doStart || '')
-  );
-  const [endTime, setEndTime] = useState(
-    type === 'plan' ? (todo.planEnd || '') : (todo.doEnd || '')
-  );
-
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center" style={{ backgroundColor: 'rgba(0,0,0,0.35)' }}>
-      <div className="rounded-2xl w-[calc(100vw-32px)] max-w-[320px] overflow-hidden"
-        style={{ backgroundColor: t.card, border: `1px solid ${t.border}`, boxShadow: '0 25px 50px -12px rgba(0,0,0,0.15)' }}>
-        <div className="flex items-center justify-between px-5 py-4" style={{ borderBottom: `1px solid ${t.border}` }}>
-          <div>
-            <h3 style={{ fontSize: 15, fontWeight: 700, color: t.text }}>시간 편집</h3>
-            <p style={{ fontSize: 12, color: t.textSub, marginTop: 2 }}>{todo.text}</p>
-          </div>
-          <button onClick={onClose} className="p-1 rounded-lg" style={{ color: t.textMuted }}><X size={16} /></button>
-        </div>
-        <div className="px-5 py-4 space-y-3">
-          <div className="flex items-center gap-3">
-            <label style={{ fontSize: 12, color: t.textSub, width: 56, flexShrink: 0 }}>시작 시간</label>
-            <TimePicker value={startTime} onChange={setStartTime} minuteStep={30} />
-          </div>
-          <div className="flex items-center gap-3">
-            <label style={{ fontSize: 12, color: t.textSub, width: 56, flexShrink: 0 }}>종료 시간</label>
-            <TimePicker value={endTime} onChange={setEndTime} minuteStep={30} />
-          </div>
-        </div>
-        <div className="flex gap-3 px-5 py-4" style={{ borderTop: `1px solid ${t.border}` }}>
-          <button onClick={onClose} className="flex-1 py-2.5 rounded-xl"
-            style={{ fontSize: 13, color: t.textSub, backgroundColor: t.bgSub, border: `1px solid ${t.border}` }}>
-            취소
-          </button>
-          <button
-            onClick={() => { if (startTime && endTime) onConfirm(startTime, endTime); }}
-            disabled={!startTime || !endTime}
-            className="flex-1 py-2.5 rounded-xl"
-            style={{ fontSize: 13, fontWeight: 600, backgroundColor: t.accent, color: '#fff', opacity: (!startTime || !endTime) ? 0.5 : 1 }}>
-            확인
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-}
-
 // ─── Sleep Time Edit Modal ───
 function SleepTimeEditModal({ record, onClose, onConfirm }: {
   record: SelfCareRecord;
@@ -1126,7 +999,7 @@ function SleepTimeEditModal({ record, onClose, onConfirm }: {
 // ─── Main Daily View ───
 export function DailyView() {
   const {
-    selectedDate, setSelectedDate, todos, events, updateTodo, toggleEventCompleted, deleteRecurringTodo, habits, updateHabitMemo,
+    selectedDate, setSelectedDate, todos, events, updateTodo, addTodo, toggleEventCompleted, deleteRecurringTodo, habits, updateHabitMemo,
     activeTimer, startTimer, stopTimer, tags, projects, weeklyGoals, milestones,
     selfCareRecords, updateSelfCareRecord,
     dayStartHour: tlStartHour, dayEndHour: tlEndHour, setDayHours,
@@ -1154,10 +1027,14 @@ export function DailyView() {
   const [editingTodo, setEditingTodo] = useState<Todo | null>(null);
   const [focusingTodo, setFocusingTodo] = useState<Todo | null>(null);
   const [snoozingTodo, setSnoozingTodo] = useState<Todo | null>(null);
-  const [contextMenu, setContextMenu] = useState<{ todo: Todo; pos: { x: number; y: number }; source?: 'do' } | null>(null);
+  const [contextMenu, setContextMenu] = useState<{ todo: Todo; pos: { x: number; y: number }; source?: 'do' | 'plan' } | null>(null);
   const [recurringDeleteTarget, setRecurringDeleteTarget] = useState<Todo | null>(null);
-  const [planBlockMenu, setPlanBlockMenu] = useState<{ todo: Todo; pos: { x: number; y: number } } | null>(null);
-  const [timeEditBlock, setTimeEditBlock] = useState<{ todo: Todo; type: 'plan' | 'do' } | null>(null);
+  // 미루기 → 빠른 버튼이 반복 할일을 만나면 this/future/all 분기
+  const [recurringSnoozeTarget, setRecurringSnoozeTarget] = useState<Todo | null>(null);
+  // ★ KEY 권장 안내 (4개 이상일 때 가벼운 토스트)
+  const [keyHint, setKeyHint] = useState<string | null>(null);
+  // → 버튼 길게 누르기(롱프레스) 판별용 (행마다 hook 추가 금지 → 부모 ref 공유)
+  const snoozeLongPressRef = useRef<{ timer: ReturnType<typeof setTimeout> | null; fired: boolean }>({ timer: null, fired: false });
   // Sleep block drag state
   const [sleepDragState, setSleepDragState] = useState<{
     recordId: string;
@@ -1280,7 +1157,9 @@ export function DailyView() {
 
   const activateBlockDrag = (d: BlockDrag) => {
     d.activated = true;
-    d.el.style.touchAction = 'none'; // 이동/리사이즈 활성 중 스크롤 잠금
+    // 실제 스크롤 차단은 document 의 네이티브 비-passive touchmove 리스너가 담당(아래 useEffect).
+    // (el 의 touch-action 은 제스처 시작 후 설정이라 무효 → 보조용으로만 남김)
+    d.el.style.touchAction = 'none';
     if (d.pointerType !== 'mouse') {
       // 터치/펜 이동 모드 진입 피드백
       d.el.style.transform = 'scale(1.03)';
@@ -1692,6 +1571,53 @@ export function DailyView() {
     }
   };
 
+  // 반복 여부: 가상 인스턴스(parentId::date) 또는 반복 원본(예외 레코드 제외)
+  const isRecurringTodo = (todo: Todo) =>
+    isVirtualTodoId(todo.id) || (!!todo.recurrenceRule && !todo.recurrenceParentId);
+
+  // 미루기 저장은 SnoozeModal.handleConfirm 과 동일한 store 함수 재사용(신규 저장 로직 없음)
+  // 일반: updateTodo(date) / 반복: deleteRecurringTodo(scope) + addTodo(다음날 단일)
+  const quickSnoozeTomorrow = (todo: Todo, scope?: 'this' | 'future' | 'all') => {
+    if (!todo.date) return;
+    const nextDay = format(addDays(parseISO(todo.date), 1), 'yyyy-MM-dd');
+    if (isRecurringTodo(todo) && scope) {
+      let parentId: string;
+      let instanceDate: string;
+      if (isVirtualTodoId(todo.id)) {
+        const info = parseVirtualTodoId(todo.id);
+        if (!info) return;
+        parentId = info.parentId; instanceDate = info.instanceDate;
+      } else {
+        parentId = todo.id; instanceDate = todo.date;
+      }
+      deleteRecurringTodo(parentId, instanceDate, scope);
+      addTodo({
+        text: todo.text, date: nextDay, status: 'active', isTop3: todo.isTop3,
+        planStart: todo.planStart || undefined, tags: todo.tags, projectId: todo.projectId,
+      });
+    } else {
+      updateTodo(todo.id, {
+        date: nextDay, status: 'active',
+        planEnd: undefined, doStart: undefined, doEnd: undefined, doElapsedSec: undefined,
+      });
+    }
+  };
+
+  // → 단일 탭: 일반=즉시 내일로 / 반복=RecurrenceBranchModal('edit') 분기
+  const handleQuickSnooze = (todo: Todo) => {
+    if (isRecurringTodo(todo)) setRecurringSnoozeTarget(todo);
+    else quickSnoozeTomorrow(todo);
+  };
+
+  // ★ KEY 빠른 토글 (4개 이상이면 막지 않고 안내만)
+  const toggleKeyTodo = (todo: Todo) => {
+    if (!todo.isTop3 && dateTodos.filter(td => td.isTop3).length >= 3) {
+      setKeyHint('핵심은 3개를 권장해요');
+      setTimeout(() => setKeyHint(null), 2000);
+    }
+    updateTodo(todo.id, { isTop3: !todo.isTop3 });
+  };
+
   const handleTodoFocusAction = (todo: Todo) => {
     if (activeTimer?.todoId === todo.id) {
       stopTimer();
@@ -1743,6 +1669,19 @@ export function DailyView() {
       scrollRef.current.scrollTop = scrollToHour * HOUR_HEIGHT;
     }
   }, [selectedDate, tlStartHour]);
+
+  // 블록 이동/리사이즈가 '활성'인 동안에만 네이티브 비-passive touchmove 로 스크롤을 실제 취소.
+  // touch-action 사후설정/React passive 리스너로는 이미 시작된 터치 제스처의 스크롤을 못 막아
+  // pointercancel 로 드래그가 즉시 끊기던 문제를 해결한다. 평상시(비활성)엔 preventDefault 하지
+  // 않으므로 타임라인 세로 스크롤은 정상 유지. document 에 한 번만 등록(탭 전환에 의한 재마운트 무관).
+  useEffect(() => {
+    const onTouchMoveNative = (e: TouchEvent) => {
+      const d = pointerDragRef.current;
+      if (d && d.activated && d.pointerType !== 'mouse') e.preventDefault();
+    };
+    document.addEventListener('touchmove', onTouchMoveNative, { passive: false });
+    return () => document.removeEventListener('touchmove', onTouchMoveNative);
+  }, []);
 
   // Current time indicator (1분마다 자동 갱신)
   const [nowDate, setNowDate] = useState(new Date());
@@ -2017,11 +1956,7 @@ export function DailyView() {
         onPointerCancel={handleBlockPointerCancel}
         onContextMenu={e => {
           e.preventDefault();
-          if (isPlan) {
-            setPlanBlockMenu({ todo, pos: { x: e.clientX, y: e.clientY } });
-          } else {
-            setContextMenu({ todo, pos: { x: e.clientX, y: e.clientY }, source: 'do' });
-          }
+          setContextMenu({ todo, pos: { x: e.clientX, y: e.clientY }, source: isPlan ? 'plan' : 'do' });
         }}
         title={titleLabel}
       >
@@ -2039,8 +1974,7 @@ export function DailyView() {
           onClick={(e) => {
             e.stopPropagation();
             const r = (e.currentTarget as HTMLElement).getBoundingClientRect();
-            if (isPlan) setPlanBlockMenu({ todo, pos: { x: r.left, y: r.bottom } });
-            else setContextMenu({ todo, pos: { x: r.left, y: r.bottom }, source: 'do' });
+            setContextMenu({ todo, pos: { x: r.left, y: r.bottom }, source: isPlan ? 'plan' : 'do' });
           }}
         >⋯</button>
         {isCompact ? (
@@ -2322,7 +2256,15 @@ export function DailyView() {
         {/* Content */}
         <div className="flex-1 min-w-0" onClick={() => window.dispatchEvent(new CustomEvent('editTodo', { detail: todo }))}>
           <div className="flex items-center gap-1.5">
-            {todo.isTop3 && <Star size={11} fill={t.accent} color={t.accent} className="flex-shrink-0" />}
+            <button
+              type="button"
+              aria-label="KEY 토글"
+              title={todo.isTop3 ? 'KEY 해제' : 'KEY로 올리기'}
+              className="p-0.5 -ml-0.5 flex-shrink-0"
+              onClick={(e) => { e.stopPropagation(); toggleKeyTodo(todo); }}
+            >
+              <Star size={13} fill={todo.isTop3 ? t.accent : 'none'} color={todo.isTop3 ? t.accent : t.textMuted} />
+            </button>
             <span style={{
               fontSize: 13, fontWeight: 600,
               color: isDone ? t.textMuted : t.text,
@@ -2384,6 +2326,37 @@ export function DailyView() {
         {/* Right side: status + actions always visible */}
         <div className="flex items-center gap-1.5 flex-shrink-0 mt-0.5">
           <StatusBadge status={todo.status} />
+          {/* 미루기 → : 탭=내일로, 길게=날짜 지정(SnoozeModal) */}
+          <button
+            aria-label="미루기"
+            title="내일로 미루기 (길게: 날짜 지정)"
+            className="p-1.5 rounded-lg transition-colors"
+            style={{ color: t.textSub, backgroundColor: t.bgSub }}
+            onPointerDown={(e) => {
+              e.stopPropagation();
+              snoozeLongPressRef.current.fired = false;
+              if (snoozeLongPressRef.current.timer) clearTimeout(snoozeLongPressRef.current.timer);
+              snoozeLongPressRef.current.timer = setTimeout(() => {
+                snoozeLongPressRef.current.timer = null;
+                snoozeLongPressRef.current.fired = true;
+                if (navigator.vibrate) { try { navigator.vibrate(10); } catch { /* noop */ } }
+                window.dispatchEvent(new CustomEvent('snoozeTodo', { detail: todo }));
+              }, 500);
+            }}
+            onPointerUp={(e) => {
+              e.stopPropagation();
+              if (snoozeLongPressRef.current.timer) { clearTimeout(snoozeLongPressRef.current.timer); snoozeLongPressRef.current.timer = null; }
+            }}
+            onPointerLeave={() => {
+              if (snoozeLongPressRef.current.timer) { clearTimeout(snoozeLongPressRef.current.timer); snoozeLongPressRef.current.timer = null; }
+            }}
+            onClick={(e) => {
+              e.stopPropagation();
+              if (snoozeLongPressRef.current.fired) { snoozeLongPressRef.current.fired = false; return; }
+              handleQuickSnooze(todo);
+            }}>
+            <ArrowRight size={13} />
+          </button>
           {todo.status !== 'done' && (!activeTimer || activeTimer.todoId === todo.id) && (
             <button onClick={() => handleTodoFocusAction(todo)}
               className="p-1.5 rounded-lg transition-colors"
@@ -2880,13 +2853,20 @@ export function DailyView() {
             position={adjustedPos}
             onClose={() => setContextMenu(null)}
             onFocus={setFocusingTodo}
+            variant={contextMenu.source ? 'block' : 'list'}
             onDelete={contextMenu.source === 'do'
               ? () => { updateTodo(contextMenu.todo.id, { doStart: undefined, doEnd: undefined, doElapsedSec: undefined }); }
-              : isVirtual
-                ? () => { setRecurringDeleteTarget(contextMenu.todo); setContextMenu(null); }
-                : undefined
+              : contextMenu.source === 'plan'
+                ? () => { updateTodo(contextMenu.todo.id, { planStart: undefined, planEnd: undefined }); }
+                : isVirtual
+                  ? () => { setRecurringDeleteTarget(contextMenu.todo); setContextMenu(null); }
+                  : undefined
             }
-            deleteMessage={contextMenu.source === 'do' ? 'DO 블록을 삭제할까요? (PLAN은 유지됩니다)' : undefined}
+            deleteMessage={contextMenu.source === 'do'
+              ? 'DO 블록을 삭제할까요? (PLAN은 유지됩니다)'
+              : contextMenu.source === 'plan'
+                ? 'PLAN 블록을 삭제할까요? (DO는 유지됩니다)'
+                : undefined}
           />
         );
       })()}
@@ -2903,36 +2883,15 @@ export function DailyView() {
           />
         ) : null;
       })()}
-      {planBlockMenu && (
-        <PlanBlockContextMenu
-          todo={planBlockMenu.todo}
-          position={planBlockMenu.pos}
-          onClose={() => setPlanBlockMenu(null)}
-          onClone={() => {
-            const td = planBlockMenu.todo;
-            updateTodo(td.id, { doStart: td.planStart, doEnd: td.planEnd });
-            setPlanBlockMenu(null);
-            setTimeEditBlock({ todo: td, type: 'do' });
+      {/* → 빠른 미루기 — 반복 할일 this/future/all 분기 (기존 deleteRecurringTodo+addTodo 재사용) */}
+      {recurringSnoozeTarget && (
+        <RecurrenceBranchModal
+          mode="edit"
+          onConfirm={scope => {
+            quickSnoozeTomorrow(recurringSnoozeTarget, scope);
+            setRecurringSnoozeTarget(null);
           }}
-          onEditTime={() => {
-            const td = planBlockMenu.todo;
-            setPlanBlockMenu(null);
-            setTimeEditBlock({ todo: td, type: 'plan' });
-          }}
-        />
-      )}
-      {timeEditBlock && (
-        <PlanDoTimeEditModal
-          todo={timeEditBlock.todo}
-          type={timeEditBlock.type}
-          onClose={() => setTimeEditBlock(null)}
-          onConfirm={(start, end) => {
-            const updates = timeEditBlock.type === 'plan'
-              ? { planStart: start, planEnd: end }
-              : { doStart: start, doEnd: end, doElapsedSec: undefined };
-            updateTodo(timeEditBlock.todo.id, updates);
-            setTimeEditBlock(null);
-          }}
+          onCancel={() => setRecurringSnoozeTarget(null)}
         />
       )}
       {createTarget && (
@@ -2999,6 +2958,16 @@ export function DailyView() {
             setShowDatePicker(false);
           }}
         />
+      )}
+      {keyHint && (
+        <div className="fixed left-1/2 -translate-x-1/2 z-50 px-4 py-2 rounded-full pointer-events-none"
+          style={{
+            bottom: 'calc(80px + env(safe-area-inset-bottom))',
+            backgroundColor: t.text, color: t.card, fontSize: 12, fontWeight: 600,
+            boxShadow: '0 8px 20px rgba(0,0,0,0.18)',
+          }}>
+          {keyHint}
+        </div>
       )}
     </div>
   );
