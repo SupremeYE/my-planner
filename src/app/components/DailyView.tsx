@@ -1157,9 +1157,9 @@ export function DailyView() {
 
   const activateBlockDrag = (d: BlockDrag) => {
     d.activated = true;
+    // 실제 스크롤 차단은 document 의 네이티브 비-passive touchmove 리스너가 담당(아래 useEffect).
+    // (el 의 touch-action 은 제스처 시작 후 설정이라 무효 → 보조용으로만 남김)
     d.el.style.touchAction = 'none';
-    // 터치 드래그 중 스크롤 컨테이너가 스크롤되는 것을 막기 위해 컨테이너에도 잠금
-    if (scrollRef.current) scrollRef.current.style.touchAction = 'none';
     if (d.pointerType !== 'mouse') {
       // 터치/펜 이동 모드 진입 피드백
       d.el.style.transform = 'scale(1.03)';
@@ -1176,7 +1176,6 @@ export function DailyView() {
     cancelBlockLongPress(d);
     try { d.el.releasePointerCapture(d.pointerId); } catch { /* noop */ }
     d.el.style.touchAction = '';
-    if (scrollRef.current) scrollRef.current.style.touchAction = '';
     d.el.style.transform = '';
     d.el.style.boxShadow = '';
     if (pointerDragRef.current === d) pointerDragRef.current = null;
@@ -1670,6 +1669,19 @@ export function DailyView() {
       scrollRef.current.scrollTop = scrollToHour * HOUR_HEIGHT;
     }
   }, [selectedDate, tlStartHour]);
+
+  // 블록 이동/리사이즈가 '활성'인 동안에만 네이티브 비-passive touchmove 로 스크롤을 실제 취소.
+  // touch-action 사후설정/React passive 리스너로는 이미 시작된 터치 제스처의 스크롤을 못 막아
+  // pointercancel 로 드래그가 즉시 끊기던 문제를 해결한다. 평상시(비활성)엔 preventDefault 하지
+  // 않으므로 타임라인 세로 스크롤은 정상 유지. document 에 한 번만 등록(탭 전환에 의한 재마운트 무관).
+  useEffect(() => {
+    const onTouchMoveNative = (e: TouchEvent) => {
+      const d = pointerDragRef.current;
+      if (d && d.activated && d.pointerType !== 'mouse') e.preventDefault();
+    };
+    document.addEventListener('touchmove', onTouchMoveNative, { passive: false });
+    return () => document.removeEventListener('touchmove', onTouchMoveNative);
+  }, []);
 
   // Current time indicator (1분마다 자동 갱신)
   const [nowDate, setNowDate] = useState(new Date());
