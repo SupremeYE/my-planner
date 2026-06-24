@@ -56,7 +56,7 @@ export function SpecialCareSheet({ care, onSave, onDelete, onClose }: Props) {
       style={{ backgroundColor: 'rgba(0,0,0,0.35)' }} onClick={onClose}>
       <style>{`@keyframes bcSheetUp{from{transform:translateY(100%)}to{transform:translateY(0)}}
         @media (max-width:1023px){.bc-care-sheet{animation:bcSheetUp .26s ease-out}}`}</style>
-      <div className="bc-care-sheet shadow-2xl overflow-y-auto w-full max-w-full rounded-t-2xl
+      <div className="bc-care-sheet shadow-2xl overflow-y-auto w-full max-w-full max-h-[90vh] rounded-t-2xl
           lg:w-[440px] lg:h-auto lg:max-h-[90vh] lg:rounded-2xl"
         style={{ backgroundColor: t.bg, border: `1px solid ${t.border}`, WebkitOverflowScrolling: 'touch' }}
         onClick={e => e.stopPropagation()}>
