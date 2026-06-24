@@ -6,6 +6,27 @@
 
 ---
 
+## 2026-06-24
+
+### 🛠 오늘 작업 내용
+
+**뷰티 케어 · 살림 두 신규 메뉴 — 단계별 구현(Stage 1~5)**
+공통 3엔진 공유: ① 수량 기반 재고 임계(곧 떨어져요/소진) · ② 주기 넛지(마지막 N일 + cycle days) · ③ 사진→AI 자동등록(S6로 보류).
+
+- **Stage 1 — DB 마이그레이션**: 뷰티(`beauty_products`, `beauty_special_care`) · 살림(`household_items`, `consumable_cycles`, `cleaning_zones`) 테이블 + RLS(단일 UID) + `supabase_realtime` publication 등록 + 사진 버킷(`beauty-photos`, `household-photos`).
+- **Stage 2 — 데이터 레이어 전용(화면 변화 0)**: `store.tsx` 타입 5종(BeautyProduct/BeautySpecialCare/HouseholdItem/ConsumableCycle/CleaningZone) · `db.ts` 5모듈(fetchAll/upsert/delete + repurchase/markDone/updateQuantity/refill/replace/markCleaned 등 도메인 액션, snake_case 매핑) · `careUtils.ts` 신설(순수 함수 daysSince/careStatus/isLowStock/isDepleted/selfCareScore) · 훅 2개(useBeauty/useHousekeeping, Realtime 구독 + 파생값 메모이즈).
+- **Stage 3 — 라우팅·메뉴 등록 + 빈 뷰**: `routes.tsx`에 `/beauty-care`·`/housekeeping` 추가 · `Layout`(사이드바·햄버거)·`LayoutC`(상단탭)에 아이콘 Flower2(뷰티)/SprayCan(살림) 등록 · 플레이스홀더 뷰 2개(모바일/PC 래퍼 분기). 하단 5탭·기존 메뉴 순서 미변경.
+- **Stage 4 — 살림 모바일 기능**: `HousekeepingMobile`(넛지 배너 + 재고/교체주기/청소 3섹션 + 추가 FAB) · `HouseholdStockSheet`(재고 추가/수정·다시채움·삭제) · `ConsumableCycleCard`(도넛 링·교체함·주기설정) · `CleaningHeatmap`(2열 먼지 히트맵, ✨≤3일/💨4~9일/🕸️≥10일·미실시) · `HousekeepingAddSheet`. 넛지 우선순위 = 소진(4)>교체지남(3)>저재고(2)>오래된청소(1). PC(hidden lg:block)는 S3 플레이스홀더 유지.
+- **Stage 5 — 뷰티 모바일 기능**: `SelfCareGauge`(selfCareScore 원형 게이지, 높음 💖success/중간 🌿accent/낮음 🥀danger, 이번주 N회+7칸 스파크는 별도 레이어로 명시) · `SpecialCareSection`/`SpecialCareSheet`(2열 카드·careStatus 배지·'오늘 했어요'→markCareDone·수정/삭제) · `BeautyShelf`(가로 미리보기 임박순 + 전체보기 오버레이 3열·카테고리 필터, 새 라우트 없이 내부 상태 토글, 사용기한 잔여 = openedAt+expiryMonths PAO 계산) · `BeautyProductSheet`(수정·재구매'또 샀어요'·다씀보관/복원·삭제) · `BeautyAddSheet`. PC는 S3 플레이스홀더 유지.
+- **공통 원칙 준수**: 데이터 액션은 전부 훅 경유(로직 재구현 0) · 디자인 토큰만(색/UID 하드코딩 0) · PC 레이아웃 미수정(lg: 분기) · Realtime 포함 · 추가 FAB는 전역 FAB 위(bottom 142px, RecipeView 관습) · 사진 AI(S6)·PC 데스크톱 뷰(S7) 미착수.
+- **통합**: origin/main(전역 FAB 통일·타임라인 Pointer Events 등 +7커밋)을 브랜치에 병합(충돌 없음) 후 main 반영. `npm run build` 통과.
+
+### ⏭ 남은 작업
+- [ ] S6: 사진→AI 자동등록(vision-extract Edge Function + capture/)
+- [ ] S7: 뷰티·살림 PC 데스크톱 전용 뷰
+
+---
+
 ## 2026-06-21
 
 ### 🛠 오늘 작업 내용
