@@ -716,6 +716,152 @@ function TimelineSettingsModal({ startHour, endHour, onSave, onClose }: {
   );
 }
 
+// 빈 타임라인 슬롯 → 추가 모달. 레인(PLAN/DO)·종류(할일/일정) 토글 + 시간/태그/카테고리/KEY.
+function TimelineAddModal({ date, initialStart, initialEnd, initialLane, onClose }: {
+  date: string;
+  initialStart: string;
+  initialEnd: string;
+  initialLane: 'plan' | 'do';
+  onClose: () => void;
+}) {
+  const { addTodo, addEvent, tags } = usePlanner();
+  const { t } = useTheme();
+  const [lane, setLane] = useState<'plan' | 'do'>(initialLane);
+  const [kind, setKind] = useState<'todo' | 'event'>('todo');
+  const [title, setTitle] = useState('');
+  const [start, setStart] = useState(initialStart);
+  const [end, setEnd] = useState(initialEnd);
+  const [selectedTags, setSelectedTags] = useState<string[]>([]);
+  const [category, setCategory] = useState('');
+  const [isTop3, setIsTop3] = useState(false);
+
+  const invalidTime = !start || !end || timeToMinutes(end) <= timeToMinutes(start);
+  const canSave = title.trim().length > 0 && !invalidTime;
+
+  const handleSave = () => {
+    if (!canSave) return;
+    const text = title.trim();
+    if (kind === 'event') {
+      addEvent({ title: text, date, startTime: start, endTime: end, tags: selectedTags, color: '#7B9ED9' });
+    } else if (lane === 'plan') {
+      addTodo({ text, date, status: 'active', isTop3, planStart: start, planEnd: end, category: category.trim() || undefined, tags: selectedTags });
+    } else {
+      addTodo({ text, date, status: 'active', isTop3, doStart: start, doEnd: end, category: category.trim() || undefined, tags: selectedTags });
+    }
+    onClose();
+  };
+
+  const seg = (active: boolean, accent: string) => ({
+    fontSize: 12, fontWeight: active ? 700 : 500,
+    backgroundColor: active ? accent : 'transparent',
+    color: active ? '#fff' : t.textSub,
+    transition: 'all 0.15s',
+  });
+  const planClr = '#C4A882', doClr = '#6BAA7A';
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ backgroundColor: 'rgba(0,0,0,0.35)' }} onClick={onClose}>
+      <div className="rounded-2xl w-full max-w-[360px] max-h-[90vh] overflow-y-auto"
+        style={{ backgroundColor: t.card, boxShadow: '0 25px 50px -12px rgba(0,0,0,0.15)' }}
+        onClick={e => e.stopPropagation()}>
+        <div className="flex items-center justify-between px-5 py-4" style={{ borderBottom: `1px solid ${t.border}` }}>
+          <h3 style={{ fontSize: 16, fontWeight: 700, color: t.text }}>새 항목 추가</h3>
+          <button onClick={onClose} className="p-1 rounded-lg" style={{ color: t.textMuted }}><X size={18} /></button>
+        </div>
+        <div className="px-5 py-4 space-y-4">
+          {/* 종류 토글 */}
+          <div>
+            <label style={{ fontSize: 11, color: t.textSub, fontWeight: 600, marginBottom: 6, display: 'block' }}>종류</label>
+            <div className="flex rounded-lg overflow-hidden" style={{ border: `1px solid ${t.border}` }}>
+              <button onClick={() => setKind('todo')} className="flex-1 py-2" style={seg(kind === 'todo', t.accent)}>할일</button>
+              <button onClick={() => setKind('event')} className="flex-1 py-2" style={{ ...seg(kind === 'event', '#7B9ED9'), borderLeft: `1px solid ${t.border}` }}>일정</button>
+            </div>
+          </div>
+          {/* 레인 토글 (할일만) */}
+          {kind === 'todo' && (
+            <div>
+              <label style={{ fontSize: 11, color: t.textSub, fontWeight: 600, marginBottom: 6, display: 'block' }}>레인</label>
+              <div className="flex rounded-lg overflow-hidden" style={{ border: `1px solid ${t.border}` }}>
+                <button onClick={() => setLane('plan')} className="flex-1 py-2" style={seg(lane === 'plan', planClr)}>PLAN</button>
+                <button onClick={() => setLane('do')} className="flex-1 py-2" style={{ ...seg(lane === 'do', doClr), borderLeft: `1px solid ${t.border}` }}>DO</button>
+              </div>
+            </div>
+          )}
+          {/* 제목 */}
+          <div>
+            <label style={{ fontSize: 11, color: t.textSub, fontWeight: 600, marginBottom: 6, display: 'block' }}>제목</label>
+            <input autoFocus value={title} onChange={e => setTitle(e.target.value)}
+              onKeyDown={e => { if (e.key === 'Enter') handleSave(); }}
+              placeholder={kind === 'event' ? '일정 제목' : '할일 제목'}
+              className="w-full rounded-lg px-3 py-2 outline-none"
+              style={{ border: `1px solid ${t.border}`, backgroundColor: t.bgSub, color: t.text, fontSize: 14 }} />
+          </div>
+          {/* 시간 */}
+          <div className="flex gap-2">
+            <div className="flex-1">
+              <label style={{ fontSize: 11, color: t.textSub, fontWeight: 600, marginBottom: 6, display: 'block' }}>시작</label>
+              <TimePicker value={start} onChange={setStart} placeholder="시작" size="md" minuteStep={5} />
+            </div>
+            <div className="flex-1">
+              <label style={{ fontSize: 11, color: t.textSub, fontWeight: 600, marginBottom: 6, display: 'block' }}>종료</label>
+              <TimePicker value={end} onChange={setEnd} placeholder="종료" size="md" minuteStep={5} />
+            </div>
+          </div>
+          {invalidTime && <span style={{ fontSize: 11, color: t.danger }}>종료 시간이 시작보다 늦어야 합니다</span>}
+          {/* 태그 */}
+          {tags.length > 0 && (
+            <div>
+              <label style={{ fontSize: 11, color: t.textSub, fontWeight: 600, marginBottom: 6, display: 'block' }}>태그</label>
+              <div className="flex flex-wrap gap-1.5">
+                {tags.map(tag => {
+                  const on = selectedTags.includes(tag.id);
+                  return (
+                    <button key={tag.id} type="button"
+                      onClick={() => setSelectedTags(prev => prev.includes(tag.id) ? prev.filter(x => x !== tag.id) : [...prev, tag.id])}
+                      className="px-2.5 py-1 rounded-full"
+                      style={{
+                        fontSize: 11, fontWeight: on ? 700 : 500,
+                        backgroundColor: on ? tag.color : `${tag.color}1A`,
+                        color: on ? '#fff' : tag.color,
+                        border: `1px solid ${tag.color}${on ? '' : '40'}`,
+                      }}>
+                      {tag.name}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+          {/* 할일 전용: 카테고리 + KEY */}
+          {kind === 'todo' && (
+            <div className="flex items-center gap-2">
+              <input value={category} onChange={e => setCategory(e.target.value)} placeholder="카테고리 (선택)"
+                className="flex-1 rounded-lg px-3 py-2 outline-none"
+                style={{ border: `1px solid ${t.border}`, backgroundColor: t.bgSub, color: t.text, fontSize: 13 }} />
+              <button type="button" onClick={() => setIsTop3(v => !v)}
+                className="flex items-center gap-1 px-3 py-2 rounded-lg"
+                style={{
+                  fontSize: 12, fontWeight: 600, whiteSpace: 'nowrap',
+                  backgroundColor: isTop3 ? t.accentLight : t.bgSub,
+                  color: isTop3 ? t.accent : t.textSub,
+                  border: `1px solid ${isTop3 ? t.accent : t.border}`,
+                }}>
+                <Star size={13} fill={isTop3 ? t.accent : 'none'} color={isTop3 ? t.accent : t.textMuted} /> KEY
+              </button>
+            </div>
+          )}
+        </div>
+        <div className="flex gap-3 px-5 py-4" style={{ borderTop: `1px solid ${t.border}` }}>
+          <button onClick={onClose} className="flex-1 py-2.5 rounded-xl"
+            style={{ fontSize: 14, fontWeight: 500, color: t.textSub, backgroundColor: t.bgSub, border: `1px solid ${t.border}` }}>취소</button>
+          <button onClick={handleSave} disabled={!canSave} className="flex-1 py-2.5 rounded-xl"
+            style={{ fontSize: 14, fontWeight: 600, backgroundColor: canSave ? t.accent : t.border, color: '#fff', opacity: canSave ? 1 : 0.6 }}>추가</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function DailyDatePickerModal({ selectedDate, onClose, onConfirm }: {
   selectedDate: string;
   onClose: () => void;
@@ -1027,13 +1173,19 @@ export function DailyView() {
   const createDragRef = useRef<{
     startMin: number;
     endMin: number;
+    lane: 'plan' | 'do';
     startClientY: number;
     startClientX: number;
-    active: boolean;
+    pointerId: number;
+    pointerType: string;
+    active: boolean; // 사이징 활성 (마우스=즉시 / 터치=롱프레스 후)
+    moved: boolean;
+    longPressTimer: ReturnType<typeof setTimeout> | null;
   } | null>(null);
   const timelineRelativeRef = useRef<HTMLDivElement>(null);
-  const [createPreview, setCreatePreview] = useState<{ startMin: number; endMin: number } | null>(null);
-  const [pendingCreateTime, setPendingCreateTime] = useState<{ start: string; end: string } | null>(null);
+  const [createPreview, setCreatePreview] = useState<{ startMin: number; endMin: number; lane: 'plan' | 'do' } | null>(null);
+  const [createTarget, setCreateTarget] = useState<{ start: string; end: string; lane: 'plan' | 'do' } | null>(null);
+  const [hoverSlot, setHoverSlot] = useState<{ startMin: number; endMin: number; lane: 'plan' | 'do' } | null>(null);
   const [showLogModal, setShowLogModal] = useState(false);
   const [showTimelineSettings, setShowTimelineSettings] = useState(false);
   const [showDatePicker, setShowDatePicker] = useState(false);
@@ -1298,120 +1450,113 @@ export function DailyView() {
     };
   }, [sleepDragState, sleepDragPreview, updateSelfCareRecord]);
 
-  // PC mouse: create block by dragging empty timeline area
-  useEffect(() => {
-    const handleMouseMove = (e: MouseEvent) => {
-      if (!createDragRef.current?.active) return;
-      const rect = timelineRelativeRef.current?.getBoundingClientRect();
-      if (!rect) return;
-      const relY = e.clientY - rect.top;
-      const rawMin = tlStartHour * 60 + relY / PX_PER_MIN;
-      const snappedMin = Math.round(rawMin / 15) * 15;
-      const endMin = Math.max(createDragRef.current.startMin + 15, Math.min(tlEndHour * 60, snappedMin));
-      createDragRef.current.endMin = endMin;
-      setCreatePreview({ startMin: createDragRef.current.startMin, endMin });
-    };
-    const handleMouseUp = () => {
-      if (!createDragRef.current?.active) return;
-      const { startMin, endMin } = createDragRef.current;
-      createDragRef.current = null;
-      setCreatePreview(null);
-      if (endMin - startMin >= 15) {
-        setPendingCreateTime({ start: minutesToTime(startMin), end: minutesToTime(endMin) });
-      }
-    };
-    window.addEventListener('mousemove', handleMouseMove);
-    window.addEventListener('mouseup', handleMouseUp);
-    return () => {
-      window.removeEventListener('mousemove', handleMouseMove);
-      window.removeEventListener('mouseup', handleMouseUp);
-    };
-  }, [tlStartHour, tlEndHour]);
+  // ── 빈 타임라인 영역 — 클릭/드래그로 추가 모달 (Pointer Events 통일) ──
+  // 클릭(5px 미만)=기본 60분 / 드래그=드래그 범위(15분 스냅). 레인은 클릭 X 로 결정(compare: 좌 PLAN/우 DO).
+  const CREATE_DEFAULT_MIN = 60;
+  const detectLaneFromX = (clientX: number, rect: DOMRect): 'plan' | 'do' => {
+    if (timelineTab === 'plan') return 'plan';
+    if (timelineTab === 'do') return 'do';
+    const contentLeft = rect.left + TIMELINE_CONTENT_LEFT;
+    const mid = contentLeft + (rect.right - contentLeft) / 2;
+    return clientX < mid ? 'plan' : 'do';
+  };
+  const yToSnappedMin = (clientY: number, rect: DOMRect) => {
+    const relY = clientY - rect.top;
+    const rawMin = tlStartHour * 60 + relY / PX_PER_MIN;
+    return Math.round(rawMin / 15) * 15;
+  };
+  const clearCreateDrag = () => {
+    const d = createDragRef.current;
+    if (d?.longPressTimer) clearTimeout(d.longPressTimer);
+    if (d) { try { timelineRelativeRef.current?.releasePointerCapture(d.pointerId); } catch { /* noop */ } }
+    createDragRef.current = null;
+    setCreatePreview(null);
+  };
+  const openCreateFromDrag = (lane: 'plan' | 'do', rawStart: number, rawEnd: number, ranged: boolean) => {
+    let startMin = Math.max(tlStartHour * 60, Math.min(tlEndHour * 60 - 15, rawStart));
+    let endMin = ranged
+      ? Math.max(startMin + 15, rawEnd)
+      : startMin + CREATE_DEFAULT_MIN;
+    endMin = Math.min(tlEndHour * 60, Math.max(startMin + 15, endMin));
+    setCreateTarget({ start: minutesToTime(startMin), end: minutesToTime(endMin), lane });
+  };
 
-  // Mobile touch: create block by long-pressing empty timeline area (꾹 누르기).
-  // A plain scroll must never create a block — block creation only starts after
-  // the finger is held still for the long-press duration.
-  useEffect(() => {
-    const el = timelineRelativeRef.current;
-    if (!el) return;
-    let longPressTimer: ReturnType<typeof setTimeout> | null = null;
-    const clearLongPress = () => {
-      if (longPressTimer) { clearTimeout(longPressTimer); longPressTimer = null; }
+  const handleCreatePointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (e.button === 2) return;
+    if ((e.target as HTMLElement).closest('.timeline-block')) return; // 블록 위는 블록 핸들러가 처리
+    const el = e.currentTarget;
+    const rect = el.getBoundingClientRect();
+    if (e.clientX - rect.left < TIMELINE_CONTENT_LEFT) return; // 시간 레이블 영역 제외
+    setHoverSlot(null);
+    const lane = detectLaneFromX(e.clientX, rect);
+    const startMin = Math.max(tlStartHour * 60, Math.min(tlEndHour * 60 - 15, yToSnappedMin(e.clientY, rect)));
+    const d = {
+      startMin, endMin: startMin, lane,
+      startClientX: e.clientX, startClientY: e.clientY,
+      pointerId: e.pointerId, pointerType: e.pointerType,
+      active: e.pointerType === 'mouse', moved: false,
+      longPressTimer: null as ReturnType<typeof setTimeout> | null,
     };
-    const handleTouchStart = (e: TouchEvent) => {
-      const touch = e.touches[0];
-      if (!touch) return;
-      if ((touch.target as HTMLElement).closest('.timeline-block')) return;
-      const rect = el.getBoundingClientRect();
-      const relX = touch.clientX - rect.left;
-      if (relX < TIMELINE_CONTENT_LEFT) return;
-      const relY = touch.clientY - rect.top;
-      const rawMin = tlStartHour * 60 + relY / PX_PER_MIN;
-      const snappedMin = Math.round(rawMin / 15) * 15;
-      const clamped = Math.max(tlStartHour * 60, Math.min(tlEndHour * 60 - 15, snappedMin));
-      createDragRef.current = {
-        startMin: clamped, endMin: clamped,
-        startClientY: touch.clientY, startClientX: touch.clientX,
-        active: false,
-      };
-      clearLongPress();
-      longPressTimer = setTimeout(() => {
-        longPressTimer = null;
-        if (!createDragRef.current) return;
-        createDragRef.current.active = true;
-        const defaultEnd = Math.min(tlEndHour * 60, createDragRef.current.startMin + 30);
-        createDragRef.current.endMin = defaultEnd;
-        if (navigator.vibrate) navigator.vibrate(50);
-        setCreatePreview({ startMin: createDragRef.current.startMin, endMin: defaultEnd });
-      }, 500);
-    };
-    const handleTouchMove = (e: TouchEvent) => {
-      if (!createDragRef.current) return;
-      const touch = e.touches[0];
-      if (!touch) return;
-      if (!createDragRef.current.active) {
-        // Long-press hasn't fired yet → any real movement means the user is
-        // scrolling. Cancel the pending long-press and let the page scroll.
-        const dy = touch.clientY - createDragRef.current.startClientY;
-        const dx = touch.clientX - createDragRef.current.startClientX;
-        if (Math.abs(dy) > 5 || Math.abs(dx) > 5) {
-          clearLongPress();
-          createDragRef.current = null;
-        }
-        return;
+    createDragRef.current = d;
+    if (e.pointerType === 'mouse') {
+      try { el.setPointerCapture(e.pointerId); } catch { /* noop */ }
+    } else {
+      // 터치/펜: 롱프레스 후 범위 드래그. 대기 중 움직이면 스크롤로 간주(빠른 탭은 pointerup 에서 기본 60분).
+      d.longPressTimer = setTimeout(() => {
+        d.longPressTimer = null;
+        if (createDragRef.current !== d) return;
+        d.active = true;
+        d.endMin = Math.min(tlEndHour * 60, d.startMin + 30);
+        try { el.setPointerCapture(d.pointerId); } catch { /* noop */ }
+        if (navigator.vibrate) { try { navigator.vibrate(20); } catch { /* noop */ } }
+        setCreatePreview({ startMin: d.startMin, endMin: d.endMin, lane: d.lane });
+      }, 350);
+    }
+  };
+
+  const handleCreatePointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
+    const d = createDragRef.current;
+    if (!d) {
+      // PC hover 미리보기 (버튼 안 눌린 마우스 이동, 터치는 hover 없음)
+      if (e.pointerType !== 'mouse') return;
+      const rect = e.currentTarget.getBoundingClientRect();
+      if (e.clientX - rect.left < TIMELINE_CONTENT_LEFT || (e.target as HTMLElement).closest('.timeline-block')) {
+        setHoverSlot(null); return;
       }
-      // Create mode is active → drag to size the block (block page scroll).
-      e.preventDefault();
-      const rect = el.getBoundingClientRect();
-      const relY = touch.clientY - rect.top;
-      const rawMin = tlStartHour * 60 + relY / PX_PER_MIN;
-      const snappedMin = Math.round(rawMin / 15) * 15;
-      const endMin = Math.max(createDragRef.current.startMin + 15, Math.min(tlEndHour * 60, snappedMin));
-      createDragRef.current.endMin = endMin;
-      setCreatePreview({ startMin: createDragRef.current.startMin, endMin });
-    };
-    const handleTouchEnd = () => {
-      clearLongPress();
-      if (!createDragRef.current) return;
-      const { active, startMin, endMin } = createDragRef.current;
-      createDragRef.current = null;
-      setCreatePreview(null);
-      if (active && endMin - startMin >= 15) {
-        setPendingCreateTime({ start: minutesToTime(startMin), end: minutesToTime(endMin) });
-      }
-    };
-    el.addEventListener('touchstart', handleTouchStart, { passive: true });
-    el.addEventListener('touchmove', handleTouchMove, { passive: false });
-    el.addEventListener('touchend', handleTouchEnd, { passive: true });
-    el.addEventListener('touchcancel', handleTouchEnd, { passive: true });
-    return () => {
-      clearLongPress();
-      el.removeEventListener('touchstart', handleTouchStart);
-      el.removeEventListener('touchmove', handleTouchMove);
-      el.removeEventListener('touchend', handleTouchEnd);
-      el.removeEventListener('touchcancel', handleTouchEnd);
-    };
-  }, [tlStartHour, tlEndHour]);
+      const lane = detectLaneFromX(e.clientX, rect);
+      const startMin = Math.max(tlStartHour * 60, Math.min(tlEndHour * 60 - 15, yToSnappedMin(e.clientY, rect)));
+      setHoverSlot({ startMin, endMin: Math.min(tlEndHour * 60, startMin + CREATE_DEFAULT_MIN), lane });
+      return;
+    }
+    if (e.pointerId !== d.pointerId) return;
+    if (!d.active) {
+      // 터치 롱프레스 대기 — 움직이면 스크롤 허용
+      if (Math.abs(e.clientX - d.startClientX) > 5 || Math.abs(e.clientY - d.startClientY) > 5) clearCreateDrag();
+      return;
+    }
+    const rect = e.currentTarget.getBoundingClientRect();
+    const endMin = Math.max(d.startMin + 15, Math.min(tlEndHour * 60, yToSnappedMin(e.clientY, rect)));
+    d.endMin = endMin;
+    if (Math.abs(e.clientY - d.startClientY) > 5) d.moved = true;
+    setCreatePreview({ startMin: d.startMin, endMin, lane: d.lane });
+  };
+
+  const handleCreatePointerUp = (e: React.PointerEvent<HTMLDivElement>) => {
+    const d = createDragRef.current;
+    if (!d || e.pointerId !== d.pointerId) return;
+    const ranged = d.moved && (d.endMin - d.startMin) >= 15;
+    const { lane, startMin, endMin } = d;
+    clearCreateDrag();
+    openCreateFromDrag(lane, startMin, endMin, ranged);
+  };
+
+  const handleCreatePointerCancel = (e: React.PointerEvent<HTMLDivElement>) => {
+    const d = createDragRef.current;
+    if (d && e.pointerId !== d.pointerId) return;
+    clearCreateDrag();
+  };
+
+  // (모바일 터치 빈영역 생성은 위 handleCreatePointer* 로 통합 — 별도 네이티브 touch 리스너 제거)
 
   useEffect(() => {
     const clampLogOffset = (offset: number) => {
@@ -1727,22 +1872,6 @@ export function DailyView() {
   };
 
   // PC create-by-drag handler for the timeline background div
-  const handleTimelineMouseDown = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
-    if ((e.target as HTMLElement).closest('.timeline-block')) return;
-    const rect = e.currentTarget.getBoundingClientRect();
-    const relX = e.clientX - rect.left;
-    if (relX < TIMELINE_CONTENT_LEFT) return;
-    const relY = e.clientY - rect.top;
-    const rawMin = tlStartHour * 60 + relY / PX_PER_MIN;
-    const snappedMin = Math.round(rawMin / 15) * 15;
-    const clamped = Math.max(tlStartHour * 60, Math.min(tlEndHour * 60 - 15, snappedMin));
-    createDragRef.current = {
-      startMin: clamped, endMin: clamped,
-      startClientY: e.clientY, startClientX: e.clientX,
-      active: true,
-    };
-  }, [tlStartHour, tlEndHour]);
-
   // Render timeline block
   const planTodos = dateTodos.filter(td => td.planStart && td.planEnd);
   const doTodos = dateTodos.filter(td => td.doStart && td.doEnd);
@@ -2607,7 +2736,12 @@ export function DailyView() {
           {/* Timeline body */}
           <div ref={scrollRef} className="flex-1 relative overflow-y-auto overflow-x-hidden px-3 pb-4 lg:px-4"
             style={{ minHeight: 0 }}>
-            <div ref={timelineRelativeRef} className="relative" style={{ height: totalHeight + 16, WebkitTouchCallout: 'none', WebkitUserSelect: 'none', userSelect: 'none' }} onMouseDown={handleTimelineMouseDown}>
+            <div ref={timelineRelativeRef} className="relative" style={{ height: totalHeight + 16, WebkitTouchCallout: 'none', WebkitUserSelect: 'none', userSelect: 'none' }}
+              onPointerDown={handleCreatePointerDown}
+              onPointerMove={handleCreatePointerMove}
+              onPointerUp={handleCreatePointerUp}
+              onPointerCancel={handleCreatePointerCancel}
+              onPointerLeave={() => setHoverSlot(null)}>
               {/* Lane backgrounds */}
               <div className="absolute top-0 bottom-0 pointer-events-none"
                 style={{ left: TIMELINE_CONTENT_LEFT, right: 0 }}>
@@ -2682,21 +2816,41 @@ export function DailyView() {
                 {renderTimerBlock()}
                 {renderSleepBlocks()}
                 {renderLogMarkers()}
+                {/* PC hover 미리보기 하이라이트 (드래그 중이 아닐 때만, 모바일 미표시) */}
+                {!createPreview && hoverSlot && (() => {
+                  const lb = getTimelineLaneBounds(hoverSlot.lane);
+                  if (!lb) return null;
+                  const hTop = (hoverSlot.startMin / 60 - tlStartHour) * HOUR_HEIGHT;
+                  const hHeight = Math.max((hoverSlot.endMin - hoverSlot.startMin) * PX_PER_MIN, 20);
+                  const hClr = hoverSlot.lane === 'plan' ? '#C4A882' : '#6BAA7A';
+                  return (
+                    <div className="absolute rounded-xl pointer-events-none hidden lg:block"
+                      style={{
+                        top: hTop, height: hHeight, left: lb.left, right: lb.right,
+                        backgroundColor: `${hClr}14`, border: `1.5px dashed ${hClr}66`, zIndex: 40,
+                      }}>
+                      <div style={{ fontSize: 10, color: hClr, padding: '2px 6px', fontWeight: 600 }}>
+                        + {minutesToTime(hoverSlot.startMin)}
+                      </div>
+                    </div>
+                  );
+                })()}
                 {createPreview && (() => {
-                  const lb = getTimelineLaneBounds('plan');
+                  const lb = getTimelineLaneBounds(createPreview.lane);
                   if (!lb) return null;
                   const previewTop = (createPreview.startMin / 60 - tlStartHour) * HOUR_HEIGHT;
                   const previewHeight = Math.max((createPreview.endMin - createPreview.startMin) * PX_PER_MIN, 20);
+                  const pClr = createPreview.lane === 'plan' ? '#C4A882' : '#6BAA7A';
                   return (
                     <div className="absolute rounded-xl pointer-events-none"
                       style={{
                         top: previewTop, height: previewHeight,
                         left: lb.left, right: lb.right,
-                        backgroundColor: 'rgba(196,168,130,0.25)',
-                        border: '2px dashed #C4A882',
+                        backgroundColor: `${pClr}40`,
+                        border: `2px dashed ${pClr}`,
                         zIndex: 50,
                       }}>
-                      <div style={{ fontSize: 10, color: '#7D6347', padding: '2px 6px', fontWeight: 600 }}>
+                      <div style={{ fontSize: 10, color: pClr === '#C4A882' ? '#7D6347' : '#3D7A58', padding: '2px 6px', fontWeight: 600 }}>
                         {minutesToTime(createPreview.startMin)} - {minutesToTime(createPreview.endMin)}
                       </div>
                     </div>
@@ -2781,12 +2935,13 @@ export function DailyView() {
           }}
         />
       )}
-      {pendingCreateTime && (
-        <TodoModal
+      {createTarget && (
+        <TimelineAddModal
           date={selectedDate}
-          initialPlanStart={pendingCreateTime.start}
-          initialPlanEnd={pendingCreateTime.end}
-          onClose={() => setPendingCreateTime(null)}
+          initialStart={createTarget.start}
+          initialEnd={createTarget.end}
+          initialLane={createTarget.lane}
+          onClose={() => setCreateTarget(null)}
         />
       )}
       {editingSleepRecord && (
