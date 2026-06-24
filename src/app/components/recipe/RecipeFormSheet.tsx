@@ -373,14 +373,6 @@ export function RecipeFormSheet({ recipe, onSave, onDelete, onClose }: RecipeFor
 
   return (
     <>
-    {showCapture && (
-      <PhotoCaptureSheet
-        domain="recipe"
-        onConfirmRecipe={handlePhotoConfirm}
-        onManualFallback={() => setShowCapture(false)}
-        onClose={() => setShowCapture(false)}
-      />
-    )}
     <div className="fixed inset-0 z-50 flex justify-center items-end p-0 lg:items-center lg:p-4"
       style={{ backgroundColor: 'rgba(0,0,0,0.35)' }} onClick={onClose}>
       <style>{`@keyframes recipeSheetUp{from{transform:translateY(100%)}to{transform:translateY(0)}}
@@ -706,6 +698,16 @@ export function RecipeFormSheet({ recipe, onSave, onDelete, onClose }: RecipeFor
         </form>
       </div>
     </div>
+
+    {/* 사진 캡처 시트 — 폼 위에 떠야 하므로 폼 div 뒤(상단 스택)에 렌더 */}
+    {showCapture && (
+      <PhotoCaptureSheet
+        domain="recipe"
+        onConfirmRecipe={handlePhotoConfirm}
+        onManualFallback={() => setShowCapture(false)}
+        onClose={() => setShowCapture(false)}
+      />
+    )}
     </>
   );
 }
