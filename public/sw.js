@@ -1,5 +1,6 @@
 // My Planner - Service Worker
-const CACHE_NAME = 'my-planner-v2';
+// v3: 모바일 viewport 줌-팬 수정 배포 — 옛 precache(`/` 셸 등) 강제 폐기용 버전 범프
+const CACHE_NAME = 'my-planner-v3';
 const STATIC_ASSETS = [
   '/',
   '/daily',
