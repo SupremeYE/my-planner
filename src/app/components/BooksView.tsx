@@ -19,6 +19,7 @@ type Quote = {
   starred: boolean;
   createdAt: string;
   note?: string;
+  imageUrl?: string;  // 사진으로 담은 구절의 크롭 사진 (book-photos)
 };
 
 type Book = {
@@ -722,6 +723,8 @@ function BookDetailModal({
   const [quoteNote, setQuoteNote] = useState('');
   const [quotePage, setQuotePage] = useState('');
   const [quoteTags, setQuoteTags] = useState('');
+  // 사진으로 담은 구절의 크롭 사진 URL (Stage 2 캡처 플로우가 채움). 없으면 글자만 기록.
+  const [quoteImageUrl, setQuoteImageUrl] = useState<string | null>(null);
   const [expandedQuoteId, setExpandedQuoteId] = useState<string | null>(null);
   // PC split 모달: 우측 패널 모드
   //  'write'  → 새 구절 작성 폼
@@ -877,6 +880,7 @@ function BookDetailModal({
       starred: false,
       createdAt: format(new Date(), 'yyyy-MM-dd'),
       note: noteTrimmed || undefined,
+      imageUrl: quoteImageUrl || undefined,
     };
     // Supabase 저장
     supabase.from('book_quotes').insert({
@@ -888,6 +892,7 @@ function BookDetailModal({
       starred: false,
       created_at: quote.createdAt,
       note: noteTrimmed || null,
+      image_url: quoteImageUrl || null,
     }).then(({ error }) => {
       if (error) console.error('[book_quotes] insert:', error.message);
     });
@@ -896,6 +901,7 @@ function BookDetailModal({
     setQuoteNote('');
     setQuotePage('');
     setQuoteTags('');
+    setQuoteImageUrl(null);
   };
 
   const handleToggleFavorite = (qid: string) => {
@@ -915,6 +921,7 @@ function BookDetailModal({
     setQuoteNote('');
     setQuotePage('');
     setQuoteTags('');
+    setQuoteImageUrl(null);
     setMobileSheetMode('write');
   };
   const enterMobileEdit = (q: Quote) => {
@@ -922,6 +929,7 @@ function BookDetailModal({
     setQuoteNote(q.note ?? '');
     setQuotePage(q.page != null ? String(q.page) : '');
     setQuoteTags(q.tags.join(', '));
+    setQuoteImageUrl(q.imageUrl ?? null);
     setMobileSheetMode(q.id);
   };
 
@@ -935,6 +943,7 @@ function BookDetailModal({
       page: quotePage ? parseInt(quotePage) : null,
       tags,
       note: noteTrimmed || null,
+      image_url: quoteImageUrl || null,
     };
     supabase.from('book_quotes').update(updates).eq('id', qid).then(({ error }) => {
       if (error) console.error('[book_quotes] update:', error.message);
@@ -948,6 +957,7 @@ function BookDetailModal({
             page: updates.page ?? undefined,
             tags: updates.tags,
             note: noteTrimmed || undefined,
+            imageUrl: quoteImageUrl || undefined,
           }
         : q),
     });
@@ -2105,6 +2115,7 @@ export function BooksView() {
           starred: q.starred ?? false,
           createdAt: q.created_at,
           note: q.note ?? undefined,
+          imageUrl: q.image_url ?? undefined,
         });
       }
 

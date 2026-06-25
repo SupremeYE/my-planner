@@ -1990,6 +1990,22 @@ export const db = {
     },
   },
 
+  // ── 독서 구절 사진 — book_quotes 의 image_url 용 (사진 캡처 OCR) ──
+  //  · 구절 insert/update 는 BooksView 가 직접 supabase.from('book_quotes') 로 처리한다.
+  //    여기서는 크롭 사진을 book-photos 버킷에 올리는 업로드 헬퍼만 제공.
+  bookQuotes: {
+    // 크롭된 구절 사진 업로드 → publicUrl. recipe/beauty uploadPhoto 와 동일한 "평면 경로 + contentType" 패턴.
+    //  ⚠️ 경로에 슬래시(하위폴더)를 쓰면 클라이언트 업로드가 400 으로 실패 → 평면 경로(언더스코어) 사용.
+    uploadPhoto: async (quoteId: string, file: File): Promise<string | null> => {
+      const ext = (file.name.split('.').pop() ?? 'jpg').toLowerCase();
+      const path = `${quoteId}_${crypto.randomUUID()}.${ext}`;
+      const { error } = await supabase.storage.from('book-photos').upload(path, file, { upsert: true, contentType: file.type });
+      if (error) { console.error('[db] book-photos upload:', error.message); return null; }
+      const { data } = supabase.storage.from('book-photos').getPublicUrl(path);
+      return data.publicUrl ?? null;
+    },
+  },
+
   // ── 냉장고 (Phase 2) — fridge_items ──
   fridgeItems: {
     fetchAll: async (): Promise<FridgeItem[]> => {

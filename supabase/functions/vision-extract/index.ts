@@ -1,10 +1,11 @@
 // Supabase Edge Function: vision-extract
 //
-// 입력: { image_url: string, domain: 'beauty' | 'household' | 'recipe' }
+// 입력: { image_url: string, domain: 'beauty' | 'household' | 'recipe' | 'reading' }
 // 출력(항상 200 JSON, 실패도 graceful):
 //   beauty    → { ok:true, items:[{ name, brand?, category?, confidence }] }
 //   household → { ok:true, items:[{ name, brand?, category?, quantity?, price?, purchase_place?, confidence }] }
 //   recipe    → { ok:true, recipe:{ title?, ingredients:string[], steps:string[] } }   (items 와 키가 다름 — 클라가 domain 으로 분기)
+//   reading   → { ok:true, text:string, page:number|null }   (책 페이지 사진에서 구절 원문 OCR)
 //   실패/파싱불가 → { ok:false, error }   (클라가 수동 입력으로 폴백)
 //
 // 동작: 사진(제품/영수증) 1장을 OpenAI gpt-4o-mini vision 으로 읽어 항목을 추출한다.
@@ -32,7 +33,17 @@ function json(body: unknown, status = 200): Response {
 }
 
 // domain 별 추출 지시 + JSON 스키마 강제.
-function promptFor(domain: 'beauty' | 'household' | 'recipe'): string {
+function promptFor(domain: 'beauty' | 'household' | 'recipe' | 'reading'): string {
+  if (domain === 'reading') {
+    return [
+      '이 이미지는 책 페이지(또는 종이 문서) 사진이야. 이미지 속 텍스트를 원문 그대로 정확히 추출해줘.',
+      '- 줄바꿈·문장부호·띄어쓰기를 원본과 동일하게 보존해. 임의로 요약/의역/교정하지 마.',
+      '- 사진 속에 보이는 본문 텍스트만 추출하고, 머리말/꼬리말/쪽 장식 같은 잡텍스트는 제외해.',
+      '- 페이지 번호가 보이면 숫자만 page 로 추출. 안 보이면 null.',
+      '출력은 JSON 객체 하나만: {"text":"추출된 구절 전문","page":123}',
+      '마크다운/코드펜스/설명 없이 JSON 만. 글자를 못 읽으면 {"text":"","page":null}.',
+    ].join('\n');
+  }
   if (domain === 'recipe') {
     return [
       '이 이미지는 레시피가 담긴 화면 캡처(유튜브 숏츠/블로그 등)야. 보이는 글자를 읽고 재료와 조리 순서를 분리해줘.',
@@ -120,13 +131,35 @@ function parseRecipe(text: string): { title?: string; ingredients: string[]; ste
   }
 }
 
+// reading domain 전용: {text, page} 안전 파싱.
+//  - parseItems/parseRecipe 와 동일한 가드(코드펜스 제거 → 첫 { ~ 마지막 } → JSON.parse) 재사용.
+//  - text 는 문자열만, page 는 양의 정수만(아니면 null). text 가 비면 null 반환(호출부가 실패 처리).
+function parseReading(text: string): { text: string; page: number | null } | null {
+  if (!text) return null;
+  let s = text.trim();
+  s = s.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/i, '').trim();
+  const first = s.indexOf('{');
+  const last = s.lastIndexOf('}');
+  if (first === -1 || last === -1 || last < first) return null;
+  try {
+    const obj = JSON.parse(s.slice(first, last + 1));
+    const quote = typeof obj?.text === 'string' ? obj.text.trim() : '';
+    if (!quote) return null;
+    const p = Number(obj?.page);
+    const page = Number.isFinite(p) && p > 0 ? Math.floor(p) : null;
+    return { text: quote, page };
+  } catch {
+    return null;
+  }
+}
+
 Deno.serve(async (req: Request) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: CORS_HEADERS });
 
   try {
     const { image_url, domain } = await req.json().catch(() => ({}));
-    if (!image_url || (domain !== 'beauty' && domain !== 'household' && domain !== 'recipe')) {
-      return json({ ok: false, error: 'image_url 과 domain(beauty|household|recipe) 이 필요해요' });
+    if (!image_url || (domain !== 'beauty' && domain !== 'household' && domain !== 'recipe' && domain !== 'reading')) {
+      return json({ ok: false, error: 'image_url 과 domain(beauty|household|recipe|reading) 이 필요해요' });
     }
 
     const key = Deno.env.get('OPENAI_API_KEY');
@@ -137,8 +170,8 @@ Deno.serve(async (req: Request) => {
       headers: { 'Authorization': `Bearer ${key}`, 'Content-Type': 'application/json' },
       body: JSON.stringify({
         model: 'gpt-4o-mini',
-        // recipe 는 재료+순서가 길 수 있어 토큰을 더 준다(잘리면 JSON 파싱 실패). beauty/household 는 1024 유지.
-        max_tokens: domain === 'recipe' ? 2048 : 1024,
+        // recipe(재료+순서)·reading(구절 전문)은 길 수 있어 토큰을 더 준다(잘리면 JSON 파싱 실패). beauty/household 는 1024 유지.
+        max_tokens: (domain === 'recipe' || domain === 'reading') ? 2048 : 1024,
         response_format: { type: 'json_object' }, // JSON 강제(파싱 안정화)
         messages: [{
           role: 'user',
@@ -164,6 +197,13 @@ Deno.serve(async (req: Request) => {
       const recipe = typeof text === 'string' ? parseRecipe(text) : null;
       if (recipe == null) return json({ ok: false, error: '추출 결과를 해석하지 못했어요' });
       return json({ ok: true, recipe });
+    }
+
+    // reading domain 은 책 페이지 사진에서 구절 원문 + 페이지를 뽑아 {text, page} 로 반환.
+    if (domain === 'reading') {
+      const r = typeof text === 'string' ? parseReading(text) : null;
+      if (r == null) return json({ ok: false, error: '사진에서 글자를 읽지 못했어요' });
+      return json({ ok: true, text: r.text, page: r.page });
     }
 
     const parsed = typeof text === 'string' ? parseItems(text) : null;
