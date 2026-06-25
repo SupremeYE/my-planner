@@ -1791,6 +1791,7 @@ function QuoteCard({
   const { t } = useTheme();
   const hasNote = !!(quote.note && quote.note.trim());
   const accentColor = hasNote ? t.accent : (t.borderLight ?? t.border);
+  const [lightbox, setLightbox] = useState(false);
 
   return (
     <div
@@ -1805,6 +1806,24 @@ function QuoteCard({
       <div style={{ width: 3, backgroundColor: accentColor, flexShrink: 0 }} />
       {/* 내용 */}
       <div className="flex-1 p-3" style={{ backgroundColor: t.card }}>
+        {/* 구절 사진(사진으로 담은 구절) — 본문 위에 썸네일, 탭하면 확대 */}
+        {quote.imageUrl && (
+          <img
+            src={quote.imageUrl}
+            alt="구절 사진"
+            onClick={(e) => { e.stopPropagation(); setLightbox(true); }}
+            style={{
+              width: '100%',
+              maxHeight: 160,
+              objectFit: 'cover',
+              borderRadius: 8,
+              marginBottom: 8,
+              border: `1px solid ${t.border}`,
+              cursor: 'zoom-in',
+              display: 'block',
+            }}
+          />
+        )}
         <div className="flex items-start justify-between gap-2">
           {/* 구절 본문 — 살짝 들여쓰기로 인용 느낌 */}
           <p
@@ -1862,6 +1881,30 @@ function QuoteCard({
           <div className="flex items-center gap-2 mt-2 flex-wrap">{meta}</div>
         )}
       </div>
+
+      {/* 사진 확대 라이트박스 */}
+      {lightbox && quote.imageUrl && (
+        <div
+          className="fixed inset-0 z-[80] flex items-center justify-center p-4"
+          style={{ backgroundColor: 'rgba(0,0,0,0.85)' }}
+          onClick={(e) => { e.stopPropagation(); setLightbox(false); }}
+        >
+          <button
+            onClick={(e) => { e.stopPropagation(); setLightbox(false); }}
+            aria-label="닫기"
+            className="absolute top-4 right-4 p-2 rounded-full"
+            style={{ backgroundColor: 'rgba(255,255,255,0.15)', color: '#fff' }}
+          >
+            <X size={20} />
+          </button>
+          <img
+            src={quote.imageUrl}
+            alt="구절 사진"
+            onClick={(e) => e.stopPropagation()}
+            style={{ maxWidth: '100%', maxHeight: '90vh', objectFit: 'contain', borderRadius: 8 }}
+          />
+        </div>
+      )}
     </div>
   );
 }
