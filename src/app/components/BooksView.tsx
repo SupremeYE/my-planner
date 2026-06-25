@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
-import { Search, X, Plus, BookOpen, ChevronRight, ChevronLeft, Tag, Trash2, BookMarked, Mic, Star, Lightbulb, NotebookPen } from 'lucide-react';
+import { Search, X, Plus, BookOpen, ChevronRight, ChevronLeft, Tag, Trash2, BookMarked, Mic, Star, Lightbulb, NotebookPen, Camera } from 'lucide-react';
 import { useTheme } from '../ThemeContext';
 import { useFabAction } from '../FabContext';
 import { format } from 'date-fns';
@@ -7,6 +7,7 @@ import ConfirmModal from './ConfirmModal';
 import { supabase } from '../../lib/supabase';
 import { useRealtimeSync } from '../hooks/useRealtimeSync';
 import { useVoiceInput } from '../hooks/useVoiceInput';
+import { QuoteCaptureSheet } from './QuoteCaptureSheet';
 
 // ─── 타입 ──────────────────────────────────────────────────────────────
 type BookStatus = 'reading' | 'want' | 'done';
@@ -725,6 +726,8 @@ function BookDetailModal({
   const [quoteTags, setQuoteTags] = useState('');
   // 사진으로 담은 구절의 크롭 사진 URL (Stage 2 캡처 플로우가 채움). 없으면 글자만 기록.
   const [quoteImageUrl, setQuoteImageUrl] = useState<string | null>(null);
+  // 사진 캡처(촬영→크롭→OCR) 시트 열림 여부
+  const [captureOpen, setCaptureOpen] = useState(false);
   const [expandedQuoteId, setExpandedQuoteId] = useState<string | null>(null);
   // PC split 모달: 우측 패널 모드
   //  'write'  → 새 구절 작성 폼
@@ -916,6 +919,13 @@ function BookDetailModal({
   };
 
   // 모바일 풀스크린 시트 진입 헬퍼
+  // 사진 캡처 결과를 작성 폼에 채움 — 텍스트는 기존 입력에 이어 붙이고, 페이지/사진은 채운다.
+  const handleCaptureConfirm = (r: { text: string; page?: number; imageUrl: string }) => {
+    setQuoteText(prev => (prev.trim() ? prev.trimEnd() + '\n' + r.text : r.text));
+    if (r.page != null) setQuotePage(String(r.page));
+    setQuoteImageUrl(r.imageUrl);
+  };
+
   const enterMobileWrite = () => {
     setQuoteText('');
     setQuoteNote('');
@@ -1382,6 +1392,21 @@ function BookDetailModal({
                               style={{ backgroundColor: t.bgSub, border: `1px solid ${t.border}`, color: t.text }}
                             />
                           </div>
+                          {/* 사진으로 구절 담기 */}
+                          <button
+                            onClick={() => setCaptureOpen(true)}
+                            className="w-full flex items-center justify-center gap-1.5 py-2 rounded-lg transition-all"
+                            style={{ backgroundColor: t.bgSub, border: `1px solid ${t.border}`, color: t.textSub, fontSize: 13, fontWeight: 600 }}
+                          >
+                            <Camera size={14} /> 사진으로 구절 담기
+                          </button>
+                          {quoteImageUrl && (
+                            <div className="flex items-center gap-2 rounded-lg px-2 py-1.5" style={{ backgroundColor: t.bgSub, border: `1px solid ${t.border}` }}>
+                              <img src={quoteImageUrl} alt="" style={{ width: 36, height: 36, objectFit: 'cover', borderRadius: 6 }} />
+                              <span className="flex-1" style={{ fontSize: 12, color: t.textSub }}>사진이 이 구절에 첨부돼요</span>
+                              <button onClick={() => setQuoteImageUrl(null)} aria-label="사진 제거" style={{ color: t.textMuted }}><X size={14} /></button>
+                            </div>
+                          )}
                           {/* 음성 + 저장 */}
                           <div className="flex gap-2">
                             <button
@@ -1672,6 +1697,22 @@ function BookDetailModal({
               />
             </div>
 
+            {/* 사진으로 구절 담기 */}
+            <button
+              onClick={() => setCaptureOpen(true)}
+              className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl transition-all"
+              style={{ backgroundColor: t.card, border: `1px solid ${t.border}`, color: t.textSub, fontSize: 13, fontWeight: 600 }}
+            >
+              <Camera size={14} /> 사진으로 구절 담기
+            </button>
+            {quoteImageUrl && (
+              <div className="flex items-center gap-2 rounded-xl px-2.5 py-2" style={{ backgroundColor: t.card, border: `1px solid ${t.border}` }}>
+                <img src={quoteImageUrl} alt="" style={{ width: 40, height: 40, objectFit: 'cover', borderRadius: 8 }} />
+                <span className="flex-1" style={{ fontSize: 12.5, color: t.textSub }}>사진이 이 구절에 첨부돼요</span>
+                <button onClick={() => setQuoteImageUrl(null)} aria-label="사진 제거" style={{ color: t.textMuted }}><X size={16} /></button>
+              </div>
+            )}
+
             {/* 음성 입력 */}
             <button
               onClick={toggleRecording}
@@ -1691,6 +1732,14 @@ function BookDetailModal({
           </div>
         </div>
       )}
+
+      {/* 사진으로 구절 담기 — 촬영/크롭/OCR 시트 */}
+      <QuoteCaptureSheet
+        isOpen={captureOpen}
+        bookId={book.id}
+        onClose={() => setCaptureOpen(false)}
+        onConfirm={handleCaptureConfirm}
+      />
 
       {/* 삭제 확인 모달 */}
       {confirmDelete && (
