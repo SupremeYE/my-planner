@@ -444,7 +444,7 @@ function CalendarTab({
   onDelete,
 }: {
   allRecords: FoodRecord[];
-  onAdd: (meal: MealType) => void;
+  onAdd: (meal: MealType, date?: string) => void;
   onEdit: (r: FoodRecord) => void;
   onDelete: (id: string) => void;
 }) {
@@ -607,7 +607,7 @@ function CalendarTab({
             <span style={{ fontSize: 13, fontWeight: 700, color: t.text }}>
               {format(selectedDate, 'M월 d일 (EEE)', { locale: ko })} 기록
             </span>
-            <button onClick={() => onAdd('breakfast')}
+            <button onClick={() => onAdd('breakfast', format(selectedDate, 'yyyy-MM-dd'))}
               className="px-2.5 py-1 rounded-full"
               style={{ backgroundColor: t.accentLight, color: t.accent, fontSize: 12, fontWeight: 600 }}>
               + 추가
@@ -992,11 +992,13 @@ function StatsTab({ allRecords }: { allRecords: FoodRecord[] }) {
 // ─── 기록 추가/수정 바텀시트 ─────────────────────────────────────────
 function AddFoodSheet({
   initMeal,
+  initDate,
   editRecord,
   onSave,
   onClose,
 }: {
   initMeal: MealType;
+  initDate?: string;
   editRecord?: FoodRecord;
   onSave: (data: Omit<FoodRecord, 'id'> & { id?: string }) => void;
   onClose: () => void;
@@ -1050,7 +1052,7 @@ function AddFoodSheet({
 
     onSave({
       id: editRecord?.id,
-      date: editRecord?.date ?? format(new Date(), 'yyyy-MM-dd'),
+      date: editRecord?.date ?? initDate ?? format(new Date(), 'yyyy-MM-dd'),
       mealType: form.mealType,
       foodName: form.foodName.trim(),
       amount: Number(form.amount) || 0,
@@ -1072,7 +1074,7 @@ function AddFoodSheet({
   // 단식: 선택한 끼니를 거른 것으로 즉시 기록하고 닫는다
   const saveFasting = (meal: MealType) => {
     onSave({
-      date: editRecord?.date ?? format(new Date(), 'yyyy-MM-dd'),
+      date: editRecord?.date ?? initDate ?? format(new Date(), 'yyyy-MM-dd'),
       mealType: meal,
       foodName: FASTING_LABEL,
       amount: 0,
@@ -1089,6 +1091,10 @@ function AddFoodSheet({
     });
     onClose();
   };
+
+  // 기록 대상 날짜 (수정: 기존 날짜 / 신규: 전달받은 날짜 또는 오늘)
+  const targetDate = editRecord?.date ?? initDate ?? format(new Date(), 'yyyy-MM-dd');
+  const isTargetToday = targetDate === format(new Date(), 'yyyy-MM-dd');
 
   const TOTAL_STEPS = 7;
   const stepTitles: Record<AddStep, string> = {
@@ -1121,9 +1127,15 @@ function AddFoodSheet({
                   <ChevronLeft size={18} color={t.textSub} />
                 </button>
               )}
-              <span style={{ fontSize: 15, fontWeight: 700, color: t.text }}>
-                {editRecord ? '기록 수정' : stepTitles[step]}
-              </span>
+              <div className="flex flex-col">
+                <span style={{ fontSize: 15, fontWeight: 700, color: t.text }}>
+                  {editRecord ? '기록 수정' : stepTitles[step]}
+                </span>
+                <span style={{ fontSize: 11, color: isTargetToday ? t.textMuted : t.accent, fontWeight: isTargetToday ? 400 : 600 }}>
+                  {format(new Date(targetDate + 'T00:00:00'), 'M월 d일 (EEE)', { locale: ko })}
+                  {isTargetToday ? '' : ' 기록'}
+                </span>
+              </div>
             </div>
             <button onClick={onClose} className="p-1">
               <X size={20} color={t.textSub} />
@@ -1526,15 +1538,17 @@ export function FoodView() {
   const [activeTab, setActiveTab] = useState<'today' | 'calendar' | 'stats'>('today');
   const [showSheet, setShowSheet] = useState(false);
   const [sheetMeal, setSheetMeal] = useState<MealType>('breakfast');
+  const [sheetDate, setSheetDate] = useState<string | undefined>(undefined);
   const [editRecord, setEditRecord] = useState<FoodRecord | undefined>(undefined);
   const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
 
   const today = format(new Date(), 'yyyy-MM-dd');
   const todayRecords = foodRecords.filter(r => r.date === today);
 
-  const openAdd = useCallback((meal: MealType) => {
+  const openAdd = useCallback((meal: MealType, date?: string) => {
     setEditRecord(undefined);
     setSheetMeal(meal);
+    setSheetDate(date);
     setShowSheet(true);
   }, []);
 
@@ -1630,6 +1644,7 @@ export function FoodView() {
       {showSheet && (
         <AddFoodSheet
           initMeal={sheetMeal}
+          initDate={sheetDate}
           editRecord={editRecord}
           onSave={handleSave}
           onClose={() => { setShowSheet(false); setEditRecord(undefined); }}
