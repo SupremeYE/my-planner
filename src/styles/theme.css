@@ -132,11 +132,29 @@
     height: 100%;
   }
 
+  /* iOS Safari/PWA 에선 body 의 overflow:hidden 만으로는 visual viewport 패닝·바운스를
+     신뢰성 있게 막지 못한다(visual viewport 모델). html 에도 overflow/overscroll 을 박고
+     #root 를 position:fixed 로 뷰포트에 못박아 문서 자체가 절대 움직이지 않게 한다.
+     모든 스크롤은 내부 컨테이너(모바일 main 의 overflow-y-auto)에서만 발생. */
+  html {
+    overflow: hidden;
+    overscroll-behavior: none;
+  }
+
   body {
     @apply bg-background text-foreground;
     overflow: hidden;
     /* iOS 고무줄(rubber-band) 오버스크롤·스크롤 체이닝 차단 (가로 스와이프 시 화면 퉁퉁거림 방지) */
     overscroll-behavior: none;
+    /* 더블탭 줌 차단(클릭 지연도 제거). 핀치 줌은 App.tsx 의 gesture* preventDefault 로 차단 */
+    touch-action: manipulation;
+  }
+
+  #root {
+    position: fixed;
+    inset: 0;
+    width: 100%;
+    /* height 는 위 html,body,#root 규칙(100%)을 그대로 사용 */
   }
 
   /**

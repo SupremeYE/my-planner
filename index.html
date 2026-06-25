@@ -4,7 +4,11 @@
     <meta charset="UTF-8" />
     <!-- viewport-fit=cover 제거: status-bar-style=default 기기에서 inset이 0으로 보고될 때
          cover가 콘텐츠를 상태바 밑까지 풀블리드로 깔아 전역 탑바가 가려지는 문제 → iOS 자동 inset에 맡김 -->
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <!-- maximum-scale=1, user-scalable=no: 모바일에서 핀치/더블탭 줌으로 visual viewport 가 줌-팬되며
+         화면 전체(헤더·콘텐츠·고정 하단 네비)가 밀리던 버그 차단. 정적 태그로 둬 콜드런치 갭 제거
+         (usePWA.ts 런타임 주입은 이중 안전망으로 유지). iOS 는 user-scalable=no 를 무시하므로 App.tsx 의
+         gesturestart/change/end preventDefault 와 함께 동작해야 완전 차단됨 -->
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
     <meta name="theme-color" content="#515f74" />
     <!-- iOS PWA standalone: 콜드런치 시점에 iOS가 직접 읽어야 하므로 정적 태그로 둠 (런타임 JS 주입은 너무 늦어 safe-area inset이 0으로 해석되는 버그 유발). status-bar-style은 라이트 베이지 테마용 default 고정 — black-translucent로 바꾸지 말 것 -->
     <meta name="apple-mobile-web-app-capable" content="yes" />
