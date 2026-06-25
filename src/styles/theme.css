@@ -155,6 +155,11 @@
     inset: 0;
     width: 100%;
     /* height 는 위 html,body,#root 규칙(100%)을 그대로 사용 */
+    /* 셸을 뷰포트 경계에서 직접 클리핑. position:fixed 인 #root 는 body 의 overflow:hidden
+       으로 잘리지 않으므로(고정 요소는 조상 overflow 무시), 여기서 자체적으로 클리핑하지 않으면
+       내부에서 가로로 새는 요소가 그대로 document 2D 패닝(화면 전체가 손으로 밀리는 버그)을
+       일으킨다. 내부 스크롤은 자식 컨테이너(모바일 main 의 overflow-y-auto)가 담당하므로 무영향. */
+    overflow: hidden;
   }
 
   /**
