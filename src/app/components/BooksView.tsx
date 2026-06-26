@@ -1697,19 +1697,25 @@ function BookDetailModal({
               />
             </div>
 
-            {/* 사진으로 구절 담기 */}
-            <button
-              onClick={() => setCaptureOpen(true)}
-              className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl transition-all"
-              style={{ backgroundColor: t.card, border: `1px solid ${t.border}`, color: t.textSub, fontSize: 13, fontWeight: 600 }}
-            >
-              <Camera size={14} /> 사진으로 구절 담기
-            </button>
+            {/* 사진으로 구절 담기 — 새 구절 작성 시에만(수정 모드는 텍스트만, 재촬영 v1 미지원) */}
+            {mobileSheetMode === 'write' && (
+              <button
+                onClick={() => setCaptureOpen(true)}
+                className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl transition-all"
+                style={{ backgroundColor: t.card, border: `1px solid ${t.border}`, color: t.textSub, fontSize: 13, fontWeight: 600 }}
+              >
+                <Camera size={14} /> 사진으로 구절 담기
+              </button>
+            )}
             {quoteImageUrl && (
               <div className="flex items-center gap-2 rounded-xl px-2.5 py-2" style={{ backgroundColor: t.card, border: `1px solid ${t.border}` }}>
                 <img src={quoteImageUrl} alt="" style={{ width: 40, height: 40, objectFit: 'cover', borderRadius: 8 }} />
-                <span className="flex-1" style={{ fontSize: 12.5, color: t.textSub }}>사진이 이 구절에 첨부돼요</span>
-                <button onClick={() => setQuoteImageUrl(null)} aria-label="사진 제거" style={{ color: t.textMuted }}><X size={16} /></button>
+                <span className="flex-1" style={{ fontSize: 12.5, color: t.textSub }}>
+                  {mobileSheetMode === 'write' ? '사진이 이 구절에 첨부돼요' : '이 구절에 담긴 사진'}
+                </span>
+                {mobileSheetMode === 'write' && (
+                  <button onClick={() => setQuoteImageUrl(null)} aria-label="사진 제거" style={{ color: t.textMuted }}><X size={16} /></button>
+                )}
               </div>
             )}
 
