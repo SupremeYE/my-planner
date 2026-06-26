@@ -6,6 +6,41 @@
 
 ---
 
+## 2026-06-26 — 📸 독서 구절 사진 캡처 (촬영→크롭→OCR) — Stage 0~4
+
+### 🛠 구현
+
+독서 페이지 구절 추가에 **사진 촬영 → 영역 크롭 → vision AI OCR → 자동 입력** 플로우를 추가. 실물 책 페이지를 찍고 원하는 구절만 잘라내면 텍스트가 작성 폼에 자동으로 채워지고, 크롭 사진은 구절 카드에 함께 보관된다.
+
+- **Stage 1 — DB · Edge Function · 데이터 레이어**
+  - 마이그레이션 2종(적용 완료): `book_quotes.image_url text` 컬럼 추가(`20260625000000`), `book-photos` public 버킷 + RLS(`20260625000100`, beauty/walk 패턴).
+  - `vision-extract` Edge Function에 **`reading` 도메인** 추가(재배포 완료): `promptFor`에 "책 페이지 원문 그대로 추출(줄바꿈·문장부호 보존), 페이지 감지" 프롬프트 + `parseReading`(코드펜스 가드·text 문자열/page 양의정수만) + 핸들러 분기 응답 `{ ok, text, page }`, `max_tokens` 2048. beauty/household/recipe 무영향.
+  - `useVisionExtract`: `CaptureDomain`에 `reading` + `ExtractResult.text/page` 추가, reading 업로드/응답 분기. `db.bookQuotes.uploadPhoto(quoteId, file)`(book-photos, 평면 경로) 신설. `BooksView`: `Quote.imageUrl` 타입 + fetch 매핑 + insert/update payload `image_url` 배선.
+- **Stage 2 — 크롭 컴포넌트**
+  - `react-easy-crop ^6.0.2` 설치. `src/lib/cropImage.ts` `getCroppedImg(imageSrc, croppedAreaPixels)` — `drawImage`로 영역 크롭 → JPEG 0.85 Blob, 긴 변 2000px 초과 시 비율 유지 다운스케일(OCR 정확도·용량 균형), objectURL은 호출측 관리.
+  - `src/app/components/QuoteCaptureSheet.tsx` 신설 — 3-step(① 촬영/갤러리 → ② `<Cropper>` 자유 크롭(cropShape rect·showGrid·핀치 줌) → ③ 결과 textarea·페이지 수정). 크롭 확정 시 `getCroppedImg → db.bookQuotes.uploadPhoto(bookId) → vision-extract(reading)`, "이 구절 사용" → `onConfirm({text, page?, imageUrl})`. 모바일 바텀시트 / PC `lg:` 모달.
+- **Stage 3 — BooksView 통합**
+  - 구절 작성 폼(PC write 패널 + 모바일 시트)에 **"📷 사진으로 구절 담기"** 진입점 + 첨부 썸네일/제거. `handleCaptureConfirm`이 텍스트 이어붙이기·페이지·`quoteImageUrl` 채움 → 기존 `handleAddQuote`/`handleUpdateQuote` insert/update(`image_url`)에 합류.
+  - `QuoteCard`에 `quote.imageUrl` 썸네일(본문 위, maxHeight 160) + 탭 확대 라이트박스(z-[80], `stopPropagation`으로 카드 편집 진입과 분리). 이미지 없는 기존 구절은 무영향(3곳 호출 공용 컴포넌트라 자동 적용).
+- **Stage 4 — 에러 처리 · UX · 무영향**
+  - **에러**: 너무 작은 크롭(< 40px) 사전 차단·재크롭 유도 / 네트워크·업로드 실패 → `다시 시도` 버튼 / OCR 인식 실패 → "텍스트를 인식하지 못했어요. 다시 촬영해 보세요" + `다시 촬영`. 종류별 에러 배너(`errKind`).
+  - **UX**: 크롭 상단 가이드 칩("구절이 있는 영역을 손가락으로 선택하세요"), OCR 로딩 시 크롭 이미지 **블러 + 스피너 오버레이**(별도 화면 전환 없이), Step 3 추출 텍스트 길면 textarea `maxHeight 42vh` 스크롤.
+  - **무영향 확인**: 텍스트 직접 입력=`image_url` null(기존과 동일) / 음성 입력 무관 / **수정 모드는 텍스트만**(모바일 시트에서 📷·사진 제거 숨김, 썸네일은 표시만, 편집 시 기존 `image_url` 보존) / PC `lg:` 분기 보존.
+
+### 🧭 결정 사항
+
+- AI(vision-extract)는 **크롭 확정 1회만** 호출(조회/렌더 경로 호출 0). 추출 원문·confidence 영속 저장 안 함 — 확정·편집한 값만 `book_quotes`에 저장.
+- 크롭 사진은 영구 보관(`book_quotes.image_url`) — "찍은 그대로가 카드".
+- 색 디자인 토큰만(크롭 캔버스 `#1a1a1a`, 라이트박스 dim만 실물 표현 고정). `npm run build`(vite 6) 통과.
+
+### ⚠️ 알려진 한계 / 후속 후보
+
+- 수정 모드 사진 재촬영/교체는 v1 미지원(텍스트만). 필요 시 별도 작업.
+- 라이트박스는 단일 이미지 확대만(핀치 줌·여러 장 캐러셀 없음).
+- 크롭은 react-easy-crop 박스(팬/줌) 방식 — 임의 다각형 선택은 범위 외.
+
+---
+
 ## 2026-06-24 — 모바일 빠른 기록 홈 (QuickCaptureHome) 출시
 
 ### 🛠 구현

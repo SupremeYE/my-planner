@@ -6,7 +6,7 @@
 //  · 컨셉: "책을 찍고, 원하는 구절만 잘라내면 글자가 자동으로 들어와요."
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import Cropper, { type Area } from 'react-easy-crop';
-import { X, ChevronLeft, Camera, Image as ImageIcon, Loader2, Check, Crop as CropIcon, AlertTriangle } from 'lucide-react';
+import { X, ChevronLeft, Camera, Image as ImageIcon, Loader2, Check, Crop as CropIcon, AlertTriangle, RotateCcw } from 'lucide-react';
 import { useTheme } from '../ThemeContext';
 import { supabase } from '../../lib/supabase';
 import { db } from '../../lib/db';
@@ -20,6 +20,9 @@ interface QuoteCaptureSheetProps {
 }
 
 type Step = 'pick' | 'crop' | 'review';
+type ErrKind = 'ocr' | 'network' | 'crop';
+
+const MIN_CROP_PX = 40; // 원본 기준 이보다 작은 변이 있으면 "너무 작은 크롭"으로 보고 재크롭 유도
 
 export function QuoteCaptureSheet({ isOpen, onClose, onConfirm, bookId }: QuoteCaptureSheetProps) {
   const { t } = useTheme();
@@ -29,6 +32,7 @@ export function QuoteCaptureSheet({ isOpen, onClose, onConfirm, bookId }: QuoteC
   const [srcUrl, setSrcUrl] = useState<string | null>(null);    // 원본 objectURL (크롭용)
   const [photoUrl, setPhotoUrl] = useState<string | null>(null); // 업로드된 크롭 사진 public url
   const [errMsg, setErrMsg] = useState<string | null>(null);
+  const [errKind, setErrKind] = useState<ErrKind | null>(null);
 
   // 크롭 상태
   const [crop, setCrop] = useState({ x: 0, y: 0 });
@@ -54,6 +58,7 @@ export function QuoteCaptureSheet({ isOpen, onClose, onConfirm, bookId }: QuoteC
       setBusy(false);
       setPhotoUrl(null);
       setErrMsg(null);
+      setErrKind(null);
       setCrop({ x: 0, y: 0 });
       setZoom(1);
       setAreaPixels(null);
@@ -76,6 +81,7 @@ export function QuoteCaptureSheet({ isOpen, onClose, onConfirm, bookId }: QuoteC
   const handleFile = (file: File | undefined) => {
     if (!file) return;
     setErrMsg(null);
+    setErrKind(null);
     clearSrc();
     const url = URL.createObjectURL(file);
     setSrcUrl(url);
@@ -88,8 +94,17 @@ export function QuoteCaptureSheet({ isOpen, onClose, onConfirm, bookId }: QuoteC
   // ── Step 2: 크롭 확정 → 업로드 + OCR → 리뷰로 ──
   const handleExtract = async () => {
     if (!srcUrl || !areaPixels) return;
+
+    // 빈/너무 작은 크롭 영역 — 업로드/OCR 전에 차단하고 재크롭 유도
+    if (areaPixels.width < MIN_CROP_PX || areaPixels.height < MIN_CROP_PX) {
+      setErrMsg('선택한 영역이 너무 작아요. 구절이 잘 보이도록 더 넓게 잘라주세요.');
+      setErrKind('crop');
+      return;
+    }
+
     setBusy(true);
     setErrMsg(null);
+    setErrKind(null);
     try {
       // 1) 크롭 Blob
       const blob = await getCroppedImg(srcUrl, areaPixels);
@@ -98,8 +113,8 @@ export function QuoteCaptureSheet({ isOpen, onClose, onConfirm, bookId }: QuoteC
       // 2) Storage 업로드 → publicUrl
       const url = await db.bookQuotes.uploadPhoto(bookId, file);
       if (!url) {
-        setErrMsg('사진 업로드에 실패했어요.');
-        setBusy(false);
+        setErrMsg('사진 업로드에 실패했어요. 네트워크를 확인하고 다시 시도해 주세요.');
+        setErrKind('network');
         return;
       }
       setPhotoUrl(url);
@@ -109,13 +124,13 @@ export function QuoteCaptureSheet({ isOpen, onClose, onConfirm, bookId }: QuoteC
         body: { image_url: url, domain: 'reading' },
       });
       if (error) {
-        setErrMsg('AI가 사진을 읽지 못했어요.');
-        setBusy(false);
+        setErrMsg('연결이 불안정해요. 다시 시도해 주세요.');
+        setErrKind('network');
         return;
       }
       if (!data?.ok || typeof data.text !== 'string' || !data.text.trim()) {
-        setErrMsg((data?.error as string) || '사진에서 글자를 읽지 못했어요.');
-        setBusy(false);
+        setErrMsg('텍스트를 인식하지 못했어요. 다시 촬영해 보세요.');
+        setErrKind('ocr');
         return;
       }
 
@@ -123,7 +138,8 @@ export function QuoteCaptureSheet({ isOpen, onClose, onConfirm, bookId }: QuoteC
       setPageText(typeof data.page === 'number' && data.page > 0 ? String(data.page) : '');
       setStep('review');
     } catch (e) {
-      setErrMsg((e as Error).message || '구절 추출에 실패했어요.');
+      setErrMsg((e as Error).message || '구절 추출에 실패했어요. 다시 시도해 주세요.');
+      setErrKind('network');
     } finally {
       setBusy(false);
     }
@@ -179,15 +195,6 @@ export function QuoteCaptureSheet({ isOpen, onClose, onConfirm, bookId }: QuoteC
 
         <div className="px-4 lg:px-5 pb-5" style={{ paddingBottom: 'calc(24px + env(safe-area-inset-bottom))' }}>
 
-          {/* ── 로딩(업로드+OCR) ── */}
-          {busy && (
-            <div className="flex flex-col items-center justify-center text-center" style={{ padding: '40px 16px' }}>
-              <Loader2 size={26} className="animate-spin" style={{ color: t.accent }} />
-              <p style={{ fontSize: 14, fontWeight: 700, color: t.text, marginTop: 10 }}>구절을 읽고 있어요…</p>
-              <p style={{ fontSize: 12.5, color: t.textSub, marginTop: 4 }}>잘라낸 영역의 글자를 텍스트로 옮기는 중</p>
-            </div>
-          )}
-
           {/* ── Step 1: pick ── */}
           {!busy && step === 'pick' && (
             <div className="space-y-2.5">
@@ -216,8 +223,8 @@ export function QuoteCaptureSheet({ isOpen, onClose, onConfirm, bookId }: QuoteC
             </div>
           )}
 
-          {/* ── Step 2: crop ── */}
-          {!busy && step === 'crop' && srcUrl && (
+          {/* ── Step 2: crop (busy 시 동일 화면에 블러+스피너 오버레이) ── */}
+          {step === 'crop' && srcUrl && (
             <div className="space-y-3">
               <div className="relative w-full rounded-2xl overflow-hidden"
                 style={{ height: 360, backgroundColor: '#1a1a1a' }}>
@@ -234,27 +241,67 @@ export function QuoteCaptureSheet({ isOpen, onClose, onConfirm, bookId }: QuoteC
                   onZoomChange={setZoom}
                   onCropComplete={onCropComplete}
                 />
+                {/* 가이드 칩 (크롭 중에만) */}
+                {!busy && (
+                  <div className="absolute left-1/2 -translate-x-1/2 px-3 py-1.5 rounded-full pointer-events-none"
+                    style={{ top: 10, backgroundColor: 'rgba(0,0,0,0.55)', color: '#fff', fontSize: 12, fontWeight: 600, whiteSpace: 'nowrap' }}>
+                    구절이 있는 영역을 손가락으로 선택하세요
+                  </div>
+                )}
+                {/* OCR 로딩 — 크롭 이미지를 블러 처리하고 스피너 오버레이 */}
+                {busy && (
+                  <div className="absolute inset-0 flex flex-col items-center justify-center"
+                    style={{ backgroundColor: 'rgba(0,0,0,0.45)', backdropFilter: 'blur(4px)', WebkitBackdropFilter: 'blur(4px)' }}>
+                    <Loader2 size={28} className="animate-spin" style={{ color: '#fff' }} />
+                    <p style={{ fontSize: 14, fontWeight: 700, color: '#fff', marginTop: 12 }}>구절을 읽고 있어요…</p>
+                    <p style={{ fontSize: 12.5, color: 'rgba(255,255,255,0.8)', marginTop: 3 }}>잘라낸 영역의 글자를 옮기는 중</p>
+                  </div>
+                )}
               </div>
-              {errMsg && (
-                <p className="flex items-center gap-1.5" style={{ fontSize: 12.5, color: t.danger }}>
-                  <AlertTriangle size={13} /> {errMsg}
+
+              {/* 에러 배너 — 종류별 액션 */}
+              {!busy && errMsg && (
+                <div className="rounded-xl p-3" style={{ backgroundColor: t.dangerLight, border: `1px solid ${t.danger}` }}>
+                  <p className="flex items-start gap-1.5" style={{ fontSize: 12.5, color: t.danger, fontWeight: 600, lineHeight: 1.5 }}>
+                    <AlertTriangle size={14} style={{ flexShrink: 0, marginTop: 1 }} /> {errMsg}
+                  </p>
+                  <div className="flex items-center gap-2 mt-2.5">
+                    {errKind === 'network' && (
+                      <button onClick={handleExtract}
+                        className="flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg"
+                        style={{ fontSize: 13, fontWeight: 700, color: '#fff', backgroundColor: t.danger }}>
+                        <RotateCcw size={14} /> 다시 시도
+                      </button>
+                    )}
+                    <button onClick={() => { clearSrc(); setStep('pick'); setErrMsg(null); setErrKind(null); }}
+                      className="flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg"
+                      style={{ fontSize: 13, fontWeight: 700, color: t.text, backgroundColor: t.bgSub, border: `1px solid ${t.border}` }}>
+                      <Camera size={14} /> 다시 촬영
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {!busy && !errMsg && (
+                <p style={{ fontSize: 12, color: t.textSub, textAlign: 'center' }}>
+                  두 손가락으로 확대/이동해 읽고 싶은 구절을 박스 안에 맞춰주세요.
                 </p>
               )}
-              <p style={{ fontSize: 12, color: t.textSub, textAlign: 'center' }}>
-                두 손가락으로 확대/이동해 읽고 싶은 구절을 박스 안에 맞춰주세요.
-              </p>
-              <div className="flex items-center gap-2">
-                <button onClick={() => { clearSrc(); setStep('pick'); setErrMsg(null); }}
-                  className="flex items-center justify-center gap-1.5 py-3 rounded-xl"
-                  style={{ flex: '0 0 auto', paddingInline: 16, fontSize: 14, fontWeight: 700, color: t.text, backgroundColor: t.bgSub, border: `1px solid ${t.border}` }}>
-                  <ChevronLeft size={16} /> 다시 찍기
-                </button>
-                <button onClick={handleExtract} disabled={!areaPixels}
-                  className="flex-1 flex items-center justify-center gap-1.5 py-3 rounded-xl active:scale-[0.99] transition-transform"
-                  style={{ fontSize: 15, fontWeight: 700, color: '#fff', backgroundColor: t.accent, opacity: areaPixels ? 1 : 0.5 }}>
-                  <CropIcon size={16} /> 구절 추출
-                </button>
-              </div>
+
+              {!busy && (
+                <div className="flex items-center gap-2">
+                  <button onClick={() => { clearSrc(); setStep('pick'); setErrMsg(null); setErrKind(null); }}
+                    className="flex items-center justify-center gap-1.5 py-3 rounded-xl"
+                    style={{ flex: '0 0 auto', paddingInline: 16, fontSize: 14, fontWeight: 700, color: t.text, backgroundColor: t.bgSub, border: `1px solid ${t.border}` }}>
+                    <ChevronLeft size={16} /> 다시 찍기
+                  </button>
+                  <button onClick={handleExtract} disabled={!areaPixels}
+                    className="flex-1 flex items-center justify-center gap-1.5 py-3 rounded-xl active:scale-[0.99] transition-transform"
+                    style={{ fontSize: 15, fontWeight: 700, color: '#fff', backgroundColor: t.accent, opacity: areaPixels ? 1 : 0.5 }}>
+                    <CropIcon size={16} /> 구절 추출
+                  </button>
+                </div>
+              )}
             </div>
           )}
 
@@ -271,7 +318,7 @@ export function QuoteCaptureSheet({ isOpen, onClose, onConfirm, bookId }: QuoteC
                 <label style={labelStyle}>구절</label>
                 <textarea value={quoteText} onChange={e => setQuoteText(e.target.value)} rows={7}
                   placeholder="읽어온 구절"
-                  style={{ ...fieldStyle, resize: 'vertical', lineHeight: 1.7, fontFamily: 'Georgia, "Noto Serif KR", serif' }} />
+                  style={{ ...fieldStyle, resize: 'vertical', lineHeight: 1.7, fontFamily: 'Georgia, "Noto Serif KR", serif', maxHeight: '42vh', overflowY: 'auto' }} />
               </div>
               <div style={{ width: 130 }}>
                 <label style={labelStyle}>페이지 (선택)</label>
