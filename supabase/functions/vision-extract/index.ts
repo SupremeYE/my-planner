@@ -5,7 +5,7 @@
 //   beauty    → { ok:true, items:[{ name, brand?, category?, confidence }] }
 //   household → { ok:true, items:[{ name, brand?, category?, quantity?, price?, purchase_place?, confidence }] }
 //   recipe    → { ok:true, recipe:{ title?, ingredients:string[], steps:string[] } }   (items 와 키가 다름 — 클라가 domain 으로 분기)
-//   reading   → { ok:true, text:string, page:number|null }   (책 페이지 사진에서 구절 원문 OCR)
+//   reading   → { ok:true, sentences:string[], page:number|null }   (책 페이지 사진에서 문장 단위로 분리한 OCR)
 //   실패/파싱불가 → { ok:false, error }   (클라가 수동 입력으로 폴백)
 //
 // 동작: 사진(제품/영수증) 1장을 OpenAI gpt-4o-mini vision 으로 읽어 항목을 추출한다.
@@ -36,15 +36,21 @@ function json(body: unknown, status = 200): Response {
 function promptFor(domain: 'beauty' | 'household' | 'recipe' | 'reading'): string {
   if (domain === 'reading') {
     return [
-      '이 이미지는 책 페이지 사진이다. 이미지에 보이는 모든 본문 텍스트를 빠짐없이 추출하라.',
-      '- 원문의 줄바꿈을 무시하고 문장 단위로 자연스럽게 이어 붙여라 (OCR 줄 단위 개행 제거).',
-      '  예: 한 문장이 여러 줄에 걸쳐 있으면 한 줄로 이어 붙인다. "살아가는 사람들이 있습니다.\\n십여 년을" 처럼 어색하게 끊지 말 것.',
-      '- 단, 문단 구분(빈 줄)은 보존하라. 새 문단이 시작되면 빈 줄(\\n\\n) 하나로 구분한다.',
-      '- 문장부호, 띄어쓰기는 원본과 동일하게 보존하라. 임의로 요약/의역/교정하지 마라.',
-      '- 머리글/바닥글/페이지 번호/쪽 장식 같은 잡텍스트는 본문에서 제외하라.',
-      '- 페이지 번호가 보이면 숫자만 page 로 추출하라. 안 보이면 null.',
-      '출력은 JSON 객체 하나만: {"text":"추출된 전체 본문 텍스트","page":47}',
-      '마크다운/코드펜스/설명 없이 JSON 만. 글자를 못 읽으면 {"text":"","page":null}.',
+      '이 이미지는 책 페이지 사진이다.',
+      '이미지에 보이는 모든 본문 텍스트를 추출하되, 문장 단위로 분리하여 배열로 반환하라.',
+      '',
+      '규칙:',
+      '- 한 문장은 마침표(.), 물음표(?), 느낌표(!) 또는 문맥상 완결되는 지점에서 끊는다.',
+      '- OCR 줄바꿈을 무시하고, 하나의 문장이 여러 줄에 걸쳐 있으면 이어 붙여 하나의 문장으로 합친다.',
+      '- 따옴표(" ") 안의 대화/인용은 하나의 문장으로 유지한다.',
+      '- 머리글, 바닥글, 페이지 번호는 본문에서 제외한다.',
+      '- 페이지 번호가 보이면 별도 필드로 추출한다.',
+      '- 문장부호, 띄어쓰기는 원본과 동일하게 보존한다. 임의로 요약/의역/교정하지 마라.',
+      '',
+      '반드시 아래 JSON 형식으로만 응답:',
+      '{"sentences":["첫 번째 문장.","두 번째 문장."],"page":47}',
+      'page는 페이지 번호가 보이지 않으면 null.',
+      '마크다운/코드펜스/설명 없이 JSON 만. 글자를 못 읽으면 {"sentences":[],"page":null}.',
     ].join('\n');
   }
   if (domain === 'recipe') {
@@ -134,10 +140,11 @@ function parseRecipe(text: string): { title?: string; ingredients: string[]; ste
   }
 }
 
-// reading domain 전용: {text, page} 안전 파싱.
+// reading domain 전용: {sentences[], page} 안전 파싱.
 //  - parseItems/parseRecipe 와 동일한 가드(코드펜스 제거 → 첫 { ~ 마지막 } → JSON.parse) 재사용.
-//  - text 는 문자열만, page 는 양의 정수만(아니면 null). text 가 비면 null 반환(호출부가 실패 처리).
-function parseReading(text: string): { text: string; page: number | null } | null {
+//  - sentences 는 문자열 원소만(앞뒤 trim·빈 문자열 제거), page 는 양의 정수만(아니면 null).
+//  - sentences 가 빈 배열이면 null 반환(호출부가 실패 처리).
+function parseReading(text: string): { sentences: string[]; page: number | null } | null {
   if (!text) return null;
   let s = text.trim();
   s = s.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/i, '').trim();
@@ -146,11 +153,13 @@ function parseReading(text: string): { text: string; page: number | null } | nul
   if (first === -1 || last === -1 || last < first) return null;
   try {
     const obj = JSON.parse(s.slice(first, last + 1));
-    const quote = typeof obj?.text === 'string' ? obj.text.trim() : '';
-    if (!quote) return null;
+    const sentences = Array.isArray(obj?.sentences)
+      ? obj.sentences.filter((x: unknown): x is string => typeof x === 'string').map((x: string) => x.trim()).filter(Boolean)
+      : [];
+    if (sentences.length === 0) return null;
     const p = Number(obj?.page);
     const page = Number.isFinite(p) && p > 0 ? Math.floor(p) : null;
-    return { text: quote, page };
+    return { sentences, page };
   } catch {
     return null;
   }
@@ -202,11 +211,11 @@ Deno.serve(async (req: Request) => {
       return json({ ok: true, recipe });
     }
 
-    // reading domain 은 책 페이지 사진에서 구절 원문 + 페이지를 뽑아 {text, page} 로 반환.
+    // reading domain 은 책 페이지 사진에서 문장 배열 + 페이지를 뽑아 {sentences, page} 로 반환.
     if (domain === 'reading') {
       const r = typeof text === 'string' ? parseReading(text) : null;
       if (r == null) return json({ ok: false, error: '사진에서 글자를 읽지 못했어요' });
-      return json({ ok: true, text: r.text, page: r.page });
+      return json({ ok: true, sentences: r.sentences, page: r.page });
     }
 
     const parsed = typeof text === 'string' ? parseItems(text) : null;

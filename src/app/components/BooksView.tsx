@@ -7,7 +7,7 @@ import ConfirmModal from './ConfirmModal';
 import { supabase } from '../../lib/supabase';
 import { useRealtimeSync } from '../hooks/useRealtimeSync';
 import { useVoiceInput } from '../hooks/useVoiceInput';
-import { QuoteTextSelector } from './QuoteTextSelector';
+import { QuoteSentenceSelector } from './QuoteSentenceSelector';
 
 // ─── 타입 ──────────────────────────────────────────────────────────────
 type BookStatus = 'reading' | 'want' | 'done';
@@ -1738,8 +1738,8 @@ function BookDetailModal({
         </div>
       )}
 
-      {/* 사진으로 구절 담기 — 촬영 → OCR → 네이티브 텍스트 선택 (v2) */}
-      <QuoteTextSelector
+      {/* 사진으로 구절 담기 — 촬영 → OCR(문장 분리) → 문장 카드 선택 → 편집·페이지 (v3) */}
+      <QuoteSentenceSelector
         isOpen={captureOpen}
         bookId={book.id}
         onClose={() => setCaptureOpen(false)}
