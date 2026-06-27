@@ -918,10 +918,9 @@ function BookDetailModal({
       });
   };
 
-  // 모바일 풀스크린 시트 진입 헬퍼
-  // 사진 캡처 결과를 작성 폼에 채움 — 텍스트는 기존 입력에 이어 붙이고, 페이지/사진은 채운다.
+  // 사진 캡처 결과를 작성 폼에 채움 — v2(네이티브 선택)는 사용자가 고른 구절이 곧 본문이므로 그대로 채운다(이어붙임 X).
   const handleCaptureConfirm = (r: { text: string; page?: number; imageUrl: string }) => {
-    setQuoteText(prev => (prev.trim() ? prev.trimEnd() + '\n' + r.text : r.text));
+    setQuoteText(r.text);
     if (r.page != null) setQuotePage(String(r.page));
     setQuoteImageUrl(r.imageUrl);
   };
@@ -1812,24 +1811,6 @@ function QuoteCard({
       <div style={{ width: 3, backgroundColor: accentColor, flexShrink: 0 }} />
       {/* 내용 */}
       <div className="flex-1 p-3" style={{ backgroundColor: t.card }}>
-        {/* 구절 사진(사진으로 담은 구절) — 본문 위에 썸네일, 탭하면 확대 */}
-        {quote.imageUrl && (
-          <img
-            src={quote.imageUrl}
-            alt="구절 사진"
-            onClick={(e) => { e.stopPropagation(); setLightbox(true); }}
-            style={{
-              width: '100%',
-              maxHeight: 160,
-              objectFit: 'cover',
-              borderRadius: 8,
-              marginBottom: 8,
-              border: `1px solid ${t.border}`,
-              cursor: 'zoom-in',
-              display: 'block',
-            }}
-          />
-        )}
         <div className="flex items-start justify-between gap-2">
           {/* 구절 본문 — 살짝 들여쓰기로 인용 느낌 */}
           <p
@@ -1881,6 +1862,25 @@ function QuoteCard({
               {quote.note}
             </p>
           </div>
+        )}
+
+        {/* 구절 사진(사진으로 담은 구절) — 본문 아래 옅은 썸네일, 탭하면 확대. 텍스트가 주인공이라 80px·0.85 */}
+        {quote.imageUrl && (
+          <img
+            src={quote.imageUrl}
+            alt="구절 사진"
+            onClick={(e) => { e.stopPropagation(); setLightbox(true); }}
+            style={{
+              width: '100%',
+              height: 80,
+              objectFit: 'cover',
+              borderRadius: 8,
+              opacity: 0.85,
+              marginTop: 8,
+              cursor: 'zoom-in',
+              display: 'block',
+            }}
+          />
         )}
 
         {meta && (
