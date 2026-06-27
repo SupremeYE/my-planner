@@ -6,6 +6,38 @@
 
 ---
 
+## 2026-06-27 — 📸 독서 구절 사진 캡처 v3 (촬영→OCR 문장 분리→문장 카드 선택) — Stage 1~3
+
+### 🛠 구현
+
+같은 날 적용한 v2(촬영→OCR→**네이티브 텍스트 드래그 선택**)를 폐기하고, **OCR이 문장 배열로 끊어 주면 문장 카드를 탭으로 골라 담는** v3 3-screen 방식으로 전환. 모바일에서 드래그 선택이 불안정·불편했던 문제를 카드 탭 선택으로 해결(틈틈독서 앱 OCR 구절 수집 플로우 참고). 여러 쪽 구절은 "이어서 추가"로 누적.
+
+- **Stage 2-A — v1 잔재 확인**: `react-easy-crop`·`cropImage.ts`·`QuoteCaptureSheet.tsx`는 v2에서 이미 제거 완료(재제거 불필요). 이번엔 v2 산물 `QuoteTextSelector.tsx` 삭제(잔존 참조 0).
+- **Stage 2-B — Edge Function `reading` 응답 포맷 변경**(재배포 **version 7 · ACTIVE · verify_jwt true**)
+  - 응답 `{ text, page }` → **`{ sentences: string[], page }`**. 프롬프트를 "본문 전문 이어붙이기" → **"문장 단위로 분리해 배열 반환"**(마침표/물음표/느낌표·완결 지점 분할, 줄바꿈 무시 이어붙임, 따옴표 인용 1문장 유지, 페이지 별도 추출, 요약/교정 금지).
+  - `parseReading`: 문자열 원소만 trim 통과·**빈 배열이면 null**, page 양의 정수만. 핸들러 `{ ok, sentences, page }`. `max_tokens` 2048 유지.
+  - `useVisionExtract`: `ExtractResult.text?` → **`sentences?: string[]`**, reading 분기 문장 배열 처리(빈 배열=실패 폴백). beauty/household/recipe 무영향.
+- **Stage 2-C — `QuoteSentenceSelector` 신설**(`src/app/components/QuoteSentenceSelector.tsx`, props 동일: `isOpen`/`onClose`/`onConfirm`/`bookId`) — **3-screen**:
+  - ① 촬영(`capture="environment"`)/갤러리 → `prepImageForOcr`(HEIC→JPEG·2000px) → `uploadPhoto` → `vision-extract(reading)`(로딩 "페이지 텍스트를 읽고 있어요…").
+  - ② **문장 카드 탭 선택**: 상단 선택영역(좌측 골드 라인·합산 텍스트·"N자 선택됨"), 카드 탭 토글(멀티·**탭 순번** 표시·골드 테두리/틴트), 하단 [이어서 추가][완료]. "이어서 추가"=다른 사진 OCR 결과를 카드 아래 누적(선택 유지), 실패 시 기존 카드 유지+에러배너. "완료"는 미선택 시 비활성.
+  - ③ **편집·페이지**: auto-grow `textarea`(`--font-reading`·15px·line-height 1.8, 자유 수정), `P.` 페이지 input(OCR page 자동 채움), [다시 선택][✓ 완료] → `onConfirm({ text, page?, imageUrl })`. `imageUrl`은 **첫 촬영 사진**.
+- **Stage 3 — BooksView 통합 + 구절 카드 이미지**(연결부는 v2에서 배선 완료라 컴포넌트 교체+확인 위주)
+  - `import`/JSX를 `QuoteSentenceSelector`로 교체(`onConfirm`/`bookId`/`isOpen` 계약 동일). PC write 패널·모바일 시트(write 전용) **"📷 사진으로 구절 담기"** 버튼 + 첨부 썸네일/제거 그대로.
+  - `handleCaptureConfirm`: 사용자가 고르고 편집한 텍스트가 곧 본문 → `setQuoteText`(replace)·페이지·`quoteImageUrl` 채움 → `handleAddQuote`/`handleUpdateQuote` insert/update `image_url` 합류, 저장 후 초기화.
+  - `QuoteCard` 썸네일: 본문 아래 **80px 고정·`object-fit:cover`·radius 8·opacity 0.85** + 탭 확대 라이트박스(z-[80]). `image_url` 없는 구절 무영향.
+
+### 🧭 결정 사항 / 무영향 확인
+
+- AI(vision-extract)는 **촬영 직후 OCR만** 호출(이어서 추가 시 추가 1회). 조회/렌더 경로 0, 추출 원문 영속 저장 안 함 — 확정·편집값만 `book_quotes`에.
+- 텍스트 직접 입력=`image_url` null · 음성 입력 무관 · 수정 모드는 텍스트만(재촬영 미지원, 썸네일·`image_url` 보존) · 즐겨찾기/삭제 정상 · PC `lg:` 분기 보존 · `book_quotes` Realtime 기구독(추가 작업 0). 색 디자인 토큰만 사용, `npm run build`(vite 6) 통과.
+
+### ⚠️ 알려진 한계 / 후속 후보
+
+- 수정 모드 사진 재촬영/교체 미지원(텍스트만). 구절 삭제 시 Storage 원본 사진 잔존(정리 추후).
+- 문장 분할은 OCR(LLM) 판단에 의존 — 드물게 한 문장이 2장으로 쪼개지면 두 카드를 함께 선택해 이어 담으면 됨.
+
+---
+
 ## 2026-06-27 — 📸 독서 구절 사진 캡처 v2 (촬영→OCR→네이티브 텍스트 선택) — Stage 1~3
 
 ### 🛠 구현
