@@ -1501,6 +1501,11 @@ export const db = {
       const { error } = await supabase.from('moments').delete().eq('id', id);
       if (error) console.error('[db] moments delete:', error.message);
     },
+    updateContent: async (id: string, content: string) => {
+      const { error } = await supabase.from('moments').update({ content }).eq('id', id);
+      if (error) console.error('[db] moments updateContent:', error.message);
+      return !error;
+    },
     setHighlight: async (id: string, value: boolean) => {
       const { error } = await supabase.from('moments').update({ is_highlight: value }).eq('id', id);
       if (error) console.error('[db] moments setHighlight:', error.message);

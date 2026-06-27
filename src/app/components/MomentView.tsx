@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Camera, ChevronRight, ImagePlus, Star, Trash2, X } from 'lucide-react';
+import { Camera, Check, ChevronRight, ImagePlus, Pencil, Star, Trash2, X } from 'lucide-react';
 import { useTheme, type ThemeTokens } from '../ThemeContext';
 import { db } from '../../lib/db';
 import { useRealtimeSync } from '../hooks/useRealtimeSync';
@@ -210,6 +210,19 @@ export function MomentView() {
   const handleDelete = async (id: string) => {
     await db.moments.delete(id);
     setMoments(prev => prev.filter(m => m.id !== id));
+  };
+
+  // 본문 수정 — 낙관적 업데이트, 실패 시 롤백
+  const handleUpdateContent = async (id: string, nextContent: string) => {
+    const target = moments.find(m => m.id === id);
+    if (!target) return false;
+    const prevContent = target.content;
+    setMoments(prev => prev.map(m => m.id === id ? { ...m, content: nextContent } : m));
+    const ok = await db.moments.updateContent(id, nextContent);
+    if (!ok) {
+      setMoments(prev => prev.map(m => m.id === id ? { ...m, content: prevContent } : m));
+    }
+    return ok;
   };
 
   // 하이라이트 토글 (낙관적 업데이트, 실패 시 롤백)
@@ -620,6 +633,7 @@ export function MomentView() {
                             t={t}
                             onToggleHighlight={() => handleToggleHighlight(m.id)}
                             onDelete={() => handleDelete(m.id)}
+                            onUpdateContent={next => handleUpdateContent(m.id, next)}
                             formatTime={formatTime}
                           />
                         ))}
@@ -772,6 +786,7 @@ export function MomentView() {
                   expanded={expandedIds.has(moment.id)}
                   onToggle={() => toggleExpand(moment.id)}
                   onDelete={() => handleDelete(moment.id)}
+                  onUpdateContent={next => handleUpdateContent(moment.id, next)}
                   t={t}
                   formatTime={formatTime}
                 />
@@ -1076,18 +1091,30 @@ function HighlightMiniTile({ moment, t }: { moment: Moment; t: ThemeTokens }) {
 
 // ── PC 피드 카드 (메이슨리용 — 원본 비율 사진 + 별 토글 + Gaegu 제목 + 메타) ─
 function MomentFeedCardPC({
-  moment, t, onToggleHighlight, onDelete, formatTime,
+  moment, t, onToggleHighlight, onDelete, onUpdateContent, formatTime,
 }: {
   moment: Moment;
   t: ThemeTokens;
   onToggleHighlight: () => void;
   onDelete: () => void;
+  onUpdateContent: (next: string) => Promise<boolean>;
   formatTime: (iso: string) => string;
 }) {
   const weather = moment.weather_code != null ? weatherInfo(moment.weather_code) : null;
   const cover   = moment.photos[0];
   const title   = moment.content.trim() || '오늘의 순간';
   const hi      = moment.is_highlight;
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState(moment.content);
+
+  const startEdit = () => { setDraft(moment.content); setEditing(true); };
+  const cancelEdit = () => { setEditing(false); setDraft(moment.content); };
+  const saveEdit = async () => {
+    const next = draft.trim();
+    if (next === moment.content.trim()) { setEditing(false); return; }
+    const ok = await onUpdateContent(next);
+    if (ok) setEditing(false);
+  };
 
   return (
     <div
@@ -1142,21 +1169,39 @@ function MomentFeedCardPC({
           </div>
         )}
 
-        {/* 제목 (Gaegu) */}
-        <p
-          style={{
-            fontFamily: 'var(--font-gaegu)',
-            fontSize: 17,
-            color: t.text,
-            lineHeight: 1.45,
-            whiteSpace: 'pre-wrap',
-            wordBreak: 'break-word',
-          }}
-        >
-          {title}
-        </p>
+        {/* 제목 (Gaegu) — 편집 중에는 textarea */}
+        {editing ? (
+          <textarea
+            value={draft}
+            onChange={e => setDraft(e.target.value)}
+            autoFocus
+            rows={3}
+            className="w-full resize-none outline-none rounded-md p-2"
+            style={{
+              fontFamily: 'var(--font-gaegu)',
+              fontSize: 17,
+              color: t.text,
+              lineHeight: 1.45,
+              backgroundColor: t.bgSub,
+              border: `1px solid ${t.border}`,
+            }}
+          />
+        ) : (
+          <p
+            style={{
+              fontFamily: 'var(--font-gaegu)',
+              fontSize: 17,
+              color: t.text,
+              lineHeight: 1.45,
+              whiteSpace: 'pre-wrap',
+              wordBreak: 'break-word',
+            }}
+          >
+            {title}
+          </p>
+        )}
 
-        {/* 메타: 날씨 칩 + 날짜·시간 + 삭제 */}
+        {/* 메타: 날씨 칩 + 날짜·시간 + 수정/삭제 */}
         <div className="flex items-center justify-between gap-2">
           <div className="flex items-center gap-1.5 flex-wrap min-w-0">
             {weather && (
@@ -1170,14 +1215,47 @@ function MomentFeedCardPC({
             )}
             <span style={{ fontSize: 11, color: t.textMuted }}>{formatTime(moment.created_at)}</span>
           </div>
-          <button
-            onClick={e => { e.stopPropagation(); onDelete(); }}
-            className="p-1 rounded-md opacity-0 group-hover:opacity-100 transition-opacity"
-            style={{ color: t.textMuted }}
-            aria-label="삭제"
-          >
-            <Trash2 size={13} />
-          </button>
+          <div className="flex items-center gap-0.5">
+            {editing ? (
+              <>
+                <button
+                  onClick={e => { e.stopPropagation(); cancelEdit(); }}
+                  className="p-1 rounded-md transition-opacity"
+                  style={{ color: t.textMuted }}
+                  aria-label="취소"
+                >
+                  <X size={13} />
+                </button>
+                <button
+                  onClick={e => { e.stopPropagation(); saveEdit(); }}
+                  className="p-1 rounded-md transition-opacity"
+                  style={{ color: t.accent }}
+                  aria-label="저장"
+                >
+                  <Check size={13} />
+                </button>
+              </>
+            ) : (
+              <>
+                <button
+                  onClick={e => { e.stopPropagation(); startEdit(); }}
+                  className="p-1 rounded-md opacity-0 group-hover:opacity-100 transition-opacity"
+                  style={{ color: t.textMuted }}
+                  aria-label="수정"
+                >
+                  <Pencil size={13} />
+                </button>
+                <button
+                  onClick={e => { e.stopPropagation(); onDelete(); }}
+                  className="p-1 rounded-md opacity-0 group-hover:opacity-100 transition-opacity"
+                  style={{ color: t.textMuted }}
+                  aria-label="삭제"
+                >
+                  <Trash2 size={13} />
+                </button>
+              </>
+            )}
+          </div>
         </div>
       </div>
     </div>
@@ -1243,14 +1321,26 @@ interface MomentCardMobileProps {
   expanded: boolean;
   onToggle: () => void;
   onDelete: () => void;
+  onUpdateContent: (next: string) => Promise<boolean>;
   t: ThemeTokens;
   formatTime: (iso: string) => string;
 }
 
-function MomentCardMobile({ moment, expanded, onToggle, onDelete, t, formatTime }: MomentCardMobileProps) {
+function MomentCardMobile({ moment, expanded, onToggle, onDelete, onUpdateContent, t, formatTime }: MomentCardMobileProps) {
   const weather = moment.weather_code != null ? weatherInfo(moment.weather_code) : null;
   const cover   = moment.photos[0];
   const title   = moment.content.trim() || '오늘의 순간';
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState(moment.content);
+
+  const startEdit = () => { setDraft(moment.content); setEditing(true); };
+  const cancelEdit = () => { setEditing(false); setDraft(moment.content); };
+  const saveEdit = async () => {
+    const next = draft.trim();
+    if (next === moment.content.trim()) { setEditing(false); return; }
+    const ok = await onUpdateContent(next);
+    if (ok) setEditing(false);
+  };
 
   // 날씨 칩 + 날짜·시간 메타
   const Meta = (
@@ -1297,28 +1387,81 @@ function MomentCardMobile({ moment, expanded, onToggle, onDelete, t, formatTime 
       style={{ backgroundColor: t.card, border: `1px solid ${t.border}` }}
     >
       {expanded ? (
-        <div className="space-y-3">
+        <div className="space-y-3" onClick={e => { if (editing) e.stopPropagation(); }}>
           {Thumb}
           <div className="flex items-start justify-between gap-2">
             <div className="min-w-0 flex-1">
-              <p style={{ fontFamily: 'var(--font-gaegu)', fontSize: 18, color: t.text, lineHeight: 1.5, whiteSpace: 'pre-wrap' }}>
-                {title}
-              </p>
+              {editing ? (
+                <textarea
+                  value={draft}
+                  onChange={e => setDraft(e.target.value)}
+                  onClick={e => e.stopPropagation()}
+                  autoFocus
+                  rows={3}
+                  className="w-full resize-none outline-none rounded-md p-2"
+                  style={{
+                    fontFamily: 'var(--font-gaegu)',
+                    fontSize: 18,
+                    color: t.text,
+                    lineHeight: 1.5,
+                    backgroundColor: t.bgSub,
+                    border: `1px solid ${t.border}`,
+                  }}
+                />
+              ) : (
+                <p style={{ fontFamily: 'var(--font-gaegu)', fontSize: 18, color: t.text, lineHeight: 1.5, whiteSpace: 'pre-wrap' }}>
+                  {title}
+                </p>
+              )}
               {Meta}
             </div>
-            <ChevronRight
-              size={18}
-              style={{ color: t.textMuted, flexShrink: 0, transition: 'transform 0.3s ease', transform: 'rotate(90deg)' }}
-            />
+            {!editing && (
+              <ChevronRight
+                size={18}
+                style={{ color: t.textMuted, flexShrink: 0, transition: 'transform 0.3s ease', transform: 'rotate(90deg)' }}
+              />
+            )}
           </div>
-          <div className="flex justify-end">
-            <button
-              onClick={e => { e.stopPropagation(); onDelete(); }}
-              className="p-1.5 rounded-lg transition-colors"
-              style={{ color: t.textMuted }}
-            >
-              <Trash2 size={14} />
-            </button>
+          <div className="flex justify-end gap-1">
+            {editing ? (
+              <>
+                <button
+                  onClick={e => { e.stopPropagation(); cancelEdit(); }}
+                  className="p-1.5 rounded-lg transition-colors"
+                  style={{ color: t.textMuted }}
+                  aria-label="취소"
+                >
+                  <X size={14} />
+                </button>
+                <button
+                  onClick={e => { e.stopPropagation(); saveEdit(); }}
+                  className="p-1.5 rounded-lg transition-colors"
+                  style={{ color: t.accent }}
+                  aria-label="저장"
+                >
+                  <Check size={14} />
+                </button>
+              </>
+            ) : (
+              <>
+                <button
+                  onClick={e => { e.stopPropagation(); startEdit(); }}
+                  className="p-1.5 rounded-lg transition-colors"
+                  style={{ color: t.textMuted }}
+                  aria-label="수정"
+                >
+                  <Pencil size={14} />
+                </button>
+                <button
+                  onClick={e => { e.stopPropagation(); onDelete(); }}
+                  className="p-1.5 rounded-lg transition-colors"
+                  style={{ color: t.textMuted }}
+                  aria-label="삭제"
+                >
+                  <Trash2 size={14} />
+                </button>
+              </>
+            )}
           </div>
         </div>
       ) : (
