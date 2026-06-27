@@ -6,6 +6,7 @@ import { supabase } from '../../lib/supabase';
 import { useRealtimeSync } from '../../app/hooks/useRealtimeSync';
 import { moneyDb } from './db';
 import { getMoneyPeriod, daysLeftInPeriod, type MoneyPeriod } from './period';
+import { fetchFxRate, needsFxRefresh } from './fx';
 import type {
   MoneyCategory, MoneyTransaction, MoneyAccount, MoneyCard,
   MoneyFixedCost, MoneyLoan, MoneyGoal, MoneySettings, ParsedTx, TxType,
@@ -65,6 +66,8 @@ export interface UseMoney {
   deleteCard: (id: string) => Promise<void>;
   saveFixedCost: (f: MoneyFixedCost) => Promise<void>;
   deleteFixedCost: (id: string) => Promise<void>;
+  // 외화 고정비 환율 갱신(Frankfurter). force=true 면 사이클 가드 무시(수동 새로고침).
+  refreshFxRates: (opts?: { force?: boolean }) => Promise<{ updated: number; alerts: string[] }>;
   saveLoan: (l: MoneyLoan) => Promise<void>;
   deleteLoan: (id: string) => Promise<void>;
   saveGoal: (g: MoneyGoal) => Promise<void>;
@@ -324,6 +327,28 @@ export function useMoney(): UseMoney {
   const deleteFixedCost = useCallback(async (id: string) => {
     setFixedCosts(prev => prev.filter(x => x.id !== id)); await moneyDb.fixedCosts.delete(id); await refresh();
   }, [refresh]);
+
+  // 외화 고정비 환율 갱신 — 대상별 Frankfurter 호출 → amount(원화환산)·fxRate·변동률 저장, 임계 초과는 알림 수집.
+  const refreshFxRates = useCallback(async (opts?: { force?: boolean }) => {
+    const t = today();
+    const targets = fixedCosts.filter(f => needsFxRefresh(f, t, opts?.force ?? false));
+    if (targets.length === 0) return { updated: 0, alerts: [] as string[] };
+    let updated = 0;
+    const alerts: string[] = [];
+    for (const f of targets) {
+      const rate = await fetchFxRate(f.currency);
+      if (rate == null || f.originalAmount == null) continue;
+      const newAmount = Math.round(f.originalAmount * rate);
+      const changePct = f.fxRate ? ((rate - f.fxRate) / f.fxRate) * 100 : 0;
+      await moneyDb.fixedCosts.upsert({ ...f, amount: newAmount, fxRate: rate, fxRateDate: t, fxChangePct: changePct });
+      updated++;
+      if (f.fxRate && Math.abs(changePct) >= (settings.fxAlertThreshold || 0)) {
+        alerts.push(`${f.name} ${changePct > 0 ? '▲' : '▼'}${Math.abs(changePct).toFixed(1)}%`);
+      }
+    }
+    if (updated > 0) await refresh();
+    return { updated, alerts };
+  }, [fixedCosts, settings.fxAlertThreshold, refresh]);
   const saveLoan = useCallback(async (l: MoneyLoan) => { await moneyDb.loans.upsert(l); await refresh(); }, [refresh]);
   const deleteLoan = useCallback(async (id: string) => {
     setLoans(prev => prev.filter(x => x.id !== id)); await moneyDb.loans.delete(id); await refresh();
@@ -340,7 +365,7 @@ export function useMoney(): UseMoney {
     daysLeft, dailyAllowance, noSpendStreak, trackingStartDate, spendByDay,
     categoryOf, refresh,
     addTransaction, deleteTransaction, parseAndAdd, addCategory, saveCategory, deleteCategory, updateSettings,
-    saveAccount, deleteAccount, saveCard, deleteCard, saveFixedCost, deleteFixedCost,
+    saveAccount, deleteAccount, saveCard, deleteCard, saveFixedCost, deleteFixedCost, refreshFxRates,
     saveLoan, deleteLoan, saveGoal, deleteGoal,
   };
 }

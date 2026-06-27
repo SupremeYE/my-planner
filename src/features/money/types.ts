@@ -70,6 +70,10 @@ export interface MoneyFixedCost {
   categoryId: string | null;
   isVariable: boolean;
   emoji: string | null;
+  // 외화 환율 추적(원화 고정비는 모두 null) — Frankfurter 결제일 직전 1회 갱신.
+  fxRate: number | null;        // 직전 적용 1단위 환율(1 USD = N KRW)
+  fxRateDate: string | null;    // 'yyyy-MM-dd' 그 환율 취득일(사이클 가드)
+  fxChangePct: number | null;   // 직전 환율 대비 변동률(%)
   createdAt?: string;
 }
 

@@ -124,7 +124,9 @@ const fixedCosts = {
       currency: (r.currency ?? 'KRW') as Currency, cycle: r.cycle ?? 'monthly',
       billingDay: num(r.billing_day), paymentMethod: r.payment_method ?? null,
       categoryId: r.category_id ?? null, isVariable: r.is_variable ?? false,
-      emoji: r.emoji ?? null, createdAt: r.created_at ?? undefined,
+      emoji: r.emoji ?? null,
+      fxRate: num(r.fx_rate), fxRateDate: r.fx_rate_date ?? null, fxChangePct: num(r.fx_change_pct),
+      createdAt: r.created_at ?? undefined,
     }));
   },
   upsert: async (item: MoneyFixedCost) => {
@@ -133,6 +135,7 @@ const fixedCosts = {
       currency: item.currency, cycle: item.cycle, billing_day: item.billingDay ?? null,
       payment_method: item.paymentMethod ?? null, category_id: item.categoryId ?? null,
       is_variable: item.isVariable ?? false, emoji: item.emoji ?? null,
+      fx_rate: item.fxRate ?? null, fx_rate_date: item.fxRateDate ?? null, fx_change_pct: item.fxChangePct ?? null,
     }, { onConflict: 'id' });
     if (error) console.error('[money] fixed_costs upsert:', error.message);
   },

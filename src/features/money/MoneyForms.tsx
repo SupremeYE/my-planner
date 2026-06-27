@@ -235,7 +235,9 @@ export function FixedCostForm({ m, item, onClose }: { m: UseMoney; item: MoneyFi
   const [isVariable, setIsVariable] = useState(item?.isVariable ?? false);
   const [emoji, setEmoji] = useState(item?.emoji ?? '');
   const save = () => {
-    m.saveFixedCost({ id: item?.id ?? uuid(), name: name.trim(), amount: intVal(amount), originalAmount: currency === 'KRW' ? null : numOrNull(original), currency, cycle, billingDay: numOrNull(billingDay), paymentMethod: pm.trim() || null, categoryId: categoryId || null, isVariable, emoji: emoji.trim() || null });
+    m.saveFixedCost({ id: item?.id ?? uuid(), name: name.trim(), amount: intVal(amount), originalAmount: currency === 'KRW' ? null : numOrNull(original), currency, cycle, billingDay: numOrNull(billingDay), paymentMethod: pm.trim() || null, categoryId: categoryId || null, isVariable, emoji: emoji.trim() || null,
+      // 통화를 KRW 로 바꾸면 환율 추적값 초기화, 외화면 기존 추적값 보존.
+      fxRate: currency === 'KRW' ? null : (item?.fxRate ?? null), fxRateDate: currency === 'KRW' ? null : (item?.fxRateDate ?? null), fxChangePct: currency === 'KRW' ? null : (item?.fxChangePct ?? null) });
     onClose();
   };
   return (

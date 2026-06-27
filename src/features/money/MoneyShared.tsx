@@ -10,18 +10,24 @@ import {
 import type { MoneyCategory, MoneyAccount, MoneyCard, MoneyLoan, MoneyGoal, MoneyFixedCost, PeriodType } from './types';
 import { TransactionForm, AccountForm, CardForm, FixedCostForm, LoanForm, GoalForm } from './MoneyForms';
 import { CategoryManager } from './MoneyCategoryManager';
+import { FixedCostManager } from './MoneyFixedCostManager';
 
-// 섹션 헤더(+ 추가 버튼 포함)
-function SectionHead({ title, onAdd }: { title: string; onAdd?: () => void }) {
+// 섹션 헤더(+ 추가 / 관리 버튼 포함)
+function SectionHead({ title, onAdd, onManage }: { title: string; onAdd?: () => void; onManage?: () => void }) {
   const { t } = useTheme();
   return (
     <div className="flex items-center justify-between" style={{ margin: '4px 2px 8px' }}>
       <span style={{ fontSize: 13, fontWeight: 700, color: t.text }}>{title}</span>
-      {onAdd && (
-        <button onClick={onAdd} className="flex items-center gap-1" style={{ fontSize: 12, color: MONEY_PALETTE.gold, fontWeight: 600 }}>
-          <Plus size={13} /> 추가
-        </button>
-      )}
+      <div className="flex items-center gap-3">
+        {onManage && (
+          <button onClick={onManage} style={{ fontSize: 12, color: t.textSub, fontWeight: 600 }}>관리</button>
+        )}
+        {onAdd && (
+          <button onClick={onAdd} className="flex items-center gap-1" style={{ fontSize: 12, color: MONEY_PALETTE.gold, fontWeight: 600 }}>
+            <Plus size={13} /> 추가
+          </button>
+        )}
+      </div>
     </div>
   );
 }
@@ -562,6 +568,7 @@ type AssetEditor =
 export function AssetPanel({ m }: { m: UseMoney }) {
   const { t } = useTheme();
   const [editor, setEditor] = useState<AssetEditor>(null);
+  const [showFixedMgr, setShowFixedMgr] = useState(false);
   const banks = m.accounts.filter(a => a.type !== 'investment');
   const rowBtn = { background: t.card, borderRadius: 14, padding: 14, boxShadow: t.shadow } as React.CSSProperties;
 
@@ -629,7 +636,7 @@ export function AssetPanel({ m }: { m: UseMoney }) {
 
       {/* 고정비 */}
       <div>
-        <SectionHead title={`🔁 고정비 · 월 ${m.fixedTotal.toLocaleString('ko-KR')}원`} onAdd={() => setEditor({ kind: 'fixed', item: null })} />
+        <SectionHead title={`🔁 고정비 · 월 ${m.fixedTotal.toLocaleString('ko-KR')}원`} onManage={() => setShowFixedMgr(true)} onAdd={() => setEditor({ kind: 'fixed', item: null })} />
         <div className="flex flex-col gap-2">
           {m.fixedCosts.map(f => {
             const cat = m.categoryOf(f.categoryId);
@@ -699,6 +706,7 @@ export function AssetPanel({ m }: { m: UseMoney }) {
       {editor?.kind === 'card' && <CardForm m={m} item={editor.item} onClose={() => setEditor(null)} />}
       {editor?.kind === 'fixed' && <FixedCostForm m={m} item={editor.item} onClose={() => setEditor(null)} />}
       {editor?.kind === 'loan' && <LoanForm m={m} item={editor.item} onClose={() => setEditor(null)} />}
+      {showFixedMgr && <FixedCostManager m={m} onClose={() => setShowFixedMgr(false)} />}
     </div>
   );
 }
