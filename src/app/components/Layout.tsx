@@ -6,7 +6,7 @@ import {
   Menu, Heart, Repeat, BookOpen, Library, Settings, BarChart3,
   Smile, Utensils, Camera, Clapperboard, ChefHat,
   Sparkles, Bookmark, PenLine, MapPin, Footprints,
-  Flower2, SprayCan,
+  Flower2, SprayCan, Wallet,
   User, LogOut, Mail,
 } from 'lucide-react';
 import { usePlanner, getWeekKey } from '../store';
@@ -154,6 +154,7 @@ const mainNavItems = [
 ];
 
 const lifestyleNavItems = [
+  { to: '/money', icon: Wallet, label: '머니' },
   { to: '/habits', icon: Repeat, label: '습관 & 루틴' },
   { to: '/health', icon: Heart, label: '건강' },
   { to: '/time-report', icon: BarChart3, label: '시간 리포트' },
@@ -416,6 +417,7 @@ function MobileMenuOverlay({ onClose }: { onClose: () => void }) {
   const allItems = [
     ...mainNavItems,
     { to: '/projects', icon: FolderKanban, label: '프로젝트' },
+    { to: '/money', icon: Wallet, label: '머니' },
     { to: '/habits', icon: Repeat, label: '습관&루틴' },
     { to: '/health', icon: Heart, label: '건강' },
     { to: '/time-report', icon: BarChart3, label: '시간 리포트' },
