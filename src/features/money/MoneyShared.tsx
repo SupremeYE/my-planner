@@ -7,7 +7,7 @@ import type { UseMoney } from './useMoney';
 import {
   MONEY_PALETTE, resolveCategoryColor, categoryInitial, formatWon, formatManShort, subcategoryShade, INVEST_KIND_META,
 } from './tokens';
-import type { MoneyCategory, MoneyAccount, MoneyCard, MoneyLoan, MoneyGoal, MoneyFixedCost, PeriodType } from './types';
+import type { MoneyCategory, MoneyAccount, MoneyCard, MoneyLoan, MoneyGoal, MoneyFixedCost, PeriodType, Currency } from './types';
 import { TransactionForm, AccountForm, CardForm, FixedCostForm, LoanForm, GoalForm } from './MoneyForms';
 import { CategoryManager } from './MoneyCategoryManager';
 import { FixedCostManager } from './MoneyFixedCostManager';
@@ -1080,17 +1080,25 @@ export function SettingsSheet({ m, onClose }: { m: UseMoney; onClose: () => void
   const [periodType, setPeriodType] = useState<PeriodType>(m.settings.periodType);
   const [payday, setPayday] = useState(String(m.settings.payday));
   const [budgetMan, setBudgetMan] = useState(String(Math.round(m.settings.monthlyBudget / 10000)));
+  const [currency, setCurrency] = useState<Currency>(m.settings.currency);
+  const [fxThreshold, setFxThreshold] = useState(String(m.settings.fxAlertThreshold));
   const [showCategories, setShowCategories] = useState(false);
 
   const save = async () => {
+    const thr = Number(fxThreshold);
     await m.updateSettings({
       ...m.settings,
       periodType,
       payday: Math.min(Math.max(parseInt(payday) || 1, 1), 31),
       monthlyBudget: (parseInt(budgetMan) || 0) * 10000,
+      currency,
+      fxAlertThreshold: Number.isFinite(thr) && thr > 0 ? thr : 3.0,
     });
     onClose();
   };
+  const CURRENCIES: { value: Currency; label: string }[] = [
+    { value: 'KRW', label: '₩ 원' }, { value: 'USD', label: '$ 달러' }, { value: 'EUR', label: '€ 유로' }, { value: 'JPY', label: '¥ 엔' },
+  ];
 
   const opt = (active: boolean) => ({
     flex: 1, padding: 10, borderRadius: 12, textAlign: 'center' as const, fontSize: 13, cursor: 'pointer',
@@ -1126,12 +1134,30 @@ export function SettingsSheet({ m, onClose }: { m: UseMoney; onClose: () => void
             </div>
           </div>
         )}
-        <div style={{ marginBottom: 20 }}>
+        <div style={{ marginBottom: 18 }}>
           <div style={{ fontSize: 12, color: t.textSub, marginBottom: 8 }}>월 예산</div>
           <div className="flex items-center gap-2">
             <input type="number" value={budgetMan} onChange={e => setBudgetMan(e.target.value)} style={{ ...input, width: 80 }} />
             <span style={{ fontSize: 13, color: t.textSub }}>만 원</span>
           </div>
+        </div>
+
+        <div style={{ marginBottom: 18 }}>
+          <div style={{ fontSize: 12, color: t.textSub, marginBottom: 8 }}>기본 통화</div>
+          <div className="flex gap-2">
+            {CURRENCIES.map(c => (
+              <button key={c.value} style={opt(currency === c.value)} onClick={() => setCurrency(c.value)}>{c.label}</button>
+            ))}
+          </div>
+        </div>
+
+        <div style={{ marginBottom: 20 }}>
+          <div style={{ fontSize: 12, color: t.textSub, marginBottom: 8 }}>환율 알림 임계값</div>
+          <div className="flex items-center gap-2">
+            <input type="number" step="0.5" value={fxThreshold} onChange={e => setFxThreshold(e.target.value)} style={{ ...input, width: 70 }} />
+            <span style={{ fontSize: 13, color: t.textSub }}>% 이상 변동 시 알림</span>
+          </div>
+          <div style={{ fontSize: 11, color: t.textMuted, marginTop: 6 }}>외화 고정비 환율이 직전 대비 이만큼 변하면 고정비 관리 화면에 ⚠ 표시</div>
         </div>
 
         {/* 카테고리 관리 진입 */}
