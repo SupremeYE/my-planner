@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Camera, Check, ChevronRight, ImagePlus, Pencil, Star, Trash2, X } from 'lucide-react';
+import { Camera, Check, ChevronRight, ImagePlus, SquarePen, Star, Trash2, X } from 'lucide-react';
 import { useTheme, type ThemeTokens } from '../ThemeContext';
 import { db } from '../../lib/db';
 import { useRealtimeSync } from '../hooks/useRealtimeSync';
@@ -1243,7 +1243,7 @@ function MomentFeedCardPC({
                   style={{ color: t.textMuted }}
                   aria-label="수정"
                 >
-                  <Pencil size={13} />
+                  <SquarePen size={13} />
                 </button>
                 <button
                   onClick={e => { e.stopPropagation(); onDelete(); }}
@@ -1450,7 +1450,7 @@ function MomentCardMobile({ moment, expanded, onToggle, onDelete, onUpdateConten
                   style={{ color: t.textMuted }}
                   aria-label="수정"
                 >
-                  <Pencil size={14} />
+                  <SquarePen size={14} />
                 </button>
                 <button
                   onClick={e => { e.stopPropagation(); onDelete(); }}
