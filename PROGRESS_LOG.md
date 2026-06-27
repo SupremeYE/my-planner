@@ -6,6 +6,37 @@
 
 ---
 
+## 2026-06-27 — 📸 독서 구절 사진 캡처 v2 (촬영→OCR→네이티브 텍스트 선택) — Stage 1~3
+
+### 🛠 구현
+
+기존 v1(촬영→**크롭**→OCR) 방식을 폐기하고 **OCR 먼저 → 추출된 전문에서 원하는 부분만 손가락/마우스로 자유 선택**하는 v2로 전환. 크롭 UI·`react-easy-crop` 불필요, `window.getSelection()` + `selectionchange` 만으로 구현.
+
+- **Stage 1 — Edge Function 프롬프트 v2** (DB/버킷/데이터 레이어는 v1 그대로 재사용, 검증만)
+  - `vision-extract`의 `reading` 도메인 프롬프트를 교체: 기존 "줄바꿈 원본 보존" → **"원문 줄바꿈 무시·문장 단위로 자연스럽게 이어붙이기(OCR 줄 개행 제거), 단 문단(빈 줄)은 보존"**. `"있습니다.\n십여 년을"` 처럼 어색하게 끊기지 않게 함 → 네이티브 선택으로 문장 경계에서 정확히 끊을 수 있음. 재배포 완료(**version 6 · ACTIVE · verify_jwt true**), `max_tokens` 2048, 응답 `{ ok, text, page }` 그대로.
+  - 검증: `book_quotes.image_url`(text) 컬럼 적용됨 · `book-photos` 버킷+RLS 존재 · `db.bookQuotes.uploadPhoto(quoteId, file)`(평면 경로) · `useVisionExtract` reading 분기(`text?`/`page?`) 모두 v1에서 완비. beauty/household/recipe 무영향.
+- **Stage 2 — v1 UI 제거 + `QuoteTextSelector` 신설**
+  - 제거: `react-easy-crop` 패키지 · `src/lib/cropImage.ts`(canvas 크롭 헬퍼) · `src/app/components/QuoteCaptureSheet.tsx`(크롭 시트). 코드 내 잔존 참조 0.
+  - 신설 `src/app/components/QuoteTextSelector.tsx`(props 동일: `isOpen`/`onClose`/`onConfirm`/`bookId`) — **2-step**: ① 촬영(`capture="environment"`)/갤러리 → `db.bookQuotes.uploadPhoto` → `vision-extract(reading)` OCR(로딩 "페이지 텍스트를 읽고 있어요…") → ② 추출 전문 카드(`--font-reading` Noto Serif KR·line-height 2)에서 **네이티브 selection**으로 구절만 선택 → "이 구절 사용".
+  - 선택 감지: `document` `selectionchange` + **iOS Safari 백업** `touchend`(setTimeout 100ms). `user-select:text`·`-webkit-touch-callout:default`·`::selection` 골드 반투명(`${t.accent}59`≈0.35 알파). 선택 미리보기(좌측 골드 라인·2줄 clamp·"N자 선택됨"), 선택 없으면 "이 구절 사용" `opacity 0.35 + pointer-events:none`. 자동 감지 페이지 "📖 자동 감지 p.N". 모바일 바텀시트 / PC `lg:` 모달.
+  - 폰트: `fonts.css`에 `Noto+Serif+KR` import + `--font-reading: 'Noto Serif KR','Gowun Batang',Georgia,serif` 토큰 추가.
+- **Stage 3 — BooksView 통합 + 구절 카드 이미지**
+  - BooksView 연결부는 v1에서 이미 배선되어 확인 위주: PC write 패널·모바일 시트(write 전용) 모두 **"📷 사진으로 구절 담기"** 버튼 + 첨부 썸네일/제거 존재, `import`/JSX만 `QuoteTextSelector`로 교체(Stage 2). insert/update payload `image_url` 배선 완비.
+  - `handleCaptureConfirm`을 **이어붙임 → 그대로 채움**으로 변경: v2는 사용자가 고른 구절이 곧 본문이므로 `setQuoteText(r.text)`(replace). 페이지/`quoteImageUrl` 채움 → 기존 `handleAddQuote`/`handleUpdateQuote` 합류, 저장 후 `quoteImageUrl` 초기화.
+  - `QuoteCard` 썸네일을 v2 디자인으로: **본문 위 160px → 본문 아래 80px 고정·`object-fit:cover`·radius 8·opacity 0.85**("텍스트가 주인공"). 기존 라이트박스(탭 확대)는 v2에서 원본 전체 페이지를 담아 더 유용하므로 유지(회귀 방지). `image_url` 없는 구절은 무영향(3곳 호출 공용 컴포넌트).
+
+### 🧭 결정 사항 / 무영향 확인
+
+- AI(vision-extract)는 **촬영 직후 OCR 1회만** 호출(조회/렌더 경로 0). 추출 원문 영속 저장 안 함 — 확정·편집값만 `book_quotes`에.
+- 텍스트 직접 입력=`image_url` null(기존과 동일) · 음성 입력 무관 · 수정 모드는 텍스트만(재촬영 v1 미지원, 썸네일 표시·`image_url` 보존) · 즐겨찾기/삭제 정상 · PC `lg:` 분기 보존 · `book_quotes` Realtime 기구독(추가 작업 0). 색 디자인 토큰만(라이트박스 dim·OpenAI 키만 제외), `npm run build`(vite 6) 통과.
+
+### ⚠️ 알려진 한계 / 후속 후보
+
+- 수정 모드 사진 재촬영/교체 v1 미지원(텍스트만). 구절 삭제 시 Storage 원본 사진은 잔존(정리는 추후).
+- 선택은 단일 연속 범위(네이티브 selection) — 비연속 다중 선택은 범위 외.
+
+---
+
 ## 2026-06-26 — 📸 독서 구절 사진 캡처 (촬영→크롭→OCR) — Stage 0~4
 
 ### 🛠 구현
