@@ -127,7 +127,7 @@ type BrainstormMemoRow = {
 };
 
 type TagRow = {
-  id: string; name: string; color: string;
+  id: string; name: string; color: string; track_time: boolean;
 };
 
 type RoutineRow = {
@@ -464,8 +464,8 @@ const fromBrainstormItem = (b: BrainstormItem): BrainstormItemRow => ({
   week_key: b.weekKey ?? null,
 });
 
-const toTag = (r: TagRow): Tag => ({ id: r.id, name: r.name, color: r.color });
-const fromTag = (t: Tag): TagRow => ({ id: t.id, name: t.name, color: t.color });
+const toTag = (r: TagRow): Tag => ({ id: r.id, name: r.name, color: r.color, trackTime: r.track_time ?? false });
+const fromTag = (t: Tag): TagRow => ({ id: t.id, name: t.name, color: t.color, track_time: t.trackTime ?? false });
 
 const toRoutine = (r: RoutineRow): Routine => {
   const routineSteps = r.routine_steps && r.routine_steps.length > 0
