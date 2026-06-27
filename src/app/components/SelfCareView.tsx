@@ -1398,14 +1398,19 @@ function ChartTooltip({ active, payload, label, t }: any) {
 }
 
 // ④ 도넛 차트 + 범례
-function TimeDonut({ data }: { data: ReturnType<typeof useTimeReport>['byCategory'] }) {
+function TimeDonut({ data, size = 150, showLegend = true, centerFontSize = 19 }: {
+  data: ReturnType<typeof useTimeReport>['byCategory'];
+  size?: number;
+  showLegend?: boolean;
+  centerFontSize?: number;
+}) {
   const { t } = useTheme();
   const total = data.reduce((s, d) => s + d.totalMinutes, 0);
   const isEmpty = total <= 0;
 
   return (
-    <div className="flex items-center gap-4 mb-6">
-      <div className="relative flex-shrink-0" style={{ width: 150, height: 150 }}>
+    <div className={`flex items-center gap-4 ${showLegend ? 'mb-6' : ''}`}>
+      <div className="relative flex-shrink-0" style={{ width: size, height: size }}>
         <ResponsiveContainer width="100%" height="100%">
           <PieChart>
             <Pie
@@ -1429,28 +1434,148 @@ function TimeDonut({ data }: { data: ReturnType<typeof useTimeReport>['byCategor
           ) : (
             <>
               <span style={{ fontSize: 9, color: t.textMuted, fontWeight: 600 }}>총 시간</span>
-              <span style={{ fontSize: 19, color: t.text, fontFamily: 'var(--font-gmarket)', lineHeight: 1.1 }}>{fmtMinKo(total)}</span>
+              <span style={{ fontSize: centerFontSize, color: t.text, fontFamily: 'var(--font-gmarket)', lineHeight: 1.1 }}>{fmtMinKo(total)}</span>
             </>
           )}
         </div>
       </div>
 
       {/* 범례 */}
-      <div className="flex-1 min-w-0 space-y-2">
-        {isEmpty ? (
-          <p style={{ fontSize: 12, color: t.textMuted }}>시간 추적을 켠 태그의 완료 할 일이 집계됩니다.</p>
-        ) : data.map(d => {
-          const pct = total > 0 ? Math.round((d.totalMinutes / total) * 100) : 0;
-          return (
-            <div key={d.tagId} className="flex items-center gap-2">
-              <span className="rounded-full flex-shrink-0" style={{ width: 9, height: 9, backgroundColor: d.tagColor }} />
-              <span className="truncate" style={{ fontSize: 12, color: t.text, flex: 1 }}>{d.tagName}</span>
-              <span style={{ fontSize: 11, color: t.textSub, fontWeight: 600 }}>{fmtMinKo(d.totalMinutes)}</span>
-              <span style={{ fontSize: 10, color: t.textMuted, width: 30, textAlign: 'right' }}>{pct}%</span>
+      {showLegend && (
+        <div className="flex-1 min-w-0 space-y-2">
+          {isEmpty ? (
+            <p style={{ fontSize: 12, color: t.textMuted }}>시간 추적을 켠 태그의 완료 할 일이 집계됩니다.</p>
+          ) : data.map(d => {
+            const pct = total > 0 ? Math.round((d.totalMinutes / total) * 100) : 0;
+            return (
+              <div key={d.tagId} className="flex items-center gap-2">
+                <span className="rounded-full flex-shrink-0" style={{ width: 9, height: 9, backgroundColor: d.tagColor }} />
+                <span className="truncate" style={{ fontSize: 12, color: t.text, flex: 1 }}>{d.tagName}</span>
+                <span style={{ fontSize: 11, color: t.textSub, fontWeight: 600 }}>{fmtMinKo(d.totalMinutes)}</span>
+                <span style={{ fontSize: 10, color: t.textMuted, width: 30, textAlign: 'right' }}>{pct}%</span>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ━━ PC 전용 컴포넌트 (lg:) ━━
+
+// 좌측 패널: 일별 클릭 가능한 가로 스택 바 리스트
+function DailyBarList({ report, selectedDate, onSelect }: {
+  report: ReturnType<typeof useTimeReport>;
+  selectedDate: string | null;
+  onSelect: (date: string | null) => void;
+}) {
+  const { t } = useTheme();
+  const { daily, byCategory, period } = report;
+  const maxTotal = Math.max(...daily.map(d => d.totalMinutes), 1);
+
+  return (
+    <div className="space-y-1 overflow-y-auto" style={{ maxHeight: period === 'week' ? 'none' : 360 }}>
+      {daily.map(d => {
+        const selected = selectedDate === d.date;
+        const hasData = d.totalMinutes > 0;
+        const dateLabel = period === 'week'
+          ? d.dayLabel
+          : `${d.dayLabel}일`;
+        return (
+          <button
+            key={d.date}
+            type="button"
+            onClick={() => onSelect(selected ? null : d.date)}
+            className="w-full flex items-center gap-2 px-2 py-1.5 rounded-lg transition-colors text-left"
+            style={{
+              backgroundColor: selected ? t.accent + '14' : 'transparent',
+              border: `1px solid ${selected ? t.accent : 'transparent'}`,
+              cursor: 'pointer',
+            }}
+          >
+            <span style={{ fontSize: 11, width: 34, flexShrink: 0, textAlign: 'center', color: d.isToday ? t.accent : t.textMuted, fontWeight: d.isToday ? 700 : 500 }}>
+              {dateLabel}
+            </span>
+            <div className="flex-1 flex rounded-full overflow-hidden" style={{ height: 14, backgroundColor: t.bgSub }}>
+              {hasData && byCategory.map(c => {
+                const m = d.byCategory[c.tagId] ?? 0;
+                if (m <= 0) return null;
+                return <div key={c.tagId} title={`${c.tagName} ${fmtMinKo(m)}`} style={{ width: `${(m / maxTotal) * 100}%`, backgroundColor: c.tagColor }} />;
+              })}
             </div>
-          );
-        })}
+            <span style={{ fontSize: 10, width: 54, flexShrink: 0, textAlign: 'right', color: hasData ? t.textSub : t.textMuted, fontWeight: hasData ? 600 : 400 }}>
+              {hasData ? fmtMinKo(d.totalMinutes) : '–'}
+            </span>
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+// 우측 패널: 카테고리 breakdown (도넛 옆, 진행 바)
+function CategoryBreakdown({ byCategory }: { byCategory: ReturnType<typeof useTimeReport>['byCategory'] }) {
+  const { t } = useTheme();
+  const total = byCategory.reduce((s, d) => s + d.totalMinutes, 0);
+  if (byCategory.length === 0) {
+    return <p style={{ fontSize: 13, color: t.textMuted }}>이 기간에 집계된 활동이 없어요</p>;
+  }
+  return (
+    <div className="flex-1 min-w-0 space-y-3">
+      {byCategory.map(c => {
+        const pct = total > 0 ? Math.round((c.totalMinutes / total) * 100) : 0;
+        return (
+          <div key={c.tagId}>
+            <div className="flex items-center gap-2 mb-1">
+              <span className="rounded-full flex-shrink-0" style={{ width: 10, height: 10, backgroundColor: c.tagColor }} />
+              <span className="truncate" style={{ fontSize: 13, color: t.text, flex: 1, fontWeight: 600 }}>{c.tagName}</span>
+              <span style={{ fontSize: 12, color: t.textSub, fontWeight: 600 }}>{fmtMinKo(c.totalMinutes)}</span>
+              <span style={{ fontSize: 11, color: t.textMuted, width: 34, textAlign: 'right' }}>{pct}%</span>
+            </div>
+            <div className="rounded-full overflow-hidden" style={{ height: 6, backgroundColor: t.bgSub }}>
+              <div style={{ width: `${pct}%`, height: '100%', backgroundColor: c.tagColor, borderRadius: 999, transition: 'width 0.4s' }} />
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+// 우측 패널: 카테고리별 todo 리스트 (PC는 아코디언 대신 바로 펼침)
+function ExpandedCategoryTodos({ byCategory }: { byCategory: ReturnType<typeof useTimeReport>['byCategory'] }) {
+  const { t } = useTheme();
+  if (byCategory.length === 0) {
+    return (
+      <div className="py-8 text-center rounded-2xl" style={{ backgroundColor: t.bgSub, fontSize: 13, color: t.textMuted }}>
+        표시할 활동이 없어요
       </div>
+    );
+  }
+  return (
+    <div className="space-y-3">
+      {byCategory.map(c => (
+        <div key={c.tagId} className="rounded-2xl overflow-hidden" style={{ backgroundColor: t.card, border: `1px solid ${t.borderLight}` }}>
+          <div className="flex items-center gap-2.5 px-4 py-3" style={{ borderBottom: c.todos.length > 0 ? `1px solid ${t.borderLight}` : 'none' }}>
+            <span className="rounded-full flex-shrink-0" style={{ width: 10, height: 10, backgroundColor: c.tagColor }} />
+            <span className="flex-1 truncate" style={{ fontSize: 13, fontWeight: 700, color: t.text }}>{c.tagName}</span>
+            <span style={{ fontSize: 12, color: t.textSub, fontWeight: 600 }}>{fmtMinKo(c.totalMinutes)}</span>
+            <span style={{ fontSize: 10, color: t.textMuted }}>{c.todoCount}건</span>
+          </div>
+          {c.todos.length > 0 && (
+            <div className="px-4 py-2 space-y-1">
+              {c.todos.slice(0, 8).map((todo, idx) => (
+                <div key={idx} className="flex items-center gap-2 py-1">
+                  <span className="flex-1 truncate" style={{ fontSize: 12, color: t.text }}>{todo.name}</span>
+                  <span style={{ fontSize: 11, color: c.tagColor, fontWeight: 600 }}>{fmtMinKo(todo.minutes)}</span>
+                  <span style={{ fontSize: 10, color: t.textMuted, width: 40, textAlign: 'right' }}>{todo.date.slice(5)}</span>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      ))}
     </div>
   );
 }
@@ -1545,40 +1670,125 @@ function CategoryAccordion({ byCategory }: { byCategory: ReturnType<typeof useTi
   );
 }
 
+// 수동 기록 영역 — self_care_records(운동/공부/뷰티)를 시간 리포트에 계속 표시
+// (sleep 은 건강 페이지 전용이므로 제외. todo 자동 집계와 별개의 "앱 밖 활동")
+function ManualRecordsSection({ dateRange, onEdit }: {
+  dateRange: { start: string; end: string };
+  onEdit: (r: SelfCareRecord) => void;
+}) {
+  const { selfCareRecords, deleteSelfCareRecord } = usePlanner();
+  const { t } = useTheme();
+  const records = selfCareRecords
+    .filter(r => r.category !== 'sleep' && r.date >= dateRange.start && r.date <= dateRange.end)
+    .sort((a, b) => b.date.localeCompare(a.date));
+  if (records.length === 0) return null;
+  const totalMin = records.reduce((s, r) => s + r.duration, 0);
+
+  return (
+    <div className="mb-3">
+      <div className="flex items-center justify-between mb-2">
+        <h3 style={{ fontSize: 13, fontWeight: 700, color: t.text }}>수동 기록</h3>
+        <span style={{ fontSize: 11, color: t.textMuted }}>{records.length}건 · {fmtMinKo(totalMin)}</span>
+      </div>
+      <div className="space-y-2">
+        {records.map(r => {
+          const cat = CATEGORIES.find(c => c.key === r.category);
+          const Icon = cat?.icon ?? Sparkles;
+          const color = cat?.color ?? t.accent;
+          return (
+            <div key={r.id} className="flex items-center gap-3 px-4 py-2.5 rounded-xl"
+              style={{ backgroundColor: t.card, border: `1px solid ${t.borderLight}` }}>
+              <Icon size={13} color={color} />
+              <span style={{ fontSize: 11, color: t.textMuted, width: 44, flexShrink: 0 }}>{r.date.slice(5)}</span>
+              <span className="truncate" style={{ fontSize: 13, color: t.text, flex: 1 }}>{r.content}</span>
+              <span style={{ fontSize: 11, color, fontWeight: 600, flexShrink: 0 }}>{fmtMinKo(r.duration)}</span>
+              <button onClick={() => onEdit(r)} className="p-1 rounded"
+                style={{ color: t.textMuted, background: 'none', border: 'none', cursor: 'pointer' }} aria-label="수정">
+                <Pencil size={12} />
+              </button>
+              <button onClick={() => deleteSelfCareRecord(r.id)} className="p-1 rounded"
+                style={{ color: t.textMuted, background: 'none', border: 'none', cursor: 'pointer' }} aria-label="삭제">
+                <X size={13} />
+              </button>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+// 기간 선택 세그먼트 탭 (모바일·PC 공용)
+function PeriodTabs({ period, onChange }: { period: TimeReportPeriod; onChange: (p: TimeReportPeriod) => void }) {
+  const { t } = useTheme();
+  return (
+    <div className="flex p-1 rounded-xl" style={{ backgroundColor: t.bgSub }}>
+      {([['week', '이번 주'], ['month', '이번 달']] as const).map(([key, label]) => (
+        <button key={key} onClick={() => onChange(key)}
+          className="flex-1 py-2 rounded-lg transition-colors"
+          style={{
+            fontSize: 13, fontWeight: 600,
+            backgroundColor: period === key ? t.accent : 'transparent',
+            color: period === key ? '#fff' : t.textSub,
+          }}>
+          {label}
+        </button>
+      ))}
+    </div>
+  );
+}
+
 export function SelfCareView() {
   const { t } = useTheme();
   const [showAdd, setShowAdd] = useState(false);
   const [editRecord, setEditRecord] = useState<SelfCareRecord | null>(null);
   const [period, setPeriod] = useState<TimeReportPeriod>('week');
+  // PC 좌측 패널에서 선택한 날짜(상세 보기) — 모바일에서는 사용하지 않음
+  const [selectedDate, setSelectedDate] = useState<string | null>(null);
 
   // 전역 FAB — 기록 추가
   useFabAction({ kind: 'action', label: '기록 추가', icon: Plus, onPress: () => setShowAdd(true) });
 
   const report = useTimeReport(period);
 
+  // 기간 변경 시 선택 날짜 초기화 (주↔달 사이 날짜가 호환되지 않으므로)
+  const changePeriod = (p: TimeReportPeriod) => { setPeriod(p); setSelectedDate(null); };
+
+  // PC 우측 패널에 표시할 카테고리: 선택한 날이 있으면 그 날 기준, 없으면 전체 기간
+  const selDay = selectedDate ? report.daily.find(d => d.date === selectedDate) ?? null : null;
+  const viewCategories = useMemo(() => {
+    if (!selDay) return report.byCategory;
+    return report.byCategory
+      .map(c => ({
+        ...c,
+        totalMinutes: selDay.byCategory[c.tagId] ?? 0,
+        todos: c.todos.filter(td => td.date === selDay.date),
+        todoCount: c.todos.filter(td => td.date === selDay.date).length,
+      }))
+      .filter(c => c.totalMinutes > 0)
+      .sort((a, b) => b.totalMinutes - a.totalMinutes);
+  }, [selDay, report.byCategory]);
+
+  const selDayLabel = selDay
+    ? (() => {
+        const d = parseISO(selDay.date);
+        const base = format(d, 'M월 d일');
+        return period === 'week' ? `${base} (${['일', '월', '화', '수', '목', '금', '토'][d.getDay()]})` : base;
+      })()
+    : '';
+
   return (
     <div className="flex-1 overflow-y-auto">
       {/* ① Header */}
-      <div className="px-6 pt-6 pb-4">
+      <div className="px-6 pt-6 pb-4 lg:px-8">
         <h1 style={{ fontSize: 22, fontWeight: 700, color: t.text, fontFamily: 'var(--font-gmarket)' }}>시간 리포트</h1>
         <p style={{ fontSize: 13, color: t.textSub, marginTop: 4 }}>태그별로 시간 사용을 자동 집계해 보여줘요</p>
       </div>
 
-      <div className="px-6 pb-8 lg:max-w-3xl lg:mx-auto">
+      {/* ━━ 모바일 레이아웃 (기존, lg 미만에서만) ━━ */}
+      <div className="px-6 pb-8 lg:hidden">
         {/* ② 기간 탭 */}
-        <div className="flex p-1 rounded-xl mb-5" style={{ backgroundColor: t.bgSub }}>
-          {([['week', '이번 주'], ['month', '이번 달']] as const).map(([key, label]) => (
-            <button key={key} onClick={() => setPeriod(key)}
-              className="flex-1 py-2 rounded-lg transition-colors"
-              style={{
-                fontSize: 13, fontWeight: 600,
-                backgroundColor: period === key ? t.accent : 'transparent',
-                color: period === key ? '#fff' : t.textSub,
-              }}>
-              {label}
-            </button>
-          ))}
-        </div>
+        <div className="mb-5"><PeriodTabs period={period} onChange={changePeriod} /></div>
 
         {/* ③ 인사이트 카드 */}
         <TimeInsightCard insight={report.insight} />
@@ -1594,12 +1804,85 @@ export function SelfCareView() {
         {/* ⑦ 카테고리별 상세 (아코디언) */}
         <CategoryAccordion byCategory={report.byCategory} />
 
+        {/* ⑦-2 수동 기록(운동/공부/뷰티) 목록 */}
+        <ManualRecordsSection dateRange={report.dateRange} onEdit={setEditRecord} />
+
         {/* ⑧ 수동 기록 버튼 */}
         <button onClick={() => setShowAdd(true)}
           className="w-full flex items-center justify-center gap-2 py-3 rounded-xl transition-colors"
           style={{ border: `2px dashed ${t.border}`, color: t.textSub, fontSize: 13, fontWeight: 600 }}>
           <Plus size={16} /> 앱 밖 활동 직접 추가
         </button>
+      </div>
+
+      {/* ━━ PC 레이아웃 (lg 이상): 좌 타임라인 사이드바 + 우 본문 ━━ */}
+      <div className="hidden lg:flex gap-6 px-8 pb-12 max-w-6xl mx-auto">
+        {/* 좌측 패널 (고정 ~320px) */}
+        <aside className="flex-shrink-0" style={{ width: 320 }}>
+          <div className="sticky top-6 space-y-4">
+            <PeriodTabs period={period} onChange={changePeriod} />
+            <div className="rounded-2xl p-4" style={{ backgroundColor: t.card, border: `1px solid ${t.borderLight}` }}>
+              <h3 style={{ fontSize: 13, fontWeight: 700, color: t.text, marginBottom: 10 }}>
+                {period === 'week' ? '요일별 활동' : '일별 활동'}
+              </h3>
+              <DailyBarList report={report} selectedDate={selectedDate} onSelect={setSelectedDate} />
+              <p style={{ fontSize: 11, color: t.textMuted, marginTop: 10, lineHeight: 1.5 }}>
+                날짜를 클릭하면 오른쪽에 그 날 상세가 표시돼요
+              </p>
+            </div>
+          </div>
+        </aside>
+
+        {/* 우측 패널 (나머지 영역) */}
+        <section className="flex-1 min-w-0 space-y-5">
+          {/* 인사이트 / 선택한 날 헤더 */}
+          {selDay ? (
+            <div className="flex items-center justify-between px-4 py-3 rounded-2xl"
+              style={{ backgroundColor: t.accent + '12', border: `1px solid ${t.accent}40` }}>
+              <div className="flex items-center gap-2">
+                <Clock size={16} color={t.accent} />
+                <span style={{ fontSize: 14, fontWeight: 700, color: t.text }}>{selDayLabel}</span>
+                <span style={{ fontSize: 12, color: t.textSub }}>· {fmtMinKo(selDay.totalMinutes)}</span>
+              </div>
+              <button onClick={() => setSelectedDate(null)}
+                className="flex items-center gap-1 px-2.5 py-1 rounded-full"
+                style={{ fontSize: 12, fontWeight: 600, color: t.accent, backgroundColor: t.card, border: `1px solid ${t.accent}` }}>
+                전체 보기 <X size={12} />
+              </button>
+            </div>
+          ) : (
+            <TimeInsightCard insight={report.insight} />
+          )}
+
+          {/* 도넛 + 카테고리 breakdown (가로 배치) */}
+          <div className="rounded-2xl p-6" style={{ backgroundColor: t.card, border: `1px solid ${t.borderLight}` }}>
+            <div className="flex items-center gap-8">
+              <TimeDonut data={viewCategories} size={210} showLegend={false} centerFontSize={22} />
+              <CategoryBreakdown byCategory={viewCategories} />
+            </div>
+          </div>
+
+          {/* 전체 기간일 때만 주차별/요일별 스택 바도 함께 표시 */}
+          {!selDay && <TimeStackBar report={report} />}
+
+          {/* 카테고리별 todo 리스트 (선택한 날 / 전체 기간) */}
+          <div>
+            <h3 style={{ fontSize: 14, fontWeight: 700, color: t.text, marginBottom: 12 }}>
+              {selDay ? `${selDayLabel} 활동` : '카테고리별 활동'}
+            </h3>
+            <ExpandedCategoryTodos byCategory={viewCategories} />
+          </div>
+
+          {/* 수동 기록(운동/공부/뷰티) 목록 */}
+          <ManualRecordsSection dateRange={report.dateRange} onEdit={setEditRecord} />
+
+          {/* 수동 기록 버튼 */}
+          <button onClick={() => setShowAdd(true)}
+            className="w-full flex items-center justify-center gap-2 py-3 rounded-xl transition-colors"
+            style={{ border: `2px dashed ${t.border}`, color: t.textSub, fontSize: 13, fontWeight: 600 }}>
+            <Plus size={16} /> 앱 밖 활동 직접 추가
+          </button>
+        </section>
       </div>
 
       {showAdd && <AddRecordModal onClose={() => setShowAdd(false)} />}
