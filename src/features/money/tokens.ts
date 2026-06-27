@@ -44,6 +44,25 @@ export function paletteColor(index: number): string {
   return CUSTOM_PALETTE[index % CUSTOM_PALETTE.length];
 }
 
+// 대분류 색을 흰색 쪽으로 ratio(0~1)만큼 밝힌 변형 — 소분류 드릴다운 "같은 계열" 표현용.
+//  · 하드코딩 hex 가 아니라 대분류 색에서 파생. ratio=0 이면 원색, 1 이면 흰색.
+export function shadeColor(hex: string, ratio: number): string {
+  const m = /^#?([0-9a-f]{6})$/i.exec(hex.trim());
+  if (!m) return hex;
+  const n = parseInt(m[1], 16);
+  const r = (n >> 16) & 255, g = (n >> 8) & 255, b = n & 255;
+  const mix = (c: number) => Math.round(c + (255 - c) * Math.min(1, Math.max(0, ratio)));
+  const to2 = (c: number) => c.toString(16).padStart(2, '0');
+  return `#${to2(mix(r))}${to2(mix(g))}${to2(mix(b))}`;
+}
+
+// 소분류 인덱스(0..count-1)별 명도 변형 색 — 부모색에서 단계적으로 밝게(최대 ~0.55).
+export function subcategoryShade(parentColor: string, index: number, count: number): string {
+  if (count <= 1) return parentColor;
+  const ratio = (index / (count - 1)) * 0.55;
+  return shadeColor(parentColor, ratio);
+}
+
 // 이모지가 없을 때 카테고리 칩/리스트의 fallback — 이름 첫 글자.
 export function categoryInitial(name?: string | null): string {
   return (name ?? '').trim().charAt(0) || '?';

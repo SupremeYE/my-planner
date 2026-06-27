@@ -5,7 +5,7 @@ import { Send, X, Plus } from 'lucide-react';
 import { useTheme } from '../../app/ThemeContext';
 import type { UseMoney } from './useMoney';
 import {
-  MONEY_PALETTE, resolveCategoryColor, categoryInitial, formatWon, formatManShort,
+  MONEY_PALETTE, resolveCategoryColor, categoryInitial, formatWon, formatManShort, subcategoryShade,
 } from './tokens';
 import type { MoneyCategory, MoneyAccount, MoneyCard, MoneyLoan, MoneyGoal, MoneyFixedCost } from './types';
 import { TransactionForm, AccountForm, CardForm, FixedCostForm, LoanForm, GoalForm } from './MoneyForms';
@@ -254,22 +254,55 @@ export function SpendCalendar({ m }: { m: UseMoney }) {
   );
 }
 
-// ── 카테고리별 지출 분석(스택 바 + 범례) ──
+// ── 카테고리별 지출 분석(대분류 롤업 스택 바 + 행 탭 → 소분류 드릴다운) ──
+const SELF_KEY = '__self__';   // 대분류에 직접 지정(소분류 미지정) 거래 버킷
+const NONE_KEY = '__none__';   // 미분류
+
 export function CategoryBreakdown({ m }: { m: UseMoney }) {
   const { t } = useTheme();
-  const map = new Map<string, number>();
+  const [openId, setOpenId] = useState<string | null>(null);  // 펼친 대분류 id
+
+  // 대분류 롤업 + 대분류별 소분류 분해를 한 번에 집계.
+  const rootMap = new Map<string, number>();                  // rootId → 합계
+  const subMap = new Map<string, Map<string, number>>();      // rootId → (subId|SELF_KEY → 합계)
   m.periodTransactions.filter(x => x.type === 'expense').forEach(x => {
-    const key = x.categoryId ?? '__none__';
-    map.set(key, (map.get(key) ?? 0) + x.amount);
+    const root = m.rootCategoryOf(x.categoryId);
+    const rootId = root?.id ?? NONE_KEY;
+    rootMap.set(rootId, (rootMap.get(rootId) ?? 0) + x.amount);
+    const cat = m.categoryOf(x.categoryId);
+    const subKey = cat?.parentId ? cat.id : SELF_KEY;          // 소분류 거래면 소분류 id, 아니면 대분류 직접
+    const sm = subMap.get(rootId) ?? new Map<string, number>();
+    sm.set(subKey, (sm.get(subKey) ?? 0) + x.amount);
+    subMap.set(rootId, sm);
   });
-  const rows = Array.from(map.entries())
+
+  const rows = Array.from(rootMap.entries())
     .map(([cid, amount]) => {
-      const cat = cid === '__none__' ? null : m.categoryOf(cid);
-      return { cat, amount, color: resolveCategoryColor(cat), name: cat?.name ?? '미분류' };
+      const cat = cid === NONE_KEY ? null : m.categoryOf(cid);
+      // 소분류 데이터가 있을 때만(SELF 외 키 존재) 드릴다운 허용.
+      const sm = subMap.get(cid);
+      const hasSubs = !!sm && Array.from(sm.keys()).some(k => k !== SELF_KEY);
+      return { cid, cat, amount, color: resolveCategoryColor(cat), name: cat?.name ?? '미분류', hasSubs };
     })
     .sort((a, b) => b.amount - a.amount);
   const total = rows.reduce((s, r) => s + r.amount, 0);
   if (total === 0) return null;
+
+  // 펼친 대분류의 소분류 행(명도 변형 색, 금액순).
+  const subRowsOf = (rootId: string, parentColor: string) => {
+    const sm = subMap.get(rootId);
+    if (!sm) return [];
+    const subTotal = Array.from(sm.values()).reduce((s, v) => s + v, 0);
+    const entries = Array.from(sm.entries()).sort((a, b) => b[1] - a[1]);
+    return entries.map(([k, amount], i) => ({
+      key: k,
+      name: k === SELF_KEY ? '기타(대분류 직접)' : m.categoryOf(k)?.name ?? '소분류',
+      amount,
+      pct: subTotal > 0 ? Math.round((amount / subTotal) * 100) : 0,
+      color: k === SELF_KEY ? parentColor : subcategoryShade(parentColor, i, entries.length),
+    }));
+  };
+
   return (
     <div style={{ background: t.card, borderRadius: 20, padding: 18, boxShadow: t.shadow }}>
       <div style={{ fontSize: 14, fontWeight: 700, color: t.text, marginBottom: 14 }}>카테고리별 지출</div>
@@ -279,17 +312,41 @@ export function CategoryBreakdown({ m }: { m: UseMoney }) {
         ))}
       </div>
       <div className="flex flex-col gap-2">
-        {rows.map((r, i) => (
-          <div key={i} className="flex items-center justify-between">
-            <span className="flex items-center gap-2" style={{ fontSize: 12, color: t.text }}>
-              <span style={{ width: 8, height: 8, borderRadius: 2, background: r.color }} />
-              {r.name}
-            </span>
-            <span style={{ fontSize: 12, color: t.textSub }}>
-              {formatWon(r.amount)} <span style={{ color: t.textMuted }}>({Math.round((r.amount / total) * 100)}%)</span>
-            </span>
-          </div>
-        ))}
+        {rows.map((r) => {
+          const open = openId === r.cid;
+          return (
+            <div key={r.cid}>
+              <button
+                onClick={() => r.hasSubs && setOpenId(open ? null : r.cid)}
+                className="flex items-center justify-between w-full text-left"
+                style={{ cursor: r.hasSubs ? 'pointer' : 'default' }}>
+                <span className="flex items-center gap-2" style={{ fontSize: 12, color: t.text }}>
+                  <span style={{ width: 8, height: 8, borderRadius: 2, background: r.color }} />
+                  {r.name}
+                  {r.hasSubs && <span style={{ fontSize: 9, color: t.textMuted }}>{open ? '▲' : '▼'}</span>}
+                </span>
+                <span style={{ fontSize: 12, color: t.textSub }}>
+                  {formatWon(r.amount)} <span style={{ color: t.textMuted }}>({Math.round((r.amount / total) * 100)}%)</span>
+                </span>
+              </button>
+              {open && r.hasSubs && (
+                <div className="flex flex-col gap-1.5" style={{ marginTop: 6, marginBottom: 4, paddingLeft: 16, borderLeft: `2px solid ${r.color}30` }}>
+                  {subRowsOf(r.cid, r.color).map(s => (
+                    <div key={s.key} className="flex items-center justify-between">
+                      <span className="flex items-center gap-2" style={{ fontSize: 11, color: t.textSub }}>
+                        <span style={{ width: 6, height: 6, borderRadius: '50%', background: s.color }} />
+                        {s.name}
+                      </span>
+                      <span style={{ fontSize: 11, color: t.textMuted }}>
+                        {formatWon(s.amount)} ({s.pct}%)
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          );
+        })}
       </div>
     </div>
   );
@@ -339,7 +396,8 @@ export function SpendTrendChart({ m }: { m: UseMoney }) {
   for (const tx of m.transactions) {
     if (tx.type !== 'expense') continue;
     const cm = agg.get(keyOf(tx.spentAt)); if (!cm) continue;
-    const cid = tx.categoryId ?? '__none__';
+    // 소분류 거래는 대분류로 롤업 — 스택 색/범례는 대분류 기준 유지(하위 호환).
+    const cid = m.rootCategoryOf(tx.categoryId)?.id ?? '__none__';
     cm.set(cid, (cm.get(cid) ?? 0) + tx.amount);
   }
   const totals = buckets.map(b => Array.from(agg.get(b.key)!.values()).reduce((s, v) => s + v, 0));
@@ -466,17 +524,20 @@ export function TransactionList({ m, limit, onEdit }: { m: UseMoney; limit?: num
     <div className="flex flex-col gap-2">
       {list.map(tx => {
         const cat = m.categoryOf(tx.categoryId);
+        const root = m.rootCategoryOf(tx.categoryId);
+        // 소분류 거래면 "대분류 · 소분류", 아니면 대분류명. 아이콘 색/이모지는 대분류(root) 기준.
+        const catLabel = cat?.parentId ? `${root?.name ?? ''} · ${cat.name}` : cat?.name ?? null;
         const isIncome = tx.type === 'income';
         return (
           <button key={tx.id} onClick={() => onEdit(tx)} className="flex items-center gap-3 text-left w-full transition-transform active:scale-[0.99]"
             style={{ background: t.card, borderRadius: 14, padding: '11px 14px', boxShadow: t.shadow }}>
-            <TxIcon emoji={tx.emoji} cat={cat} />
+            <TxIcon emoji={tx.emoji} cat={root} />
             <div className="flex-1 min-w-0">
               <div style={{ fontSize: 13, fontWeight: 500, color: t.text, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                {tx.memo || cat?.name || (isIncome ? '수입' : '지출')}
+                {tx.memo || catLabel || (isIncome ? '수입' : '지출')}
               </div>
               <div style={{ fontSize: 11, color: t.textMuted, marginTop: 1 }}>
-                {[cat?.name, tx.paymentMethod, format(parseISO(tx.spentAt), 'M.d')].filter(Boolean).join(' · ')}
+                {[catLabel, tx.paymentMethod, format(parseISO(tx.spentAt), 'M.d')].filter(Boolean).join(' · ')}
               </div>
             </div>
             <div style={{ fontSize: 14, fontWeight: 700, color: isIncome ? MONEY_PALETTE.green : t.text, whiteSpace: 'nowrap' }}>

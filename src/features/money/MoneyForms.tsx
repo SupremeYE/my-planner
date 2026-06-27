@@ -141,16 +141,20 @@ function PaymentMethodField({ m, value, onChange }: { m: UseMoney; value: string
 export function TransactionForm({ m, item, onClose }: { m: UseMoney; item: MoneyTransaction | null; onClose: () => void }) {
   const [type, setType] = useState<TxType>(item?.type ?? 'expense');
   const [amount, setAmount] = useState(item ? String(item.amount) : '');
-  const [categoryId, setCategoryId] = useState(item?.categoryId ?? '');
+  // categoryId 는 대분류(parentId) + 소분류(subId)로 분리 편집. 저장 시 subId가 있으면 소분류 id, 없으면 대분류 id.
+  const initCat = m.categoryOf(item?.categoryId ?? null);
+  const [parentId, setParentId] = useState(initCat ? (initCat.parentId ?? initCat.id) : '');
+  const [subId, setSubId] = useState(initCat?.parentId ? initCat.id : '');
   const [spentAt, setSpentAt] = useState(item?.spentAt ?? new Date().toISOString().slice(0, 10));
   const [memo, setMemo] = useState(item?.memo ?? '');
   const [pm, setPm] = useState(item?.paymentMethod ?? '');
   const [emoji, setEmoji] = useState(item?.emoji ?? '');
   const cats = type === 'expense' ? m.expenseCategories : m.incomeCategories;
+  const subs = m.subcategoriesOf(parentId || null);
 
   const save = () => {
     m.addTransaction({
-      id: item?.id, type, amount: intVal(amount), categoryId: categoryId || null,
+      id: item?.id, type, amount: intVal(amount), categoryId: subId || parentId || null,
       memo: memo.trim() || null, paymentMethod: pm.trim() || null, spentAt,
       emoji: emoji.trim() || null, source: item?.source ?? 'manual', rawInput: item?.rawInput ?? null,
     });
@@ -159,9 +163,12 @@ export function TransactionForm({ m, item, onClose }: { m: UseMoney; item: Money
   return (
     <FormSheet title={item ? '거래 수정' : '거래 추가'} onClose={onClose} onSave={save}
       onDelete={item ? () => m.deleteTransaction(item.id) : undefined} canSave={intVal(amount) > 0}>
-      <Field label="유형"><Seg value={type} onChange={(v) => { setType(v); setCategoryId(''); }} options={[{ value: 'expense', label: '지출' }, { value: 'income', label: '수입' }]} /></Field>
+      <Field label="유형"><Seg value={type} onChange={(v) => { setType(v); setParentId(''); setSubId(''); }} options={[{ value: 'expense', label: '지출' }, { value: 'income', label: '수입' }]} /></Field>
       <Field label="금액"><TextInput value={amount} onChange={setAmount} placeholder="금액(원)" type="number" /></Field>
-      <Field label="카테고리"><SelectInput value={categoryId} onChange={setCategoryId} options={[{ value: '', label: '미분류' }, ...cats.map(c => ({ value: c.id, label: `${c.emoji ?? ''} ${c.name}`.trim() }))]} /></Field>
+      <Field label="카테고리"><SelectInput value={parentId} onChange={(v) => { setParentId(v); setSubId(''); }} options={[{ value: '', label: '미분류' }, ...cats.map(c => ({ value: c.id, label: `${c.emoji ?? ''} ${c.name}`.trim() }))]} /></Field>
+      {subs.length > 0 && (
+        <Field label="소분류"><SelectInput value={subId} onChange={setSubId} options={[{ value: '', label: '전체(대분류)' }, ...subs.map(s => ({ value: s.id, label: s.name }))]} /></Field>
+      )}
       <Field label="날짜"><TextInput value={spentAt} onChange={setSpentAt} type="date" /></Field>
       <Field label="메모"><TextInput value={memo} onChange={setMemo} placeholder="예: 갈비 사먹음" /></Field>
       <Field label="결제수단"><PaymentMethodField m={m} value={pm} onChange={setPm} /></Field>

@@ -9,6 +9,7 @@ export interface MoneyCategory {
   name: string;
   emoji: string | null;
   color: string | null;
+  parentId: string | null;   // null=대분류, 값 있으면 소분류(대분류 id)
   isDefault: boolean;
   sortOrder: number;
   createdAt?: string;
@@ -119,7 +120,8 @@ export interface MoneySettings {
 export interface ParsedTx {
   type: TxType;
   amount: number;
-  category: string | null;       // 카테고리 "이름"(클라가 id 로 해석)
+  category: string | null;       // 대분류 "이름"(클라가 id 로 해석)
+  subcategory: string | null;    // 소분류 "이름"(대분류의 자식, 추론 애매하면 null)
   memo: string | null;
   paymentMethod: string | null;
   spentAt: string | null;        // 'yyyy-MM-dd' | null(없으면 오늘)
