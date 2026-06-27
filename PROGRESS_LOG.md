@@ -6,6 +6,35 @@
 
 ---
 
+## 2026-06-27 — ⏱ 시간 리포트 태그 기반 재구성 (자동 집계 대시보드 + recharts + PC 투페인) — Stage 1~6
+
+### 🛠 구현
+
+기존 자기관리 페이지(`/selfcare`)를 **태그별 시간 자동 집계 리포트**(`/time-report`)로 전면 재구성. 시간추적을 켠 태그가 달린 **완료 할 일의 DO 구간 소요시간**을 자동 합산해 도넛·스택바 차트로 보여준다. `recharts` 도입, PC는 하온의 일기 패턴의 좌-사이드바/우-본문 투페인.
+
+- **Stage 1 — 캘린더 완료 로직 통일**: DO 소요시간 단일 출처 `src/lib/todoDoDuration.ts`(`todoDoDurationSeconds`: 타이머 기록 `doElapsedSec` 우선, 없으면 `doStart~doEnd` 분차) 기준으로 정리, 데드코드 제거.
+- **Stage 2 — DB 마이그레이션 + 타입 + 라이브러리**
+  - `supabase/migrations/20260627010000_add_tags_track_time.sql`: `tags.track_time boolean NOT NULL DEFAULT false` 추가(MCP로 라이브 DB 적용 완료). 기존 태그는 모두 false 유지 — 사용자가 설정에서 직접 ON.
+  - `db.ts`: `TagRow.track_time`, `toTag`/`fromTag` 매핑(`trackTime`). `store.tsx`: `Tag.trackTime`, `addTag(name, color, trackTime=false)`.
+  - `npm install recharts`(v2.15.2).
+- **Stage 3 — 설정 UI + 집계 훅**
+  - `SettingsView` `TagsSection`: 태그 행에 시간추적 퀵토글(Clock+SwitchPill) 추가, 추가/편집 폼에 "시간 리포트 집계 대상" 토글(기본 OFF) → `updateTag(id, { trackTime })`.
+  - `useTimeReport(period)` 신설(`src/app/hooks/useTimeReport.ts`): track_time ON 태그만 대상으로 완료 todo의 DO 시간을 기간(주/달) 집계 → `byCategory`(시간순) · `totalMinutes` · `daily`(일별 누적) · 직전 동일기간 대비 `insight`(증가/감소/꾸준/없음). 다중 태그는 균등 분할.
+- **Stage 4 — 모바일 UI 전면 재작성** (`SelfCareView` 본체): ①헤더 ②기간탭(주/달) ③인사이트 카드 ④도넛(recharts PieChart, innerRadius 60%·cornerRadius 4·빈상태 회색링)+범례 ⑥일별/주차별 스택바(recharts BarChart) ⑦카테고리 아코디언 ⑧수동기록 버튼. 커스텀 툴팁(Noto Sans KR), 애니 800ms. `SleepSection`/`PeriodSection`(HealthView 사용)·`AddRecordModal` export 보존.
+- **Stage 5 — PC 투페인 레이아웃**(`lg:` 분기, 모바일 코드 무수정): 기존 본체를 `lg:hidden`으로 감싸고 `hidden lg:flex` PC 블록 신설. 좌(고정 320px sticky) 기간탭 + `DailyBarList`(일별 가로 스택바, 날짜 클릭→선택). 우 인사이트/선택일 헤더 + 도넛(210px)+`CategoryBreakdown` 진행바(가로 배치) + 스택바 + `ExpandedCategoryTodos`(아코디언 대신 즉시 펼침). 날짜 선택 시 도넛·breakdown·todo가 그 날 기준 재집계.
+- **Stage 6 — 정리 & 검증**
+  - **6-1 수동 기록 연동**: `ManualRecordsSection` 신설 — `self_care_records`의 운동/공부/뷰티를 기간 내 "수동 기록" 목록으로 모바일·PC 양쪽에 표시(수정/삭제 포함). **sleep은 건강 페이지 전용**이라 제외. **결정**: `AddRecordModal` 카테고리는 태그 기반으로 전환하지 않음 — self_care `category` 스키마 유지 + todo 자동 집계와 수동 활동의 개념 분리.
+  - **6-2 export 확인**: HealthView가 `SleepSection`/`PeriodSection` 정상 import, `npm run build`(vite 6) 통과.
+  - **6-3 Realtime**: `tags`·`todos`·`self_care_records` 모두 `supabase_realtime` publication 등록 + store 전역 구독(`event:'*'`) 확인 — track_time 토글·할일 완료·수동기록 변경 시 새로고침 없이 즉시 반영.
+
+### 🧭 결정 사항 / 무영향 확인
+
+- 도넛 중앙 숫자 폰트: DM Serif 미로드 → 프로젝트 디스플레이 폰트 `var(--font-gmarket)` 사용.
+- 색상은 디자인 토큰만 사용(태그 색 `tag.color`는 사용자 지정 예외). PC `lg:` 분기로 모바일 렌더 보존.
+- 검증: 격리 Playwright 하니스(샘플 코딩 8h40m·공부 3h·운동 2h25m, 총 14시간 5분)로 PC 전체/날짜선택/모바일 스크린샷 pageerror 0건.
+
+---
+
 ## 2026-06-27 — 📸 독서 구절 사진 캡처 v3 (촬영→OCR 문장 분리→문장 카드 선택) — Stage 1~3
 
 ### 🛠 구현

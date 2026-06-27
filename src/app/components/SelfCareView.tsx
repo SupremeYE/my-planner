@@ -1670,6 +1670,54 @@ function CategoryAccordion({ byCategory }: { byCategory: ReturnType<typeof useTi
   );
 }
 
+// 수동 기록 영역 — self_care_records(운동/공부/뷰티)를 시간 리포트에 계속 표시
+// (sleep 은 건강 페이지 전용이므로 제외. todo 자동 집계와 별개의 "앱 밖 활동")
+function ManualRecordsSection({ dateRange, onEdit }: {
+  dateRange: { start: string; end: string };
+  onEdit: (r: SelfCareRecord) => void;
+}) {
+  const { selfCareRecords, deleteSelfCareRecord } = usePlanner();
+  const { t } = useTheme();
+  const records = selfCareRecords
+    .filter(r => r.category !== 'sleep' && r.date >= dateRange.start && r.date <= dateRange.end)
+    .sort((a, b) => b.date.localeCompare(a.date));
+  if (records.length === 0) return null;
+  const totalMin = records.reduce((s, r) => s + r.duration, 0);
+
+  return (
+    <div className="mb-3">
+      <div className="flex items-center justify-between mb-2">
+        <h3 style={{ fontSize: 13, fontWeight: 700, color: t.text }}>수동 기록</h3>
+        <span style={{ fontSize: 11, color: t.textMuted }}>{records.length}건 · {fmtMinKo(totalMin)}</span>
+      </div>
+      <div className="space-y-2">
+        {records.map(r => {
+          const cat = CATEGORIES.find(c => c.key === r.category);
+          const Icon = cat?.icon ?? Sparkles;
+          const color = cat?.color ?? t.accent;
+          return (
+            <div key={r.id} className="flex items-center gap-3 px-4 py-2.5 rounded-xl"
+              style={{ backgroundColor: t.card, border: `1px solid ${t.borderLight}` }}>
+              <Icon size={13} color={color} />
+              <span style={{ fontSize: 11, color: t.textMuted, width: 44, flexShrink: 0 }}>{r.date.slice(5)}</span>
+              <span className="truncate" style={{ fontSize: 13, color: t.text, flex: 1 }}>{r.content}</span>
+              <span style={{ fontSize: 11, color, fontWeight: 600, flexShrink: 0 }}>{fmtMinKo(r.duration)}</span>
+              <button onClick={() => onEdit(r)} className="p-1 rounded"
+                style={{ color: t.textMuted, background: 'none', border: 'none', cursor: 'pointer' }} aria-label="수정">
+                <Pencil size={12} />
+              </button>
+              <button onClick={() => deleteSelfCareRecord(r.id)} className="p-1 rounded"
+                style={{ color: t.textMuted, background: 'none', border: 'none', cursor: 'pointer' }} aria-label="삭제">
+                <X size={13} />
+              </button>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 // 기간 선택 세그먼트 탭 (모바일·PC 공용)
 function PeriodTabs({ period, onChange }: { period: TimeReportPeriod; onChange: (p: TimeReportPeriod) => void }) {
   const { t } = useTheme();
@@ -1756,6 +1804,9 @@ export function SelfCareView() {
         {/* ⑦ 카테고리별 상세 (아코디언) */}
         <CategoryAccordion byCategory={report.byCategory} />
 
+        {/* ⑦-2 수동 기록(운동/공부/뷰티) 목록 */}
+        <ManualRecordsSection dateRange={report.dateRange} onEdit={setEditRecord} />
+
         {/* ⑧ 수동 기록 버튼 */}
         <button onClick={() => setShowAdd(true)}
           className="w-full flex items-center justify-center gap-2 py-3 rounded-xl transition-colors"
@@ -1821,6 +1872,9 @@ export function SelfCareView() {
             </h3>
             <ExpandedCategoryTodos byCategory={viewCategories} />
           </div>
+
+          {/* 수동 기록(운동/공부/뷰티) 목록 */}
+          <ManualRecordsSection dateRange={report.dateRange} onEdit={setEditRecord} />
 
           {/* 수동 기록 버튼 */}
           <button onClick={() => setShowAdd(true)}
