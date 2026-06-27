@@ -55,6 +55,11 @@ export interface UseMoney {
   cardDebt: number;
   loanDebt: number;
   netWorth: number;
+  // 투자 요약 — 평가액 합/수익금/수익률(원금 있는 종목 기준). 원금 없으면 returnPct=null.
+  investTotal: number;        // 총 투자자산(모든 투자계좌 평가액 합)
+  investPrincipal: number;    // 원금 합(principal 입력된 종목만)
+  investReturn: number;       // 평가손익(원금 있는 종목의 평가액-원금)
+  investReturnPct: number | null;
   // 기간/캘린더 파생
   daysLeft: number;            // 기간 종료까지 남은 일수(D-day)
   dailyAllowance: number;      // 남은 예산 / 남은 일수(오늘 포함)
@@ -168,6 +173,14 @@ export function useMoney(): UseMoney {
   const fixedTotal = useMemo(() => fixedCosts.reduce((s, f) => s + f.amount, 0), [fixedCosts]);
   const assets = useMemo(() => accounts.reduce((s, a) => s + a.balance, 0), [accounts]);
   const investments = useMemo(() => accounts.filter(a => a.type === 'investment'), [accounts]);
+  // 투자 요약: 평가액 합 + (원금 입력된 종목만) 손익/수익률. 시세 자동연동은 후순위 — 평가액은 수동 입력.
+  const investTotal = useMemo(() => investments.reduce((s, a) => s + a.balance, 0), [investments]);
+  const investPrincipal = useMemo(
+    () => investments.reduce((s, a) => s + (a.principal != null ? a.principal : 0), 0), [investments]);
+  const investReturn = useMemo(
+    () => investments.reduce((s, a) => s + (a.principal != null ? a.balance - a.principal : 0), 0), [investments]);
+  const investReturnPct = useMemo(
+    () => (investPrincipal > 0 ? (investReturn / investPrincipal) * 100 : null), [investReturn, investPrincipal]);
   // 카드별 미청구 거래(신용카드만) — 카드명 매칭 + 마지막 결제일 이후(결제일 없으면 전체).
   const cardUnbilledTxs = useCallback((card: MoneyCard): MoneyTransaction[] => {
     if (card.type === 'check') return [];   // 체크는 즉시 출금 — 미청구 개념 없음
@@ -393,6 +406,7 @@ export function useMoney(): UseMoney {
     loading, categories, expenseCategories, incomeCategories, subcategoriesOf, rootCategoryOf,
     transactions, periodTransactions, accounts, investments, cards, fixedCosts, loans, goals, settings,
     period, income, expense, balance, fixedTotal, assets, cardDebt, loanDebt, netWorth,
+    investTotal, investPrincipal, investReturn, investReturnPct,
     daysLeft, dailyAllowance, noSpendStreak, trackingStartDate, spendByDay,
     categoryOf, cardUnpaid, cardUnbilledTxs, refresh,
     addTransaction, deleteTransaction, parseAndAdd, addCategory, saveCategory, deleteCategory, updateSettings,

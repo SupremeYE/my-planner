@@ -30,15 +30,20 @@ export interface MoneyTransaction {
 }
 
 export type AccountType = 'deposit' | 'savings' | 'cash' | 'investment';
+export type InvestKind = 'stock' | 'fund' | 'coin';   // 투자계좌 종목 구분
 
 export interface MoneyAccount {
   id: string;
   name: string;
   type: AccountType;
-  balance: number;
+  balance: number;            // 일반 계좌=잔액 / 투자계좌=현재 평가액
   interestRate: number | null;
   icon: string | null;
   sortOrder: number;
+  // 투자계좌(type='investment') 전용 — 그 외 계좌는 모두 null.
+  investKind: InvestKind | null;  // 주식/펀드/코인
+  principal: number | null;       // 매입원금(수익률 계산 기준). 없으면 등락률 미표시
+  quantity: number | null;        // 보유수량
   createdAt?: string;
 }
 
