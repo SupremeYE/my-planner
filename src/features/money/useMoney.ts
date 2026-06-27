@@ -55,6 +55,7 @@ export interface UseMoney {
   deleteTransaction: (id: string) => Promise<void>;
   parseAndAdd: (text: string, mode: 'chat' | 'sms') => Promise<{ ok: boolean; error?: string; parsed?: ParsedTx }>;
   addCategory: (c: Partial<MoneyCategory> & { type: TxType; name: string }) => Promise<void>;
+  saveCategory: (c: MoneyCategory) => Promise<void>;   // 편집용 전체 upsert(isDefault/sortOrder/parentId 보존)
   deleteCategory: (id: string) => Promise<void>;
   updateSettings: (s: MoneySettings) => Promise<void>;
   // 자산/카드/고정비/대출/목표 — 수정(upsert)/삭제. id 있으면 수정, 없으면 추가.
@@ -292,6 +293,12 @@ export function useMoney(): UseMoney {
     await refresh();
   }, [categories, refresh]);
 
+  // 기존 카테고리 편집 — 전체 필드 그대로 upsert(addCategory 와 달리 isDefault/sortOrder 보존).
+  const saveCategory = useCallback(async (c: MoneyCategory) => {
+    await moneyDb.categories.upsert(c);
+    await refresh();
+  }, [refresh]);
+
   const deleteCategory = useCallback(async (id: string) => {
     setCategories(prev => prev.filter(c => c.id !== id)); // optimistic
     await moneyDb.categories.delete(id);
@@ -332,7 +339,7 @@ export function useMoney(): UseMoney {
     period, income, expense, balance, fixedTotal, assets, cardDebt, loanDebt, netWorth,
     daysLeft, dailyAllowance, noSpendStreak, trackingStartDate, spendByDay,
     categoryOf, refresh,
-    addTransaction, deleteTransaction, parseAndAdd, addCategory, deleteCategory, updateSettings,
+    addTransaction, deleteTransaction, parseAndAdd, addCategory, saveCategory, deleteCategory, updateSettings,
     saveAccount, deleteAccount, saveCard, deleteCard, saveFixedCost, deleteFixedCost,
     saveLoan, deleteLoan, saveGoal, deleteGoal,
   };

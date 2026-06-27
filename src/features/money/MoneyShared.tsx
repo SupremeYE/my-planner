@@ -1,14 +1,15 @@
 // 하온 머니 — 공용 프레젠테이션 조각(모바일/PC 공유). 레이아웃 셸만 Mobile/Desktop 에서 분기.
 import React, { useState } from 'react';
 import { format, parseISO, subDays, addDays } from 'date-fns';
-import { Send, X, Plus } from 'lucide-react';
+import { Send, X, Plus, Tags, ChevronRight } from 'lucide-react';
 import { useTheme } from '../../app/ThemeContext';
 import type { UseMoney } from './useMoney';
 import {
   MONEY_PALETTE, resolveCategoryColor, categoryInitial, formatWon, formatManShort, subcategoryShade,
 } from './tokens';
-import type { MoneyCategory, MoneyAccount, MoneyCard, MoneyLoan, MoneyGoal, MoneyFixedCost } from './types';
+import type { MoneyCategory, MoneyAccount, MoneyCard, MoneyLoan, MoneyGoal, MoneyFixedCost, PeriodType } from './types';
 import { TransactionForm, AccountForm, CardForm, FixedCostForm, LoanForm, GoalForm } from './MoneyForms';
+import { CategoryManager } from './MoneyCategoryManager';
 
 // 섹션 헤더(+ 추가 버튼 포함)
 function SectionHead({ title, onAdd }: { title: string; onAdd?: () => void }) {
@@ -851,6 +852,89 @@ export function BudgetPanel({ m }: { m: UseMoney }) {
       </div>
       {editTx && <TransactionForm m={m} item={editTx.item} onClose={() => setEditTx(null)} />}
     </div>
+  );
+}
+
+// ── 머니 설정 시트(예산 기간/급여일/월 예산 + 카테고리 관리 진입) — 모바일/PC 공유 ──
+export function SettingsSheet({ m, onClose }: { m: UseMoney; onClose: () => void }) {
+  const { t } = useTheme();
+  const [periodType, setPeriodType] = useState<PeriodType>(m.settings.periodType);
+  const [payday, setPayday] = useState(String(m.settings.payday));
+  const [budgetMan, setBudgetMan] = useState(String(Math.round(m.settings.monthlyBudget / 10000)));
+  const [showCategories, setShowCategories] = useState(false);
+
+  const save = async () => {
+    await m.updateSettings({
+      ...m.settings,
+      periodType,
+      payday: Math.min(Math.max(parseInt(payday) || 1, 1), 31),
+      monthlyBudget: (parseInt(budgetMan) || 0) * 10000,
+    });
+    onClose();
+  };
+
+  const opt = (active: boolean) => ({
+    flex: 1, padding: 10, borderRadius: 12, textAlign: 'center' as const, fontSize: 13, cursor: 'pointer',
+    border: `1.5px solid ${active ? MONEY_PALETTE.gold : t.border}`,
+    background: active ? `${MONEY_PALETTE.gold}18` : 'transparent',
+    color: active ? t.text : t.textSub, fontWeight: active ? 600 : 400,
+  });
+  const input = { padding: '8px 12px', borderRadius: 10, border: `1.5px solid ${t.border}`, fontSize: 15, fontWeight: 700, textAlign: 'center' as const, color: t.text, background: 'transparent', outline: 'none' };
+
+  return (
+    <>
+    <div className="fixed inset-0 z-[60] flex items-end lg:items-center justify-center" style={{ background: 'rgba(58,53,46,0.5)' }} onClick={onClose}>
+      <div onClick={e => e.stopPropagation()}
+        className="w-full lg:w-[460px] lg:max-w-[92vw] rounded-t-3xl lg:rounded-3xl"
+        style={{ background: t.card, padding: '20px 20px 32px', maxHeight: '88vh', overflowY: 'auto' }}>
+        <div className="flex justify-between items-center" style={{ marginBottom: 20 }}>
+          <span style={{ fontSize: 17, fontWeight: 700, color: t.text }}>머니 설정</span>
+          <button onClick={onClose} style={{ color: t.textMuted }}><X size={18} /></button>
+        </div>
+        <div style={{ marginBottom: 18 }}>
+          <div style={{ fontSize: 12, color: t.textSub, marginBottom: 8 }}>예산 기간 기준</div>
+          <div className="flex gap-2">
+            <button style={opt(periodType === 'calendar')} onClick={() => setPeriodType('calendar')}>1일 ~ 말일</button>
+            <button style={opt(periodType === 'payday')} onClick={() => setPeriodType('payday')}>급여일 기준</button>
+          </div>
+        </div>
+        {periodType === 'payday' && (
+          <div style={{ marginBottom: 18 }}>
+            <div style={{ fontSize: 12, color: t.textSub, marginBottom: 8 }}>급여일 (매월)</div>
+            <div className="flex items-center gap-2">
+              <input type="number" value={payday} onChange={e => setPayday(e.target.value)} min={1} max={31} style={{ ...input, width: 60 }} />
+              <span style={{ fontSize: 13, color: t.textSub }}>일</span>
+            </div>
+          </div>
+        )}
+        <div style={{ marginBottom: 20 }}>
+          <div style={{ fontSize: 12, color: t.textSub, marginBottom: 8 }}>월 예산</div>
+          <div className="flex items-center gap-2">
+            <input type="number" value={budgetMan} onChange={e => setBudgetMan(e.target.value)} style={{ ...input, width: 80 }} />
+            <span style={{ fontSize: 13, color: t.textSub }}>만 원</span>
+          </div>
+        </div>
+
+        {/* 카테고리 관리 진입 */}
+        <button onClick={() => setShowCategories(true)}
+          className="flex items-center gap-3 w-full text-left" style={{ padding: '13px 14px', borderRadius: 12, background: t.bgSub, marginBottom: 20 }}>
+          <div className="flex items-center justify-center flex-shrink-0" style={{ width: 34, height: 34, borderRadius: 9, background: `${MONEY_PALETTE.gold}20`, color: MONEY_PALETTE.gold }}>
+            <Tags size={17} />
+          </div>
+          <div className="flex-1 min-w-0">
+            <div style={{ fontSize: 13, fontWeight: 600, color: t.text }}>카테고리 관리</div>
+            <div style={{ fontSize: 11, color: t.textMuted }}>대분류 · 소분류 추가/수정/삭제</div>
+          </div>
+          <ChevronRight size={16} style={{ color: t.textMuted }} />
+        </button>
+
+        <button onClick={save} className="w-full" style={{ padding: 13, borderRadius: 12, background: MONEY_PALETTE.ink, color: '#FDFAF4', fontSize: 14, fontWeight: 600 }}>저장</button>
+      </div>
+    </div>
+
+    {/* 카테고리 관리 — 설정 백드롭의 형제로 띄움(바깥 클릭 전파 방지) */}
+    {showCategories && <CategoryManager m={m} onClose={() => setShowCategories(false)} />}
+    </>
   );
 }
 

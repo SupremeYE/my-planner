@@ -6,7 +6,7 @@ import { useTheme } from '../../app/ThemeContext';
 import { MONEY_PALETTE, CUSTOM_PALETTE } from './tokens';
 import type { UseMoney } from './useMoney';
 import type {
-  MoneyTransaction, MoneyAccount, MoneyCard, MoneyFixedCost, MoneyLoan, MoneyGoal,
+  MoneyCategory, MoneyTransaction, MoneyAccount, MoneyCard, MoneyFixedCost, MoneyLoan, MoneyGoal,
   TxType, AccountType, CardType, FixedCycle, Currency, GoalType,
 } from './types';
 
@@ -74,8 +74,9 @@ function ColorPicker({ value, onChange }: { value: string | null; onChange: (v: 
 }
 
 // ── 시트 셸(저장 + 삭제[인라인 확인]) ──
-export function FormSheet({ title, onClose, onSave, onDelete, canSave = true, children }: {
-  title: string; onClose: () => void; onSave: () => void; onDelete?: () => void; canSave?: boolean; children: React.ReactNode;
+export function FormSheet({ title, onClose, onSave, onDelete, canSave = true, deleteWarning, children }: {
+  title: string; onClose: () => void; onSave: () => void; onDelete?: () => void; canSave?: boolean;
+  deleteWarning?: string; children: React.ReactNode;
 }) {
   const { t } = useTheme();
   const [confirmDel, setConfirmDel] = useState(false);
@@ -93,7 +94,7 @@ export function FormSheet({ title, onClose, onSave, onDelete, canSave = true, ch
 
         {confirmDel ? (
           <div style={{ marginTop: 16, padding: 14, borderRadius: 12, background: `${MONEY_PALETTE.coral}12`, border: `1px solid ${MONEY_PALETTE.coral}40` }}>
-            <div style={{ fontSize: 13, color: t.text, marginBottom: 10, fontWeight: 600 }}>정말 삭제할까요? 되돌릴 수 없어요.</div>
+            <div style={{ fontSize: 13, color: t.text, marginBottom: 10, fontWeight: 600 }}>{deleteWarning ?? '정말 삭제할까요? 되돌릴 수 없어요.'}</div>
             <div className="flex gap-2">
               <button onClick={() => setConfirmDel(false)} style={{ flex: 1, padding: 10, borderRadius: 10, background: t.bgSub, color: t.textSub, fontSize: 13, fontWeight: 600 }}>취소</button>
               <button onClick={() => { onDelete?.(); onClose(); }} style={{ flex: 1, padding: 10, borderRadius: 10, background: MONEY_PALETTE.coral, color: '#fff', fontSize: 13, fontWeight: 600 }}>삭제</button>
@@ -311,6 +312,52 @@ export function GoalForm({ m, item, onClose }: { m: UseMoney; item: MoneyGoal | 
       <Field label="마감일"><TextInput value={deadline} onChange={setDeadline} type="date" /></Field>
       <Field label="유형"><SelectInput value={type} onChange={setType} options={[{ value: 'savings', label: '저축' }, { value: 'networth', label: '순자산' }, { value: 'travel', label: '여행' }, { value: 'custom', label: '기타' }]} /></Field>
       <Field label="색상"><ColorPicker value={color} onChange={setColor} /></Field>
+    </FormSheet>
+  );
+}
+
+// ── 7) 카테고리 (대분류/소분류 공용 add·edit) ──
+//  · item 있으면 수정(type/parentId/isDefault/sortOrder 보존), 없으면 추가.
+//  · parentId=null → 대분류(색상 선택 노출), 값 있으면 소분류(색은 대분류 명도변형 자동 → 색상 입력 생략).
+export function CategoryForm({ m, item, type, parentId, parentName, onClose }: {
+  m: UseMoney; item: MoneyCategory | null; type: TxType; parentId: string | null; parentName?: string; onClose: () => void;
+}) {
+  const effType: TxType = item?.type ?? type;
+  const effParentId = item ? item.parentId : parentId;
+  const isSub = effParentId !== null;
+  const [name, setName] = useState(item?.name ?? '');
+  const [emoji, setEmoji] = useState(item?.emoji ?? '');
+  const [color, setColor] = useState<string | null>(item?.color ?? null);
+
+  // 삭제 경고 — 대분류는 소분류 동반 삭제, 거래는 미분류 전환을 명시.
+  const subCount = item && !isSub ? m.subcategoriesOf(item.id).length : 0;
+  const delWarning = item
+    ? (subCount > 0
+        ? `이 대분류와 소분류 ${subCount}개가 함께 삭제돼요. 해당 거래는 '미분류'로 바뀝니다.`
+        : "삭제하면 이 카테고리의 거래는 '미분류'로 바뀌어요. 되돌릴 수 없어요.")
+    : undefined;
+
+  const save = () => {
+    if (item) {
+      m.saveCategory({ ...item, name: name.trim(), emoji: emoji.trim() || null, color: isSub ? item.color : color });
+    } else {
+      m.addCategory({ type: effType, name: name.trim(), emoji: emoji.trim() || null, color: isSub ? null : color, parentId: effParentId });
+    }
+    onClose();
+  };
+
+  const levelLabel = isSub ? '소분류' : '대분류';
+  const title = `${levelLabel} ${item ? '수정' : '추가'}`;
+  return (
+    <FormSheet title={title} onClose={onClose} onSave={save}
+      onDelete={item ? () => m.deleteCategory(item.id) : undefined} deleteWarning={delWarning}
+      canSave={!!name.trim()}>
+      {isSub && parentName && (
+        <div style={{ fontSize: 12, color: MONEY_PALETTE.gold, fontWeight: 600, marginBottom: 12 }}>↳ {parentName} 의 소분류</div>
+      )}
+      <Field label="이름"><TextInput value={name} onChange={setName} placeholder={isSub ? '예: 배달' : '예: 식비'} /></Field>
+      <Field label="이모지"><TextInput value={emoji} onChange={setEmoji} placeholder={isSub ? '🛵 (선택)' : '🍽 (선택)'} /></Field>
+      {!isSub && <Field label="색상"><ColorPicker value={color} onChange={setColor} /></Field>}
     </FormSheet>
   );
 }

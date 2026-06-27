@@ -3,12 +3,13 @@ import React, { useState } from 'react';
 import { Settings } from 'lucide-react';
 import { useTheme } from '../../app/ThemeContext';
 import { useMoney } from './useMoney';
-import { MoneyTabBar, PeriodBar, MoneyTabPanel, ChatInputBar, type MoneyTab } from './MoneyShared';
+import { MoneyTabBar, PeriodBar, MoneyTabPanel, ChatInputBar, SettingsSheet, type MoneyTab } from './MoneyShared';
 
 export function MoneyDesktop() {
   const m = useMoney();
   const { t } = useTheme();
   const [tab, setTab] = useState<MoneyTab>('budget');
+  const [showSettings, setShowSettings] = useState(false);
 
   return (
     <div className="h-full overflow-y-auto" style={{ background: t.bg }}>
@@ -16,6 +17,11 @@ export function MoneyDesktop() {
         {/* 헤더 */}
         <div className="flex items-center justify-between" style={{ marginBottom: 12 }}>
           <span style={{ fontFamily: "'DM Serif Display', serif", fontSize: 32, color: t.text }}>Money</span>
+          <button onClick={() => setShowSettings(true)}
+            className="flex items-center justify-center"
+            style={{ width: 38, height: 38, borderRadius: '50%', background: t.card, color: t.textSub, boxShadow: t.shadow }}>
+            <Settings size={17} />
+          </button>
         </div>
         <PeriodBar m={m} />
         <div style={{ marginTop: 12, marginBottom: 20, borderBottom: `1px solid ${t.borderLight}` }}>
@@ -33,6 +39,8 @@ export function MoneyDesktop() {
           ? <div style={{ textAlign: 'center', padding: '60px 0', color: t.textMuted, fontSize: 14 }}>불러오는 중…</div>
           : <MoneyTabPanel tab={tab} m={m} />}
       </div>
+
+      {showSettings && <SettingsSheet m={m} onClose={() => setShowSettings(false)} />}
     </div>
   );
 }
