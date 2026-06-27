@@ -1367,14 +1367,6 @@ export function SelfCareView() {
 
   const fmtDuration = (min: number) => min >= 60 ? `${Math.floor(min / 60)}시간 ${min % 60}분` : `${min}분`;
 
-  // Group records by date
-  const groupedByDate: Record<string, SelfCareRecord[]> = {};
-  selfCareRecords.forEach(r => {
-    if (!groupedByDate[r.date]) groupedByDate[r.date] = [];
-    groupedByDate[r.date].push(r);
-  });
-  const sortedDates = Object.keys(groupedByDate).sort().reverse();
-
   return (
     <div className="flex-1 overflow-y-auto">
       {/* Header */}
@@ -1404,7 +1396,7 @@ export function SelfCareView() {
         {/* Category sections */}
         {CATEGORIES.map(cat => {
           const stats = statsByCategory(cat.key);
-          const catRecords = selfCareRecords.filter(r => r.category === cat.key).sort((a, b) => b.date.localeCompare(a.date));
+          const catRecords = monthRecords.filter(r => r.category === cat.key).sort((a, b) => b.date.localeCompare(a.date));
           return (
             <div key={cat.key} className="mb-6">
               <div className="flex items-center gap-2 mb-3">
@@ -1420,7 +1412,7 @@ export function SelfCareView() {
                     style={{ backgroundColor: t.card, border: `1px solid ${t.borderLight}` }}>
                     <span style={{ fontSize: 11, color: t.textMuted, width: 80 }}>{r.date.slice(5)}</span>
                     <span style={{ fontSize: 13, color: t.text, flex: 1 }}>{r.content}</span>
-                    <span style={{ fontSize: 11, color: cat.color, fontWeight: 600 }}>{r.duration}분</span>
+                    <span style={{ fontSize: 11, color: cat.color, fontWeight: 600 }}>{fmtDuration(r.duration)}</span>
                     <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                       <button onClick={() => setEditRecord(r)} className="p-1 rounded" style={{ color: t.textMuted }}>
                         <Pencil size={12} />
@@ -1445,13 +1437,6 @@ export function SelfCareView() {
           style={{ border: `2px dashed ${t.border}`, color: t.accent, fontSize: 13, fontWeight: 600 }}>
           <Plus size={16} /> 기록 추가
         </button>
-
-        {/* Integration note */}
-        <div className="mt-4 p-4 rounded-xl" style={{ backgroundColor: t.bgSub, border: `1px solid ${t.borderLight}` }}>
-          <p style={{ fontSize: 11, color: t.textMuted }}>
-            💡 스톱워치(DO 블록) 완료 시 태그 기반으로 자동 집계됩니다. 태그에 "건강", "자기계발", "자기관리" 등을 설정해보세요.
-          </p>
-        </div>
       </div>
 
       {showAdd && <AddRecordModal onClose={() => setShowAdd(false)} />}
