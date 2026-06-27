@@ -1,13 +1,40 @@
 // 하온 머니 — 공용 프레젠테이션 조각(모바일/PC 공유). 레이아웃 셸만 Mobile/Desktop 에서 분기.
 import React, { useState } from 'react';
-import { format, parseISO } from 'date-fns';
-import { Send, Trash2, X } from 'lucide-react';
+import { format, parseISO, subDays } from 'date-fns';
+import { Send, X, Plus } from 'lucide-react';
 import { useTheme } from '../../app/ThemeContext';
 import type { UseMoney } from './useMoney';
 import {
   MONEY_PALETTE, resolveCategoryColor, categoryInitial, formatWon, formatManShort,
 } from './tokens';
-import type { MoneyCategory } from './types';
+import type { MoneyCategory, MoneyAccount, MoneyCard, MoneyLoan, MoneyGoal, MoneyFixedCost } from './types';
+import { TransactionForm, AccountForm, CardForm, FixedCostForm, LoanForm, GoalForm } from './MoneyForms';
+
+// 섹션 헤더(+ 추가 버튼 포함)
+function SectionHead({ title, onAdd }: { title: string; onAdd?: () => void }) {
+  const { t } = useTheme();
+  return (
+    <div className="flex items-center justify-between" style={{ margin: '4px 2px 8px' }}>
+      <span style={{ fontSize: 13, fontWeight: 700, color: t.text }}>{title}</span>
+      {onAdd && (
+        <button onClick={onAdd} className="flex items-center gap-1" style={{ fontSize: 12, color: MONEY_PALETTE.gold, fontWeight: 600 }}>
+          <Plus size={13} /> 추가
+        </button>
+      )}
+    </div>
+  );
+}
+// 빈 상태 + 추가 유도
+function EmptyAdd({ text, onAdd }: { text: string; onAdd: () => void }) {
+  const { t } = useTheme();
+  return (
+    <button onClick={onAdd} className="w-full flex flex-col items-center justify-center"
+      style={{ padding: '20px 12px', borderRadius: 16, border: `1.5px dashed ${t.border}`, background: 'transparent', color: t.textMuted, fontSize: 13, gap: 4 }}>
+      <span>{text}</span>
+      <span style={{ color: MONEY_PALETTE.gold, fontWeight: 600, fontSize: 12 }}>+ 추가하기</span>
+    </button>
+  );
+}
 
 export type MoneyTab = 'budget' | 'asset' | 'invest' | 'plan';
 
@@ -260,8 +287,130 @@ export function CategoryBreakdown({ m }: { m: UseMoney }) {
   );
 }
 
-// ── 거래 리스트 ──
-export function TransactionList({ m, limit }: { m: UseMoney; limit?: number }) {
+// ── 카테고리별 스택 바 차트(주간/월간/연간 · 예산선 · 가로 스크롤) ──
+type Gran = 'weekly' | 'monthly' | 'yearly';
+export function SpendTrendChart({ m }: { m: UseMoney }) {
+  const { t } = useTheme();
+  const [gran, setGran] = useState<Gran>('monthly');
+  const now = new Date();
+
+  // 버킷(X축) 정의 + 날짜→버킷키 매핑
+  const buckets: { key: string; label: string; current: boolean }[] = [];
+  let keyOf: (d: string) => string;
+  if (gran === 'weekly') {
+    for (let i = 6; i >= 0; i--) { const d = subDays(now, i); buckets.push({ key: format(d, 'yyyy-MM-dd'), label: ['일', '월', '화', '수', '목', '금', '토'][d.getDay()], current: i === 0 }); }
+    keyOf = (d) => d;
+  } else if (gran === 'monthly') {
+    for (let i = 5; i >= 0; i--) { const d = new Date(now.getFullYear(), now.getMonth() - i, 1); buckets.push({ key: format(d, 'yyyy-MM'), label: `${d.getMonth() + 1}월`, current: i === 0 }); }
+    keyOf = (d) => d.slice(0, 7);
+  } else {
+    for (let i = 3; i >= 0; i--) { const y = now.getFullYear() - i; buckets.push({ key: String(y), label: String(y), current: i === 0 }); }
+    keyOf = (d) => d.slice(0, 4);
+  }
+
+  // 집계: 버킷키 → 카테고리id → 합계
+  const agg = new Map<string, Map<string, number>>();
+  buckets.forEach(b => agg.set(b.key, new Map()));
+  for (const tx of m.transactions) {
+    if (tx.type !== 'expense') continue;
+    const cm = agg.get(keyOf(tx.spentAt)); if (!cm) continue;
+    const cid = tx.categoryId ?? '__none__';
+    cm.set(cid, (cm.get(cid) ?? 0) + tx.amount);
+  }
+  const totals = buckets.map(b => Array.from(agg.get(b.key)!.values()).reduce((s, v) => s + v, 0));
+  const maxTotal = Math.max(...totals, 0);
+  const budget = m.settings.monthlyBudget || 0;
+  const showBudget = gran === 'monthly' && budget > 0;
+  const scaleMax = Math.max(maxTotal, showBudget ? budget : 0) * 1.15 || 1;
+  const hasData = totals.some(x => x > 0);
+  const BAR_AREA = 150;
+
+  // 범례용 등장 카테고리(미분류 제외)
+  const seen = new Set<string>();
+  agg.forEach(cm => cm.forEach((_, cid) => { if (cid !== '__none__') seen.add(cid); }));
+  const legendCats = Array.from(seen).map(cid => m.categoryOf(cid)).filter(Boolean) as MoneyCategory[];
+
+  const tab = (g: Gran, label: string) => {
+    const active = gran === g;
+    return (
+      <button onClick={() => setGran(g)} style={{ padding: '5px 12px', borderRadius: 20, fontSize: 11, cursor: 'pointer', fontFamily: t.font,
+        border: `1px solid ${active ? MONEY_PALETTE.ink : t.border}`, background: active ? MONEY_PALETTE.ink : 'transparent', color: active ? '#FDFAF4' : t.textSub }}>
+        {label}
+      </button>
+    );
+  };
+
+  return (
+    <div style={{ background: t.card, borderRadius: 20, padding: 18, boxShadow: t.shadow }}>
+      <div className="flex justify-between items-center" style={{ marginBottom: 12 }}>
+        <span style={{ fontSize: 14, fontWeight: 700, color: t.text }}>지출 추이</span>
+      </div>
+      <div className="flex gap-1" style={{ marginBottom: 14 }}>
+        {tab('weekly', '주간')}{tab('monthly', '월간')}{tab('yearly', '연간')}
+      </div>
+
+      {!hasData ? (
+        <div style={{ textAlign: 'center', padding: '32px 0', color: t.textMuted, fontSize: 13 }}>지출이 쌓이면 추이가 보여요 📊</div>
+      ) : (
+        <>
+          <div style={{ position: 'relative', height: BAR_AREA + 22 }}>
+            {/* 예산선(월간) */}
+            {showBudget && (
+              <div style={{ position: 'absolute', left: 0, right: 0, top: BAR_AREA - (budget / scaleMax) * BAR_AREA, borderTop: `1.5px dashed ${MONEY_PALETTE.coral}`, opacity: 0.5, zIndex: 1 }} />
+            )}
+            {/* 바 영역(가로 스크롤) */}
+            <div className="flex items-end" style={{ height: BAR_AREA, gap: 8, overflowX: 'auto', paddingBottom: 0 }}>
+              {buckets.map((b, i) => {
+                const total = totals[i];
+                const cm = agg.get(b.key)!;
+                const barH = (total / scaleMax) * BAR_AREA;
+                const over = showBudget && total > budget;
+                const segs = Array.from(cm.entries()).map(([cid, amt]) => ({ cid, amt, color: resolveCategoryColor(cid === '__none__' ? null : m.categoryOf(cid)) })).sort((a, b2) => b2.amt - a.amt);
+                return (
+                  <div key={b.key} className="flex flex-col items-center" style={{ width: 40, flexShrink: 0 }}>
+                    <div style={{ fontSize: 8, fontWeight: 700, color: over ? MONEY_PALETTE.coral : t.textSub, marginBottom: 2, whiteSpace: 'nowrap' }}>
+                      {total > 0 ? formatManShort(total) : ''}
+                    </div>
+                    <div style={{ width: 28, height: Math.max(barH, total > 0 ? 3 : 0), display: 'flex', flexDirection: 'column-reverse', borderRadius: '5px 5px 2px 2px', overflow: 'hidden', boxShadow: b.current ? '0 2px 8px rgba(58,53,46,0.12)' : 'none' }}>
+                      {segs.map(s => (
+                        <div key={s.cid} style={{ width: '100%', height: total > 0 ? `${(s.amt / total) * 100}%` : 0, background: s.color }} />
+                      ))}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+            {/* X축 라벨 */}
+            <div className="flex" style={{ gap: 8, marginTop: 4 }}>
+              {buckets.map(b => (
+                <span key={b.key} style={{ width: 40, flexShrink: 0, textAlign: 'center', fontSize: 9, color: b.current ? t.text : t.textMuted, fontWeight: b.current ? 700 : 400 }}>{b.label}</span>
+              ))}
+            </div>
+          </div>
+
+          {/* 범례 */}
+          {legendCats.length > 0 && (
+            <div className="flex flex-wrap" style={{ gap: 8, marginTop: 12 }}>
+              {legendCats.map(c => (
+                <span key={c.id} className="flex items-center" style={{ gap: 4, fontSize: 10, color: t.textSub }}>
+                  <span style={{ width: 8, height: 8, borderRadius: 2, background: resolveCategoryColor(c) }} />{c.name}
+                </span>
+              ))}
+            </div>
+          )}
+          {showBudget && (
+            <div className="flex items-center" style={{ gap: 6, marginTop: 8, fontSize: 10, color: t.textMuted }}>
+              <span style={{ width: 16, borderTop: `1.5px dashed ${MONEY_PALETTE.coral}` }} /> 월 예산 {formatManShort(budget)}
+            </div>
+          )}
+        </>
+      )}
+    </div>
+  );
+}
+
+// ── 거래 리스트 (행 탭 = 수정) ──
+export function TransactionList({ m, limit, onEdit }: { m: UseMoney; limit?: number; onEdit: (tx: any) => void }) {
   const { t } = useTheme();
   const list = (limit ? m.transactions.slice(0, limit) : m.transactions);
   if (list.length === 0) {
@@ -273,7 +422,7 @@ export function TransactionList({ m, limit }: { m: UseMoney; limit?: number }) {
         const cat = m.categoryOf(tx.categoryId);
         const isIncome = tx.type === 'income';
         return (
-          <div key={tx.id} className="flex items-center gap-3 group"
+          <button key={tx.id} onClick={() => onEdit(tx)} className="flex items-center gap-3 text-left w-full transition-transform active:scale-[0.99]"
             style={{ background: t.card, borderRadius: 14, padding: '11px 14px', boxShadow: t.shadow }}>
             <TxIcon emoji={tx.emoji} cat={cat} />
             <div className="flex-1 min-w-0">
@@ -287,27 +436,31 @@ export function TransactionList({ m, limit }: { m: UseMoney; limit?: number }) {
             <div style={{ fontSize: 14, fontWeight: 700, color: isIncome ? MONEY_PALETTE.green : t.text, whiteSpace: 'nowrap' }}>
               {isIncome ? '+' : '-'}{tx.amount.toLocaleString('ko-KR')}
             </div>
-            <button onClick={() => m.deleteTransaction(tx.id)} title="삭제"
-              className="opacity-0 group-hover:opacity-100 transition-opacity" style={{ color: t.textMuted, padding: 4 }}>
-              <Trash2 size={14} />
-            </button>
-          </div>
+          </button>
         );
       })}
     </div>
   );
 }
 
-// ── 자산 패널 ──
+// ── 자산 패널 (항목 탭=수정 / 섹션 +추가) ──
+type AssetEditor =
+  | { kind: 'account'; item: MoneyAccount | null }
+  | { kind: 'card'; item: MoneyCard | null }
+  | { kind: 'fixed'; item: MoneyFixedCost | null }
+  | { kind: 'loan'; item: MoneyLoan | null }
+  | null;
+
 export function AssetPanel({ m }: { m: UseMoney }) {
   const { t } = useTheme();
-  const card = (children: React.ReactNode, extra?: React.CSSProperties) =>
-    <div style={{ background: t.card, borderRadius: 20, padding: 18, boxShadow: t.shadow, ...extra }}>{children}</div>;
-  const sectionTitle = (txt: string) => <div style={{ fontSize: 13, fontWeight: 700, color: t.text, margin: '4px 2px 8px' }}>{txt}</div>;
+  const [editor, setEditor] = useState<AssetEditor>(null);
+  const banks = m.accounts.filter(a => a.type !== 'investment');
+  const rowBtn = { background: t.card, borderRadius: 14, padding: 14, boxShadow: t.shadow } as React.CSSProperties;
+
   return (
     <div className="flex flex-col gap-3">
       {/* 순자산 */}
-      {card(
+      <div style={{ background: t.card, borderRadius: 20, padding: 18, boxShadow: t.shadow }}>
         <div className="text-center">
           <div style={{ fontSize: 12, color: t.textMuted, marginBottom: 4 }}>순자산</div>
           <div style={{ fontSize: 26, fontWeight: 900, color: t.text }}>{formatWon(m.netWorth)}</div>
@@ -321,140 +474,176 @@ export function AssetPanel({ m }: { m: UseMoney }) {
               <div style={{ fontSize: 15, fontWeight: 700, color: MONEY_PALETTE.coral }}>{m.cardDebt.toLocaleString('ko-KR')}</div>
             </div>
           </div>
-        </div>,
-      )}
+        </div>
+      </div>
 
       {/* 통장·예금 */}
       <div>
-        {sectionTitle('🏦 통장 · 예금')}
+        <SectionHead title="🏦 통장 · 예금" onAdd={() => setEditor({ kind: 'account', item: null })} />
         <div className="flex flex-col gap-2">
-          {m.accounts.filter(a => a.type !== 'investment').map(a => (
-            <div key={a.id} className="flex items-center gap-3" style={{ background: t.card, borderRadius: 14, padding: 14, boxShadow: t.shadow }}>
+          {banks.map(a => (
+            <button key={a.id} onClick={() => setEditor({ kind: 'account', item: a })} className="flex items-center gap-3 text-left w-full active:scale-[0.99] transition-transform" style={rowBtn}>
               <div style={{ width: 40, height: 40, borderRadius: 10, background: `${MONEY_PALETTE.green}20`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20 }}>{a.icon || '🏦'}</div>
-              <div className="flex-1">
+              <div className="flex-1 min-w-0">
                 <div style={{ fontSize: 13, fontWeight: 600, color: t.text }}>{a.name}</div>
                 <div style={{ fontSize: 11, color: t.textMuted }}>{a.type === 'savings' ? '적금' : a.type === 'cash' ? '현금' : '예금'}{a.interestRate != null ? ` · 연 ${a.interestRate}%` : ''}</div>
               </div>
               <div style={{ fontSize: 15, fontWeight: 700, color: t.text }}>{a.balance.toLocaleString('ko-KR')}</div>
-            </div>
+            </button>
           ))}
-          {m.accounts.filter(a => a.type !== 'investment').length === 0 && (
-            <div style={{ fontSize: 12, color: t.textMuted, padding: 8 }}>등록된 통장이 없어요</div>
-          )}
+          {banks.length === 0 && <EmptyAdd text="등록된 통장이 없어요" onAdd={() => setEditor({ kind: 'account', item: null })} />}
         </div>
       </div>
 
-      {/* 신용카드 */}
+      {/* 신용·체크카드 */}
       <div>
-        {sectionTitle('💳 신용 · 체크카드')}
+        <SectionHead title="💳 신용 · 체크카드" onAdd={() => setEditor({ kind: 'card', item: null })} />
         <div className="flex flex-col gap-2">
           {m.cards.map(c => {
             const dday = daysUntilDay(c.billingDay);
             return (
-              <div key={c.id} className="flex items-center gap-3" style={{ background: t.card, borderRadius: 14, padding: 14, boxShadow: t.shadow }}>
+              <button key={c.id} onClick={() => setEditor({ kind: 'card', item: c })} className="flex items-center gap-3 text-left w-full active:scale-[0.99] transition-transform" style={rowBtn}>
                 <div style={{ width: 40, height: 40, borderRadius: 10, background: `${c.color || MONEY_PALETTE.gold}20`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20 }}>💳</div>
-                <div className="flex-1">
+                <div className="flex-1 min-w-0">
                   <div style={{ fontSize: 13, fontWeight: 600, color: t.text }}>{c.name}</div>
-                  <div style={{ fontSize: 11, color: t.textMuted }}>미결제 {c.unpaidAmount.toLocaleString('ko-KR')}</div>
+                  <div style={{ fontSize: 11, color: t.textMuted }}>{c.type === 'check' ? '체크' : '신용'} · 미결제 {c.unpaidAmount.toLocaleString('ko-KR')}</div>
                 </div>
                 <div className="text-right">
                   <div style={{ fontSize: 15, fontWeight: 700, color: MONEY_PALETTE.coral }}>-{c.unpaidAmount.toLocaleString('ko-KR')}</div>
                   {c.billingDay && <div style={{ fontSize: 10, color: t.textMuted }}>결제일 {c.billingDay}일{dday != null ? ` · D-${dday}` : ''}</div>}
                 </div>
-              </div>
+              </button>
             );
           })}
-          {m.cards.length === 0 && <div style={{ fontSize: 12, color: t.textMuted, padding: 8 }}>등록된 카드가 없어요</div>}
+          {m.cards.length === 0 && <EmptyAdd text="등록된 카드가 없어요" onAdd={() => setEditor({ kind: 'card', item: null })} />}
         </div>
       </div>
 
-      {/* 대출 요약 */}
-      {m.loans.length > 0 && (
-        <div>
-          {sectionTitle('📋 대출')}
-          <div className="flex flex-col gap-2">
-            {m.loans.map(l => {
-              const pct = l.totalInstallments ? Math.round((l.paidInstallments / l.totalInstallments) * 100) : 0;
-              const dday = daysUntilDay(l.paymentDay);
-              return (
-                <div key={l.id} style={{ background: t.card, borderRadius: 14, padding: 16, boxShadow: t.shadow }}>
-                  <div className="flex justify-between items-start" style={{ marginBottom: 10 }}>
-                    <div>
-                      <div style={{ fontSize: 14, fontWeight: 700, color: t.text }}>{l.name}</div>
-                      <div style={{ fontSize: 11, color: t.textMuted, marginTop: 2 }}>{[l.lender, l.repaymentType].filter(Boolean).join(' · ')}</div>
-                    </div>
-                    <div className="text-right">
-                      <div style={{ fontSize: 16, fontWeight: 700, color: MONEY_PALETTE.coral }}>{l.balance.toLocaleString('ko-KR')}</div>
-                      <div style={{ fontSize: 10, color: t.textMuted }}>원금 잔액</div>
-                    </div>
-                  </div>
-                  <div className="flex justify-between" style={{ fontSize: 11, marginBottom: 4 }}>
-                    <span style={{ color: t.textSub }}>상환 진행률 {l.paidInstallments}/{l.totalInstallments}회</span>
-                    <span style={{ color: MONEY_PALETTE.green, fontWeight: 600 }}>{pct}%</span>
-                  </div>
-                  <div style={{ height: 8, background: t.bgSub, borderRadius: 4, overflow: 'hidden' }}>
-                    <div style={{ width: `${pct}%`, height: '100%', borderRadius: 4, background: MONEY_PALETTE.green }} />
-                  </div>
-                  {l.monthlyPayment != null && (
-                    <div className="flex justify-between items-center" style={{ marginTop: 10, padding: 10, background: t.bgSub, borderRadius: 10 }}>
-                      <span style={{ fontSize: 12, color: t.textSub }}>다음 상환 {dday != null ? `D-${dday}` : ''}</span>
-                      <span style={{ fontSize: 13, fontWeight: 700, color: t.text }}>{l.monthlyPayment.toLocaleString('ko-KR')}원</span>
-                    </div>
-                  )}
+      {/* 고정비 */}
+      <div>
+        <SectionHead title={`🔁 고정비 · 월 ${m.fixedTotal.toLocaleString('ko-KR')}원`} onAdd={() => setEditor({ kind: 'fixed', item: null })} />
+        <div className="flex flex-col gap-2">
+          {m.fixedCosts.map(f => {
+            const cat = m.categoryOf(f.categoryId);
+            const dday = daysUntilDay(f.billingDay);
+            return (
+              <button key={f.id} onClick={() => setEditor({ kind: 'fixed', item: f })} className="flex items-center gap-3 text-left w-full active:scale-[0.99] transition-transform" style={rowBtn}>
+                <div style={{ width: 40, height: 40, borderRadius: 10, background: `${resolveCategoryColor(cat)}20`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20 }}>{f.emoji || cat?.emoji || '🔁'}</div>
+                <div className="flex-1 min-w-0">
+                  <div style={{ fontSize: 13, fontWeight: 600, color: t.text }}>{f.name}{f.isVariable ? ' (변동)' : ''}</div>
+                  <div style={{ fontSize: 11, color: t.textMuted }}>{[f.paymentMethod, f.billingDay ? `매월 ${f.billingDay}일` : null, dday != null ? `D-${dday}` : null].filter(Boolean).join(' · ')}</div>
                 </div>
-              );
-            })}
-          </div>
+                <div className="text-right">
+                  <div style={{ fontSize: 14, fontWeight: 700, color: t.text }}>{f.isVariable ? '~' : ''}{f.amount.toLocaleString('ko-KR')}</div>
+                  {f.currency !== 'KRW' && f.originalAmount != null && <div style={{ fontSize: 10, color: t.textMuted }}>{f.currency} {f.originalAmount}</div>}
+                </div>
+              </button>
+            );
+          })}
+          {m.fixedCosts.length === 0 && <EmptyAdd text="등록된 고정비가 없어요" onAdd={() => setEditor({ kind: 'fixed', item: null })} />}
         </div>
-      )}
+      </div>
+
+      {/* 대출 */}
+      <div>
+        <SectionHead title="📋 대출" onAdd={() => setEditor({ kind: 'loan', item: null })} />
+        <div className="flex flex-col gap-2">
+          {m.loans.map(l => {
+            const pct = l.totalInstallments ? Math.round((l.paidInstallments / l.totalInstallments) * 100) : 0;
+            const dday = daysUntilDay(l.paymentDay);
+            return (
+              <button key={l.id} onClick={() => setEditor({ kind: 'loan', item: l })} className="text-left w-full active:scale-[0.99] transition-transform" style={{ background: t.card, borderRadius: 14, padding: 16, boxShadow: t.shadow }}>
+                <div className="flex justify-between items-start" style={{ marginBottom: 10 }}>
+                  <div>
+                    <div style={{ fontSize: 14, fontWeight: 700, color: t.text }}>{l.name}</div>
+                    <div style={{ fontSize: 11, color: t.textMuted, marginTop: 2 }}>{[l.lender, l.repaymentType].filter(Boolean).join(' · ')}</div>
+                  </div>
+                  <div className="text-right">
+                    <div style={{ fontSize: 16, fontWeight: 700, color: MONEY_PALETTE.coral }}>{l.balance.toLocaleString('ko-KR')}</div>
+                    <div style={{ fontSize: 10, color: t.textMuted }}>원금 잔액</div>
+                  </div>
+                </div>
+                {l.totalInstallments != null && (
+                  <>
+                    <div className="flex justify-between" style={{ fontSize: 11, marginBottom: 4 }}>
+                      <span style={{ color: t.textSub }}>상환 진행률 {l.paidInstallments}/{l.totalInstallments}회</span>
+                      <span style={{ color: MONEY_PALETTE.green, fontWeight: 600 }}>{pct}%</span>
+                    </div>
+                    <div style={{ height: 8, background: t.bgSub, borderRadius: 4, overflow: 'hidden' }}>
+                      <div style={{ width: `${pct}%`, height: '100%', borderRadius: 4, background: MONEY_PALETTE.green }} />
+                    </div>
+                  </>
+                )}
+                {l.monthlyPayment != null && (
+                  <div className="flex justify-between items-center" style={{ marginTop: 10, padding: 10, background: t.bgSub, borderRadius: 10 }}>
+                    <span style={{ fontSize: 12, color: t.textSub }}>다음 상환 {dday != null ? `D-${dday}` : ''}</span>
+                    <span style={{ fontSize: 13, fontWeight: 700, color: t.text }}>{l.monthlyPayment.toLocaleString('ko-KR')}원</span>
+                  </div>
+                )}
+              </button>
+            );
+          })}
+          {m.loans.length === 0 && <EmptyAdd text="등록된 대출이 없어요" onAdd={() => setEditor({ kind: 'loan', item: null })} />}
+        </div>
+      </div>
+
+      {editor?.kind === 'account' && <AccountForm m={m} item={editor.item} onClose={() => setEditor(null)} />}
+      {editor?.kind === 'card' && <CardForm m={m} item={editor.item} onClose={() => setEditor(null)} />}
+      {editor?.kind === 'fixed' && <FixedCostForm m={m} item={editor.item} onClose={() => setEditor(null)} />}
+      {editor?.kind === 'loan' && <LoanForm m={m} item={editor.item} onClose={() => setEditor(null)} />}
     </div>
   );
 }
 
-// ── 투자 패널 ──
+// ── 투자 패널 (투자계좌 = accounts.type==='investment') ──
 export function InvestPanel({ m }: { m: UseMoney }) {
   const { t } = useTheme();
+  const [editor, setEditor] = useState<{ item: MoneyAccount | null } | null>(null);
   const total = m.investments.reduce((s, a) => s + a.balance, 0);
-  if (m.investments.length === 0) {
-    return (
-      <div style={{ background: t.card, borderRadius: 20, padding: 18, boxShadow: t.shadow, textAlign: 'center' }}>
-        <div style={{ fontSize: 36, marginBottom: 8 }}>📈</div>
-        <div style={{ fontSize: 13, color: t.textSub }}>주식·펀드·코인 등<br />투자 내역을 추가해보세요</div>
-      </div>
-    );
-  }
   return (
     <div className="flex flex-col gap-3">
-      <div style={{ background: t.card, borderRadius: 20, padding: 18, boxShadow: t.shadow, textAlign: 'center' }}>
-        <div style={{ fontSize: 12, color: t.textMuted }}>총 투자자산</div>
-        <div style={{ fontSize: 26, fontWeight: 900, color: t.text, marginTop: 4 }}>{formatWon(total)}</div>
-      </div>
-      <div className="flex flex-col gap-2">
-        {m.investments.map(a => (
-          <div key={a.id} className="flex items-center gap-3" style={{ background: t.card, borderRadius: 14, padding: 14, boxShadow: t.shadow }}>
-            <div style={{ width: 40, height: 40, borderRadius: 10, background: t.bgSub, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18 }}>{a.icon || '📈'}</div>
-            <div className="flex-1"><div style={{ fontSize: 13, fontWeight: 600, color: t.text }}>{a.name}</div></div>
-            <div style={{ fontSize: 15, fontWeight: 700, color: t.text }}>{a.balance.toLocaleString('ko-KR')}</div>
+      {m.investments.length === 0 ? (
+        <div style={{ background: t.card, borderRadius: 20, padding: 24, boxShadow: t.shadow, textAlign: 'center' }}>
+          <div style={{ fontSize: 36, marginBottom: 8 }}>📈</div>
+          <div style={{ fontSize: 13, color: t.textSub, marginBottom: 14 }}>주식·펀드·코인 등<br />투자 내역을 추가해보세요</div>
+          <button onClick={() => setEditor({ item: null })} style={{ padding: '8px 20px', borderRadius: 10, border: `1.5px solid ${t.border}`, color: t.text, fontSize: 13, fontWeight: 500 }}>+ 투자 추가</button>
+        </div>
+      ) : (
+        <>
+          <div style={{ background: t.card, borderRadius: 20, padding: 18, boxShadow: t.shadow, textAlign: 'center' }}>
+            <div style={{ fontSize: 12, color: t.textMuted }}>총 투자자산</div>
+            <div style={{ fontSize: 26, fontWeight: 900, color: t.text, marginTop: 4 }}>{formatWon(total)}</div>
           </div>
-        ))}
-      </div>
+          <SectionHead title="📈 포트폴리오" onAdd={() => setEditor({ item: null })} />
+          <div className="flex flex-col gap-2">
+            {m.investments.map(a => (
+              <button key={a.id} onClick={() => setEditor({ item: a })} className="flex items-center gap-3 text-left w-full active:scale-[0.99] transition-transform" style={{ background: t.card, borderRadius: 14, padding: 14, boxShadow: t.shadow }}>
+                <div style={{ width: 40, height: 40, borderRadius: 10, background: t.bgSub, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18 }}>{a.icon || '📈'}</div>
+                <div className="flex-1 min-w-0"><div style={{ fontSize: 13, fontWeight: 600, color: t.text }}>{a.name}</div></div>
+                <div style={{ fontSize: 15, fontWeight: 700, color: t.text }}>{a.balance.toLocaleString('ko-KR')}</div>
+              </button>
+            ))}
+          </div>
+        </>
+      )}
+      {editor && <AccountForm m={m} item={editor.item} onClose={() => setEditor(null)} defaultType="investment" />}
     </div>
   );
 }
 
-// ── 계획(목표) 패널 ──
+// ── 계획(목표) 패널 (항목 탭=수정 / +추가) ──
 export function PlanPanel({ m }: { m: UseMoney }) {
   const { t } = useTheme();
-  if (m.goals.length === 0) {
-    return <div style={{ background: t.card, borderRadius: 20, padding: 18, boxShadow: t.shadow, textAlign: 'center', fontSize: 13, color: t.textMuted }}>저축 목표를 추가해보세요 🎯</div>;
-  }
+  const [editor, setEditor] = useState<{ item: MoneyGoal | null } | null>(null);
   return (
     <div className="flex flex-col gap-3">
+      <SectionHead title="🎯 저축 목표" onAdd={() => setEditor({ item: null })} />
+      {m.goals.length === 0 && <EmptyAdd text="저축 목표가 없어요" onAdd={() => setEditor({ item: null })} />}
       {m.goals.map(g => {
         const pct = g.targetAmount > 0 ? Math.min(100, Math.round((g.currentAmount / g.targetAmount) * 100)) : 0;
         const color = g.color || MONEY_PALETTE.green;
         return (
-          <div key={g.id} style={{ background: t.card, borderRadius: 20, padding: 18, boxShadow: t.shadow, border: `1.5px solid ${t.borderLight}` }}>
+          <button key={g.id} onClick={() => setEditor({ item: g })} className="text-left w-full active:scale-[0.99] transition-transform" style={{ background: t.card, borderRadius: 20, padding: 18, boxShadow: t.shadow, border: `1.5px solid ${t.borderLight}` }}>
             <div className="flex justify-between items-start" style={{ marginBottom: 10 }}>
               <div>
                 <div style={{ fontSize: 14, fontWeight: 700, color: t.text }}>{g.emoji ? `${g.emoji} ` : ''}{g.name}</div>
@@ -469,9 +658,10 @@ export function PlanPanel({ m }: { m: UseMoney }) {
               <span><strong style={{ color: t.text }}>{g.currentAmount.toLocaleString('ko-KR')}</strong> 달성</span>
               <span>목표 {g.targetAmount.toLocaleString('ko-KR')}원</span>
             </div>
-          </div>
+          </button>
         );
       })}
+      {editor && <GoalForm m={m} item={editor.item} onClose={() => setEditor(null)} />}
     </div>
   );
 }
@@ -532,22 +722,35 @@ export function ChatInputBar({ m, floating }: { m: UseMoney; floating?: boolean 
   );
 }
 
-// ── 탭 본문 라우팅(공유) ──
-export function MoneyTabPanel({ tab, m }: { tab: MoneyTab; m: UseMoney }) {
-  if (tab === 'asset') return <AssetPanel m={m} />;
-  if (tab === 'invest') return <InvestPanel m={m} />;
-  if (tab === 'plan') return <PlanPanel m={m} />;
-  // budget
+// ── 가계부 패널(요약·예산·캘린더·분석·거래, 거래 탭=수정) ──
+export function BudgetPanel({ m }: { m: UseMoney }) {
+  const { t } = useTheme();
+  const [editTx, setEditTx] = useState<{ item: any } | null>(null);
   return (
     <div className="flex flex-col gap-3">
       <SummaryStrip m={m} />
       <BudgetBar m={m} />
       <SpendCalendar m={m} />
+      <SpendTrendChart m={m} />
       <CategoryBreakdown m={m} />
       <div>
-        <div style={{ fontSize: 15, fontWeight: 700, marginBottom: 10, marginLeft: 2 }}>최근 거래</div>
-        <TransactionList m={m} limit={12} />
+        <div className="flex items-center justify-between" style={{ marginBottom: 10, marginLeft: 2 }}>
+          <span style={{ fontSize: 15, fontWeight: 700, color: t.text }}>최근 거래</span>
+          <button onClick={() => setEditTx({ item: null })} className="flex items-center gap-1" style={{ fontSize: 12, color: MONEY_PALETTE.gold, fontWeight: 600 }}>
+            <Plus size={13} /> 직접 추가
+          </button>
+        </div>
+        <TransactionList m={m} limit={20} onEdit={(tx) => setEditTx({ item: tx })} />
       </div>
+      {editTx && <TransactionForm m={m} item={editTx.item} onClose={() => setEditTx(null)} />}
     </div>
   );
+}
+
+// ── 탭 본문 라우팅(공유) ──
+export function MoneyTabPanel({ tab, m }: { tab: MoneyTab; m: UseMoney }) {
+  if (tab === 'asset') return <AssetPanel m={m} />;
+  if (tab === 'invest') return <InvestPanel m={m} />;
+  if (tab === 'plan') return <PlanPanel m={m} />;
+  return <BudgetPanel m={m} />;
 }
