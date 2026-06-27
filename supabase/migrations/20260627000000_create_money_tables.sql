@@ -201,7 +201,7 @@ end $$;
 insert into public.money_settings (user_id, period_type, payday, monthly_budget, currency, fx_alert_threshold)
 values ('8451b11f-76ed-4dcb-a9ec-bd8283fa1cde', 'payday', 25, 1200000, 'KRW', 3.0);
 
--- (2) categories — 지출 8 + 수입 4 (차트 8색 의미론 상수)
+-- (2) categories — 지출 11 + 수입 4 (차트 의미론 상수). 고정비 ②안: 구독/보험/주거 프리셋 추가
 insert into public.money_categories (user_id, type, name, emoji, color, is_default, sort_order)
 values
   ('8451b11f-76ed-4dcb-a9ec-bd8283fa1cde','expense','식비',  '🍚','#D4735A',true,0),
@@ -212,6 +212,9 @@ values
   ('8451b11f-76ed-4dcb-a9ec-bd8283fa1cde','expense','문화',  '🎬','#8B7EC8',true,5),
   ('8451b11f-76ed-4dcb-a9ec-bd8283fa1cde','expense','건강',  '💊','#5B9BD5',true,6),
   ('8451b11f-76ed-4dcb-a9ec-bd8283fa1cde','expense','통신',  '📱','#B8AD9E',true,7),
+  ('8451b11f-76ed-4dcb-a9ec-bd8283fa1cde','expense','구독',  '🎬','#8B7EC8',true,8),
+  ('8451b11f-76ed-4dcb-a9ec-bd8283fa1cde','expense','보험',  '🛡️','#7BA8B8',true,9),
+  ('8451b11f-76ed-4dcb-a9ec-bd8283fa1cde','expense','주거',  '🏠','#E8A84C',true,10),
   ('8451b11f-76ed-4dcb-a9ec-bd8283fa1cde','income','급여',   '💰','#6BAA7A',true,0),
   ('8451b11f-76ed-4dcb-a9ec-bd8283fa1cde','income','부수입', '💼','#8B7EC8',true,1),
   ('8451b11f-76ed-4dcb-a9ec-bd8283fa1cde','income','용돈/선물','🎁','#E8A84C',true,2),
@@ -239,23 +242,22 @@ from (values
   ('income', 2500000::bigint,'급여','6월 월급',  '카뱅 저금통','2026-06-25')
 ) as v(type, amount, cat, memo, pm, spent_at);
 
--- (6) fixed_costs — 7건(외화 구독 2건 포함). category_id 는 통신비만 '통신'에 매핑, 나머지 null
---     (구독/보험/주거/운동은 프리셋 카테고리에 없음 — Stage 2에서 별도 처리 검토).
+-- (6) fixed_costs — 7건(외화 구독 2건 포함). category_id 를 프리셋 카테고리에 전부 연결
+--     (②안: 구독/보험/주거 프리셋 추가됨 → 고정비도 정상 카테고리 집계에 포함).
 insert into public.money_fixed_costs
   (user_id, name, amount, original_amount, currency, cycle, billing_day, payment_method, category_id, is_variable, emoji)
 select '8451b11f-76ed-4dcb-a9ec-bd8283fa1cde', v.name, v.amount, v.orig, v.cur, 'monthly', v.bday, v.pm,
-       case when v.catname is null then null
-            else (select id from public.money_categories c
-                   where c.user_id='8451b11f-76ed-4dcb-a9ec-bd8283fa1cde' and c.name=v.catname and c.type='expense' limit 1) end,
+       (select id from public.money_categories c
+         where c.user_id='8451b11f-76ed-4dcb-a9ec-bd8283fa1cde' and c.name=v.catname and c.type='expense' limit 1),
        v.isvar, v.emoji
 from (values
-  ('넷플릭스',       19194::bigint, 13.99::numeric, 'USD', 1::int,  '삼성카드', null::text, false, '🎬'),
-  ('Spotify',        15100::bigint, 10.99::numeric, 'USD', 28::int, '하나카드', null::text, false, '🎵'),
-  ('유튜브 프리미엄',14900::bigint, null::numeric,  'KRW', 5::int,  '삼성카드', null::text, false, '▶️'),
-  ('통신비 (KT)',    55000::bigint, null::numeric,  'KRW', 15::int, '자동이체', '통신',     false, '📱'),
-  ('실비보험',       89000::bigint, null::numeric,  'KRW', 20::int, '자동이체', null::text, false, '🛡️'),
-  ('헬스장',         99000::bigint, null::numeric,  'KRW', 25::int, '하나카드', null::text, false, '🏋️'),
-  ('관리비',        120000::bigint, null::numeric,  'KRW', 10::int, '자동이체', null::text, true,  '🏠')
+  ('넷플릭스',       19194::bigint, 13.99::numeric, 'USD', 1::int,  '삼성카드', '구독', false, '🎬'),
+  ('Spotify',        15100::bigint, 10.99::numeric, 'USD', 28::int, '하나카드', '구독', false, '🎵'),
+  ('유튜브 프리미엄',14900::bigint, null::numeric,  'KRW', 5::int,  '삼성카드', '구독', false, '▶️'),
+  ('통신비 (KT)',    55000::bigint, null::numeric,  'KRW', 15::int, '자동이체', '통신', false, '📱'),
+  ('실비보험',       89000::bigint, null::numeric,  'KRW', 20::int, '자동이체', '보험', false, '🛡️'),
+  ('헬스장',         99000::bigint, null::numeric,  'KRW', 25::int, '하나카드', '건강', false, '🏋️'),
+  ('관리비',        120000::bigint, null::numeric,  'KRW', 10::int, '자동이체', '주거', true,  '🏠')
 ) as v(name, amount, orig, cur, bday, pm, catname, isvar, emoji);
 
 -- (7) loans — 학자금 + 신용대출 2건
