@@ -14,6 +14,18 @@ import type {
 
 const today = () => format(new Date(), 'yyyy-MM-dd');
 
+// 결제수단명 정규화(공백 제거·소문자) — 카드 태그 매칭용.
+const normName = (s: string) => s.replace(/\s/g, '').toLowerCase();
+
+// 매월 day 일 기준, 오늘 이전(<=오늘)에 지나간 가장 최근 결제일 → 'yyyy-MM-dd'.
+//  · 이 날 "이후"에 쓴 카드 거래가 "미청구"(다음 결제일에 청구될 금액).
+function lastBillingDateStr(day: number, base = new Date()): string {
+  const y = base.getFullYear(), mo = base.getMonth(), d = base.getDate();
+  let last = new Date(y, mo, day);
+  if (last.getTime() > new Date(y, mo, d).getTime()) last = new Date(y, mo - 1, day);
+  return format(last, 'yyyy-MM-dd');
+}
+
 export interface DayAgg { expense: number; income: number; }
 export interface CatBreakdown { category: MoneyCategory | null; amount: number; color: string; }
 
@@ -50,6 +62,9 @@ export interface UseMoney {
   trackingStartDate: string | null; // 머니 기록 시작일(첫 거래일). 없으면 null
   spendByDay: Map<string, DayAgg>;  // 'yyyy-MM-dd' → {expense, income}
   categoryOf: (id: string | null) => MoneyCategory | null;
+  // 카드 미청구(미결제) — 카드명으로 태그된 거래 중 마지막 결제일 이후 합 + 기준 이월액.
+  cardUnpaid: (card: MoneyCard) => number;
+  cardUnbilledTxs: (card: MoneyCard) => MoneyTransaction[];
   refresh: () => Promise<void>;
   // 액션
   addTransaction: (tx: Partial<MoneyTransaction> & { type: TxType; amount: number }) => Promise<void>;
@@ -153,7 +168,23 @@ export function useMoney(): UseMoney {
   const fixedTotal = useMemo(() => fixedCosts.reduce((s, f) => s + f.amount, 0), [fixedCosts]);
   const assets = useMemo(() => accounts.reduce((s, a) => s + a.balance, 0), [accounts]);
   const investments = useMemo(() => accounts.filter(a => a.type === 'investment'), [accounts]);
-  const cardDebt = useMemo(() => cards.reduce((s, c) => s + c.unpaidAmount, 0), [cards]);
+  // 카드별 미청구 거래(신용카드만) — 카드명 매칭 + 마지막 결제일 이후(결제일 없으면 전체).
+  const cardUnbilledTxs = useCallback((card: MoneyCard): MoneyTransaction[] => {
+    if (card.type === 'check') return [];   // 체크는 즉시 출금 — 미청구 개념 없음
+    const target = normName(card.name);
+    const matches = transactions.filter(tx => tx.type === 'expense' && tx.paymentMethod && normName(tx.paymentMethod) === target);
+    if (!card.billingDay) return matches;
+    const lastBill = lastBillingDateStr(card.billingDay);
+    return matches.filter(tx => tx.spentAt > lastBill);
+  }, [transactions]);
+
+  // 카드 미결제액 = 기준 이월액(card.unpaidAmount) + 미청구 거래 합. 체크카드는 0.
+  const cardUnpaid = useCallback((card: MoneyCard): number => {
+    if (card.type === 'check') return 0;
+    return (card.unpaidAmount || 0) + cardUnbilledTxs(card).reduce((s, tx) => s + tx.amount, 0);
+  }, [cardUnbilledTxs]);
+
+  const cardDebt = useMemo(() => cards.reduce((s, c) => s + cardUnpaid(c), 0), [cards, cardUnpaid]);
   const loanDebt = useMemo(() => loans.reduce((s, l) => s + l.balance, 0), [loans]);
   const netWorth = assets - cardDebt;  // 목업 기준(대출은 별도 표시)
 
@@ -363,7 +394,7 @@ export function useMoney(): UseMoney {
     transactions, periodTransactions, accounts, investments, cards, fixedCosts, loans, goals, settings,
     period, income, expense, balance, fixedTotal, assets, cardDebt, loanDebt, netWorth,
     daysLeft, dailyAllowance, noSpendStreak, trackingStartDate, spendByDay,
-    categoryOf, refresh,
+    categoryOf, cardUnpaid, cardUnbilledTxs, refresh,
     addTransaction, deleteTransaction, parseAndAdd, addCategory, saveCategory, deleteCategory, updateSettings,
     saveAccount, deleteAccount, saveCard, deleteCard, saveFixedCost, deleteFixedCost, refreshFxRates,
     saveLoan, deleteLoan, saveGoal, deleteGoal,

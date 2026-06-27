@@ -215,8 +215,15 @@ export function CardForm({ m, item, onClose }: { m: UseMoney; item: MoneyCard | 
     <FormSheet title={item ? '카드 수정' : '카드 추가'} onClose={onClose} onSave={save} onDelete={item ? () => m.deleteCard(item.id) : undefined} canSave={!!name.trim()}>
       <Field label="이름"><TextInput value={name} onChange={setName} placeholder="예: 삼성카드" /></Field>
       <Field label="종류"><Seg value={type} onChange={setType} options={[{ value: 'credit', label: '신용' }, { value: 'check', label: '체크' }]} /></Field>
-      <Field label="미결제액"><TextInput value={unpaid} onChange={setUnpaid} placeholder="원" type="number" /></Field>
-      {type === 'credit' && <Field label="결제일"><TextInput value={billingDay} onChange={setBillingDay} placeholder="매월 N일" type="number" /></Field>}
+      {type === 'credit' && (
+        <>
+          <Field label="기준 미결제액"><TextInput value={unpaid} onChange={setUnpaid} placeholder="이월액(선택) · 0" type="number" /></Field>
+          <Field label="결제일"><TextInput value={billingDay} onChange={setBillingDay} placeholder="매월 N일" type="number" /></Field>
+          <div style={{ fontSize: 11, color: MONEY_PALETTE.mute, margin: '-4px 0 12px', paddingLeft: 76 }}>
+            실제 미결제액 = 기준 이월액 + 이 카드로 태그된 미청구 거래 합(자동)
+          </div>
+        </>
+      )}
       <Field label="색상"><ColorPicker value={color} onChange={setColor} /></Field>
     </FormSheet>
   );
