@@ -1,6 +1,6 @@
 // 하온 머니 — 공용 프레젠테이션 조각(모바일/PC 공유). 레이아웃 셸만 Mobile/Desktop 에서 분기.
 import React, { useState } from 'react';
-import { format, parseISO, subDays, addDays } from 'date-fns';
+import { format, parseISO, subDays, addDays, differenceInCalendarDays, differenceInCalendarMonths } from 'date-fns';
 import { Send, X, Plus, Tags, ChevronRight } from 'lucide-react';
 import { useTheme } from '../../app/ThemeContext';
 import type { UseMoney } from './useMoney';
@@ -563,7 +563,6 @@ type AssetEditor =
   | { kind: 'account'; item: MoneyAccount | null }
   | { kind: 'card'; item: MoneyCard | null }
   | { kind: 'fixed'; item: MoneyFixedCost | null }
-  | { kind: 'loan'; item: MoneyLoan | null }
   | null;
 
 export function AssetPanel({ m }: { m: UseMoney }) {
@@ -665,53 +664,11 @@ export function AssetPanel({ m }: { m: UseMoney }) {
         </div>
       </div>
 
-      {/* 대출 */}
-      <div>
-        <SectionHead title="📋 대출" onAdd={() => setEditor({ kind: 'loan', item: null })} />
-        <div className="flex flex-col gap-2">
-          {m.loans.map(l => {
-            const pct = l.totalInstallments ? Math.round((l.paidInstallments / l.totalInstallments) * 100) : 0;
-            const dday = daysUntilDay(l.paymentDay);
-            return (
-              <button key={l.id} onClick={() => setEditor({ kind: 'loan', item: l })} className="text-left w-full active:scale-[0.99] transition-transform" style={{ background: t.card, borderRadius: 14, padding: 16, boxShadow: t.shadow }}>
-                <div className="flex justify-between items-start" style={{ marginBottom: 10 }}>
-                  <div>
-                    <div style={{ fontSize: 14, fontWeight: 700, color: t.text }}>{l.name}</div>
-                    <div style={{ fontSize: 11, color: t.textMuted, marginTop: 2 }}>{[l.lender, l.repaymentType].filter(Boolean).join(' · ')}</div>
-                  </div>
-                  <div className="text-right">
-                    <div style={{ fontSize: 16, fontWeight: 700, color: MONEY_PALETTE.coral }}>{l.balance.toLocaleString('ko-KR')}</div>
-                    <div style={{ fontSize: 10, color: t.textMuted }}>원금 잔액</div>
-                  </div>
-                </div>
-                {l.totalInstallments != null && (
-                  <>
-                    <div className="flex justify-between" style={{ fontSize: 11, marginBottom: 4 }}>
-                      <span style={{ color: t.textSub }}>상환 진행률 {l.paidInstallments}/{l.totalInstallments}회</span>
-                      <span style={{ color: MONEY_PALETTE.green, fontWeight: 600 }}>{pct}%</span>
-                    </div>
-                    <div style={{ height: 8, background: t.bgSub, borderRadius: 4, overflow: 'hidden' }}>
-                      <div style={{ width: `${pct}%`, height: '100%', borderRadius: 4, background: MONEY_PALETTE.green }} />
-                    </div>
-                  </>
-                )}
-                {l.monthlyPayment != null && (
-                  <div className="flex justify-between items-center" style={{ marginTop: 10, padding: 10, background: t.bgSub, borderRadius: 10 }}>
-                    <span style={{ fontSize: 12, color: t.textSub }}>다음 상환 {dday != null ? `D-${dday}` : ''}</span>
-                    <span style={{ fontSize: 13, fontWeight: 700, color: t.text }}>{l.monthlyPayment.toLocaleString('ko-KR')}원</span>
-                  </div>
-                )}
-              </button>
-            );
-          })}
-          {m.loans.length === 0 && <EmptyAdd text="등록된 대출이 없어요" onAdd={() => setEditor({ kind: 'loan', item: null })} />}
-        </div>
-      </div>
+      {/* 대출은 계획 탭으로 이동(Stage 7) */}
 
       {editor?.kind === 'account' && <AccountForm m={m} item={editor.item} onClose={() => setEditor(null)} />}
       {editor?.kind === 'card' && <CardForm m={m} item={editor.item} onClose={() => setEditor(null)} />}
       {editor?.kind === 'fixed' && <FixedCostForm m={m} item={editor.item} onClose={() => setEditor(null)} />}
-      {editor?.kind === 'loan' && <LoanForm m={m} item={editor.item} onClose={() => setEditor(null)} />}
       {showFixedMgr && <FixedCostManager m={m} onClose={() => setShowFixedMgr(false)} />}
       {showCardMgr && <CardManager m={m} onClose={() => setShowCardMgr(false)} />}
     </div>
@@ -796,37 +753,242 @@ export function InvestPanel({ m }: { m: UseMoney }) {
   );
 }
 
-// ── 계획(목표) 패널 (항목 탭=수정 / +추가) ──
-export function PlanPanel({ m }: { m: UseMoney }) {
+// ── 목표 색상(유형 기준): savings 그린 / networth 골드 / travel 코랄 / 그 외 저장색 ──
+function goalColor(g: MoneyGoal): string {
+  if (g.type === 'savings') return MONEY_PALETTE.green;
+  if (g.type === 'networth') return MONEY_PALETTE.gold;
+  if (g.type === 'travel') return MONEY_PALETTE.coral;
+  return g.color || MONEY_PALETTE.green;
+}
+
+// ── 목표 달성 페이스 계산 ──
+//  · 월 필요 적립액 = (목표 − 현재) / 남은 개월
+//  · 페이스 상태: 경과시간 대비 진행률(createdAt~deadline)로 순조/부족 판정.
+type PaceStatus = 'done' | 'ontrack' | 'behind' | 'overdue' | 'none';
+function goalPace(g: MoneyGoal): { pct: number; status: PaceStatus; monthlyNeed: number | null; daysLeft: number | null; monthsLeft: number | null } {
+  const pct = g.targetAmount > 0 ? Math.min(100, Math.round((g.currentAmount / g.targetAmount) * 100)) : 0;
+  const done = g.targetAmount > 0 && g.currentAmount >= g.targetAmount;
+  const remaining = Math.max(0, g.targetAmount - g.currentAmount);
+  if (!g.deadline) return { pct, status: done ? 'done' : 'none', monthlyNeed: null, daysLeft: null, monthsLeft: null };
+  const now = new Date();
+  const dl = parseISO(g.deadline);
+  const daysLeft = differenceInCalendarDays(dl, now);
+  const monthsLeft = Math.max(0, differenceInCalendarMonths(dl, now));
+  const monthlyNeed = done ? 0 : Math.ceil(remaining / Math.max(1, monthsLeft));
+  let status: PaceStatus;
+  if (done) status = 'done';
+  else if (daysLeft < 0) status = 'overdue';
+  else if (g.createdAt) {
+    const start = parseISO(g.createdAt);
+    const totalDays = differenceInCalendarDays(dl, start);
+    const elapsed = differenceInCalendarDays(now, start);
+    const expectedPct = totalDays > 0 ? Math.min(100, (elapsed / totalDays) * 100) : 0;
+    status = pct + 0.5 >= expectedPct ? 'ontrack' : 'behind';
+  } else status = 'ontrack';
+  return { pct, status, monthlyNeed, daysLeft, monthsLeft };
+}
+
+// 페이스 뱃지 메타(라벨/색)
+function paceBadge(s: PaceStatus, t: any): { label: string; color: string; bg: string } | null {
+  if (s === 'done') return { label: '달성 🎉', color: MONEY_PALETTE.green, bg: `${MONEY_PALETTE.green}1A` };
+  if (s === 'ontrack') return { label: '순조로움 ✓', color: MONEY_PALETTE.green, bg: `${MONEY_PALETTE.green}1A` };
+  if (s === 'behind') return { label: '페이스 부족 ⚠', color: MONEY_PALETTE.coral, bg: `${MONEY_PALETTE.coral}14` };
+  if (s === 'overdue') return { label: '기한 초과 ⚠', color: MONEY_PALETTE.coral, bg: `${MONEY_PALETTE.coral}14` };
+  return null;
+}
+
+// ── 7-1 저축 목표(페이스 포함) ──
+function GoalSection({ m, onEdit }: { m: UseMoney; onEdit: (g: MoneyGoal | null) => void }) {
   const { t } = useTheme();
-  const [editor, setEditor] = useState<{ item: MoneyGoal | null } | null>(null);
   return (
-    <div className="flex flex-col gap-3">
-      <SectionHead title="🎯 저축 목표" onAdd={() => setEditor({ item: null })} />
-      {m.goals.length === 0 && <EmptyAdd text="저축 목표가 없어요" onAdd={() => setEditor({ item: null })} />}
-      {m.goals.map(g => {
-        const pct = g.targetAmount > 0 ? Math.min(100, Math.round((g.currentAmount / g.targetAmount) * 100)) : 0;
-        const color = g.color || MONEY_PALETTE.green;
-        return (
-          <button key={g.id} onClick={() => setEditor({ item: g })} className="text-left w-full active:scale-[0.99] transition-transform" style={{ background: t.card, borderRadius: 20, padding: 18, boxShadow: t.shadow, border: `1.5px solid ${t.borderLight}` }}>
-            <div className="flex justify-between items-start" style={{ marginBottom: 10 }}>
-              <div>
-                <div style={{ fontSize: 14, fontWeight: 700, color: t.text }}>{g.emoji ? `${g.emoji} ` : ''}{g.name}</div>
-                {g.deadline && <div style={{ fontSize: 11, color: t.textMuted, marginTop: 3 }}>{format(parseISO(g.deadline), 'yyyy.MM.dd')}까지</div>}
+    <div>
+      <SectionHead title="🎯 저축 목표" onAdd={() => onEdit(null)} />
+      {m.goals.length === 0 && <EmptyAdd text="저축 목표가 없어요" onAdd={() => onEdit(null)} />}
+      <div className="flex flex-col gap-2">
+        {m.goals.map(g => {
+          const { pct, status, monthlyNeed, daysLeft, monthsLeft } = goalPace(g);
+          const color = goalColor(g);
+          const badge = paceBadge(status, t);
+          // 남은 기간 표기: 개월(있으면) · D-day / 기한 초과
+          const periodLabel = g.deadline == null ? null
+            : daysLeft != null && daysLeft < 0 ? '기한 지남'
+            : [monthsLeft && monthsLeft > 0 ? `${monthsLeft}개월` : null, daysLeft != null ? `D-${daysLeft}` : null].filter(Boolean).join(' · ');
+          return (
+            <button key={g.id} onClick={() => onEdit(g)} className="text-left w-full active:scale-[0.99] transition-transform" style={{ background: t.card, borderRadius: 20, padding: 18, boxShadow: t.shadow, border: `1.5px solid ${t.borderLight}` }}>
+              <div className="flex justify-between items-start" style={{ marginBottom: 10 }}>
+                <div className="min-w-0">
+                  <div style={{ fontSize: 14, fontWeight: 700, color: t.text }}>{g.emoji ? `${g.emoji} ` : ''}{g.name}</div>
+                  {g.deadline && <div style={{ fontSize: 11, color: t.textMuted, marginTop: 3 }}>{format(parseISO(g.deadline), 'yyyy.MM.dd')}까지{periodLabel ? ` · ${periodLabel}` : ''}</div>}
+                </div>
+                <div className="flex flex-col items-end gap-1 flex-shrink-0">
+                  <span style={{ fontSize: 18, fontWeight: 900, color }}>{pct}%</span>
+                  {badge && <span style={{ fontSize: 9.5, fontWeight: 700, color: badge.color, background: badge.bg, borderRadius: 6, padding: '2px 7px', whiteSpace: 'nowrap' }}>{badge.label}</span>}
+                </div>
               </div>
-              <span style={{ fontSize: 18, fontWeight: 900, color }}>{pct}%</span>
+              <div style={{ height: 10, background: t.bgSub, borderRadius: 5, overflow: 'hidden', marginBottom: 8 }}>
+                <div style={{ width: `${pct}%`, height: '100%', borderRadius: 5, background: color, transition: 'width 0.6s' }} />
+              </div>
+              <div className="flex justify-between" style={{ fontSize: 11, color: t.textMuted }}>
+                <span><strong style={{ color: t.text }}>{g.currentAmount.toLocaleString('ko-KR')}</strong> 달성</span>
+                <span>목표 {g.targetAmount.toLocaleString('ko-KR')}원</span>
+              </div>
+              {monthlyNeed != null && monthlyNeed > 0 && (
+                <div className="flex justify-between items-center" style={{ marginTop: 10, padding: '8px 10px', background: t.bgSub, borderRadius: 10 }}>
+                  <span style={{ fontSize: 11, color: t.textSub }}>달성 페이스 (월 필요 적립)</span>
+                  <span style={{ fontSize: 13, fontWeight: 700, color: badge?.color ?? t.text }}>{monthlyNeed.toLocaleString('ko-KR')}원</span>
+                </div>
+              )}
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+// ── 7-2 자산 형성 로드맵 타임라인 (완료 → 오늘 → 미래) ──
+function RoadmapTimeline({ m }: { m: UseMoney }) {
+  const { t } = useTheme();
+  if (m.goals.length === 0) return null;
+  const isDone = (g: MoneyGoal) => g.targetAmount > 0 && g.currentAmount >= g.targetAmount;
+  // 마감일 오름차순(없으면 뒤로)
+  const byDeadline = (a: MoneyGoal, b: MoneyGoal) => (a.deadline ?? '9999').localeCompare(b.deadline ?? '9999');
+  const done = m.goals.filter(isDone).sort(byDeadline);
+  const future = m.goals.filter(g => !isDone(g)).sort(byDeadline);
+  type Node = { kind: 'done' | 'today' | 'future'; g?: MoneyGoal };
+  const nodes: Node[] = [...done.map(g => ({ kind: 'done' as const, g })), { kind: 'today' as const }, ...future.map(g => ({ kind: 'future' as const, g }))];
+
+  return (
+    <div style={{ background: t.card, borderRadius: 20, padding: 18, boxShadow: t.shadow }}>
+      <div style={{ fontSize: 14, fontWeight: 700, color: t.text, marginBottom: 16 }}>🗺️ 자산 형성 로드맵</div>
+      <div className="flex flex-col">
+        {nodes.map((n, i) => {
+          const last = i === nodes.length - 1;
+          const dotColor = n.kind === 'done' ? MONEY_PALETTE.green : n.kind === 'today' ? MONEY_PALETTE.gold : t.textMuted;
+          const isToday = n.kind === 'today';
+          return (
+            <div key={i} className="flex gap-3" style={{ minHeight: isToday ? 40 : 52 }}>
+              {/* 레일(점 + 연결선) */}
+              <div className="flex flex-col items-center flex-shrink-0" style={{ width: 18 }}>
+                <div style={{
+                  width: isToday ? 14 : 12, height: isToday ? 14 : 12, borderRadius: '50%', marginTop: 2,
+                  background: n.kind === 'future' ? 'transparent' : dotColor,
+                  border: n.kind === 'future' ? `2px solid ${t.border}` : `2px solid ${dotColor}`,
+                  boxShadow: isToday ? `0 0 0 4px ${MONEY_PALETTE.gold}33` : 'none',
+                }} />
+                {!last && <div style={{ flex: 1, width: 2, background: t.borderLight, marginTop: 2 }} />}
+              </div>
+              {/* 내용 */}
+              <div className="flex-1 min-w-0" style={{ paddingBottom: 14 }}>
+                {isToday ? (
+                  <div style={{ fontSize: 12, fontWeight: 700, color: MONEY_PALETTE.gold }}>오늘 · {format(new Date(), 'yyyy.MM.dd')}</div>
+                ) : (
+                  <div className="flex items-center justify-between">
+                    <div className="min-w-0">
+                      <div style={{ fontSize: 13, fontWeight: 600, color: n.kind === 'future' ? t.textSub : t.text, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        {n.kind === 'done' ? '✓ ' : ''}{n.g!.emoji ? `${n.g!.emoji} ` : ''}{n.g!.name}
+                      </div>
+                      <div style={{ fontSize: 10.5, color: t.textMuted, marginTop: 1 }}>
+                        {[n.g!.deadline ? format(parseISO(n.g!.deadline), 'yyyy.MM') : '기한 없음', `목표 ${formatManShort(n.g!.targetAmount)}`].join(' · ')}
+                      </div>
+                    </div>
+                    <span style={{ fontSize: 12, fontWeight: 700, color: n.kind === 'done' ? MONEY_PALETTE.green : t.textMuted, flexShrink: 0 }}>
+                      {n.g!.targetAmount > 0 ? Math.min(100, Math.round((n.g!.currentAmount / n.g!.targetAmount) * 100)) : 0}%
+                    </span>
+                  </div>
+                )}
+              </div>
             </div>
-            <div style={{ height: 10, background: t.bgSub, borderRadius: 5, overflow: 'hidden', marginBottom: 8 }}>
-              <div style={{ width: `${pct}%`, height: '100%', borderRadius: 5, background: color }} />
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+// ── 7-3 대출 관리 (총 잔액/상환완료/남은원금 + 대출별 상세 + 다음 상환 D-day) ──
+function LoanSection({ m, onEdit }: { m: UseMoney; onEdit: (l: MoneyLoan | null) => void }) {
+  const { t } = useTheme();
+  // 상환 완료 합 = Σ(최초원금 − 잔액) [원금 입력된 건만], 남은 원금 = Σ 잔액
+  const repaid = m.loans.reduce((s, l) => s + (l.principal != null ? Math.max(0, l.principal - l.balance) : 0), 0);
+  const remain = m.loans.reduce((s, l) => s + l.balance, 0);
+  return (
+    <div>
+      <SectionHead title="🏛️ 대출 관리" onAdd={() => onEdit(null)} />
+      {m.loans.length === 0 ? (
+        <EmptyAdd text="등록된 대출이 없어요" onAdd={() => onEdit(null)} />
+      ) : (
+        <div className="flex flex-col gap-2">
+          {/* 요약 */}
+          <div style={{ background: t.card, borderRadius: 16, padding: 16, boxShadow: t.shadow }}>
+            <div style={{ fontSize: 11, color: t.textMuted, textAlign: 'center' }}>총 대출 잔액</div>
+            <div style={{ fontSize: 24, fontWeight: 900, color: MONEY_PALETTE.coral, textAlign: 'center', marginTop: 2 }}>{formatWon(remain)}</div>
+            <div className="flex gap-2" style={{ marginTop: 12 }}>
+              <div className="flex-1 text-center" style={{ background: `${MONEY_PALETTE.green}14`, borderRadius: 10, padding: 8 }}>
+                <div style={{ fontSize: 10, color: t.textSub }}>상환 완료</div>
+                <div style={{ fontSize: 13, fontWeight: 700, color: MONEY_PALETTE.green }}>{repaid.toLocaleString('ko-KR')}</div>
+              </div>
+              <div className="flex-1 text-center" style={{ background: t.bgSub, borderRadius: 10, padding: 8 }}>
+                <div style={{ fontSize: 10, color: t.textSub }}>남은 원금</div>
+                <div style={{ fontSize: 13, fontWeight: 700, color: t.text }}>{remain.toLocaleString('ko-KR')}</div>
+              </div>
             </div>
-            <div className="flex justify-between" style={{ fontSize: 11, color: t.textMuted }}>
-              <span><strong style={{ color: t.text }}>{g.currentAmount.toLocaleString('ko-KR')}</strong> 달성</span>
-              <span>목표 {g.targetAmount.toLocaleString('ko-KR')}원</span>
-            </div>
-          </button>
-        );
-      })}
-      {editor && <GoalForm m={m} item={editor.item} onClose={() => setEditor(null)} />}
+          </div>
+          {/* 대출별 상세 */}
+          {m.loans.map(l => {
+            const pct = l.totalInstallments ? Math.round((l.paidInstallments / l.totalInstallments) * 100) : 0;
+            const left = l.totalInstallments != null ? Math.max(0, l.totalInstallments - l.paidInstallments) : null;
+            const dday = daysUntilDay(l.paymentDay);
+            const meta = [l.interestRate != null ? `연 ${l.interestRate}%` : null, l.repaymentType].filter(Boolean).join(' · ');
+            return (
+              <button key={l.id} onClick={() => onEdit(l)} className="text-left w-full active:scale-[0.99] transition-transform" style={{ background: t.card, borderRadius: 14, padding: 16, boxShadow: t.shadow }}>
+                <div className="flex justify-between items-start" style={{ marginBottom: 10 }}>
+                  <div className="min-w-0">
+                    <div style={{ fontSize: 14, fontWeight: 700, color: t.text }}>{l.name}</div>
+                    <div style={{ fontSize: 11, color: t.textMuted, marginTop: 2 }}>{[l.lender, meta].filter(Boolean).join(' · ')}</div>
+                  </div>
+                  <div className="text-right flex-shrink-0">
+                    <div style={{ fontSize: 16, fontWeight: 700, color: MONEY_PALETTE.coral }}>{l.balance.toLocaleString('ko-KR')}</div>
+                    <div style={{ fontSize: 10, color: t.textMuted }}>원금 잔액</div>
+                  </div>
+                </div>
+                {l.totalInstallments != null && (
+                  <>
+                    <div className="flex justify-between" style={{ fontSize: 11, marginBottom: 4 }}>
+                      <span style={{ color: t.textSub }}>상환 {l.paidInstallments}/{l.totalInstallments}회{left != null ? ` · ${left}회 남음` : ''}</span>
+                      <span style={{ color: MONEY_PALETTE.green, fontWeight: 600 }}>{pct}%</span>
+                    </div>
+                    <div style={{ height: 8, background: t.bgSub, borderRadius: 4, overflow: 'hidden' }}>
+                      <div style={{ width: `${pct}%`, height: '100%', borderRadius: 4, background: MONEY_PALETTE.green }} />
+                    </div>
+                  </>
+                )}
+                {l.monthlyPayment != null && (
+                  <div className="flex justify-between items-center" style={{ marginTop: 10, padding: 10, background: t.bgSub, borderRadius: 10 }}>
+                    <span style={{ fontSize: 12, color: t.textSub }}>다음 상환{dday != null ? ` D-${dday}` : ''}{l.paymentDay ? ` (매월 ${l.paymentDay}일)` : ''}</span>
+                    <span style={{ fontSize: 13, fontWeight: 700, color: t.text }}>{l.monthlyPayment.toLocaleString('ko-KR')}원</span>
+                  </div>
+                )}
+              </button>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── 계획 패널 (저축 목표 + 로드맵 + 대출) ──
+export function PlanPanel({ m }: { m: UseMoney }) {
+  const [goalEd, setGoalEd] = useState<{ item: MoneyGoal | null } | null>(null);
+  const [loanEd, setLoanEd] = useState<{ item: MoneyLoan | null } | null>(null);
+  return (
+    <div className="flex flex-col gap-4">
+      <GoalSection m={m} onEdit={(g) => setGoalEd({ item: g })} />
+      <RoadmapTimeline m={m} />
+      <LoanSection m={m} onEdit={(l) => setLoanEd({ item: l })} />
+      {goalEd && <GoalForm m={m} item={goalEd.item} onClose={() => setGoalEd(null)} />}
+      {loanEd && <LoanForm m={m} item={loanEd.item} onClose={() => setLoanEd(null)} />}
     </div>
   );
 }
