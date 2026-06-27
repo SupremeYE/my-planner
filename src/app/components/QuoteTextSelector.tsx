@@ -9,6 +9,7 @@ import { X, ChevronLeft, Camera, Image as ImageIcon, Loader2, Check, AlertTriang
 import { useTheme } from '../ThemeContext';
 import { supabase } from '../../lib/supabase';
 import { db } from '../../lib/db';
+import { prepImageForOcr } from '../../lib/imagePrep';
 
 interface QuoteTextSelectorProps {
   isOpen: boolean;
@@ -78,8 +79,12 @@ export function QuoteTextSelector({ isOpen, onClose, onConfirm, bookId }: QuoteT
     setErrKind(null);
     setSelectedQuote('');
     try {
-      // 1) Storage 업로드 → publicUrl (찍은 원본 그대로 보관)
-      const url = await db.bookQuotes.uploadPhoto(bookId, file);
+      // 0) OCR 전처리 — HEIC→JPEG 변환 + 긴 변 2000px 다운스케일.
+      //    iOS 원본(HEIC/대용량)을 그대로 보내면 OpenAI 비전이 못 읽어 "텍스트 인식 실패" 가 난다(v1 크롭이 하던 재인코딩 복원).
+      const prepared = await prepImageForOcr(file);
+
+      // 1) Storage 업로드 → publicUrl (전처리한 사진을 보관 — 카드 썸네일/확대에 그대로 재사용)
+      const url = await db.bookQuotes.uploadPhoto(bookId, prepared);
       if (!url) {
         setErrMsg('사진 업로드에 실패했어요. 네트워크를 확인하고 다시 시도해 주세요.');
         setErrKind('network');
