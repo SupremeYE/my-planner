@@ -7,7 +7,7 @@ import { MONEY_PALETTE, CUSTOM_PALETTE } from './tokens';
 import type { UseMoney } from './useMoney';
 import type {
   MoneyCategory, MoneyTransaction, MoneyAccount, MoneyCard, MoneyFixedCost, MoneyLoan, MoneyGoal,
-  TxType, AccountType, CardType, FixedCycle, Currency, GoalType,
+  TxType, AccountType, InvestKind, CardType, FixedCycle, Currency, GoalType,
 } from './types';
 
 const uuid = () => crypto.randomUUID();
@@ -185,17 +185,38 @@ export function AccountForm({ m, item, onClose, defaultType = 'deposit' }: { m: 
   const [balance, setBalance] = useState(item ? String(item.balance) : '');
   const [rate, setRate] = useState(item?.interestRate != null ? String(item.interestRate) : '');
   const [icon, setIcon] = useState(item?.icon ?? '');
+  // 투자계좌 전용 필드
+  const [investKind, setInvestKind] = useState<InvestKind>(item?.investKind ?? 'stock');
+  const [principal, setPrincipal] = useState(item?.principal != null ? String(item.principal) : '');
+  const [quantity, setQuantity] = useState(item?.quantity != null ? String(item.quantity) : '');
+  const isInvest = type === 'investment';
   const save = () => {
-    m.saveAccount({ id: item?.id ?? uuid(), name: name.trim(), type, balance: intVal(balance), interestRate: numOrNull(rate), icon: icon.trim() || null, sortOrder: item?.sortOrder ?? 0 });
+    m.saveAccount({
+      id: item?.id ?? uuid(), name: name.trim(), type, balance: intVal(balance),
+      interestRate: isInvest ? null : numOrNull(rate), icon: icon.trim() || null, sortOrder: item?.sortOrder ?? 0,
+      investKind: isInvest ? investKind : null,
+      principal: isInvest ? numOrNull(principal) : null,
+      quantity: isInvest ? numOrNull(quantity) : null,
+    });
     onClose();
   };
   return (
     <FormSheet title={item ? '자산 수정' : '자산 추가'} onClose={onClose} onSave={save} onDelete={item ? () => m.deleteAccount(item.id) : undefined} canSave={!!name.trim()}>
-      <Field label="이름"><TextInput value={name} onChange={setName} placeholder="예: 카뱅 저금통" /></Field>
+      <Field label="이름"><TextInput value={name} onChange={setName} placeholder={isInvest ? '예: 삼성전자' : '예: 카뱅 저금통'} /></Field>
       <Field label="종류"><SelectInput value={type} onChange={setType} options={[{ value: 'deposit', label: '예금' }, { value: 'savings', label: '적금' }, { value: 'cash', label: '현금' }, { value: 'investment', label: '투자' }]} /></Field>
-      <Field label="잔액"><TextInput value={balance} onChange={setBalance} placeholder="잔액(원)" type="number" /></Field>
-      <Field label="연이율"><TextInput value={rate} onChange={setRate} placeholder="% (선택)" type="number" /></Field>
-      <Field label="이모지"><TextInput value={icon} onChange={setIcon} placeholder="🏦 (선택)" /></Field>
+      {isInvest && (
+        <Field label="종목구분"><Seg value={investKind} onChange={setInvestKind} options={[{ value: 'stock', label: '주식' }, { value: 'fund', label: '펀드' }, { value: 'coin', label: '코인' }]} /></Field>
+      )}
+      <Field label={isInvest ? '평가액' : '잔액'}><TextInput value={balance} onChange={setBalance} placeholder={isInvest ? '현재 평가액(원)' : '잔액(원)'} type="number" /></Field>
+      {isInvest ? (
+        <>
+          <Field label="매입원금"><TextInput value={principal} onChange={setPrincipal} placeholder="투자 원금(원) · 수익률 기준" type="number" /></Field>
+          <Field label="보유수량"><TextInput value={quantity} onChange={setQuantity} placeholder="주/구좌/개 (선택)" type="number" /></Field>
+        </>
+      ) : (
+        <Field label="연이율"><TextInput value={rate} onChange={setRate} placeholder="% (선택)" type="number" /></Field>
+      )}
+      <Field label="이모지"><TextInput value={icon} onChange={setIcon} placeholder={isInvest ? '📈 (선택)' : '🏦 (선택)'} /></Field>
     </FormSheet>
   );
 }

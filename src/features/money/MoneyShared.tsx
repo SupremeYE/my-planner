@@ -5,7 +5,7 @@ import { Send, X, Plus, Tags, ChevronRight } from 'lucide-react';
 import { useTheme } from '../../app/ThemeContext';
 import type { UseMoney } from './useMoney';
 import {
-  MONEY_PALETTE, resolveCategoryColor, categoryInitial, formatWon, formatManShort, subcategoryShade,
+  MONEY_PALETTE, resolveCategoryColor, categoryInitial, formatWon, formatManShort, subcategoryShade, INVEST_KIND_META,
 } from './tokens';
 import type { MoneyCategory, MoneyAccount, MoneyCard, MoneyLoan, MoneyGoal, MoneyFixedCost, PeriodType } from './types';
 import { TransactionForm, AccountForm, CardForm, FixedCostForm, LoanForm, GoalForm } from './MoneyForms';
@@ -719,36 +719,78 @@ export function AssetPanel({ m }: { m: UseMoney }) {
 }
 
 // ── 투자 패널 (투자계좌 = accounts.type==='investment') ──
+//  · 6-1 요약: 총 투자자산 + 총 수익률(원금 입력 종목 기준) / 6-2 포트폴리오: 종목·구분·수량·평가액·등락률.
+//  · 시세 자동연동은 후순위 — 평가액/원금은 수동 입력.
 export function InvestPanel({ m }: { m: UseMoney }) {
   const { t } = useTheme();
   const [editor, setEditor] = useState<{ item: MoneyAccount | null } | null>(null);
-  const total = m.investments.reduce((s, a) => s + a.balance, 0);
-  return (
-    <div className="flex flex-col gap-3">
-      {m.investments.length === 0 ? (
+
+  if (m.investments.length === 0) {
+    return (
+      <div className="flex flex-col gap-3">
         <div style={{ background: t.card, borderRadius: 20, padding: 24, boxShadow: t.shadow, textAlign: 'center' }}>
           <div style={{ fontSize: 36, marginBottom: 8 }}>📈</div>
           <div style={{ fontSize: 13, color: t.textSub, marginBottom: 14 }}>주식·펀드·코인 등<br />투자 내역을 추가해보세요</div>
           <button onClick={() => setEditor({ item: null })} style={{ padding: '8px 20px', borderRadius: 10, border: `1.5px solid ${t.border}`, color: t.text, fontSize: 13, fontWeight: 500 }}>+ 투자 추가</button>
         </div>
-      ) : (
-        <>
-          <div style={{ background: t.card, borderRadius: 20, padding: 18, boxShadow: t.shadow, textAlign: 'center' }}>
-            <div style={{ fontSize: 12, color: t.textMuted }}>총 투자자산</div>
-            <div style={{ fontSize: 26, fontWeight: 900, color: t.text, marginTop: 4 }}>{formatWon(total)}</div>
+        {editor && <AccountForm m={m} item={editor.item} onClose={() => setEditor(null)} defaultType="investment" />}
+      </div>
+    );
+  }
+
+  const ret = m.investReturn;
+  const pct = m.investReturnPct;
+  const profit = ret >= 0;
+  const retColor = profit ? MONEY_PALETTE.green : MONEY_PALETTE.coral;
+
+  return (
+    <div className="flex flex-col gap-3">
+      {/* 6-1 투자 요약 */}
+      <div style={{ background: t.card, borderRadius: 20, padding: 18, boxShadow: t.shadow, textAlign: 'center' }}>
+        <div style={{ fontSize: 12, color: t.textMuted }}>총 투자자산</div>
+        <div style={{ fontSize: 26, fontWeight: 900, color: t.text, marginTop: 4 }}>{formatWon(m.investTotal)}</div>
+        {pct != null ? (
+          <div className="flex items-center justify-center gap-1.5" style={{ marginTop: 6 }}>
+            <span style={{ fontSize: 14, fontWeight: 700, color: retColor }}>{profit ? '▲' : '▼'} {Math.abs(pct).toFixed(2)}%</span>
+            <span style={{ fontSize: 12, color: retColor }}>({profit ? '+' : '-'}{Math.abs(ret).toLocaleString('ko-KR')}원)</span>
           </div>
-          <SectionHead title="📈 포트폴리오" onAdd={() => setEditor({ item: null })} />
-          <div className="flex flex-col gap-2">
-            {m.investments.map(a => (
-              <button key={a.id} onClick={() => setEditor({ item: a })} className="flex items-center gap-3 text-left w-full active:scale-[0.99] transition-transform" style={{ background: t.card, borderRadius: 14, padding: 14, boxShadow: t.shadow }}>
-                <div style={{ width: 40, height: 40, borderRadius: 10, background: t.bgSub, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18 }}>{a.icon || '📈'}</div>
-                <div className="flex-1 min-w-0"><div style={{ fontSize: 13, fontWeight: 600, color: t.text }}>{a.name}</div></div>
+        ) : (
+          <div style={{ fontSize: 11, color: t.textMuted, marginTop: 6 }}>매입원금을 입력하면 수익률이 표시돼요</div>
+        )}
+      </div>
+
+      {/* 6-2 포트폴리오 */}
+      <SectionHead title="📈 포트폴리오" onAdd={() => setEditor({ item: null })} />
+      <div className="flex flex-col gap-2">
+        {m.investments.map(a => {
+          const meta = a.investKind ? INVEST_KIND_META[a.investKind] : null;
+          const hasP = a.principal != null && a.principal > 0;
+          const r = hasP ? a.balance - (a.principal as number) : 0;
+          const rPct = hasP ? (r / (a.principal as number)) * 100 : null;
+          const up = r >= 0;
+          const rc = up ? MONEY_PALETTE.green : MONEY_PALETTE.coral;
+          return (
+            <button key={a.id} onClick={() => setEditor({ item: a })} className="flex items-center gap-3 text-left w-full active:scale-[0.99] transition-transform" style={{ background: t.card, borderRadius: 14, padding: 14, boxShadow: t.shadow }}>
+              <div style={{ width: 40, height: 40, borderRadius: 10, background: meta ? `${meta.color}20` : t.bgSub, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18 }}>{a.icon || '📈'}</div>
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-1.5" style={{ minWidth: 0 }}>
+                  <span style={{ fontSize: 13, fontWeight: 600, color: t.text, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{a.name}</span>
+                  {meta && <span style={{ fontSize: 9, fontWeight: 700, color: meta.color, background: `${meta.color}1A`, borderRadius: 5, padding: '1px 5px', flexShrink: 0 }}>{meta.label}</span>}
+                </div>
+                <div style={{ fontSize: 11, color: t.textMuted, marginTop: 1 }}>
+                  {[a.quantity != null ? `${a.quantity.toLocaleString('ko-KR')}${meta?.unit ?? ''}` : null, hasP ? `원금 ${formatManShort(a.principal as number)}` : null].filter(Boolean).join(' · ') || '평가액'}
+                </div>
+              </div>
+              <div className="text-right flex-shrink-0">
                 <div style={{ fontSize: 15, fontWeight: 700, color: t.text }}>{a.balance.toLocaleString('ko-KR')}</div>
-              </button>
-            ))}
-          </div>
-        </>
-      )}
+                {rPct != null && (
+                  <div style={{ fontSize: 10.5, fontWeight: 600, color: rc }}>{up ? '▲' : '▼'} {Math.abs(rPct).toFixed(1)}%</div>
+                )}
+              </div>
+            </button>
+          );
+        })}
+      </div>
       {editor && <AccountForm m={m} item={editor.item} onClose={() => setEditor(null)} defaultType="investment" />}
     </div>
   );

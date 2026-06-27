@@ -72,6 +72,7 @@ const accounts = {
     return (data ?? []).map((r: any): MoneyAccount => ({
       id: r.id, name: r.name, type: r.type, balance: Number(r.balance ?? 0),
       interestRate: num(r.interest_rate), icon: r.icon ?? null, sortOrder: r.sort_order ?? 0,
+      investKind: r.invest_kind ?? null, principal: num(r.principal), quantity: num(r.quantity),
       createdAt: r.created_at ?? undefined,
     }));
   },
@@ -79,6 +80,7 @@ const accounts = {
     const { error } = await supabase.from('money_accounts').upsert({
       id: item.id, name: item.name, type: item.type, balance: item.balance,
       interest_rate: item.interestRate ?? null, icon: item.icon ?? null, sort_order: item.sortOrder ?? 0,
+      invest_kind: item.investKind ?? null, principal: item.principal ?? null, quantity: item.quantity ?? null,
     }, { onConflict: 'id' });
     if (error) console.error('[money] accounts upsert:', error.message);
   },

@@ -32,6 +32,13 @@ export const CUSTOM_PALETTE = [
 
 export const DEFAULT_CATEGORY_COLOR = '#B8AD9E';
 
+// 투자 종목 구분 메타(라벨/수량 단위/식별색) — CATEGORY_COLORS 와 동일 철학의 의미론적 상수.
+export const INVEST_KIND_META: Record<'stock' | 'fund' | 'coin', { label: string; unit: string; color: string }> = {
+  stock: { label: '주식', unit: '주', color: '#5B9BD5' },
+  fund: { label: '펀드', unit: '구좌', color: '#8B7EC8' },
+  coin: { label: '코인', unit: '개', color: '#E8A84C' },
+};
+
 // 카테고리 색 해석 우선순위: 명시 color > 이름 매핑 > 기본
 export function resolveCategoryColor(cat?: { name?: string | null; color?: string | null } | null): string {
   if (cat?.color) return cat.color;
