@@ -184,9 +184,13 @@ export function SpendCalendar({ m }: { m: UseMoney }) {
     <div style={{ background: t.card, borderRadius: 20, padding: 18, boxShadow: t.shadow }}>
       <div className="flex justify-between items-center" style={{ marginBottom: 14 }}>
         <span style={{ fontSize: 14, fontWeight: 700, color: t.text }}>지출 캘린더</span>
-        <span style={{ fontSize: 11, fontWeight: 600, padding: '3px 10px', borderRadius: 20, background: `${MONEY_PALETTE.green}20`, color: MONEY_PALETTE.green }}>
-          {m.noSpendStreak}일 무지출 🔥
-        </span>
+        {m.noSpendStreak > 0 ? (
+          <span style={{ fontSize: 11, fontWeight: 600, padding: '3px 10px', borderRadius: 20, background: `${MONEY_PALETTE.green}20`, color: MONEY_PALETTE.green }}>
+            {m.noSpendStreak}일 무지출 🔥
+          </span>
+        ) : m.trackingStartDate === null ? (
+          <span style={{ fontSize: 11, fontWeight: 500, color: t.textMuted }}>첫 지출을 기록해보세요</span>
+        ) : null}
       </div>
 
       <div className="grid" style={{ gridTemplateColumns: 'repeat(7, 1fr)', gap: 4, marginBottom: 4 }}>
@@ -202,17 +206,21 @@ export function SpendCalendar({ m }: { m: UseMoney }) {
           const hasIncome = (agg?.income ?? 0) > 0;
           const isToday = date === todayStr;
           const isFuture = date > todayStr;
+          // 기록 시작일 이전 = "기록 안 한 날" → 무지출 판정 제외(빈 날짜).
+          const beforeTracking = m.trackingStartDate === null || date < m.trackingStartDate;
+          // 무지출로 표시할 수 있는 날: 기록 시작 이후 ~ 어제, 지출 0건.
+          const isNoSpend = !hasExpense && !isFuture && !isToday && !beforeTracking;
           const dayNum = parseInt(date.slice(8, 10), 10);
           return (
             <div key={i} className="relative flex flex-col items-center justify-center"
               style={{
                 aspectRatio: '1', borderRadius: 12, gap: 1,
-                background: isToday ? MONEY_PALETTE.ink : hasExpense ? 'transparent' : (!isFuture ? '#F0EBE2' : 'transparent'),
+                background: isToday ? MONEY_PALETTE.ink : isNoSpend ? '#F0EBE2' : 'transparent',
               }}>
               {hasIncome && (
                 <span className="absolute" style={{ top: 3, right: 3, width: 4, height: 4, borderRadius: '50%', background: MONEY_PALETTE.green }} />
               )}
-              {!hasExpense && !isFuture && !isToday && <NoSpendIcon size={16} />}
+              {isNoSpend && <NoSpendIcon size={16} />}
               <span style={{ fontSize: 11, fontWeight: 500, lineHeight: 1, color: isToday ? '#FDFAF4' : isFuture ? t.textMuted : t.text }}>
                 {dayNum}
               </span>
