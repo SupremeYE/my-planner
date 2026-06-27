@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { ArrowRight, Check, ChevronDown, ChevronLeft, ChevronRight, Star, X } from 'lucide-react';
 import {
   addDays,
+  addMinutes,
   addMonths,
   endOfWeek,
   format,
@@ -294,361 +295,6 @@ export function SleepTimeEditModal({ record, onClose, onConfirm }: {
   );
 }
 
-function WeekView({ viewDate, selectedDate, onSelectDate, viewDays, weekStartsOn }: {
-  viewDate: Date;
-  selectedDate: string;
-  onSelectDate: (d: string) => void;
-  viewDays: 1 | 2 | 3 | 7;
-  weekStartsOn: 0 | 1;
-}) {
-  const { todos, events, tags, selfCareRecords, updateSelfCareRecord, dayStartHour: startHour, dayEndHour: endHour } = usePlanner();
-  const { t } = useTheme();
-  const [nowTime, setNowTime] = useState(new Date());
-  const [windowStart, setWindowStart] = useState(0);
-  const [editingSleepRecord, setEditingSleepRecord] = useState<SelfCareRecord | null>(null);
-
-  useEffect(() => {
-    const interval = setInterval(() => setNowTime(new Date()), 60000);
-    return () => clearInterval(interval);
-  }, []);
-
-  const weekStart = startOfWeek(viewDate, { weekStartsOn });
-  const days = useMemo(
-    () => Array.from({ length: 7 }, (_, index) => addDays(weekStart, index)),
-    [weekStart]
-  );
-  const hours = Array.from({ length: endHour - startHour + 1 }, (_, index) => startHour + index);
-  const todayStr = format(new Date(), 'yyyy-MM-dd');
-  const nowHHMM = format(nowTime, 'HH:mm');
-  const maxWindowStart = Math.max(0, 7 - viewDays);
-  const visibleDays = useMemo(
-    () => (viewDays === 7 ? days : days.slice(windowStart, windowStart + viewDays)),
-    [days, viewDays, windowStart]
-  );
-
-  useEffect(() => {
-    const selectedIndex = days.findIndex(day => format(day, 'yyyy-MM-dd') === selectedDate);
-    if (selectedIndex < 0) {
-      setWindowStart(0);
-      return;
-    }
-    if (viewDays === 7) {
-      setWindowStart(0);
-      return;
-    }
-    setWindowStart(prev => {
-      if (selectedIndex >= prev && selectedIndex < prev + viewDays) return prev;
-      return Math.min(selectedIndex, maxWindowStart);
-    });
-  }, [days, maxWindowStart, selectedDate, viewDays]);
-
-  const getTodoTagColor = (todo: Todo) => {
-    if (!todo.tags?.length) return null;
-    return tags.find(tag => tag.id === todo.tags?.[0])?.color || null;
-  };
-
-  const renderWeekTable = (daysToRender: Date[], isMobile: boolean) => {
-    const columnTemplate = `${WEEK_TIME_LABEL_WIDTH}px repeat(${daysToRender.length}, minmax(0, 1fr))`;
-
-    return (
-      <div className="flex flex-col" style={{ flex: 1, minHeight: 0, overflow: 'hidden' }}>
-        <div style={{ flexShrink: 0, borderBottom: '1px solid #eef4fa' }}>
-          <div className="px-3 py-2 flex items-center gap-4" style={{ borderBottom: '1px solid #F3F0EA' }}>
-            <div className="flex items-center gap-1.5" style={{ fontSize: 10, fontWeight: 700, color: '#8D7152' }}>
-              <span className="inline-block w-2 h-2 rounded-full" style={{ backgroundColor: '#E9E1D6', border: '1px solid #D8C5AE' }} />
-              PLAN
-            </div>
-            <div className="flex items-center gap-1.5" style={{ fontSize: 10, fontWeight: 700, color: '#6BAA7A' }}>
-              <span className="inline-block w-2 h-2 rounded-full" style={{ backgroundColor: '#D8EFE0', border: '1px solid #6BAA7A40' }} />
-              DO
-            </div>
-            <div className="flex items-center gap-1.5" style={{ fontSize: 10, fontWeight: 700, color: '#D4735A' }}>
-              <span className="inline-block w-2 h-2 rounded-full" style={{ backgroundColor: '#FAE8D6', border: '1px solid #D4735A66' }} />
-              초과
-            </div>
-          </div>
-
-          <div className="grid" style={{ gridTemplateColumns: columnTemplate }}>
-            <div />
-            {daysToRender.map(day => {
-              const dateStr = format(day, 'yyyy-MM-dd');
-              const isToday = dateStr === todayStr;
-              const isSelected = dateStr === selectedDate;
-              return (
-                <button key={dateStr} onClick={() => onSelectDate(dateStr)} className="flex flex-col items-center py-2.5">
-                  <span style={{ fontSize: isMobile ? 10 : 11, color: '#888', fontWeight: 600 }}>
-                    {format(day, 'E', { locale: ko })}
-                  </span>
-                  <span
-                    style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      width: isMobile ? 28 : 30,
-                      height: isMobile ? 28 : 30,
-                      borderRadius: '50%',
-                      marginTop: 4,
-                      flexShrink: 0,
-                      fontSize: isMobile ? 12 : 13,
-                      fontWeight: 700,
-                      backgroundColor: isSelected ? '#26343d' : isToday ? '#515f74' : 'transparent',
-                      color: isSelected || isToday ? '#fff' : '#26343d',
-                      border: isSelected ? '2px solid #d5e3fd' : '2px solid transparent',
-                    }}
-                  >
-                    {format(day, 'd')}
-                  </span>
-                </button>
-              );
-            })}
-          </div>
-        </div>
-
-        <div style={{ flex: 1, overflowY: 'auto', minHeight: 0 }}>
-          <div className="relative" style={{ height: (endHour - startHour) * HOUR_HEIGHT + 8 }}>
-            {hours.map(hour => (
-              <div key={hour} className="absolute left-0 right-0 flex items-start" style={{ top: (hour - startHour) * HOUR_HEIGHT }}>
-                <span
-                  style={{
-                    fontSize: 10,
-                    color: '#9aa7b4',
-                    width: WEEK_TIME_LABEL_WIDTH,
-                    textAlign: 'right',
-                    paddingRight: 8,
-                  }}
-                >
-                  {String(hour % 24).padStart(2, '0')}:00
-                </span>
-                <div className="flex-1 border-t" style={{ borderColor: '#dbe6ee' }} />
-              </div>
-            ))}
-
-            {hours.slice(0, -1).map(hour => (
-              <div key={`half-${hour}`} className="absolute left-0 right-0 flex items-start" style={{ top: (hour - startHour) * HOUR_HEIGHT + HOUR_HEIGHT / 2 }}>
-                <span style={{ width: WEEK_TIME_LABEL_WIDTH, flexShrink: 0 }} />
-                <div className="flex-1" style={{ borderTop: '1px dashed #e9eff5' }} />
-              </div>
-            ))}
-
-            <div
-              className="absolute grid gap-2"
-              style={{
-                left: WEEK_TIME_LABEL_WIDTH,
-                right: 0,
-                top: 0,
-                bottom: 0,
-                gridTemplateColumns: `repeat(${daysToRender.length}, minmax(0, 1fr))`,
-              }}
-            >
-              {daysToRender.map(day => {
-                const dateStr = format(day, 'yyyy-MM-dd');
-                const dayTodos = todos.filter(todo => todo.date === dateStr && todo.status !== 'backlog');
-                const dayEvents = events.filter(event => event.date === dateStr && event.startTime && event.endTime);
-
-                return (
-                  <div key={dateStr} className="relative">
-                    {dayEvents.map(event => {
-                      const eventColor = event.color || '#7B9ED9';
-                      const top = timeToTop(event.startTime!, startHour);
-                      const height = durationToPx(event.startTime!, event.endTime!);
-                      const isDone = !!event.completed;
-                      const isPast = !isDone && isEventPast(event);
-                      return (
-                        <button
-                          key={`event-${event.id}`}
-                          type="button"
-                          title={`${event.title}\n${event.startTime}-${event.endTime}${event.location ? ` · ${event.location}` : ''}`}
-                          className="absolute rounded-2xl text-left overflow-hidden"
-                          style={{
-                            top,
-                            height,
-                            left: '7%',
-                            right: '22%',
-                            backgroundColor: `${eventColor}16`,
-                            border: `1px solid ${eventColor}66`,
-                            padding: '6px 8px',
-                            zIndex: 3,
-                            cursor: 'pointer',
-                            opacity: isDone ? 0.5 : (isPast ? 0.7 : 1),
-                          }}
-                        >
-                          <div style={{
-                            fontSize: isMobile ? 10 : 11, fontWeight: 700, color: eventColor,
-                            whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
-                            textDecoration: isDone ? 'line-through' : 'none',
-                          }}>
-                            {event.title}
-                          </div>
-                          {height >= 40 && (
-                            <div style={{ fontSize: 9, color: eventColor, opacity: 0.8, marginTop: 2, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                              {event.startTime}-{event.endTime}
-                            </div>
-                          )}
-                        </button>
-                      );
-                    })}
-
-                    {dayTodos.filter(todo => todo.planStart && todo.planEnd).map(todo => {
-                      const top = timeToTop(todo.planStart!, startHour);
-                      const height = durationToPx(todo.planStart!, todo.planEnd!);
-                      return (
-                        <button
-                          key={`plan-${todo.id}`}
-                          type="button"
-                          title={`${todo.text}\n${todo.planStart}-${todo.planEnd}`}
-                          className="absolute rounded-[18px] text-left overflow-hidden"
-                          style={{
-                            top,
-                            height,
-                            left: '8%',
-                            right: '18%',
-                            backgroundColor: 'rgba(239,232,223,0.94)',
-                            border: '1px solid rgba(196,168,130,0.38)',
-                            boxShadow: '0 2px 8px rgba(125,99,71,0.06)',
-                            padding: '7px 8px',
-                            zIndex: 2,
-                            cursor: 'pointer',
-                          }}
-                        >
-                          <div style={{ fontSize: isMobile ? 10 : 11, fontWeight: 700, color: '#6B553D', lineHeight: 1.35, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                            {todo.text}
-                          </div>
-                          {height >= 42 && (
-                            <div style={{ fontSize: 9, color: '#9A8165', marginTop: 2, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                              {todo.planStart}-{todo.planEnd}
-                            </div>
-                          )}
-                        </button>
-                      );
-                    })}
-
-                    {dayTodos.filter(todo => todo.doStart && todo.doEnd).map(todo => {
-                      const tagColor = getTodoTagColor(todo) || '#6BAA7A';
-                      const isOvertime = isDoOvertimeVsPlan(todo);
-                      const tone = isOvertime ? '#D4735A' : tagColor;
-                      const top = timeToTop(todo.doStart!, startHour);
-                      const height = durationToPx(todo.doStart!, todo.doEnd!);
-                      return (
-                        <button
-                          key={`do-${todo.id}`}
-                          type="button"
-                          title={`${todo.text}\n${todo.doStart}-${todo.doEnd}${doElapsedTitleSuffix(todo)}${isOvertime ? ' (초과)' : ''}`}
-                          className="absolute rounded-[18px] text-left overflow-hidden"
-                          style={{
-                            top,
-                            height,
-                            left: '18%',
-                            right: '8%',
-                            backgroundColor: isOvertime ? 'rgba(250,232,214,0.95)' : `${tagColor}20`,
-                            border: `1px solid ${isOvertime ? '#D4735A55' : `${tagColor}38`}`,
-                            borderLeft: `3px solid ${tone}`,
-                            boxShadow: `0 3px 10px ${tone}14`,
-                            padding: '7px 8px',
-                            zIndex: 4,
-                            cursor: 'pointer',
-                          }}
-                        >
-                          <div style={{ fontSize: isMobile ? 10 : 11, fontWeight: 700, color: tone, lineHeight: 1.35, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                            {todo.text}
-                          </div>
-                          {height >= 42 && (
-                            <div style={{ fontSize: 9, color: tone, opacity: 0.78, marginTop: 2, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                              {todo.doStart}-{todo.doEnd}
-                            </div>
-                          )}
-                        </button>
-                      );
-                    })}
-
-                    {selfCareRecords
-                      .filter(r => r.date === dateStr && r.category === 'sleep' && r.sleepStart && r.sleepEnd)
-                      .map(record => {
-                        const [sh, sm] = record.sleepStart!.split(':').map(Number);
-                        const [eh, em] = record.sleepEnd!.split(':').map(Number);
-                        const startMin = sh * 60 + sm;
-                        let endMin = eh * 60 + em;
-                        if (endMin <= startMin) endMin += 24 * 60;
-                        const top = ((startMin / 60) - startHour) * HOUR_HEIGHT;
-                        const height = Math.max(((endMin - startMin) / 60) * HOUR_HEIGHT, 20);
-                        const displayEnd = `${String(eh).padStart(2, '0')}:${String(em).padStart(2, '0')}`;
-                        return (
-                          <button
-                            key={`sleep-${record.id}`}
-                            type="button"
-                            title={`수면\n${record.sleepStart}-${displayEnd}`}
-                            className="absolute text-left overflow-hidden"
-                            style={{
-                              top, height,
-                              left: '18%', right: '8%',
-                              backgroundColor: 'rgba(200,210,220,0.45)',
-                              border: '1px solid rgba(148,163,184,0.4)',
-                              borderLeft: '3px solid #94A3B8',
-                              borderRadius: 14,
-                              padding: '5px 8px',
-                              zIndex: 2,
-                              cursor: 'pointer',
-                            }}
-                            onClick={() => setEditingSleepRecord(record)}
-                          >
-                            <div style={{ fontSize: isMobile ? 10 : 11, fontWeight: 700, color: '#64748B', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                              🌙 수면
-                            </div>
-                            {height >= 40 && (
-                              <div style={{ fontSize: 9, color: '#64748B', opacity: 0.8, marginTop: 2, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                                {record.sleepStart}-{displayEnd}
-                              </div>
-                            )}
-                          </button>
-                        );
-                      })}
-
-                    {dateStr === todayStr && (
-                      <div className="absolute left-[6%] right-[6%] z-10 pointer-events-none flex items-center" style={{ top: timeToTop(nowHHMM, startHour) }}>
-                        <div style={{ width: 7, height: 7, borderRadius: '50%', backgroundColor: CURRENT_TIME_COLOR, flexShrink: 0 }} />
-                        <div style={{ flex: 1, height: 2, backgroundColor: CURRENT_TIME_COLOR }} />
-                      </div>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-        </div>
-      </div>
-    );
-  };
-
-  return (
-    <>
-      <div className="flex flex-col" style={{ flex: 1, minHeight: 0, overflow: 'hidden' }}>
-        <div className="flex" style={{ flex: 1, minHeight: 0 }}>
-          {renderWeekTable(visibleDays, viewDays !== 7)}
-        </div>
-      </div>
-
-      {editingSleepRecord && (
-        <SleepTimeEditModal
-          record={editingSleepRecord}
-          onClose={() => setEditingSleepRecord(null)}
-          onConfirm={(sleepStart, sleepEnd) => {
-            const [sh, sm] = sleepStart.split(':').map(Number);
-            const [eh, em] = sleepEnd.split(':').map(Number);
-            let endMin = eh * 60 + em;
-            const startMin = sh * 60 + sm;
-            if (endMin <= startMin) endMin += 24 * 60;
-            updateSelfCareRecord(editingSleepRecord.id, {
-              sleepStart, sleepEnd,
-              content: `${sleepStart} ~ ${sleepEnd}`,
-              duration: endMin - startMin,
-            });
-            setEditingSleepRecord(null);
-          }}
-        />
-      )}
-    </>
-  );
-}
-
 export function CalendarView() {
   const {
     selectedDate, setSelectedDate, appSettings, tags, events, todos, habits, brainstormMemos,
@@ -782,12 +428,32 @@ export function CalendarView() {
 
   // ── 할일 동작 (일간 페이지 로직 재사용) ──
   const handleToggleTodo = (todo: Todo) => {
+    // 완료 → 미완료 되돌리기: 기존 동작 유지
     if (todo.status === 'done') {
       updateTodo(todo.id, { status: 'active', doStart: undefined, doEnd: undefined, doElapsedSec: undefined });
       return;
     }
-    const doneAt = format(new Date(), 'HH:mm');
-    updateTodo(todo.id, { status: 'done', doStart: doneAt, doEnd: doneAt, doElapsedSec: 0 });
+    // 완료 처리: DailyView와 동일한 분기 (실적 0분 기록 방지)
+    if (todo.doStart && todo.doEnd) {
+      // 1. 이미 DO 기록이 있으면 그대로 유지
+      updateTodo(todo.id, { status: 'done' });
+    } else if (todo.planStart && todo.planEnd) {
+      // 2. PLAN을 DO로 복사
+      const [sh, sm] = todo.planStart.split(':').map(Number);
+      const [eh, em] = todo.planEnd.split(':').map(Number);
+      const durSec = Math.max(0, (eh * 60 + em - (sh * 60 + sm)) * 60);
+      updateTodo(todo.id, {
+        status: 'done',
+        doStart: todo.planStart,
+        doEnd: todo.planEnd,
+        doElapsedSec: durSec,
+      });
+    } else {
+      // 3. PLAN/DO 둘 다 없으면 현재 시각 기준 30분 블록
+      const s = format(new Date(), 'HH:mm');
+      const e = format(addMinutes(new Date(), 30), 'HH:mm');
+      updateTodo(todo.id, { status: 'done', doStart: s, doEnd: e, doElapsedSec: 1800 });
+    }
   };
 
   // 미루기: 다음 날짜로 이동 (반복 인스턴스는 이 날짜만 취소 후 단일 할일로 이동 — SnoozeModal과 동일)
