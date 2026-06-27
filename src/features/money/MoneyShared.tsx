@@ -1,6 +1,6 @@
 // 하온 머니 — 공용 프레젠테이션 조각(모바일/PC 공유). 레이아웃 셸만 Mobile/Desktop 에서 분기.
 import React, { useState } from 'react';
-import { format, parseISO, subDays } from 'date-fns';
+import { format, parseISO, subDays, addDays } from 'date-fns';
 import { Send, X, Plus } from 'lucide-react';
 import { useTheme } from '../../app/ThemeContext';
 import type { UseMoney } from './useMoney';
@@ -316,7 +316,14 @@ export function SpendTrendChart({ m }: { m: UseMoney }) {
   const buckets: { key: string; label: string; current: boolean }[] = [];
   let keyOf: (d: string) => string;
   if (gran === 'weekly') {
-    for (let i = 6; i >= 0; i--) { const d = subDays(now, i); buckets.push({ key: format(d, 'yyyy-MM-dd'), label: ['일', '월', '화', '수', '목', '금', '토'][d.getDay()], current: i === 0 }); }
+    // 이번 주(일~토): 오늘이 속한 주의 일요일부터 7일. 캘린더(SpendCalendar)와 동일한 요일 기준.
+    const todayStr = format(now, 'yyyy-MM-dd');
+    const weekStart = subDays(now, now.getDay()); // getDay() 0=일
+    for (let i = 0; i < 7; i++) {
+      const d = addDays(weekStart, i);
+      const key = format(d, 'yyyy-MM-dd');
+      buckets.push({ key, label: ['일', '월', '화', '수', '목', '금', '토'][d.getDay()], current: key === todayStr });
+    }
     keyOf = (d) => d;
   } else if (gran === 'monthly') {
     for (let i = 11; i >= 0; i--) { const d = new Date(now.getFullYear(), now.getMonth() - i, 1); buckets.push({ key: format(d, 'yyyy-MM'), label: `${d.getMonth() + 1}월`, current: i === 0 }); }

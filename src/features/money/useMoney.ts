@@ -201,6 +201,21 @@ export function useMoney(): UseMoney {
     return hit?.id ?? null;
   }, [categories]);
 
+  // 파싱된 결제수단(raw) → 등록된 카드/통장명으로 매칭. 실패 시 null(라벨만, 잔고 차감 없음 — Stage 5).
+  //  · 공백·대소문자 무시, 정확 일치 우선 → 포함 관계(긴 이름 우선).
+  const matchPaymentMethod = useCallback((raw: string | null): string | null => {
+    if (!raw || !raw.trim()) return null;
+    const norm = (s: string) => s.replace(/\s/g, '').toLowerCase();
+    const r = norm(raw);
+    const names = [...cards.map(c => c.name), ...accounts.map(a => a.name)];
+    const exact = names.find(n => norm(n) === r);
+    if (exact) return exact;
+    const partial = names
+      .filter(n => { const nn = norm(n); return nn.includes(r) || r.includes(nn); })
+      .sort((a, b) => b.length - a.length)[0];
+    return partial ?? null;
+  }, [cards, accounts]);
+
   // 채팅/문자 자연어 → money-parse Edge Function → 거래 기록 (Stage 2 핵심)
   const parseAndAdd = useCallback(async (text: string, mode: 'chat' | 'sms') => {
     const trimmed = text.trim();
@@ -218,12 +233,12 @@ export function useMoney(): UseMoney {
     await addTransaction({
       type: p.type, amount: p.amount,
       categoryId: resolveCategoryId(p.category, p.type),
-      memo: p.memo ?? trimmed, paymentMethod: p.paymentMethod ?? null,
+      memo: p.memo ?? trimmed, paymentMethod: matchPaymentMethod(p.paymentMethod ?? null),
       spentAt: p.spentAt ?? today(), source: mode, rawInput: trimmed,
       emoji: p.emoji ?? null,
     });
     return { ok: true, parsed: p };
-  }, [expenseCategories, incomeCategories, addTransaction, resolveCategoryId]);
+  }, [expenseCategories, incomeCategories, addTransaction, resolveCategoryId, matchPaymentMethod]);
 
   const addCategory = useCallback(async (c: Partial<MoneyCategory> & { type: TxType; name: string }) => {
     const maxOrder = categories.filter(x => x.type === c.type).reduce((m, x) => Math.max(m, x.sortOrder), -1);

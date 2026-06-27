@@ -118,6 +118,25 @@ export function FormSheet({ title, onClose, onSave, onDelete, canSave = true, ch
   );
 }
 
+// 결제수단 입력 — 등록된 카드/통장이 있으면 드롭다운, 없으면 자유 입력(graceful).
+// 채팅에서 매칭 안 됐어도 여기서 수동 지정 가능. 현재 값이 목록에 없으면 그 값도 옵션으로 보존.
+function PaymentMethodField({ m, value, onChange }: { m: UseMoney; value: string; onChange: (v: string) => void }) {
+  const methods = [
+    ...m.cards.map(c => ({ value: c.name, label: `💳 ${c.name}` })),
+    ...m.accounts.map(a => ({ value: a.name, label: `🏦 ${a.name}` })),
+  ];
+  if (methods.length === 0) {
+    return <TextInput value={value} onChange={onChange} placeholder="자산 탭에서 카드/통장 등록 시 선택 가능" />;
+  }
+  const known = methods.some(o => o.value === value);
+  const options = [
+    { value: '', label: '없음' },
+    ...methods,
+    ...(value && !known ? [{ value, label: value }] : []),
+  ];
+  return <SelectInput value={value} onChange={onChange} options={options} />;
+}
+
 // ── 1) 거래 ──
 export function TransactionForm({ m, item, onClose }: { m: UseMoney; item: MoneyTransaction | null; onClose: () => void }) {
   const [type, setType] = useState<TxType>(item?.type ?? 'expense');
@@ -145,7 +164,7 @@ export function TransactionForm({ m, item, onClose }: { m: UseMoney; item: Money
       <Field label="카테고리"><SelectInput value={categoryId} onChange={setCategoryId} options={[{ value: '', label: '미분류' }, ...cats.map(c => ({ value: c.id, label: `${c.emoji ?? ''} ${c.name}`.trim() }))]} /></Field>
       <Field label="날짜"><TextInput value={spentAt} onChange={setSpentAt} type="date" /></Field>
       <Field label="메모"><TextInput value={memo} onChange={setMemo} placeholder="예: 갈비 사먹음" /></Field>
-      <Field label="결제수단"><TextInput value={pm} onChange={setPm} placeholder="예: 삼성카드 (선택)" /></Field>
+      <Field label="결제수단"><PaymentMethodField m={m} value={pm} onChange={setPm} /></Field>
       <Field label="이모지"><TextInput value={emoji} onChange={setEmoji} placeholder="🍖 (선택)" /></Field>
     </FormSheet>
   );
