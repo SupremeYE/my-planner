@@ -7,7 +7,7 @@ import ConfirmModal from './ConfirmModal';
 import { supabase } from '../../lib/supabase';
 import { useRealtimeSync } from '../hooks/useRealtimeSync';
 import { useVoiceInput } from '../hooks/useVoiceInput';
-import { QuoteTextSelector } from './QuoteTextSelector';
+import { QuoteSentenceSelector } from './QuoteSentenceSelector';
 
 // ─── 타입 ──────────────────────────────────────────────────────────────
 type BookStatus = 'reading' | 'want' | 'done';
@@ -20,7 +20,7 @@ type Quote = {
   starred: boolean;
   createdAt: string;
   note?: string;
-  imageUrl?: string;  // 사진으로 담은 구절의 크롭 사진 (book-photos)
+  imageUrl?: string;  // 사진으로 담은 구절의 원본 페이지 사진 (book-photos)
 };
 
 type Book = {
@@ -918,7 +918,7 @@ function BookDetailModal({
       });
   };
 
-  // 사진 캡처 결과를 작성 폼에 채움 — v2(네이티브 선택)는 사용자가 고른 구절이 곧 본문이므로 그대로 채운다(이어붙임 X).
+  // 사진 캡처 결과를 작성 폼에 채움 — v3(문장 카드 선택)는 사용자가 고른·편집한 구절이 곧 본문이므로 그대로 채운다(이어붙임 X).
   const handleCaptureConfirm = (r: { text: string; page?: number; imageUrl: string }) => {
     setQuoteText(r.text);
     if (r.page != null) setQuotePage(String(r.page));
@@ -1738,8 +1738,8 @@ function BookDetailModal({
         </div>
       )}
 
-      {/* 사진으로 구절 담기 — 촬영 → OCR → 네이티브 텍스트 선택 (v2) */}
-      <QuoteTextSelector
+      {/* 사진으로 구절 담기 — 촬영 → OCR(문장 분리) → 문장 카드 선택 → 편집·페이지 (v3) */}
+      <QuoteSentenceSelector
         isOpen={captureOpen}
         bookId={book.id}
         onClose={() => setCaptureOpen(false)}

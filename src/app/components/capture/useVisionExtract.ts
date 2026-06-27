@@ -33,7 +33,7 @@ export interface ExtractResult {
   ok: boolean;
   items: ExtractedItem[];
   recipe?: ExtractedRecipe | null;  // domain==='recipe' 일 때만 채워짐
-  text?: string;            // domain==='reading' 일 때만 — 추출된 구절 원문
+  sentences?: string[];     // domain==='reading' 일 때만 — 문장 단위로 분리한 OCR 결과
   page?: number | null;     // domain==='reading' 일 때만 — 추출된 페이지 번호
   photoUrl: string | null;  // 촬영/선택한 사진의 public url (등록 시 카드 썸네일로 재사용)
   error?: string;
@@ -86,16 +86,18 @@ export function useVisionExtract() {
         return { ok: false, items: [], photoUrl, error: msg };
       }
 
-      // reading 은 items 가 아니라 {text, page} 로 응답 — 분기 반환.
+      // reading 은 items 가 아니라 {sentences, page} 로 응답 — 분기 반환.
       if (domain === 'reading') {
-        const quoteText = typeof data.text === 'string' ? data.text : '';
+        const sentences = Array.isArray(data.sentences)
+          ? (data.sentences as unknown[]).filter((x): x is string => typeof x === 'string').map((x) => x.trim()).filter(Boolean)
+          : [];
         const page = typeof data.page === 'number' ? data.page : null;
-        if (!quoteText.trim()) {
+        if (sentences.length === 0) {
           const msg = '사진에서 글자를 읽지 못했어요.';
           setError(msg);
-          return { ok: false, items: [], text: '', page: null, photoUrl, error: msg };
+          return { ok: false, items: [], sentences: [], page: null, photoUrl, error: msg };
         }
-        return { ok: true, items: [], text: quoteText, page, photoUrl };
+        return { ok: true, items: [], sentences, page, photoUrl };
       }
 
       // recipe 는 items 가 아니라 recipe 객체로 응답 — 분기 반환.
