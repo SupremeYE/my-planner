@@ -11,6 +11,7 @@ import type { MoneyCategory, MoneyAccount, MoneyCard, MoneyLoan, MoneyGoal, Mone
 import { TransactionForm, AccountForm, CardForm, FixedCostForm, LoanForm, GoalForm } from './MoneyForms';
 import { CategoryManager } from './MoneyCategoryManager';
 import { FixedCostManager } from './MoneyFixedCostManager';
+import { CardManager } from './MoneyCardManager';
 
 // 섹션 헤더(+ 추가 / 관리 버튼 포함)
 function SectionHead({ title, onAdd, onManage }: { title: string; onAdd?: () => void; onManage?: () => void }) {
@@ -569,6 +570,7 @@ export function AssetPanel({ m }: { m: UseMoney }) {
   const { t } = useTheme();
   const [editor, setEditor] = useState<AssetEditor>(null);
   const [showFixedMgr, setShowFixedMgr] = useState(false);
+  const [showCardMgr, setShowCardMgr] = useState(false);
   const banks = m.accounts.filter(a => a.type !== 'investment');
   const rowBtn = { background: t.card, borderRadius: 14, padding: 14, boxShadow: t.shadow } as React.CSSProperties;
 
@@ -612,21 +614,25 @@ export function AssetPanel({ m }: { m: UseMoney }) {
 
       {/* 신용·체크카드 */}
       <div>
-        <SectionHead title="💳 신용 · 체크카드" onAdd={() => setEditor({ kind: 'card', item: null })} />
+        <SectionHead title="💳 신용 · 체크카드" onManage={m.cards.length > 0 ? () => setShowCardMgr(true) : undefined} onAdd={() => setEditor({ kind: 'card', item: null })} />
         <div className="flex flex-col gap-2">
           {m.cards.map(c => {
             const dday = daysUntilDay(c.billingDay);
+            const unpaid = m.cardUnpaid(c);
+            const isCheck = c.type === 'check';
             return (
               <button key={c.id} onClick={() => setEditor({ kind: 'card', item: c })} className="flex items-center gap-3 text-left w-full active:scale-[0.99] transition-transform" style={rowBtn}>
                 <div style={{ width: 40, height: 40, borderRadius: 10, background: `${c.color || MONEY_PALETTE.gold}20`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20 }}>💳</div>
                 <div className="flex-1 min-w-0">
                   <div style={{ fontSize: 13, fontWeight: 600, color: t.text }}>{c.name}</div>
-                  <div style={{ fontSize: 11, color: t.textMuted }}>{c.type === 'check' ? '체크' : '신용'} · 미결제 {c.unpaidAmount.toLocaleString('ko-KR')}</div>
+                  <div style={{ fontSize: 11, color: t.textMuted }}>{isCheck ? '체크' : `신용 · 미결제 ${unpaid.toLocaleString('ko-KR')}`}</div>
                 </div>
-                <div className="text-right">
-                  <div style={{ fontSize: 15, fontWeight: 700, color: MONEY_PALETTE.coral }}>-{c.unpaidAmount.toLocaleString('ko-KR')}</div>
-                  {c.billingDay && <div style={{ fontSize: 10, color: t.textMuted }}>결제일 {c.billingDay}일{dday != null ? ` · D-${dday}` : ''}</div>}
-                </div>
+                {!isCheck && (
+                  <div className="text-right">
+                    <div style={{ fontSize: 15, fontWeight: 700, color: MONEY_PALETTE.coral }}>-{unpaid.toLocaleString('ko-KR')}</div>
+                    {c.billingDay && <div style={{ fontSize: 10, color: t.textMuted }}>결제일 {c.billingDay}일{dday != null ? ` · D-${dday}` : ''}</div>}
+                  </div>
+                )}
               </button>
             );
           })}
@@ -707,6 +713,7 @@ export function AssetPanel({ m }: { m: UseMoney }) {
       {editor?.kind === 'fixed' && <FixedCostForm m={m} item={editor.item} onClose={() => setEditor(null)} />}
       {editor?.kind === 'loan' && <LoanForm m={m} item={editor.item} onClose={() => setEditor(null)} />}
       {showFixedMgr && <FixedCostManager m={m} onClose={() => setShowFixedMgr(false)} />}
+      {showCardMgr && <CardManager m={m} onClose={() => setShowCardMgr(false)} />}
     </div>
   );
 }
