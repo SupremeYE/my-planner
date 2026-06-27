@@ -38,6 +38,36 @@
 
 ---
 
+## 2026-06-27 — 💰 하온(Haon) 머니 페이지 — Stage 1~3 (DB · 독립 모듈 · 채팅 입력 · 지출 캘린더)
+
+### 🛠 구현
+
+개인 수입/지출을 **가장 낮은 진입장벽(채팅형 자연어 입력)**으로 기록하고 "돈이 어디서 들어와 어디로 빠지는지" 한눈에 보는 머니 페이지 신설. 4탭(가계부/자산/투자/계획) 구조. **PC 레이아웃 보존**(`lg:` 분기), 색상 하드코딩 0(테마 토큰 + 머니 전용 의미론 상수).
+
+- **Stage 1 — DB 스키마 (8테이블 + RLS + Realtime + 시드)**
+  - 마이그레이션 `supabase/migrations/20260627000000_create_money_tables.sql`:
+    `money_categories`(지출11+수입4) · `money_transactions`(핵심: `category_id` FK·`spent_at`·`source` chat/sms/manual/fixed·`raw_input`·`emoji`) · `money_accounts`(통장/현금/투자 `type`) · `money_cards`(신용/체크·결제일·미결제) · `money_fixed_costs`(외화 `original_amount`+`currency`·결제주기·변동여부) · `money_loans`(원금/잔액/이자율/회차) · `money_goals`(단기/장기·목표/현재·마감) · `money_settings`(`user_id` PK·`period_type`·`payday`·`monthly_budget`·`fx_alert_threshold`).
+  - 컨벤션: 금액 `bigint`(원), 단일 UID 하드코딩 RLS(beauty/lockdown 동일), `supabase_realtime` 8테이블 등록, `{table}_user_created_idx`(+거래 `spent_at` 인덱스). 시드는 목업 데모값. **보안 어드바이저 머니 경고 0**.
+  - 개정 이력: 초안(계좌+카드 통합·investments 별도)을 사용자 확정안으로 교체 — **계좌/카드 분리 + 투자는 `accounts.type='investment'` 통합(8테이블 유지)**.
+- **Stage 2 — 토큰 · 독립 모듈 · `money-parse` Edge Function · 라우트/네비**
+  - `src/features/money/` 독립 모듈(beauty 패턴): `tokens.ts`(차트 카테고리 색=테마 무관 의미론 상수, 골드/잉크 등 매핑불가 색만 `MONEY_PALETTE`) · `types.ts` · `db.ts`(자체 헬퍼 `moneyDb.*`, snake↔camel) · `useMoney.ts`(8테이블 로드+Realtime 8구독+파생값+액션) · `MoneyView`(모바일/PC 분기) · `MoneyMobile`/`MoneyDesktop`/`MoneyShared`(공용 조각).
+  - **채팅형 자연어 입력(핵심)**: `money-parse` Edge Function(gpt-4o-mini, `chat`/`sms` 2모드, JSON 강제·코드펜스 제거·graceful — vision-extract 패턴 재사용, **ACTIVE v1**). 입력바 → `parseAndAdd`(카테고리 후보·오늘 날짜 전달) → 거래 기록 → Realtime 반영. "어제 갈비 5만원"·카드 문자까지 파싱, 카테고리명→id 해석·상대날짜 처리.
+  - 고정비 카테고리 **②안**: 지출 프리셋 8→11종 확장(🎬구독·🛡️보험·🏠주거 추가, 운동은 건강 통합), 고정비 7건 `category_id` 전부 연결 → 고정비도 정상 카테고리 집계 포함.
+  - `routes.tsx` `/money` 추가, 라이프스타일 메뉴(PC 사이드바·모바일 오버레이·LayoutC) **Wallet "머니"** 편입.
+- **Stage 3 — 지출 캘린더 · 기간 유틸 · 거래 이모지 · 색상 확정**
+  - **급여일 기준 기간 단일 출처** `period.ts`(`getMoneyPeriod`): 요약·예산바·캘린더·차트가 모두 동일 기간 사용(payday=급여일~다음 급여일 전날 / calendar=1일~말일).
+  - **지출 캘린더 신규**(`SpendCalendar`, MiniCalendar 그리드 패턴 참고): 무지출=₩사선 SVG(골드)·지출=날짜+금액(코랄)·수입=우상단 그린점·오늘=잉크배경, 무지출 **스트릭 카운터(Nanum Pen Script)**. 요약 3칸 + 예산바(D-day·하루 사용가능액).
+  - **②색상 확정**: 차트 11색+수입 4색 = **15색 전부 고유**(구독 라벤더#A88BC8·주거 테라코타#C8956B·수입 분리). **③거래 이모지 컬럼** 추가(🍖 등 거래별 저장, 없으면 카테고리 이모지→색상점 폴백). **⑤머니 페이지 전역 FAB 숨김**(`useFabAction({kind:'hidden'})`, 채팅바와 겹침 방지).
+
+### ✅ 검증
+- `vite build` 통과 · 머니 모듈 `tsc --strict` 오류 0 · 색상 DB distinct 15/15 · 고정비 7/7 카테고리 연결 · RLS/Realtime 8테이블.
+- 미검증: `money-parse` 라이브 호출은 샌드박스 egress 차단으로 브라우저에서 사용자 직접 검증 예정(함수는 ACTIVE).
+
+### 📋 다음(예정)
+- Stage 4 카테고리별 스택 바 차트(가로 스크롤·예산선·주/월/연 토글) · 자산/투자/계획 CRUD · 카테고리 관리 화면 · 외화 환율 런타임 환산.
+
+---
+
 ## 2026-06-27 — 📸 독서 구절 사진 캡처 v2 (촬영→OCR→네이티브 텍스트 선택) — Stage 1~3
 
 ### 🛠 구현

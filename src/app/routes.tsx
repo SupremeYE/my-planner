@@ -26,6 +26,7 @@ import { PlacesView } from './components/PlacesView';
 import { WalkView } from './components/WalkView';
 import { BeautyCareView } from './components/beauty/BeautyCareView';
 import { HousekeepingView } from './components/housekeeping/HousekeepingView';
+import { MoneyView } from '../features/money/MoneyView';
 
 export const router = createBrowserRouter([
   {
@@ -62,6 +63,7 @@ export const router = createBrowserRouter([
       { path: 'walk',             Component: WalkView },
       { path: 'beauty-care',      Component: BeautyCareView },
       { path: 'housekeeping',     Component: HousekeepingView },
+      { path: 'money',            Component: MoneyView },
       { path: 'profile',          Component: ProfileView },
     ],
   },
