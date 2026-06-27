@@ -1,6 +1,6 @@
 // 하온 머니 — 공용 프레젠테이션 조각(모바일/PC 공유). 레이아웃 셸만 Mobile/Desktop 에서 분기.
 import React, { useState } from 'react';
-import { format, parseISO } from 'date-fns';
+import { format, parseISO, subDays } from 'date-fns';
 import { Send, X, Plus } from 'lucide-react';
 import { useTheme } from '../../app/ThemeContext';
 import type { UseMoney } from './useMoney';
@@ -283,6 +283,128 @@ export function CategoryBreakdown({ m }: { m: UseMoney }) {
           </div>
         ))}
       </div>
+    </div>
+  );
+}
+
+// ── 카테고리별 스택 바 차트(주간/월간/연간 · 예산선 · 가로 스크롤) ──
+type Gran = 'weekly' | 'monthly' | 'yearly';
+export function SpendTrendChart({ m }: { m: UseMoney }) {
+  const { t } = useTheme();
+  const [gran, setGran] = useState<Gran>('monthly');
+  const now = new Date();
+
+  // 버킷(X축) 정의 + 날짜→버킷키 매핑
+  const buckets: { key: string; label: string; current: boolean }[] = [];
+  let keyOf: (d: string) => string;
+  if (gran === 'weekly') {
+    for (let i = 6; i >= 0; i--) { const d = subDays(now, i); buckets.push({ key: format(d, 'yyyy-MM-dd'), label: ['일', '월', '화', '수', '목', '금', '토'][d.getDay()], current: i === 0 }); }
+    keyOf = (d) => d;
+  } else if (gran === 'monthly') {
+    for (let i = 5; i >= 0; i--) { const d = new Date(now.getFullYear(), now.getMonth() - i, 1); buckets.push({ key: format(d, 'yyyy-MM'), label: `${d.getMonth() + 1}월`, current: i === 0 }); }
+    keyOf = (d) => d.slice(0, 7);
+  } else {
+    for (let i = 3; i >= 0; i--) { const y = now.getFullYear() - i; buckets.push({ key: String(y), label: String(y), current: i === 0 }); }
+    keyOf = (d) => d.slice(0, 4);
+  }
+
+  // 집계: 버킷키 → 카테고리id → 합계
+  const agg = new Map<string, Map<string, number>>();
+  buckets.forEach(b => agg.set(b.key, new Map()));
+  for (const tx of m.transactions) {
+    if (tx.type !== 'expense') continue;
+    const cm = agg.get(keyOf(tx.spentAt)); if (!cm) continue;
+    const cid = tx.categoryId ?? '__none__';
+    cm.set(cid, (cm.get(cid) ?? 0) + tx.amount);
+  }
+  const totals = buckets.map(b => Array.from(agg.get(b.key)!.values()).reduce((s, v) => s + v, 0));
+  const maxTotal = Math.max(...totals, 0);
+  const budget = m.settings.monthlyBudget || 0;
+  const showBudget = gran === 'monthly' && budget > 0;
+  const scaleMax = Math.max(maxTotal, showBudget ? budget : 0) * 1.15 || 1;
+  const hasData = totals.some(x => x > 0);
+  const BAR_AREA = 150;
+
+  // 범례용 등장 카테고리(미분류 제외)
+  const seen = new Set<string>();
+  agg.forEach(cm => cm.forEach((_, cid) => { if (cid !== '__none__') seen.add(cid); }));
+  const legendCats = Array.from(seen).map(cid => m.categoryOf(cid)).filter(Boolean) as MoneyCategory[];
+
+  const tab = (g: Gran, label: string) => {
+    const active = gran === g;
+    return (
+      <button onClick={() => setGran(g)} style={{ padding: '5px 12px', borderRadius: 20, fontSize: 11, cursor: 'pointer', fontFamily: t.font,
+        border: `1px solid ${active ? MONEY_PALETTE.ink : t.border}`, background: active ? MONEY_PALETTE.ink : 'transparent', color: active ? '#FDFAF4' : t.textSub }}>
+        {label}
+      </button>
+    );
+  };
+
+  return (
+    <div style={{ background: t.card, borderRadius: 20, padding: 18, boxShadow: t.shadow }}>
+      <div className="flex justify-between items-center" style={{ marginBottom: 12 }}>
+        <span style={{ fontSize: 14, fontWeight: 700, color: t.text }}>지출 추이</span>
+      </div>
+      <div className="flex gap-1" style={{ marginBottom: 14 }}>
+        {tab('weekly', '주간')}{tab('monthly', '월간')}{tab('yearly', '연간')}
+      </div>
+
+      {!hasData ? (
+        <div style={{ textAlign: 'center', padding: '32px 0', color: t.textMuted, fontSize: 13 }}>지출이 쌓이면 추이가 보여요 📊</div>
+      ) : (
+        <>
+          <div style={{ position: 'relative', height: BAR_AREA + 22 }}>
+            {/* 예산선(월간) */}
+            {showBudget && (
+              <div style={{ position: 'absolute', left: 0, right: 0, top: BAR_AREA - (budget / scaleMax) * BAR_AREA, borderTop: `1.5px dashed ${MONEY_PALETTE.coral}`, opacity: 0.5, zIndex: 1 }} />
+            )}
+            {/* 바 영역(가로 스크롤) */}
+            <div className="flex items-end" style={{ height: BAR_AREA, gap: 8, overflowX: 'auto', paddingBottom: 0 }}>
+              {buckets.map((b, i) => {
+                const total = totals[i];
+                const cm = agg.get(b.key)!;
+                const barH = (total / scaleMax) * BAR_AREA;
+                const over = showBudget && total > budget;
+                const segs = Array.from(cm.entries()).map(([cid, amt]) => ({ cid, amt, color: resolveCategoryColor(cid === '__none__' ? null : m.categoryOf(cid)) })).sort((a, b2) => b2.amt - a.amt);
+                return (
+                  <div key={b.key} className="flex flex-col items-center" style={{ width: 40, flexShrink: 0 }}>
+                    <div style={{ fontSize: 8, fontWeight: 700, color: over ? MONEY_PALETTE.coral : t.textSub, marginBottom: 2, whiteSpace: 'nowrap' }}>
+                      {total > 0 ? formatManShort(total) : ''}
+                    </div>
+                    <div style={{ width: 28, height: Math.max(barH, total > 0 ? 3 : 0), display: 'flex', flexDirection: 'column-reverse', borderRadius: '5px 5px 2px 2px', overflow: 'hidden', boxShadow: b.current ? '0 2px 8px rgba(58,53,46,0.12)' : 'none' }}>
+                      {segs.map(s => (
+                        <div key={s.cid} style={{ width: '100%', height: total > 0 ? `${(s.amt / total) * 100}%` : 0, background: s.color }} />
+                      ))}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+            {/* X축 라벨 */}
+            <div className="flex" style={{ gap: 8, marginTop: 4 }}>
+              {buckets.map(b => (
+                <span key={b.key} style={{ width: 40, flexShrink: 0, textAlign: 'center', fontSize: 9, color: b.current ? t.text : t.textMuted, fontWeight: b.current ? 700 : 400 }}>{b.label}</span>
+              ))}
+            </div>
+          </div>
+
+          {/* 범례 */}
+          {legendCats.length > 0 && (
+            <div className="flex flex-wrap" style={{ gap: 8, marginTop: 12 }}>
+              {legendCats.map(c => (
+                <span key={c.id} className="flex items-center" style={{ gap: 4, fontSize: 10, color: t.textSub }}>
+                  <span style={{ width: 8, height: 8, borderRadius: 2, background: resolveCategoryColor(c) }} />{c.name}
+                </span>
+              ))}
+            </div>
+          )}
+          {showBudget && (
+            <div className="flex items-center" style={{ gap: 6, marginTop: 8, fontSize: 10, color: t.textMuted }}>
+              <span style={{ width: 16, borderTop: `1.5px dashed ${MONEY_PALETTE.coral}` }} /> 월 예산 {formatManShort(budget)}
+            </div>
+          )}
+        </>
+      )}
     </div>
   );
 }
@@ -609,6 +731,7 @@ export function BudgetPanel({ m }: { m: UseMoney }) {
       <SummaryStrip m={m} />
       <BudgetBar m={m} />
       <SpendCalendar m={m} />
+      <SpendTrendChart m={m} />
       <CategoryBreakdown m={m} />
       <div>
         <div className="flex items-center justify-between" style={{ marginBottom: 10, marginLeft: 2 }}>
