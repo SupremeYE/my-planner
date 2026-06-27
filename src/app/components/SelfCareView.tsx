@@ -1,13 +1,15 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { Plus, X, Dumbbell, BookOpen, Sparkles, Moon, ChevronDown, ChevronLeft, ChevronRight, Heart, Trash2, Pencil, Sun, Search } from 'lucide-react';
+import { Plus, X, Dumbbell, BookOpen, Sparkles, Moon, ChevronDown, ChevronLeft, ChevronRight, Heart, Trash2, Pencil, Sun, Search, TrendingUp, TrendingDown, Clock } from 'lucide-react';
 import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine,
+  PieChart, Pie, Cell, BarChart, Bar,
 } from 'recharts';
 import { usePlanner, SelfCareRecord, SLEEP_GOAL_DEFAULT_MIN, type ConditionRecord } from '../store';
 import { useTheme } from '../ThemeContext';
 import { useFabAction } from '../FabContext';
 import { db } from '../../lib/db';
 import { useRealtimeSync } from '../hooks/useRealtimeSync';
+import { useTimeReport, type TimeReportPeriod } from '../hooks/useTimeReport';
 import { format, subDays, differenceInDays, parseISO, addDays, startOfWeek } from 'date-fns';
 
 const CATEGORIES = [
@@ -1341,101 +1343,262 @@ function AddRecordModal({ onClose, editRecord }: { onClose: () => void; editReco
   );
 }
 
+// 분 → "X시간 Y분" / "X시간" / "Y분"
+const fmtMinKo = (min: number) => {
+  const total = Math.round(min);
+  const h = Math.floor(total / 60);
+  const m = total % 60;
+  if (h > 0 && m > 0) return `${h}시간 ${m}분`;
+  if (h > 0) return `${h}시간`;
+  return `${m}분`;
+};
+
+// ③ 인사이트 카드
+function TimeInsightCard({ insight }: { insight: ReturnType<typeof useTimeReport>['insight'] }) {
+  const { t } = useTheme();
+  if (!insight) return null;
+  const Icon = insight.type === 'increase' ? TrendingUp
+    : insight.type === 'decrease' ? TrendingDown
+    : insight.type === 'steady' ? Sparkles : Clock;
+  const iconColor = insight.type === 'increase' ? t.success
+    : insight.type === 'decrease' ? t.danger
+    : insight.type === 'steady' ? t.accent : t.textMuted;
+  return (
+    <div className="flex items-center gap-3 px-4 py-3 rounded-2xl mb-5"
+      style={{ backgroundColor: t.card, border: `1px solid ${t.borderLight}` }}>
+      <div className="flex items-center justify-center rounded-full flex-shrink-0"
+        style={{ width: 34, height: 34, backgroundColor: iconColor + '1A' }}>
+        <Icon size={17} color={iconColor} />
+      </div>
+      <span style={{ fontSize: 13, color: t.text, fontWeight: 500, lineHeight: 1.4 }}>{insight.message}</span>
+    </div>
+  );
+}
+
+// 차트 공통 커스텀 툴팁
+function ChartTooltip({ active, payload, label, t }: any) {
+  if (!active || !payload?.length) return null;
+  const rows = payload.filter((p: any) => p.dataKey !== '_empty' && (p.value ?? 0) > 0);
+  if (rows.length === 0) return null;
+  return (
+    <div className="rounded-xl px-3 py-2" style={{
+      backgroundColor: t.card, border: `1px solid ${t.borderLight}`,
+      boxShadow: '0 4px 16px rgba(0,0,0,0.08)', fontFamily: "'Noto Sans KR', sans-serif",
+    }}>
+      {label != null && <div style={{ fontSize: 11, color: t.textMuted, marginBottom: 4 }}>{label}</div>}
+      {rows.map((p: any) => (
+        <div key={p.dataKey} className="flex items-center gap-1.5" style={{ fontSize: 12, color: t.text }}>
+          <span className="rounded-full" style={{ width: 8, height: 8, backgroundColor: p.color || p.fill }} />
+          <span style={{ flex: 1 }}>{p.name}</span>
+          <span style={{ fontWeight: 600 }}>{fmtMinKo(p.value)}</span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+// ④ 도넛 차트 + 범례
+function TimeDonut({ data }: { data: ReturnType<typeof useTimeReport>['byCategory'] }) {
+  const { t } = useTheme();
+  const total = data.reduce((s, d) => s + d.totalMinutes, 0);
+  const isEmpty = total <= 0;
+
+  return (
+    <div className="flex items-center gap-4 mb-6">
+      <div className="relative flex-shrink-0" style={{ width: 150, height: 150 }}>
+        <ResponsiveContainer width="100%" height="100%">
+          <PieChart>
+            <Pie
+              data={isEmpty ? [{ name: 'empty', totalMinutes: 1 }] : data}
+              dataKey="totalMinutes" nameKey="tagName"
+              innerRadius="60%" outerRadius="80%"
+              paddingAngle={isEmpty ? 0 : 3} cornerRadius={4}
+              stroke="none"
+              animationBegin={0} animationDuration={800} animationEasing="ease-out"
+            >
+              {isEmpty
+                ? <Cell fill={t.borderLight} />
+                : data.map(d => <Cell key={d.tagId} fill={d.tagColor} />)}
+            </Pie>
+            {!isEmpty && <Tooltip content={<ChartTooltip t={t} />} />}
+          </PieChart>
+        </ResponsiveContainer>
+        <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
+          {isEmpty ? (
+            <span style={{ fontSize: 11, color: t.textMuted, textAlign: 'center', padding: '0 24px' }}>기록을 시작해보세요</span>
+          ) : (
+            <>
+              <span style={{ fontSize: 9, color: t.textMuted, fontWeight: 600 }}>총 시간</span>
+              <span style={{ fontSize: 19, color: t.text, fontFamily: 'var(--font-gmarket)', lineHeight: 1.1 }}>{fmtMinKo(total)}</span>
+            </>
+          )}
+        </div>
+      </div>
+
+      {/* 범례 */}
+      <div className="flex-1 min-w-0 space-y-2">
+        {isEmpty ? (
+          <p style={{ fontSize: 12, color: t.textMuted }}>시간 추적을 켠 태그의 완료 할 일이 집계됩니다.</p>
+        ) : data.map(d => {
+          const pct = total > 0 ? Math.round((d.totalMinutes / total) * 100) : 0;
+          return (
+            <div key={d.tagId} className="flex items-center gap-2">
+              <span className="rounded-full flex-shrink-0" style={{ width: 9, height: 9, backgroundColor: d.tagColor }} />
+              <span className="truncate" style={{ fontSize: 12, color: t.text, flex: 1 }}>{d.tagName}</span>
+              <span style={{ fontSize: 11, color: t.textSub, fontWeight: 600 }}>{fmtMinKo(d.totalMinutes)}</span>
+              <span style={{ fontSize: 10, color: t.textMuted, width: 30, textAlign: 'right' }}>{pct}%</span>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+// ⑥ 일별/주별 스택 바 차트
+function TimeStackBar({ report }: { report: ReturnType<typeof useTimeReport> }) {
+  const { t } = useTheme();
+  const { byCategory, daily, period } = report;
+
+  // 주간=일별 7개, 월간=주차별 묶음
+  const rows = useMemo(() => {
+    if (period === 'week') {
+      return daily.map(d => ({ label: d.dayLabel, isToday: d.isToday, ...d.byCategory, _empty: d.totalMinutes <= 0 ? 1 : 0 }));
+    }
+    const buckets: Record<number, any> = {};
+    daily.forEach(d => {
+      const wk = Math.floor((parseISO(d.date).getDate() - 1) / 7);
+      const b = buckets[wk] ?? (buckets[wk] = { label: `${wk + 1}주`, _total: 0 });
+      Object.entries(d.byCategory).forEach(([k, v]) => { b[k] = (b[k] ?? 0) + v; });
+      b._total += d.totalMinutes;
+    });
+    return Object.values(buckets).map((b: any) => ({ ...b, _empty: b._total <= 0 ? 1 : 0 }));
+  }, [daily, period]);
+
+  return (
+    <div className="mb-6">
+      <h3 style={{ fontSize: 13, fontWeight: 700, color: t.text, marginBottom: 10 }}>
+        {period === 'week' ? '요일별 활동' : '주차별 활동'}
+      </h3>
+      <div style={{ backgroundColor: t.card, border: `1px solid ${t.borderLight}`, borderRadius: 16, padding: '14px 8px 6px' }}>
+        <ResponsiveContainer width="100%" height={180}>
+          <BarChart data={rows} barCategoryGap="22%">
+            <CartesianGrid vertical={false} stroke="rgba(194,168,130,0.1)" />
+            <XAxis dataKey="label" tickLine={false} axisLine={false}
+              tick={{ fontSize: 11, fill: t.textMuted, fontFamily: "'Noto Sans KR', sans-serif" }} />
+            <YAxis hide />
+            <Tooltip cursor={{ fill: 'rgba(194,168,130,0.08)' }} content={<ChartTooltip t={t} />} />
+            <Bar dataKey="_empty" stackId="a" fill={t.borderLight} radius={[4, 4, 0, 0]} legendType="none" name="" isAnimationActive={false} />
+            {byCategory.map((c, i) => (
+              <Bar key={c.tagId} dataKey={c.tagId} name={c.tagName} stackId="a" fill={c.tagColor}
+                radius={i === byCategory.length - 1 ? [4, 4, 0, 0] : undefined}
+                animationBegin={0} animationDuration={800} animationEasing="ease-out" />
+            ))}
+          </BarChart>
+        </ResponsiveContainer>
+      </div>
+    </div>
+  );
+}
+
+// ⑦ 카테고리별 상세 (아코디언)
+function CategoryAccordion({ byCategory }: { byCategory: ReturnType<typeof useTimeReport>['byCategory'] }) {
+  const { t } = useTheme();
+  const [openId, setOpenId] = useState<string | null>(null);
+  if (byCategory.length === 0) return null;
+
+  return (
+    <div className="mb-6">
+      <h3 style={{ fontSize: 13, fontWeight: 700, color: t.text, marginBottom: 10 }}>카테고리별 상세</h3>
+      <div className="space-y-2">
+        {byCategory.map(c => {
+          const open = openId === c.tagId;
+          return (
+            <div key={c.tagId} className="rounded-xl overflow-hidden" style={{ backgroundColor: t.card, border: `1px solid ${t.borderLight}` }}>
+              <button onClick={() => setOpenId(open ? null : c.tagId)}
+                className="w-full flex items-center gap-2.5 px-4 py-3">
+                <span className="rounded-full flex-shrink-0" style={{ width: 10, height: 10, backgroundColor: c.tagColor }} />
+                <span className="flex-1 text-left truncate" style={{ fontSize: 13, fontWeight: 600, color: t.text }}>{c.tagName}</span>
+                <span style={{ fontSize: 12, color: t.textSub, fontWeight: 600 }}>{fmtMinKo(c.totalMinutes)}</span>
+                <span style={{ fontSize: 10, color: t.textMuted }}>{c.todoCount}건</span>
+                <ChevronDown size={15} color={t.textMuted}
+                  style={{ transform: open ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s' }} />
+              </button>
+              {open && (
+                <div className="px-4 pb-3 pt-0 space-y-1.5">
+                  {c.todos.length === 0 ? (
+                    <p style={{ fontSize: 12, color: t.textMuted }}>이번 기간 기록 없음</p>
+                  ) : c.todos.slice(0, 5).map((todo, idx) => (
+                    <div key={idx} className="flex items-center gap-2 py-1" style={{ borderTop: `1px solid ${t.borderLight}` }}>
+                      <span className="flex-1 truncate" style={{ fontSize: 12, color: t.text }}>{todo.name}</span>
+                      <span style={{ fontSize: 11, color: c.tagColor, fontWeight: 600 }}>{fmtMinKo(todo.minutes)}</span>
+                      <span style={{ fontSize: 10, color: t.textMuted, width: 40, textAlign: 'right' }}>{todo.date.slice(5)}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 export function SelfCareView() {
-  const { selfCareRecords, deleteSelfCareRecord } = usePlanner();
   const { t } = useTheme();
   const [showAdd, setShowAdd] = useState(false);
   const [editRecord, setEditRecord] = useState<SelfCareRecord | null>(null);
+  const [period, setPeriod] = useState<TimeReportPeriod>('week');
 
   // 전역 FAB — 기록 추가
   useFabAction({ kind: 'action', label: '기록 추가', icon: Plus, onPress: () => setShowAdd(true) });
 
-  const currentMonth = format(new Date(), 'yyyy-MM');
-  const monthRecords = selfCareRecords.filter(r => r.date.startsWith(currentMonth));
-
-  const statsByCategory = (cat: 'exercise' | 'study' | 'beauty') => {
-    const recs = monthRecords.filter(r => r.category === cat);
-    const count = recs.length;
-    const totalMin = recs.reduce((sum, r) => sum + r.duration, 0);
-    const avgMin = count ? Math.round(totalMin / count) : 0;
-    return { count, totalMin, avgMin };
-  };
-
-  const exerciseStats = statsByCategory('exercise');
-  const studyStats = statsByCategory('study');
-  const beautyStats = statsByCategory('beauty');
-
-  const fmtDuration = (min: number) => min >= 60 ? `${Math.floor(min / 60)}시간 ${min % 60}분` : `${min}분`;
+  const report = useTimeReport(period);
 
   return (
     <div className="flex-1 overflow-y-auto">
-      {/* Header */}
+      {/* ① Header */}
       <div className="px-6 pt-6 pb-4">
         <h1 style={{ fontSize: 22, fontWeight: 700, color: t.text, fontFamily: 'var(--font-gmarket)' }}>시간 리포트</h1>
-        <p style={{ fontSize: 13, color: t.textSub, marginTop: 4 }}>운동, 공부, 케어 등 카테고리별 시간 사용을 확인하세요</p>
+        <p style={{ fontSize: 13, color: t.textSub, marginTop: 4 }}>태그별로 시간 사용을 자동 집계해 보여줘요</p>
       </div>
 
-      <div className="px-6 pb-8">
-        {/* Stat cards */}
-        <div className="grid grid-cols-3 gap-4 mb-6">
-          {[
-            { label: '이번달 공부시간', value: fmtDuration(studyStats.totalMin), color: '#7B9ED9', icon: BookOpen },
-            { label: '운동 횟수', value: `${exerciseStats.count}회`, color: '#D4735A', icon: Dumbbell },
-            { label: '케어 횟수', value: `${beautyStats.count}회`, color: '#A07BE0', icon: Sparkles },
-          ].map((s, i) => (
-            <div key={i} className="p-4 rounded-xl" style={{ backgroundColor: t.card, border: `1px solid ${t.borderLight}` }}>
-              <div className="flex items-center gap-2 mb-2">
-                <s.icon size={14} color={s.color} />
-                <span style={{ fontSize: 10, color: t.textMuted, fontWeight: 600 }}>{s.label}</span>
-              </div>
-              <span style={{ fontSize: 22, fontWeight: 700, color: t.text, fontFamily: 'var(--font-gmarket)' }}>{s.value}</span>
-            </div>
+      <div className="px-6 pb-8 lg:max-w-3xl lg:mx-auto">
+        {/* ② 기간 탭 */}
+        <div className="flex p-1 rounded-xl mb-5" style={{ backgroundColor: t.bgSub }}>
+          {([['week', '이번 주'], ['month', '이번 달']] as const).map(([key, label]) => (
+            <button key={key} onClick={() => setPeriod(key)}
+              className="flex-1 py-2 rounded-lg transition-colors"
+              style={{
+                fontSize: 13, fontWeight: 600,
+                backgroundColor: period === key ? t.accent : 'transparent',
+                color: period === key ? '#fff' : t.textSub,
+              }}>
+              {label}
+            </button>
           ))}
         </div>
 
-        {/* Category sections */}
-        {CATEGORIES.map(cat => {
-          const stats = statsByCategory(cat.key);
-          const catRecords = monthRecords.filter(r => r.category === cat.key).sort((a, b) => b.date.localeCompare(a.date));
-          return (
-            <div key={cat.key} className="mb-6">
-              <div className="flex items-center gap-2 mb-3">
-                <cat.icon size={16} color={cat.color} />
-                <span style={{ fontSize: 14, fontWeight: 700, color: t.text }}>{cat.label}</span>
-                <span className="ml-auto px-2.5 py-0.5 rounded-full" style={{ fontSize: 10, backgroundColor: cat.color + '20', color: cat.color }}>
-                  {stats.count}회 &middot; 총 {fmtDuration(stats.totalMin)} &middot; 평균 {stats.avgMin}분
-                </span>
-              </div>
-              <div className="space-y-2">
-                {catRecords.slice(0, 5).map(r => (
-                  <div key={r.id} className="flex items-center gap-3 px-4 py-2.5 rounded-xl group"
-                    style={{ backgroundColor: t.card, border: `1px solid ${t.borderLight}` }}>
-                    <span style={{ fontSize: 11, color: t.textMuted, width: 80 }}>{r.date.slice(5)}</span>
-                    <span style={{ fontSize: 13, color: t.text, flex: 1 }}>{r.content}</span>
-                    <span style={{ fontSize: 11, color: cat.color, fontWeight: 600 }}>{fmtDuration(r.duration)}</span>
-                    <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                      <button onClick={() => setEditRecord(r)} className="p-1 rounded" style={{ color: t.textMuted }}>
-                        <Pencil size={12} />
-                      </button>
-                      <button onClick={() => deleteSelfCareRecord(r.id)} className="p-1 rounded" style={{ color: t.textMuted }}>
-                        <Trash2 size={12} />
-                      </button>
-                    </div>
-                  </div>
-                ))}
-                {catRecords.length === 0 && (
-                  <p style={{ fontSize: 12, color: t.textMuted, padding: '8px 0' }}>아직 기록이 없습니다</p>
-                )}
-              </div>
-            </div>
-          );
-        })}
+        {/* ③ 인사이트 카드 */}
+        <TimeInsightCard insight={report.insight} />
 
-        {/* Add button */}
+        {/* ④ 도넛 차트 + 범례 */}
+        <TimeDonut data={report.byCategory} />
+
+        {/* ⑤ 주간 목표 프로그레스 — 목표 데이터 없으면 숨김 (추후 기능) */}
+
+        {/* ⑥ 일별/주차별 스택 바 */}
+        <TimeStackBar report={report} />
+
+        {/* ⑦ 카테고리별 상세 (아코디언) */}
+        <CategoryAccordion byCategory={report.byCategory} />
+
+        {/* ⑧ 수동 기록 버튼 */}
         <button onClick={() => setShowAdd(true)}
           className="w-full flex items-center justify-center gap-2 py-3 rounded-xl transition-colors"
-          style={{ border: `2px dashed ${t.border}`, color: t.accent, fontSize: 13, fontWeight: 600 }}>
-          <Plus size={16} /> 기록 추가
+          style={{ border: `2px dashed ${t.border}`, color: t.textSub, fontSize: 13, fontWeight: 600 }}>
+          <Plus size={16} /> 앱 밖 활동 직접 추가
         </button>
       </div>
 
