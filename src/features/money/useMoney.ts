@@ -43,7 +43,8 @@ export interface UseMoney {
   // 기간/캘린더 파생
   daysLeft: number;            // 기간 종료까지 남은 일수(D-day)
   dailyAllowance: number;      // 남은 예산 / 남은 일수(오늘 포함)
-  noSpendStreak: number;       // 오늘 기준 연속 무지출 일수
+  noSpendStreak: number;       // 어제 기준 연속 무지출 일수(기록 시작일 이후만)
+  trackingStartDate: string | null; // 머니 기록 시작일(첫 거래일). 없으면 null
   spendByDay: Map<string, DayAgg>;  // 'yyyy-MM-dd' → {expense, income}
   categoryOf: (id: string | null) => MoneyCategory | null;
   refresh: () => Promise<void>;
@@ -148,16 +149,30 @@ export function useMoney(): UseMoney {
     return remainDays > 0 ? Math.floor(remainBudget / remainDays) : 0;
   }, [settings.monthlyBudget, expense, daysLeft]);
 
-  // 오늘 기준 연속 무지출 일수(지출 0인 날을 거꾸로 카운트, 최대 60일).
+  // 머니 기록 시작일 = 가장 이른 거래일. 거래가 0건이면 null(아직 기록 전).
+  // 이 날 이전은 "기록을 안 한 날"이므로 무지출 판정에서 완전히 제외한다.
+  const trackingStartDate = useMemo(() => {
+    if (transactions.length === 0) return null;
+    let min = transactions[0].spentAt;
+    for (const t of transactions) if (t.spentAt < min) min = t.spentAt;
+    return min;
+  }, [transactions]);
+
+  // 무지출 스트릭: 기록 시작일 이후 ~ 어제까지 연속으로 지출 0건인 날 수.
+  //  · 오늘은 하루가 안 끝났으므로 카운트하지 않음(어제부터 거꾸로).
+  //  · 기록 시작일 이전 날짜는 세지 않음 → 신규 사용자 허수(60일 등) 제거.
+  //  · 거래가 0건이면 0(UI에서 배지/카운터 숨김).
   const noSpendStreak = useMemo(() => {
+    if (!trackingStartDate) return 0;
     let streak = 0;
-    for (let i = 0; i < 60; i++) {
+    for (let i = 1; i <= 366; i++) {
       const d = format(subDays(new Date(), i), 'yyyy-MM-dd');
-      if ((spendByDay.get(d)?.expense ?? 0) > 0) break;
+      if (d < trackingStartDate) break;            // 기록 시작 전 → 중단
+      if ((spendByDay.get(d)?.expense ?? 0) > 0) break; // 지출 있는 날 → 중단
       streak++;
     }
     return streak;
-  }, [spendByDay]);
+  }, [spendByDay, trackingStartDate]);
 
   // ── 액션 ──
   const addTransaction = useCallback(async (input: Partial<MoneyTransaction> & { type: TxType; amount: number }) => {
@@ -257,7 +272,7 @@ export function useMoney(): UseMoney {
     loading, categories, expenseCategories, incomeCategories,
     transactions, periodTransactions, accounts, investments, cards, fixedCosts, loans, goals, settings,
     period, income, expense, balance, fixedTotal, assets, cardDebt, loanDebt, netWorth,
-    daysLeft, dailyAllowance, noSpendStreak, spendByDay,
+    daysLeft, dailyAllowance, noSpendStreak, trackingStartDate, spendByDay,
     categoryOf, refresh,
     addTransaction, deleteTransaction, parseAndAdd, addCategory, deleteCategory, updateSettings,
     saveAccount, deleteAccount, saveCard, deleteCard, saveFixedCost, deleteFixedCost,
