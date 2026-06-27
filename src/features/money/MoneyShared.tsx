@@ -287,6 +287,16 @@ export function CategoryBreakdown({ m }: { m: UseMoney }) {
   );
 }
 
+// 만원 단위로 보기 좋게 올림(1/2/5 ×10ⁿ). Y축 눈금/스케일용.
+function niceCeilWon(v: number): number {
+  if (v <= 0) return 100000;
+  const man = v / 10000;
+  const pow = Math.pow(10, Math.floor(Math.log10(man)));
+  const n = man / pow;
+  const nice = n <= 1 ? 1 : n <= 2 ? 2 : n <= 5 ? 5 : 10;
+  return nice * pow * 10000;
+}
+
 // ── 카테고리별 스택 바 차트(주간/월간/연간 · 예산선 · 가로 스크롤) ──
 type Gran = 'weekly' | 'monthly' | 'yearly';
 export function SpendTrendChart({ m }: { m: UseMoney }) {
@@ -301,10 +311,10 @@ export function SpendTrendChart({ m }: { m: UseMoney }) {
     for (let i = 6; i >= 0; i--) { const d = subDays(now, i); buckets.push({ key: format(d, 'yyyy-MM-dd'), label: ['일', '월', '화', '수', '목', '금', '토'][d.getDay()], current: i === 0 }); }
     keyOf = (d) => d;
   } else if (gran === 'monthly') {
-    for (let i = 5; i >= 0; i--) { const d = new Date(now.getFullYear(), now.getMonth() - i, 1); buckets.push({ key: format(d, 'yyyy-MM'), label: `${d.getMonth() + 1}월`, current: i === 0 }); }
+    for (let i = 11; i >= 0; i--) { const d = new Date(now.getFullYear(), now.getMonth() - i, 1); buckets.push({ key: format(d, 'yyyy-MM'), label: `${d.getMonth() + 1}월`, current: i === 0 }); }
     keyOf = (d) => d.slice(0, 7);
   } else {
-    for (let i = 3; i >= 0; i--) { const y = now.getFullYear() - i; buckets.push({ key: String(y), label: String(y), current: i === 0 }); }
+    for (let i = 4; i >= 0; i--) { const y = now.getFullYear() - i; buckets.push({ key: String(y), label: String(y), current: i === 0 }); }
     keyOf = (d) => d.slice(0, 4);
   }
 
@@ -321,7 +331,8 @@ export function SpendTrendChart({ m }: { m: UseMoney }) {
   const maxTotal = Math.max(...totals, 0);
   const budget = m.settings.monthlyBudget || 0;
   const showBudget = gran === 'monthly' && budget > 0;
-  const scaleMax = Math.max(maxTotal, showBudget ? budget : 0) * 1.15 || 1;
+  const scaleMax = niceCeilWon(Math.max(maxTotal, showBudget ? budget : 0));
+  const yTicks = [1, 0.75, 0.5, 0.25, 0].map(r => scaleMax * r); // 위→아래
   const hasData = totals.some(x => x > 0);
   const BAR_AREA = 150;
 
@@ -353,40 +364,60 @@ export function SpendTrendChart({ m }: { m: UseMoney }) {
         <div style={{ textAlign: 'center', padding: '32px 0', color: t.textMuted, fontSize: 13 }}>지출이 쌓이면 추이가 보여요 📊</div>
       ) : (
         <>
-          <div style={{ position: 'relative', height: BAR_AREA + 22 }}>
-            {/* 예산선(월간) */}
-            {showBudget && (
-              <div style={{ position: 'absolute', left: 0, right: 0, top: BAR_AREA - (budget / scaleMax) * BAR_AREA, borderTop: `1.5px dashed ${MONEY_PALETTE.coral}`, opacity: 0.5, zIndex: 1 }} />
-            )}
-            {/* 바 영역(가로 스크롤) */}
-            <div className="flex items-end" style={{ height: BAR_AREA, gap: 8, overflowX: 'auto', paddingBottom: 0 }}>
-              {buckets.map((b, i) => {
-                const total = totals[i];
-                const cm = agg.get(b.key)!;
-                const barH = (total / scaleMax) * BAR_AREA;
-                const over = showBudget && total > budget;
-                const segs = Array.from(cm.entries()).map(([cid, amt]) => ({ cid, amt, color: resolveCategoryColor(cid === '__none__' ? null : m.categoryOf(cid)) })).sort((a, b2) => b2.amt - a.amt);
-                return (
-                  <div key={b.key} className="flex flex-col items-center" style={{ width: 40, flexShrink: 0 }}>
-                    <div style={{ fontSize: 8, fontWeight: 700, color: over ? MONEY_PALETTE.coral : t.textSub, marginBottom: 2, whiteSpace: 'nowrap' }}>
-                      {total > 0 ? formatManShort(total) : ''}
-                    </div>
-                    <div style={{ width: 28, height: Math.max(barH, total > 0 ? 3 : 0), display: 'flex', flexDirection: 'column-reverse', borderRadius: '5px 5px 2px 2px', overflow: 'hidden', boxShadow: b.current ? '0 2px 8px rgba(58,53,46,0.12)' : 'none' }}>
-                      {segs.map(s => (
-                        <div key={s.cid} style={{ width: '100%', height: total > 0 ? `${(s.amt / total) * 100}%` : 0, background: s.color }} />
-                      ))}
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-            {/* X축 라벨 */}
-            <div className="flex" style={{ gap: 8, marginTop: 4 }}>
-              {buckets.map(b => (
-                <span key={b.key} style={{ width: 40, flexShrink: 0, textAlign: 'center', fontSize: 9, color: b.current ? t.text : t.textMuted, fontWeight: b.current ? 700 : 400 }}>{b.label}</span>
+          {/* Y축(고정) + 차트 영역 */}
+          <div className="flex">
+            {/* Y축 눈금 — 만원 단위, 좌측 고정(스크롤 안 함). 바 영역(BAR_AREA)에만 정렬 */}
+            <div className="flex flex-col justify-between flex-shrink-0" style={{ width: 38, height: BAR_AREA, paddingRight: 6 }}>
+              {yTicks.map((v, i) => (
+                <span key={i} style={{ fontSize: 9, color: t.textMuted, textAlign: 'right', lineHeight: 1 }}>{v === 0 ? '0' : formatManShort(v)}</span>
               ))}
             </div>
+            {/* 차트 영역 */}
+            <div className="flex-1 relative" style={{ minWidth: 0 }}>
+              {/* 그리드라인 + 예산선 — 바 영역(상단 BAR_AREA)에 고정 오버레이 */}
+              <div className="absolute left-0 right-0 top-0 pointer-events-none" style={{ height: BAR_AREA }}>
+                {yTicks.map((v, i) => (
+                  <div key={i} className="absolute left-0 right-0" style={{ top: `${(1 - v / scaleMax) * 100}%`, borderTop: `1px solid ${t.borderLight}` }} />
+                ))}
+                {showBudget && (
+                  <div className="absolute left-0 right-0" style={{ top: `${(1 - budget / scaleMax) * 100}%`, borderTop: `1.5px dashed ${MONEY_PALETTE.coral}`, zIndex: 1 }} />
+                )}
+              </div>
+              {/* 바+X라벨 — 모바일: 고정폭 + 가로 스크롤(라벨 동반 스크롤) / PC: flex 확장 */}
+              <div className="overflow-x-auto lg:overflow-x-visible">
+                <div className="flex items-end gap-2">
+                  {buckets.map((b, i) => {
+                    const total = totals[i];
+                    const cm = agg.get(b.key)!;
+                    const barH = (total / scaleMax) * BAR_AREA;
+                    const over = showBudget && total > budget;
+                    const segs = Array.from(cm.entries()).map(([cid, amt]) => ({ cid, amt, color: resolveCategoryColor(cid === '__none__' ? null : m.categoryOf(cid)) })).sort((a, b2) => b2.amt - a.amt);
+                    return (
+                      <div key={b.key} className="flex flex-col items-center flex-shrink-0 w-10 lg:flex-1 lg:w-auto lg:min-w-0">
+                        {/* 바 영역(BAR_AREA 고정 — 그리드와 정렬) */}
+                        <div className="flex flex-col items-center justify-end" style={{ height: BAR_AREA }}>
+                          <div style={{ fontSize: 8, fontWeight: 700, color: over ? MONEY_PALETTE.coral : t.textSub, marginBottom: 2, whiteSpace: 'nowrap' }}>
+                            {total > 0 ? formatManShort(total) : ''}
+                          </div>
+                          <div style={{ width: 28, height: Math.max(barH, total > 0 ? 3 : 0), display: 'flex', flexDirection: 'column-reverse', borderRadius: '5px 5px 2px 2px', overflow: 'hidden', boxShadow: b.current ? '0 2px 8px rgba(58,53,46,0.12)' : 'none', position: 'relative', zIndex: 2 }}>
+                            {segs.map(s => (
+                              <div key={s.cid} style={{ width: '100%', height: total > 0 ? `${(s.amt / total) * 100}%` : 0, background: s.color }} />
+                            ))}
+                          </div>
+                        </div>
+                        {/* X축 라벨(바와 동반 스크롤) */}
+                        <span style={{ marginTop: 4, fontSize: 9, color: b.current ? t.text : t.textMuted, fontWeight: b.current ? 700 : 400, whiteSpace: 'nowrap' }}>{b.label}</span>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
           </div>
+          {/* 스와이프 힌트 — 모바일에서 버킷이 넘칠 때만 */}
+          {buckets.length > 6 && (
+            <div className="lg:hidden" style={{ textAlign: 'center', fontSize: 10, color: t.textMuted, marginTop: 6 }}>← 좌우로 스와이프 →</div>
+          )}
 
           {/* 범례 */}
           {legendCats.length > 0 && (
