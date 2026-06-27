@@ -54,6 +54,17 @@ export interface UseMoney {
   addCategory: (c: Partial<MoneyCategory> & { type: TxType; name: string }) => Promise<void>;
   deleteCategory: (id: string) => Promise<void>;
   updateSettings: (s: MoneySettings) => Promise<void>;
+  // 자산/카드/고정비/대출/목표 — 수정(upsert)/삭제. id 있으면 수정, 없으면 추가.
+  saveAccount: (a: MoneyAccount) => Promise<void>;
+  deleteAccount: (id: string) => Promise<void>;
+  saveCard: (c: MoneyCard) => Promise<void>;
+  deleteCard: (id: string) => Promise<void>;
+  saveFixedCost: (f: MoneyFixedCost) => Promise<void>;
+  deleteFixedCost: (id: string) => Promise<void>;
+  saveLoan: (l: MoneyLoan) => Promise<void>;
+  deleteLoan: (id: string) => Promise<void>;
+  saveGoal: (g: MoneyGoal) => Promise<void>;
+  deleteGoal: (id: string) => Promise<void>;
 }
 
 export function useMoney(): UseMoney {
@@ -220,6 +231,28 @@ export function useMoney(): UseMoney {
     await refresh();
   }, [refresh]);
 
+  // ── 자산/카드/고정비/대출/목표 upsert + delete (id 채워서 호출) ──
+  const saveAccount = useCallback(async (a: MoneyAccount) => { await moneyDb.accounts.upsert(a); await refresh(); }, [refresh]);
+  const deleteAccount = useCallback(async (id: string) => {
+    setAccounts(prev => prev.filter(x => x.id !== id)); await moneyDb.accounts.delete(id); await refresh();
+  }, [refresh]);
+  const saveCard = useCallback(async (c: MoneyCard) => { await moneyDb.cards.upsert(c); await refresh(); }, [refresh]);
+  const deleteCard = useCallback(async (id: string) => {
+    setCards(prev => prev.filter(x => x.id !== id)); await moneyDb.cards.delete(id); await refresh();
+  }, [refresh]);
+  const saveFixedCost = useCallback(async (f: MoneyFixedCost) => { await moneyDb.fixedCosts.upsert(f); await refresh(); }, [refresh]);
+  const deleteFixedCost = useCallback(async (id: string) => {
+    setFixedCosts(prev => prev.filter(x => x.id !== id)); await moneyDb.fixedCosts.delete(id); await refresh();
+  }, [refresh]);
+  const saveLoan = useCallback(async (l: MoneyLoan) => { await moneyDb.loans.upsert(l); await refresh(); }, [refresh]);
+  const deleteLoan = useCallback(async (id: string) => {
+    setLoans(prev => prev.filter(x => x.id !== id)); await moneyDb.loans.delete(id); await refresh();
+  }, [refresh]);
+  const saveGoal = useCallback(async (g: MoneyGoal) => { await moneyDb.goals.upsert(g); await refresh(); }, [refresh]);
+  const deleteGoal = useCallback(async (id: string) => {
+    setGoals(prev => prev.filter(x => x.id !== id)); await moneyDb.goals.delete(id); await refresh();
+  }, [refresh]);
+
   return {
     loading, categories, expenseCategories, incomeCategories,
     transactions, periodTransactions, accounts, investments, cards, fixedCosts, loans, goals, settings,
@@ -227,5 +260,7 @@ export function useMoney(): UseMoney {
     daysLeft, dailyAllowance, noSpendStreak, spendByDay,
     categoryOf, refresh,
     addTransaction, deleteTransaction, parseAndAdd, addCategory, deleteCategory, updateSettings,
+    saveAccount, deleteAccount, saveCard, deleteCard, saveFixedCost, deleteFixedCost,
+    saveLoan, deleteLoan, saveGoal, deleteGoal,
   };
 }
