@@ -43,14 +43,15 @@ const transactions = {
     return (data ?? []).map((r: any): MoneyTransaction => ({
       id: r.id, type: r.type, amount: Number(r.amount), categoryId: r.category_id ?? null,
       memo: r.memo ?? null, paymentMethod: r.payment_method ?? null, spentAt: r.spent_at,
-      source: r.source ?? 'manual', rawInput: r.raw_input ?? null, createdAt: r.created_at ?? undefined,
+      source: r.source ?? 'manual', rawInput: r.raw_input ?? null, emoji: r.emoji ?? null,
+      createdAt: r.created_at ?? undefined,
     }));
   },
   upsert: async (item: MoneyTransaction) => {
     const { error } = await supabase.from('money_transactions').upsert({
       id: item.id, type: item.type, amount: item.amount, category_id: item.categoryId ?? null,
       memo: item.memo ?? null, payment_method: item.paymentMethod ?? null, spent_at: item.spentAt,
-      source: item.source ?? 'manual', raw_input: item.rawInput ?? null,
+      source: item.source ?? 'manual', raw_input: item.rawInput ?? null, emoji: item.emoji ?? null,
     }, { onConflict: 'id' });
     if (error) console.error('[money] transactions upsert:', error.message);
   },

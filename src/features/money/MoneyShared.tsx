@@ -29,18 +29,28 @@ function daysUntilDay(day: number | null): number | null {
   return Math.round((next.getTime() - new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime()) / 86400000);
 }
 
-// ── 거래 아이콘(카테고리 이모지 > 색상점+첫글자) ──
-// 거래 자체엔 이모지 컬럼이 없으므로 연결된 카테고리 이모지로 파생, 없으면 색상+첫글자 fallback.
-function TxIcon({ cat }: { cat: MoneyCategory | null }) {
+// ── 거래 아이콘(거래 이모지 > 카테고리 이모지 > 색상점+첫글자) ──
+function TxIcon({ emoji, cat }: { emoji: string | null; cat: MoneyCategory | null }) {
   const color = resolveCategoryColor(cat);
-  const emoji = cat?.emoji;
+  const icon = emoji || cat?.emoji;
   return (
     <div className="flex items-center justify-center flex-shrink-0"
       style={{ width: 38, height: 38, borderRadius: 11, background: `${color}20`, fontSize: 18 }}>
-      {emoji ? emoji : (
+      {icon ? icon : (
         <span style={{ fontSize: 13, fontWeight: 700, color }}>{categoryInitial(cat?.name)}</span>
       )}
     </div>
+  );
+}
+
+// ── 무지출 아이콘(₩ 위 사선, 골드) ──
+function NoSpendIcon({ size = 18 }: { size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <circle cx="12" cy="12" r="10" stroke={MONEY_PALETTE.gold} strokeWidth="1.5" />
+      <line x1="7" y1="7" x2="17" y2="17" stroke={MONEY_PALETTE.gold} strokeWidth="1.5" strokeLinecap="round" />
+      <text x="12" y="15.5" textAnchor="middle" fontSize="7" fontWeight="700" fill={MONEY_PALETTE.gold}>₩</text>
+    </svg>
   );
 }
 
@@ -118,9 +128,93 @@ export function BudgetBar({ m }: { m: UseMoney }) {
       <div style={{ height: 8, background: t.bgSub, borderRadius: 4, overflow: 'hidden' }}>
         <div style={{ width: `${pct}%`, height: '100%', borderRadius: 4, background: over ? MONEY_PALETTE.coral : MONEY_PALETTE.gold, transition: 'width 0.6s' }} />
       </div>
-      <div style={{ fontSize: 11, color: over ? MONEY_PALETTE.coral : t.textMuted, marginTop: 6, textAlign: 'right' }}>
-        {over ? `예산 ${formatManShort(used - budget)} 초과` : `${formatManShort(budget - used)} 남음`}
+      <div className="flex justify-between items-center" style={{ marginTop: 6 }}>
+        <span style={{ fontSize: 11, color: t.textMuted }}>
+          D-{m.daysLeft} · 하루 {m.dailyAllowance.toLocaleString('ko-KR')}원 사용 가능
+        </span>
+        <span style={{ fontSize: 11, fontWeight: 600, color: over ? MONEY_PALETTE.coral : t.textSub }}>
+          {over ? `${formatManShort(used - budget)} 초과` : `${formatManShort(budget - used)} 남음`}
+        </span>
       </div>
+    </div>
+  );
+}
+
+// ── 지출 캘린더(기간 단위 그리드 + 무지출/지출/수입 마킹 + 스트릭) ──
+export function SpendCalendar({ m }: { m: UseMoney }) {
+  const { t } = useTheme();
+  const todayStr = format(new Date(), 'yyyy-MM-dd');
+
+  // 기간(start~end)을 날짜 배열로 펼친 뒤, 시작 요일만큼 앞에 빈칸을 채워 주별 그리드 정렬.
+  const days: string[] = [];
+  for (let d = new Date(m.period.startDate); d <= m.period.endDate; d = new Date(d.getFullYear(), d.getMonth(), d.getDate() + 1)) {
+    days.push(format(d, 'yyyy-MM-dd'));
+  }
+  const leadEmpty = m.period.startDate.getDay(); // 0(일)~6(토)
+  const cells: (string | null)[] = [...Array(leadEmpty).fill(null), ...days];
+
+  return (
+    <div style={{ background: t.card, borderRadius: 20, padding: 18, boxShadow: t.shadow }}>
+      <div className="flex justify-between items-center" style={{ marginBottom: 14 }}>
+        <span style={{ fontSize: 14, fontWeight: 700, color: t.text }}>지출 캘린더</span>
+        <span style={{ fontSize: 11, fontWeight: 600, padding: '3px 10px', borderRadius: 20, background: `${MONEY_PALETTE.green}20`, color: MONEY_PALETTE.green }}>
+          {m.noSpendStreak}일 무지출 🔥
+        </span>
+      </div>
+
+      <div className="grid" style={{ gridTemplateColumns: 'repeat(7, 1fr)', gap: 4, marginBottom: 4 }}>
+        {['일', '월', '화', '수', '목', '금', '토'].map(w => (
+          <div key={w} style={{ textAlign: 'center', fontSize: 10, color: t.textMuted, fontWeight: 500 }}>{w}</div>
+        ))}
+      </div>
+      <div className="grid" style={{ gridTemplateColumns: 'repeat(7, 1fr)', gap: 3 }}>
+        {cells.map((date, i) => {
+          if (!date) return <div key={i} style={{ aspectRatio: '1' }} />;
+          const agg = m.spendByDay.get(date);
+          const hasExpense = (agg?.expense ?? 0) > 0;
+          const hasIncome = (agg?.income ?? 0) > 0;
+          const isToday = date === todayStr;
+          const isFuture = date > todayStr;
+          const dayNum = parseInt(date.slice(8, 10), 10);
+          return (
+            <div key={i} className="relative flex flex-col items-center justify-center"
+              style={{
+                aspectRatio: '1', borderRadius: 12, gap: 1,
+                background: isToday ? MONEY_PALETTE.ink : hasExpense ? 'transparent' : (!isFuture ? '#F0EBE2' : 'transparent'),
+              }}>
+              {hasIncome && (
+                <span className="absolute" style={{ top: 3, right: 3, width: 4, height: 4, borderRadius: '50%', background: MONEY_PALETTE.green }} />
+              )}
+              {!hasExpense && !isFuture && !isToday && <NoSpendIcon size={16} />}
+              <span style={{ fontSize: 11, fontWeight: 500, lineHeight: 1, color: isToday ? '#FDFAF4' : isFuture ? t.textMuted : t.text }}>
+                {dayNum}
+              </span>
+              {hasExpense && (
+                <span style={{ fontSize: 7, fontWeight: 700, lineHeight: 1, color: isToday ? MONEY_PALETTE.gold : MONEY_PALETTE.coral }}>
+                  -{formatManShort(agg!.expense)}
+                </span>
+              )}
+            </div>
+          );
+        })}
+      </div>
+
+      {/* 범례 */}
+      <div className="flex justify-center" style={{ gap: 12, marginTop: 10, flexWrap: 'wrap' }}>
+        <span className="flex items-center" style={{ gap: 4, fontSize: 10, color: t.textMuted }}><NoSpendIcon size={13} /> 무지출</span>
+        <span className="flex items-center" style={{ gap: 4, fontSize: 10, color: t.textMuted }}><span style={{ width: 8, height: 8, borderRadius: 3, background: MONEY_PALETTE.coral }} /> 지출</span>
+        <span className="flex items-center" style={{ gap: 4, fontSize: 10, color: t.textMuted }}><span style={{ width: 6, height: 6, borderRadius: '50%', background: MONEY_PALETTE.green }} /> 수입</span>
+      </div>
+
+      {/* 스트릭 카운터(Nanum Pen Script) */}
+      {m.noSpendStreak > 0 && (
+        <div style={{ textAlign: 'center', marginTop: 10, paddingTop: 10, borderTop: `1px solid ${t.borderLight}` }}>
+          <div style={{ fontFamily: "'Nanum Pen Script', cursive", fontSize: 28, color: MONEY_PALETTE.gold, lineHeight: 1 }}>
+            {m.noSpendStreak}일 연속 무지출!
+          </div>
+          <div style={{ fontSize: 11, color: t.textSub, marginTop: 2 }}>한 푼도 안 쓴 날을 이어가고 있어요 ✨</div>
+        </div>
+      )}
     </div>
   );
 }
@@ -181,7 +275,7 @@ export function TransactionList({ m, limit }: { m: UseMoney; limit?: number }) {
         return (
           <div key={tx.id} className="flex items-center gap-3 group"
             style={{ background: t.card, borderRadius: 14, padding: '11px 14px', boxShadow: t.shadow }}>
-            <TxIcon cat={cat} />
+            <TxIcon emoji={tx.emoji} cat={cat} />
             <div className="flex-1 min-w-0">
               <div style={{ fontSize: 13, fontWeight: 500, color: t.text, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                 {tx.memo || cat?.name || (isIncome ? '수입' : '지출')}
@@ -448,6 +542,7 @@ export function MoneyTabPanel({ tab, m }: { tab: MoneyTab; m: UseMoney }) {
     <div className="flex flex-col gap-3">
       <SummaryStrip m={m} />
       <BudgetBar m={m} />
+      <SpendCalendar m={m} />
       <CategoryBreakdown m={m} />
       <div>
         <div style={{ fontSize: 15, fontWeight: 700, marginBottom: 10, marginLeft: 2 }}>최근 거래</div>

@@ -1,10 +1,11 @@
 // 하온 머니 — 공용 데이터 훅. 8개 테이블 로드/Realtime 구독 + 파생값 메모이즈 + 액션.
 // beauty/useBeauty 패턴 동일(UI 의존 0). 핵심: 채팅형 자연어 입력 → money-parse → 거래 기록.
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { format, startOfMonth, endOfMonth, addDays } from 'date-fns';
+import { format, subDays } from 'date-fns';
 import { supabase } from '../../lib/supabase';
 import { useRealtimeSync } from '../../app/hooks/useRealtimeSync';
 import { moneyDb } from './db';
+import { getMoneyPeriod, daysLeftInPeriod, type MoneyPeriod } from './period';
 import type {
   MoneyCategory, MoneyTransaction, MoneyAccount, MoneyCard,
   MoneyFixedCost, MoneyLoan, MoneyGoal, MoneySettings, ParsedTx, TxType,
@@ -12,26 +13,7 @@ import type {
 
 const today = () => format(new Date(), 'yyyy-MM-dd');
 
-export interface MoneyPeriod {
-  start: string;   // 'yyyy-MM-dd'
-  end: string;     // 'yyyy-MM-dd'
-  label: string;   // '6월' 등
-}
-
-// 예산 기간 계산: payday 기준이면 급여일~다음 급여일 전날, calendar면 1일~말일.
-function computePeriod(settings: MoneySettings, ref = new Date()): MoneyPeriod {
-  const y = ref.getFullYear(), m = ref.getMonth();
-  let start: Date, end: Date;
-  if (settings.periodType === 'calendar') {
-    start = startOfMonth(ref); end = endOfMonth(ref);
-  } else {
-    const d = Math.min(Math.max(settings.payday || 1, 1), 28);
-    if (ref.getDate() >= d) { start = new Date(y, m, d); end = addDays(new Date(y, m + 1, d), -1); }
-    else { start = new Date(y, m - 1, d); end = addDays(new Date(y, m, d), -1); }
-  }
-  return { start: format(start, 'yyyy-MM-dd'), end: format(end, 'yyyy-MM-dd'), label: `${start.getMonth() + 1}월` };
-}
-
+export interface DayAgg { expense: number; income: number; }
 export interface CatBreakdown { category: MoneyCategory | null; amount: number; color: string; }
 
 export interface UseMoney {
@@ -58,6 +40,11 @@ export interface UseMoney {
   cardDebt: number;
   loanDebt: number;
   netWorth: number;
+  // 기간/캘린더 파생
+  daysLeft: number;            // 기간 종료까지 남은 일수(D-day)
+  dailyAllowance: number;      // 남은 예산 / 남은 일수(오늘 포함)
+  noSpendStreak: number;       // 오늘 기준 연속 무지출 일수
+  spendByDay: Map<string, DayAgg>;  // 'yyyy-MM-dd' → {expense, income}
   categoryOf: (id: string | null) => MoneyCategory | null;
   refresh: () => Promise<void>;
   // 액션
@@ -108,7 +95,7 @@ export function useMoney(): UseMoney {
   const catById = useMemo(() => new Map(categories.map(c => [c.id, c])), [categories]);
   const categoryOf = useCallback((id: string | null) => (id ? catById.get(id) ?? null : null), [catById]);
 
-  const period = useMemo(() => computePeriod(settings), [settings]);
+  const period = useMemo(() => getMoneyPeriod(settings), [settings]);
 
   const periodTransactions = useMemo(
     () => transactions.filter(t => t.spentAt >= period.start && t.spentAt <= period.end),
@@ -131,6 +118,36 @@ export function useMoney(): UseMoney {
   const loanDebt = useMemo(() => loans.reduce((s, l) => s + l.balance, 0), [loans]);
   const netWorth = assets - cardDebt;  // 목업 기준(대출은 별도 표시)
 
+  // 일별 집계(전체 거래 — 캘린더/스트릭 공용). 'yyyy-MM-dd' → {expense, income}
+  const spendByDay = useMemo(() => {
+    const map = new Map<string, DayAgg>();
+    for (const t of transactions) {
+      const cur = map.get(t.spentAt) ?? { expense: 0, income: 0 };
+      if (t.type === 'expense') cur.expense += t.amount; else cur.income += t.amount;
+      map.set(t.spentAt, cur);
+    }
+    return map;
+  }, [transactions]);
+
+  // D-day & 하루 사용 가능액(남은 예산 / 남은 일수, 오늘 포함)
+  const daysLeft = useMemo(() => daysLeftInPeriod(period), [period]);
+  const dailyAllowance = useMemo(() => {
+    const remainBudget = Math.max(0, (settings.monthlyBudget || 0) - expense);
+    const remainDays = daysLeft + 1; // 오늘 포함
+    return remainDays > 0 ? Math.floor(remainBudget / remainDays) : 0;
+  }, [settings.monthlyBudget, expense, daysLeft]);
+
+  // 오늘 기준 연속 무지출 일수(지출 0인 날을 거꾸로 카운트, 최대 60일).
+  const noSpendStreak = useMemo(() => {
+    let streak = 0;
+    for (let i = 0; i < 60; i++) {
+      const d = format(subDays(new Date(), i), 'yyyy-MM-dd');
+      if ((spendByDay.get(d)?.expense ?? 0) > 0) break;
+      streak++;
+    }
+    return streak;
+  }, [spendByDay]);
+
   // ── 액션 ──
   const addTransaction = useCallback(async (input: Partial<MoneyTransaction> & { type: TxType; amount: number }) => {
     const tx: MoneyTransaction = {
@@ -139,6 +156,7 @@ export function useMoney(): UseMoney {
       categoryId: input.categoryId ?? null, memo: input.memo ?? null,
       paymentMethod: input.paymentMethod ?? null, spentAt: input.spentAt ?? today(),
       source: input.source ?? 'manual', rawInput: input.rawInput ?? null,
+      emoji: input.emoji ?? null,
     };
     await moneyDb.transactions.upsert(tx);
     await refresh();
@@ -176,6 +194,7 @@ export function useMoney(): UseMoney {
       categoryId: resolveCategoryId(p.category, p.type),
       memo: p.memo ?? trimmed, paymentMethod: p.paymentMethod ?? null,
       spentAt: p.spentAt ?? today(), source: mode, rawInput: trimmed,
+      emoji: p.emoji ?? null,
     });
     return { ok: true, parsed: p };
   }, [expenseCategories, incomeCategories, addTransaction, resolveCategoryId]);
@@ -205,6 +224,7 @@ export function useMoney(): UseMoney {
     loading, categories, expenseCategories, incomeCategories,
     transactions, periodTransactions, accounts, investments, cards, fixedCosts, loans, goals, settings,
     period, income, expense, balance, fixedTotal, assets, cardDebt, loanDebt, netWorth,
+    daysLeft, dailyAllowance, noSpendStreak, spendByDay,
     categoryOf, refresh,
     addTransaction, deleteTransaction, parseAndAdd, addCategory, deleteCategory, updateSettings,
   };

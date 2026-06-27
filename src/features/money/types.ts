@@ -24,6 +24,7 @@ export interface MoneyTransaction {
   spentAt: string;           // 'yyyy-MM-dd'
   source: TxSource;
   rawInput: string | null;
+  emoji: string | null;      // 거래별 이모지(🍖 등). 없으면 카테고리 이모지로 폴백.
   createdAt?: string;
 }
 

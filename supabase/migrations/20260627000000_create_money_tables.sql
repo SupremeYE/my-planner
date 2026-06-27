@@ -53,6 +53,7 @@ create table public.money_transactions (
   spent_at date not null,                -- 거래 날짜
   source text default 'manual',          -- 'chat' | 'sms' | 'manual' | 'fixed'
   raw_input text,                        -- 채팅/문자 원문(파싱 추적용, nullable)
+  emoji text,                            -- 거래별 이모지(🍖 등). 없으면 카테고리 이모지로 폴백.
   created_at timestamptz default now()
 );
 
@@ -212,13 +213,13 @@ values
   ('8451b11f-76ed-4dcb-a9ec-bd8283fa1cde','expense','문화',  '🎬','#8B7EC8',true,5),
   ('8451b11f-76ed-4dcb-a9ec-bd8283fa1cde','expense','건강',  '💊','#5B9BD5',true,6),
   ('8451b11f-76ed-4dcb-a9ec-bd8283fa1cde','expense','통신',  '📱','#B8AD9E',true,7),
-  ('8451b11f-76ed-4dcb-a9ec-bd8283fa1cde','expense','구독',  '🎬','#8B7EC8',true,8),
+  ('8451b11f-76ed-4dcb-a9ec-bd8283fa1cde','expense','구독',  '🎬','#A88BC8',true,8),
   ('8451b11f-76ed-4dcb-a9ec-bd8283fa1cde','expense','보험',  '🛡️','#7BA8B8',true,9),
-  ('8451b11f-76ed-4dcb-a9ec-bd8283fa1cde','expense','주거',  '🏠','#E8A84C',true,10),
-  ('8451b11f-76ed-4dcb-a9ec-bd8283fa1cde','income','급여',   '💰','#6BAA7A',true,0),
-  ('8451b11f-76ed-4dcb-a9ec-bd8283fa1cde','income','부수입', '💼','#8B7EC8',true,1),
-  ('8451b11f-76ed-4dcb-a9ec-bd8283fa1cde','income','용돈/선물','🎁','#E8A84C',true,2),
-  ('8451b11f-76ed-4dcb-a9ec-bd8283fa1cde','income','투자수익','📈','#5B9BD5',true,3);
+  ('8451b11f-76ed-4dcb-a9ec-bd8283fa1cde','expense','주거',  '🏠','#C8956B',true,10),
+  ('8451b11f-76ed-4dcb-a9ec-bd8283fa1cde','income','급여',   '💰','#4E9E6A',true,0),
+  ('8451b11f-76ed-4dcb-a9ec-bd8283fa1cde','income','부수입', '💼','#7FB8A0',true,1),
+  ('8451b11f-76ed-4dcb-a9ec-bd8283fa1cde','income','용돈/선물','🎁','#E091A8',true,2),
+  ('8451b11f-76ed-4dcb-a9ec-bd8283fa1cde','income','투자수익','📈','#4FA3C7',true,3);
 
 -- (3) accounts — 카뱅 저금통(예금). 투자계좌는 목업 빈 상태라 미시드.
 insert into public.money_accounts (user_id, name, type, balance, interest_rate, icon, sort_order)
@@ -231,16 +232,16 @@ values
   ('8451b11f-76ed-4dcb-a9ec-bd8283fa1cde','하나카드','credit','#6BAA7A',20,400000,1);
 
 -- (5) transactions — 최근 3건. category_id 는 이름으로 조인.
-insert into public.money_transactions (user_id, type, amount, category_id, memo, payment_method, spent_at, source)
+insert into public.money_transactions (user_id, type, amount, category_id, memo, payment_method, spent_at, source, emoji)
 select '8451b11f-76ed-4dcb-a9ec-bd8283fa1cde', v.type, v.amount,
        (select id from public.money_categories c
          where c.user_id='8451b11f-76ed-4dcb-a9ec-bd8283fa1cde' and c.name=v.cat and c.type=v.type limit 1),
-       v.memo, v.pm, v.spent_at::date, 'manual'
+       v.memo, v.pm, v.spent_at::date, 'manual', v.emoji
 from (values
-  ('expense',54000::bigint,  '식비','갈비 사먹음','삼성카드','2026-06-24'),
-  ('expense',50000::bigint,  '건강','보건/위생', '하나카드','2026-06-24'),
-  ('income', 2500000::bigint,'급여','6월 월급',  '카뱅 저금통','2026-06-25')
-) as v(type, amount, cat, memo, pm, spent_at);
+  ('expense',54000::bigint,  '식비','갈비 사먹음','삼성카드','2026-06-24','🍖'),
+  ('expense',50000::bigint,  '건강','보건/위생', '하나카드','2026-06-24','💊'),
+  ('income', 2500000::bigint,'급여','6월 월급',  '카뱅 저금통','2026-06-25','💰')
+) as v(type, amount, cat, memo, pm, spent_at, emoji);
 
 -- (6) fixed_costs — 7건(외화 구독 2건 포함). category_id 를 프리셋 카테고리에 전부 연결
 --     (②안: 구독/보험/주거 프리셋 추가됨 → 고정비도 정상 카테고리 집계에 포함).
