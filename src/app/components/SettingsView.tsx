@@ -178,30 +178,57 @@ function TagsSection() {
   const [showNewTag, setShowNewTag] = useState(false);
   const [newName, setNewName] = useState('');
   const [newColor, setNewColor] = useState(DEFAULT_TAG_COLORS[0]);
+  const [newTrackTime, setNewTrackTime] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editName, setEditName] = useState('');
   const [editColor, setEditColor] = useState(DEFAULT_TAG_COLORS[0]);
+  const [editTrackTime, setEditTrackTime] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<{ id: string; name: string } | null>(null);
 
   const handleCreate = () => {
     if (!newName.trim()) return;
-    addTag(newName.trim(), newColor);
+    addTag(newName.trim(), newColor, newTrackTime);
     setNewName('');
     setNewColor(DEFAULT_TAG_COLORS[0]);
+    setNewTrackTime(false);
     setShowNewTag(false);
   };
 
-  const startEdit = (id: string, name: string, color: string) => {
-    setEditingId(id);
-    setEditName(name);
-    setEditColor(color);
+  const startEdit = (tag: { id: string; name: string; color: string; trackTime: boolean }) => {
+    setEditingId(tag.id);
+    setEditName(tag.name);
+    setEditColor(tag.color);
+    setEditTrackTime(tag.trackTime);
   };
 
   const handleUpdate = () => {
     if (!editingId || !editName.trim()) return;
-    updateTag(editingId, { name: editName.trim(), color: editColor });
+    updateTag(editingId, { name: editName.trim(), color: editColor, trackTime: editTrackTime });
     setEditingId(null);
   };
+
+  const SwitchPill = ({ value }: { value: boolean }) => (
+    <span className="rounded-full transition-colors flex-shrink-0" style={{
+      width: 30, height: 16, padding: 2, display: 'inline-flex',
+      backgroundColor: value ? t.accent : t.border,
+      justifyContent: value ? 'flex-end' : 'flex-start',
+    }}>
+      <span className="rounded-full" style={{ width: 12, height: 12, backgroundColor: '#fff' }} />
+    </span>
+  );
+
+  // 폼(신규/편집)용: 라벨 + 스위치 한 줄
+  const TrackTimeToggle = ({ value, onChange }: { value: boolean; onChange: (v: boolean) => void }) => (
+    <button type="button" onClick={() => onChange(!value)}
+      className="w-full flex items-center justify-between px-2.5 py-1.5 rounded-lg"
+      style={{ fontSize: 11, backgroundColor: t.card, border: `1px solid ${t.border}`, color: t.textSub }}>
+      <span className="flex items-center gap-1.5">
+        <Clock size={12} style={{ color: value ? t.accent : t.textMuted }} />
+        시간 리포트 집계 대상
+      </span>
+      <SwitchPill value={value} />
+    </button>
+  );
 
   return (
     <Section title="태그 관리" icon={<Tag size={16} />}>
@@ -229,6 +256,7 @@ function TagsSection() {
                 <input value={editName} onChange={e => setEditName(e.target.value)}
                   className="w-full rounded-lg px-2.5 py-1.5 border outline-none"
                   style={{ fontSize: 12, borderColor: t.border, backgroundColor: t.card, color: t.text }} />
+                <TrackTimeToggle value={editTrackTime} onChange={setEditTrackTime} />
                 <div className="flex gap-1.5">
                   <button onClick={handleUpdate} className="flex-1 py-1.5 rounded-lg flex items-center justify-center gap-1"
                     style={{ fontSize: 11, fontWeight: 600, backgroundColor: t.accent, color: '#fff' }}>
@@ -244,7 +272,13 @@ function TagsSection() {
               <div className="flex items-center gap-2.5">
                 <span className="w-3 h-3 rounded-full flex-shrink-0" style={{ backgroundColor: tag.color }} />
                 <span className="flex-1" style={{ fontSize: 13, color: t.text }}>{tag.name}</span>
-                <button onClick={() => startEdit(tag.id, tag.name, tag.color)}
+                <button onClick={() => updateTag(tag.id, { trackTime: !tag.trackTime })}
+                  className="flex items-center gap-1 p-1 rounded-lg transition-colors"
+                  title={tag.trackTime ? '시간 리포트 집계 ON' : '시간 리포트 집계 OFF'}>
+                  <Clock size={12} style={{ color: tag.trackTime ? t.accent : t.textMuted }} />
+                  <SwitchPill value={tag.trackTime} />
+                </button>
+                <button onClick={() => startEdit(tag)}
                   className="p-1.5 rounded-lg transition-colors"
                   style={{ color: t.textMuted }}>
                   <Pencil size={13} />
@@ -280,6 +314,7 @@ function TagsSection() {
             onKeyDown={e => e.key === 'Enter' && handleCreate()}
             className="w-full rounded-lg px-2.5 py-1.5 border outline-none"
             style={{ fontSize: 12, borderColor: t.border, backgroundColor: t.card, color: t.text }} />
+          <TrackTimeToggle value={newTrackTime} onChange={setNewTrackTime} />
           <div className="flex gap-1.5">
             <button onClick={handleCreate} className="flex-1 py-1.5 rounded-lg"
               style={{ fontSize: 11, fontWeight: 600, backgroundColor: t.accent, color: '#fff' }}>만들기</button>
