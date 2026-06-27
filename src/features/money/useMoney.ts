@@ -6,6 +6,7 @@ import { supabase } from '../../lib/supabase';
 import { useRealtimeSync } from '../../app/hooks/useRealtimeSync';
 import { moneyDb } from './db';
 import { getMoneyPeriod, daysLeftInPeriod, type MoneyPeriod } from './period';
+import { fetchFxRate, needsFxRefresh } from './fx';
 import type {
   MoneyCategory, MoneyTransaction, MoneyAccount, MoneyCard,
   MoneyFixedCost, MoneyLoan, MoneyGoal, MoneySettings, ParsedTx, TxType,
@@ -19,8 +20,10 @@ export interface CatBreakdown { category: MoneyCategory | null; amount: number; 
 export interface UseMoney {
   loading: boolean;
   categories: MoneyCategory[];
-  expenseCategories: MoneyCategory[];
-  incomeCategories: MoneyCategory[];
+  expenseCategories: MoneyCategory[];   // 대분류만(parentId=null)
+  incomeCategories: MoneyCategory[];    // 대분류만(parentId=null)
+  subcategoriesOf: (parentId: string | null) => MoneyCategory[];  // 대분류의 소분류 목록
+  rootCategoryOf: (id: string | null) => MoneyCategory | null;    // 소분류 → 대분류 롤업(대분류면 자기 자신)
   transactions: MoneyTransaction[];
   periodTransactions: MoneyTransaction[];
   accounts: MoneyAccount[];
@@ -53,6 +56,7 @@ export interface UseMoney {
   deleteTransaction: (id: string) => Promise<void>;
   parseAndAdd: (text: string, mode: 'chat' | 'sms') => Promise<{ ok: boolean; error?: string; parsed?: ParsedTx }>;
   addCategory: (c: Partial<MoneyCategory> & { type: TxType; name: string }) => Promise<void>;
+  saveCategory: (c: MoneyCategory) => Promise<void>;   // 편집용 전체 upsert(isDefault/sortOrder/parentId 보존)
   deleteCategory: (id: string) => Promise<void>;
   updateSettings: (s: MoneySettings) => Promise<void>;
   // 자산/카드/고정비/대출/목표 — 수정(upsert)/삭제. id 있으면 수정, 없으면 추가.
@@ -62,6 +66,8 @@ export interface UseMoney {
   deleteCard: (id: string) => Promise<void>;
   saveFixedCost: (f: MoneyFixedCost) => Promise<void>;
   deleteFixedCost: (id: string) => Promise<void>;
+  // 외화 고정비 환율 갱신(Frankfurter). force=true 면 사이클 가드 무시(수동 새로고침).
+  refreshFxRates: (opts?: { force?: boolean }) => Promise<{ updated: number; alerts: string[] }>;
   saveLoan: (l: MoneyLoan) => Promise<void>;
   deleteLoan: (id: string) => Promise<void>;
   saveGoal: (g: MoneyGoal) => Promise<void>;
@@ -102,10 +108,31 @@ export function useMoney(): UseMoney {
   useRealtimeSync('money_goals', refresh);
   useRealtimeSync('money_settings', refresh);
 
-  const expenseCategories = useMemo(() => categories.filter(c => c.type === 'expense'), [categories]);
-  const incomeCategories = useMemo(() => categories.filter(c => c.type === 'income'), [categories]);
+  // 대분류만 노출(parentId=null) — 파싱 후보·거래폼·고정비폼 모두 대분류 기준.
+  const expenseCategories = useMemo(() => categories.filter(c => c.type === 'expense' && !c.parentId), [categories]);
+  const incomeCategories = useMemo(() => categories.filter(c => c.type === 'income' && !c.parentId), [categories]);
   const catById = useMemo(() => new Map(categories.map(c => [c.id, c])), [categories]);
   const categoryOf = useCallback((id: string | null) => (id ? catById.get(id) ?? null : null), [catById]);
+
+  // 대분류 id → 소분류 목록(sortOrder 순)
+  const subsByParent = useMemo(() => {
+    const map = new Map<string, MoneyCategory[]>();
+    for (const c of categories) {
+      if (!c.parentId) continue;
+      const arr = map.get(c.parentId) ?? [];
+      arr.push(c);
+      map.set(c.parentId, arr);
+    }
+    for (const arr of map.values()) arr.sort((a, b) => a.sortOrder - b.sortOrder);
+    return map;
+  }, [categories]);
+  const subcategoriesOf = useCallback((parentId: string | null) => (parentId ? subsByParent.get(parentId) ?? [] : []), [subsByParent]);
+  // 소분류면 부모 대분류로, 대분류면 자기 자신으로 롤업(1단계). 미분류는 null.
+  const rootCategoryOf = useCallback((id: string | null) => {
+    const c = id ? catById.get(id) ?? null : null;
+    if (!c) return null;
+    return c.parentId ? catById.get(c.parentId) ?? c : c;
+  }, [catById]);
 
   const period = useMemo(() => getMoneyPeriod(settings), [settings]);
 
@@ -194,10 +221,17 @@ export function useMoney(): UseMoney {
     await refresh();
   }, [refresh]);
 
-  // 카테고리 이름 → id 해석(type 일치). 없으면 null.
+  // 대분류 이름 → id 해석(type 일치, parentId=null). 없으면 null.
   const resolveCategoryId = useCallback((name: string | null, type: TxType): string | null => {
     if (!name) return null;
-    const hit = categories.find(c => c.type === type && c.name === name);
+    const hit = categories.find(c => c.type === type && !c.parentId && c.name === name);
+    return hit?.id ?? null;
+  }, [categories]);
+
+  // (대분류 id, 소분류 이름) → 소분류 id. 부모의 자식 중 이름 일치. 없으면 null.
+  const resolveSubcategoryId = useCallback((parentId: string | null, name: string | null): string | null => {
+    if (!parentId || !name) return null;
+    const hit = categories.find(c => c.parentId === parentId && c.name === name);
     return hit?.id ?? null;
   }, [categories]);
 
@@ -220,34 +254,53 @@ export function useMoney(): UseMoney {
   const parseAndAdd = useCallback(async (text: string, mode: 'chat' | 'sms') => {
     const trimmed = text.trim();
     if (!trimmed) return { ok: false, error: '내용을 입력해 주세요' };
+    // 대분류별 소분류 목록(이름) — 파서가 그 중에서 소분류 추론.
+    const subMap: Record<string, string[]> = {};
+    for (const p of expenseCategories) {
+      const subs = subcategoriesOf(p.id);
+      if (subs.length) subMap[p.name] = subs.map(s => s.name);
+    }
     const { data, error } = await supabase.functions.invoke('money-parse', {
       body: {
         text: trimmed, mode, today: today(),
         expense_categories: expenseCategories.map(c => c.name),
         income_categories: incomeCategories.map(c => c.name),
+        subcategories: subMap,
       },
     });
     if (error) { console.error('[money] parse invoke:', error.message); return { ok: false, error: '입력을 분석하지 못했어요' }; }
     if (!data?.ok || !data.tx) return { ok: false, error: data?.error || '인식하지 못했어요. 다시 입력해 보세요' };
     const p = data.tx as ParsedTx;
+    // 대분류 해석 → 그 안에서 소분류 해석. 소분류 매칭되면 소분류 id, 아니면 대분류 id(진입장벽 유지).
+    const parentId = resolveCategoryId(p.category, p.type);
+    const subId = resolveSubcategoryId(parentId, p.subcategory ?? null);
     await addTransaction({
       type: p.type, amount: p.amount,
-      categoryId: resolveCategoryId(p.category, p.type),
+      categoryId: subId ?? parentId,
       memo: p.memo ?? trimmed, paymentMethod: matchPaymentMethod(p.paymentMethod ?? null),
       spentAt: p.spentAt ?? today(), source: mode, rawInput: trimmed,
       emoji: p.emoji ?? null,
     });
     return { ok: true, parsed: p };
-  }, [expenseCategories, incomeCategories, addTransaction, resolveCategoryId, matchPaymentMethod]);
+  }, [expenseCategories, incomeCategories, subcategoriesOf, addTransaction, resolveCategoryId, resolveSubcategoryId, matchPaymentMethod]);
 
   const addCategory = useCallback(async (c: Partial<MoneyCategory> & { type: TxType; name: string }) => {
-    const maxOrder = categories.filter(x => x.type === c.type).reduce((m, x) => Math.max(m, x.sortOrder), -1);
+    const parentId = c.parentId ?? null;
+    // 같은 레벨(동일 부모, 동일 type) 안에서 sortOrder 증가.
+    const siblings = categories.filter(x => x.type === c.type && (x.parentId ?? null) === parentId);
+    const maxOrder = siblings.reduce((m, x) => Math.max(m, x.sortOrder), -1);
     await moneyDb.categories.upsert({
       id: c.id ?? crypto.randomUUID(), type: c.type, name: c.name,
-      emoji: c.emoji ?? null, color: c.color ?? null, isDefault: false, sortOrder: c.sortOrder ?? maxOrder + 1,
+      emoji: c.emoji ?? null, color: c.color ?? null, parentId, isDefault: false, sortOrder: c.sortOrder ?? maxOrder + 1,
     });
     await refresh();
   }, [categories, refresh]);
+
+  // 기존 카테고리 편집 — 전체 필드 그대로 upsert(addCategory 와 달리 isDefault/sortOrder 보존).
+  const saveCategory = useCallback(async (c: MoneyCategory) => {
+    await moneyDb.categories.upsert(c);
+    await refresh();
+  }, [refresh]);
 
   const deleteCategory = useCallback(async (id: string) => {
     setCategories(prev => prev.filter(c => c.id !== id)); // optimistic
@@ -274,6 +327,28 @@ export function useMoney(): UseMoney {
   const deleteFixedCost = useCallback(async (id: string) => {
     setFixedCosts(prev => prev.filter(x => x.id !== id)); await moneyDb.fixedCosts.delete(id); await refresh();
   }, [refresh]);
+
+  // 외화 고정비 환율 갱신 — 대상별 Frankfurter 호출 → amount(원화환산)·fxRate·변동률 저장, 임계 초과는 알림 수집.
+  const refreshFxRates = useCallback(async (opts?: { force?: boolean }) => {
+    const t = today();
+    const targets = fixedCosts.filter(f => needsFxRefresh(f, t, opts?.force ?? false));
+    if (targets.length === 0) return { updated: 0, alerts: [] as string[] };
+    let updated = 0;
+    const alerts: string[] = [];
+    for (const f of targets) {
+      const rate = await fetchFxRate(f.currency);
+      if (rate == null || f.originalAmount == null) continue;
+      const newAmount = Math.round(f.originalAmount * rate);
+      const changePct = f.fxRate ? ((rate - f.fxRate) / f.fxRate) * 100 : 0;
+      await moneyDb.fixedCosts.upsert({ ...f, amount: newAmount, fxRate: rate, fxRateDate: t, fxChangePct: changePct });
+      updated++;
+      if (f.fxRate && Math.abs(changePct) >= (settings.fxAlertThreshold || 0)) {
+        alerts.push(`${f.name} ${changePct > 0 ? '▲' : '▼'}${Math.abs(changePct).toFixed(1)}%`);
+      }
+    }
+    if (updated > 0) await refresh();
+    return { updated, alerts };
+  }, [fixedCosts, settings.fxAlertThreshold, refresh]);
   const saveLoan = useCallback(async (l: MoneyLoan) => { await moneyDb.loans.upsert(l); await refresh(); }, [refresh]);
   const deleteLoan = useCallback(async (id: string) => {
     setLoans(prev => prev.filter(x => x.id !== id)); await moneyDb.loans.delete(id); await refresh();
@@ -284,13 +359,13 @@ export function useMoney(): UseMoney {
   }, [refresh]);
 
   return {
-    loading, categories, expenseCategories, incomeCategories,
+    loading, categories, expenseCategories, incomeCategories, subcategoriesOf, rootCategoryOf,
     transactions, periodTransactions, accounts, investments, cards, fixedCosts, loans, goals, settings,
     period, income, expense, balance, fixedTotal, assets, cardDebt, loanDebt, netWorth,
     daysLeft, dailyAllowance, noSpendStreak, trackingStartDate, spendByDay,
     categoryOf, refresh,
-    addTransaction, deleteTransaction, parseAndAdd, addCategory, deleteCategory, updateSettings,
-    saveAccount, deleteAccount, saveCard, deleteCard, saveFixedCost, deleteFixedCost,
+    addTransaction, deleteTransaction, parseAndAdd, addCategory, saveCategory, deleteCategory, updateSettings,
+    saveAccount, deleteAccount, saveCard, deleteCard, saveFixedCost, deleteFixedCost, refreshFxRates,
     saveLoan, deleteLoan, saveGoal, deleteGoal,
   };
 }

@@ -18,13 +18,15 @@ const categories = {
     if (error) console.error('[money] categories fetch:', error.message);
     return (data ?? []).map((r: any): MoneyCategory => ({
       id: r.id, type: r.type, name: r.name, emoji: r.emoji ?? null, color: r.color ?? null,
+      parentId: r.parent_id ?? null,
       isDefault: r.is_default ?? false, sortOrder: r.sort_order ?? 0, createdAt: r.created_at ?? undefined,
     }));
   },
   upsert: async (item: MoneyCategory) => {
     const { error } = await supabase.from('money_categories').upsert({
       id: item.id, type: item.type, name: item.name, emoji: item.emoji ?? null,
-      color: item.color ?? null, is_default: item.isDefault ?? false, sort_order: item.sortOrder ?? 0,
+      color: item.color ?? null, parent_id: item.parentId ?? null,
+      is_default: item.isDefault ?? false, sort_order: item.sortOrder ?? 0,
     }, { onConflict: 'id' });
     if (error) console.error('[money] categories upsert:', error.message);
   },
@@ -122,7 +124,9 @@ const fixedCosts = {
       currency: (r.currency ?? 'KRW') as Currency, cycle: r.cycle ?? 'monthly',
       billingDay: num(r.billing_day), paymentMethod: r.payment_method ?? null,
       categoryId: r.category_id ?? null, isVariable: r.is_variable ?? false,
-      emoji: r.emoji ?? null, createdAt: r.created_at ?? undefined,
+      emoji: r.emoji ?? null,
+      fxRate: num(r.fx_rate), fxRateDate: r.fx_rate_date ?? null, fxChangePct: num(r.fx_change_pct),
+      createdAt: r.created_at ?? undefined,
     }));
   },
   upsert: async (item: MoneyFixedCost) => {
@@ -131,6 +135,7 @@ const fixedCosts = {
       currency: item.currency, cycle: item.cycle, billing_day: item.billingDay ?? null,
       payment_method: item.paymentMethod ?? null, category_id: item.categoryId ?? null,
       is_variable: item.isVariable ?? false, emoji: item.emoji ?? null,
+      fx_rate: item.fxRate ?? null, fx_rate_date: item.fxRateDate ?? null, fx_change_pct: item.fxChangePct ?? null,
     }, { onConflict: 'id' });
     if (error) console.error('[money] fixed_costs upsert:', error.message);
   },

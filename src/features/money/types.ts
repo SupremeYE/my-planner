@@ -9,6 +9,7 @@ export interface MoneyCategory {
   name: string;
   emoji: string | null;
   color: string | null;
+  parentId: string | null;   // null=대분류, 값 있으면 소분류(대분류 id)
   isDefault: boolean;
   sortOrder: number;
   createdAt?: string;
@@ -69,6 +70,10 @@ export interface MoneyFixedCost {
   categoryId: string | null;
   isVariable: boolean;
   emoji: string | null;
+  // 외화 환율 추적(원화 고정비는 모두 null) — Frankfurter 결제일 직전 1회 갱신.
+  fxRate: number | null;        // 직전 적용 1단위 환율(1 USD = N KRW)
+  fxRateDate: string | null;    // 'yyyy-MM-dd' 그 환율 취득일(사이클 가드)
+  fxChangePct: number | null;   // 직전 환율 대비 변동률(%)
   createdAt?: string;
 }
 
@@ -119,7 +124,8 @@ export interface MoneySettings {
 export interface ParsedTx {
   type: TxType;
   amount: number;
-  category: string | null;       // 카테고리 "이름"(클라가 id 로 해석)
+  category: string | null;       // 대분류 "이름"(클라가 id 로 해석)
+  subcategory: string | null;    // 소분류 "이름"(대분류의 자식, 추론 애매하면 null)
   memo: string | null;
   paymentMethod: string | null;
   spentAt: string | null;        // 'yyyy-MM-dd' | null(없으면 오늘)
