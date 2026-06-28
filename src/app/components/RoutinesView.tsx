@@ -3,13 +3,13 @@ import {
   Plus, Play, Pause, Check, Trash2, Edit3, X,
   Clock, Flame, Timer, Youtube, ChevronRight, RotateCcw, AlertCircle,
 } from 'lucide-react';
-import { usePlanner, Routine, RoutineStep, getRoutineTotalMinutes, getRoutineSteps } from '../store';
+import { usePlanner, Routine, RoutineStep, getRoutineTotalMinutes, getRoutineSteps, getLogicalToday } from '../store';
 import { useTheme } from '../ThemeContext';
 import { TimePicker } from './TimePicker';
 import { format } from 'date-fns';
 
 const EMOJI_PALETTE = ['🌅','🧘','🏋️','📖','🚿','☕','🌙','💊','🧹','🍎','🎯','✍️','🎵','💪','🧠','🧴','🌿','🏃','🎨','📝'];
-export const today = format(new Date(), 'yyyy-MM-dd');
+export const today = getLogicalToday();
 
 export function getStreak(checkedDates: string[]): number {
   if (!checkedDates?.length) return 0;

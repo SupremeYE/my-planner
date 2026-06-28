@@ -4,7 +4,7 @@ import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine,
   PieChart, Pie, Cell, BarChart, Bar,
 } from 'recharts';
-import { usePlanner, SelfCareRecord, SLEEP_GOAL_DEFAULT_MIN, type ConditionRecord } from '../store';
+import { usePlanner, SelfCareRecord, SLEEP_GOAL_DEFAULT_MIN, type ConditionRecord, getLogicalToday } from '../store';
 import { useTheme } from '../ThemeContext';
 import { useFabAction } from '../FabContext';
 import { db } from '../../lib/db';
@@ -92,7 +92,7 @@ export function PeriodSection() {
   const [editId, setEditId] = useState<string | null>(null);
 
   // 폼 상태
-  const [startDate, setStartDate] = useState(format(new Date(), 'yyyy-MM-dd'));
+  const [startDate, setStartDate] = useState(getLogicalToday());
   const [endDate, setEndDate] = useState('');
   const [symptoms, setSymptoms] = useState<string[]>([]);
   const [flowLevel, setFlowLevel] = useState<'light' | 'medium' | 'heavy' | null>(null);
@@ -115,7 +115,7 @@ export function PeriodSection() {
   })();
 
   const resetForm = () => {
-    setStartDate(format(new Date(), 'yyyy-MM-dd'));
+    setStartDate(getLogicalToday());
     setEndDate('');
     setSymptoms([]);
     setFlowLevel(null);
@@ -387,7 +387,7 @@ export function SleepSection() {
   const { t } = useTheme();
   const sleepGoalMin = appSettings.sleepGoalMinutes ?? SLEEP_GOAL_DEFAULT_MIN;
   const sleepGoalHours = sleepGoalMin / 60;
-  const [date, setDate] = useState(format(new Date(), 'yyyy-MM-dd'));
+  const [date, setDate] = useState(getLogicalToday());
   const [sleepStart, setSleepStart] = useState('');
   const [sleepEnd, setSleepEnd] = useState('');
   const [editingField, setEditingField] = useState<'start' | 'end' | null>(null);
@@ -396,7 +396,7 @@ export function SleepSection() {
 
   // 기록 영역 필터/검색 (컨디션 탭과 동일 패턴)
   // 기본값 = 오늘(로컬 기준) — 탭 진입 시 오늘 날짜로 필터된 상태로 시작
-  const [selectedDate, setSelectedDate] = useState<string | null>(format(new Date(), 'yyyy-MM-dd'));
+  const [selectedDate, setSelectedDate] = useState<string | null>(getLogicalToday());
   const [searchQuery, setSearchQuery] = useState('');
   const [searchOpen, setSearchOpen] = useState(false);
   const [listLimit, setListLimit] = useState(5);
@@ -1278,7 +1278,7 @@ function AddRecordModal({ onClose, editRecord }: { onClose: () => void; editReco
   );
   const [content, setContent] = useState(editRecord?.content ?? '');
   const [duration, setDuration] = useState(editRecord?.duration ?? 30);
-  const [date, setDate] = useState(editRecord?.date ?? format(new Date(), 'yyyy-MM-dd'));
+  const [date, setDate] = useState(editRecord?.date ?? getLogicalToday());
 
   const handleSubmit = () => {
     if (!content.trim()) return;

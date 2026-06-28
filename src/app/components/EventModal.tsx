@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import { CalendarDays, Link2, MapPinned, Trash2, X } from 'lucide-react';
 import { format } from 'date-fns';
-import { usePlanner, Event } from '../store';
+import { usePlanner, Event, getLogicalToday } from '../store';
 import { useTheme } from '../ThemeContext';
 import ConfirmModal from './ConfirmModal';
 import { TimePicker } from './TimePicker';
@@ -34,7 +34,7 @@ const ALERT_OPTIONS: { value: string; label: string }[] = [
 export function EventModal({ date, event, initialTitle, initialStartTime, initialEndTime, initialTags, onClose }: EventModalProps) {
   const { addEvent, updateEvent, deleteEvent, projects } = usePlanner();
   const { t } = useTheme();
-  const todayStr = format(new Date(), 'yyyy-MM-dd');
+  const todayStr = getLogicalToday();
   const [title, setTitle] = useState(event?.title ?? initialTitle ?? '');
   const [isAllDay, setIsAllDay] = useState(event?.isAllDay ?? false);
   const [startDate, setStartDate] = useState(event?.startDate ?? event?.date ?? date ?? todayStr);

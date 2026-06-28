@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { format, parseISO } from 'date-fns';
 import { ko } from 'date-fns/locale';
 import { CalendarClock, Inbox, Plus, RefreshCw, Star } from 'lucide-react';
-import { usePlanner, Event, Todo } from '../store';
+import { usePlanner, Event, Todo, getLogicalToday } from '../store';
 import { useTheme } from '../ThemeContext';
 import { parseQuickEntry } from '../../lib/quickParse';
 import { pickNewTagColor } from '../../lib/tagPalette';
@@ -113,7 +113,7 @@ export function QuickAddInput({ defaultDate = null, onSubmitted, autoFocus, plac
     const tagIds = resolveTagIds();
 
     if (asEvent) {
-      const eDate = effectiveDate ?? format(new Date(), 'yyyy-MM-dd');
+      const eDate = effectiveDate ?? getLogicalToday();
       const start = parsed.startTime ?? '09:00';
       const end = parsed.endTime ?? plusOneHour(start);
       const payload: Omit<Event, 'id'> = {

@@ -4,7 +4,7 @@ import {
   CalendarDays, CalendarPlus, Check, CheckCircle2, ChevronDown, ChevronRight,
   RefreshCw, Star, Trash2,
 } from 'lucide-react';
-import { usePlanner, Todo } from '../store';
+import { usePlanner, Todo, getLogicalToday } from '../store';
 import { useTheme } from '../ThemeContext';
 import { isInboxCandidate } from '../../lib/inbox';
 import { QuickAddInput } from './QuickAddInput';
@@ -18,7 +18,7 @@ export function InboxView() {
   const { todos, tags: allTags, projects, updateTodo, deleteTodo } = usePlanner();
   const { t } = useTheme();
 
-  const todayStr = format(new Date(), 'yyyy-MM-dd');
+  const todayStr = getLogicalToday();
   const tomorrowStr = format(addDays(new Date(), 1), 'yyyy-MM-dd');
 
   const [showDone, setShowDone] = useState(false);

@@ -9,7 +9,7 @@ import {
   Flower2, SprayCan, Wallet,
   User, LogOut, Mail,
 } from 'lucide-react';
-import { usePlanner, getWeekKey } from '../store';
+import { usePlanner, getWeekKey, getLogicalToday } from '../store';
 import { countInboxActive } from '../../lib/inbox';
 import { useTheme } from '../ThemeContext';
 import { useAuth } from '../AuthContext';
@@ -243,7 +243,7 @@ function MiniCalendar() {
   const hasTodos = (day: number) =>
     todos.some(t => t.date === dateStr(day) && t.status !== 'backlog' && t.status !== 'cancelled');
   const isSelected = (day: number) => dateStr(day) === selectedDate;
-  const isToday = (day: number) => dateStr(day) === format(new Date(), 'yyyy-MM-dd');
+  const isToday = (day: number) => dateStr(day) === getLogicalToday();
 
   return (
     <div className="p-3">

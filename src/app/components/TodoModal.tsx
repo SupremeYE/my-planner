@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { format, getDay, parseISO } from 'date-fns';
 import { ko } from 'date-fns/locale';
 import { CalendarDays, RefreshCw, Star, Trash2, X } from 'lucide-react';
-import { usePlanner, Todo } from '../store';
+import { usePlanner, Todo, getLogicalToday } from '../store';
 import { useTheme } from '../ThemeContext';
 import ConfirmModal from './ConfirmModal';
 import { TimePicker } from './TimePicker';
@@ -46,7 +46,7 @@ export function TodoModal({ date, todo, initialPlanStart, initialPlanEnd, initia
   // 반복에서 분리된 단일 예외 레코드(이 날짜만의 일정) — 반복 주기 설정이 의미 없으므로 안내 배너만 표시
   const isDetachedException = !!todo?.recurrenceParentId;
 
-  const todayStr = format(new Date(), 'yyyy-MM-dd');
+  const todayStr = getLogicalToday();
 
   const [modalDate, setModalDateRaw] = useState<string>(
     date ?? todo?.date ?? '',
@@ -248,7 +248,7 @@ export function TodoModal({ date, todo, initialPlanStart, initialPlanEnd, initia
       updateTodo(todo.id, changes);
     } else if (isRecurringInstance && todo && scope) {
       // 부모 반복 일정 수정
-      const instanceDate = todo.date ?? format(new Date(), 'yyyy-MM-dd');
+      const instanceDate = todo.date ?? getLogicalToday();
       updateRecurringTodo(todo.id, instanceDate, changes, scope);
     } else if (todo) {
       updateTodo(todo.id, changes);
@@ -274,7 +274,7 @@ export function TodoModal({ date, todo, initialPlanStart, initialPlanEnd, initia
     } else if (todo.recurrenceParentId) {
       deleteTodo(todo.id);
     } else if (isRecurringInstance && scope) {
-      const instanceDate = todo.date ?? format(new Date(), 'yyyy-MM-dd');
+      const instanceDate = todo.date ?? getLogicalToday();
       deleteRecurringTodo(todo.id, instanceDate, scope);
     } else {
       deleteTodo(todo.id);

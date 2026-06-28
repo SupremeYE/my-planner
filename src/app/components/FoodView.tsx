@@ -14,7 +14,7 @@ import {
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer,
   PieChart, Pie, Cell, Legend,
 } from 'recharts';
-import { usePlanner, FoodRecord, MealType, DiningType, TasteRating } from '../store';
+import { usePlanner, FoodRecord, MealType, DiningType, TasteRating, getLogicalToday } from '../store';
 import { useTheme } from '../ThemeContext';
 import { useFabAction } from '../FabContext';
 import { db } from '../../lib/db';
@@ -1052,7 +1052,7 @@ function AddFoodSheet({
 
     onSave({
       id: editRecord?.id,
-      date: editRecord?.date ?? initDate ?? format(new Date(), 'yyyy-MM-dd'),
+      date: editRecord?.date ?? initDate ?? getLogicalToday(),
       mealType: form.mealType,
       foodName: form.foodName.trim(),
       amount: Number(form.amount) || 0,
@@ -1074,7 +1074,7 @@ function AddFoodSheet({
   // 단식: 선택한 끼니를 거른 것으로 즉시 기록하고 닫는다
   const saveFasting = (meal: MealType) => {
     onSave({
-      date: editRecord?.date ?? initDate ?? format(new Date(), 'yyyy-MM-dd'),
+      date: editRecord?.date ?? initDate ?? getLogicalToday(),
       mealType: meal,
       foodName: FASTING_LABEL,
       amount: 0,
@@ -1093,8 +1093,8 @@ function AddFoodSheet({
   };
 
   // 기록 대상 날짜 (수정: 기존 날짜 / 신규: 전달받은 날짜 또는 오늘)
-  const targetDate = editRecord?.date ?? initDate ?? format(new Date(), 'yyyy-MM-dd');
-  const isTargetToday = targetDate === format(new Date(), 'yyyy-MM-dd');
+  const targetDate = editRecord?.date ?? initDate ?? getLogicalToday();
+  const isTargetToday = targetDate === getLogicalToday();
 
   const TOTAL_STEPS = 7;
   const stepTitles: Record<AddStep, string> = {
@@ -1542,7 +1542,7 @@ export function FoodView() {
   const [editRecord, setEditRecord] = useState<FoodRecord | undefined>(undefined);
   const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
 
-  const today = format(new Date(), 'yyyy-MM-dd');
+  const today = getLogicalToday();
   const todayRecords = foodRecords.filter(r => r.date === today);
 
   const openAdd = useCallback((meal: MealType, date?: string) => {

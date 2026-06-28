@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Plus, X, ChevronRight, Mic } from 'lucide-react';
-import { usePlanner, ReviewRecord, WeeklyReview, MonthlyReview, getWeekKey } from '../store';
+import { usePlanner, ReviewRecord, WeeklyReview, MonthlyReview, getWeekKey, getLogicalToday } from '../store';
 import { useTheme } from '../ThemeContext';
 import { useVoiceInput } from '../hooks/useVoiceInput';
 import { format } from 'date-fns';
@@ -91,7 +91,7 @@ export function ReviewsView() {
   const { t } = useTheme();
   const [tab, setTab] = useState<'today' | 'list' | 'weekly' | 'monthly'>('today');
 
-  const today = format(new Date(), 'yyyy-MM-dd');
+  const today = getLogicalToday();
   const currentWeekKey = getWeekKey(new Date());
   const currentMonth = format(new Date(), 'yyyy-MM');
 

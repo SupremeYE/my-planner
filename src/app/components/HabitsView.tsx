@@ -4,7 +4,7 @@ import {
   Timer, Hash, TrendingUp, MessageSquare, Minus,
 } from 'lucide-react';
 import { TimePicker } from './TimePicker';
-import { usePlanner, Habit, Routine } from '../store';
+import { usePlanner, Habit, Routine, getLogicalToday } from '../store';
 import { useTheme } from '../ThemeContext';
 import { format, subDays, startOfMonth, getDaysInMonth, getDay, addDays, startOfWeek, addMonths, subMonths } from 'date-fns';
 import { RoutineModal, ExecutionPanel, RoutineCard, today as routineToday } from './RoutinesView';
@@ -39,8 +39,8 @@ interface HabitCategoryOption {
 function getStreak(checkedDates: string[]): number {
   if (!checkedDates?.length) return 0;
   const sorted = [...checkedDates].sort().reverse();
-  const today = format(new Date(), 'yyyy-MM-dd');
-  const yesterday = format(subDays(new Date(), 1), 'yyyy-MM-dd');
+  const today = getLogicalToday();
+  const yesterday = format(subDays(new Date(today + 'T12:00:00'), 1), 'yyyy-MM-dd');
   if (sorted[0] !== today && sorted[0] !== yesterday) return 0;
   let streak = 1;
   for (let i = 1; i < sorted.length; i++) {
@@ -1246,7 +1246,7 @@ export function HabitsView() {
   const { habits, routines, updateHabitMemo } = usePlanner();
   const { t } = useTheme();
   const { scheduleHabitAlerts, permission } = useNotification();
-  const executionDate = format(new Date(), 'yyyy-MM-dd');
+  const executionDate = getLogicalToday();
   const [tab, setTab] = useState<'habits' | 'stats' | 'routines'>('habits');
 
   // 알림 권한이 허용된 경우 오늘 습관 알림 스케줄링
