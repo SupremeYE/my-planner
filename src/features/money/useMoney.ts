@@ -6,10 +6,10 @@ import { supabase } from '../../lib/supabase';
 import { useRealtimeSync } from '../../app/hooks/useRealtimeSync';
 import { moneyDb } from './db';
 import { getMoneyPeriod, daysLeftInPeriod, type MoneyPeriod } from './period';
-import { fetchFxRate, fetchFxRateOn, needsFxRefresh } from './fx';
+import { fetchFxRate, fetchFxRateOn, needsFxRefresh, monthlyEquivalent } from './fx';
 import type {
   MoneyCategory, MoneyTransaction, MoneyAccount, MoneyCard,
-  MoneyFixedCost, MoneyLoan, MoneyGoal, MoneySettings, ParsedTx, TxType, Currency,
+  MoneyFixedCost, MoneyLoan, MoneyGoal, MoneyPlan, MoneySettings, ParsedTx, TxType, Currency,
 } from './types';
 
 const today = () => format(new Date(), 'yyyy-MM-dd');
@@ -44,6 +44,8 @@ export interface UseMoney {
   fixedCosts: MoneyFixedCost[];
   loans: MoneyLoan[];
   goals: MoneyGoal[];
+  plans: MoneyPlan[];
+  currentPlan: MoneyPlan | null;   // 이번 기간 계획(period.start 매칭). 없으면 null(미수립).
   settings: MoneySettings;
   period: MoneyPeriod;
   // 파생 합계
@@ -51,6 +53,8 @@ export interface UseMoney {
   expense: number;
   balance: number;
   fixedTotal: number;
+  fixedMonthly: number;            // 월 환산 고정비 합(주간/연간 보정) — 계획용
+  loanMonthly: number;             // 대출 월 상환액 합 — 계획용
   assets: number;
   cardDebt: number;
   loanDebt: number;
@@ -94,6 +98,11 @@ export interface UseMoney {
   deleteLoan: (id: string) => Promise<void>;
   saveGoal: (g: MoneyGoal) => Promise<void>;
   deleteGoal: (id: string) => Promise<void>;
+  // 월간 계획 — period_start 충돌 시 갱신(재계획). id 미지정이면 새로 부여.
+  savePlan: (p: Partial<MoneyPlan> & {
+    expectedIncome: number; fixedCostTotal: number; availableAmount: number;
+    plannedSavings: number; plannedInvestment: number; plannedLiving: number;
+  }) => Promise<void>;
 }
 
 export function useMoney(): UseMoney {
@@ -104,19 +113,20 @@ export function useMoney(): UseMoney {
   const [fixedCosts, setFixedCosts] = useState<MoneyFixedCost[]>([]);
   const [loans, setLoans] = useState<MoneyLoan[]>([]);
   const [goals, setGoals] = useState<MoneyGoal[]>([]);
+  const [plans, setPlans] = useState<MoneyPlan[]>([]);
   const [settings, setSettings] = useState<MoneySettings>({
     periodType: 'payday', payday: 25, monthlyBudget: 1200000, currency: 'KRW', fxAlertThreshold: 3.0,
   });
   const [loading, setLoading] = useState(true);
 
   const refresh = useCallback(async () => {
-    const [cat, tx, acc, crd, fx, ln, gl, st] = await Promise.all([
+    const [cat, tx, acc, crd, fx, ln, gl, pl, st] = await Promise.all([
       moneyDb.categories.fetchAll(), moneyDb.transactions.fetchAll(), moneyDb.accounts.fetchAll(),
       moneyDb.cards.fetchAll(), moneyDb.fixedCosts.fetchAll(), moneyDb.loans.fetchAll(),
-      moneyDb.goals.fetchAll(), moneyDb.settings.fetch(),
+      moneyDb.goals.fetchAll(), moneyDb.plans.fetchAll(), moneyDb.settings.fetch(),
     ]);
     setCategories(cat); setTransactions(tx); setAccounts(acc); setCards(crd);
-    setFixedCosts(fx); setLoans(ln); setGoals(gl); setSettings(st);
+    setFixedCosts(fx); setLoans(ln); setGoals(gl); setPlans(pl); setSettings(st);
     setLoading(false);
   }, []);
 
@@ -128,6 +138,7 @@ export function useMoney(): UseMoney {
   useRealtimeSync('money_fixed_costs', refresh);
   useRealtimeSync('money_loans', refresh);
   useRealtimeSync('money_goals', refresh);
+  useRealtimeSync('money_plans', refresh);
   useRealtimeSync('money_settings', refresh);
 
   // 최초 로드 후 1회 — 결제일 도래한 고정비 자동 정산(거래 생성). 멱등이라 중복 없음.
@@ -167,6 +178,10 @@ export function useMoney(): UseMoney {
 
   const period = useMemo(() => getMoneyPeriod(settings), [settings]);
 
+  // 이번 기간 계획 — period.start 와 동일한 period_start 의 계획(없으면 null = 미수립).
+  const currentPlan = useMemo(
+    () => plans.find(p => p.periodStart === period.start) ?? null, [plans, period.start]);
+
   const periodTransactions = useMemo(
     () => transactions.filter(t => t.spentAt >= period.start && t.spentAt <= period.end),
     [transactions, period],
@@ -182,6 +197,9 @@ export function useMoney(): UseMoney {
   );
   const balance = income - expense;
   const fixedTotal = useMemo(() => fixedCosts.reduce((s, f) => s + f.amount, 0), [fixedCosts]);
+  // 월 환산 고정비 합(주간≈×52/12, 연간÷12) — 계획의 "고정 지출 차감"용. fixedTotal(원시 합)과 구분.
+  const fixedMonthly = useMemo(() => fixedCosts.reduce((s, f) => s + monthlyEquivalent(f), 0), [fixedCosts]);
+  const loanMonthly = useMemo(() => loans.reduce((s, l) => s + (l.monthlyPayment ?? 0), 0), [loans]);
   const assets = useMemo(() => accounts.reduce((s, a) => s + a.balance, 0), [accounts]);
   const investments = useMemo(() => accounts.filter(a => a.type === 'investment'), [accounts]);
   // 투자 요약: 평가액 합 + (원금 입력된 종목만) 손익/수익률. 시세 자동연동은 후순위 — 평가액은 수동 입력.
@@ -468,15 +486,32 @@ export function useMoney(): UseMoney {
     setGoals(prev => prev.filter(x => x.id !== id)); await moneyDb.goals.delete(id); await refresh();
   }, [refresh]);
 
+  // 월간 계획 저장 — 이번 기간에 이미 계획이 있으면 그 id 로 갱신(재계획), 없으면 새 id.
+  //  · period_start/period_end 는 현재 기간 고정. 분배(저축/투자/생활비)는 호출부에서 계산해 전달.
+  const savePlan = useCallback(async (p: Partial<MoneyPlan> & {
+    expectedIncome: number; fixedCostTotal: number; availableAmount: number;
+    plannedSavings: number; plannedInvestment: number; plannedLiving: number;
+  }) => {
+    const existing = plans.find(x => x.periodStart === period.start);
+    await moneyDb.plans.upsert({
+      id: p.id ?? existing?.id ?? crypto.randomUUID(),
+      periodStart: period.start, periodEnd: period.end,
+      expectedIncome: p.expectedIncome, fixedCostTotal: p.fixedCostTotal, availableAmount: p.availableAmount,
+      plannedSavings: p.plannedSavings, plannedInvestment: p.plannedInvestment, plannedLiving: p.plannedLiving,
+    });
+    await refresh();
+  }, [plans, period.start, period.end, refresh]);
+
   return {
     loading, categories, expenseCategories, incomeCategories, subcategoriesOf, rootCategoryOf,
-    transactions, periodTransactions, accounts, investments, cards, fixedCosts, loans, goals, settings,
-    period, income, expense, balance, fixedTotal, assets, cardDebt, loanDebt, netWorth,
+    transactions, periodTransactions, accounts, investments, cards, fixedCosts, loans, goals,
+    plans, currentPlan, settings,
+    period, income, expense, balance, fixedTotal, fixedMonthly, loanMonthly, assets, cardDebt, loanDebt, netWorth,
     investTotal, investPrincipal, investReturn, investReturnPct,
     daysLeft, dailyAllowance, noSpendStreak, trackingStartDate, spendByDay,
     categoryOf, cardUnpaid, cardUnbilledTxs, refresh,
     addTransaction, deleteTransaction, parseAndAdd, addCategory, saveCategory, deleteCategory, updateSettings,
     saveAccount, deleteAccount, saveCard, deleteCard, saveFixedCost, deleteFixedCost, refreshFxRates, settleFixedCosts,
-    saveLoan, deleteLoan, saveGoal, deleteGoal,
+    saveLoan, deleteLoan, saveGoal, deleteGoal, savePlan,
   };
 }

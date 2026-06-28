@@ -120,6 +120,21 @@ export interface MoneyGoal {
   createdAt?: string;
 }
 
+// 월간 계획(Plan-Stage 1) — 기간별 1행. period_start 로 기간 식별.
+//  · fixedCostTotal/availableAmount 는 계획 수립 시점 스냅샷(회고 비교 기준). 라이브 값은 런타임 재계산.
+export interface MoneyPlan {
+  id: string;
+  periodStart: string;          // 'yyyy-MM-dd' (getMoneyPeriod().start)
+  periodEnd: string;
+  expectedIncome: number;       // 예상 수입(월급+부수입)
+  fixedCostTotal: number;       // 고정 지출 합(월환산 고정비 + 대출 월상환) 스냅샷
+  availableAmount: number;      // 예상수입 − 고정지출 가용 금액 스냅샷
+  plannedSavings: number;       // 선저축 배분
+  plannedInvestment: number;    // 투자 배분
+  plannedLiving: number;        // 생활비(변동) 배분
+  createdAt?: string;
+}
+
 export type PeriodType = 'calendar' | 'payday';
 
 export interface MoneySettings {

@@ -9,6 +9,7 @@ import {
 } from './tokens';
 import type { MoneyCategory, MoneyAccount, MoneyCard, MoneyLoan, MoneyGoal, MoneyFixedCost, PeriodType } from './types';
 import { TransactionForm, AccountForm, CardForm, FixedCostForm, LoanForm, GoalForm } from './MoneyForms';
+import { MoneyPlanSheet } from './MoneyPlanSheet';
 import { CURRENCY_SYMBOL } from './fx';
 import { CategoryManager } from './MoneyCategoryManager';
 import { FixedCostManager } from './MoneyFixedCostManager';
@@ -1056,12 +1057,55 @@ export function ChatInputBar({ m, floating }: { m: UseMoney; floating?: boolean 
   );
 }
 
+// ── 이번 달 계획 배너(가계부 탭 상단) — 미수립이면 유도, 수립됐으면 요약+수정 ──
+function PlanBanner({ m, onOpen }: { m: UseMoney; onOpen: () => void }) {
+  const { t } = useTheme();
+  const plan = m.currentPlan;
+  if (!plan) {
+    return (
+      <button onClick={onOpen} className="w-full flex items-center justify-between active:scale-[0.99] transition-transform"
+        style={{ background: `${MONEY_PALETTE.gold}1a`, border: `1.5px solid ${MONEY_PALETTE.gold}55`, borderRadius: 16, padding: '14px 16px' }}>
+        <div className="text-left">
+          <div style={{ fontSize: 13.5, fontWeight: 700, color: t.text }}>🗓️ 이번 달 계획을 세워보세요</div>
+          <div style={{ fontSize: 11.5, color: t.textSub, marginTop: 2 }}>수입에서 고정비 빼고 → 저축 먼저 → 남은 걸로 생활</div>
+        </div>
+        <span style={{ fontSize: 12, fontWeight: 700, color: MONEY_PALETTE.gold, flexShrink: 0 }}>계획하기 ›</span>
+      </button>
+    );
+  }
+  return (
+    <button onClick={onOpen} className="w-full active:scale-[0.99] transition-transform"
+      style={{ background: t.card, border: `1px solid ${t.borderLight}`, borderRadius: 16, padding: '13px 16px', boxShadow: t.shadow }}>
+      <div className="flex items-center justify-between" style={{ marginBottom: 8 }}>
+        <span style={{ fontSize: 13, fontWeight: 700, color: t.text }}>
+          <span style={{ color: MONEY_PALETTE.green }}>✓</span> 이번 달 계획 완료
+        </span>
+        <span style={{ fontSize: 11.5, fontWeight: 600, color: t.textSub }}>수정 ›</span>
+      </div>
+      <div className="flex gap-2">
+        {[
+          { l: '예상 수입', v: plan.expectedIncome, c: t.text },
+          { l: '저축+투자', v: plan.plannedSavings + plan.plannedInvestment, c: MONEY_PALETTE.green },
+          { l: '생활비', v: plan.plannedLiving, c: MONEY_PALETTE.gold },
+        ].map((x, i) => (
+          <div key={i} className="flex-1 text-center" style={{ background: t.bgSub, borderRadius: 10, padding: '7px 4px' }}>
+            <div style={{ fontSize: 10, color: t.textMuted }}>{x.l}</div>
+            <div style={{ fontSize: 13, fontWeight: 700, color: x.c, marginTop: 1 }}>{formatManShort(x.v)}</div>
+          </div>
+        ))}
+      </div>
+    </button>
+  );
+}
+
 // ── 가계부 패널(요약·예산·캘린더·분석·거래, 거래 탭=수정) ──
 export function BudgetPanel({ m }: { m: UseMoney }) {
   const { t } = useTheme();
   const [editTx, setEditTx] = useState<{ item: any } | null>(null);
+  const [showPlan, setShowPlan] = useState(false);
   return (
     <div className="flex flex-col gap-3">
+      <PlanBanner m={m} onOpen={() => setShowPlan(true)} />
       <SummaryStrip m={m} />
       <BudgetBar m={m} />
       <SpendCalendar m={m} />
@@ -1077,6 +1121,7 @@ export function BudgetPanel({ m }: { m: UseMoney }) {
         <TransactionList m={m} limit={20} onEdit={(tx) => setEditTx({ item: tx })} />
       </div>
       {editTx && <TransactionForm m={m} item={editTx.item} onClose={() => setEditTx(null)} />}
+      {showPlan && <MoneyPlanSheet m={m} onClose={() => setShowPlan(false)} />}
     </div>
   );
 }
