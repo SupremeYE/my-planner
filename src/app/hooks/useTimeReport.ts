@@ -94,6 +94,21 @@ function aggregateRange(
   return { byTag, total };
 }
 
+/**
+ * 임의 기간(start~end, yyyy-MM-dd)의 집중(track_time) 합계 분(分).
+ * 시간 리포트와 동일한 집계 엔진(aggregateRange)을 재사용 — 별도 집계 로직을 만들지 않는다.
+ * 리뷰 주간 탭 등 useTimeReport('week')(현재 주 고정)로 못 꺼내는 과거/임의 주 합계에 사용.
+ */
+export function focusMinutesForRange(
+  todos: Todo[],
+  tags: Tag[],
+  startStr: string,
+  endStr: string,
+): number {
+  const trackTagIds = new Set(tags.filter(tg => tg.trackTime).map(tg => tg.id));
+  return aggregateRange(todos, startStr, endStr, trackTagIds).total;
+}
+
 export function useTimeReport(period: TimeReportPeriod): TimeReportData {
   const { todos, tags, appSettings } = usePlanner();
   const weekStartsOn = (appSettings.weekStartsOn ?? 1) as 0 | 1;

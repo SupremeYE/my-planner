@@ -1,14 +1,19 @@
-import React, { useState, useEffect, useCallback } from 'react';
-import { Plus, X, Mic, Search, ChevronLeft, ChevronRight, Trash2, Clock } from 'lucide-react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import { Plus, X, Mic, Search, ChevronLeft, ChevronRight, ChevronDown, Trash2, Clock } from 'lucide-react';
 import { useNavigate } from 'react-router';
 import { usePlanner, ReviewRecord, getWeekKey, getLogicalToday } from '../store';
 import { useTheme } from '../ThemeContext';
 import { useVoiceInput } from '../hooks/useVoiceInput';
 import { useMediaQuery } from '../hooks/useMediaQuery';
 import { useRealtimeSync } from '../hooks/useRealtimeSync';
+import { focusMinutesForRange } from '../hooks/useTimeReport';
 import { supabase } from '../../lib/supabase';
 import { getCategoryEmoji, getMoodCategoryLabel, ENERGY_LABELS } from './MoodView';
-import { format, addDays, subDays, subYears, parseISO } from 'date-fns';
+import {
+  format, addDays, subDays, subYears, parseISO,
+  startOfWeek, endOfWeek, addWeeks, subWeeks, startOfMonth,
+  startOfISOWeek, endOfISOWeek, setISOWeek, setISOWeekYear,
+} from 'date-fns';
 import { ko } from 'date-fns/locale';
 
 // ─── 음성 입력 버튼 (기존 useVoiceInput 재사용) ───
@@ -125,7 +130,7 @@ function ConditionBadge({ date }: { date: string }) {
         <button onClick={() => navigate('/mood')}
           className="flex items-center gap-0.5"
           style={{ fontSize: 11, color: t.accent, fontWeight: 600 }}>
-          건강 &gt; 컨디션에서 기록 <ChevronRight size={13} />
+          기분 기록하러 <ChevronRight size={13} />
         </button>
       </div>
       {latest ? (
@@ -389,42 +394,368 @@ function DayTab() {
   );
 }
 
+// ─── 주간 탭 ───────────────────────────────────────────────────────────────
+
+const ENERGY_EMOJI: Record<number, string> = { 1: '😣', 2: '😟', 3: '😐', 4: '🙂', 5: '😄' };
+// 집중시간 게이지 기준(시각용): 주 40시간을 100%로 본다 (목표가 아니라 막대 채움용)
+const FOCUS_WEEK_REF_MIN = 40 * 60;
+
+function fmtFocus(min: number): string {
+  if (min <= 0) return '0h';
+  const h = Math.floor(min / 60);
+  const m = Math.round(min % 60);
+  if (h === 0) return `${m}m`;
+  return m ? `${h}h ${m}m` : `${h}h`;
+}
+
+// weekKey(YYYY-Www, ISO주) → 그 주의 월~일 범위
+function weekKeyToRange(weekKey: string) {
+  const [y, w] = weekKey.split('-W').map(Number);
+  let d = new Date(y, 0, 4); // 1월 4일은 항상 ISO 1주차
+  d = setISOWeekYear(d, y);
+  d = setISOWeek(d, w);
+  const start = startOfISOWeek(d);
+  const end = endOfISOWeek(d);
+  return { start, end, startStr: format(start, 'yyyy-MM-dd'), endStr: format(end, 'yyyy-MM-dd') };
+}
+
+// 그 주가 속한 달에서 몇 번째 주인지(달력 주차)
+function weekOfMonth(weekStart: Date, weekStartsOn: 0 | 1): number {
+  const firstWeekStart = startOfWeek(startOfMonth(weekStart), { weekStartsOn });
+  return Math.round((startOfWeek(weekStart, { weekStartsOn }).getTime() - firstWeekStart.getTime()) / (7 * 86400000)) + 1;
+}
+
+// 통계 카드(진행 바 포함)
+function StatCard({ value, label, sub, pct, barColor }: {
+  value: string; label: string; sub: string; pct: number; barColor: string;
+}) {
+  const { t } = useTheme();
+  return (
+    <div className="p-3 rounded-xl" style={{ backgroundColor: t.card, border: `1px solid ${t.borderLight}` }}>
+      <span style={{ fontSize: 18, fontWeight: 700, color: t.text, fontFamily: 'var(--font-gmarket)', display: 'block', lineHeight: 1.1 }}>{value}</span>
+      <span style={{ fontSize: 10, color: t.textMuted, display: 'block', marginTop: 3 }}>{label}</span>
+      <span style={{ fontSize: 9, color: t.accent, display: 'block' }}>{sub}</span>
+      <div className="rounded-full overflow-hidden" style={{ height: 4, backgroundColor: t.bgSub, marginTop: 6 }}>
+        <div className="rounded-full" style={{ height: '100%', width: `${Math.max(0, Math.min(100, pct))}%`, backgroundColor: barColor, transition: 'width .3s' }} />
+      </div>
+    </div>
+  );
+}
+
+function WeekTab() {
+  const {
+    todos, tags, habits,
+    weeklyReviews, addWeeklyReview, updateWeeklyReview,
+    appSettings,
+  } = usePlanner();
+  const { t } = useTheme();
+  const isDesktop = useMediaQuery('(min-width: 1024px)');
+  const weekStartsOn = (appSettings.weekStartsOn ?? 1) as 0 | 1;
+
+  // ── 주 범위 단일 계산 — 아래 모든 통계/회고/과거 조회가 공유 ──
+  const [anchor, setAnchor] = useState(() => parseISO(getLogicalToday()));
+  const range = useMemo(() => {
+    const start = startOfWeek(anchor, { weekStartsOn });
+    const end = endOfWeek(anchor, { weekStartsOn });
+    const thu = addDays(start, weekStartsOn === 0 ? 4 : 3); // ISO 주차 판정 기준(목요일)
+    return {
+      start, end, thu,
+      startStr: format(start, 'yyyy-MM-dd'),
+      endStr: format(end, 'yyyy-MM-dd'),
+      weekKey: getWeekKey(thu),
+    };
+  }, [anchor, weekStartsOn]);
+
+  const currentWeekKey = useMemo(() => {
+    const start = startOfWeek(parseISO(getLogicalToday()), { weekStartsOn });
+    return getWeekKey(addDays(start, weekStartsOn === 0 ? 4 : 3));
+  }, [weekStartsOn]);
+  const isCurrentWeek = range.weekKey === currentWeekKey;
+
+  const weekDays = useMemo(
+    () => Array.from({ length: 7 }, (_, i) => format(addDays(range.start, i), 'yyyy-MM-dd')),
+    [range.startStr],
+  );
+
+  // ── 통계 4종 (선택 주 범위 기준) ──
+  const weekTodos = todos.filter(td => td.date && td.date >= range.startStr && td.date <= range.endStr);
+  const doneTodos = weekTodos.filter(td => td.status === 'done');
+  const completionPct = weekTodos.length ? Math.round((doneTodos.length / weekTodos.length) * 100) : 0;
+
+  const habitChecks = habits.reduce((acc, h) => acc + weekDays.filter(d => h.checkedDates.includes(d)).length, 0);
+  const habitDenom = habits.length * 7;
+  const habitPct = habitDenom ? Math.round((habitChecks / habitDenom) * 100) : 0;
+
+  // 집중 시간 — 시간 리포트 엔진(aggregateRange) 재사용
+  const focusMin = useMemo(
+    () => focusMinutesForRange(todos, tags, range.startStr, range.endStr),
+    [todos, tags, range.startStr, range.endStr],
+  );
+
+  // 평균 기분 — 그 주 mood_records energy_level 평균
+  const [weekMoods, setWeekMoods] = useState<{ energy_level: number }[]>([]);
+  const loadMoods = useCallback(async () => {
+    const { data } = await supabase
+      .from('mood_records')
+      .select('energy_level,date')
+      .gte('date', range.startStr)
+      .lte('date', range.endStr);
+    setWeekMoods((data as { energy_level: number }[]) ?? []);
+  }, [range.startStr, range.endStr]);
+  useEffect(() => { loadMoods(); }, [loadMoods]);
+  useRealtimeSync('mood_records', loadMoods);
+  const moodAvg = weekMoods.length ? weekMoods.reduce((s, m) => s + m.energy_level, 0) / weekMoods.length : null;
+  const moodRound = moodAvg != null ? Math.min(5, Math.max(1, Math.round(moodAvg))) : 0;
+
+  // ── 회고 입력 (Stage 1 필드로 실제 저장) ──
+  const weeklyReview = weeklyReviews.find(r => r.weekKey === range.weekKey);
+  const [wrGood, setWrGood] = useState('');
+  const [wrHard, setWrHard] = useState('');
+  const [wrNext, setWrNext] = useState('');
+  const [wrKptKeep, setWrKptKeep] = useState('');
+  const [wrKptProblem, setWrKptProblem] = useState('');
+  const [wrKptTry, setWrKptTry] = useState('');
+  const [savedFlash, setSavedFlash] = useState(false);
+
+  useEffect(() => {
+    setWrGood(weeklyReview?.good || '');
+    setWrHard(weeklyReview?.hard || '');
+    setWrNext(weeklyReview?.nextWeek || '');
+    setWrKptKeep(weeklyReview?.kptKeep || '');
+    setWrKptProblem(weeklyReview?.kptProblem || '');
+    setWrKptTry(weeklyReview?.kptTry || '');
+  }, [weeklyReview?.id, range.weekKey]);
+
+  const save = () => {
+    const payload = {
+      weekKey: range.weekKey,
+      good: wrGood, hard: wrHard, nextWeek: wrNext,
+      kptKeep: wrKptKeep, kptProblem: wrKptProblem, kptTry: wrKptTry,
+    };
+    if (weeklyReview) updateWeeklyReview(weeklyReview.id, payload);
+    else addWeeklyReview(payload);
+    setSavedFlash(true);
+    window.setTimeout(() => setSavedFlash(false), 1800);
+  };
+
+  // ── 과거 주간 리뷰(월별 그룹 + 작년 비교) ──
+  const weekCompletion = useCallback((startStr: string, endStr: string): number | null => {
+    const ws = todos.filter(td => td.date && td.date >= startStr && td.date <= endStr);
+    if (!ws.length) return null;
+    return Math.round((ws.filter(td => td.status === 'done').length / ws.length) * 100);
+  }, [todos]);
+
+  const lastYearKey = useMemo(() => {
+    const [y, w] = range.weekKey.split('-W');
+    return `${Number(y) - 1}-W${w}`;
+  }, [range.weekKey]);
+  const lastYearReview = weeklyReviews.find(r => r.weekKey === lastYearKey);
+
+  const hasText = (r: { good?: string; hard?: string; nextWeek?: string; kptKeep?: string; kptProblem?: string; kptTry?: string }) =>
+    !!(r.good || r.hard || r.nextWeek || r.kptKeep || r.kptProblem || r.kptTry);
+
+  const pastGroups = useMemo(() => {
+    const items = weeklyReviews
+      .filter(r => r.weekKey !== range.weekKey && hasText(r))
+      .map(r => {
+        const rg = weekKeyToRange(r.weekKey);
+        return { review: r, ...rg, monthKey: format(addDays(rg.start, 3), 'yyyy-MM') };
+      })
+      .sort((a, b) => b.review.weekKey.localeCompare(a.review.weekKey));
+    const groups: { monthKey: string; rows: typeof items }[] = [];
+    for (const it of items) {
+      let g = groups.find(x => x.monthKey === it.monthKey);
+      if (!g) { g = { monthKey: it.monthKey, rows: [] }; groups.push(g); }
+      g.rows.push(it);
+    }
+    return groups;
+  }, [weeklyReviews, range.weekKey]);
+
+  const [expanded, setExpanded] = useState<Record<string, boolean>>({});
+  const isExpanded = (mk: string, idx: number) => expanded[mk] ?? idx === 0; // 최신 그룹 기본 펼침
+  const toggleGroup = (mk: string, idx: number) =>
+    setExpanded(prev => ({ ...prev, [mk]: !(prev[mk] ?? idx === 0) }));
+
+  const inputStyle = {
+    borderColor: t.border, backgroundColor: t.bgSub, color: t.text, fontSize: 13,
+    fontFamily: BODY_FONT,
+  };
+
+  // 과거 주간 카드 1개 렌더 (작년 비교 카드/일반 카드 공용)
+  const renderPastItem = (
+    row: { review: typeof weeklyReviews[number]; start: Date; end: Date; startStr: string; endStr: string },
+    anniversary = false,
+  ) => {
+    const womN = weekOfMonth(row.start, weekStartsOn);
+    const comp = weekCompletion(row.startStr, row.endStr);
+    const preview = [row.review.good, row.review.hard, row.review.nextWeek].filter(Boolean).join(' · ');
+    return (
+      <button key={row.review.id} onClick={() => setAnchor(row.start)}
+        className="w-full text-left p-3 rounded-xl transition-colors"
+        style={{
+          backgroundColor: anniversary ? t.accentLight : t.card,
+          border: `1px solid ${anniversary ? t.accent : t.borderLight}`,
+        }}>
+        <div className="flex items-center gap-2 mb-1.5 flex-wrap">
+          {anniversary && <span style={{ fontSize: 11, fontWeight: 700, color: t.accent }}>🕰 작년 같은 주차</span>}
+          <span style={{ fontSize: 12, fontWeight: 700, color: t.text }}>{format(row.start, 'M')}월 {womN}주차</span>
+          <span style={{ fontSize: 11, color: t.textMuted }}>{format(row.start, 'M.d')}–{format(row.end, 'M.d')}</span>
+          {comp != null && (
+            <span className="px-2 py-0.5 rounded-full" style={{ fontSize: 9, backgroundColor: t.bgSub, color: t.textSub }}>완료 {comp}%</span>
+          )}
+        </div>
+        {preview && (
+          <p style={{ fontSize: 12, color: t.textSub, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{preview}</p>
+        )}
+      </button>
+    );
+  };
+
+  const womNum = weekOfMonth(range.start, weekStartsOn);
+  const navLabel = `${format(range.thu, 'M')}월 ${womNum}주차 · ${format(range.start, 'M.d')}–${format(range.end, 'M.d')}`;
+
+  const weekNav = (
+    <div className="flex items-center justify-center gap-3 mb-4">
+      <button onClick={() => setAnchor(a => subWeeks(a, 1))} className="p-2 rounded-lg" style={{ color: t.textSub, backgroundColor: t.bgSub, border: `1px solid ${t.borderLight}` }}>
+        <ChevronLeft size={18} />
+      </button>
+      <button onClick={() => setAnchor(parseISO(getLogicalToday()))}
+        style={{ fontSize: 14, fontWeight: 700, color: t.text, minWidth: 210, textAlign: 'center' }}>
+        {navLabel}
+        {!isCurrentWeek && <span style={{ fontSize: 11, color: t.accent, marginLeft: 6 }}>이번 주로</span>}
+      </button>
+      <button onClick={() => setAnchor(a => addWeeks(a, 1))} className="p-2 rounded-lg" style={{ color: t.textSub, backgroundColor: t.bgSub, border: `1px solid ${t.borderLight}` }}>
+        <ChevronRight size={18} />
+      </button>
+    </div>
+  );
+
+  const statsBlock = (
+    <div className={isDesktop ? 'grid grid-cols-4 gap-3' : 'grid grid-cols-2 gap-3'}>
+      <StatCard value={fmtFocus(focusMin)} label="집중 시간" sub="이번 주"
+        pct={Math.round((focusMin / FOCUS_WEEK_REF_MIN) * 100)} barColor={t.accent} />
+      <StatCard value={weekTodos.length ? `${completionPct}%` : '–'} label="할일 완료율"
+        sub={weekTodos.length ? `${doneTodos.length}/${weekTodos.length}` : '할일 없음'} pct={completionPct} barColor={t.success} />
+      <StatCard value={habits.length ? `${habitPct}%` : '–'} label="습관 달성"
+        sub={habits.length ? `${habitChecks}/${habitDenom}` : '습관 없음'} pct={habitPct} barColor={t.accent} />
+      <StatCard value={moodAvg != null ? ENERGY_EMOJI[moodRound] : '–'} label="평균 기분"
+        sub={moodAvg != null ? ENERGY_LABELS[moodRound] : '기록 없음'} pct={moodAvg != null ? Math.round((moodAvg / 5) * 100) : 0} barColor={t.accent} />
+    </div>
+  );
+
+  const reviewForm = (
+    <div className="p-4 rounded-xl" style={{ backgroundColor: t.card, border: `1px solid ${t.borderLight}` }}>
+      <h3 style={{ fontSize: 13, fontWeight: 700, color: t.text, marginBottom: 12 }}>주간 리뷰 · {navLabel}</h3>
+      <div className="space-y-3">
+        <div>
+          <LabelRow label="잘한 것" labelColor="#006b62" onVoiceResult={text => setWrGood(prev => prev ? `${prev} ${text}` : text)} />
+          <textarea value={wrGood} onChange={e => setWrGood(e.target.value)} rows={3}
+            className="w-full rounded-lg px-3 py-2 border outline-none resize-none" style={inputStyle} />
+        </div>
+        <div>
+          <LabelRow label="어려웠던 점" labelColor="#D4735A" onVoiceResult={text => setWrHard(prev => prev ? `${prev} ${text}` : text)} />
+          <textarea value={wrHard} onChange={e => setWrHard(e.target.value)} rows={3}
+            className="w-full rounded-lg px-3 py-2 border outline-none resize-none" style={inputStyle} />
+        </div>
+        <div>
+          <LabelRow label="다음 주 다짐" labelColor="#7B9ED9" onVoiceResult={text => setWrNext(prev => prev ? `${prev} ${text}` : text)} />
+          <textarea value={wrNext} onChange={e => setWrNext(e.target.value)} rows={3}
+            className="w-full rounded-lg px-3 py-2 border outline-none resize-none" style={inputStyle} />
+        </div>
+      </div>
+
+      {/* KPT 섹션 — 설정에서 ON 시 표시, 실제 저장(Stage 1 컬럼) */}
+      {appSettings.showWeeklyKpt && (
+        <div className="mt-4 pt-4" style={{ borderTop: `1px solid ${t.borderLight}` }}>
+          <h4 style={{ fontSize: 12, fontWeight: 700, color: t.textSub, marginBottom: 10 }}>🔄 KPT 주간 회고</h4>
+          <div className={isDesktop ? 'grid grid-cols-3 gap-3' : 'space-y-3'}>
+            <div>
+              <LabelRow label="Keep (유지할 것)" labelColor="#006b62" onVoiceResult={text => setWrKptKeep(prev => prev ? `${prev} ${text}` : text)} />
+              <textarea value={wrKptKeep} onChange={e => setWrKptKeep(e.target.value)} rows={isDesktop ? 4 : 2}
+                className="w-full rounded-lg px-3 py-2 border outline-none resize-none" style={inputStyle} />
+            </div>
+            <div>
+              <LabelRow label="Problem (문제점)" labelColor="#D4735A" onVoiceResult={text => setWrKptProblem(prev => prev ? `${prev} ${text}` : text)} />
+              <textarea value={wrKptProblem} onChange={e => setWrKptProblem(e.target.value)} rows={isDesktop ? 4 : 2}
+                className="w-full rounded-lg px-3 py-2 border outline-none resize-none" style={inputStyle} />
+            </div>
+            <div>
+              <LabelRow label="Try (시도할 것)" labelColor="#7B9ED9" onVoiceResult={text => setWrKptTry(prev => prev ? `${prev} ${text}` : text)} />
+              <textarea value={wrKptTry} onChange={e => setWrKptTry(e.target.value)} rows={isDesktop ? 4 : 2}
+                className="w-full rounded-lg px-3 py-2 border outline-none resize-none" style={inputStyle} />
+            </div>
+          </div>
+        </div>
+      )}
+
+      <button onClick={save}
+        className="w-full mt-4 py-2.5 rounded-xl transition-colors"
+        style={{ fontSize: 13, fontWeight: 600, backgroundColor: savedFlash ? t.success : t.accent, color: '#fff' }}>
+        {savedFlash ? '저장됨 ✓' : '저장'}
+      </button>
+    </div>
+  );
+
+  const pastBlock = (
+    <div className="space-y-2">
+      <h3 className="flex items-center gap-1.5" style={{ fontSize: 12, fontWeight: 700, color: t.textSub }}>
+        <Clock size={13} /> 지난 주간 리뷰
+      </h3>
+      {lastYearReview && hasText(lastYearReview) && renderPastItem({ review: lastYearReview, ...weekKeyToRange(lastYearReview.weekKey) }, true)}
+      {pastGroups.length === 0 && !(lastYearReview && hasText(lastYearReview)) ? (
+        <p style={{ fontSize: 12, color: t.textMuted, padding: '12px 0' }}>아직 지난 주간 리뷰가 없어요</p>
+      ) : (
+        pastGroups.map((g, gi) => (
+          <div key={g.monthKey} className="space-y-2">
+            <button onClick={() => toggleGroup(g.monthKey, gi)}
+              className="flex items-center gap-1 w-full mt-1"
+              style={{ fontSize: 12, fontWeight: 700, color: t.textSub }}>
+              <ChevronDown size={14} style={{ transform: isExpanded(g.monthKey, gi) ? 'none' : 'rotate(-90deg)', transition: 'transform .15s' }} />
+              {format(parseISO(`${g.monthKey}-01`), 'yyyy년 M월', { locale: ko })}
+              <span style={{ color: t.textMuted, fontWeight: 400 }}>· {g.rows.length}건</span>
+            </button>
+            {isExpanded(g.monthKey, gi) && g.rows.map(row => renderPastItem(row))}
+          </div>
+        ))
+      )}
+    </div>
+  );
+
+  return (
+    <div>
+      {weekNav}
+      {isDesktop ? (
+        <div className="flex gap-6 items-start">
+          <div className="flex-1 min-w-0 space-y-4">
+            {statsBlock}
+            {reviewForm}
+          </div>
+          <div className="flex-shrink-0" style={{ width: 340 }}>
+            <div style={{ position: 'sticky', top: 12 }}>{pastBlock}</div>
+          </div>
+        </div>
+      ) : (
+        <div className="space-y-5">
+          {statsBlock}
+          {reviewForm}
+          {pastBlock}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export function ReviewsView() {
   const {
     reviewRecords,
-    weeklyReviews, addWeeklyReview, updateWeeklyReview,
     monthlyReviews, addMonthlyReview, updateMonthlyReview,
-    habits, todos,
     appSettings,
   } = usePlanner();
   const { t } = useTheme();
   // 'list' 는 탭 UI 에서 제거되었지만 과거 기록 승계 대비로 union·블록은 보존(진입 불가)
   const [tab, setTab] = useState<'day' | 'week' | 'month' | 'list'>('day');
 
-  const today = getLogicalToday();
-  const currentWeekKey = getWeekKey(new Date());
   const currentMonth = format(new Date(), 'yyyy-MM');
-
-  // Weekly review
-  const weeklyReview = weeklyReviews.find(r => r.weekKey === currentWeekKey);
-  const [wrGood, setWrGood] = useState(weeklyReview?.good || '');
-  const [wrHard, setWrHard] = useState(weeklyReview?.hard || '');
-  const [wrNext, setWrNext] = useState(weeklyReview?.nextWeek || '');
-  const [wrKptKeep, setWrKptKeep] = useState('');
-  const [wrKptProblem, setWrKptProblem] = useState('');
-  const [wrKptTry, setWrKptTry] = useState('');
-  const [wrHappiness, setWrHappiness] = useState('');
-
-  useEffect(() => {
-    setWrGood(weeklyReview?.good || '');
-    setWrHard(weeklyReview?.hard || '');
-    setWrNext(weeklyReview?.nextWeek || '');
-  }, [weeklyReview?.id]);
-
-  const saveWeeklyReview = () => {
-    if (weeklyReview) updateWeeklyReview(weeklyReview.id, { good: wrGood, hard: wrHard, nextWeek: wrNext });
-    else addWeeklyReview({ weekKey: currentWeekKey, good: wrGood, hard: wrHard, nextWeek: wrNext });
-  };
 
   // Monthly review
   const monthlyReview = monthlyReviews.find(r => r.month === currentMonth);
@@ -443,14 +774,6 @@ export function ReviewsView() {
     if (monthlyReview) updateMonthlyReview(monthlyReview.id, { achievement: mrAchievement, nextFocus: mrFocus });
     else addMonthlyReview({ month: currentMonth, achievement: mrAchievement, nextFocus: mrFocus });
   };
-
-  // Stats for weekly review
-  const weekTodos = todos.filter(td => td.date && td.date >= today);
-  const doneTodos = weekTodos.filter(td => td.status === 'done');
-  const habitCheckedToday = habits.filter(h => h.checkedDates.includes(today)).length;
-  const emotionAvg = reviewRecords.filter(r => r.emotion).length > 0
-    ? (reviewRecords.filter(r => r.emotion).reduce((s, r) => s + (r.emotion || 0), 0) / reviewRecords.filter(r => r.emotion).length).toFixed(1)
-    : '-';
 
   const tabs = [
     { key: 'day', label: '일간' },
@@ -528,90 +851,8 @@ export function ReviewsView() {
           </div>
         )}
 
-        {/* Weekly Review Tab (기존 화면 유지) */}
-        {tab === 'week' && (
-          <div className="space-y-4">
-            {/* Stats */}
-            <div className="grid grid-cols-4 gap-3 mb-4">
-              {[
-                { label: '집중 시간', value: '-', sub: '이번 주' },
-                { label: '할일 완료율', value: `${weekTodos.length ? Math.round(doneTodos.length / weekTodos.length * 100) : 0}%`, sub: '이번 주' },
-                { label: '습관 달성', value: `${habitCheckedToday}/${habits.length}`, sub: '오늘' },
-                { label: '평균 감정', value: String(emotionAvg), sub: '전체' },
-              ].map((s, i) => (
-                <div key={i} className="p-3 rounded-xl text-center" style={{ backgroundColor: t.card, border: `1px solid ${t.borderLight}` }}>
-                  <span style={{ fontSize: 18, fontWeight: 700, color: t.text, fontFamily: 'var(--font-gmarket)', display: 'block' }}>{s.value}</span>
-                  <span style={{ fontSize: 10, color: t.textMuted, display: 'block', marginTop: 2 }}>{s.label}</span>
-                  <span style={{ fontSize: 9, color: t.accent }}>{s.sub}</span>
-                </div>
-              ))}
-            </div>
-
-            <div className="p-4 rounded-xl" style={{ backgroundColor: t.card, border: `1px solid ${t.borderLight}` }}>
-              <h3 style={{ fontSize: 13, fontWeight: 700, color: t.text, marginBottom: 12 }}>주간 리뷰 ({currentWeekKey})</h3>
-              <div className="space-y-3">
-                <div>
-                  <LabelRow label="잘한 것" labelColor="#006b62" onVoiceResult={text => setWrGood(prev => prev ? `${prev} ${text}` : text)} />
-                  <textarea value={wrGood} onChange={e => setWrGood(e.target.value)} rows={3}
-                    className="w-full rounded-lg px-3 py-2 border outline-none resize-none" style={inputStyle} />
-                </div>
-                <div>
-                  <LabelRow label="어려웠던 점" labelColor="#D4735A" onVoiceResult={text => setWrHard(prev => prev ? `${prev} ${text}` : text)} />
-                  <textarea value={wrHard} onChange={e => setWrHard(e.target.value)} rows={3}
-                    className="w-full rounded-lg px-3 py-2 border outline-none resize-none" style={inputStyle} />
-                </div>
-                <div>
-                  <LabelRow label="다음 주 다짐" labelColor="#7B9ED9" onVoiceResult={text => setWrNext(prev => prev ? `${prev} ${text}` : text)} />
-                  <textarea value={wrNext} onChange={e => setWrNext(e.target.value)} rows={3}
-                    className="w-full rounded-lg px-3 py-2 border outline-none resize-none" style={inputStyle} />
-                </div>
-              </div>
-
-              {/* KPT 섹션 — 설정에서 ON 시 표시 */}
-              {appSettings.showWeeklyKpt && (
-                <div className="mt-4 p-4 rounded-xl" style={{ backgroundColor: t.card, border: `1px solid ${t.borderLight}` }}>
-                  <h3 style={{ fontSize: 13, fontWeight: 700, color: t.text, marginBottom: 12 }}>🔄 KPT 주간 회고</h3>
-                  <div className="space-y-3">
-                    <div>
-                      <LabelRow label="Keep (유지할 것)" labelColor="#006b62" onVoiceResult={text => setWrKptKeep(prev => prev ? `${prev} ${text}` : text)} />
-                      <textarea value={wrKptKeep} onChange={e => setWrKptKeep(e.target.value)} rows={2}
-                        className="w-full rounded-lg px-3 py-2 border outline-none resize-none" style={inputStyle} />
-                    </div>
-                    <div>
-                      <LabelRow label="Problem (문제점)" labelColor="#D4735A" onVoiceResult={text => setWrKptProblem(prev => prev ? `${prev} ${text}` : text)} />
-                      <textarea value={wrKptProblem} onChange={e => setWrKptProblem(e.target.value)} rows={2}
-                        className="w-full rounded-lg px-3 py-2 border outline-none resize-none" style={inputStyle} />
-                    </div>
-                    <div>
-                      <LabelRow label="Try (시도할 것)" labelColor="#7B9ED9" onVoiceResult={text => setWrKptTry(prev => prev ? `${prev} ${text}` : text)} />
-                      <textarea value={wrKptTry} onChange={e => setWrKptTry(e.target.value)} rows={2}
-                        className="w-full rounded-lg px-3 py-2 border outline-none resize-none" style={inputStyle} />
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {/* 행복했던 일 섹션 — 설정에서 ON 시 표시 */}
-              {appSettings.showWeeklyHappiness && (
-                <div className="mt-4 p-4 rounded-xl" style={{ backgroundColor: t.card, border: `1px solid ${t.borderLight}` }}>
-                  <h3 style={{ fontSize: 13, fontWeight: 700, color: t.text, marginBottom: 12 }}>✨ 이번 주 행복했던 일</h3>
-                  <div className="flex items-end gap-2">
-                    <textarea value={wrHappiness} onChange={e => setWrHappiness(e.target.value)}
-                      placeholder="이번 주 행복했던 순간을 적어보세요" rows={3}
-                      className="flex-1 rounded-lg px-3 py-2 border outline-none resize-none" style={inputStyle} />
-                    <VoiceInputButton onResult={text => setWrHappiness(prev => prev ? `${prev} ${text}` : text)} />
-                  </div>
-                </div>
-              )}
-
-              <button onClick={saveWeeklyReview}
-                className="w-full mt-4 py-2.5 rounded-xl"
-                style={{ fontSize: 13, fontWeight: 600, backgroundColor: t.accent, color: '#fff' }}>
-                저장
-              </button>
-            </div>
-          </div>
-        )}
+        {/* 주간 탭 — 통계 정확화 + 회고(KPT) + 과거(월별 그룹·작년 비교) */}
+        {tab === 'week' && <WeekTab />}
 
         {/* Monthly Review Tab (기존 화면 유지) */}
         {tab === 'month' && (

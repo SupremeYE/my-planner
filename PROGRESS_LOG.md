@@ -6,6 +6,31 @@
 
 ---
 
+## 2026-06-28 — 📝 리뷰 & 기록 페이지 개선 — Stage 3 (주간 탭 재구축 — 통계 정확화 + 회고 + 과거)
+
+### 🛠 구현 (주간 탭만 — 월간/돌아보기/행복은 후속)
+
+리뷰 & 기록 페이지의 **주간 탭**을 재구축. 주 범위 단일 계산 + 통계 4종 버그 수정 + 회고(KPT) 실저장 + 과거 월별 그룹/작년 비교. `WeekTab` 컴포넌트로 분리, `useMediaQuery` 분기, 색상 토큰만.
+
+- **컨디션 링크 텍스트 정합성(3-0)**: 일간 탭 컨디션 배지 링크 문구를 실제 목적지(`/mood`)에 맞춰 "건강 &gt; 컨디션에서 기록" → **"기분 기록하러 →"**로 수정(목적지/동작 불변).
+- **주 범위 단일화(3-1)**: 선택 주 시작~끝을 `useMemo` 한 곳(`range`)에서 계산 → 통계·회고·과거 조회 전부 공유. 주 시작 요일은 앱 관례(`appSettings.weekStartsOn`, 기본 월요일=1) 따름. weekKey는 ISO 주차 판정 기준 목요일로 산출(요일 설정 무관 일관). 네비게이터 `‹ [M월 N주차 · M.d–M.d] ›`, 좌우 주 이동 + "이번 주로" 리셋(논리적 하루 경계 `getLogicalToday()` 기준).
+- **통계 4종 정확화(3-2, 기존 버그 수정)** — 각 카드 진행 바 포함:
+  - **할일 완료율**: 그 주 범위 done/전체. (기존 `td.date >= today` 버그 제거)
+  - **습관 달성**: 그 주 7일 × 습관수 대비 `checkedDates` 교집합 비율. (기존 "오늘만" 버그 제거)
+  - **집중 시간**: `useTimeReport`의 `aggregateRange`를 재사용하는 신규 export `focusMinutesForRange(todos, tags, start, end)`로 그 주 합계. **집계 로직 신규 구현 안 함**(소스 단일화). (기존 `-` 하드코딩 제거, 0이면 "0h")
+  - **평균 기분**: 그 주 `mood_records` `energy_level` 평균 → 이모지/라벨(`ENERGY_LABELS`). (기존 전체 `review_records.emotion` 평균 버그 제거 → mood 기준 통일). 빈 상태 "기록 없음". `useRealtimeSync('mood_records')` 반영.
+- **회고 입력 실저장(3-3)**: 잘한 것(`good`)/어려웠던 점(`hard`)/다음 주 다짐(`nextWeek`) + `appSettings.showWeeklyKpt` ON 시 **주간 KPT**(`kptKeep`/`kptProblem`/`kptTry`) 섹션 노출·**실제 저장**(Stage 1 컬럼, `updateWeeklyReview` 머지). 각 입력 음성(기존 훅 재사용), 본문 폰트 NanumSquareRound. 저장→주 전환→복원 왕복. **`showWeeklyHappiness`로 인한 주간 텍스트 입력란 부활 안 함**(행복은 독립 `happy_moments` 스트림, 토글 자체는 SettingsView에 보존).
+- **과거 주간 리뷰(3-4)**: 지난 리뷰를 **월별 그룹** 접기/펼치기(최신 그룹 기본 펼침). 각 카드 주차·기간·완료율 배지·미리보기, 탭 시 그 주로 이동. **🕰 작년 같은 주차 비교 카드**(weekKey 연도-1) 상단 노출.
+- **레이아웃(3-5)**: `useMediaQuery` — 모바일 통계 2열+폼+과거 세로 / PC `lg` 2컬럼(좌 통계+회고 / 우 과거 340px `sticky`). 토큰만.
+
+### ✅ 검증
+- `npm run build`(vite 6) 통과. DB 스키마/매핑 변경 0(Stage 1 모델만 사용). 집중시간 신규 집계 0(시간 리포트 엔진 `aggregateRange` 재사용). 색·문자열 하드코딩 0(KPT/완료율 색은 기존 토큰·라벨 색 유지). 제거된 주간 state는 전부 `WeekTab` 내부로 이동, 댕글링 참조 0. 월간/일간 탭 무변경.
+
+### 📋 다음(예정)
+- Stage 4~: 월간 탭 재구축(베스트픽 입력), 돌아보기 탭(과거 daily/happiness 승계), 행복 캡처(happy_moments 쓰기), 🔍 검색 연결.
+
+---
+
 ## 2026-06-28 — 📝 리뷰 & 기록 페이지 개선 — Stage 2 (일간 탭 UI 재구축)
 
 ### 🛠 구현 (일간 탭만 재구축 — 주간/월간/돌아보기/행복캡처는 후속)
