@@ -5,11 +5,11 @@ import { format, subDays } from 'date-fns';
 import { supabase } from '../../lib/supabase';
 import { useRealtimeSync } from '../../app/hooks/useRealtimeSync';
 import { moneyDb } from './db';
-import { getMoneyPeriod, daysLeftInPeriod, type MoneyPeriod } from './period';
+import { getMoneyPeriod, daysLeftInPeriod, getMoneyWeeks, currentWeek as currentWeekOf, type MoneyPeriod, type MoneyWeek } from './period';
 import { fetchFxRate, fetchFxRateOn, needsFxRefresh, monthlyEquivalent } from './fx';
 import type {
   MoneyCategory, MoneyTransaction, MoneyAccount, MoneyCard,
-  MoneyFixedCost, MoneyLoan, MoneyGoal, MoneyPlan, MoneySettings, ParsedTx, TxType, Currency,
+  MoneyFixedCost, MoneyLoan, MoneyGoal, MoneyPlan, MoneyReview, MoneySettings, ParsedTx, TxType, Currency,
 } from './types';
 
 const today = () => format(new Date(), 'yyyy-MM-dd');
@@ -46,8 +46,16 @@ export interface UseMoney {
   goals: MoneyGoal[];
   plans: MoneyPlan[];
   currentPlan: MoneyPlan | null;   // 이번 기간 계획(period.start 매칭). 없으면 null(미수립).
+  reviews: MoneyReview[];
   settings: MoneySettings;
   period: MoneyPeriod;
+  // 주간 회고(Plan-Stage 2A)
+  weeks: MoneyWeek[];                       // 이번 기간을 7일 단위로 분할한 주차 목록
+  thisWeek: MoneyWeek | null;              // 오늘이 속한 주(기간 밖이면 null)
+  weeklyLivingBudget: number;              // 주당 생활비 예산 = (계획 생활비 ?? 월예산) / 주 수
+  weekSpending: (week: MoneyWeek) => number;   // 그 주의 지출 합(기간 거래 기준)
+  weekNoSpendDays: (week: MoneyWeek) => number; // 그 주 무지출 일수(오늘까지, 기록 시작일 이후)
+  reviewOfWeek: (weekIndex: number) => MoneyReview | null;  // 그 주차의 저장된 회고(없으면 null)
   // 파생 합계
   income: number;
   expense: number;
@@ -103,6 +111,8 @@ export interface UseMoney {
     expectedIncome: number; fixedCostTotal: number; availableAmount: number;
     plannedSavings: number; plannedInvestment: number; plannedLiving: number;
   }) => Promise<void>;
+  // 회고 저장(주간/월말) — 같은 (기간, 주차) 있으면 갱신(재회고), 없으면 새로. 소감/조정만 사용자 입력.
+  saveReview: (r: Partial<MoneyReview> & { type: MoneyReview['type']; totalSpent: number; weekIndex: number | null }) => Promise<void>;
 }
 
 export function useMoney(): UseMoney {
@@ -114,19 +124,20 @@ export function useMoney(): UseMoney {
   const [loans, setLoans] = useState<MoneyLoan[]>([]);
   const [goals, setGoals] = useState<MoneyGoal[]>([]);
   const [plans, setPlans] = useState<MoneyPlan[]>([]);
+  const [reviews, setReviews] = useState<MoneyReview[]>([]);
   const [settings, setSettings] = useState<MoneySettings>({
     periodType: 'payday', payday: 25, monthlyBudget: 1200000, currency: 'KRW', fxAlertThreshold: 3.0,
   });
   const [loading, setLoading] = useState(true);
 
   const refresh = useCallback(async () => {
-    const [cat, tx, acc, crd, fx, ln, gl, pl, st] = await Promise.all([
+    const [cat, tx, acc, crd, fx, ln, gl, pl, rv, st] = await Promise.all([
       moneyDb.categories.fetchAll(), moneyDb.transactions.fetchAll(), moneyDb.accounts.fetchAll(),
       moneyDb.cards.fetchAll(), moneyDb.fixedCosts.fetchAll(), moneyDb.loans.fetchAll(),
-      moneyDb.goals.fetchAll(), moneyDb.plans.fetchAll(), moneyDb.settings.fetch(),
+      moneyDb.goals.fetchAll(), moneyDb.plans.fetchAll(), moneyDb.reviews.fetchAll(), moneyDb.settings.fetch(),
     ]);
     setCategories(cat); setTransactions(tx); setAccounts(acc); setCards(crd);
-    setFixedCosts(fx); setLoans(ln); setGoals(gl); setPlans(pl); setSettings(st);
+    setFixedCosts(fx); setLoans(ln); setGoals(gl); setPlans(pl); setReviews(rv); setSettings(st);
     setLoading(false);
   }, []);
 
@@ -139,6 +150,7 @@ export function useMoney(): UseMoney {
   useRealtimeSync('money_loans', refresh);
   useRealtimeSync('money_goals', refresh);
   useRealtimeSync('money_plans', refresh);
+  useRealtimeSync('money_reviews', refresh);
   useRealtimeSync('money_settings', refresh);
 
   // 최초 로드 후 1회 — 결제일 도래한 고정비 자동 정산(거래 생성). 멱등이라 중복 없음.
@@ -273,6 +285,38 @@ export function useMoney(): UseMoney {
     }
     return streak;
   }, [spendByDay, trackingStartDate]);
+
+  // ── 주간 회고(Plan-Stage 2A) 파생 ──
+  // 기간을 7일 단위로 분할(마지막 주는 잔여). 오늘이 속한 주.
+  const weeks = useMemo(() => getMoneyWeeks(period), [period]);
+  const thisWeek = useMemo(() => currentWeekOf(weeks), [weeks]);
+  // 주당 생활비 예산 = (계획 생활비 ?? 월예산) / 주 수. 계획 없으면 월예산으로 폴백(신규 사용자도 의미 있게).
+  const weeklyLivingBudget = useMemo(() => {
+    const base = currentPlan?.plannedLiving || settings.monthlyBudget || 0;
+    return weeks.length > 0 ? Math.round(base / weeks.length) : 0;
+  }, [currentPlan, settings.monthlyBudget, weeks.length]);
+  // 그 주의 지출 합(기간 거래 중 주 범위).
+  const weekSpending = useCallback((week: MoneyWeek): number =>
+    periodTransactions
+      .filter(t => t.type === 'expense' && t.spentAt >= week.start && t.spentAt <= week.end)
+      .reduce((s, t) => s + t.amount, 0),
+    [periodTransactions]);
+  // 그 주 무지출 일수 — 오늘까지(미래일 제외) + 기록 시작일 이후만.
+  const weekNoSpendDays = useCallback((week: MoneyWeek): number => {
+    const todayStr = today();
+    let count = 0;
+    for (let i = 0; i < week.totalDays; i++) {
+      const d = format(subDays(week.endDate, week.totalDays - 1 - i), 'yyyy-MM-dd');
+      if (d > todayStr) break;                          // 아직 안 온 날 제외
+      if (trackingStartDate && d < trackingStartDate) continue; // 기록 전 제외
+      if ((spendByDay.get(d)?.expense ?? 0) === 0) count++;
+    }
+    return count;
+  }, [spendByDay, trackingStartDate]);
+  // 그 주차의 저장된 회고(이번 기간).
+  const reviewOfWeek = useCallback((weekIndex: number): MoneyReview | null =>
+    reviews.find(r => r.type === 'weekly' && r.periodStart === period.start && r.weekIndex === weekIndex) ?? null,
+    [reviews, period.start]);
 
   // ── 액션 ──
   const addTransaction = useCallback(async (input: Partial<MoneyTransaction> & { type: TxType; amount: number }) => {
@@ -502,16 +546,33 @@ export function useMoney(): UseMoney {
     await refresh();
   }, [plans, period.start, period.end, refresh]);
 
+  // 회고 저장 — 같은 (기간, type, 주차) 있으면 그 id 로 갱신(재회고), 없으면 새 id.
+  const saveReview = useCallback(async (r: Partial<MoneyReview> & {
+    type: MoneyReview['type']; totalSpent: number; weekIndex: number | null;
+  }) => {
+    const existing = reviews.find(x =>
+      x.type === r.type && x.periodStart === period.start &&
+      (r.type === 'monthly' ? x.weekIndex == null : x.weekIndex === r.weekIndex));
+    await moneyDb.reviews.upsert({
+      id: r.id ?? existing?.id ?? crypto.randomUUID(),
+      type: r.type, periodStart: period.start, periodEnd: period.end,
+      weekIndex: r.weekIndex, totalSpent: r.totalSpent,
+      note: r.note ?? null, nextAdjustment: r.nextAdjustment ?? null,
+    });
+    await refresh();
+  }, [reviews, period.start, period.end, refresh]);
+
   return {
     loading, categories, expenseCategories, incomeCategories, subcategoriesOf, rootCategoryOf,
     transactions, periodTransactions, accounts, investments, cards, fixedCosts, loans, goals,
-    plans, currentPlan, settings,
+    plans, currentPlan, reviews, settings,
     period, income, expense, balance, fixedTotal, fixedMonthly, loanMonthly, assets, cardDebt, loanDebt, netWorth,
     investTotal, investPrincipal, investReturn, investReturnPct,
     daysLeft, dailyAllowance, noSpendStreak, trackingStartDate, spendByDay,
+    weeks, thisWeek, weeklyLivingBudget, weekSpending, weekNoSpendDays, reviewOfWeek,
     categoryOf, cardUnpaid, cardUnbilledTxs, refresh,
     addTransaction, deleteTransaction, parseAndAdd, addCategory, saveCategory, deleteCategory, updateSettings,
     saveAccount, deleteAccount, saveCard, deleteCard, saveFixedCost, deleteFixedCost, refreshFxRates, settleFixedCosts,
-    saveLoan, deleteLoan, saveGoal, deleteGoal, savePlan,
+    saveLoan, deleteLoan, saveGoal, deleteGoal, savePlan, saveReview,
   };
 }

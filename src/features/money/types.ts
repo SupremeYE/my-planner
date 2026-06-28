@@ -135,6 +135,23 @@ export interface MoneyPlan {
   createdAt?: string;
 }
 
+// 회고(Plan-Stage 2) — 주간/월말. 대부분 자동 계산이라 저장은 최소(소감/조정만 사용자 입력).
+//  · weekly: weekIndex = 주차(1-based). monthly: weekIndex = null.
+//  · totalSpent 는 회고 시점 지출 스냅샷(표시/비교용. 라이브 값은 런타임 재계산).
+export type ReviewType = 'weekly' | 'monthly';
+
+export interface MoneyReview {
+  id: string;
+  type: ReviewType;
+  periodStart: string;          // 'yyyy-MM-dd' (getMoneyPeriod().start)
+  periodEnd: string;
+  weekIndex: number | null;     // weekly: 주차 / monthly: null
+  totalSpent: number;           // 회고 시점 지출 집계 스냅샷
+  note: string | null;          // 한 줄 소감(선택)
+  nextAdjustment: Record<string, unknown> | null;  // 다음 기간 조정 제안(선택)
+  createdAt?: string;
+}
+
 export type PeriodType = 'calendar' | 'payday';
 
 export interface MoneySettings {

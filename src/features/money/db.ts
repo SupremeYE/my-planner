@@ -5,7 +5,7 @@
 import { supabase } from '../../lib/supabase';
 import type {
   MoneyCategory, MoneyTransaction, MoneyAccount, MoneyCard,
-  MoneyFixedCost, MoneyLoan, MoneyGoal, MoneyPlan, MoneySettings, Currency, PeriodType,
+  MoneyFixedCost, MoneyLoan, MoneyGoal, MoneyPlan, MoneyReview, MoneySettings, Currency, PeriodType, ReviewType,
 } from './types';
 
 const num = (v: any): number | null => (v != null ? Number(v) : null);
@@ -239,6 +239,35 @@ const plans = {
   },
 };
 
+// ── reviews (회고) — weekly: (period_start, week_index) / monthly: (period_start) 1행. upsert 는 id 충돌 기준 ──
+const reviews = {
+  fetchAll: async (): Promise<MoneyReview[]> => {
+    const { data, error } = await supabase
+      .from('money_reviews').select('*').order('period_start', { ascending: false });
+    if (error) console.error('[money] reviews fetch:', error.message);
+    return (data ?? []).map((r: any): MoneyReview => ({
+      id: r.id, type: (r.type ?? 'weekly') as ReviewType,
+      periodStart: r.period_start, periodEnd: r.period_end,
+      weekIndex: num(r.week_index), totalSpent: Number(r.total_spent ?? 0),
+      note: r.note ?? null, nextAdjustment: r.next_adjustment ?? null,
+      createdAt: r.created_at ?? undefined,
+    }));
+  },
+  upsert: async (item: MoneyReview) => {
+    const { error } = await supabase.from('money_reviews').upsert({
+      id: item.id, type: item.type, period_start: item.periodStart, period_end: item.periodEnd,
+      week_index: item.weekIndex ?? null, total_spent: item.totalSpent,
+      note: item.note ?? null, next_adjustment: item.nextAdjustment ?? null,
+      updated_at: new Date().toISOString(),
+    }, { onConflict: 'id' });
+    if (error) console.error('[money] reviews upsert:', error.message);
+  },
+  delete: async (id: string) => {
+    const { error } = await supabase.from('money_reviews').delete().eq('id', id);
+    if (error) console.error('[money] reviews delete:', error.message);
+  },
+};
+
 const DEFAULT_SETTINGS: MoneySettings = {
   periodType: 'payday', payday: 25, monthlyBudget: 1200000, currency: 'KRW', fxAlertThreshold: 3.0,
 };
@@ -272,5 +301,5 @@ const settings = {
 };
 
 export const moneyDb = {
-  categories, transactions, accounts, cards, fixedCosts, loans, goals, plans, settings,
+  categories, transactions, accounts, cards, fixedCosts, loans, goals, plans, reviews, settings,
 };

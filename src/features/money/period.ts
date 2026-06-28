@@ -46,3 +46,39 @@ export function daysLeftInPeriod(period: MoneyPeriod, ref: Date = new Date()): n
 export function isInPeriod(date: string, period: MoneyPeriod): boolean {
   return date >= period.start && date <= period.end;
 }
+
+// ── 주(week) 분할 — 회고(Plan-Stage 2)용 ──
+// 기간을 시작일부터 7일 단위로 쪼갠다. 마지막 주는 잔여 일수(7일 미만 가능).
+//  · 월요일 시작이 아니라 "급여일/기간 시작" 기준 — 월초 계획과 동일 기준으로 일관성 유지.
+//  · 예) 급여일 25일 기간 6/25~7/24 → 1주차 6/25~7/1, 2주차 7/2~7/8, … 5주차(잔여) 7/23~7/24.
+export interface MoneyWeek {
+  index: number;      // 1-based 주차
+  start: string;      // 'yyyy-MM-dd' (포함)
+  end: string;        // 'yyyy-MM-dd' (포함)
+  startDate: Date;
+  endDate: Date;
+  totalDays: number;  // 이 주의 일수(마지막 주는 7 미만일 수 있음)
+}
+
+export function getMoneyWeeks(period: MoneyPeriod): MoneyWeek[] {
+  const weeks: MoneyWeek[] = [];
+  let cursor = period.startDate;
+  let index = 1;
+  while (cursor <= period.endDate) {
+    const rawEnd = addDays(cursor, 6);
+    const endDate = rawEnd > period.endDate ? period.endDate : rawEnd;
+    weeks.push({
+      index, start: fmt(cursor), end: fmt(endDate), startDate: cursor, endDate,
+      totalDays: differenceInCalendarDays(endDate, cursor) + 1,
+    });
+    cursor = addDays(endDate, 1);
+    index++;
+  }
+  return weeks;
+}
+
+// 오늘(ref)이 속한 주차. 기간 밖이면 null(이전 기간 보는 중 등).
+export function currentWeek(weeks: MoneyWeek[], ref: Date = new Date()): MoneyWeek | null {
+  const today = fmt(new Date(ref.getFullYear(), ref.getMonth(), ref.getDate()));
+  return weeks.find(w => today >= w.start && today <= w.end) ?? null;
+}
