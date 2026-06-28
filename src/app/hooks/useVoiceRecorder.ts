@@ -112,8 +112,11 @@ export function useVoiceRecorder() {
       if (ev.data && ev.data.size > 0) chunksRef.current.push(ev.data);
     };
     recorderRef.current = recorder;
-    // timeslice 없이 시작 → 침묵으로 끊기지 않고 중지 전까지 한 덩어리로 연속 녹음
-    recorder.start();
+    // timeslice(250ms)로 시작 → 중지 전까지 연속 녹음하되 데이터를 주기적으로 flush.
+    //   iOS Safari/PWA 는 timeslice 없이 start() 하면 중지 시 ondataavailable 이
+    //   비어 0바이트 blob 이 나오는 사례가 있어("녹음된 소리가 없어요"로 변환 호출 자체가
+    //   안 됨) 주기적 flush 로 안정성을 확보한다. timeslice 는 발화 중단과 무관하다.
+    recorder.start(250);
 
     // 파형 비주얼라이저용 Web Audio (실패해도 녹음은 계속)
     try {
@@ -157,6 +160,10 @@ export function useVoiceRecorder() {
         resolve(new Blob(chunksRef.current, { type }));
       };
       try {
+        // 중지 직전 마지막 청크를 강제 flush(iOS 빈 녹음 추가 방어).
+        if (recorder.state === 'recording') {
+          try { recorder.requestData(); } catch { /* noop */ }
+        }
         recorder.stop();
       } catch {
         resolve(new Blob(chunksRef.current));
