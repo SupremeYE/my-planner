@@ -6,6 +6,33 @@
 
 ---
 
+## 2026-06-28 — 📝 리뷰 & 기록 페이지 개선 — Stage 1 (데이터 모델 + DB 마이그레이션)
+
+### 🛠 구현 (모델·DB·매핑·realtime·액션 레벨만 — UI/통계/컴포넌트 변경 0)
+
+리뷰 & 기록 페이지 개편의 토대로 **DB·타입·매핑·realtime·store 액션**까지만 작업. UI·통계 연동·컴포넌트 수정은 후속 Stage.
+
+- **DB 마이그레이션 (비파괴, 라이브 적용 완료)**
+  - `20260628050000_review_record_improvements.sql`:
+    - **happy_moments 신규 테이블**(행복 기록 독립 분리) — `id uuid pk default gen_random_uuid()`·`content not null`·`date`·`happened_at timestamptz **nullable**`·`created_at`·`updated_at`. 형제 테이블 `review_records` 와 동일하게 user_id 컬럼 없이 단일 사용자 owner uid 하드코딩 RLS + `supabase_realtime` publication 등록 + date/created_at 인덱스.
+    - **weekly_reviews** `kpt_keep`/`kpt_problem`/`kpt_try` `ADD COLUMN IF NOT EXISTS`.
+    - **monthly_reviews** 신규 11컬럼 `ADD COLUMN IF NOT EXISTS`(highlight·did_well·regret·next_focus·kpt_keep·kpt_problem·kpt_try·best_video·best_music·best_book·best_place). `next_focus` 는 기존 존재 → IF NOT EXISTS 라 안전한 no-op(보존). 베스트 픽은 직접 입력 허용이라 단순 text.
+    - **user_settings** `supabase_realtime` publication 등록(기존 누락 보완) — 토글 변경 기기 간 즉시 반영.
+    - **review_records** 변경 없음(데일리 컬럼 daily_*/happiness 전부 보존, DROP·rename 없음).
+  - `20260628060000_backfill_happy_moments.sql`(1회성·멱등): `review_records.happiness` 비어있지 않은 행 → `happy_moments` 로 1건씩 이관(content=happiness, date=date, happened_at=**NULL**). `(date, content)` NOT EXISTS 가드로 **재실행 시 중복 0**. 원본 happiness 는 보존(미삭제).
+- **타입 (store.tsx)**: `HappyMoment { id, content, date, happenedAt|null, createdAt }` 신규. `WeeklyReview` 에 `kptKeep?/kptProblem?/kptTry?`, `MonthlyReview` 에 11필드(highlight?/didWell?/regret?/nextFocus(기존)/kpt*?/best*?) 확장.
+- **매핑 (lib/db.ts)**: `to/fromWeeklyReview`·`to/fromMonthlyReview` 신규 컬럼 양방향 매핑 추가. `happy_moments` to/from 매핑 + `db.happyMoments.fetchAll/upsert/delete` CRUD(부분 업데이트 지원 input 빌더).
+- **액션 (store.tsx)**: `addHappyMoment(content, date, happenedAt?)` / `deleteHappyMoment(id)` + 부팅 시 `happy_moments` fetchAll → 전역 `happyMoments` state + context 노출. weekly/monthly 저장 액션은 객체 스프레드라 신규 필드를 이미 그대로 영속(매핑만 추가하면 왕복 동작).
+- **🔴 위험 수정 — `updateReviewRecord` 부분 머지 전환**: 기존엔 `{...r, ...changes}` 라 ReviewsView 가 선택 안 한 타입을 `undefined` 로 보내면 daily_*/kpt_* 등이 덮여 유실될 위험. changes 에서 **undefined 값 키를 제거 후 머지**해 누락 필드를 보존(모델 레벨만 수정, UI 무변경).
+- **Realtime (store.tsx)**: 구독 refetcher 맵에 `happy_moments`(재fetch) + `user_settings`(설정·시간대 재fetch) 추가.
+
+### ✅ 검증
+- 마이그레이션 라이브 적용: happy_moments 1건 이관(happened_at 전부 NULL), 백필 재실행 0건(멱등), weekly kpt 3컬럼·monthly 신규 11컬럼·realtime publication 2테이블(happy_moments/user_settings) 확인.
+- 기존 데이터·컬럼 보존(전부 IF NOT EXISTS / NOT EXISTS, DROP 0). `npm run build`(vite 6) 통과. UI·컴포넌트·통계 변경 0, 색상·문자열 하드코딩 0.
+
+### 📋 다음(예정)
+- Stage 2~3: 행복 기록 UI(happy_moments 읽기/쓰기), 컨디션 배지(mood_records 읽기), KPT/베스트픽 입력 UI 연동, 데일리 리뷰 UI 제거, 집중시간 리포트 엔진 재사용.
+
 ## 2026-06-27 — ⏱ 시간 리포트 태그 기반 재구성 (자동 집계 대시보드 + recharts + PC 투페인) — Stage 1~6
 
 ### 🛠 구현

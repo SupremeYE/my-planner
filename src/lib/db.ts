@@ -3,7 +3,7 @@ import { format, addDays, subDays } from 'date-fns';
 import { createEvent as createEventApi, deleteEvent as deleteEventApi, getEvents, upsertEvent as upsertEventApi } from '../api/events';
 import type {
   Todo, Habit, Project, Milestone,
-  SelfCareRecord, ReviewRecord, WeeklyReview, MonthlyReview, TimelineLog,
+  SelfCareRecord, ReviewRecord, WeeklyReview, MonthlyReview, HappyMoment, TimelineLog,
   FoodRecord, DiningType, TasteRating, Event, WeeklyGoal, MonthlyGoal, BrainstormItem, Tag, Routine,
   PeriodRecord, HabitMonthlyMemo, AnnualGoal, QuarterlyGoal,
   WeightRecord, WeightGoal, ConditionRecord, UserSymptom, CultureRecord, MusicRecord,
@@ -342,25 +342,80 @@ const fromSelfCare = (s: SelfCareRecord): SelfCareRow => ({
 
 type WeeklyReviewRow = {
   id: string; week_key: string; good: string; hard: string; next_week: string;
+  kpt_keep: string | null; kpt_problem: string | null; kpt_try: string | null;
 };
 
 type MonthlyReviewRow = {
   id: string; month: string; achievement: string; next_focus: string;
+  highlight: string | null; did_well: string | null; regret: string | null;
+  kpt_keep: string | null; kpt_problem: string | null; kpt_try: string | null;
+  best_video: string | null; best_music: string | null; best_book: string | null; best_place: string | null;
 };
 
 const toWeeklyReview = (r: WeeklyReviewRow): WeeklyReview => ({
   id: r.id, weekKey: r.week_key, good: r.good ?? '', hard: r.hard ?? '', nextWeek: r.next_week ?? '',
+  kptKeep: r.kpt_keep ?? undefined,
+  kptProblem: r.kpt_problem ?? undefined,
+  kptTry: r.kpt_try ?? undefined,
 });
 const fromWeeklyReview = (r: WeeklyReview): WeeklyReviewRow => ({
   id: r.id, week_key: r.weekKey, good: r.good ?? '', hard: r.hard ?? '', next_week: r.nextWeek ?? '',
+  kpt_keep: r.kptKeep ?? null,
+  kpt_problem: r.kptProblem ?? null,
+  kpt_try: r.kptTry ?? null,
 });
 
 const toMonthlyReview = (r: MonthlyReviewRow): MonthlyReview => ({
   id: r.id, month: r.month, achievement: r.achievement ?? '', nextFocus: r.next_focus ?? '',
+  highlight: r.highlight ?? undefined,
+  didWell: r.did_well ?? undefined,
+  regret: r.regret ?? undefined,
+  kptKeep: r.kpt_keep ?? undefined,
+  kptProblem: r.kpt_problem ?? undefined,
+  kptTry: r.kpt_try ?? undefined,
+  bestVideo: r.best_video ?? undefined,
+  bestMusic: r.best_music ?? undefined,
+  bestBook: r.best_book ?? undefined,
+  bestPlace: r.best_place ?? undefined,
 });
 const fromMonthlyReview = (r: MonthlyReview): MonthlyReviewRow => ({
   id: r.id, month: r.month, achievement: r.achievement ?? '', next_focus: r.nextFocus ?? '',
+  highlight: r.highlight ?? null,
+  did_well: r.didWell ?? null,
+  regret: r.regret ?? null,
+  kpt_keep: r.kptKeep ?? null,
+  kpt_problem: r.kptProblem ?? null,
+  kpt_try: r.kptTry ?? null,
+  best_video: r.bestVideo ?? null,
+  best_music: r.bestMusic ?? null,
+  best_book: r.bestBook ?? null,
+  best_place: r.bestPlace ?? null,
 });
+
+// ── 행복 기록 (happy_moments) ─────────────────────────────────────────────────
+type HappyMomentRow = {
+  id: string; content: string; date: string | null;
+  happened_at: string | null; created_at: string;
+};
+
+const toHappyMoment = (r: HappyMomentRow): HappyMoment => ({
+  id: r.id,
+  content: r.content,
+  date: r.date ?? '',
+  happenedAt: r.happened_at ?? null,
+  createdAt: r.created_at,
+});
+
+// insert/update 시 카멜→스네이크. createdAt 제외, 부분 업데이트 지원(undefined 제외).
+type HappyMomentInput = Partial<Omit<HappyMoment, 'createdAt'>>;
+const fromHappyMoment = (h: HappyMomentInput): Record<string, unknown> => {
+  const row: Record<string, unknown> = {};
+  if (h.id !== undefined)         row.id = h.id;
+  if (h.content !== undefined)    row.content = h.content;
+  if (h.date !== undefined)       row.date = h.date;
+  if (h.happenedAt !== undefined) row.happened_at = h.happenedAt;
+  return row;
+};
 
 const toReview = (r: ReviewRow): ReviewRecord => ({
   id: r.id, date: r.date, types: r.types ?? [],
@@ -1041,6 +1096,23 @@ export const db = {
     upsert: async (record: MonthlyReview) => {
       const { error } = await supabase.from('monthly_reviews').upsert(fromMonthlyReview(record));
       if (error) console.error('[db] monthly_reviews upsert:', error.message);
+    },
+  },
+
+  happyMoments: {
+    fetchAll: async (): Promise<HappyMoment[]> => {
+      const { data, error } = await supabase
+        .from('happy_moments').select('*').order('date', { ascending: false }).order('created_at', { ascending: false });
+      if (error) console.error('[db] happy_moments fetch:', error.message);
+      return (data ?? []).map(toHappyMoment);
+    },
+    upsert: async (moment: HappyMoment) => {
+      const { error } = await supabase.from('happy_moments').upsert(fromHappyMoment(moment));
+      if (error) console.error('[db] happy_moments upsert:', error.message);
+    },
+    delete: async (id: string) => {
+      const { error } = await supabase.from('happy_moments').delete().eq('id', id);
+      if (error) console.error('[db] happy_moments delete:', error.message);
     },
   },
 
