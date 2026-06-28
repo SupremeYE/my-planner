@@ -6,6 +6,30 @@
 
 ---
 
+## 2026-06-28 — 📝 리뷰 & 기록 페이지 개선 — Stage 2 (일간 탭 UI 재구축)
+
+### 🛠 구현 (일간 탭만 재구축 — 주간/월간/돌아보기/행복캡처는 후속)
+
+리뷰 & 기록 페이지의 **일간 탭**을 목업 기준으로 재구축. 탭 골격 정리 + 날짜 네비게이터 + 컨디션 배지(mood 읽기) + 감사/KPT + 과거 타임라인. 색상 토큰만, PC 레이아웃은 `useMediaQuery` 조건부 렌더링으로 분기.
+
+- **탭 구조 정리(2-0)**: 4탭(`today`/`list`/`weekly`/`monthly`) → **3탭(`day`/`week`/`month`)**. **"기록 목록"(list) 탭 진입 제거** — 단, union·JSX 블록·쿼리는 **보존**(후속 "돌아보기"가 과거 daily/happiness 승계 예정, 진입만 차단). 헤더 우측 🔍 버튼 **placeholder**(disabled, Stage 5 연결). 주간/월간 탭은 기존 화면 그대로(키만 weekly→week / monthly→month).
+- **날짜 네비게이터(2-1)**: `‹ [M월 d일 EEEE] ›`(date-fns `ko`), 좌우 과거/미래 이동, 라벨 탭=오늘로 점프. 기본값=오늘. 선택 날짜(`dayDate`)가 아래 모든 섹션의 읽기/쓰기 기준.
+- **컨디션 배지(2-2, 읽기 전용)**: 선택 날짜 `mood_records` 조회(`emotion_tags`/`energy_level`) → 대표 카테고리 이모지+라벨+태그+에너지 라벨 표시. **입력 UI 없음**, "건강 &gt; 컨디션에서 기록 →"(=/mood) 링크만. 데이터 없으면 "아직 기분 기록 없음". `useRealtimeSync('mood_records')` 즉시 반영. **리뷰는 mood 저장 안 함(단일 진실 공급원)**. 중복 구현 방지로 `MoodView`에서 `getCategoryEmoji`/`getMoodCategoryLabel`/`ENERGY_LABELS` export 재사용.
+- **감사일기(2-3)**: 기본 3줄 + "＋ 한 줄 더 추가"로 N개, 각 줄 × 삭제, 각 줄 음성 입력(기존 `VoiceInputButton`/`useVoiceInput` 재사용). 본문 폰트 = **NanumSquareRound**(이 페이지 한정 `--font-nanum-round` 토큰, `fonts.css` 정적 @import). 저장 `review_records.gratitude`(배열).
+- **KPT 회고(2-4)**: Keep/Problem/Try 3칸 각 음성. **PC `lg` 가로 3열 / 모바일 세로 스택**(`useMediaQuery` grid 분기). 저장 `kpt_keep`/`kpt_problem`/`kpt_try`.
+- **데일리 리뷰 입력 UI 제거(2-5)**: 한줄요약/잘한점/개선점 입력란 화면에서 제거. `daily_*` 컬럼은 보존(Stage 1). 일간 저장은 gratitude/kpt 만 전송 → `updateReviewRecord` 부분 머지(undefined 제외, Stage 1)로 **과거 daily 값 재저장 시 유실 없음**. `types` 도 기존 happiness/daily 유형 보존 후 gratitude/kpt 재계산.
+- **저장 동작(2-6)**: 선택 날짜 레코드 있으면 update(부분 머지)·없으면 add, 하루 1레코드. 행복 기록은 이 폼에 **없음**(독립 스트림, 후속). 저장 시 버튼 "저장됨 ✓" 1.8s 플래시(`t.success`).
+- **과거 타임라인(2-7)**: 최근 7건 카드(날짜·감사 n/KPT 배지·본문 미리보기) + "🕰 1년 전 오늘" 강조 카드(`subYears`로 동일 날짜 1년 전 레코드 있으면). **모바일=폼 아래 세로 / PC=우측 320px `sticky`**. 카드 탭 → 그 날짜로 네비게이트(`setDayDate`).
+- **레이아웃(2-8)**: `useMediaQuery('(min-width:1024px)')` 분기 — PC 2컬럼(좌 쓰기 / 우 과거 sticky), 모바일 세로. 색상 디자인 토큰만.
+
+### ✅ 검증
+- `npm run build`(vite 6) 통과. DB 스키마/매핑 변경 0(Stage 1 모델만 사용). 색·문자열 하드코딩 0(KPT 라벨 색은 기존 코드 유지). `list` 탭 컴포넌트/쿼리 보존(진입만 제거). 주간/월간 탭 DOM 무변경.
+
+### 📋 다음(예정)
+- Stage 3~: 주간/월간 탭 재구축(KPT·베스트픽 입력 연동), 돌아보기 탭(과거 daily/happiness 승계), 행복 캡처(happy_moments 쓰기), 🔍 검색 연결.
+
+---
+
 ## 2026-06-28 — 📝 리뷰 & 기록 페이지 개선 — Stage 1 (데이터 모델 + DB 마이그레이션)
 
 ### 🛠 구현 (모델·DB·매핑·realtime·액션 레벨만 — UI/통계/컴포넌트 변경 0)
