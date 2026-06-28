@@ -463,12 +463,25 @@ export interface ReviewRecord {
   dailyImprove?: string;
 }
 
+// 행복 기록 — review_records.happiness 에서 독립 분리한 전용 테이블.
+// happenedAt(시각)은 nullable: 과거 백필 건은 date 만 있고 시각은 비어 있다.
+export interface HappyMoment {
+  id: string;
+  content: string;
+  date: string;
+  happenedAt: string | null;
+  createdAt: string;
+}
+
 export interface WeeklyReview {
   id: string;
   weekKey: string;
   good: string;
   hard: string;
   nextWeek: string;
+  kptKeep?: string;
+  kptProblem?: string;
+  kptTry?: string;
 }
 
 export interface MonthlyReview {
@@ -476,6 +489,16 @@ export interface MonthlyReview {
   month: string;
   achievement: string;
   nextFocus: string;
+  highlight?: string;
+  didWell?: string;
+  regret?: string;
+  kptKeep?: string;
+  kptProblem?: string;
+  kptTry?: string;
+  bestVideo?: string;
+  bestMusic?: string;
+  bestBook?: string;
+  bestPlace?: string;
 }
 
 export interface WeeklyGoal {
@@ -741,6 +764,7 @@ interface PlannerContextType {
   reviewRecords: ReviewRecord[];
   weeklyReviews: WeeklyReview[];
   monthlyReviews: MonthlyReview[];
+  happyMoments: HappyMoment[];
   timelineLogs: TimelineLog[];
   dailyAffirmations: Record<string, string>;
   setDailyAffirmation: (date: string, text: string) => void;
@@ -813,6 +837,10 @@ interface PlannerContextType {
   updateWeeklyReview: (id: string, changes: Partial<WeeklyReview>) => void;
   addMonthlyReview: (review: Omit<MonthlyReview, 'id'>) => void;
   updateMonthlyReview: (id: string, changes: Partial<MonthlyReview>) => void;
+
+  // Happy moment actions (행복 기록)
+  addHappyMoment: (content: string, date: string, happenedAt?: string | null) => void;
+  deleteHappyMoment: (id: string) => void;
 
   // Weekly goal actions
   addWeeklyGoal: (text: string, monthlyGoalId: string | undefined, weekKey: string) => void;
@@ -916,6 +944,7 @@ export function PlannerProvider({ children }: { children: React.ReactNode }) {
   const [routines, setRoutines] = useState<Routine[]>([]); // Supabase 연동은 db.routines 통해 진행
   const [weeklyReviews, setWeeklyReviews] = useState<WeeklyReview[]>([]);
   const [monthlyReviews, setMonthlyReviews] = useState<MonthlyReview[]>([]);
+  const [happyMoments, setHappyMoments] = useState<HappyMoment[]>([]);
   const [dailyAffirmations, setDailyAffirmations] = useState<Record<string, string>>({});
   const [appSettings, setAppSettings] = useState<AppSettings>(DEFAULT_APP_SETTINGS);
   const wakeLockRef = useRef<any>(null);
@@ -931,6 +960,7 @@ export function PlannerProvider({ children }: { children: React.ReactNode }) {
         brainstormItemsData, brainstormMemosData, tagsData, routinesData,
         periodData, habitMonthlyMemosData, annualGoalsData, quarterlyGoalsData,
         weeklyReviewsData, monthlyReviewsData, foodRecordsData,
+        happyMomentsData,
       ] = await Promise.all([
         db.todos.fetchAll(),
         db.habits.fetchAll(),
@@ -954,6 +984,7 @@ export function PlannerProvider({ children }: { children: React.ReactNode }) {
         db.weeklyReviews.fetchAll(),
         db.monthlyReviews.fetchAll(),
         db.foodRecords.fetchAll(),
+        db.happyMoments.fetchAll(),
       ]);
       setTodos(todosData);
       setHabits(habitsData);
@@ -994,6 +1025,7 @@ export function PlannerProvider({ children }: { children: React.ReactNode }) {
       setWeeklyReviews(weeklyReviewsData);
       setMonthlyReviews(monthlyReviewsData);
       setFoodRecords(foodRecordsData);
+      setHappyMoments(happyMomentsData);
       setIsLoading(false);
     };
     load();
@@ -1024,6 +1056,14 @@ export function PlannerProvider({ children }: { children: React.ReactNode }) {
       weekly_reviews:    async () => setWeeklyReviews(await db.weeklyReviews.fetchAll()),
       monthly_reviews:   async () => setMonthlyReviews(await db.monthlyReviews.fetchAll()),
       food_records:      async () => setFoodRecords(await db.foodRecords.fetchAll()),
+      happy_moments:     async () => setHappyMoments(await db.happyMoments.fetchAll()),
+      // user_settings: 토글 등 설정 변경을 다른 탭/기기에 즉시 반영(기존 누락분 보완)
+      user_settings:     async () => {
+        const s = await db.settings.fetch();
+        setDayStartHour(s.dayStartHour);
+        setDayEndHour(s.dayEndHour);
+        setAppSettings(prev => ({ ...prev, ...s.appSettings }));
+      },
     };
 
     const channels = Object.entries(refetchers).map(([table, refetch]) =>
@@ -1638,9 +1678,15 @@ export function PlannerProvider({ children }: { children: React.ReactNode }) {
     db.reviewRecords.upsert(newRecord);
   }, []);
 
+  // 부분 업데이트(머지): undefined 값 키는 무시해 기존 레코드 값을 보존한다.
+  // (현재 ReviewsView 는 매번 전체 필드를 전송하며 선택 안 한 타입은 undefined 로 보내므로,
+  //  머지 없이 그대로 덮으면 daily_*/kpt_* 등 다른 날 적힌 값이 유실될 위험이 있었다.)
   const updateReviewRecord = useCallback((id: string, changes: Partial<ReviewRecord>) => {
+    const defined = Object.fromEntries(
+      Object.entries(changes).filter(([, v]) => v !== undefined)
+    ) as Partial<ReviewRecord>;
     setReviewRecords(prev => {
-      const updated = prev.map(r => r.id === id ? { ...r, ...changes } : r);
+      const updated = prev.map(r => r.id === id ? { ...r, ...defined } : r);
       const record = updated.find(r => r.id === id);
       if (record) db.reviewRecords.upsert(record);
       return updated;
@@ -1680,6 +1726,24 @@ export function PlannerProvider({ children }: { children: React.ReactNode }) {
       db.monthlyReviews.upsert(updated);
       return updated;
     }));
+  }, []);
+
+  // ── Happy moment actions (행복 기록) ──
+  const addHappyMoment = useCallback((content: string, date: string, happenedAt: string | null = null) => {
+    const newMoment: HappyMoment = {
+      id: newEventId(),
+      content,
+      date,
+      happenedAt,
+      createdAt: new Date().toISOString(),
+    };
+    setHappyMoments(prev => [newMoment, ...prev]);
+    db.happyMoments.upsert(newMoment);
+  }, []);
+
+  const deleteHappyMoment = useCallback((id: string) => {
+    setHappyMoments(prev => prev.filter(m => m.id !== id));
+    db.happyMoments.delete(id);
   }, []);
 
   // ── Weekly goal actions ──
@@ -2032,6 +2096,7 @@ export function PlannerProvider({ children }: { children: React.ReactNode }) {
       todos, events, habits, weeklyGoals, monthlyGoals, annualGoals, quarterlyGoals, brainstormItems, brainstormMemos, activeTimer,
       projects, milestones, tags,
       routines, selfCareRecords, periodRecords, reviewRecords, weeklyReviews, monthlyReviews,
+      happyMoments,
       timelineLogs,
       dailyAffirmations, setDailyAffirmation,
       appSettings, updateAppSettings,
@@ -2047,6 +2112,7 @@ export function PlannerProvider({ children }: { children: React.ReactNode }) {
       addReviewRecord, updateReviewRecord, deleteReviewRecord,
       addWeeklyReview, updateWeeklyReview,
       addMonthlyReview, updateMonthlyReview,
+      addHappyMoment, deleteHappyMoment,
       addWeeklyGoal, toggleWeeklyGoal, deleteWeeklyGoal,
       addMonthlyGoal, updateMonthlyGoal, deleteMonthlyGoal,
       addAnnualGoal, toggleAnnualGoal, deleteAnnualGoal,

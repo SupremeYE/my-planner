@@ -54,7 +54,7 @@ const EMOTION_CATEGORIES: { emoji: string; label: string; emotions: string[] }[]
   { emoji: '😑', label: '기타', emotions: ['무기력', '피곤', '멍함', '집중', '평온'] },
 ];
 
-const ENERGY_LABELS: Record<number, string> = { 1: '매우 낮음', 2: '낮음', 3: '보통', 4: '높음', 5: '매우 높음' };
+export const ENERGY_LABELS: Record<number, string> = { 1: '매우 낮음', 2: '낮음', 3: '보통', 4: '높음', 5: '매우 높음' };
 
 // 태그 → 카테고리 역방향 매핑
 const TAG_CATEGORY: Record<string, string> = {};
@@ -70,12 +70,21 @@ function getEmotionColor(tags: string[]): { bg: string; accent: string } | null 
   return null;
 }
 
-function getCategoryEmoji(tags: string[]): string {
+export function getCategoryEmoji(tags: string[]): string {
   for (const tag of tags) {
     const cat = EMOTION_CATEGORIES.find(c => c.emotions.includes(tag));
     if (cat) return cat.emoji;
   }
   return '🌸';
+}
+
+// 감정 태그 배열에서 대표 카테고리 한글 라벨(행복/슬픔 등). 없으면 빈 문자열.
+export function getMoodCategoryLabel(tags: string[]): string {
+  for (const tag of tags) {
+    const cat = TAG_CATEGORY[tag];
+    if (cat) return cat;
+  }
+  return '';
 }
 
 function formatKoreanTime(isoStr: string): string {
