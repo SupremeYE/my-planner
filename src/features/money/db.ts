@@ -5,7 +5,7 @@
 import { supabase } from '../../lib/supabase';
 import type {
   MoneyCategory, MoneyTransaction, MoneyAccount, MoneyCard,
-  MoneyFixedCost, MoneyLoan, MoneyGoal, MoneySettings, Currency, PeriodType,
+  MoneyFixedCost, MoneyLoan, MoneyGoal, MoneyPlan, MoneySettings, Currency, PeriodType,
 } from './types';
 
 const num = (v: any): number | null => (v != null ? Number(v) : null);
@@ -46,6 +46,8 @@ const transactions = {
       id: r.id, type: r.type, amount: Number(r.amount), categoryId: r.category_id ?? null,
       memo: r.memo ?? null, paymentMethod: r.payment_method ?? null, spentAt: r.spent_at,
       source: r.source ?? 'manual', rawInput: r.raw_input ?? null, emoji: r.emoji ?? null,
+      originalAmount: num(r.original_amount), currency: (r.currency ?? 'KRW') as Currency,
+      fxRate: num(r.fx_rate), fixedCostId: r.fixed_cost_id ?? null,
       createdAt: r.created_at ?? undefined,
     }));
   },
@@ -54,6 +56,8 @@ const transactions = {
       id: item.id, type: item.type, amount: item.amount, category_id: item.categoryId ?? null,
       memo: item.memo ?? null, payment_method: item.paymentMethod ?? null, spent_at: item.spentAt,
       source: item.source ?? 'manual', raw_input: item.rawInput ?? null, emoji: item.emoji ?? null,
+      original_amount: item.originalAmount ?? null, currency: item.currency ?? 'KRW',
+      fx_rate: item.fxRate ?? null, fixed_cost_id: item.fixedCostId ?? null,
     }, { onConflict: 'id' });
     if (error) console.error('[money] transactions upsert:', error.message);
   },
@@ -204,6 +208,37 @@ const goals = {
   },
 };
 
+// ── plans (월간 계획) — 기간별 1행, (user_id, period_start) 유니크 upsert ──
+const plans = {
+  fetchAll: async (): Promise<MoneyPlan[]> => {
+    const { data, error } = await supabase
+      .from('money_plans').select('*').order('period_start', { ascending: false });
+    if (error) console.error('[money] plans fetch:', error.message);
+    return (data ?? []).map((r: any): MoneyPlan => ({
+      id: r.id, periodStart: r.period_start, periodEnd: r.period_end,
+      expectedIncome: Number(r.expected_income ?? 0), fixedCostTotal: Number(r.fixed_cost_total ?? 0),
+      availableAmount: Number(r.available_amount ?? 0), plannedSavings: Number(r.planned_savings ?? 0),
+      plannedInvestment: Number(r.planned_investment ?? 0), plannedLiving: Number(r.planned_living ?? 0),
+      createdAt: r.created_at ?? undefined,
+    }));
+  },
+  // period_start 충돌 시 갱신(재계획). user_id 는 default auth.uid().
+  upsert: async (item: MoneyPlan) => {
+    const { error } = await supabase.from('money_plans').upsert({
+      id: item.id, period_start: item.periodStart, period_end: item.periodEnd,
+      expected_income: item.expectedIncome, fixed_cost_total: item.fixedCostTotal,
+      available_amount: item.availableAmount, planned_savings: item.plannedSavings,
+      planned_investment: item.plannedInvestment, planned_living: item.plannedLiving,
+      updated_at: new Date().toISOString(),
+    }, { onConflict: 'id' });
+    if (error) console.error('[money] plans upsert:', error.message);
+  },
+  delete: async (id: string) => {
+    const { error } = await supabase.from('money_plans').delete().eq('id', id);
+    if (error) console.error('[money] plans delete:', error.message);
+  },
+};
+
 const DEFAULT_SETTINGS: MoneySettings = {
   periodType: 'payday', payday: 25, monthlyBudget: 1200000, currency: 'KRW', fxAlertThreshold: 3.0,
 };
@@ -237,5 +272,5 @@ const settings = {
 };
 
 export const moneyDb = {
-  categories, transactions, accounts, cards, fixedCosts, loans, goals, settings,
+  categories, transactions, accounts, cards, fixedCosts, loans, goals, plans, settings,
 };

@@ -25,6 +25,23 @@ export async function fetchFxRate(from: Currency, to: Currency = 'KRW'): Promise
   }
 }
 
+// 특정 날짜(date 'yyyy-MM-dd')의 1 단위(from) → KRW 환율. 결제일 환산용(과거/당일).
+//  · Frankfurter 는 해당일이 휴장이면 직전 영업일 환율을 반환(키 불필요·CORS 허용).
+//  · 미래 날짜는 데이터가 없으므로 호출부에서 latest 로 폴백할 것.
+export async function fetchFxRateOn(date: string, from: Currency, to: Currency = 'KRW'): Promise<number | null> {
+  if (from === to) return 1;
+  try {
+    const res = await fetch(`https://api.frankfurter.app/${date}?from=${from}&to=${to}`);
+    if (!res.ok) { console.error('[money] fx fetch(on):', res.status); return null; }
+    const j = await res.json();
+    const rate = j?.rates?.[to];
+    return typeof rate === 'number' && Number.isFinite(rate) ? rate : null;
+  } catch (e) {
+    console.error('[money] fx fetch(on) 예외:', String(e));
+    return null;
+  }
+}
+
 // 오늘 기준 매월 day 일까지 남은 일수(D-day). day 없으면 null.
 export function daysUntilDay(day: number | null, base = new Date()): number | null {
   if (!day) return null;

@@ -7,8 +7,10 @@ import type { UseMoney } from './useMoney';
 import {
   MONEY_PALETTE, resolveCategoryColor, categoryInitial, formatWon, formatManShort, subcategoryShade, INVEST_KIND_META,
 } from './tokens';
-import type { MoneyCategory, MoneyAccount, MoneyCard, MoneyLoan, MoneyGoal, MoneyFixedCost, PeriodType, Currency } from './types';
+import type { MoneyCategory, MoneyAccount, MoneyCard, MoneyLoan, MoneyGoal, MoneyFixedCost, PeriodType } from './types';
 import { TransactionForm, AccountForm, CardForm, FixedCostForm, LoanForm, GoalForm } from './MoneyForms';
+import { MoneyPlanSheet } from './MoneyPlanSheet';
+import { CURRENCY_SYMBOL } from './fx';
 import { CategoryManager } from './MoneyCategoryManager';
 import { FixedCostManager } from './MoneyFixedCostManager';
 import { CardManager } from './MoneyCardManager';
@@ -545,7 +547,13 @@ export function TransactionList({ m, limit, onEdit }: { m: UseMoney; limit?: num
                 {tx.memo || catLabel || (isIncome ? '수입' : '지출')}
               </div>
               <div style={{ fontSize: 11, color: t.textMuted, marginTop: 1 }}>
-                {[catLabel, tx.paymentMethod, format(parseISO(tx.spentAt), 'M.d')].filter(Boolean).join(' · ')}
+                {[
+                  catLabel,
+                  tx.originalAmount != null && tx.currency !== 'KRW' ? `${CURRENCY_SYMBOL[tx.currency]}${tx.originalAmount}` : null,
+                  tx.paymentMethod,
+                  tx.source === 'fixed' ? '🔁 고정' : null,
+                  format(parseISO(tx.spentAt), 'M.d'),
+                ].filter(Boolean).join(' · ')}
               </div>
             </div>
             <div style={{ fontSize: 14, fontWeight: 700, color: isIncome ? MONEY_PALETTE.green : t.text, whiteSpace: 'nowrap' }}>
@@ -1049,12 +1057,55 @@ export function ChatInputBar({ m, floating }: { m: UseMoney; floating?: boolean 
   );
 }
 
+// ── 이번 달 계획 배너(가계부 탭 상단) — 미수립이면 유도, 수립됐으면 요약+수정 ──
+function PlanBanner({ m, onOpen }: { m: UseMoney; onOpen: () => void }) {
+  const { t } = useTheme();
+  const plan = m.currentPlan;
+  if (!plan) {
+    return (
+      <button onClick={onOpen} className="w-full flex items-center justify-between active:scale-[0.99] transition-transform"
+        style={{ background: `${MONEY_PALETTE.gold}1a`, border: `1.5px solid ${MONEY_PALETTE.gold}55`, borderRadius: 16, padding: '14px 16px' }}>
+        <div className="text-left">
+          <div style={{ fontSize: 13.5, fontWeight: 700, color: t.text }}>🗓️ 이번 달 계획을 세워보세요</div>
+          <div style={{ fontSize: 11.5, color: t.textSub, marginTop: 2 }}>수입에서 고정비 빼고 → 저축 먼저 → 남은 걸로 생활</div>
+        </div>
+        <span style={{ fontSize: 12, fontWeight: 700, color: MONEY_PALETTE.gold, flexShrink: 0 }}>계획하기 ›</span>
+      </button>
+    );
+  }
+  return (
+    <button onClick={onOpen} className="w-full active:scale-[0.99] transition-transform"
+      style={{ background: t.card, border: `1px solid ${t.borderLight}`, borderRadius: 16, padding: '13px 16px', boxShadow: t.shadow }}>
+      <div className="flex items-center justify-between" style={{ marginBottom: 8 }}>
+        <span style={{ fontSize: 13, fontWeight: 700, color: t.text }}>
+          <span style={{ color: MONEY_PALETTE.green }}>✓</span> 이번 달 계획 완료
+        </span>
+        <span style={{ fontSize: 11.5, fontWeight: 600, color: t.textSub }}>수정 ›</span>
+      </div>
+      <div className="flex gap-2">
+        {[
+          { l: '예상 수입', v: plan.expectedIncome, c: t.text },
+          { l: '저축+투자', v: plan.plannedSavings + plan.plannedInvestment, c: MONEY_PALETTE.green },
+          { l: '생활비', v: plan.plannedLiving, c: MONEY_PALETTE.gold },
+        ].map((x, i) => (
+          <div key={i} className="flex-1 text-center" style={{ background: t.bgSub, borderRadius: 10, padding: '7px 4px' }}>
+            <div style={{ fontSize: 10, color: t.textMuted }}>{x.l}</div>
+            <div style={{ fontSize: 13, fontWeight: 700, color: x.c, marginTop: 1 }}>{formatManShort(x.v)}</div>
+          </div>
+        ))}
+      </div>
+    </button>
+  );
+}
+
 // ── 가계부 패널(요약·예산·캘린더·분석·거래, 거래 탭=수정) ──
 export function BudgetPanel({ m }: { m: UseMoney }) {
   const { t } = useTheme();
   const [editTx, setEditTx] = useState<{ item: any } | null>(null);
+  const [showPlan, setShowPlan] = useState(false);
   return (
     <div className="flex flex-col gap-3">
+      <PlanBanner m={m} onOpen={() => setShowPlan(true)} />
       <SummaryStrip m={m} />
       <BudgetBar m={m} />
       <SpendCalendar m={m} />
@@ -1070,6 +1121,7 @@ export function BudgetPanel({ m }: { m: UseMoney }) {
         <TransactionList m={m} limit={20} onEdit={(tx) => setEditTx({ item: tx })} />
       </div>
       {editTx && <TransactionForm m={m} item={editTx.item} onClose={() => setEditTx(null)} />}
+      {showPlan && <MoneyPlanSheet m={m} onClose={() => setShowPlan(false)} />}
     </div>
   );
 }
@@ -1080,25 +1132,20 @@ export function SettingsSheet({ m, onClose }: { m: UseMoney; onClose: () => void
   const [periodType, setPeriodType] = useState<PeriodType>(m.settings.periodType);
   const [payday, setPayday] = useState(String(m.settings.payday));
   const [budgetMan, setBudgetMan] = useState(String(Math.round(m.settings.monthlyBudget / 10000)));
-  const [currency, setCurrency] = useState<Currency>(m.settings.currency);
   const [fxThreshold, setFxThreshold] = useState(String(m.settings.fxAlertThreshold));
   const [showCategories, setShowCategories] = useState(false);
 
   const save = async () => {
     const thr = Number(fxThreshold);
     await m.updateSettings({
-      ...m.settings,
+      ...m.settings,   // currency 는 ₩ 고정 — 통화는 고정비/거래별로만 다룸(설정에서 제외)
       periodType,
       payday: Math.min(Math.max(parseInt(payday) || 1, 1), 31),
       monthlyBudget: (parseInt(budgetMan) || 0) * 10000,
-      currency,
       fxAlertThreshold: Number.isFinite(thr) && thr > 0 ? thr : 3.0,
     });
     onClose();
   };
-  const CURRENCIES: { value: Currency; label: string }[] = [
-    { value: 'KRW', label: '₩ 원' }, { value: 'USD', label: '$ 달러' }, { value: 'EUR', label: '€ 유로' }, { value: 'JPY', label: '¥ 엔' },
-  ];
 
   const opt = (active: boolean) => ({
     flex: 1, padding: 10, borderRadius: 12, textAlign: 'center' as const, fontSize: 13, cursor: 'pointer',
@@ -1139,15 +1186,6 @@ export function SettingsSheet({ m, onClose }: { m: UseMoney; onClose: () => void
           <div className="flex items-center gap-2">
             <input type="number" value={budgetMan} onChange={e => setBudgetMan(e.target.value)} style={{ ...input, width: 80 }} />
             <span style={{ fontSize: 13, color: t.textSub }}>만 원</span>
-          </div>
-        </div>
-
-        <div style={{ marginBottom: 18 }}>
-          <div style={{ fontSize: 12, color: t.textSub, marginBottom: 8 }}>기본 통화</div>
-          <div className="flex gap-2">
-            {CURRENCIES.map(c => (
-              <button key={c.value} style={opt(currency === c.value)} onClick={() => setCurrency(c.value)}>{c.label}</button>
-            ))}
           </div>
         </div>
 

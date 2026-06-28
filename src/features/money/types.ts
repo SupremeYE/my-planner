@@ -18,7 +18,7 @@ export interface MoneyCategory {
 export interface MoneyTransaction {
   id: string;
   type: TxType;
-  amount: number;            // 원화 기준(원 단위)
+  amount: number;            // 원화 기준(원 단위) — 외화 거래도 환산 후 이 값으로 저장
   categoryId: string | null;
   memo: string | null;
   paymentMethod: string | null;
@@ -26,6 +26,11 @@ export interface MoneyTransaction {
   source: TxSource;
   rawInput: string | null;
   emoji: string | null;      // 거래별 이모지(🍖 등). 없으면 카테고리 이모지로 폴백.
+  // 외화 거래 보존(원화 amount 와 별도). 원화 거래는 currency='KRW', 나머지 null.
+  originalAmount: number | null;  // 외화 원금($20 → 20)
+  currency: Currency;             // 'KRW' 기본
+  fxRate: number | null;          // 적용 환율(1 외화 = N KRW)
+  fixedCostId: string | null;     // 고정비 자동 기록(source='fixed')이면 그 고정비 id
   createdAt?: string;
 }
 
@@ -115,6 +120,21 @@ export interface MoneyGoal {
   createdAt?: string;
 }
 
+// 월간 계획(Plan-Stage 1) — 기간별 1행. period_start 로 기간 식별.
+//  · fixedCostTotal/availableAmount 는 계획 수립 시점 스냅샷(회고 비교 기준). 라이브 값은 런타임 재계산.
+export interface MoneyPlan {
+  id: string;
+  periodStart: string;          // 'yyyy-MM-dd' (getMoneyPeriod().start)
+  periodEnd: string;
+  expectedIncome: number;       // 예상 수입(월급+부수입)
+  fixedCostTotal: number;       // 고정 지출 합(월환산 고정비 + 대출 월상환) 스냅샷
+  availableAmount: number;      // 예상수입 − 고정지출 가용 금액 스냅샷
+  plannedSavings: number;       // 선저축 배분
+  plannedInvestment: number;    // 투자 배분
+  plannedLiving: number;        // 생활비(변동) 배분
+  createdAt?: string;
+}
+
 export type PeriodType = 'calendar' | 'payday';
 
 export interface MoneySettings {
@@ -128,7 +148,8 @@ export interface MoneySettings {
 // money-parse Edge Function 파싱 결과(클라이언트 ↔ 함수 계약)
 export interface ParsedTx {
   type: TxType;
-  amount: number;
+  amount: number;                // currency 단위 금액(외화면 외화 단위: $20 → 20)
+  currency: Currency;            // 'KRW' 기본. "달러/$"→USD 등
   category: string | null;       // 대분류 "이름"(클라가 id 로 해석)
   subcategory: string | null;    // 소분류 "이름"(대분류의 자식, 추론 애매하면 null)
   memo: string | null;
