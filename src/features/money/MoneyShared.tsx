@@ -11,6 +11,7 @@ import type { MoneyCategory, MoneyAccount, MoneyCard, MoneyLoan, MoneyGoal, Mone
 import { TransactionForm, AccountForm, CardForm, FixedCostForm, LoanForm, GoalForm } from './MoneyForms';
 import { MoneyPlanSheet } from './MoneyPlanSheet';
 import { WeekBanner, WeekReviewSheet } from './MoneyWeekReview';
+import { MonthBanner, MonthReviewSheet } from './MoneyMonthReview';
 import { CURRENCY_SYMBOL } from './fx';
 import { CategoryManager } from './MoneyCategoryManager';
 import { FixedCostManager } from './MoneyFixedCostManager';
@@ -1105,10 +1106,12 @@ export function BudgetPanel({ m }: { m: UseMoney }) {
   const [editTx, setEditTx] = useState<{ item: any } | null>(null);
   const [showPlan, setShowPlan] = useState(false);
   const [showWeek, setShowWeek] = useState(false);
+  const [showMonth, setShowMonth] = useState(false);
   return (
     <div className="flex flex-col gap-3">
       <PlanBanner m={m} onOpen={() => setShowPlan(true)} />
       <WeekBanner m={m} onOpen={() => setShowWeek(true)} />
+      <MonthBanner m={m} onOpen={() => setShowMonth(true)} />
       <SummaryStrip m={m} />
       <BudgetBar m={m} />
       <SpendCalendar m={m} />
@@ -1126,6 +1129,7 @@ export function BudgetPanel({ m }: { m: UseMoney }) {
       {editTx && <TransactionForm m={m} item={editTx.item} onClose={() => setEditTx(null)} />}
       {showPlan && <MoneyPlanSheet m={m} onClose={() => setShowPlan(false)} />}
       {showWeek && <WeekReviewSheet m={m} onClose={() => setShowWeek(false)} />}
+      {showMonth && <MonthReviewSheet m={m} onClose={() => setShowMonth(false)} />}
     </div>
   );
 }
