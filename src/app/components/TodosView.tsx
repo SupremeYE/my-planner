@@ -5,7 +5,7 @@ import {
   Check, Star, Pencil, ListTodo, Play,
   AlertTriangle, ArrowDownToLine,
 } from 'lucide-react';
-import { usePlanner, Todo, TodoStatus } from '../store';
+import { usePlanner, Todo, TodoStatus, getLogicalToday } from '../store';
 import { useTheme } from '../ThemeContext';
 import ConfirmModal from './ConfirmModal';
 import { MandalartSourceBadge } from './mandalart/MandalartSourceBadge';
@@ -71,7 +71,7 @@ function TodoRow({
   const isDone = todo.status === 'done';
   const isCancelled = todo.status === 'cancelled';
   const cfg = STATUS_CONFIG[todo.status] ?? STATUS_CONFIG.active;
-  const duePast = todo.dueDate && todo.dueDate < format(new Date(), 'yyyy-MM-dd');
+  const duePast = todo.dueDate && todo.dueDate < getLogicalToday();
   const project = todo.projectId ? projects.find(p => p.id === todo.projectId) : null;
 
   return (
@@ -221,7 +221,7 @@ function TodoListTab() {
   const [showAddModal, setShowAddModal] = useState(false);
   const [addDefaultDate, setAddDefaultDate] = useState<string | undefined>(undefined);
 
-  const todayStr = format(new Date(), 'yyyy-MM-dd');
+  const todayStr = getLogicalToday();
 
   // 날짜 배정된 미완료 할일만 (done/cancelled/backlog 제외, 미지정은 /inbox 전담)
   const incompleteAssigned = useMemo(
@@ -493,7 +493,7 @@ export function TodosView() {
   const [showAddEventModal, setShowAddEventModal] = useState(false);
 
   // 탭 카운트 뱃지 — 할 일(미완료) / 완료함(done+cancelled)
-  const todayStr = format(new Date(), 'yyyy-MM-dd');
+  const todayStr = getLogicalToday();
   const listCount = useMemo(
     () => todos.filter(td =>
       td.date !== null &&

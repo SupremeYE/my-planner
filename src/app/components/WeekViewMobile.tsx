@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { addDays, format, startOfWeek } from 'date-fns';
 import { ko } from 'date-fns/locale';
-import { usePlanner, Todo, SelfCareRecord } from '../store';
+import { usePlanner, Todo, SelfCareRecord, getLogicalToday } from '../store';
 import { isDoOvertimeVsPlan } from '../../lib/todoDoDuration';
 import { expandRecurringTodos } from '../../lib/recurrenceExpansion';
 import { sleepRectsForColumn } from '../../lib/sleepTimeline';
@@ -699,7 +699,7 @@ export function WeekViewMobile({ viewDate, weekStartsOn, selectedDate, onSelectD
     () => Array.from({ length: 7 }, (_, i) => addDays(weekStart, i)),
     [weekStart]
   );
-  const todayStr = format(new Date(), 'yyyy-MM-dd');
+  const todayStr = getLogicalToday();
 
   // 이번 주 todo (반복 일정 포함 가상 확장)
   const weekTodos = useMemo(() => {

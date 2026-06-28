@@ -4,6 +4,7 @@ import { format } from 'date-fns';
 import { useTheme } from '../ThemeContext';
 import { useFabAction } from '../FabContext';
 import { supabase } from '../../lib/supabase';
+import { getLogicalToday } from '../store';
 import { useRealtimeSync } from '../hooks/useRealtimeSync';
 import { useVoiceInput } from '../hooks/useVoiceInput';
 
@@ -152,7 +153,7 @@ function RecordSheet({ onClose, onSave, initialData, defaultDate }: RecordSheetP
   const [energyLevel, setEnergyLevel] = useState(initialData?.energy_level ?? 3);
   const [memo, setMemo] = useState(initialData?.memo ?? '');
   const [saving, setSaving] = useState(false);
-  const today = format(new Date(), 'yyyy-MM-dd');
+  const today = getLogicalToday();
   const totalSteps = 4;
 
   const toggleBodySignal = (s: string) =>
@@ -596,7 +597,7 @@ function EnergyLineChart({ dailyEnergy, today }: {
 
 function StatsTab({ records }: { records: MoodRecord[] }) {
   const { t } = useTheme();
-  const today = format(new Date(), 'yyyy-MM-dd');
+  const today = getLogicalToday();
   const [periodFilter, setPeriodFilter] = useState<PeriodFilter>('this-month');
   const [customStart, setCustomStart] = useState('');
   const [customEnd, setCustomEnd] = useState(today);
@@ -822,7 +823,7 @@ function StatsTab({ records }: { records: MoodRecord[] }) {
 
 export function MoodView() {
   const { t } = useTheme();
-  const today = format(new Date(), 'yyyy-MM-dd');
+  const today = getLogicalToday();
 
   const [records, setRecords] = useState<MoodRecord[]>([]);
   const [loading, setLoading] = useState(true);

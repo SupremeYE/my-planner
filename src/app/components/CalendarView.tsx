@@ -14,7 +14,7 @@ import {
   subMonths,
 } from 'date-fns';
 import { ko } from 'date-fns/locale';
-import { usePlanner, Event, PeriodRecord, SelfCareRecord, Todo } from '../store';
+import { usePlanner, Event, PeriodRecord, SelfCareRecord, Todo, getLogicalToday } from '../store';
 import { isDoOvertimeVsPlan, doElapsedTitleSuffix } from '../../lib/todoDoDuration';
 import { expandRecurringTodos, isVirtualTodoId, parseVirtualTodoId } from '../../lib/recurrenceExpansion';
 import { isEventPast } from '../../api/events';
@@ -149,7 +149,7 @@ function MonthView({ viewDate, filter, selectedTagIds, weekStartsOn, onSelectDat
     return items;
   };
 
-  const todayStr = format(new Date(), 'yyyy-MM-dd');
+  const todayStr = getLogicalToday();
 
   // Collapsed: show only the week row containing selectedDate (or today)
   const activeStr = selectedDate || todayStr;
@@ -368,7 +368,7 @@ export function CalendarView() {
   };
 
   const handleToday = () => {
-    const todayStr = format(new Date(), 'yyyy-MM-dd');
+    const todayStr = getLogicalToday();
     setSelectedDate(todayStr);
     setViewDate(parseISO(todayStr));
     setPanelDate(todayStr);

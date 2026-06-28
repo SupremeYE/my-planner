@@ -8,7 +8,7 @@ import {
 } from 'lucide-react';
 import { format, addDays, subDays, addMonths, subMonths, startOfMonth, getDaysInMonth, getDay as getDayOfWeek, parseISO, addMinutes } from 'date-fns';
 import { ko } from 'date-fns/locale';
-import { usePlanner, Todo, Event, Tag as TagType, TimelineLog, SelfCareRecord, getTimerElapsedSec } from '../store';
+import { usePlanner, Todo, Event, Tag as TagType, TimelineLog, SelfCareRecord, getTimerElapsedSec, getLogicalToday } from '../store';
 import { useTheme } from '../ThemeContext';
 import { useNotification } from '../hooks/useNotification';
 import { TimePicker } from './TimePicker';
@@ -100,7 +100,7 @@ function SnoozeModal({ todo, onClose }: { todo: Todo; onClose: () => void }) {
   const [selectedSnoozeDate, setSelectedSnoozeDate] = useState('');
   const [snoozeTime, setSnoozeTime] = useState(todo.planStart || '09:00');
 
-  const todayStr = format(new Date(), 'yyyy-MM-dd');
+  const todayStr = getLogicalToday();
   const year = viewMonth.getFullYear();
   const month = viewMonth.getMonth();
   const firstDay = startOfMonth(viewMonth);
@@ -920,7 +920,7 @@ function DailyDatePickerModal({ selectedDate, onClose, onConfirm }: {
           </div>
 
           <button
-            onClick={() => setDateValue(format(new Date(), 'yyyy-MM-dd'))}
+            onClick={() => setDateValue(getLogicalToday())}
             className="px-3 py-2 rounded-xl"
             style={{ fontSize: 12, fontWeight: 600, color: t.accent, backgroundColor: t.accentLight }}
           >
@@ -1514,7 +1514,7 @@ export function DailyView() {
   const achieveRate = dateTodos.length > 0 ? Math.round((doneCount / dateTodos.length) * 100) : 0;
 
   // 오늘 날짜인 경우에만 알림 스케줄 등록
-  const todayStr2 = format(new Date(), 'yyyy-MM-dd');
+  const todayStr2 = getLogicalToday();
   useEffect(() => {
     if (selectedDate === todayStr2) {
       scheduleAlerts(dateTodos, selectedDate);
@@ -1527,7 +1527,7 @@ export function DailyView() {
   const dateObj = new Date(selectedDate + 'T12:00:00');
   const dayName = format(dateObj, 'EEEE', { locale: ko });
 
-  const goToday = () => setSelectedDate(format(new Date(), 'yyyy-MM-dd'));
+  const goToday = () => setSelectedDate(getLogicalToday());
   const goPrev = () => setSelectedDate(format(subDays(dateObj, 1), 'yyyy-MM-dd'));
   const goNext = () => setSelectedDate(format(addDays(dateObj, 1), 'yyyy-MM-dd'));
 

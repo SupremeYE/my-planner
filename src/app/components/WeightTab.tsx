@@ -8,6 +8,7 @@ import { useTheme } from '../ThemeContext';
 import { db } from '../../lib/db';
 import { useRealtimeSync } from '../hooks/useRealtimeSync';
 import type { WeightRecord, WeightGoal } from '../store';
+import { getLogicalToday } from '../store';
 import ConfirmModal from './ConfirmModal';
 
 // 차트 라인 색상 (디자인 시스템: 골드/코랄/그린)
@@ -111,7 +112,7 @@ export function WeightTab() {
   const [goal, setGoal] = useState<WeightGoal | null>(null);
 
   // 입력 폼
-  const [date, setDate] = useState(format(new Date(), 'yyyy-MM-dd'));
+  const [date, setDate] = useState(getLogicalToday());
   const [weight, setWeight] = useState('');
   const [bodyFat, setBodyFat] = useState('');
   const [muscle, setMuscle] = useState('');

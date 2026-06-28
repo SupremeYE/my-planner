@@ -4,6 +4,7 @@ import { ko } from 'date-fns/locale';
 import { BookOpenCheck, Plus, Trash2, Edit2, Check, X, ChevronLeft, ScrollText } from 'lucide-react';
 import { useTheme } from '../ThemeContext';
 import { db } from '../../lib/db';
+import { getLogicalToday } from '../store';
 import { useRealtimeSync } from '../hooks/useRealtimeSync';
 
 // ── 타입 ─────────────────────────────────────────────────────────────────────
@@ -198,7 +199,7 @@ function AnswerCard({
 // ── 오늘 질문 탭 ──────────────────────────────────────────────────────────────
 function TodayTab() {
   const { t } = useTheme();
-  const today = format(new Date(), 'yyyy-MM-dd');
+  const today = getLogicalToday();
 
   const [question, setQuestion]       = useState<Question | null>(null);
   const [answer, setAnswer]           = useState('');

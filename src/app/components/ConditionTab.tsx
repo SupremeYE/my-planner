@@ -8,7 +8,7 @@ import { useTheme } from '../ThemeContext';
 import { db } from '../../lib/db';
 import { useRealtimeSync } from '../hooks/useRealtimeSync';
 import { getSymptomOptions, STRESS_LEVELS, normalizeSymptom, DEFAULT_SYMPTOMS } from '../../constants/symptoms';
-import { usePlanner, type ConditionRecord, type UserSymptom } from '../store';
+import { usePlanner, type ConditionRecord, type UserSymptom, getLogicalToday } from '../store';
 import ConfirmModal from './ConfirmModal';
 
 const STRESS_COLOR = '#D4735A'; // 코랄 — 히트맵/막대 색
@@ -33,7 +33,7 @@ export function ConditionTab() {
   const [symptomNotice, setSymptomNotice] = useState<string | null>(null); // "OO은(는) 이미 있어서 선택했어요"
 
   // 입력 폼
-  const [date, setDate] = useState(format(new Date(), 'yyyy-MM-dd'));
+  const [date, setDate] = useState(getLogicalToday());
   const [stress, setStress] = useState<number | null>(null);
   const [symptoms, setSymptoms] = useState<string[]>([]);
   const [memo, setMemo] = useState('');
@@ -46,7 +46,7 @@ export function ConditionTab() {
 
   // 기록 영역 필터/검색 상태 (트리거 UI는 이후 Stage에서 연결)
   // 기본값 = 오늘(로컬 기준) — 탭 진입 시 오늘 날짜로 필터된 상태로 시작. 칩 ×로 전체(null) 전환
-  const [selectedDate, setSelectedDate] = useState<string | null>(format(new Date(), 'yyyy-MM-dd'));
+  const [selectedDate, setSelectedDate] = useState<string | null>(getLogicalToday());
   const [searchQuery, setSearchQuery] = useState(''); // 본문·태그 텍스트 검색
   const [searchOpen, setSearchOpen] = useState(false); // 검색바 펼침 여부
 

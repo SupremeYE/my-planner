@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { addDays, format, startOfWeek } from 'date-fns';
 import { ko } from 'date-fns/locale';
-import { usePlanner, Todo, SelfCareRecord } from '../store';
+import { usePlanner, Todo, SelfCareRecord, getLogicalToday } from '../store';
 import { useTheme } from '../ThemeContext';
 import { isDoOvertimeVsPlan } from '../../lib/todoDoDuration';
 import { expandRecurringTodos } from '../../lib/recurrenceExpansion';
@@ -156,7 +156,7 @@ export function WeekViewPC({ viewDate, weekStartsOn, selectedDate, onSelectDate,
     [weekStart]
   );
   const hours = Array.from({ length: endHour - startHour + 1 }, (_, i) => startHour + i);
-  const todayStr = format(new Date(), 'yyyy-MM-dd');
+  const todayStr = getLogicalToday();
   const nowMin = nowTime.getHours() * 60 + nowTime.getMinutes();
   const totalHeight = (endHour - startHour) * PC_HOUR_HEIGHT + 16;
 

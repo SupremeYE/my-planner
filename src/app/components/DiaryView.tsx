@@ -4,6 +4,7 @@ import { ko } from 'date-fns/locale';
 import { AlertCircle, CalendarDays, Check, ChevronDown, Compass, Loader2, Mic, NotebookPen, PenLine, Pencil, Plus, Shuffle, Square, Trash2, X } from 'lucide-react';
 import { useTheme, type ThemeTokens } from '../ThemeContext';
 import { db, type DiaryEntry, type JournalQuestion } from '../../lib/db';
+import { getLogicalToday } from '../store';
 import { useRealtimeSync } from '../hooks/useRealtimeSync';
 import { useVoiceInput } from '../hooks/useVoiceInput';
 import ConfirmModal from './ConfirmModal';
@@ -22,7 +23,7 @@ const TABS = [
 ] as const;
 type TabKey = (typeof TABS)[number]['key'];
 
-const todayStr = () => format(new Date(), 'yyyy-MM-dd');
+const todayStr = () => getLogicalToday();
 
 // 날짜 라벨: "6월 7일 · 일요일"
 function dateLabel(dateStr: string): { day: string; weekday: string } {

@@ -593,7 +593,28 @@ export interface Milestone {
 }
 
 // ───── Helpers ─────
-export const today = format(new Date(), 'yyyy-MM-dd');
+// 하루 경계(논리적 날짜) 계산
+// dayEndHour가 24를 넘으면(예: 26 = 새벽 2시, 25 = 새벽 1시) 자정~경계 시각 사이는 '전날'로 귀속한다.
+// 예) 종료시간을 새벽 1시로 설정하면(dayEndHour=25) 00:30의 기록은 전날, 01:30의 기록은 다음날로 넘어간다.
+export function logicalDateStr(now: Date, dayEndHour: number): string {
+  const rollover = dayEndHour > 24 ? dayEndHour - 24 : 0; // 자정 이후 이 시각 전까지는 전날로 본다
+  const ref = rollover > 0 && now.getHours() < rollover ? subDays(now, 1) : now;
+  return format(ref, 'yyyy-MM-dd');
+}
+
+// 모듈 레벨 캐시: store가 dayEndHour를 로드/변경할 때마다 동기화한다.
+// (각 컴포넌트가 store를 거치지 않고도 '오늘'을 논리적 날짜로 계산할 수 있게 함)
+let currentDayEndHour = 26;
+export function setCurrentDayEndHour(h: number): void {
+  currentDayEndHour = h;
+}
+
+// 시간 설정(종료시간)을 반영한 '오늘' 날짜 문자열
+export function getLogicalToday(): string {
+  return logicalDateStr(new Date(), currentDayEndHour);
+}
+
+export const today = getLogicalToday();
 
 export function getWeekKey(date: Date): string {
   const week = getISOWeek(date);
@@ -860,7 +881,7 @@ const PlannerContext: React.Context<PlannerContextType | null> =
 
 export function PlannerProvider({ children }: { children: React.ReactNode }) {
   const [isLoading, setIsLoading] = useState(true);
-  const [selectedDate, setSelectedDate] = useState(today);
+  const [selectedDate, setSelectedDate] = useState(getLogicalToday());
   const [dayStartHour, setDayStartHour] = useState(4);
   const [dayEndHour, setDayEndHour] = useState(26);
 
@@ -945,6 +966,9 @@ export function PlannerProvider({ children }: { children: React.ReactNode }) {
       setTimelineLogs(timelineData);
       setDayStartHour(settingsData.dayStartHour);
       setDayEndHour(settingsData.dayEndHour);
+      setCurrentDayEndHour(settingsData.dayEndHour);
+      // 로드된 종료시간 기준으로 현재 선택 날짜가 '오늘'이면 논리적 오늘로 보정
+      setSelectedDate(prev => (prev === today ? logicalDateStr(new Date(), settingsData.dayEndHour) : prev));
       setAppSettings(prev => ({ ...prev, ...settingsData.appSettings }));
       setEvents(eventsData);
       setWeeklyGoals(weeklyGoalsData);
@@ -1973,6 +1997,7 @@ export function PlannerProvider({ children }: { children: React.ReactNode }) {
   const setDayHours = useCallback((s: number, e: number) => {
     setDayStartHour(s);
     setDayEndHour(e);
+    setCurrentDayEndHour(e);
     db.settings.upsert(s, e, appSettings);
   }, [appSettings]);
 

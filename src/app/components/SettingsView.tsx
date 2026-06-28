@@ -103,6 +103,13 @@ function TimelineSection() {
       <p style={{ fontSize: 11, color: t.textMuted, backgroundColor: t.bgSub, borderRadius: 8, padding: '6px 10px' }}>
         현재: {toTimeStr(dayStartHour)} – {toTimeStr(dayEndHour)}{dayEndHour >= 24 ? ' (다음날)' : ''}
       </p>
+      {dayEndHour > 24 && (
+        <p style={{ fontSize: 11, color: t.textSub, lineHeight: 1.5, backgroundColor: t.accentLight, borderRadius: 8, padding: '8px 10px' }}>
+          📌 종료 시간({toTimeStr(dayEndHour)}) 이전까지는 같은 날로 기록돼요.
+          예를 들어 종료를 새벽 1시로 두면 자정~새벽 1시의 기록은 전날에 남고,
+          1시를 넘기면 다음날 기록으로 넘어갑니다.
+        </p>
+      )}
       <button
         onClick={handleSave}
         className="w-full py-2.5 rounded-xl transition-colors"

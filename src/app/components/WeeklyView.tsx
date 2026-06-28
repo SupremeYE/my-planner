@@ -21,7 +21,7 @@ import {
   DragEndEvent,
 } from '@dnd-kit/core';
 import { CSS } from '@dnd-kit/utilities';
-import { usePlanner, getWeekKey, Todo, Tag as TagType } from '../store';
+import { usePlanner, getWeekKey, Todo, Tag as TagType, getLogicalToday } from '../store';
 import { useTheme } from '../ThemeContext';
 import { useNavigate } from 'react-router';
 
@@ -76,7 +76,7 @@ function AssignDayPopover({
       </p>
       {weekDays.map(day => {
         const dateStr = format(day, 'yyyy-MM-dd');
-        const isToday = dateStr === format(new Date(), 'yyyy-MM-dd');
+        const isToday = dateStr === getLogicalToday();
         return (
           <button
             key={dateStr}
@@ -296,7 +296,7 @@ function DayColumn({ day, todos, tags, projects, activeDragId }: {
   const { setSelectedDate } = usePlanner();
   const navigate = useNavigate();
   const dateStr = format(day, 'yyyy-MM-dd');
-  const todayStr = format(new Date(), 'yyyy-MM-dd');
+  const todayStr = getLogicalToday();
   const isToday = dateStr === todayStr;
 
   const { setNodeRef, isOver } = useDroppable({ id: dateStr });

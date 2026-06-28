@@ -6,7 +6,7 @@ import {
   ChevronDown, X, Home, Menu, Settings, Clapperboard, ChefHat, Sparkles, Bookmark, MapPin, Footprints,
   Flower2, SprayCan, Wallet,
 } from 'lucide-react';
-import { usePlanner, getWeekKey } from '../store';
+import { usePlanner, getWeekKey, getLogicalToday } from '../store';
 import { countInboxActive } from '../../lib/inbox';
 import { useTheme } from '../ThemeContext';
 import {
@@ -67,7 +67,7 @@ function CalendarDropdown() {
   const hasTodo = (d: number) =>
     todos.some(td => td.date === dateStr(d) && td.status !== 'backlog' && td.status !== 'cancelled');
   const isSelected = (d: number) => dateStr(d) === selectedDate;
-  const isToday = (d: number) => dateStr(d) === format(new Date(), 'yyyy-MM-dd');
+  const isToday = (d: number) => dateStr(d) === getLogicalToday();
 
   return (
     <div ref={ref} className="relative">
@@ -138,7 +138,7 @@ function CalendarDropdown() {
             ))}
           </div>
           <button
-            onClick={() => { setSelectedDate(format(new Date(), 'yyyy-MM-dd')); setOpen(false); }}
+            onClick={() => { setSelectedDate(getLogicalToday()); setOpen(false); }}
             className="mt-2 w-full py-1.5 rounded-lg text-center"
             style={{ fontSize: 11, backgroundColor: t.bgSub, color: t.accent, fontWeight: 700 }}
           >
