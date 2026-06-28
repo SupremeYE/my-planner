@@ -19,8 +19,8 @@ const SEG = {
   living: MONEY_PALETTE.mute,                // 생활비(변동)
 };
 
-// ── 수입 분배 확인 도넛(SVG 링) ──
-function DistributionDonut({ segments, total }: { segments: { label: string; value: number; color: string }[]; total: number }) {
+// ── 수입 분배 확인 도넛(SVG 링) ── (월말 회고에서도 재사용 — 계획 vs 실제 비교)
+export function DistributionDonut({ segments, total }: { segments: { label: string; value: number; color: string }[]; total: number }) {
   const { t } = useTheme();
   const r = 52, cx = 64, cy = 64, C = 2 * Math.PI * r;
   const active = segments.filter(s => s.value > 0);
