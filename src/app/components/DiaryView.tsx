@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useImperativeHandle, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { addDays, format, parseISO, startOfWeek } from 'date-fns';
 import { ko } from 'date-fns/locale';
-import { CalendarDays, Check, ChevronDown, Compass, Loader2, Mic, NotebookPen, PenLine, Pencil, Plus, Shuffle, Square, Trash2, X } from 'lucide-react';
+import { AlertCircle, CalendarDays, Check, ChevronDown, Compass, Loader2, Mic, NotebookPen, PenLine, Pencil, Plus, Shuffle, Square, Trash2, X } from 'lucide-react';
 import { useTheme, type ThemeTokens } from '../ThemeContext';
 import { db, type DiaryEntry, type JournalQuestion } from '../../lib/db';
 import { useRealtimeSync } from '../hooks/useRealtimeSync';
@@ -503,17 +503,28 @@ function WriteCard({
     if (ok) setSheetOpen(true);
   }, [status, startRecording]);
 
-  // 모바일 시트: 중지하고 변환 → 본문 삽입 후 시트 닫기
+  // 모바일 시트: 중지하고 변환 → 성공 시에만 본문 삽입 후 닫기.
+  //   실패/빈 결과면 시트를 유지해 에러·다시 시도를 노출(조용히 닫혀 "안 써짐"으로
+  //   보이던 문제 해결).
   const onSheetStop = useCallback(async () => {
     const text = await stopRecording();
-    setSheetOpen(false);
-    insertText(text);
+    if (text) {
+      setSheetOpen(false);
+      insertText(text);
+    }
   }, [stopRecording, insertText]);
+
+  // 시트 안에서 바로 다시 녹음(권한/변환 실패 후 재시도).
+  const onSheetRetry = useCallback(async () => {
+    const ok = await startRecording();
+    if (!ok) setSheetOpen(false);
+  }, [startRecording]);
 
   const onSheetCancel = useCallback(() => {
     cancel();
+    setError(null);
     setSheetOpen(false);
-  }, [cancel]);
+  }, [cancel, setError]);
 
   const recording = status === 'recording';
   const transcribing = status === 'transcribing';
@@ -589,7 +600,7 @@ function WriteCard({
         <button
           type="button"
           onClick={onMobileMic}
-          disabled={status !== 'idle'}
+          disabled={status === 'transcribing'}
           aria-label="음성으로 쓰기"
           className="lg:hidden absolute grid place-items-center rounded-full disabled:opacity-60"
           style={{
@@ -619,7 +630,9 @@ function WriteCard({
           recording={recording}
           transcribing={transcribing}
           elapsedMs={elapsedMs}
+          error={error}
           onStop={onSheetStop}
+          onRetry={onSheetRetry}
           onCancel={onSheetCancel}
         />
       )}
@@ -723,16 +736,20 @@ function WaveBars({
 
 // ── 모바일 녹음 시트 (큰 마이크 + 파형 + 경과시간 + 중지하고 변환) ──────────────
 function VoiceSheet({
-  analyserRef, recording, transcribing, elapsedMs, onStop, onCancel,
+  analyserRef, recording, transcribing, elapsedMs, error, onStop, onRetry, onCancel,
 }: {
   analyserRef: React.MutableRefObject<AnalyserNode | null>;
   recording: boolean;
   transcribing: boolean;
   elapsedMs: number;
+  error: string | null;
   onStop: () => void;
+  onRetry: () => void;
   onCancel: () => void;
 }) {
   const { t } = useTheme();
+  // 녹음/변환 중이 아니면서 에러가 있으면 = 실패 상태(시트 유지, 재시도 노출).
+  const failed = !!error && !recording && !transcribing;
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center lg:hidden">
       {/* dim — 변환 중이 아닐 때만 탭하면 취소 */}
@@ -748,22 +765,49 @@ function VoiceSheet({
         <div className="mx-auto mb-4 rounded-full" style={{ width: 38, height: 4, background: t.border }} />
         <WaveBars analyserRef={analyserRef} active={recording} />
         <div className="mx-auto my-3 grid place-items-center rounded-full" style={{ width: 70, height: 70, background: t.danger, boxShadow: `0 8px 22px ${t.danger}66` }}>
-          {transcribing ? <Loader2 size={30} color="#fff" className="animate-spin" /> : <Mic size={30} color="#fff" fill="#fff" />}
+          {transcribing
+            ? <Loader2 size={30} color="#fff" className="animate-spin" />
+            : failed
+              ? <AlertCircle size={30} color="#fff" />
+              : <Mic size={30} color="#fff" fill="#fff" />}
         </div>
-        <div className="mb-5" style={{ fontSize: 13, color: t.textSub }}>
+        <div className="mb-5" style={{ fontSize: 13, color: failed ? t.danger : t.textSub }}>
           {transcribing
             ? '텍스트로 변환하고 있어요...'
-            : <>듣고 있어요 · <b style={{ color: t.danger, fontVariantNumeric: 'tabular-nums' }}>{fmtElapsed(elapsedMs)}</b></>}
+            : failed
+              ? error
+              : <>듣고 있어요 · <b style={{ color: t.danger, fontVariantNumeric: 'tabular-nums' }}>{fmtElapsed(elapsedMs)}</b></>}
         </div>
-        <button
-          type="button"
-          onClick={onStop}
-          disabled={transcribing}
-          className="inline-flex items-center gap-2 rounded-full px-8 py-3 text-sm font-semibold disabled:opacity-60"
-          style={{ background: t.danger, color: '#fff' }}
-        >
-          {transcribing ? <><Loader2 size={15} className="animate-spin" /> 변환 중...</> : <><Square size={13} fill="#fff" /> 중지하고 변환</>}
-        </button>
+        {failed ? (
+          <div className="flex items-center justify-center gap-2">
+            <button
+              type="button"
+              onClick={onCancel}
+              className="inline-flex items-center gap-2 rounded-full px-6 py-3 text-sm font-semibold"
+              style={{ background: t.bgSub, color: t.textSub, border: `1px solid ${t.border}` }}
+            >
+              닫기
+            </button>
+            <button
+              type="button"
+              onClick={onRetry}
+              className="inline-flex items-center gap-2 rounded-full px-6 py-3 text-sm font-semibold"
+              style={{ background: t.danger, color: '#fff' }}
+            >
+              <Mic size={14} /> 다시 시도
+            </button>
+          </div>
+        ) : (
+          <button
+            type="button"
+            onClick={onStop}
+            disabled={transcribing}
+            className="inline-flex items-center gap-2 rounded-full px-8 py-3 text-sm font-semibold disabled:opacity-60"
+            style={{ background: t.danger, color: '#fff' }}
+          >
+            {transcribing ? <><Loader2 size={15} className="animate-spin" /> 변환 중...</> : <><Square size={13} fill="#fff" /> 중지하고 변환</>}
+          </button>
+        )}
       </div>
     </div>
   );
