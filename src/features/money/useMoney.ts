@@ -1,15 +1,15 @@
 // 하온 머니 — 공용 데이터 훅. 8개 테이블 로드/Realtime 구독 + 파생값 메모이즈 + 액션.
 // beauty/useBeauty 패턴 동일(UI 의존 0). 핵심: 채팅형 자연어 입력 → money-parse → 거래 기록.
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { format, subDays } from 'date-fns';
 import { supabase } from '../../lib/supabase';
 import { useRealtimeSync } from '../../app/hooks/useRealtimeSync';
 import { moneyDb } from './db';
 import { getMoneyPeriod, daysLeftInPeriod, type MoneyPeriod } from './period';
-import { fetchFxRate, needsFxRefresh } from './fx';
+import { fetchFxRate, fetchFxRateOn, needsFxRefresh } from './fx';
 import type {
   MoneyCategory, MoneyTransaction, MoneyAccount, MoneyCard,
-  MoneyFixedCost, MoneyLoan, MoneyGoal, MoneySettings, ParsedTx, TxType,
+  MoneyFixedCost, MoneyLoan, MoneyGoal, MoneySettings, ParsedTx, TxType, Currency,
 } from './types';
 
 const today = () => format(new Date(), 'yyyy-MM-dd');
@@ -88,6 +88,8 @@ export interface UseMoney {
   deleteFixedCost: (id: string) => Promise<void>;
   // 외화 고정비 환율 갱신(Frankfurter). force=true 면 사이클 가드 무시(수동 새로고침).
   refreshFxRates: (opts?: { force?: boolean }) => Promise<{ updated: number; alerts: string[] }>;
+  // 결제일 도래한 고정비를 그날 환율로 환산해 지출 거래(source='fixed')로 자동 기록(멱등). 생성 건수 반환.
+  settleFixedCosts: () => Promise<number>;
   saveLoan: (l: MoneyLoan) => Promise<void>;
   deleteLoan: (id: string) => Promise<void>;
   saveGoal: (g: MoneyGoal) => Promise<void>;
@@ -127,6 +129,15 @@ export function useMoney(): UseMoney {
   useRealtimeSync('money_loans', refresh);
   useRealtimeSync('money_goals', refresh);
   useRealtimeSync('money_settings', refresh);
+
+  // 최초 로드 후 1회 — 결제일 도래한 고정비 자동 정산(거래 생성). 멱등이라 중복 없음.
+  const settledRef = useRef(false);
+  useEffect(() => {
+    if (loading || settledRef.current) return;
+    settledRef.current = true;
+    settleFixedCosts();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loading]);
 
   // 대분류만 노출(parentId=null) — 파싱 후보·거래폼·고정비폼 모두 대분류 기준.
   const expenseCategories = useMemo(() => categories.filter(c => c.type === 'expense' && !c.parentId), [categories]);
@@ -254,6 +265,8 @@ export function useMoney(): UseMoney {
       paymentMethod: input.paymentMethod ?? null, spentAt: input.spentAt ?? today(),
       source: input.source ?? 'manual', rawInput: input.rawInput ?? null,
       emoji: input.emoji ?? null,
+      originalAmount: input.originalAmount ?? null, currency: input.currency ?? 'KRW',
+      fxRate: input.fxRate ?? null, fixedCostId: input.fixedCostId ?? null,
     };
     await moneyDb.transactions.upsert(tx);
     await refresh();
@@ -318,12 +331,29 @@ export function useMoney(): UseMoney {
     // 대분류 해석 → 그 안에서 소분류 해석. 소분류 매칭되면 소분류 id, 아니면 대분류 id(진입장벽 유지).
     const parentId = resolveCategoryId(p.category, p.type);
     const subId = resolveSubcategoryId(parentId, p.subcategory ?? null);
+    // 외화 입력("클로드 20달러")은 입력 시점 환율로 원화 환산해 저장(외화 원금/통화/환율 보존).
+    const cur = (p.currency ?? 'KRW') as Currency;
+    let amount = p.amount;
+    let originalAmount: number | null = null;
+    let fxRate: number | null = null;
+    if (cur !== 'KRW') {
+      const rate = await fetchFxRate(cur);
+      if (rate != null) {
+        originalAmount = p.amount;
+        fxRate = rate;
+        amount = Math.round(p.amount * rate);
+      } else {
+        // 환율 실패 시: 원금/통화는 보존하되 환산 불가 → 외화 단위 그대로 저장(사용자 수정 유도).
+        originalAmount = p.amount;
+      }
+    }
     await addTransaction({
-      type: p.type, amount: p.amount,
+      type: p.type, amount,
       categoryId: subId ?? parentId,
       memo: p.memo ?? trimmed, paymentMethod: matchPaymentMethod(p.paymentMethod ?? null),
       spentAt: p.spentAt ?? today(), source: mode, rawInput: trimmed,
       emoji: p.emoji ?? null,
+      originalAmount, currency: cur, fxRate,
     });
     return { ok: true, parsed: p };
   }, [expenseCategories, incomeCategories, subcategoriesOf, addTransaction, resolveCategoryId, resolveSubcategoryId, matchPaymentMethod]);
@@ -393,6 +423,42 @@ export function useMoney(): UseMoney {
     if (updated > 0) await refresh();
     return { updated, alerts };
   }, [fixedCosts, settings.fxAlertThreshold, refresh]);
+
+  // 결제일이 도래한 고정비 → 그날 환율로 환산해 지출 거래(source='fixed') 1회 자동 기록.
+  //  · 월간 + 고정 금액만(변동/주간/연간 제외). (fixedCostId, spentAt) 멱등 — 이미 있으면 skip.
+  //  · 외화는 결제일 당일/직전 영업일 환율(Frankfurter historical). 환율 실패 시 이번엔 skip(다음 진입 재시도).
+  //  · 고정비 생성일 이전 주기는 기록하지 않음(과거 소급 방지).
+  const settleFixedCosts = useCallback(async (): Promise<number> => {
+    const base = new Date();
+    let created = 0;
+    for (const f of fixedCosts) {
+      if (f.isVariable || f.cycle !== 'monthly' || !f.billingDay) continue;
+      const billStr = lastBillingDateStr(f.billingDay, base);   // ≤오늘 가장 최근 결제일
+      const createdDay = f.createdAt ? f.createdAt.slice(0, 10) : null;
+      if (createdDay && billStr < createdDay) continue;
+      if (transactions.some(tx => tx.fixedCostId === f.id && tx.spentAt === billStr)) continue;
+      let amount = f.amount;
+      let originalAmount: number | null = null;
+      let fxRate: number | null = null;
+      if (f.currency !== 'KRW' && f.originalAmount != null) {
+        const rate = await fetchFxRateOn(billStr, f.currency);
+        if (rate == null) continue;
+        originalAmount = f.originalAmount; fxRate = rate;
+        amount = Math.round(f.originalAmount * rate);
+      }
+      await moneyDb.transactions.upsert({
+        id: crypto.randomUUID(), type: 'expense', amount,
+        categoryId: f.categoryId ?? null, memo: f.name,
+        paymentMethod: f.paymentMethod ?? null, spentAt: billStr,
+        source: 'fixed', rawInput: null, emoji: f.emoji ?? null,
+        originalAmount, currency: f.currency, fxRate, fixedCostId: f.id,
+      });
+      created++;
+    }
+    if (created > 0) await refresh();
+    return created;
+  }, [fixedCosts, transactions, refresh]);
+
   const saveLoan = useCallback(async (l: MoneyLoan) => { await moneyDb.loans.upsert(l); await refresh(); }, [refresh]);
   const deleteLoan = useCallback(async (id: string) => {
     setLoans(prev => prev.filter(x => x.id !== id)); await moneyDb.loans.delete(id); await refresh();
@@ -410,7 +476,7 @@ export function useMoney(): UseMoney {
     daysLeft, dailyAllowance, noSpendStreak, trackingStartDate, spendByDay,
     categoryOf, cardUnpaid, cardUnbilledTxs, refresh,
     addTransaction, deleteTransaction, parseAndAdd, addCategory, saveCategory, deleteCategory, updateSettings,
-    saveAccount, deleteAccount, saveCard, deleteCard, saveFixedCost, deleteFixedCost, refreshFxRates,
+    saveAccount, deleteAccount, saveCard, deleteCard, saveFixedCost, deleteFixedCost, refreshFxRates, settleFixedCosts,
     saveLoan, deleteLoan, saveGoal, deleteGoal,
   };
 }

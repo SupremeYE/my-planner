@@ -9,7 +9,8 @@
 //   subcategories?: { [대분류명]: string[] },  // 대분류별 소분류 후보(소분류 추론용)
 // }
 // 출력(항상 200 JSON, 실패도 graceful):
-//   성공 → { ok:true, tx:{ type, amount, category, subcategory, memo, paymentMethod, spentAt, emoji } }
+//   성공 → { ok:true, tx:{ type, amount, currency, category, subcategory, memo, paymentMethod, spentAt, emoji } }
+//          amount 는 currency 단위(외화면 외화 숫자, 환산 안 함 — 클라가 입력시점 환율로 원화 환산).
 //   실패 → { ok:false, error }       (클라가 수동 입력으로 폴백)
 //
 // 동작: 한 줄 자연어/문자 1건을 gpt-4o-mini 로 읽어 거래 1건으로 구조화한다.
@@ -61,14 +62,16 @@ function promptFor(
     catLine,
     '필드:',
     '  - type: "expense"(지출) | "income"(수입). 월급/입금/용돈/환급 등은 income, 나머지 소비는 expense.',
-    '  - amount: 원화 정수(원 단위). "5만원"→50000, "8천"→8000, "1,200원"→1200. 콤마/단위 제거.',
+    '  - currency: "KRW" | "USD" | "EUR" | "JPY". "달러"/"$"/"불"→USD, "유로"/"€"→EUR, "엔"/"엔화"/"¥"→JPY, 그 외(원/표기 없음)→KRW.',
+    '  - amount: currency 단위의 금액 숫자. 원화면 정수("5만원"→50000, "8천"→8000, "1,200원"→1200), 외화면 그 통화 숫자("20달러"→20, "$13.99"→13.99). 콤마/단위/통화기호 제거. 환산하지 말 것.',
     '  - category: 위 규칙대로 대분류 후보 중 하나 또는 null.',
     '  - subcategory: category 의 소분류 후보 중 하나 또는 null. 예) "오리고기 배달"→식비/배달, "이마트 장보기"→식비/마트, "택시"→교통/택시, "넷플릭스"→구독/OTT, "스타벅스"→카페/커피.',
     '  - memo: 거래를 한눈에 알아볼 짧은 한국어 설명(예: "갈비 외식", "스타벅스 커피"). 없으면 핵심 명사.',
     '  - paymentMethod: 카드/계좌/현금 등 결제수단이 보이면 그 이름(예: "삼성카드", "하나카드", "현금"). 없으면 null.',
     '  - spentAt: "yyyy-MM-dd" 문자열.',
     '  - emoji: 거래에 어울리는 이모지 1개(예: 🍖 ☕ 🚌 💰). 모호하면 null.',
-    '출력은 JSON 객체 하나만: {"type":"expense","amount":35000,"category":"식비","subcategory":"배달","memo":"오리고기 배달","paymentMethod":null,"spentAt":"' + today + '","emoji":"🍖"}',
+    '출력은 JSON 객체 하나만: {"type":"expense","amount":35000,"currency":"KRW","category":"식비","subcategory":"배달","memo":"오리고기 배달","paymentMethod":null,"spentAt":"' + today + '","emoji":"🍖"}',
+    '외화 예: "클로드 20달러"→{"type":"expense","amount":20,"currency":"USD","category":"구독","subcategory":null,"memo":"클로드 구독","paymentMethod":null,"spentAt":"' + today + '","emoji":"🤖"}',
     '마크다운/코드펜스/설명 없이 JSON 만. 금액을 못 찾으면 {"ok":false}.',
   ];
 
@@ -152,8 +155,12 @@ Deno.serve(async (req: Request) => {
     if (obj.ok === false) return json({ ok: false, error: '거래 정보를 찾지 못했어요' });
 
     // 정규화 — 신뢰 가능한 값만 통과.
-    const amount = Number(obj.amount);
-    if (!Number.isFinite(amount) || amount <= 0) return json({ ok: false, error: '금액을 인식하지 못했어요' });
+    const amountRaw = Number(obj.amount);
+    if (!Number.isFinite(amountRaw) || amountRaw <= 0) return json({ ok: false, error: '금액을 인식하지 못했어요' });
+    // 통화: 화이트리스트만, 기본 KRW. 원화는 정수, 외화는 소수 2자리까지 보존.
+    const ALLOWED_CURRENCIES = ['KRW', 'USD', 'EUR', 'JPY'];
+    const currency = typeof obj.currency === 'string' && ALLOWED_CURRENCIES.includes(obj.currency) ? obj.currency : 'KRW';
+    const amount = currency === 'KRW' ? Math.round(amountRaw) : Math.round(amountRaw * 100) / 100;
 
     const type = obj.type === 'income' ? 'income' : 'expense';
     const cats = type === 'income' ? incomeCats : expenseCats;
@@ -166,7 +173,7 @@ Deno.serve(async (req: Request) => {
     const paymentMethod = typeof obj.paymentMethod === 'string' && obj.paymentMethod.trim() ? obj.paymentMethod.trim() : null;
     const emoji = typeof obj.emoji === 'string' && obj.emoji.trim() ? obj.emoji.trim() : null;
 
-    return json({ ok: true, tx: { type, amount: Math.round(amount), category, subcategory, memo, paymentMethod, spentAt, emoji } });
+    return json({ ok: true, tx: { type, amount, currency, category, subcategory, memo, paymentMethod, spentAt, emoji } });
   } catch (e) {
     console.error('[money-parse] 예외:', String(e));
     return json({ ok: false, error: String(e) });

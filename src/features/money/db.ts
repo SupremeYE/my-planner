@@ -46,6 +46,8 @@ const transactions = {
       id: r.id, type: r.type, amount: Number(r.amount), categoryId: r.category_id ?? null,
       memo: r.memo ?? null, paymentMethod: r.payment_method ?? null, spentAt: r.spent_at,
       source: r.source ?? 'manual', rawInput: r.raw_input ?? null, emoji: r.emoji ?? null,
+      originalAmount: num(r.original_amount), currency: (r.currency ?? 'KRW') as Currency,
+      fxRate: num(r.fx_rate), fixedCostId: r.fixed_cost_id ?? null,
       createdAt: r.created_at ?? undefined,
     }));
   },
@@ -54,6 +56,8 @@ const transactions = {
       id: item.id, type: item.type, amount: item.amount, category_id: item.categoryId ?? null,
       memo: item.memo ?? null, payment_method: item.paymentMethod ?? null, spent_at: item.spentAt,
       source: item.source ?? 'manual', raw_input: item.rawInput ?? null, emoji: item.emoji ?? null,
+      original_amount: item.originalAmount ?? null, currency: item.currency ?? 'KRW',
+      fx_rate: item.fxRate ?? null, fixed_cost_id: item.fixedCostId ?? null,
     }, { onConflict: 'id' });
     if (error) console.error('[money] transactions upsert:', error.message);
   },

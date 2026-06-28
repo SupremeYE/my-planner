@@ -1,9 +1,10 @@
 // 하온 머니 — 수정/삭제 폼 시트(추가·편집 겸용). 모바일 바텀시트 / PC 중앙 모달(lg:).
 // 패턴 통일: 항목 탭 = 편집 시트 열기 / 시트 안에 저장 + 삭제(인라인 확인). 추가 = 같은 폼 빈 값.
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { X } from 'lucide-react';
 import { useTheme } from '../../app/ThemeContext';
 import { MONEY_PALETTE, CUSTOM_PALETTE } from './tokens';
+import { fetchFxRate, CURRENCY_SYMBOL } from './fx';
 import type { UseMoney } from './useMoney';
 import type {
   MoneyCategory, MoneyTransaction, MoneyAccount, MoneyCard, MoneyFixedCost, MoneyLoan, MoneyGoal,
@@ -251,9 +252,12 @@ export function CardForm({ m, item, onClose }: { m: UseMoney; item: MoneyCard | 
 }
 
 // ── 4) 고정비 ──
+//  · 외화 선택 시: "외화 원금"만 입력 → 현재 환율(Frankfurter)로 원화 자동 환산(수동 입력 불필요).
+//    실제 결제일엔 그날 환율로 거래가 자동 기록(useMoney.settleFixedCosts). 여기 표시는 "현재 환율 기준 예상".
 export function FixedCostForm({ m, item, onClose }: { m: UseMoney; item: MoneyFixedCost | null; onClose: () => void }) {
+  const { t } = useTheme();
   const [name, setName] = useState(item?.name ?? '');
-  const [amount, setAmount] = useState(item ? String(item.amount) : '');
+  const [amount, setAmount] = useState(item ? String(item.amount) : '');   // KRW 직접입력 / 외화 환율실패 폴백
   const [currency, setCurrency] = useState<Currency>(item?.currency ?? 'KRW');
   const [original, setOriginal] = useState(item?.originalAmount != null ? String(item.originalAmount) : '');
   const [cycle, setCycle] = useState<FixedCycle>(item?.cycle ?? 'monthly');
@@ -262,18 +266,71 @@ export function FixedCostForm({ m, item, onClose }: { m: UseMoney; item: MoneyFi
   const [categoryId, setCategoryId] = useState(item?.categoryId ?? '');
   const [isVariable, setIsVariable] = useState(item?.isVariable ?? false);
   const [emoji, setEmoji] = useState(item?.emoji ?? '');
+  // 외화 현재 환율(원화 환산 미리보기용). 통화 바뀔 때마다 1회 조회.
+  const [rate, setRate] = useState<number | null>(item && item.currency !== 'KRW' ? item.fxRate : null);
+  const [rateStatus, setRateStatus] = useState<'idle' | 'loading' | 'ok' | 'error'>(item?.fxRate ? 'ok' : 'idle');
+  const isForeign = currency !== 'KRW';
+
+  useEffect(() => {
+    if (currency === 'KRW') { setRateStatus('idle'); return; }
+    let alive = true;
+    setRateStatus('loading');
+    fetchFxRate(currency).then(r => {
+      if (!alive) return;
+      if (r != null) { setRate(r); setRateStatus('ok'); } else setRateStatus('error');
+    });
+    return () => { alive = false; };
+  }, [currency]);
+
+  const origNum = numOrNull(original);
+  const previewKrw = isForeign && rate != null && origNum ? Math.round(origNum * rate) : null;
+  const canSave = !!name.trim() && (isForeign
+    ? !!origNum && origNum > 0 && (rate != null || intVal(amount) > 0)   // 환율 실패 시 수동금액 폴백 허용
+    : intVal(amount) > 0);
+
   const save = () => {
-    m.saveFixedCost({ id: item?.id ?? uuid(), name: name.trim(), amount: intVal(amount), originalAmount: currency === 'KRW' ? null : numOrNull(original), currency, cycle, billingDay: numOrNull(billingDay), paymentMethod: pm.trim() || null, categoryId: categoryId || null, isVariable, emoji: emoji.trim() || null,
-      // 통화를 KRW 로 바꾸면 환율 추적값 초기화, 외화면 기존 추적값 보존.
-      fxRate: currency === 'KRW' ? null : (item?.fxRate ?? null), fxRateDate: currency === 'KRW' ? null : (item?.fxRateDate ?? null), fxChangePct: currency === 'KRW' ? null : (item?.fxChangePct ?? null) });
+    const todayStr = new Date().toISOString().slice(0, 10);
+    let outAmount: number, outOriginal: number | null, outRate: number | null, outRateDate: string | null, outChange: number | null;
+    if (!isForeign) {
+      outAmount = intVal(amount); outOriginal = null; outRate = null; outRateDate = null; outChange = null;
+    } else {
+      outOriginal = origNum;
+      if (rate != null) {
+        outAmount = Math.round((origNum ?? 0) * rate);
+        outRate = rate; outRateDate = todayStr;
+        outChange = item?.fxRate ? ((rate - item.fxRate) / item.fxRate) * 100 : (item?.fxChangePct ?? null);
+      } else {
+        outAmount = intVal(amount);   // 폴백
+        outRate = item?.fxRate ?? null; outRateDate = item?.fxRateDate ?? null; outChange = item?.fxChangePct ?? null;
+      }
+    }
+    m.saveFixedCost({ id: item?.id ?? uuid(), name: name.trim(), amount: outAmount, originalAmount: outOriginal, currency, cycle, billingDay: numOrNull(billingDay), paymentMethod: pm.trim() || null, categoryId: categoryId || null, isVariable, emoji: emoji.trim() || null, fxRate: outRate, fxRateDate: outRateDate, fxChangePct: outChange });
     onClose();
   };
+
   return (
-    <FormSheet title={item ? '고정비 수정' : '고정비 추가'} onClose={onClose} onSave={save} onDelete={item ? () => m.deleteFixedCost(item.id) : undefined} canSave={!!name.trim() && intVal(amount) > 0}>
-      <Field label="이름"><TextInput value={name} onChange={setName} placeholder="예: 넷플릭스" /></Field>
-      <Field label="금액"><TextInput value={amount} onChange={setAmount} placeholder="원화 환산(원)" type="number" /></Field>
+    <FormSheet title={item ? '고정비 수정' : '고정비 추가'} onClose={onClose} onSave={save} onDelete={item ? () => m.deleteFixedCost(item.id) : undefined} canSave={canSave}>
+      <Field label="이름"><TextInput value={name} onChange={setName} placeholder="예: 넷플릭스 · 클로드 구독" /></Field>
       <Field label="통화"><SelectInput value={currency} onChange={setCurrency} options={[{ value: 'KRW', label: '₩ 원' }, { value: 'USD', label: '$ 달러' }, { value: 'EUR', label: '€ 유로' }, { value: 'JPY', label: '¥ 엔' }]} /></Field>
-      {currency !== 'KRW' && <Field label="외화 원금"><TextInput value={original} onChange={setOriginal} placeholder="예: 13.99" type="number" /></Field>}
+      {isForeign ? (
+        <>
+          <Field label="외화 원금"><TextInput value={original} onChange={setOriginal} placeholder={`예: 20 (${CURRENCY_SYMBOL[currency]})`} type="number" /></Field>
+          <div style={{ fontSize: 11.5, lineHeight: 1.5, margin: '-4px 0 12px', paddingLeft: 76, color: t.textSub }}>
+            {rateStatus === 'loading' && <span style={{ color: t.textMuted }}>현재 환율 불러오는 중…</span>}
+            {rateStatus === 'ok' && rate != null && (
+              <>
+                <span>현재 {CURRENCY_SYMBOL[currency]}1 ≈ <strong style={{ color: t.text }}>{rate.toLocaleString('ko-KR', { maximumFractionDigits: 2 })}원</strong></span>
+                {previewKrw != null && <span style={{ color: MONEY_PALETTE.gold, fontWeight: 700 }}> → 예상 {previewKrw.toLocaleString('ko-KR')}원</span>}
+                <br /><span style={{ color: t.textMuted }}>실제 결제일엔 그날 환율로 자동 기록돼요.</span>
+              </>
+            )}
+            {rateStatus === 'error' && <span style={{ color: MONEY_PALETTE.coral }}>환율을 못 불러왔어요. 아래에 원화 금액을 직접 입력해 주세요.</span>}
+          </div>
+          {rateStatus === 'error' && <Field label="원화 금액"><TextInput value={amount} onChange={setAmount} placeholder="원화 환산(원)" type="number" /></Field>}
+        </>
+      ) : (
+        <Field label="금액"><TextInput value={amount} onChange={setAmount} placeholder="금액(원)" type="number" /></Field>
+      )}
       <Field label="주기"><Seg value={cycle} onChange={setCycle} options={[{ value: 'monthly', label: '매월' }, { value: 'weekly', label: '매주' }, { value: 'yearly', label: '매년' }]} /></Field>
       <Field label="결제일"><TextInput value={billingDay} onChange={setBillingDay} placeholder="매월 N일" type="number" /></Field>
       <Field label="결제수단"><TextInput value={pm} onChange={setPm} placeholder="예: 자동이체 (선택)" /></Field>
