@@ -197,15 +197,18 @@ function RecordSheet({ onClose, onSave, initialData, defaultDate }: RecordSheetP
   });
 
   return (
-    <div className="fixed inset-0 z-50 flex flex-col justify-end" style={{ backgroundColor: 'rgba(0,0,0,0.4)' }} onClick={onClose}>
-      <div className="rounded-t-2xl" style={{ backgroundColor: t.bg, maxHeight: '90vh', overflowY: 'auto' }} onClick={e => e.stopPropagation()}>
-        <div className="flex justify-center pt-3 pb-1">
+    <div className="fixed inset-0 z-50 flex flex-col justify-end lg:items-center lg:justify-center lg:p-8" style={{ backgroundColor: 'rgba(0,0,0,0.4)' }} onClick={onClose}>
+      <div
+        className="flex flex-col rounded-t-2xl overflow-hidden max-h-[90vh] lg:w-[min(900px,92vw)] lg:h-[86vh] lg:max-h-[860px] lg:rounded-2xl lg:shadow-2xl"
+        style={{ backgroundColor: t.bg }}
+        onClick={e => e.stopPropagation()}>
+        <div className="flex justify-center pt-3 pb-1 lg:hidden">
           <div className="w-10 h-1 rounded-full" style={{ backgroundColor: t.border }} />
         </div>
-        <div className="flex items-center justify-between px-5 pb-3 pt-1">
+        <div className="flex items-center justify-between px-5 lg:px-8 pb-3 pt-1 lg:pt-6">
           <div>
             <p style={{ fontSize: 11, color: t.textMuted }}>{step} / {totalSteps}단계</p>
-            <h2 style={{ fontSize: 16, fontWeight: 700, color: t.text }}>
+            <h2 className="lg:text-xl" style={{ fontSize: 16, fontWeight: 700, color: t.text }}>
               {step === 1 && '몸 상태는 어떤가요?'}
               {step === 2 && '감정 단어를 골라보세요 (최대 3개)'}
               {step === 3 && '에너지 레벨은 어느 정도인가요?'}
@@ -215,14 +218,14 @@ function RecordSheet({ onClose, onSave, initialData, defaultDate }: RecordSheetP
           <button onClick={onClose} style={{ color: t.textMuted }}><X size={20} /></button>
         </div>
 
-        <div className="flex gap-1.5 px-5 mb-5">
+        <div className="flex gap-1.5 px-5 lg:px-8 mb-5">
           {Array.from({ length: totalSteps }).map((_, i) => (
             <div key={i} className="flex-1 h-1 rounded-full transition-all"
               style={{ backgroundColor: i < step ? t.accent : t.borderLight }} />
           ))}
         </div>
 
-        <div className="px-5 pb-6">
+        <div className="flex-1 overflow-y-auto px-5 lg:px-8 pb-6">
           {step === 1 && (
             <div className="flex flex-wrap gap-2">
               {BODY_SIGNALS.map(s => (
@@ -237,6 +240,7 @@ function RecordSheet({ onClose, onSave, initialData, defaultDate }: RecordSheetP
               <p style={{ fontSize: 12, color: t.accent, fontWeight: 600 }}>
                 선택됨: {emotionTags.length}/3{emotionTags.length > 0 && ` — ${emotionTags.join(', ')}`}
               </p>
+              <div className="space-y-4 lg:space-y-0 lg:grid lg:grid-cols-2 lg:gap-x-8 lg:gap-y-4">
               {EMOTION_CATEGORIES.map(cat => {
                 const color = EMOTION_CATEGORY_COLORS[cat.label];
                 return (
@@ -257,6 +261,7 @@ function RecordSheet({ onClose, onSave, initialData, defaultDate }: RecordSheetP
                   </div>
                 );
               })}
+              </div>
             </div>
           )}
 
@@ -291,7 +296,7 @@ function RecordSheet({ onClose, onSave, initialData, defaultDate }: RecordSheetP
           )}
         </div>
 
-        <div className="flex gap-3 px-5 pb-8">
+        <div className="flex gap-3 px-5 lg:px-8 pt-3 pb-8 lg:pb-6" style={{ borderTop: `1px solid ${t.borderLight}` }}>
           {step > 1 ? (
             <button onClick={() => setStep(s => s - 1)}
               className="flex items-center gap-1 px-5 py-3 rounded-xl"
