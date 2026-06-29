@@ -1,8 +1,9 @@
 import { useEffect, useRef, useState } from 'react';
-import { CalendarDays, CheckSquare, Plus, X } from 'lucide-react';
+import { CalendarDays, CheckSquare, Plus, Sparkles, X } from 'lucide-react';
 import { useTheme } from '../ThemeContext';
 import { useFab, type FabAction } from '../FabContext';
 import { QuickAddInput } from './QuickAddInput';
+import { HappyCaptureModal } from './HappyCaptureModal';
 
 interface FloatingAddFabProps {
   mobileBottomClassName?: string;
@@ -35,6 +36,8 @@ export function FloatingAddFab({
   const [open, setOpen] = useState(false);          // 빠른 입력 팝오버/시트
   const [quickDate, setQuickDate] = useState<string | null>(null); // 빠른 입력 기본 날짜
   const [speedOpen, setSpeedOpen] = useState(false); // 모바일 speed dial
+  const [happyOpen, setHappyOpen] = useState(false); // ✨ 행복한 순간 캡처 모달
+  const [toast, setToast] = useState<string | null>(null);
   const [showHint, setShowHint] = useState(false);   // 모바일 최초 1회 long-press 힌트
   const ref = useRef<HTMLDivElement>(null);
   const pressTimer = useRef<number | null>(null);
@@ -151,8 +154,16 @@ export function FloatingAddFab({
     pressStart.current = null;
   };
 
-  // speed dial 보조 액션 — 어느 페이지에서든 "할일 빠르게 추가"(Inbox 캡처)
+  const notify = (msg: string) => { setToast(msg); window.setTimeout(() => setToast(null), 1900); };
+
+  // speed dial 보조 액션 — 어느 페이지에서든 "할일 빠르게 추가"(Inbox 캡처) + "✨ 행복한 순간"
   const speedActions = [
+    {
+      key: 'happy',
+      label: '✨ 행복한 순간',
+      icon: Sparkles,
+      onPress: () => { setSpeedOpen(false); setHappyOpen(true); },
+    },
     {
       key: 'quick-todo',
       label: '할일 빠르게 추가',
@@ -331,6 +342,21 @@ export function FloatingAddFab({
             <QuickAddInput defaultDate={quickDate} autoFocus onSubmitted={() => setOpen(false)} />
             {detailRow}
           </div>
+        </div>
+      )}
+
+      {/* ✨ 행복한 순간 캡처 모달 (공용) */}
+      {happyOpen && (
+        <HappyCaptureModal onClose={() => setHappyOpen(false)} onSaved={() => notify('행복한 순간이 기록됐어요')} />
+      )}
+
+      {/* 저장 피드백 토스트 */}
+      {toast && (
+        <div
+          className="fixed left-1/2 -translate-x-1/2 bottom-24 z-[70] px-4 py-2 rounded-full whitespace-nowrap"
+          style={{ backgroundColor: t.text, color: t.card, fontSize: 13, fontWeight: 600, boxShadow: '0 6px 18px rgba(38,52,61,0.22)' }}
+        >
+          {toast}
         </div>
       )}
     </>

@@ -7,6 +7,7 @@ import { useVoiceInput } from '../hooks/useVoiceInput';
 import { useMediaQuery } from '../hooks/useMediaQuery';
 import { useRealtimeSync } from '../hooks/useRealtimeSync';
 import { weekFocusReport, monthFocusReport } from '../hooks/useTimeReport';
+import { HappyCaptureModal } from './HappyCaptureModal';
 import { supabase } from '../../lib/supabase';
 import { getCategoryEmoji, getMoodCategoryLabel, ENERGY_LABELS } from './MoodView';
 import {
@@ -1290,7 +1291,8 @@ interface ArchiveItem {
   kind: ArchiveKind;
   date: string;          // yyyy-MM-dd — 정렬·그룹·연도·점프 기준
   dateLabel: string;
-  time?: string;         // 행복: 시각
+  time?: string;         // 행복: 시각 표시(a h:mm)
+  hour?: number;         // 행복: happened_at 시(時) — 시간대 패턴 집계용(NULL이면 미집계)
   text: string;          // 검색 대상 + 미리보기 본문
   jump: { tab: 'day' | 'week' | 'month'; date: string };
 }
@@ -1339,6 +1341,9 @@ function ArchiveOverlay({ onClose, onJump }: {
   const [query, setQuery] = useState('');
   const [typeFilter, setTypeFilter] = useState<'all' | ArchiveKind>('all');
   const [yearFilter, setYearFilter] = useState<string>('all');
+  const [happyOpen, setHappyOpen] = useState(false);
+  const [toast, setToast] = useState<string | null>(null);
+  const notify = (msg: string) => { setToast(msg); window.setTimeout(() => setToast(null), 1900); };
 
   // 검색 디바운스(220ms)
   useEffect(() => {
@@ -1389,6 +1394,7 @@ function ArchiveOverlay({ onClose, onJump }: {
       out.push({ id: `h-${h.id}`, kind: 'happy', date: h.date,
         dateLabel: format(parseISO(h.date), 'M월 d일 (E)', { locale: ko }),
         time: h.happenedAt ? format(parseISO(h.happenedAt), 'a h:mm', { locale: ko }) : undefined,
+        hour: h.happenedAt ? parseISO(h.happenedAt).getHours() : undefined,
         text: h.content.trim(), jump: { tab: 'day', date: h.date } });
     }
 
@@ -1447,6 +1453,89 @@ function ArchiveOverlay({ onClose, onJump }: {
   }, [filtered]);
 
   const markBg = `${t.accent}33`;
+
+  // ── 행복 패턴(✨행복 필터 시) — 시간대 빈도 + 요약. 클라이언트 집계만. ──
+  const happyPattern = useMemo(() => {
+    if (typeFilter !== 'happy') return null;
+    const WD = ['일', '월', '화', '수', '목', '금', '토'];
+    const buckets = [
+      { key: 'morning', label: '아침', range: '05–11' },
+      { key: 'afternoon', label: '오후', range: '11–17' },
+      { key: 'evening', label: '저녁', range: '17–22' },
+      { key: 'night', label: '밤', range: '22–05' },
+    ] as const;
+    const bucketOf = (h: number) =>
+      h >= 5 && h < 11 ? 'morning' : h >= 11 && h < 17 ? 'afternoon' : h >= 17 && h < 22 ? 'evening' : 'night';
+    const counts: Record<string, number> = { morning: 0, afternoon: 0, evening: 0, night: 0 };
+    const wd = new Array(7).fill(0);
+    let withHour = 0;
+    for (const it of filtered) {
+      if (it.hour != null) { counts[bucketOf(it.hour)]++; withHour++; }
+      wd[parseISO(it.date).getDay()]++;
+    }
+    const topBucket = withHour > 0
+      ? buckets.reduce((a, b) => (counts[b.key] > counts[a.key] ? b : a))
+      : null;
+    const topWdIdx = wd.some((c: number) => c > 0) ? wd.reduce((bi: number, c: number, i: number) => (c > wd[bi] ? i : bi), 0) : -1;
+    return {
+      buckets: buckets.map(b => ({ ...b, count: counts[b.key] })),
+      max: Math.max(1, ...buckets.map(b => counts[b.key])),
+      withHour,
+      count: filtered.length,
+      topBucketLabel: topBucket?.label ?? null,
+      topWd: topWdIdx >= 0 ? `${WD[topWdIdx]}요일` : null,
+    };
+  }, [filtered, typeFilter]);
+
+  const captureBtn = (
+    <button type="button" onClick={() => setHappyOpen(true)}
+      className="flex items-center justify-center gap-1.5 rounded-xl"
+      style={{ padding: '9px 14px', backgroundColor: t.danger, color: '#fff', fontSize: 13, fontWeight: 700 }}>
+      <Plus size={16} /> 지금 행복한 순간
+    </button>
+  );
+
+  const patternView = happyPattern && (
+    <div className="rounded-2xl mb-4" style={{ backgroundColor: t.card, border: `1px solid ${t.borderLight}`, padding: 16 }}>
+      <div className="flex items-center justify-between gap-2 mb-3 flex-wrap">
+        <h3 style={{ fontSize: 14, fontWeight: 700, color: t.text }}>✨ 주로 이럴 때 행복을 느껴요</h3>
+        {captureBtn}
+      </div>
+      {happyPattern.count === 0 ? (
+        <p style={{ fontSize: 13, color: t.textMuted }}>아직 기록된 행복한 순간이 없어요 · 지금 한 줄 남겨보세요</p>
+      ) : (
+        <>
+          <div className="flex items-end gap-3" style={{ height: 92 }}>
+            {happyPattern.buckets.map(b => {
+              const h = b.count > 0 ? `${Math.max(8, (b.count / happyPattern.max) * 100)}%` : '0%';
+              const isTop = happyPattern.topBucketLabel === b.label && b.count > 0;
+              return (
+                <div key={b.key} className="flex flex-col items-center gap-1.5 flex-1 min-w-0" style={{ height: '100%', justifyContent: 'flex-end' }}>
+                  <div className="relative w-full flex justify-center" style={{ flex: 1, alignItems: 'flex-end' }}>
+                    <div style={{ width: '100%', maxWidth: 44, height: h, borderRadius: '8px 8px 0 0', backgroundColor: isTop ? t.danger : t.accent, position: 'relative', transition: 'height .3s' }}>
+                      {b.count > 0 && (
+                        <span style={{ position: 'absolute', top: -16, left: 0, right: 0, textAlign: 'center', fontSize: 10, fontWeight: 700, color: isTop ? t.danger : t.textMuted }}>{b.count}</span>
+                      )}
+                    </div>
+                  </div>
+                  <span style={{ fontSize: 11, color: isTop ? t.danger : t.textSub, fontWeight: isTop ? 700 : 400 }}>{b.label}</span>
+                  <span style={{ fontSize: 9, color: t.textMuted }}>{b.range}</span>
+                </div>
+              );
+            })}
+          </div>
+          <p className="mt-3" style={{ fontSize: 12, color: t.textSub, lineHeight: 1.6 }}>
+            행복한 순간 <b style={{ color: t.text }}>{happyPattern.count}번</b>
+            {happyPattern.topBucketLabel && <> · 가장 많은 시간대 <b style={{ color: t.danger }}>{happyPattern.topBucketLabel}</b></>}
+            {happyPattern.topWd && <> · 가장 많은 요일 <b style={{ color: t.danger }}>{happyPattern.topWd}</b></>}
+          </p>
+          {happyPattern.withHour < happyPattern.count && (
+            <p style={{ fontSize: 10.5, color: t.textMuted, marginTop: 4 }}>※ 시간대 막대는 시각이 기록된 {happyPattern.withHour}건만 반영</p>
+          )}
+        </>
+      )}
+    </div>
+  );
 
   const renderCard = (it: ArchiveItem) => {
     const meta = kindMeta[it.kind];
@@ -1513,8 +1602,10 @@ function ArchiveOverlay({ onClose, onJump }: {
 
       {/* 결과 스트림 */}
       <div className="flex-1 overflow-y-auto px-4 lg:px-6 py-3">
+        {/* ✨행복 필터 시 상단 패턴뷰 */}
+        {patternView}
         {groups.length === 0 ? (
-          <p className="text-center py-16" style={{ fontSize: 14, color: t.textMuted }}>검색 결과가 없어요</p>
+          !happyPattern && <p className="text-center py-16" style={{ fontSize: 14, color: t.textMuted }}>검색 결과가 없어요</p>
         ) : (
           <div style={useColumns ? { columnCount, columnGap: 18 } : undefined}>
             {groups.map(g => (
@@ -1530,6 +1621,17 @@ function ArchiveOverlay({ onClose, onJump }: {
           </div>
         )}
       </div>
+
+      {/* ✨ 행복한 순간 캡처(공용) + 토스트 */}
+      {happyOpen && (
+        <HappyCaptureModal onClose={() => setHappyOpen(false)} onSaved={() => notify('행복한 순간이 기록됐어요')} />
+      )}
+      {toast && (
+        <div className="fixed left-1/2 -translate-x-1/2 bottom-10 z-[70] px-4 py-2 rounded-full whitespace-nowrap"
+          style={{ backgroundColor: t.text, color: t.card, fontSize: 13, fontWeight: 600, boxShadow: '0 6px 18px rgba(38,52,61,0.22)' }}>
+          {toast}
+        </div>
+      )}
     </div>
   );
 }
