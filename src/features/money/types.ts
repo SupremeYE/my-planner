@@ -129,9 +129,24 @@ export interface MoneyPlan {
   expectedIncome: number;       // 예상 수입(월급+부수입)
   fixedCostTotal: number;       // 고정 지출 합(월환산 고정비 + 대출 월상환) 스냅샷
   availableAmount: number;      // 예상수입 − 고정지출 가용 금액 스냅샷
-  plannedSavings: number;       // 선저축 배분
-  plannedInvestment: number;    // 투자 배분
-  plannedLiving: number;        // 생활비(변동) 배분
+  plannedSavings: number;       // 선저축 배분(생활비 외 분배 항목 롤업 — 투자 제외)
+  plannedInvestment: number;    // 투자 배분(분배 항목 중 '투자' 롤업)
+  plannedLiving: number;        // 생활비(변동) 배분 = 생활비 한도
+  livingLimit: number;          // 이번 달 생활비 한도(plannedLiving 과 동기화 — 한도 단일 출처)
+  createdAt?: string;
+}
+
+// 계획 분배 항목(Plan-Stage 1.5-A) — "통장 쪼개기". 계획당 N행, 그 중 1행이 생활비(한도).
+//  · 항목마다 이름 + 금액 + (선택) 연동 통장(accountId). isLiving=true 항목 금액 = 생활비 한도.
+//  · 통장 연결 시 "이 통장에 N원 보내기" 안내 생성(연결은 선택 — 안 해도 금액 분배만으로 동작).
+export interface MoneyPlanAllocation {
+  id: string;
+  planId: string;
+  name: string;                 // '월세', '비상금', '저축', '생활비' 등
+  amount: number;
+  accountId: string | null;     // 연동 통장(선택)
+  isLiving: boolean;            // 생활비(한도) 항목 여부
+  sortOrder: number;
   createdAt?: string;
 }
 

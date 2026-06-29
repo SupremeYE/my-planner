@@ -5,7 +5,7 @@
 import { supabase } from '../../lib/supabase';
 import type {
   MoneyCategory, MoneyTransaction, MoneyAccount, MoneyCard,
-  MoneyFixedCost, MoneyLoan, MoneyGoal, MoneyPlan, MoneyReview, MoneySettings, Currency, PeriodType, ReviewType,
+  MoneyFixedCost, MoneyLoan, MoneyGoal, MoneyPlan, MoneyPlanAllocation, MoneyReview, MoneySettings, Currency, PeriodType, ReviewType,
 } from './types';
 
 const num = (v: any): number | null => (v != null ? Number(v) : null);
@@ -219,6 +219,7 @@ const plans = {
       expectedIncome: Number(r.expected_income ?? 0), fixedCostTotal: Number(r.fixed_cost_total ?? 0),
       availableAmount: Number(r.available_amount ?? 0), plannedSavings: Number(r.planned_savings ?? 0),
       plannedInvestment: Number(r.planned_investment ?? 0), plannedLiving: Number(r.planned_living ?? 0),
+      livingLimit: Number(r.living_limit ?? r.planned_living ?? 0),
       createdAt: r.created_at ?? undefined,
     }));
   },
@@ -229,6 +230,7 @@ const plans = {
       expected_income: item.expectedIncome, fixed_cost_total: item.fixedCostTotal,
       available_amount: item.availableAmount, planned_savings: item.plannedSavings,
       planned_investment: item.plannedInvestment, planned_living: item.plannedLiving,
+      living_limit: item.livingLimit ?? item.plannedLiving,
       updated_at: new Date().toISOString(),
     }, { onConflict: 'id' });
     if (error) console.error('[money] plans upsert:', error.message);
@@ -236,6 +238,32 @@ const plans = {
   delete: async (id: string) => {
     const { error } = await supabase.from('money_plans').delete().eq('id', id);
     if (error) console.error('[money] plans delete:', error.message);
+  },
+};
+
+// ── plan_allocations (계획 분배 항목 = 통장 쪼개기) — 계획당 N행. 저장은 plan 단위 전체 교체 ──
+const allocations = {
+  fetchAll: async (): Promise<MoneyPlanAllocation[]> => {
+    const { data, error } = await supabase
+      .from('money_plan_allocations').select('*').order('sort_order', { ascending: true });
+    if (error) console.error('[money] allocations fetch:', error.message);
+    return (data ?? []).map((r: any): MoneyPlanAllocation => ({
+      id: r.id, planId: r.plan_id, name: r.name, amount: Number(r.amount ?? 0),
+      accountId: r.account_id ?? null, isLiving: r.is_living ?? false,
+      sortOrder: r.sort_order ?? 0, createdAt: r.created_at ?? undefined,
+    }));
+  },
+  // 한 계획의 분배 항목을 통째로 교체(삭제 후 삽입) — 항목 추가/삭제/순서 변경을 단순하게 반영.
+  replaceForPlan: async (planId: string, items: MoneyPlanAllocation[]) => {
+    const del = await supabase.from('money_plan_allocations').delete().eq('plan_id', planId);
+    if (del.error) { console.error('[money] allocations clear:', del.error.message); return; }
+    if (items.length === 0) return;
+    const rows = items.map(a => ({
+      id: a.id, plan_id: planId, name: a.name, amount: a.amount,
+      account_id: a.accountId ?? null, is_living: a.isLiving, sort_order: a.sortOrder,
+    }));
+    const { error } = await supabase.from('money_plan_allocations').insert(rows);
+    if (error) console.error('[money] allocations insert:', error.message);
   },
 };
 
@@ -301,5 +329,5 @@ const settings = {
 };
 
 export const moneyDb = {
-  categories, transactions, accounts, cards, fixedCosts, loans, goals, plans, reviews, settings,
+  categories, transactions, accounts, cards, fixedCosts, loans, goals, plans, allocations, reviews, settings,
 };
