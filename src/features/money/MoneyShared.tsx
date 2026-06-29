@@ -154,7 +154,7 @@ export function SummaryStrip({ m }: { m: UseMoney }) {
 // ── 예산 진행률 ──
 export function BudgetBar({ m }: { m: UseMoney }) {
   const { t } = useTheme();
-  const budget = m.settings.monthlyBudget || 0;
+  const budget = m.budgetBase;   // 생활비 한도(계획) ?? 월예산 폴백 — 설정의 월예산 입력은 제거(단일 출처=계획)
   const used = m.expense;
   const pct = budget > 0 ? Math.min(100, Math.round((used / budget) * 100)) : 0;
   const over = budget > 0 && used > budget;
@@ -414,7 +414,7 @@ export function SpendTrendChart({ m }: { m: UseMoney }) {
   }
   const totals = buckets.map(b => Array.from(agg.get(b.key)!.values()).reduce((s, v) => s + v, 0));
   const maxTotal = Math.max(...totals, 0);
-  const budget = m.settings.monthlyBudget || 0;
+  const budget = m.budgetBase;   // 생활비 한도(계획) ?? 월예산 폴백
   const showBudget = gran === 'monthly' && budget > 0;
   const scaleMax = niceCeilWon(Math.max(maxTotal, showBudget ? budget : 0));
   const yTicks = [1, 0.75, 0.5, 0.25, 0].map(r => scaleMax * r); // 위→아래
@@ -1134,22 +1134,21 @@ export function BudgetPanel({ m }: { m: UseMoney }) {
   );
 }
 
-// ── 머니 설정 시트(예산 기간/급여일/월 예산 + 카테고리 관리 진입) — 모바일/PC 공유 ──
+// ── 머니 설정 시트(예산 기간/급여일/환율 알림 + 카테고리 관리 진입) — 모바일/PC 공유 ──
+//  · 월 예산 입력은 제거(Plan-Stage 1.5-A) — 예산(생활비 한도)은 "계획하기"에서만 결정(단일 출처).
 export function SettingsSheet({ m, onClose }: { m: UseMoney; onClose: () => void }) {
   const { t } = useTheme();
   const [periodType, setPeriodType] = useState<PeriodType>(m.settings.periodType);
   const [payday, setPayday] = useState(String(m.settings.payday));
-  const [budgetMan, setBudgetMan] = useState(String(Math.round(m.settings.monthlyBudget / 10000)));
   const [fxThreshold, setFxThreshold] = useState(String(m.settings.fxAlertThreshold));
   const [showCategories, setShowCategories] = useState(false);
 
   const save = async () => {
     const thr = Number(fxThreshold);
     await m.updateSettings({
-      ...m.settings,   // currency 는 ₩ 고정 — 통화는 고정비/거래별로만 다룸(설정에서 제외)
+      ...m.settings,   // monthlyBudget/currency 는 기존 값 보존 — 통화·월예산은 설정에서 다루지 않음
       periodType,
       payday: Math.min(Math.max(parseInt(payday) || 1, 1), 31),
-      monthlyBudget: (parseInt(budgetMan) || 0) * 10000,
       fxAlertThreshold: Number.isFinite(thr) && thr > 0 ? thr : 3.0,
     });
     onClose();
@@ -1191,9 +1190,9 @@ export function SettingsSheet({ m, onClose }: { m: UseMoney; onClose: () => void
         )}
         <div style={{ marginBottom: 18 }}>
           <div style={{ fontSize: 12, color: t.textSub, marginBottom: 8 }}>월 예산</div>
-          <div className="flex items-center gap-2">
-            <input type="number" value={budgetMan} onChange={e => setBudgetMan(e.target.value)} style={{ ...input, width: 80 }} />
-            <span style={{ fontSize: 13, color: t.textSub }}>만 원</span>
+          <div style={{ fontSize: 12, color: t.textMuted, background: t.bgSub, borderRadius: 10, padding: '11px 13px', lineHeight: 1.5 }}>
+            이제 월 예산은 <b style={{ color: t.textSub }}>가계부 ›  계획하기</b>의 <b style={{ color: t.textSub }}>생활비 한도</b>로 정해요.
+            수입에서 고정비·저축을 떼고 남은 돈으로 한 달 한도를 세웁니다.
           </div>
         </div>
 
