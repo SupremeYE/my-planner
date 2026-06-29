@@ -136,7 +136,7 @@ export function CultureRecordView() {
     <>
     {/* ════════ PC (lg 이상) — Stage 1·2 레이아웃 그대로 유지 ════════ */}
     <div className="hidden lg:block h-full overflow-y-auto" style={{ backgroundColor: t.bg }}>
-      <div className="max-w-[1400px] mx-auto px-4 lg:px-8 py-5 lg:py-7">
+      <div className="px-4 lg:px-8 py-5 lg:py-7">
 
         {/* ── 섹션 탭 (영상/음악) ── */}
         <SectionTabs section={section} setSection={setSection} />

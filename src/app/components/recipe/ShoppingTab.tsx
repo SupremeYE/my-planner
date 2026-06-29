@@ -207,7 +207,7 @@ export function ShoppingTab() {
 
   return (
     <>
-      <div className="max-w-[1200px] mx-auto px-4 lg:px-8 py-4 lg:py-6">
+      <div className="px-4 lg:px-8 py-4 lg:py-6">
         {/* 선택/액션 바 */}
         {!loading && items.length > 0 && (
           <div className="flex items-center justify-between mb-3" style={{ minHeight: 34 }}>
