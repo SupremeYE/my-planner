@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { X } from 'lucide-react';
 import { useTheme } from '../../app/ThemeContext';
+import { MoneySheet } from './MoneySheet';
 import { MONEY_PALETTE, CUSTOM_PALETTE } from './tokens';
 import { fetchFxRate, CURRENCY_SYMBOL } from './fx';
 import type { UseMoney } from './useMoney';
@@ -82,10 +83,7 @@ export function FormSheet({ title, onClose, onSave, onDelete, canSave = true, de
   const { t } = useTheme();
   const [confirmDel, setConfirmDel] = useState(false);
   return (
-    <div className="fixed inset-0 z-[60] flex items-end lg:items-center justify-center" style={{ background: 'rgba(58,53,46,0.5)' }} onClick={onClose}>
-      <div onClick={e => e.stopPropagation()}
-        className="w-full lg:w-[460px] lg:max-w-[92vw] rounded-t-3xl lg:rounded-3xl"
-        style={{ background: t.card, padding: '20px 20px 28px', maxHeight: '88vh', overflowY: 'auto' }}>
+    <MoneySheet onClose={onClose} variant="side" size="md" maxVh={88}>
         <div className="flex justify-between items-center" style={{ marginBottom: 18 }}>
           <span style={{ fontSize: 17, fontWeight: 700, color: t.text }}>{title}</span>
           <button onClick={onClose} style={{ color: t.textMuted }}><X size={18} /></button>
@@ -115,8 +113,7 @@ export function FormSheet({ title, onClose, onSave, onDelete, canSave = true, de
             </button>
           </div>
         )}
-      </div>
-    </div>
+    </MoneySheet>
   );
 }
 
