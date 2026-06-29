@@ -871,9 +871,10 @@ export function MoodView() {
 
   const openEdit = (record: MoodRecord) => { setEditingRecord(record); setNewRecordDate(undefined); setShowSheet(true); };
   const openNewForDate = (date: string) => { setEditingRecord(null); setNewRecordDate(date); setShowSheet(true); };
+  const openNew = () => { setEditingRecord(null); setNewRecordDate(undefined); setShowSheet(true); };
 
   // 전역 FAB — 감정 기록
-  useFabAction({ kind: 'action', label: '감정 기록', icon: Plus, onPress: () => { setEditingRecord(null); setNewRecordDate(undefined); setShowSheet(true); } });
+  useFabAction({ kind: 'action', label: '감정 기록', icon: Plus, onPress: openNew });
 
   const todayRecords = records.filter(r => r.date === today);
   const pastRecords = records.filter(r => r.date !== today);
@@ -887,16 +888,9 @@ export function MoodView() {
   return (
     <div className="flex-1 overflow-y-auto pb-20">
       {/* Header */}
-      <div className="px-5 pt-6 pb-3 flex items-center justify-between">
-        <div>
-          <h1 style={{ fontSize: 22, fontWeight: 700, color: t.text, fontFamily: 'var(--font-gmarket)' }}>감정 기록</h1>
-          <p style={{ fontSize: 13, color: t.textSub, marginTop: 4 }}>지금 이 순간의 감정을 기록해보세요</p>
-        </div>
-        <button onClick={() => { setEditingRecord(null); setNewRecordDate(undefined); setShowSheet(true); }}
-          className="flex items-center gap-1.5 px-4 py-2.5 rounded-xl"
-          style={{ backgroundColor: t.accent, color: '#fff', fontSize: 13, fontWeight: 600 }}>
-          <Plus size={15} /> 기록
-        </button>
+      <div className="px-5 pt-6 pb-3">
+        <h1 style={{ fontSize: 22, fontWeight: 700, color: t.text, fontFamily: 'var(--font-gmarket)' }}>감정 기록</h1>
+        <p style={{ fontSize: 13, color: t.textSub, marginTop: 4 }}>지금 이 순간의 감정을 기록해보세요</p>
       </div>
 
       {/* Tabs */}
@@ -919,15 +913,23 @@ export function MoodView() {
               <p style={{ fontSize: 11, color: t.textMuted, fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase', marginBottom: 10 }}>
                 오늘 기록 ({todayRecords.length}건)
               </p>
+
+              {/* 퀵 입력 바 — 진입점 일원화. 기록 유무와 무관하게 항상 같은 자리. 클릭 시 기존 4단계 모달 */}
+              <button onClick={openNew} aria-label="감정 기록 추가"
+                className="w-full flex items-center justify-between gap-3 rounded-2xl px-4 py-3.5 mb-3 transition-colors"
+                style={{ backgroundColor: t.card, border: `1.5px dashed ${t.accent}` }}>
+                <span style={{ fontSize: 13, color: t.textMuted }}>지금 이 순간의 감정을 기록해보세요…</span>
+                <span className="flex items-center justify-center rounded-full flex-shrink-0"
+                  style={{ width: 32, height: 32, backgroundColor: t.danger, color: '#fff' }}>
+                  <Plus size={18} />
+                </span>
+              </button>
+
               {loading && <p style={{ fontSize: 13, color: t.textMuted, textAlign: 'center', padding: 24 }}>불러오는 중...</p>}
               {!loading && todayRecords.length === 0 && (
-                <div className="flex flex-col items-center gap-3 py-8 rounded-2xl" style={{ backgroundColor: t.card, border: `1px dashed ${t.borderLight}` }}>
-                  <span style={{ fontSize: 36 }}>🌸</span>
-                  <p style={{ fontSize: 13, color: t.textMuted }}>오늘의 첫 감정 기록을 남겨보세요</p>
-                  <button onClick={() => { setEditingRecord(null); setNewRecordDate(undefined); setShowSheet(true); }}
-                    className="px-5 py-2 rounded-xl"
-                    style={{ backgroundColor: t.accentLight, color: t.accent, fontSize: 13, fontWeight: 600 }}>+ 기록하기</button>
-                </div>
+                <p style={{ fontSize: 13, color: t.textMuted, textAlign: 'center', padding: '4px 0 8px' }}>
+                  오늘의 첫 감정 기록을 남겨보세요
+                </p>
               )}
               <div className="space-y-3">
                 {todayRecords.map(r => <RecordCard key={r.id} record={r} onEdit={openEdit} onDelete={handleDelete} />)}
