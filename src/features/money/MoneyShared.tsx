@@ -3,6 +3,7 @@ import React, { useState } from 'react';
 import { format, parseISO, subDays, addDays, differenceInCalendarDays, differenceInCalendarMonths } from 'date-fns';
 import { Send, X, Plus, Tags, ChevronRight } from 'lucide-react';
 import { useTheme } from '../../app/ThemeContext';
+import { MoneySheet } from './MoneySheet';
 import type { UseMoney } from './useMoney';
 import {
   MONEY_PALETTE, resolveCategoryColor, categoryInitial, formatWon, formatManShort, subcategoryShade, INVEST_KIND_META,
@@ -1202,14 +1203,13 @@ export function SettingsSheet({ m, onClose }: { m: UseMoney; onClose: () => void
 
   return (
     <>
-    <div className="fixed inset-0 z-[60] flex items-end lg:items-center justify-center" style={{ background: 'rgba(58,53,46,0.5)' }} onClick={onClose}>
-      <div onClick={e => e.stopPropagation()}
-        className="w-full lg:w-[460px] lg:max-w-[92vw] rounded-t-3xl lg:rounded-3xl"
-        style={{ background: t.card, padding: '20px 20px 32px', maxHeight: '88vh', overflowY: 'auto' }}>
+    <MoneySheet onClose={onClose} size="wide" padClass="pt-5 px-5 pb-8 lg:p-7" maxVh={88}>
         <div className="flex justify-between items-center" style={{ marginBottom: 20 }}>
           <span style={{ fontSize: 17, fontWeight: 700, color: t.text }}>머니 설정</span>
           <button onClick={onClose} style={{ color: t.textMuted }}><X size={18} /></button>
         </div>
+        {/* PC: 설정 그룹 2열 / 모바일: 단일 컬럼(순서 동일) */}
+        <div className="lg:grid lg:grid-cols-2 lg:gap-x-6 lg:items-start">
         <div style={{ marginBottom: 18 }}>
           <div style={{ fontSize: 12, color: t.textSub, marginBottom: 8 }}>예산 기간 기준</div>
           <div className="flex gap-2">
@@ -1242,6 +1242,7 @@ export function SettingsSheet({ m, onClose }: { m: UseMoney; onClose: () => void
           </div>
           <div style={{ fontSize: 11, color: t.textMuted, marginTop: 6 }}>외화 고정비 환율이 직전 대비 이만큼 변하면 고정비 관리 화면에 ⚠ 표시</div>
         </div>
+        </div>{/* /설정 그룹 2열 */}
 
         {/* 카테고리 관리 진입 */}
         <button onClick={() => setShowCategories(true)}
@@ -1257,8 +1258,7 @@ export function SettingsSheet({ m, onClose }: { m: UseMoney; onClose: () => void
         </button>
 
         <button onClick={save} className="w-full" style={{ padding: 13, borderRadius: 12, background: MONEY_PALETTE.ink, color: '#FDFAF4', fontSize: 14, fontWeight: 600 }}>저장</button>
-      </div>
-    </div>
+    </MoneySheet>
 
     {/* 카테고리 관리 — 설정 백드롭의 형제로 띄움(바깥 클릭 전파 방지) */}
     {showCategories && <CategoryManager m={m} onClose={() => setShowCategories(false)} />}
