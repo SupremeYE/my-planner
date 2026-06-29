@@ -9,8 +9,13 @@ import { getMoneyPeriod, daysLeftInPeriod, getMoneyWeeks, currentWeek as current
 import { fetchFxRate, fetchFxRateOn, needsFxRefresh, monthlyEquivalent } from './fx';
 import type {
   MoneyCategory, MoneyTransaction, MoneyAccount, MoneyCard,
-  MoneyFixedCost, MoneyLoan, MoneyGoal, MoneyPlan, MoneyReview, MoneySettings, ParsedTx, TxType, Currency,
+  MoneyFixedCost, MoneyLoan, MoneyGoal, MoneyPlan, MoneyPlanAllocation, MoneyReview, MoneySettings, ParsedTx, TxType, Currency,
 } from './types';
+
+// 계획 저장 시 전달하는 분배 항목(id 없이 — 저장 시 부여). 통장 쪼개기 입력.
+export interface AllocationInput {
+  name: string; amount: number; accountId: string | null; isLiving: boolean; sortOrder: number;
+}
 
 const today = () => format(new Date(), 'yyyy-MM-dd');
 
@@ -46,6 +51,10 @@ export interface UseMoney {
   goals: MoneyGoal[];
   plans: MoneyPlan[];
   currentPlan: MoneyPlan | null;   // 이번 기간 계획(period.start 매칭). 없으면 null(미수립).
+  allocations: MoneyPlanAllocation[];          // 전체 분배 항목(모든 계획)
+  currentAllocations: MoneyPlanAllocation[];   // 이번 기간 계획의 분배 항목(sortOrder 순)
+  livingLimit: number;             // 이번 달 생활비 한도(계획 있으면 그 값, 없으면 0)
+  budgetBase: number;              // 예산 기준액 = 생활비 한도(계획) ?? 월예산(폴백). 진행바/하루가용 입력.
   reviews: MoneyReview[];
   settings: MoneySettings;
   period: MoneyPeriod;
@@ -107,9 +116,11 @@ export interface UseMoney {
   saveGoal: (g: MoneyGoal) => Promise<void>;
   deleteGoal: (id: string) => Promise<void>;
   // 월간 계획 — period_start 충돌 시 갱신(재계획). id 미지정이면 새로 부여.
+  //  · allocations 전달 시 그 계획의 분배 항목(통장 쪼개기)을 통째로 교체 저장.
   savePlan: (p: Partial<MoneyPlan> & {
     expectedIncome: number; fixedCostTotal: number; availableAmount: number;
     plannedSavings: number; plannedInvestment: number; plannedLiving: number;
+    livingLimit?: number; allocations?: AllocationInput[];
   }) => Promise<void>;
   // 회고 저장(주간/월말) — 같은 (기간, 주차) 있으면 갱신(재회고), 없으면 새로. 소감/조정만 사용자 입력.
   saveReview: (r: Partial<MoneyReview> & { type: MoneyReview['type']; totalSpent: number; weekIndex: number | null }) => Promise<void>;
@@ -124,6 +135,7 @@ export function useMoney(): UseMoney {
   const [loans, setLoans] = useState<MoneyLoan[]>([]);
   const [goals, setGoals] = useState<MoneyGoal[]>([]);
   const [plans, setPlans] = useState<MoneyPlan[]>([]);
+  const [allocations, setAllocations] = useState<MoneyPlanAllocation[]>([]);
   const [reviews, setReviews] = useState<MoneyReview[]>([]);
   const [settings, setSettings] = useState<MoneySettings>({
     periodType: 'payday', payday: 25, monthlyBudget: 1200000, currency: 'KRW', fxAlertThreshold: 3.0,
@@ -131,13 +143,14 @@ export function useMoney(): UseMoney {
   const [loading, setLoading] = useState(true);
 
   const refresh = useCallback(async () => {
-    const [cat, tx, acc, crd, fx, ln, gl, pl, rv, st] = await Promise.all([
+    const [cat, tx, acc, crd, fx, ln, gl, pl, al, rv, st] = await Promise.all([
       moneyDb.categories.fetchAll(), moneyDb.transactions.fetchAll(), moneyDb.accounts.fetchAll(),
       moneyDb.cards.fetchAll(), moneyDb.fixedCosts.fetchAll(), moneyDb.loans.fetchAll(),
-      moneyDb.goals.fetchAll(), moneyDb.plans.fetchAll(), moneyDb.reviews.fetchAll(), moneyDb.settings.fetch(),
+      moneyDb.goals.fetchAll(), moneyDb.plans.fetchAll(), moneyDb.allocations.fetchAll(),
+      moneyDb.reviews.fetchAll(), moneyDb.settings.fetch(),
     ]);
     setCategories(cat); setTransactions(tx); setAccounts(acc); setCards(crd);
-    setFixedCosts(fx); setLoans(ln); setGoals(gl); setPlans(pl); setReviews(rv); setSettings(st);
+    setFixedCosts(fx); setLoans(ln); setGoals(gl); setPlans(pl); setAllocations(al); setReviews(rv); setSettings(st);
     setLoading(false);
   }, []);
 
@@ -150,6 +163,7 @@ export function useMoney(): UseMoney {
   useRealtimeSync('money_loans', refresh);
   useRealtimeSync('money_goals', refresh);
   useRealtimeSync('money_plans', refresh);
+  useRealtimeSync('money_plan_allocations', refresh);
   useRealtimeSync('money_reviews', refresh);
   useRealtimeSync('money_settings', refresh);
 
@@ -193,6 +207,16 @@ export function useMoney(): UseMoney {
   // 이번 기간 계획 — period.start 와 동일한 period_start 의 계획(없으면 null = 미수립).
   const currentPlan = useMemo(
     () => plans.find(p => p.periodStart === period.start) ?? null, [plans, period.start]);
+  // 이번 계획의 분배 항목(통장 쪼개기) — sortOrder 순.
+  const currentAllocations = useMemo(
+    () => allocations.filter(a => a.planId === currentPlan?.id).sort((a, b) => a.sortOrder - b.sortOrder),
+    [allocations, currentPlan?.id]);
+  // 이번 달 생활비 한도 = 계획의 living_limit(0/미수립이면 plannedLiving 폴백). 계획 없으면 0.
+  const livingLimit = useMemo(
+    () => (currentPlan ? (currentPlan.livingLimit || currentPlan.plannedLiving || 0) : 0), [currentPlan]);
+  // 예산 기준액 — 한도(계획) 우선, 없으면 기존 월예산 설정으로 폴백(설정 월예산 입력 제거 후 단일 출처는 계획).
+  const budgetBase = useMemo(
+    () => (livingLimit > 0 ? livingLimit : (settings.monthlyBudget || 0)), [livingLimit, settings.monthlyBudget]);
 
   const periodTransactions = useMemo(
     () => transactions.filter(t => t.spentAt >= period.start && t.spentAt <= period.end),
@@ -256,10 +280,10 @@ export function useMoney(): UseMoney {
   // D-day & 하루 사용 가능액(남은 예산 / 남은 일수, 오늘 포함)
   const daysLeft = useMemo(() => daysLeftInPeriod(period), [period]);
   const dailyAllowance = useMemo(() => {
-    const remainBudget = Math.max(0, (settings.monthlyBudget || 0) - expense);
+    const remainBudget = Math.max(0, budgetBase - expense);
     const remainDays = daysLeft + 1; // 오늘 포함
     return remainDays > 0 ? Math.floor(remainBudget / remainDays) : 0;
-  }, [settings.monthlyBudget, expense, daysLeft]);
+  }, [budgetBase, expense, daysLeft]);
 
   // 머니 기록 시작일 = 가장 이른 거래일. 거래가 0건이면 null(아직 기록 전).
   // 이 날 이전은 "기록을 안 한 날"이므로 무지출 판정에서 완전히 제외한다.
@@ -290,11 +314,10 @@ export function useMoney(): UseMoney {
   // 기간을 7일 단위로 분할(마지막 주는 잔여). 오늘이 속한 주.
   const weeks = useMemo(() => getMoneyWeeks(period), [period]);
   const thisWeek = useMemo(() => currentWeekOf(weeks), [weeks]);
-  // 주당 생활비 예산 = (계획 생활비 ?? 월예산) / 주 수. 계획 없으면 월예산으로 폴백(신규 사용자도 의미 있게).
+  // 주당 생활비 예산 = 예산 기준액(생활비 한도 ?? 월예산 폴백) / 주 수.
   const weeklyLivingBudget = useMemo(() => {
-    const base = currentPlan?.plannedLiving || settings.monthlyBudget || 0;
-    return weeks.length > 0 ? Math.round(base / weeks.length) : 0;
-  }, [currentPlan, settings.monthlyBudget, weeks.length]);
+    return weeks.length > 0 ? Math.round(budgetBase / weeks.length) : 0;
+  }, [budgetBase, weeks.length]);
   // 그 주의 지출 합(기간 거래 중 주 범위).
   const weekSpending = useCallback((week: MoneyWeek): number =>
     periodTransactions
@@ -535,14 +558,24 @@ export function useMoney(): UseMoney {
   const savePlan = useCallback(async (p: Partial<MoneyPlan> & {
     expectedIncome: number; fixedCostTotal: number; availableAmount: number;
     plannedSavings: number; plannedInvestment: number; plannedLiving: number;
+    livingLimit?: number; allocations?: AllocationInput[];
   }) => {
     const existing = plans.find(x => x.periodStart === period.start);
+    const planId = p.id ?? existing?.id ?? crypto.randomUUID();
     await moneyDb.plans.upsert({
-      id: p.id ?? existing?.id ?? crypto.randomUUID(),
+      id: planId,
       periodStart: period.start, periodEnd: period.end,
       expectedIncome: p.expectedIncome, fixedCostTotal: p.fixedCostTotal, availableAmount: p.availableAmount,
       plannedSavings: p.plannedSavings, plannedInvestment: p.plannedInvestment, plannedLiving: p.plannedLiving,
+      livingLimit: p.livingLimit ?? p.plannedLiving,
     });
+    // 분배 항목(통장 쪼개기) 전체 교체 — 전달된 경우만(미전달이면 기존 유지).
+    if (p.allocations) {
+      await moneyDb.allocations.replaceForPlan(planId, p.allocations.map((a, i) => ({
+        id: crypto.randomUUID(), planId, name: a.name, amount: a.amount,
+        accountId: a.accountId ?? null, isLiving: a.isLiving, sortOrder: a.sortOrder ?? i,
+      })));
+    }
     await refresh();
   }, [plans, period.start, period.end, refresh]);
 
@@ -565,7 +598,7 @@ export function useMoney(): UseMoney {
   return {
     loading, categories, expenseCategories, incomeCategories, subcategoriesOf, rootCategoryOf,
     transactions, periodTransactions, accounts, investments, cards, fixedCosts, loans, goals,
-    plans, currentPlan, reviews, settings,
+    plans, currentPlan, allocations, currentAllocations, livingLimit, budgetBase, reviews, settings,
     period, income, expense, balance, fixedTotal, fixedMonthly, loanMonthly, assets, cardDebt, loanDebt, netWorth,
     investTotal, investPrincipal, investReturn, investReturnPct,
     daysLeft, dailyAllowance, noSpendStreak, trackingStartDate, spendByDay,
