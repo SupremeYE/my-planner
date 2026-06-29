@@ -1,9 +1,9 @@
 import { useState, useEffect, useRef } from 'react';
-import { useSearchParams, NavLink } from 'react-router';
+import { useSearchParams, NavLink, useNavigate } from 'react-router';
 import {
   ChevronLeft, ChevronRight, Star, Play,
   Check, Clock, Trash2, X, MoreHorizontal,
-  Settings, Edit3, Pause, Ban, CalendarDays, MessageSquare, ArrowRight,
+  Settings, Edit3, Pause, Ban, CalendarDays, ArrowRight, Bell, ChevronRight as ChevronRightIcon,
 } from 'lucide-react';
 import { format, addDays, subDays, addMonths, subMonths, startOfMonth, getDaysInMonth, getDay as getDayOfWeek, parseISO, addMinutes } from 'date-fns';
 import { ko } from 'date-fns/locale';
@@ -11,14 +11,14 @@ import { usePlanner, Todo, getLogicalToday } from '../store';
 import { useTheme } from '../ThemeContext';
 import { useNotification } from '../hooks/useNotification';
 import { TimePicker } from './TimePicker';
-import { HabitChip } from './HabitsView';
 import ConfirmModal from './ConfirmModal';
 import { TodoModal } from './TodoModal';
 import { MandalartSourceBadge } from './mandalart/MandalartSourceBadge';
 import { EventModal } from './EventModal';
 import { FocusModal } from './FocusModal';
 import { useFabAction } from '../FabContext';
-import { AddEntryMenu } from './AddEntryMenu';
+import { QuickAddInput } from './QuickAddInput';
+import { useDailySummary } from '../hooks/useDailySummary';
 import { isEventPast } from '../../api/events';
 import { expandRecurringTodos, isVirtualTodoId, parseVirtualTodoId } from '../../lib/recurrenceExpansion';
 import { RecurrenceBranchModal } from './RecurrenceBranchModal';
@@ -358,58 +358,103 @@ function ContextMenu({ todo, position, onClose, onFocus, onDelete, deleteMessage
   );
 }
 
-// ─── Daily Memo (일간 메모) ───
-// 일간 메모 — 입력 중 Realtime 동기화로 글자가 지워지던 문제 방지용 컴포넌트.
-// (기존엔 textarea value 를 store 값에 직접 바인딩 → 키 입력마다 upsert→Realtime 재조회가
-//  store 전체를 덮어써, 모바일에서 왕복 지연 동안 방금 친 글자가 사라졌다.)
-// 해결: 입력은 로컬 상태로 받고, 저장은 디바운스 + blur 에만 store/DB 로 반영한다.
-//       포커스 중에는 외부(다른 기기) 값으로 덮어쓰지 않는다. 최상위 컴포넌트로 정의해 리마운트 방지.
-function DailyMemo({ date, value, onChange }: {
-  date: string;
-  value: string;
-  onChange: (date: string, text: string) => void;
-}) {
+// ─── 오늘 기록 칩 (조회 전용 — Stage 3) ───
+// 코어 4(컨디션·식사·운동·수면)는 항상 노출(없으면 흐리게 "아직 없음"), 조건부(독서·미디어·음악·
+// 간곳)는 그날 데이터 있을 때만. 칩 탭 = 해당 페이지 이동(입력 없음 — 입력은 홈 QuickCaptureHome).
+// 집약은 useDailySummary(선택된 논리 날짜) 단일 소스.
+type RecordChip = { key: string; icon: string; name: string; to: string; value: string | null };
+
+function RecordChips({ date }: { date: string }) {
   const { t } = useTheme();
-  const [local, setLocal] = useState(value);
-  const focusedRef = useRef(false);
-  const dateRef = useRef(date);
-  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const navigate = useNavigate();
+  const s = useDailySummary(date);
 
-  // 날짜 변경 시엔 무조건 해당 날짜 메모로 교체, 같은 날짜의 외부 변경은 입력 중이 아닐 때만 반영
-  useEffect(() => {
-    if (dateRef.current !== date) {
-      dateRef.current = date;
-      setLocal(value);
-    } else if (!focusedRef.current) {
-      setLocal(value);
-    }
-  }, [value, date]);
+  const fmtSleep = (min: number) => {
+    const h = Math.floor(min / 60);
+    const m = min % 60;
+    return h > 0 ? (m > 0 ? `${h}시간 ${m}분` : `${h}시간`) : `${m}분`;
+  };
+  const MEAL_LABEL: Record<string, string> = { breakfast: '아침', lunch: '점심', dinner: '저녁', snack: '간식' };
 
-  useEffect(() => () => { if (timerRef.current) clearTimeout(timerRef.current); }, []);
+  const core: RecordChip[] = [
+    {
+      key: 'condition', icon: '🙂', name: '컨디션', to: '/health?tab=condition',
+      value: s.condition ? `스트레스 ${s.condition.stress ?? '-'}${s.condition.symptomCount ? ` · 증상 ${s.condition.symptomCount}` : ''}` : null,
+    },
+    {
+      key: 'food', icon: '🍽️', name: '식사', to: '/food',
+      value: s.food ? `${s.food.firstName ?? (s.food.mealTypes[0] ? MEAL_LABEL[s.food.mealTypes[0]] ?? s.food.mealTypes[0] : '기록')}${s.food.count > 1 ? ` 외 ${s.food.count - 1}건` : ''}` : null,
+    },
+    {
+      key: 'workout', icon: '🏃', name: '운동', to: '/health?tab=workout',
+      value: s.workout ? `${s.workout.names[0] ?? '운동'}${s.workout.count > 1 ? ` 외 ${s.workout.count - 1}` : ''}` : null,
+    },
+    {
+      key: 'sleep', icon: '😴', name: '수면', to: '/health?tab=sleep',
+      value: s.sleep ? (s.sleep.durationMin > 0 ? fmtSleep(s.sleep.durationMin) : '기록됨') : null,
+    },
+  ];
 
-  const handleChange = (text: string) => {
-    setLocal(text);
-    if (timerRef.current) clearTimeout(timerRef.current);
-    timerRef.current = setTimeout(() => onChange(date, text), 500);
+  const conditional: RecordChip[] = [];
+  if (s.reading) conditional.push({
+    key: 'reading', icon: '📖', name: '독서', to: '/books',
+    value: `${s.reading.lastBookTitle ?? '독서'}${s.reading.lastPage ? ` ${s.reading.lastPage}p` : ''}`,
+  });
+  if (s.culture) conditional.push({
+    key: 'culture', icon: '🎬', name: '미디어', to: '/culture',
+    value: `${s.culture.firstTitle ?? '미디어'}${s.culture.firstRating ? ` ★${s.culture.firstRating}` : ''}${s.culture.count > 1 ? ` 외 ${s.culture.count - 1}` : ''}`,
+  });
+  if (s.music) conditional.push({
+    key: 'music', icon: '🎵', name: '음악', to: '/culture',
+    value: `${s.music.firstTitle ?? '음악'}${s.music.count > 1 ? ` 외 ${s.music.count - 1}` : ''}`,
+  });
+  if (s.places) conditional.push({
+    key: 'places', icon: '📍', name: '간 곳', to: '/places',
+    value: `${s.places.firstName ?? '방문'}${s.places.count > 1 ? ` 외 ${s.places.count - 1}` : ''}`,
+  });
+
+  const renderChip = (c: RecordChip) => {
+    const empty = c.value === null;
+    return (
+      <button
+        key={c.key}
+        onClick={() => navigate(c.to)}
+        className="relative flex flex-col gap-1 rounded-2xl px-3 py-2.5 text-left transition-all"
+        style={{
+          minHeight: 72,
+          backgroundColor: empty ? 'transparent' : t.card,
+          border: empty ? `1px dashed ${t.border}` : `1px solid ${t.border}`,
+          opacity: empty ? 0.6 : 1,
+        }}
+      >
+        <span className="absolute" style={{ top: 8, right: 9, fontSize: 12, color: t.textMuted, fontWeight: 700 }}>↗</span>
+        <span style={{ fontSize: 19, lineHeight: 1, filter: empty ? 'grayscale(0.4)' : 'none' }}>{c.icon}</span>
+        <span style={{ fontSize: 12, fontWeight: 700, color: t.text }}>{c.name}</span>
+        <span style={{ fontSize: 11, color: empty ? t.textMuted : t.textSub, lineHeight: 1.35, fontWeight: empty ? 600 : 400, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+          {empty ? '아직 없음' : c.value}
+        </span>
+      </button>
+    );
   };
 
   return (
-    <textarea
-      value={local}
-      onChange={e => handleChange(e.target.value)}
-      onFocus={() => { focusedRef.current = true; }}
-      onBlur={() => {
-        focusedRef.current = false;
-        if (timerRef.current) { clearTimeout(timerRef.current); timerRef.current = null; }
-        onChange(date, local); // blur 시 확실히 저장
-      }}
-      placeholder="오늘의 메모..."
-      className="w-full rounded-xl px-4 py-3 outline-none resize-none"
-      style={{
-        border: `1px solid ${t.border}`, backgroundColor: t.bgSub, color: t.text,
-        fontSize: 13, minHeight: 180,
-      }}
-    />
+    <div>
+      <div className="flex items-baseline gap-2 mb-2">
+        <span style={{ fontSize: 10, color: t.textSub, fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase' }}>오늘 기록</span>
+        <span style={{ fontSize: 11, color: t.textMuted }}>탭하면 그 페이지로</span>
+      </div>
+      <div className="grid grid-cols-2 gap-2">{core.map(renderChip)}</div>
+      {conditional.length > 0 && (
+        <>
+          <div className="flex items-center gap-2 mt-3 mb-2">
+            <div className="flex-1 h-px" style={{ backgroundColor: t.borderLight }} />
+            <span style={{ fontSize: 10, color: t.textMuted, fontWeight: 700, letterSpacing: '0.04em' }}>오늘 남긴 것</span>
+            <div className="flex-1 h-px" style={{ backgroundColor: t.borderLight }} />
+          </div>
+          <div className="grid grid-cols-2 gap-2">{conditional.map(renderChip)}</div>
+        </>
+      )}
+    </div>
   );
 }
 
@@ -497,12 +542,12 @@ function DailyDatePickerModal({ selectedDate, onClose, onConfirm }: {
 // ─── Main Daily View ───
 export function DailyView() {
   const {
-    selectedDate, setSelectedDate, todos, events, updateTodo, addTodo, toggleEventCompleted, deleteRecurringTodo, habits, updateHabitMemo,
+    selectedDate, setSelectedDate, todos, events, updateTodo, addTodo, toggleEventCompleted, deleteRecurringTodo, habits,
     activeTimer, startTimer, stopTimer, tags, projects, weeklyGoals, milestones,
     dayStartHour: tlStartHour, dayEndHour: tlEndHour, setDayHours,
-    brainstormMemos, setBrainstormMemo,
   } = usePlanner();
   const { t } = useTheme();
+  const navigate = useNavigate();
   const { scheduleAlerts } = useNotification();
   const [searchParams] = useSearchParams();
   const highlightTodoId = searchParams.get('todoId');
@@ -516,8 +561,6 @@ export function DailyView() {
     onAddTodo: () => setShowAddModal(true),
     onAddEvent: () => setShowAddEventModal(true),
   });
-  // 메모 유형 습관의 일별 메모 임시 입력값 (id → text)
-  const [habitMemoEditing, setHabitMemoEditing] = useState<Record<string, string>>({});
   const [editingTodo, setEditingTodo] = useState<Todo | null>(null);
   const [focusingTodo, setFocusingTodo] = useState<Todo | null>(null);
   const [snoozingTodo, setSnoozingTodo] = useState<Todo | null>(null);
@@ -579,6 +622,13 @@ export function DailyView() {
 
   const dateObj = new Date(selectedDate + 'T12:00:00');
   const dayName = format(dateObj, 'EEEE', { locale: ko });
+
+  // 하루 경계 표기 (설정값 dayStartHour/dayEndHour 기준). 예: "하루 기준 · 04:00 – 익일 02:00"
+  const fmtBoundHour = (h: number) => `${String(h % 24).padStart(2, '0')}:00`;
+  const dayBoundLabel = `하루 기준 · ${fmtBoundHour(tlStartHour)} – ${tlEndHour >= 24 ? '익일 ' : ''}${fmtBoundHour(tlEndHour)}`;
+
+  // 일간은 체크 UI 없이 "안 한 습관" 리마인더만 (체크/기록은 습관 페이지)
+  const undoneHabits = habits.filter(h => !h.checkedDates.includes(selectedDate));
 
   const goToday = () => setSelectedDate(getLogicalToday());
   const goPrev = () => setSelectedDate(format(subDays(dateObj, 1), 'yyyy-MM-dd'));
@@ -873,7 +923,6 @@ export function DailyView() {
   };
 
   // Today's habits
-  const todayHabits = habits;
 
   return (
     <div className="relative flex-1 flex flex-col overflow-hidden h-full">
@@ -897,6 +946,7 @@ export function DailyView() {
                   {format(dateObj, 'M월 d일')}
                 </h2>
                 <p style={{ fontSize: 12, color: t.textSub }} className="whitespace-nowrap">{dayName}</p>
+                <p style={{ fontSize: 9.5, color: t.textMuted, fontWeight: 600, letterSpacing: '0.02em' }} className="whitespace-nowrap">{dayBoundLabel}</p>
               </div>
             </button>
             <button onClick={goNext} className="p-1.5 rounded-lg flex-shrink-0" style={{ color: t.textSub }}>
@@ -940,7 +990,7 @@ export function DailyView() {
               color: mobileTab === 'todos' ? t.accent : t.textSub,
               borderBottom: mobileTab === 'todos' ? `2px solid ${t.accent}` : '2px solid transparent',
             }}>
-            📋 할일
+            📋 오늘
           </button>
           <button
             onClick={() => setMobileTab('timeline')}
@@ -950,168 +1000,104 @@ export function DailyView() {
               color: mobileTab === 'timeline' ? t.accent : t.textSub,
               borderBottom: mobileTab === 'timeline' ? `2px solid ${t.accent}` : '2px solid transparent',
             }}>
-            TIMELINE
+            🕒 타임블록
           </button>
         </div>
 
         {/* Columns Wrapper */}
         <div className="flex-1 flex overflow-hidden" style={{ minHeight: 0 }}>
-        {/* Left Column: Todo List */}
+        {/* Left Column: 오늘 허브 (던지기 → 일정 → 할일 → 습관 알림 → 기록 칩) */}
         <div
           className={`flex-1 min-w-0 overflow-y-auto px-4 lg:px-6 py-4${mobileTab === 'timeline' ? ' hidden lg:block' : ''}`}
           style={{ borderRight: `1px solid ${t.border}` }}>
-          {/* Top3 */}
-          {importantTodos.length > 0 && (
-            <div className="mb-4 rounded-2xl p-4" style={{ backgroundColor: t.bgSub, border: `1px solid ${t.border}` }}>
-              <div className="flex items-center gap-2 mb-3">
-                <Star size={13} color={t.accent} />
-                <span style={{ fontSize: 10, color: t.accent, fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase' }}>
-                  Top 3 중요 할일
-                </span>
-              </div>
-              <div className="space-y-2">
-                {importantTodos.map(todo => TodoRow({ todo }))}
-              </div>
-            </div>
-          )}
+          <div className="space-y-4">
+            {/* 던지기 입력창 — 통합 진입점(이 날짜로 캡처, 날짜/시간/#태그 파싱) */}
+            <QuickAddInput defaultDate={selectedDate} placeholder="여기에 던지기: 운동, 오후 3시 회의 #업무 …" />
 
-          {/* All todos */}
-          <div className="mb-4 rounded-2xl p-4" style={{ backgroundColor: t.bgSub, border: `1px solid ${t.border}` }}>
-            <div className="flex items-center justify-between gap-3 mb-3">
-              <span style={{ fontSize: 10, color: t.textSub, fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase' }}>
-                  전체 할일 ({regularTodos.length})
-              </span>
-              <AddEntryMenu
-                onAddTodo={() => setShowAddModal(true)}
-                onAddEvent={() => setShowAddEventModal(true)}
-                align="end"
-              />
-            </div>
-            <div className="space-y-2">
-              {regularTodos.map(todo => TodoRow({ todo }))}
-              {regularTodos.length === 0 && (
-                <div className="py-8 text-center">
-                  <p style={{ fontSize: 13, color: t.textMuted }}>아직 할일이 없습니다</p>
+            {/* 오늘 일정 */}
+            <div className="rounded-2xl p-4" style={{ backgroundColor: t.bgSub, border: `1px solid ${t.border}` }}>
+              <div className="flex items-center gap-2 mb-2.5">
+                <CalendarDays size={13} color={t.info} />
+                <span style={{ fontSize: 10, color: t.info, fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase' }}>오늘 일정</span>
+                {dateEvents.length > 0 && <span style={{ fontSize: 10, color: t.textMuted }}>{dateEvents.length}</span>}
+                <div className="flex-1" />
+                <button onClick={() => navigate('/calendar')} style={{ fontSize: 11, color: t.textMuted, fontWeight: 600 }}>캘린더 →</button>
+              </div>
+              {dateEvents.length === 0 ? (
+                <p style={{ fontSize: 12, color: t.textMuted }} className="py-1">오늘 일정이 없어요</p>
+              ) : (
+                <div className="space-y-1.5">
+                  {dateEvents.map(evt => {
+                    const isDone = !!evt.completed;
+                    const isPast = !isDone && isEventPast(evt);
+                    const accentColor = evt.color || t.info;
+                    return (
+                      <div key={evt.id} className="flex items-center gap-2.5 py-1.5"
+                        style={{ opacity: isDone ? 0.55 : (isPast ? 0.75 : 1) }}>
+                        <button
+                          onClick={() => toggleEventCompleted(evt.id, !isDone)}
+                          className="w-5 h-5 rounded-full flex items-center justify-center flex-shrink-0 transition-all"
+                          style={{ border: isDone ? 'none' : `2px solid ${accentColor}80`, backgroundColor: isDone ? t.checkDone : 'transparent' }}
+                          aria-label={isDone ? '완료 취소' : '완료'}
+                        >
+                          {isDone && <Check size={11} color="#fff" strokeWidth={3} />}
+                        </button>
+                        <div className="min-w-0">
+                          <span style={{ fontSize: 13, color: isDone ? t.textMuted : t.text, textDecoration: isDone ? 'line-through' : 'none' }}>{evt.title}</span>
+                          <div className="flex items-center gap-2 mt-0.5">
+                            {evt.startTime && <span style={{ fontSize: 10, color: t.textMuted }}>{evt.startTime}{evt.endTime ? ` - ${evt.endTime}` : ''}</span>}
+                            {evt.location && <span style={{ fontSize: 10, color: t.textMuted }}>📍 {evt.location}</span>}
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
                 </div>
               )}
             </div>
-          </div>
 
-          {/* Events */}
-          {dateEvents.length > 0 && (
-            <div className="mb-4">
-              <div className="flex items-center gap-2 mb-2">
-                <CalendarDays size={13} color={t.info} />
-                <span style={{ fontSize: 10, color: t.info, fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase' }}>
-                  일정
-                </span>
+            {/* 오늘 할 일 (중요 먼저) */}
+            <div className="rounded-2xl p-4" style={{ backgroundColor: t.bgSub, border: `1px solid ${t.border}` }}>
+              <div className="flex items-center gap-2 mb-3">
+                <span style={{ fontSize: 10, color: t.accent, fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase' }}>오늘 할 일</span>
+                <span style={{ fontSize: 10, color: t.textMuted }}>{dateTodos.length}</span>
+                <div className="flex-1" />
+                <button onClick={() => navigate('/todos')} style={{ fontSize: 11, color: t.textMuted, fontWeight: 600 }}>전체 →</button>
               </div>
-              {dateEvents.map(evt => {
-                const isDone = !!evt.completed;
-                const isPast = !isDone && isEventPast(evt);
-                const accentColor = evt.color || t.info;
-                return (
-                  <div key={evt.id} className="flex items-center gap-2.5 py-2 px-2 rounded-xl"
-                    style={{ backgroundColor: t.bgSub, opacity: isDone ? 0.55 : (isPast ? 0.75 : 1) }}>
-                    <button
-                      onClick={() => toggleEventCompleted(evt.id, !isDone)}
-                      className="w-5 h-5 rounded-full flex items-center justify-center flex-shrink-0 transition-all"
-                      style={{
-                        border: isDone ? 'none' : `2px solid ${accentColor}80`,
-                        backgroundColor: isDone ? t.checkDone : 'transparent',
-                      }}
-                      aria-label={isDone ? '완료 취소' : '완료'}
-                      title={isDone ? '완료 취소' : '완료'}
-                    >
-                      {isDone && <Check size={11} color="#fff" strokeWidth={3} />}
-                    </button>
-                    <div>
-                      <span style={{
-                        fontSize: 13,
-                        color: isDone ? t.textMuted : t.text,
-                        textDecoration: isDone ? 'line-through' : 'none',
-                      }}>{evt.title}</span>
-                      <div className="flex items-center gap-2 mt-0.5">
-                        {evt.startTime && (
-                          <span style={{ fontSize: 10, color: t.textMuted }}>
-                            {evt.startTime}{evt.endTime ? ` - ${evt.endTime}` : ''}
-                          </span>
-                        )}
-                        {evt.location && (
-                          <span style={{ fontSize: 10, color: t.textMuted }}>
-                            📍 {evt.location}
-                          </span>
-                        )}
-                      </div>
-                    </div>
+              <div className="space-y-2">
+                {importantTodos.map(todo => TodoRow({ todo }))}
+                {regularTodos.map(todo => TodoRow({ todo }))}
+                {dateTodos.length === 0 && (
+                  <div className="py-6 text-center">
+                    <p style={{ fontSize: 13, color: t.textMuted }}>오늘 할일이 없어요</p>
+                    <p style={{ fontSize: 12, color: t.textMuted, marginTop: 4 }}>위 입력창에 던져보세요</p>
                   </div>
-                );
-              })}
+                )}
+              </div>
             </div>
-          )}
 
-          {/* Habits */}
-          <div className="mb-4">
-            <div className="flex items-center gap-2 mb-2">
-              <span style={{ fontSize: 10, color: t.textSub, fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase' }}>
-                오늘 습관
-              </span>
-            </div>
-            <div className="flex flex-wrap gap-2">
-              {todayHabits.map(h => {
-                const habitType = h.habitType ?? 'check';
-                const checked = h.checkedDates.includes(selectedDate);
-                const showMemoRow = habitType === 'memo' && checked;
-                const memoVal = habitMemoEditing[h.id] ?? h.dailyMemos?.[selectedDate] ?? '';
-                return (
-                  <div key={h.id} className={`flex flex-col gap-1.5${showMemoRow ? ' w-full' : ''}`}>
-                    {/* 유형별 컨트롤(HabitChip) + 아이콘 + 이름 — 습관&루틴 페이지와 동일 동작 */}
-                    <div className="flex items-center gap-2 px-2.5 py-1.5 rounded-xl"
-                      style={{ backgroundColor: t.bgSub, border: `1px solid ${t.border}` }}>
-                      <HabitChip habit={h} date={selectedDate} />
-                      {h.icon && <span style={{ fontSize: 14, lineHeight: 1 }}>{h.icon}</span>}
-                      <span style={{ fontSize: 12, fontWeight: 600, color: t.text, whiteSpace: 'nowrap' }}>{h.name}</span>
-                    </div>
-                    {showMemoRow && (
-                      <div className="flex items-center gap-2 pl-1">
-                        <MessageSquare size={13} color={t.textMuted} style={{ flexShrink: 0 }} />
-                        <input
-                          value={memoVal}
-                          onChange={e => setHabitMemoEditing(prev => ({ ...prev, [h.id]: e.target.value }))}
-                          onBlur={() => {
-                            updateHabitMemo(h.id, selectedDate, memoVal);
-                            setHabitMemoEditing(prev => { const n = { ...prev }; delete n[h.id]; return n; });
-                          }}
-                          onKeyDown={e => {
-                            if (e.key === 'Enter') {
-                              updateHabitMemo(h.id, selectedDate, memoVal);
-                              setHabitMemoEditing(prev => { const n = { ...prev }; delete n[h.id]; return n; });
-                            }
-                          }}
-                          placeholder="오늘 메모를 남겨보세요…"
-                          className="flex-1 rounded-lg px-3 py-1.5 border outline-none"
-                          style={{ fontSize: 12, borderColor: t.border, backgroundColor: t.bgSub, color: t.text }}
-                        />
-                      </div>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
-          </div>
+            {/* 🔔 습관 알림 — 체크/기록은 습관 페이지에서 */}
+            {undoneHabits.length > 0 && (
+              <button
+                onClick={() => navigate('/habits')}
+                className="w-full flex items-center gap-3 rounded-2xl px-4 py-3 text-left transition-all"
+                style={{ backgroundColor: t.card, border: `1px solid ${t.danger}33` }}
+              >
+                <span className="flex items-center justify-center rounded-xl flex-shrink-0" style={{ width: 38, height: 38, backgroundColor: `${t.danger}14` }}>
+                  <Bell size={17} color={t.danger} />
+                </span>
+                <div className="min-w-0 flex-1">
+                  <p style={{ fontSize: 13, fontWeight: 700, color: t.text }}>아직 안 한 습관 {undoneHabits.length}개</p>
+                  <p style={{ fontSize: 11, color: t.textSub, marginTop: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    {undoneHabits.slice(0, 3).map(h => h.name).join(' · ')}
+                  </p>
+                </div>
+                <ChevronRightIcon size={18} color={t.danger} />
+              </button>
+            )}
 
-          {/* Daily Memo */}
-          <div>
-            <div className="flex items-center gap-2 mb-2">
-              <span style={{ fontSize: 10, color: t.textSub, fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase' }}>
-                메모
-              </span>
-            </div>
-            <DailyMemo
-              date={selectedDate}
-              value={brainstormMemos[selectedDate] || ''}
-              onChange={setBrainstormMemo}
-            />
+            {/* 오늘 기록 칩 (조회 전용) */}
+            <RecordChips date={selectedDate} />
           </div>
         </div>
 
