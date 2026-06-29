@@ -11,12 +11,10 @@ export function MoneyDesktop() {
   const [tab, setTab] = useState<MoneyTab>('budget');
   const [showSettings, setShowSettings] = useState(false);
 
-  // 가계부 탭은 2단 레이아웃이라 넓게(1080), 그 외 단일 컬럼 탭은 가독 폭(760)으로 — 화면 폭 최적화.
-  const maxWidth = tab === 'budget' ? 1080 : 760;
-
   return (
     <div className="h-full overflow-y-auto" style={{ background: t.bg }}>
-      <div style={{ maxWidth, margin: '0 auto', padding: '28px 28px 60px', transition: 'max-width 0.25s ease' }}>
+      {/* 다른 페이지(건강 등)와 동일한 가로 여백 — 가운데 정렬 폭 제한 없이 px 24(lg:px-6)로 콘텐츠 영역을 꽉 채움 */}
+      <div style={{ padding: '24px 24px 60px' }}>
         {/* 헤더 */}
         <div className="flex items-center justify-between" style={{ marginBottom: 12 }}>
           <span style={{ fontFamily: "'DM Serif Display', serif", fontSize: 32, color: t.text }}>Money</span>
