@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
-import { Plus, X, Mic, Pencil, Trash2, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Plus, X, Mic, Pencil, Trash2, ChevronLeft, ChevronRight, ChevronDown, ChevronUp } from 'lucide-react';
 import { format } from 'date-fns';
 import { useTheme } from '../ThemeContext';
 import { useFabAction } from '../FabContext';
@@ -378,6 +378,75 @@ function RecordCard({ record, onEdit, onDelete, compact = false }: {
           </Row>
         )}
       </div>
+    </div>
+  );
+}
+
+// ─── PastRecordCard (지난 기록 미리보기 + 토글 펼침) ──────────────────────────
+
+function PastRecordCard({ record, onEdit, onDelete }: {
+  record: MoodRecord; onEdit: (r: MoodRecord) => void; onDelete: (id: string) => void;
+}) {
+  const { t } = useTheme();
+  const [expanded, setExpanded] = useState(false);
+  const color = getEmotionColor(record.emotion_tags);
+  const accent = color?.accent ?? t.accent;
+  const labelColor = color?.accent ? color.accent + 'AA' : t.textMuted;
+
+  return (
+    <div className="rounded-xl overflow-hidden self-start" style={{ backgroundColor: color?.bg ?? t.card, border: `1px solid ${color ? color.accent + '33' : t.borderLight}` }}>
+      {/* 헤더: 날짜 + 시간 · 펼침/접기 토글 */}
+      <button onClick={() => setExpanded(v => !v)} aria-expanded={expanded}
+        className="w-full flex items-center justify-between gap-2 px-3.5 py-2.5 text-left">
+        <div className="flex items-baseline gap-2 min-w-0">
+          <span style={{ fontSize: 13, lineHeight: 1 }}>{getCategoryEmoji(record.emotion_tags)}</span>
+          <span style={{ fontSize: 12, fontWeight: 700, color: accent }}>{record.date}</span>
+          <span style={{ fontSize: 11, color: labelColor }}>{formatKoreanTime(record.created_at)}</span>
+        </div>
+        {expanded
+          ? <ChevronUp size={15} style={{ color: t.textMuted, flexShrink: 0 }} />
+          : <ChevronDown size={15} style={{ color: t.textMuted, flexShrink: 0 }} />}
+      </button>
+
+      {/* 배지 줄: 감정 / 컨디션 */}
+      {(record.emotion_tags.length > 0 || record.body_signals.length > 0) && (
+        <div className="px-3.5 flex flex-wrap items-center gap-1">
+          {record.emotion_tags.map(tag => (
+            <span key={tag} className="px-2.5 py-0.5 rounded-full" style={{ fontSize: 11, backgroundColor: 'rgba(255,255,255,0.8)', color: accent, fontWeight: 600 }}>{tag}</span>
+          ))}
+          {record.body_signals.map(s => (
+            <span key={s} className="px-2 py-0.5 rounded-full" style={{ fontSize: 10, backgroundColor: 'rgba(255,255,255,0.7)', color: t.textSub, border: `1px solid ${t.borderLight}` }}>{s}</span>
+          ))}
+        </div>
+      )}
+
+      {/* 본문 미리보기(2줄 클램프) / 펼침 시 전체 */}
+      {record.memo && (
+        <div className="px-3.5 pt-2">
+          <p className={expanded ? '' : 'line-clamp-2'} style={{ fontSize: 12.5, lineHeight: 1.55, color: t.textSub }}>{record.memo}</p>
+        </div>
+      )}
+
+      {/* 펼침: 에너지 + 액션 */}
+      {expanded && (
+        <div className="px-3.5 pt-2.5 mt-1 flex items-center justify-between" style={{ borderTop: `1px solid ${color ? color.accent + '22' : t.borderLight}`, marginTop: 10 }}>
+          <div className="flex items-center gap-1.5 py-2">
+            <div className="flex gap-0.5">
+              {[1, 2, 3, 4, 5].map(l => (
+                <div key={l} className="rounded-full" style={{ width: 8, height: 8, backgroundColor: l <= record.energy_level ? accent : t.borderLight }} />
+              ))}
+            </div>
+            <span style={{ fontSize: 11, color: labelColor }}>{ENERGY_LABELS[record.energy_level]}</span>
+          </div>
+          <div className="flex gap-1.5">
+            <button onClick={() => onEdit(record)} style={{ color: t.textMuted }}><Pencil size={13} /></button>
+            <button onClick={() => onDelete(record.id)} style={{ color: t.textMuted }}><Trash2 size={13} /></button>
+          </div>
+        </div>
+      )}
+
+      {/* 접힘 상태에서도 하단 여백 확보 */}
+      {!expanded && <div className="pb-3" />}
     </div>
   );
 }
@@ -941,16 +1010,9 @@ export function MoodView() {
                 <p style={{ fontSize: 11, color: t.textMuted, fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase', marginBottom: 10 }}>
                   지난 기록
                 </p>
-                <div className="space-y-3">
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 items-start">
                   {pastRecords.slice(0, 10).map(r => (
-                    <div key={r.id} className="rounded-xl overflow-hidden" style={{ backgroundColor: t.card, border: `1px solid ${t.borderLight}` }}>
-                      <div className="px-3 py-1.5" style={{ backgroundColor: t.bgSub }}>
-                        <span style={{ fontSize: 11, color: t.textMuted, fontWeight: 600 }}>{r.date}</span>
-                      </div>
-                      <div className="p-3">
-                        <RecordCard record={r} onEdit={openEdit} onDelete={handleDelete} compact />
-                      </div>
-                    </div>
+                    <PastRecordCard key={r.id} record={r} onEdit={openEdit} onDelete={handleDelete} />
                   ))}
                 </div>
               </div>
