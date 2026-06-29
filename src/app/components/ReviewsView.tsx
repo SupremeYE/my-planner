@@ -6,7 +6,7 @@ import { useTheme } from '../ThemeContext';
 import { useVoiceInput } from '../hooks/useVoiceInput';
 import { useMediaQuery } from '../hooks/useMediaQuery';
 import { useRealtimeSync } from '../hooks/useRealtimeSync';
-import { focusMinutesForRange } from '../hooks/useTimeReport';
+import { weekFocusReport } from '../hooks/useTimeReport';
 import { supabase } from '../../lib/supabase';
 import { getCategoryEmoji, getMoodCategoryLabel, ENERGY_LABELS } from './MoodView';
 import {
@@ -396,16 +396,9 @@ function DayTab() {
 
 // ─── 주간 탭 ───────────────────────────────────────────────────────────────
 
-const ENERGY_EMOJI: Record<number, string> = { 1: '😣', 2: '😟', 3: '😐', 4: '🙂', 5: '😄' };
-// 집중시간 게이지 기준(시각용): 주 40시간을 100%로 본다 (목표가 아니라 막대 채움용)
-const FOCUS_WEEK_REF_MIN = 40 * 60;
-
-function fmtFocus(min: number): string {
-  if (min <= 0) return '0h';
-  const h = Math.floor(min / 60);
-  const m = Math.round(min % 60);
-  if (h === 0) return `${m}m`;
-  return m ? `${h}h ${m}m` : `${h}h`;
+// 분 → 소수 시간 문자열(목업 표기 "12.4"). 단위(h)는 호출부에서 붙인다.
+function fmtHours(min: number): string {
+  return (min / 60).toFixed(1);
 }
 
 // weekKey(YYYY-Www, ISO주) → 그 주의 월~일 범위
@@ -425,17 +418,18 @@ function weekOfMonth(weekStart: Date, weekStartsOn: 0 | 1): number {
   return Math.round((startOfWeek(weekStart, { weekStartsOn }).getTime() - firstWeekStart.getTime()) / (7 * 86400000)) + 1;
 }
 
-// 통계 카드(진행 바 포함)
-function StatCard({ value, label, sub, pct, barColor }: {
-  value: string; label: string; sub: string; pct: number; barColor: string;
+// 작은 통계 카드(값 + 단위 + 라벨(서브 인라인) + 얇은 막대) — 목업 .stat
+function StatCard({ value, unit, label, sub, pct, barColor }: {
+  value: string; unit?: string; label: string; sub?: string; pct: number; barColor: string;
 }) {
   const { t } = useTheme();
   return (
-    <div className="p-3 rounded-xl" style={{ backgroundColor: t.card, border: `1px solid ${t.borderLight}` }}>
-      <span style={{ fontSize: 18, fontWeight: 700, color: t.text, fontFamily: 'var(--font-gmarket)', display: 'block', lineHeight: 1.1 }}>{value}</span>
-      <span style={{ fontSize: 10, color: t.textMuted, display: 'block', marginTop: 3 }}>{label}</span>
-      <span style={{ fontSize: 9, color: t.accent, display: 'block' }}>{sub}</span>
-      <div className="rounded-full overflow-hidden" style={{ height: 4, backgroundColor: t.bgSub, marginTop: 6 }}>
+    <div className="rounded-xl" style={{ backgroundColor: t.card, border: `1px solid ${t.borderLight}`, padding: '13px 14px' }}>
+      <span style={{ fontSize: 22, fontWeight: 700, color: t.text, fontFamily: 'var(--font-gmarket)', lineHeight: 1 }}>
+        {value}{unit && <span style={{ fontSize: 12, color: t.textMuted, fontWeight: 400, marginLeft: 1 }}>{unit}</span>}
+      </span>
+      <div style={{ fontSize: 11, color: t.textMuted, marginTop: 5 }}>{label}{sub ? ` · ${sub}` : ''}</div>
+      <div className="rounded-full overflow-hidden" style={{ height: 5, backgroundColor: t.bgSub, marginTop: 8 }}>
         <div className="rounded-full" style={{ height: '100%', width: `${Math.max(0, Math.min(100, pct))}%`, backgroundColor: barColor, transition: 'width .3s' }} />
       </div>
     </div>
@@ -449,6 +443,7 @@ function WeekTab() {
     appSettings,
   } = usePlanner();
   const { t } = useTheme();
+  const navigate = useNavigate();
   const isDesktop = useMediaQuery('(min-width: 1024px)');
   const weekStartsOn = (appSettings.weekStartsOn ?? 1) as 0 | 1;
 
@@ -477,35 +472,20 @@ function WeekTab() {
     [range.startStr],
   );
 
-  // ── 통계 4종 (선택 주 범위 기준) ──
+  // ── 작은 통계 2종 (선택 주 범위 기준) ──
   const weekTodos = todos.filter(td => td.date && td.date >= range.startStr && td.date <= range.endStr);
   const doneTodos = weekTodos.filter(td => td.status === 'done');
   const completionPct = weekTodos.length ? Math.round((doneTodos.length / weekTodos.length) * 100) : 0;
 
-  const habitChecks = habits.reduce((acc, h) => acc + weekDays.filter(d => h.checkedDates.includes(d)).length, 0);
-  const habitDenom = habits.length * 7;
-  const habitPct = habitDenom ? Math.round((habitChecks / habitDenom) * 100) : 0;
+  // 습관 달성일 — 그 주 7일 중 습관을 하나라도 체크한 날 수 (목업: n/7)
+  const habitDays = habits.length ? weekDays.filter(d => habits.some(h => h.checkedDates.includes(d))).length : 0;
+  const habitPct = Math.round((habitDays / 7) * 100);
 
-  // 집중 시간 — 시간 리포트 엔진(aggregateRange) 재사용
-  const focusMin = useMemo(
-    () => focusMinutesForRange(todos, tags, range.startStr, range.endStr),
-    [todos, tags, range.startStr, range.endStr],
+  // ── 집중시간 분석 — 시간 리포트 엔진(aggregateRange) 재사용. 합계/요일별/태그별/직전주 비교 모두 단일 소스 ──
+  const focus = useMemo(
+    () => weekFocusReport(todos, tags, range.start, weekStartsOn, getLogicalToday()),
+    [todos, tags, range.startStr, weekStartsOn],
   );
-
-  // 평균 기분 — 그 주 mood_records energy_level 평균
-  const [weekMoods, setWeekMoods] = useState<{ energy_level: number }[]>([]);
-  const loadMoods = useCallback(async () => {
-    const { data } = await supabase
-      .from('mood_records')
-      .select('energy_level,date')
-      .gte('date', range.startStr)
-      .lte('date', range.endStr);
-    setWeekMoods((data as { energy_level: number }[]) ?? []);
-  }, [range.startStr, range.endStr]);
-  useEffect(() => { loadMoods(); }, [loadMoods]);
-  useRealtimeSync('mood_records', loadMoods);
-  const moodAvg = weekMoods.length ? weekMoods.reduce((s, m) => s + m.energy_level, 0) / weekMoods.length : null;
-  const moodRound = moodAvg != null ? Math.min(5, Math.max(1, Math.round(moodAvg))) : 0;
 
   // ── 회고 입력 (Stage 1 필드로 실제 저장) ──
   const weeklyReview = weeklyReviews.find(r => r.weekKey === range.weekKey);
@@ -630,16 +610,112 @@ function WeekTab() {
     </div>
   );
 
+  // ── 작은 통계 2종 (완료율 % · 습관 달성일 n/7) ──
   const statsBlock = (
-    <div className={isDesktop ? 'grid grid-cols-4 gap-3' : 'grid grid-cols-2 gap-3'}>
-      <StatCard value={fmtFocus(focusMin)} label="집중 시간" sub="이번 주"
-        pct={Math.round((focusMin / FOCUS_WEEK_REF_MIN) * 100)} barColor={t.accent} />
-      <StatCard value={weekTodos.length ? `${completionPct}%` : '–'} label="할일 완료율"
-        sub={weekTodos.length ? `${doneTodos.length}/${weekTodos.length}` : '할일 없음'} pct={completionPct} barColor={t.success} />
-      <StatCard value={habits.length ? `${habitPct}%` : '–'} label="습관 달성"
-        sub={habits.length ? `${habitChecks}/${habitDenom}` : '습관 없음'} pct={habitPct} barColor={t.accent} />
-      <StatCard value={moodAvg != null ? ENERGY_EMOJI[moodRound] : '–'} label="평균 기분"
-        sub={moodAvg != null ? ENERGY_LABELS[moodRound] : '기록 없음'} pct={moodAvg != null ? Math.round((moodAvg / 5) * 100) : 0} barColor={t.accent} />
+    <div className="grid grid-cols-2 gap-3">
+      <StatCard value={weekTodos.length ? String(completionPct) : '–'} unit={weekTodos.length ? '%' : undefined}
+        label="할일 완료율" sub={weekTodos.length ? `${doneTodos.length}/${weekTodos.length}` : '할일 없음'}
+        pct={completionPct} barColor={t.success} />
+      <StatCard value={habits.length ? String(habitDays) : '–'} unit={habits.length ? '/7' : undefined}
+        label="습관 달성일" sub={habits.length ? undefined : '습관 없음'}
+        pct={habitPct} barColor={t.accent} />
+    </div>
+  );
+
+  // ── 집중시간 분석 블록 (풀폭) ──
+  const TOP_TAGS = 5;
+  const topTags = focus.byCategory.slice(0, TOP_TAGS);
+  const restMin = focus.byCategory.slice(TOP_TAGS).reduce((s, c) => s + c.totalMinutes, 0);
+  const tagRows = restMin > 0
+    ? [...topTags, { tagId: '__etc', tagName: '기타', tagColor: t.textMuted, totalMinutes: restMin }]
+    : topTags;
+  const maxTag = Math.max(1, ...tagRows.map(r => r.totalMinutes));
+  const maxDaily = Math.max(1, ...focus.daily.map(d => d.totalMinutes));
+  const delta = focus.deltaMinutes;
+  // 증가 green / 감소 warm(danger) / 0 muted — 토큰만(목업 코랄 = 테마 warm 토큰)
+  const deltaColor = delta > 0 ? t.success : delta < 0 ? t.danger : t.textMuted;
+  const deltaText = delta === 0 ? '—' : `${delta > 0 ? '▲' : '▼'} ${fmtHours(Math.abs(delta))}h`;
+
+  const weekdayViz = (
+    <div className="min-w-0" style={{ flex: 1.1 }}>
+      <div style={{ fontSize: 11, fontWeight: 700, color: t.textMuted, marginBottom: 9, letterSpacing: '.3px' }}>언제 — 요일별</div>
+      <div className="flex items-end gap-1.5" style={{ height: 84 }}>
+        {focus.daily.map(d => {
+          const barH = d.totalMinutes > 0 ? `${Math.max(6, (d.totalMinutes / maxDaily) * 100)}%` : '0%';
+          return (
+            <div key={d.date} className="flex flex-col items-center gap-1.5 flex-1 min-w-0" style={{ height: '100%', justifyContent: 'flex-end' }}>
+              <div className="relative w-full flex justify-center" style={{ flex: 1, alignItems: 'flex-end' }}>
+                <div style={{ width: '100%', maxWidth: 26, height: barH, borderRadius: '6px 6px 0 0', backgroundColor: d.isToday ? t.danger : t.accent, position: 'relative', transition: 'height .3s' }}>
+                  {d.totalMinutes > 0 && (
+                    <span style={{ position: 'absolute', top: -16, left: 0, right: 0, textAlign: 'center', fontSize: 9, fontWeight: 700, color: d.isToday ? t.danger : t.textMuted }}>{fmtHours(d.totalMinutes)}</span>
+                  )}
+                </div>
+              </div>
+              <span style={{ fontSize: 10, color: d.isToday ? t.danger : t.textMuted, fontWeight: d.isToday ? 700 : 400 }}>{d.dayLabel}</span>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+
+  const tagViz = (
+    <div className="flex-1 min-w-0">
+      <div style={{ fontSize: 11, fontWeight: 700, color: t.textMuted, marginBottom: 9, letterSpacing: '.3px' }}>무엇에 — 태그별</div>
+      <div className="space-y-2.5">
+        {tagRows.map(r => (
+          <div key={r.tagId} className="flex items-center gap-2">
+            <span style={{ fontSize: 12, color: t.text, fontWeight: 500, width: 52, flexShrink: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.tagName}</span>
+            <div className="flex-1 rounded-full overflow-hidden" style={{ height: 9, backgroundColor: t.bgSub }}>
+              <div className="rounded-full" style={{ height: '100%', width: `${(r.totalMinutes / maxTag) * 100}%`, backgroundColor: r.tagColor, transition: 'width .3s' }} />
+            </div>
+            <span style={{ fontSize: 11, color: t.textMuted, width: 42, flexShrink: 0, textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>{fmtHours(r.totalMinutes)}h</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+
+  const focusBlock = (
+    <div className="rounded-2xl" style={{ backgroundColor: t.card, border: `1px solid ${t.borderLight}`, padding: 16 }}>
+      <div className="flex items-end justify-between mb-1">
+        <div className="flex items-center gap-1.5">
+          <span style={{ fontSize: 15 }}>⏱</span>
+          <h3 style={{ fontSize: 13, fontWeight: 700, color: t.text }}>집중 시간</h3>
+        </div>
+        <button onClick={() => navigate('/time-report')} className="flex items-center gap-0.5"
+          style={{ fontSize: 11, color: t.accent, fontWeight: 600, whiteSpace: 'nowrap' }}>
+          시간 리포트 자세히 <ChevronRight size={13} />
+        </button>
+      </div>
+
+      {focus.totalMinutes <= 0 ? (
+        <p style={{ fontSize: 13, color: t.textMuted, padding: '16px 0' }}>이번 주 기록된 집중시간이 없어요</p>
+      ) : (
+        <>
+          {/* (a) 큰 숫자 + 증감 */}
+          <div className="flex items-baseline gap-2.5" style={{ margin: '6px 0 2px' }}>
+            <span style={{ fontSize: 38, fontWeight: 700, color: t.text, fontFamily: 'var(--font-gmarket)', lineHeight: 1 }}>
+              {fmtHours(focus.totalMinutes)}<span style={{ fontSize: 18, color: t.textMuted, fontWeight: 400, marginLeft: 2 }}>h</span>
+            </span>
+            <span className="rounded-lg" style={{ fontSize: 13, fontWeight: 700, color: deltaColor, border: `1px solid ${deltaColor}`, padding: '3px 9px' }}>{deltaText}</span>
+          </div>
+          <p style={{ fontSize: 11, color: t.textMuted, marginBottom: 16 }}>
+            지난주 {fmtHours(focus.prevTotalMinutes)}h 대비 · 하루 평균 {fmtHours(focus.avgPerDayMinutes)}h
+          </p>
+
+          {/* (b)(c) 모바일 세로(구분선) / PC 요일|태그 2열 */}
+          {isDesktop ? (
+            <div className="grid gap-6 items-start" style={{ gridTemplateColumns: '1.1fr 1fr' }}>{weekdayViz}{tagViz}</div>
+          ) : (
+            <div>
+              {weekdayViz}
+              <div style={{ height: 1, backgroundColor: t.borderLight, margin: '16px 0' }} />
+              {tagViz}
+            </div>
+          )}
+        </>
+      )}
     </div>
   );
 
@@ -728,6 +804,7 @@ function WeekTab() {
         <div className="flex gap-6 items-start">
           <div className="flex-1 min-w-0 space-y-4">
             {statsBlock}
+            {focusBlock}
             {reviewForm}
           </div>
           <div className="flex-shrink-0" style={{ width: 340 }}>
@@ -737,6 +814,7 @@ function WeekTab() {
       ) : (
         <div className="space-y-5">
           {statsBlock}
+          {focusBlock}
           {reviewForm}
           {pastBlock}
         </div>

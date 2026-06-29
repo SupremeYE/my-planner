@@ -109,6 +109,70 @@ export function focusMinutesForRange(
   return aggregateRange(todos, startStr, endStr, trackTagIds).total;
 }
 
+export interface WeekFocusReport {
+  totalMinutes: number;
+  avgPerDayMinutes: number;        // 그 주 7일 평균
+  prevTotalMinutes: number;        // 직전 주(동일 기간)
+  deltaMinutes: number;            // 이번 주 - 지난 주
+  daily: Array<{ date: string; dayLabel: string; isToday: boolean; totalMinutes: number }>;
+  byCategory: Array<{ tagId: string; tagName: string; tagColor: string; totalMinutes: number }>;
+}
+
+/**
+ * 임의 주(weekStart 기준)의 집중시간 리포트.
+ * 합계·요일별·태그별·직전 주 비교 모두 useTimeReport와 동일한 엔진(aggregateRange)을 재사용.
+ * useTimeReport는 'now' 고정이라 과거/임의 주를 못 꺼내므로, 주간 리뷰 탭이 이걸 사용한다.
+ */
+export function weekFocusReport(
+  todos: Todo[],
+  tags: Tag[],
+  weekStart: Date,
+  weekStartsOn: 0 | 1,
+  todayStr: string,
+): WeekFocusReport {
+  const trackTags = tags.filter(tg => tg.trackTime);
+  const tagMap = new Map(trackTags.map(tg => [tg.id, tg]));
+  const trackTagIds = new Set(trackTags.map(tg => tg.id));
+  const fmtD = (d: Date) => format(d, 'yyyy-MM-dd');
+
+  const weekEnd = endOfWeek(weekStart, { weekStartsOn });
+  const cur = aggregateRange(todos, fmtD(weekStart), fmtD(weekEnd), trackTagIds);
+
+  const prevStart = subWeeks(weekStart, 1);
+  const prevEnd = endOfWeek(prevStart, { weekStartsOn });
+  const prev = aggregateRange(todos, fmtD(prevStart), fmtD(prevEnd), trackTagIds);
+
+  const byCategory = Array.from(cur.byTag.entries())
+    .map(([tagId, v]) => ({
+      tagId,
+      tagName: tagMap.get(tagId)?.name ?? '(삭제된 태그)',
+      tagColor: tagMap.get(tagId)?.color ?? '#999999',
+      totalMinutes: v.minutes,
+    }))
+    .filter(c => c.totalMinutes > 0)
+    .sort((a, b) => b.totalMinutes - a.totalMinutes);
+
+  const daily = Array.from({ length: 7 }, (_, i) => {
+    const d = addDays(weekStart, i);
+    const ds = fmtD(d);
+    return {
+      date: ds,
+      dayLabel: WEEKDAY_KO[getDay(d)],
+      isToday: ds === todayStr,
+      totalMinutes: aggregateRange(todos, ds, ds, trackTagIds).total,
+    };
+  });
+
+  return {
+    totalMinutes: cur.total,
+    avgPerDayMinutes: cur.total / 7,
+    prevTotalMinutes: prev.total,
+    deltaMinutes: cur.total - prev.total,
+    daily,
+    byCategory,
+  };
+}
+
 export function useTimeReport(period: TimeReportPeriod): TimeReportData {
   const { todos, tags, appSettings } = usePlanner();
   const weekStartsOn = (appSettings.weekStartsOn ?? 1) as 0 | 1;
