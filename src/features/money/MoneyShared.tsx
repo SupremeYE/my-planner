@@ -1101,12 +1101,61 @@ function PlanBanner({ m, onOpen }: { m: UseMoney; onOpen: () => void }) {
 }
 
 // ── 가계부 패널(요약·예산·캘린더·분석·거래, 거래 탭=수정) ──
-export function BudgetPanel({ m }: { m: UseMoney }) {
+//  · desktop=true(PC 셸)면 넓은 화면용 2단 레이아웃, 아니면 모바일 단일 컬럼(기존 그대로).
+//  · 모바일 분기는 절대 변경 금지 — PC 최적화는 desktop 분기에서만.
+export function BudgetPanel({ m, desktop = false }: { m: UseMoney; desktop?: boolean }) {
   const { t } = useTheme();
   const [editTx, setEditTx] = useState<{ item: any } | null>(null);
   const [showPlan, setShowPlan] = useState(false);
   const [showWeek, setShowWeek] = useState(false);
   const [showMonth, setShowMonth] = useState(false);
+
+  // 공통 "최근 거래" 블록 + 시트 오버레이(두 레이아웃 공유).
+  const recentBlock = (
+    <div>
+      <div className="flex items-center justify-between" style={{ marginBottom: 10, marginLeft: 2 }}>
+        <span style={{ fontSize: 15, fontWeight: 700, color: t.text }}>최근 거래</span>
+        <button onClick={() => setEditTx({ item: null })} className="flex items-center gap-1" style={{ fontSize: 12, color: MONEY_PALETTE.gold, fontWeight: 600 }}>
+          <Plus size={13} /> 직접 추가
+        </button>
+      </div>
+      <TransactionList m={m} limit={20} onEdit={(tx) => setEditTx({ item: tx })} />
+    </div>
+  );
+  const sheets = (
+    <>
+      {editTx && <TransactionForm m={m} item={editTx.item} onClose={() => setEditTx(null)} />}
+      {showPlan && <MoneyPlanSheet m={m} onClose={() => setShowPlan(false)} />}
+      {showWeek && <WeekReviewSheet m={m} onClose={() => setShowWeek(false)} />}
+      {showMonth && <MonthReviewSheet m={m} onClose={() => setShowMonth(false)} />}
+    </>
+  );
+
+  // PC: 상단(계획 배너+요약) 풀폭 → 본문 2단(좌: 예산·캘린더·추세 / 우: 주·월 회고·카테고리·최근거래).
+  if (desktop) {
+    return (
+      <div className="flex flex-col gap-3">
+        <PlanBanner m={m} onOpen={() => setShowPlan(true)} />
+        <SummaryStrip m={m} />
+        <div className="grid gap-4" style={{ gridTemplateColumns: '1.35fr 1fr', alignItems: 'start' }}>
+          <div className="flex flex-col gap-3 min-w-0">
+            <BudgetBar m={m} />
+            <SpendCalendar m={m} />
+            <SpendTrendChart m={m} />
+          </div>
+          <div className="flex flex-col gap-3 min-w-0">
+            <WeekBanner m={m} onOpen={() => setShowWeek(true)} />
+            <MonthBanner m={m} onOpen={() => setShowMonth(true)} />
+            <CategoryBreakdown m={m} />
+            {recentBlock}
+          </div>
+        </div>
+        {sheets}
+      </div>
+    );
+  }
+
+  // 모바일 — 기존 단일 컬럼(변경 금지).
   return (
     <div className="flex flex-col gap-3">
       <PlanBanner m={m} onOpen={() => setShowPlan(true)} />
@@ -1117,19 +1166,8 @@ export function BudgetPanel({ m }: { m: UseMoney }) {
       <SpendCalendar m={m} />
       <SpendTrendChart m={m} />
       <CategoryBreakdown m={m} />
-      <div>
-        <div className="flex items-center justify-between" style={{ marginBottom: 10, marginLeft: 2 }}>
-          <span style={{ fontSize: 15, fontWeight: 700, color: t.text }}>최근 거래</span>
-          <button onClick={() => setEditTx({ item: null })} className="flex items-center gap-1" style={{ fontSize: 12, color: MONEY_PALETTE.gold, fontWeight: 600 }}>
-            <Plus size={13} /> 직접 추가
-          </button>
-        </div>
-        <TransactionList m={m} limit={20} onEdit={(tx) => setEditTx({ item: tx })} />
-      </div>
-      {editTx && <TransactionForm m={m} item={editTx.item} onClose={() => setEditTx(null)} />}
-      {showPlan && <MoneyPlanSheet m={m} onClose={() => setShowPlan(false)} />}
-      {showWeek && <WeekReviewSheet m={m} onClose={() => setShowWeek(false)} />}
-      {showMonth && <MonthReviewSheet m={m} onClose={() => setShowMonth(false)} />}
+      {recentBlock}
+      {sheets}
     </div>
   );
 }
@@ -1229,9 +1267,11 @@ export function SettingsSheet({ m, onClose }: { m: UseMoney; onClose: () => void
 }
 
 // ── 탭 본문 라우팅(공유) ──
-export function MoneyTabPanel({ tab, m }: { tab: MoneyTab; m: UseMoney }) {
-  if (tab === 'asset') return <AssetPanel m={m} />;
-  if (tab === 'invest') return <InvestPanel m={m} />;
-  if (tab === 'plan') return <PlanPanel m={m} />;
-  return <BudgetPanel m={m} />;
+//  · desktop=true(PC): 가계부 탭은 넓은 2단, 그 외 단일 컬럼 탭은 너무 넓어지지 않게 가운데 폭 제한.
+export function MoneyTabPanel({ tab, m, desktop = false }: { tab: MoneyTab; m: UseMoney; desktop?: boolean }) {
+  if (tab === 'budget') return <BudgetPanel m={m} desktop={desktop} />;
+  const panel = tab === 'asset' ? <AssetPanel m={m} />
+    : tab === 'invest' ? <InvestPanel m={m} />
+    : <PlanPanel m={m} />;
+  return desktop ? <div style={{ maxWidth: 760, margin: '0 auto' }}>{panel}</div> : panel;
 }
