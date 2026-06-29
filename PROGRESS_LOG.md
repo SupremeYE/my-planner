@@ -6,6 +6,25 @@
 
 ---
 
+## 2026-06-29 — 📝 리뷰 & 기록 페이지 개선 — Stage 4 (월간 탭 재구축 — 자동집계 + 베스트픽 + 회고)
+
+### 🛠 구현 (월간 탭만 — 돌아보기/행복 캡처는 후속 Stage 5~6)
+
+월간 탭을 재구축. 월 네비게이터 + 자동집계 6종 + 집중블록(월·주차) + 이 달의 베스트(하이브리드 픽) + 회고(Stage 1 컬럼 실저장) + 과거(연도별·작년 비교). `MonthTab` 컴포넌트로 분리, `useMediaQuery` 분기, 색상 토큰만, DB 스키마 변경 0(기존 `monthly_reviews` 컬럼만 사용).
+
+- **월 네비게이터(4-0)**: `‹ [YYYY년 M월] ›` 좌우 월 이동 + "이번 달로" 리셋(`getLogicalToday()` 기준). 선택 월(`monthKey`) 기준으로 전 섹션이 그 달 데이터 읽기/쓰기. 월 범위(1일~말일) 공유.
+- **숫자로 보는 한 달(4-1, 자동집계·입력 0)**: 6셀 그리드(모바일 3열 / PC 6열, `MiniCell`). **할일 완료율**(store todos done/전체) · **습관 달성일**(그 달 습관 체크 distinct 일수) · **읽은 책**(`books` status=`done` & `finish_date` 그 달) · **본 미디어**(`culture_records` `watched_date` 그 달) · **산책**(`walk_sessions` `started_at`/`created_at` 그 달 횟수) · **다녀온 곳**(`place_visits` `visited_on` 그 달). 외부 소스는 **읽기 전용** Supabase 조회(`loadSrc`, 월 변경/Realtime 시 재조회), 없으면 0.
+- **집중시간 분석 블록(4-2, 컴포넌트 재사용)**: Stage 3-보강 집중블록을 **공용 `FocusBlock` 컴포넌트로 추출**(주간/월간 공용, 중복 구현 0). "언제" 축을 `buckets`/`bucketTitle` prop으로 주입 — 주간=요일별 / 월간=**주차별(1~N주)**. `useTimeReport.ts`에 `monthFocusReport` 신규 export(전부 `aggregateRange` 재사용): 그 달 총 집중시간 + **전월 대비 증감**(`subMonths` 동일기간) + 주차별 막대(각 주의 월 범위 교집합 합계) + 태그별 비중(상위 5 + 기타). "시간 리포트 자세히 →" 링크.
+- **이 달의 베스트(4-3, 하이브리드 픽)**: 🎬영상(culture)·🎵음악(music `track_title — artist`)·📖독서(books done)·📍장소(place_visits) 4종. 각 후보 칩(라디오, ⭐ 단일선택, 재선택 시 교체/해제) + "＋ 직접 입력"(앱에 없는 것도 자유 입력). 후보 0이면 빈 상태 + 직접 입력만. 선택 즉시 `best_video`/`best_music`/`best_book`/`best_place`에 제목 문자열 저장(merge — 회고/`achievement` 보존).
+- **이 달의 회고(4-4, Stage 1 필드 실저장)**: 하이라이트(`highlight`) / 잘한 것(`did_well`) / 후회·아쉬운 것(`regret`) / 다음 달 포커스(`next_focus`), 음성 입력 + 본문 폰트 NanumSquareRound. `appSettings.showMonthlyKpt` ON 시 월간 KPT(`kpt_keep`/`problem`/`try`) 노출·저장. 기존 `achievement` 컬럼은 **덮어쓰지 않고 보존**(`updateMonthlyReview` merge), 과거 카드 요약에서 읽기 노출.
+- **과거 월간 리뷰(4-5)**: 연도별 그룹 접기/펼치기(최신 연도 기본 펼침), 카드=월·요약·베스트 배지(🎬🎵📖📍). **🕰 작년 같은 달 비교 카드**. 모바일 세로 / PC 우측 sticky.
+- **레이아웃(4-6)**: 모바일 세로 / PC 2컬럼(좌 집계+집중+베스트+회고 / 우 과거 sticky). 토큰만.
+
+### ✅ 검증
+- `npm run build`(vite 6) 통과. 집중블록 **공용 컴포넌트 재사용**(중복 구현 0), 집계는 `aggregateRange`/`monthFocusReport` 단일 소스(신규 집계 0). 자동집계 6종 그 달 범위 조회(소스 없으면 0). 베스트 후보가 각 소스에서 분리 표시(영상/음악), ⭐ 선택 + 직접 입력 둘 다 저장. 회고 4종 + (토글 시)월간 KPT 저장→복원. `achievement` 보존(merge). DB 스키마 변경 0, 신규 색 하드코딩 0(태그 색=DB `tags.color`, 강조=`t.danger`; KPT Problem 라벨 `#D4735A`는 기존 레거시). 주간 탭(Stage 3·3-보강) 무변경.
+
+---
+
 ## 2026-06-28 — 📝 리뷰 & 기록 페이지 개선 — Stage 3-보강 (주간 통계 재구성 — 평균기분 제거 + 집중시간 분석 블록)
 
 ### 🛠 구현 (주간 탭 통계 영역만 — 회고/과거/네비게이터는 Stage 3 유지)

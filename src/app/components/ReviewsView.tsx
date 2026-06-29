@@ -1,17 +1,18 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { Plus, X, Mic, Search, ChevronLeft, ChevronRight, ChevronDown, Trash2, Clock } from 'lucide-react';
 import { useNavigate } from 'react-router';
-import { usePlanner, ReviewRecord, getWeekKey, getLogicalToday } from '../store';
+import { usePlanner, ReviewRecord, MonthlyReview, getWeekKey, getLogicalToday } from '../store';
 import { useTheme } from '../ThemeContext';
 import { useVoiceInput } from '../hooks/useVoiceInput';
 import { useMediaQuery } from '../hooks/useMediaQuery';
 import { useRealtimeSync } from '../hooks/useRealtimeSync';
-import { weekFocusReport } from '../hooks/useTimeReport';
+import { weekFocusReport, monthFocusReport } from '../hooks/useTimeReport';
 import { supabase } from '../../lib/supabase';
 import { getCategoryEmoji, getMoodCategoryLabel, ENERGY_LABELS } from './MoodView';
 import {
   format, addDays, subDays, subYears, parseISO,
-  startOfWeek, endOfWeek, addWeeks, subWeeks, startOfMonth,
+  startOfWeek, endOfWeek, addWeeks, subWeeks, startOfMonth, endOfMonth,
+  addMonths, subMonths,
   startOfISOWeek, endOfISOWeek, setISOWeek, setISOWeekYear,
 } from 'date-fns';
 import { ko } from 'date-fns/locale';
@@ -436,6 +437,129 @@ function StatCard({ value, unit, label, sub, pct, barColor }: {
   );
 }
 
+// 자동집계 한 셀(큰 숫자 + 단위 + 라벨) — 월간 "숫자로 보는 한 달" 6셀 그리드용
+function MiniCell({ value, unit, label }: { value: string; unit?: string; label: string }) {
+  const { t } = useTheme();
+  return (
+    <div className="rounded-xl flex flex-col" style={{ backgroundColor: t.card, border: `1px solid ${t.borderLight}`, padding: '12px 10px' }}>
+      <span style={{ fontSize: 20, fontWeight: 700, color: t.text, fontFamily: 'var(--font-gmarket)', lineHeight: 1 }}>
+        {value}{unit && <span style={{ fontSize: 11, color: t.textMuted, fontWeight: 400, marginLeft: 1 }}>{unit}</span>}
+      </span>
+      <span style={{ fontSize: 10.5, color: t.textMuted, marginTop: 6 }}>{label}</span>
+    </div>
+  );
+}
+
+// ─── 집중시간 분석 블록 (주간/월간 공용) ───
+// "언제" 축(요일별/주차별)을 buckets·bucketTitle prop 으로 주입해 한 컴포넌트로 양쪽 처리.
+// 데이터는 모두 시간 리포트 엔진(aggregateRange) 기반 — 별도 집계·중복 구현 없음.
+interface FocusBucket { key: string; label: string; isCurrent: boolean; totalMinutes: number }
+function FocusBlock({
+  totalMinutes, prevTotalMinutes, deltaMinutes, avgPerDayMinutes,
+  prevLabel, buckets, bucketTitle, byCategory, isDesktop, emptyText, onMore,
+}: {
+  totalMinutes: number; prevTotalMinutes: number; deltaMinutes: number; avgPerDayMinutes: number;
+  prevLabel: string; buckets: FocusBucket[]; bucketTitle: string;
+  byCategory: Array<{ tagId: string; tagName: string; tagColor: string; totalMinutes: number }>;
+  isDesktop: boolean; emptyText: string; onMore: () => void;
+}) {
+  const { t } = useTheme();
+  const TOP_TAGS = 5;
+  const topTags = byCategory.slice(0, TOP_TAGS);
+  const restMin = byCategory.slice(TOP_TAGS).reduce((s, c) => s + c.totalMinutes, 0);
+  const tagRows = restMin > 0
+    ? [...topTags, { tagId: '__etc', tagName: '기타', tagColor: t.textMuted, totalMinutes: restMin }]
+    : topTags;
+  const maxTag = Math.max(1, ...tagRows.map(r => r.totalMinutes));
+  const maxBucket = Math.max(1, ...buckets.map(b => b.totalMinutes));
+  // 증가 green / 감소 warm(danger) / 0 muted — 토큰만(목업 코랄 = 테마 warm 토큰)
+  const deltaColor = deltaMinutes > 0 ? t.success : deltaMinutes < 0 ? t.danger : t.textMuted;
+  const deltaText = deltaMinutes === 0 ? '—' : `${deltaMinutes > 0 ? '▲' : '▼'} ${fmtHours(Math.abs(deltaMinutes))}h`;
+
+  const bucketViz = (
+    <div className="min-w-0" style={{ flex: 1.1 }}>
+      <div style={{ fontSize: 11, fontWeight: 700, color: t.textMuted, marginBottom: 9, letterSpacing: '.3px' }}>{bucketTitle}</div>
+      <div className="flex items-end gap-1.5" style={{ height: 84 }}>
+        {buckets.map(b => {
+          const barH = b.totalMinutes > 0 ? `${Math.max(6, (b.totalMinutes / maxBucket) * 100)}%` : '0%';
+          return (
+            <div key={b.key} className="flex flex-col items-center gap-1.5 flex-1 min-w-0" style={{ height: '100%', justifyContent: 'flex-end' }}>
+              <div className="relative w-full flex justify-center" style={{ flex: 1, alignItems: 'flex-end' }}>
+                <div style={{ width: '100%', maxWidth: 26, height: barH, borderRadius: '6px 6px 0 0', backgroundColor: b.isCurrent ? t.danger : t.accent, position: 'relative', transition: 'height .3s' }}>
+                  {b.totalMinutes > 0 && (
+                    <span style={{ position: 'absolute', top: -16, left: 0, right: 0, textAlign: 'center', fontSize: 9, fontWeight: 700, color: b.isCurrent ? t.danger : t.textMuted }}>{fmtHours(b.totalMinutes)}</span>
+                  )}
+                </div>
+              </div>
+              <span style={{ fontSize: 10, color: b.isCurrent ? t.danger : t.textMuted, fontWeight: b.isCurrent ? 700 : 400 }}>{b.label}</span>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+
+  const tagViz = (
+    <div className="flex-1 min-w-0">
+      <div style={{ fontSize: 11, fontWeight: 700, color: t.textMuted, marginBottom: 9, letterSpacing: '.3px' }}>무엇에 — 태그별</div>
+      <div className="space-y-2.5">
+        {tagRows.map(r => (
+          <div key={r.tagId} className="flex items-center gap-2">
+            <span style={{ fontSize: 12, color: t.text, fontWeight: 500, width: 52, flexShrink: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.tagName}</span>
+            <div className="flex-1 rounded-full overflow-hidden" style={{ height: 9, backgroundColor: t.bgSub }}>
+              <div className="rounded-full" style={{ height: '100%', width: `${(r.totalMinutes / maxTag) * 100}%`, backgroundColor: r.tagColor, transition: 'width .3s' }} />
+            </div>
+            <span style={{ fontSize: 11, color: t.textMuted, width: 42, flexShrink: 0, textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>{fmtHours(r.totalMinutes)}h</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+
+  return (
+    <div className="rounded-2xl" style={{ backgroundColor: t.card, border: `1px solid ${t.borderLight}`, padding: 16 }}>
+      <div className="flex items-end justify-between mb-1">
+        <div className="flex items-center gap-1.5">
+          <span style={{ fontSize: 15 }}>⏱</span>
+          <h3 style={{ fontSize: 13, fontWeight: 700, color: t.text }}>집중 시간</h3>
+        </div>
+        <button onClick={onMore} className="flex items-center gap-0.5"
+          style={{ fontSize: 11, color: t.accent, fontWeight: 600, whiteSpace: 'nowrap' }}>
+          시간 리포트 자세히 <ChevronRight size={13} />
+        </button>
+      </div>
+
+      {totalMinutes <= 0 ? (
+        <p style={{ fontSize: 13, color: t.textMuted, padding: '16px 0' }}>{emptyText}</p>
+      ) : (
+        <>
+          {/* (a) 큰 숫자 + 증감 */}
+          <div className="flex items-baseline gap-2.5" style={{ margin: '6px 0 2px' }}>
+            <span style={{ fontSize: 38, fontWeight: 700, color: t.text, fontFamily: 'var(--font-gmarket)', lineHeight: 1 }}>
+              {fmtHours(totalMinutes)}<span style={{ fontSize: 18, color: t.textMuted, fontWeight: 400, marginLeft: 2 }}>h</span>
+            </span>
+            <span className="rounded-lg" style={{ fontSize: 13, fontWeight: 700, color: deltaColor, border: `1px solid ${deltaColor}`, padding: '3px 9px' }}>{deltaText}</span>
+          </div>
+          <p style={{ fontSize: 11, color: t.textMuted, marginBottom: 16 }}>
+            지난{prevLabel} {fmtHours(prevTotalMinutes)}h 대비 · 하루 평균 {fmtHours(avgPerDayMinutes)}h
+          </p>
+
+          {/* (b)(c) 모바일 세로(구분선) / PC 2열 */}
+          {isDesktop ? (
+            <div className="grid gap-6 items-start" style={{ gridTemplateColumns: '1.1fr 1fr' }}>{bucketViz}{tagViz}</div>
+          ) : (
+            <div>
+              {bucketViz}
+              <div style={{ height: 1, backgroundColor: t.borderLight, margin: '16px 0' }} />
+              {tagViz}
+            </div>
+          )}
+        </>
+      )}
+    </div>
+  );
+}
+
 function WeekTab() {
   const {
     todos, tags, habits,
@@ -622,101 +746,21 @@ function WeekTab() {
     </div>
   );
 
-  // ── 집중시간 분석 블록 (풀폭) ──
-  const TOP_TAGS = 5;
-  const topTags = focus.byCategory.slice(0, TOP_TAGS);
-  const restMin = focus.byCategory.slice(TOP_TAGS).reduce((s, c) => s + c.totalMinutes, 0);
-  const tagRows = restMin > 0
-    ? [...topTags, { tagId: '__etc', tagName: '기타', tagColor: t.textMuted, totalMinutes: restMin }]
-    : topTags;
-  const maxTag = Math.max(1, ...tagRows.map(r => r.totalMinutes));
-  const maxDaily = Math.max(1, ...focus.daily.map(d => d.totalMinutes));
-  const delta = focus.deltaMinutes;
-  // 증가 green / 감소 warm(danger) / 0 muted — 토큰만(목업 코랄 = 테마 warm 토큰)
-  const deltaColor = delta > 0 ? t.success : delta < 0 ? t.danger : t.textMuted;
-  const deltaText = delta === 0 ? '—' : `${delta > 0 ? '▲' : '▼'} ${fmtHours(Math.abs(delta))}h`;
-
-  const weekdayViz = (
-    <div className="min-w-0" style={{ flex: 1.1 }}>
-      <div style={{ fontSize: 11, fontWeight: 700, color: t.textMuted, marginBottom: 9, letterSpacing: '.3px' }}>언제 — 요일별</div>
-      <div className="flex items-end gap-1.5" style={{ height: 84 }}>
-        {focus.daily.map(d => {
-          const barH = d.totalMinutes > 0 ? `${Math.max(6, (d.totalMinutes / maxDaily) * 100)}%` : '0%';
-          return (
-            <div key={d.date} className="flex flex-col items-center gap-1.5 flex-1 min-w-0" style={{ height: '100%', justifyContent: 'flex-end' }}>
-              <div className="relative w-full flex justify-center" style={{ flex: 1, alignItems: 'flex-end' }}>
-                <div style={{ width: '100%', maxWidth: 26, height: barH, borderRadius: '6px 6px 0 0', backgroundColor: d.isToday ? t.danger : t.accent, position: 'relative', transition: 'height .3s' }}>
-                  {d.totalMinutes > 0 && (
-                    <span style={{ position: 'absolute', top: -16, left: 0, right: 0, textAlign: 'center', fontSize: 9, fontWeight: 700, color: d.isToday ? t.danger : t.textMuted }}>{fmtHours(d.totalMinutes)}</span>
-                  )}
-                </div>
-              </div>
-              <span style={{ fontSize: 10, color: d.isToday ? t.danger : t.textMuted, fontWeight: d.isToday ? 700 : 400 }}>{d.dayLabel}</span>
-            </div>
-          );
-        })}
-      </div>
-    </div>
-  );
-
-  const tagViz = (
-    <div className="flex-1 min-w-0">
-      <div style={{ fontSize: 11, fontWeight: 700, color: t.textMuted, marginBottom: 9, letterSpacing: '.3px' }}>무엇에 — 태그별</div>
-      <div className="space-y-2.5">
-        {tagRows.map(r => (
-          <div key={r.tagId} className="flex items-center gap-2">
-            <span style={{ fontSize: 12, color: t.text, fontWeight: 500, width: 52, flexShrink: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.tagName}</span>
-            <div className="flex-1 rounded-full overflow-hidden" style={{ height: 9, backgroundColor: t.bgSub }}>
-              <div className="rounded-full" style={{ height: '100%', width: `${(r.totalMinutes / maxTag) * 100}%`, backgroundColor: r.tagColor, transition: 'width .3s' }} />
-            </div>
-            <span style={{ fontSize: 11, color: t.textMuted, width: 42, flexShrink: 0, textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>{fmtHours(r.totalMinutes)}h</span>
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-
+  // ── 집중시간 분석 블록 (주간/월간 공용 컴포넌트, 요일 축 주입) ──
   const focusBlock = (
-    <div className="rounded-2xl" style={{ backgroundColor: t.card, border: `1px solid ${t.borderLight}`, padding: 16 }}>
-      <div className="flex items-end justify-between mb-1">
-        <div className="flex items-center gap-1.5">
-          <span style={{ fontSize: 15 }}>⏱</span>
-          <h3 style={{ fontSize: 13, fontWeight: 700, color: t.text }}>집중 시간</h3>
-        </div>
-        <button onClick={() => navigate('/time-report')} className="flex items-center gap-0.5"
-          style={{ fontSize: 11, color: t.accent, fontWeight: 600, whiteSpace: 'nowrap' }}>
-          시간 리포트 자세히 <ChevronRight size={13} />
-        </button>
-      </div>
-
-      {focus.totalMinutes <= 0 ? (
-        <p style={{ fontSize: 13, color: t.textMuted, padding: '16px 0' }}>이번 주 기록된 집중시간이 없어요</p>
-      ) : (
-        <>
-          {/* (a) 큰 숫자 + 증감 */}
-          <div className="flex items-baseline gap-2.5" style={{ margin: '6px 0 2px' }}>
-            <span style={{ fontSize: 38, fontWeight: 700, color: t.text, fontFamily: 'var(--font-gmarket)', lineHeight: 1 }}>
-              {fmtHours(focus.totalMinutes)}<span style={{ fontSize: 18, color: t.textMuted, fontWeight: 400, marginLeft: 2 }}>h</span>
-            </span>
-            <span className="rounded-lg" style={{ fontSize: 13, fontWeight: 700, color: deltaColor, border: `1px solid ${deltaColor}`, padding: '3px 9px' }}>{deltaText}</span>
-          </div>
-          <p style={{ fontSize: 11, color: t.textMuted, marginBottom: 16 }}>
-            지난주 {fmtHours(focus.prevTotalMinutes)}h 대비 · 하루 평균 {fmtHours(focus.avgPerDayMinutes)}h
-          </p>
-
-          {/* (b)(c) 모바일 세로(구분선) / PC 요일|태그 2열 */}
-          {isDesktop ? (
-            <div className="grid gap-6 items-start" style={{ gridTemplateColumns: '1.1fr 1fr' }}>{weekdayViz}{tagViz}</div>
-          ) : (
-            <div>
-              {weekdayViz}
-              <div style={{ height: 1, backgroundColor: t.borderLight, margin: '16px 0' }} />
-              {tagViz}
-            </div>
-          )}
-        </>
-      )}
-    </div>
+    <FocusBlock
+      totalMinutes={focus.totalMinutes}
+      prevTotalMinutes={focus.prevTotalMinutes}
+      deltaMinutes={focus.deltaMinutes}
+      avgPerDayMinutes={focus.avgPerDayMinutes}
+      prevLabel="주"
+      bucketTitle="언제 — 요일별"
+      buckets={focus.daily.map(d => ({ key: d.date, label: d.dayLabel, isCurrent: d.isToday, totalMinutes: d.totalMinutes }))}
+      byCategory={focus.byCategory}
+      isDesktop={isDesktop}
+      emptyText="이번 주 기록된 집중시간이 없어요"
+      onMore={() => navigate('/time-report')}
+    />
   );
 
   const reviewForm = (
@@ -823,45 +867,423 @@ function WeekTab() {
   );
 }
 
-export function ReviewsView() {
+// ─── 월간 탭 ───────────────────────────────────────────────────────────────
+
+type BestItem = { id: string; label: string };
+
+// 이 달의 베스트 — 후보 칩(라디오) + 직접 입력. 선택값은 제목 문자열로 저장.
+function BestCategory({ emoji, label, candidates, value, onChange }: {
+  emoji: string; label: string; candidates: BestItem[]; value: string; onChange: (v: string) => void;
+}) {
+  const { t } = useTheme();
+  const [customOpen, setCustomOpen] = useState(false);
+  const [customText, setCustomText] = useState('');
+  const isCustom = !!value && !candidates.some(c => c.label === value);
+
+  const chipStyle = (sel: boolean) => ({
+    fontSize: 11, padding: '5px 10px', maxWidth: 200,
+    overflow: 'hidden' as const, textOverflow: 'ellipsis' as const, whiteSpace: 'nowrap' as const,
+    backgroundColor: sel ? t.accent : t.bgSub, color: sel ? '#fff' : t.textSub,
+    border: `1px solid ${sel ? t.accent : t.borderLight}`, fontWeight: sel ? 600 : 400,
+  });
+
+  return (
+    <div className="rounded-xl" style={{ backgroundColor: t.card, border: `1px solid ${t.borderLight}`, padding: '12px 14px' }}>
+      <div className="flex items-center gap-1.5 mb-2.5">
+        <span style={{ fontSize: 15 }}>{emoji}</span>
+        <h4 style={{ fontSize: 12, fontWeight: 700, color: t.text }}>{label}</h4>
+      </div>
+      <div className="flex flex-wrap gap-1.5">
+        {candidates.length === 0 && !isCustom && (
+          <span style={{ fontSize: 11, color: t.textMuted, padding: '4px 0' }}>이 달 기록이 없어요 · 직접 입력해 주세요</span>
+        )}
+        {candidates.map(c => {
+          const sel = c.label === value;
+          return (
+            <button key={c.id} onClick={() => onChange(sel ? '' : c.label)} className="rounded-full" style={chipStyle(sel)}>
+              {sel ? '⭐ ' : ''}{c.label}
+            </button>
+          );
+        })}
+        {isCustom && (
+          <button onClick={() => onChange('')} className="rounded-full" style={chipStyle(true)}>⭐ {value}</button>
+        )}
+        <button onClick={() => setCustomOpen(o => !o)} className="rounded-full"
+          style={{ fontSize: 11, padding: '5px 10px', backgroundColor: t.bgSub, color: t.textMuted, border: `1px dashed ${t.border}` }}>
+          ＋ 직접 입력
+        </button>
+      </div>
+      {customOpen && (
+        <div className="flex items-center gap-2 mt-2.5">
+          <input value={customText} onChange={e => setCustomText(e.target.value)}
+            placeholder={`${label} 직접 입력`} className="flex-1 rounded-lg px-3 py-1.5 border outline-none min-w-0"
+            style={{ borderColor: t.border, backgroundColor: t.bgSub, color: t.text, fontSize: 12 }} />
+          <button onClick={() => { const v = customText.trim(); if (v) { onChange(v); setCustomText(''); setCustomOpen(false); } }}
+            className="rounded-lg flex-shrink-0" style={{ fontSize: 12, fontWeight: 600, padding: '6px 12px', backgroundColor: t.accent, color: '#fff' }}>
+            선택
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function MonthTab() {
   const {
-    reviewRecords,
+    todos, tags, habits,
     monthlyReviews, addMonthlyReview, updateMonthlyReview,
     appSettings,
   } = usePlanner();
   const { t } = useTheme();
-  // 'list' 는 탭 UI 에서 제거되었지만 과거 기록 승계 대비로 union·블록은 보존(진입 불가)
-  const [tab, setTab] = useState<'day' | 'week' | 'month' | 'list'>('day');
+  const navigate = useNavigate();
+  const isDesktop = useMediaQuery('(min-width: 1024px)');
+  const weekStartsOn = (appSettings.weekStartsOn ?? 1) as 0 | 1;
 
-  const currentMonth = format(new Date(), 'yyyy-MM');
+  // ── 월 범위 단일 계산 — 아래 모든 섹션이 공유 ──
+  const [anchor, setAnchor] = useState(() => startOfMonth(parseISO(getLogicalToday())));
+  const monthKey = format(anchor, 'yyyy-MM');
+  const monthStartStr = `${monthKey}-01`;
+  const monthEndStr = format(endOfMonth(anchor), 'yyyy-MM-dd');
+  const currentMonthKey = format(parseISO(getLogicalToday()), 'yyyy-MM');
+  const isCurrentMonth = monthKey === currentMonthKey;
 
-  // Monthly review
-  const monthlyReview = monthlyReviews.find(r => r.month === currentMonth);
-  const [mrAchievement, setMrAchievement] = useState(monthlyReview?.achievement || '');
-  const [mrFocus, setMrFocus] = useState(monthlyReview?.nextFocus || '');
-  const [mrKptKeep, setMrKptKeep] = useState('');
-  const [mrKptProblem, setMrKptProblem] = useState('');
-  const [mrKptTry, setMrKptTry] = useState('');
+  // ── 자동집계: 할일/습관 (store) ──
+  const monthTodos = todos.filter(td => td.date && td.date >= monthStartStr && td.date <= monthEndStr);
+  const doneTodos = monthTodos.filter(td => td.status === 'done');
+  const completionPct = monthTodos.length ? Math.round((doneTodos.length / monthTodos.length) * 100) : 0;
+  const habitDays = useMemo(() => {
+    const s = new Set<string>();
+    habits.forEach(h => h.checkedDates.forEach(d => { if (d.startsWith(monthKey)) s.add(d); }));
+    return s.size;
+  }, [habits, monthKey]);
+
+  // ── 자동집계 + 베스트 후보: 외부 소스 테이블 읽기 전용 ──
+  const [src, setSrc] = useState<{ video: BestItem[]; music: BestItem[]; book: BestItem[]; place: BestItem[]; walkCount: number }>(
+    { video: [], music: [], book: [], place: [], walkCount: 0 },
+  );
+  const loadSrc = useCallback(async () => {
+    const [cu, mu, bk, pv, wk] = await Promise.all([
+      supabase.from('culture_records').select('id,title,watched_date')
+        .gte('watched_date', monthStartStr).lte('watched_date', monthEndStr).order('watched_date', { ascending: false }),
+      supabase.from('music_records').select('id,track_title,artist,created_at').order('created_at', { ascending: false }),
+      supabase.from('books').select('id,title,status,finish_date')
+        .eq('status', 'done').gte('finish_date', monthStartStr).lte('finish_date', monthEndStr),
+      supabase.from('place_visits').select('id,name,visited_on')
+        .gte('visited_on', monthStartStr).lte('visited_on', monthEndStr).order('visited_on', { ascending: false }),
+      supabase.from('walk_sessions').select('id,started_at,created_at'),
+    ]);
+    setSrc({
+      video: (cu.data ?? []).map((r: any) => ({ id: r.id, label: r.title })),
+      music: (mu.data ?? []).filter((r: any) => String(r.created_at ?? '').slice(0, 7) === monthKey)
+        .map((r: any) => ({ id: r.id, label: `${r.track_title} — ${r.artist}` })),
+      book: (bk.data ?? []).map((r: any) => ({ id: r.id, label: r.title })),
+      place: (pv.data ?? []).map((r: any) => ({ id: r.id, label: r.name })),
+      walkCount: (wk.data ?? []).filter((r: any) => String((r.started_at ?? r.created_at) ?? '').slice(0, 7) === monthKey).length,
+    });
+  }, [monthKey, monthStartStr, monthEndStr]);
+  useEffect(() => { loadSrc(); }, [loadSrc]);
+  useRealtimeSync('culture_records', loadSrc);
+  useRealtimeSync('music_records', loadSrc);
+  useRealtimeSync('books', loadSrc);
+  useRealtimeSync('place_visits', loadSrc);
+  useRealtimeSync('walk_sessions', loadSrc);
+
+  // ── 집중시간(월 버전) — 시간 리포트 엔진(aggregateRange) 재사용 ──
+  const focus = useMemo(
+    () => monthFocusReport(todos, tags, anchor, weekStartsOn, getLogicalToday()),
+    [todos, tags, monthKey, weekStartsOn],
+  );
+
+  // ── 회고 + 베스트 (Stage 1 monthly_reviews 컬럼) ──
+  const monthlyReview = monthlyReviews.find(r => r.month === monthKey);
+  const ensureSaved = (partial: Partial<MonthlyReview>) => {
+    if (monthlyReview) updateMonthlyReview(monthlyReview.id, partial);
+    else addMonthlyReview({ month: monthKey, achievement: '', nextFocus: '', ...partial });
+  };
+
+  const [mHighlight, setMHighlight] = useState('');
+  const [mDidWell, setMDidWell] = useState('');
+  const [mRegret, setMRegret] = useState('');
+  const [mNextFocus, setMNextFocus] = useState('');
+  const [mKptKeep, setMKptKeep] = useState('');
+  const [mKptProblem, setMKptProblem] = useState('');
+  const [mKptTry, setMKptTry] = useState('');
+  const [savedFlash, setSavedFlash] = useState(false);
 
   useEffect(() => {
-    setMrAchievement(monthlyReview?.achievement || '');
-    setMrFocus(monthlyReview?.nextFocus || '');
-  }, [monthlyReview?.id]);
+    setMHighlight(monthlyReview?.highlight || '');
+    setMDidWell(monthlyReview?.didWell || '');
+    setMRegret(monthlyReview?.regret || '');
+    setMNextFocus(monthlyReview?.nextFocus || '');
+    setMKptKeep(monthlyReview?.kptKeep || '');
+    setMKptProblem(monthlyReview?.kptProblem || '');
+    setMKptTry(monthlyReview?.kptTry || '');
+  }, [monthlyReview?.id, monthKey]);
 
-  const saveMonthlyReview = () => {
-    if (monthlyReview) updateMonthlyReview(monthlyReview.id, { achievement: mrAchievement, nextFocus: mrFocus });
-    else addMonthlyReview({ month: currentMonth, achievement: mrAchievement, nextFocus: mrFocus });
+  const saveReview = () => {
+    ensureSaved({
+      highlight: mHighlight, didWell: mDidWell, regret: mRegret, nextFocus: mNextFocus,
+      kptKeep: mKptKeep, kptProblem: mKptProblem, kptTry: mKptTry,
+    });
+    setSavedFlash(true);
+    window.setTimeout(() => setSavedFlash(false), 1800);
   };
+
+  // 베스트 — 선택 즉시 저장(merge). 회고 텍스트/achievement 은 보존됨.
+  const best = {
+    video: monthlyReview?.bestVideo ?? '',
+    music: monthlyReview?.bestMusic ?? '',
+    book: monthlyReview?.bestBook ?? '',
+    place: monthlyReview?.bestPlace ?? '',
+  };
+
+  // ── 과거 월간 리뷰(연도별 그룹 + 작년 같은 달 비교) ──
+  const hasMonthText = (r: MonthlyReview) =>
+    !!(r.highlight || r.didWell || r.regret || r.nextFocus || r.achievement ||
+       r.bestVideo || r.bestMusic || r.bestBook || r.bestPlace ||
+       r.kptKeep || r.kptProblem || r.kptTry);
+
+  const lastYearKey = `${Number(monthKey.slice(0, 4)) - 1}-${monthKey.slice(5, 7)}`;
+  const lastYearReview = monthlyReviews.find(r => r.month === lastYearKey);
+
+  const pastGroups = useMemo(() => {
+    const items = monthlyReviews
+      .filter(r => r.month !== monthKey && hasMonthText(r))
+      .sort((a, b) => b.month.localeCompare(a.month));
+    const groups: { year: string; rows: MonthlyReview[] }[] = [];
+    for (const r of items) {
+      const year = r.month.slice(0, 4);
+      let g = groups.find(x => x.year === year);
+      if (!g) { g = { year, rows: [] }; groups.push(g); }
+      g.rows.push(r);
+    }
+    return groups;
+  }, [monthlyReviews, monthKey]);
+
+  const [expanded, setExpanded] = useState<Record<string, boolean>>({});
+  const isExpanded = (yr: string, idx: number) => expanded[yr] ?? idx === 0;
+  const toggleGroup = (yr: string, idx: number) =>
+    setExpanded(prev => ({ ...prev, [yr]: !(prev[yr] ?? idx === 0) }));
+
+  const inputStyle = {
+    borderColor: t.border, backgroundColor: t.bgSub, color: t.text, fontSize: 13, fontFamily: BODY_FONT,
+  };
+
+  const renderMonthCard = (r: MonthlyReview, anniversary = false) => {
+    const preview = [r.highlight, r.didWell, r.achievement, r.nextFocus].filter(Boolean).join(' · ');
+    const badges = [
+      r.bestVideo && `🎬 ${r.bestVideo}`,
+      r.bestMusic && `🎵 ${r.bestMusic}`,
+      r.bestBook && `📖 ${r.bestBook}`,
+      r.bestPlace && `📍 ${r.bestPlace}`,
+    ].filter(Boolean) as string[];
+    return (
+      <button key={r.id} onClick={() => setAnchor(startOfMonth(parseISO(`${r.month}-01`)))}
+        className="w-full text-left p-3 rounded-xl transition-colors"
+        style={{ backgroundColor: anniversary ? t.accentLight : t.card, border: `1px solid ${anniversary ? t.accent : t.borderLight}` }}>
+        <div className="flex items-center gap-2 mb-1.5 flex-wrap">
+          {anniversary && <span style={{ fontSize: 11, fontWeight: 700, color: t.accent }}>🕰 작년 같은 달</span>}
+          <span style={{ fontSize: 12, fontWeight: 700, color: t.text }}>
+            {format(parseISO(`${r.month}-01`), 'yyyy년 M월', { locale: ko })}
+          </span>
+        </div>
+        {preview && (
+          <p style={{ fontSize: 12, color: t.textSub, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{preview}</p>
+        )}
+        {badges.length > 0 && (
+          <div className="flex gap-1 mt-1.5 flex-wrap">
+            {badges.map((b, i) => (
+              <span key={i} className="px-2 py-0.5 rounded-full" style={{ fontSize: 9, backgroundColor: t.bgSub, color: t.textSub, maxWidth: 130, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{b}</span>
+            ))}
+          </div>
+        )}
+      </button>
+    );
+  };
+
+  const monthNav = (
+    <div className="flex items-center justify-center gap-3 mb-4">
+      <button onClick={() => setAnchor(a => subMonths(a, 1))} className="p-2 rounded-lg" style={{ color: t.textSub, backgroundColor: t.bgSub, border: `1px solid ${t.borderLight}` }}>
+        <ChevronLeft size={18} />
+      </button>
+      <button onClick={() => setAnchor(startOfMonth(parseISO(getLogicalToday())))}
+        style={{ fontSize: 15, fontWeight: 700, color: t.text, minWidth: 150, textAlign: 'center' }}>
+        {format(anchor, 'yyyy년 M월', { locale: ko })}
+        {!isCurrentMonth && <span style={{ fontSize: 11, color: t.accent, marginLeft: 6 }}>이번 달로</span>}
+      </button>
+      <button onClick={() => setAnchor(a => addMonths(a, 1))} className="p-2 rounded-lg" style={{ color: t.textSub, backgroundColor: t.bgSub, border: `1px solid ${t.borderLight}` }}>
+        <ChevronRight size={18} />
+      </button>
+    </div>
+  );
+
+  // 4-1. 숫자로 보는 한 달 (자동집계, 입력 0)
+  const statsBlock = (
+    <div>
+      <h3 style={{ fontSize: 12, fontWeight: 700, color: t.textSub, marginBottom: 9 }}>숫자로 보는 한 달</h3>
+      <div className="grid gap-2.5" style={{ gridTemplateColumns: isDesktop ? 'repeat(6,1fr)' : 'repeat(3,1fr)' }}>
+        <MiniCell value={monthTodos.length ? String(completionPct) : '–'} unit={monthTodos.length ? '%' : undefined} label="할일 완료율" />
+        <MiniCell value={String(habitDays)} unit="일" label="습관 달성일" />
+        <MiniCell value={String(src.book.length)} unit="권" label="읽은 책" />
+        <MiniCell value={String(src.video.length)} unit="개" label="본 미디어" />
+        <MiniCell value={String(src.walkCount)} unit="회" label="산책" />
+        <MiniCell value={String(src.place.length)} unit="곳" label="다녀온 곳" />
+      </div>
+    </div>
+  );
+
+  // 4-2. 집중시간 분석 블록(월 버전 — 주차별 축)
+  const focusBlock = (
+    <FocusBlock
+      totalMinutes={focus.totalMinutes}
+      prevTotalMinutes={focus.prevTotalMinutes}
+      deltaMinutes={focus.deltaMinutes}
+      avgPerDayMinutes={focus.avgPerDayMinutes}
+      prevLabel="달"
+      bucketTitle="언제 — 주차별"
+      buckets={focus.weekly.map(w => ({ key: w.key, label: w.label, isCurrent: w.isCurrent, totalMinutes: w.totalMinutes }))}
+      byCategory={focus.byCategory}
+      isDesktop={isDesktop}
+      emptyText="이번 달 기록된 집중시간이 없어요"
+      onMore={() => navigate('/time-report')}
+    />
+  );
+
+  // 4-3. 이 달의 베스트 (하이브리드 픽)
+  const bestBlock = (
+    <div>
+      <h3 style={{ fontSize: 12, fontWeight: 700, color: t.textSub, marginBottom: 9 }}>이 달의 베스트</h3>
+      <div className="grid gap-2.5" style={{ gridTemplateColumns: isDesktop ? '1fr 1fr' : '1fr' }}>
+        <BestCategory emoji="🎬" label="영상" candidates={src.video} value={best.video} onChange={v => ensureSaved({ bestVideo: v })} />
+        <BestCategory emoji="🎵" label="음악" candidates={src.music} value={best.music} onChange={v => ensureSaved({ bestMusic: v })} />
+        <BestCategory emoji="📖" label="독서" candidates={src.book} value={best.book} onChange={v => ensureSaved({ bestBook: v })} />
+        <BestCategory emoji="📍" label="장소" candidates={src.place} value={best.place} onChange={v => ensureSaved({ bestPlace: v })} />
+      </div>
+    </div>
+  );
+
+  // 4-4. 이 달의 회고
+  const reviewForm = (
+    <div className="p-4 rounded-xl" style={{ backgroundColor: t.card, border: `1px solid ${t.borderLight}` }}>
+      <h3 style={{ fontSize: 13, fontWeight: 700, color: t.text, marginBottom: 12 }}>이 달의 회고 · {format(anchor, 'M월', { locale: ko })}</h3>
+      <div className="space-y-3">
+        <div>
+          <LabelRow label="하이라이트" labelColor="#515f74" onVoiceResult={text => setMHighlight(prev => prev ? `${prev} ${text}` : text)} />
+          <textarea value={mHighlight} onChange={e => setMHighlight(e.target.value)} placeholder="이번 달 가장 기억에 남는 순간은?" rows={3}
+            className="w-full rounded-lg px-3 py-2 border outline-none resize-none" style={inputStyle} />
+        </div>
+        <div>
+          <LabelRow label="잘한 것" labelColor="#006b62" onVoiceResult={text => setMDidWell(prev => prev ? `${prev} ${text}` : text)} />
+          <textarea value={mDidWell} onChange={e => setMDidWell(e.target.value)} rows={3}
+            className="w-full rounded-lg px-3 py-2 border outline-none resize-none" style={inputStyle} />
+        </div>
+        <div>
+          <LabelRow label="후회·아쉬운 것" labelColor="#D4735A" onVoiceResult={text => setMRegret(prev => prev ? `${prev} ${text}` : text)} />
+          <textarea value={mRegret} onChange={e => setMRegret(e.target.value)} rows={3}
+            className="w-full rounded-lg px-3 py-2 border outline-none resize-none" style={inputStyle} />
+        </div>
+        <div>
+          <LabelRow label="다음 달 포커스" labelColor="#7B9ED9" onVoiceResult={text => setMNextFocus(prev => prev ? `${prev} ${text}` : text)} />
+          <textarea value={mNextFocus} onChange={e => setMNextFocus(e.target.value)} placeholder="다음 달에 집중하고 싶은 것은?" rows={3}
+            className="w-full rounded-lg px-3 py-2 border outline-none resize-none" style={inputStyle} />
+        </div>
+      </div>
+
+      {/* 월간 KPT — 설정 ON 시 표시, 실제 저장(Stage 1 컬럼) */}
+      {appSettings.showMonthlyKpt && (
+        <div className="mt-4 pt-4" style={{ borderTop: `1px solid ${t.borderLight}` }}>
+          <h4 style={{ fontSize: 12, fontWeight: 700, color: t.textSub, marginBottom: 10 }}>🔄 KPT 월간 회고</h4>
+          <div className={isDesktop ? 'grid grid-cols-3 gap-3' : 'space-y-3'}>
+            <div>
+              <LabelRow label="Keep" labelColor="#006b62" onVoiceResult={text => setMKptKeep(prev => prev ? `${prev} ${text}` : text)} />
+              <textarea value={mKptKeep} onChange={e => setMKptKeep(e.target.value)} rows={isDesktop ? 4 : 2}
+                className="w-full rounded-lg px-3 py-2 border outline-none resize-none" style={inputStyle} />
+            </div>
+            <div>
+              <LabelRow label="Problem" labelColor="#D4735A" onVoiceResult={text => setMKptProblem(prev => prev ? `${prev} ${text}` : text)} />
+              <textarea value={mKptProblem} onChange={e => setMKptProblem(e.target.value)} rows={isDesktop ? 4 : 2}
+                className="w-full rounded-lg px-3 py-2 border outline-none resize-none" style={inputStyle} />
+            </div>
+            <div>
+              <LabelRow label="Try" labelColor="#7B9ED9" onVoiceResult={text => setMKptTry(prev => prev ? `${prev} ${text}` : text)} />
+              <textarea value={mKptTry} onChange={e => setMKptTry(e.target.value)} rows={isDesktop ? 4 : 2}
+                className="w-full rounded-lg px-3 py-2 border outline-none resize-none" style={inputStyle} />
+            </div>
+          </div>
+        </div>
+      )}
+
+      <button onClick={saveReview}
+        className="w-full mt-4 py-2.5 rounded-xl transition-colors"
+        style={{ fontSize: 13, fontWeight: 600, backgroundColor: savedFlash ? t.success : t.accent, color: '#fff' }}>
+        {savedFlash ? '저장됨 ✓' : '저장'}
+      </button>
+    </div>
+  );
+
+  const pastBlock = (
+    <div className="space-y-2">
+      <h3 className="flex items-center gap-1.5" style={{ fontSize: 12, fontWeight: 700, color: t.textSub }}>
+        <Clock size={13} /> 지난 월간 리뷰
+      </h3>
+      {lastYearReview && hasMonthText(lastYearReview) && renderMonthCard(lastYearReview, true)}
+      {pastGroups.length === 0 && !(lastYearReview && hasMonthText(lastYearReview)) ? (
+        <p style={{ fontSize: 12, color: t.textMuted, padding: '12px 0' }}>아직 지난 월간 리뷰가 없어요</p>
+      ) : (
+        pastGroups.map((g, gi) => (
+          <div key={g.year} className="space-y-2">
+            <button onClick={() => toggleGroup(g.year, gi)} className="flex items-center gap-1 w-full mt-1"
+              style={{ fontSize: 12, fontWeight: 700, color: t.textSub }}>
+              <ChevronDown size={14} style={{ transform: isExpanded(g.year, gi) ? 'none' : 'rotate(-90deg)', transition: 'transform .15s' }} />
+              {g.year}년
+              <span style={{ color: t.textMuted, fontWeight: 400 }}>· {g.rows.length}건</span>
+            </button>
+            {isExpanded(g.year, gi) && g.rows.map(r => renderMonthCard(r))}
+          </div>
+        ))
+      )}
+    </div>
+  );
+
+  return (
+    <div>
+      {monthNav}
+      {isDesktop ? (
+        <div className="flex gap-6 items-start">
+          <div className="flex-1 min-w-0 space-y-5">
+            {statsBlock}
+            {focusBlock}
+            {bestBlock}
+            {reviewForm}
+          </div>
+          <div className="flex-shrink-0" style={{ width: 340 }}>
+            <div style={{ position: 'sticky', top: 12 }}>{pastBlock}</div>
+          </div>
+        </div>
+      ) : (
+        <div className="space-y-5">
+          {statsBlock}
+          {focusBlock}
+          {bestBlock}
+          {reviewForm}
+          {pastBlock}
+        </div>
+      )}
+    </div>
+  );
+}
+
+export function ReviewsView() {
+  const { reviewRecords } = usePlanner();
+  const { t } = useTheme();
+  // 'list' 는 탭 UI 에서 제거되었지만 과거 기록 승계 대비로 union·블록은 보존(진입 불가)
+  const [tab, setTab] = useState<'day' | 'week' | 'month' | 'list'>('day');
 
   const tabs = [
     { key: 'day', label: '일간' },
     { key: 'week', label: '주간' },
     { key: 'month', label: '월간' },
   ] as const;
-
-  const inputStyle = {
-    borderColor: t.border, backgroundColor: t.bgSub, color: t.text, fontSize: 13,
-  };
 
   return (
     <div className="flex-1 overflow-y-auto">
@@ -932,52 +1354,8 @@ export function ReviewsView() {
         {/* 주간 탭 — 통계 정확화 + 회고(KPT) + 과거(월별 그룹·작년 비교) */}
         {tab === 'week' && <WeekTab />}
 
-        {/* Monthly Review Tab (기존 화면 유지) */}
-        {tab === 'month' && (
-          <div className="p-4 rounded-xl" style={{ backgroundColor: t.card, border: `1px solid ${t.borderLight}` }}>
-            <h3 style={{ fontSize: 13, fontWeight: 700, color: t.text, marginBottom: 12 }}>월간 리뷰 ({currentMonth})</h3>
-            <div className="space-y-4">
-              <div>
-                <LabelRow label="가장 큰 성취" labelColor="#515f74" onVoiceResult={text => setMrAchievement(prev => prev ? `${prev} ${text}` : text)} />
-                <textarea value={mrAchievement} onChange={e => setMrAchievement(e.target.value)}
-                  placeholder="이번 달 가장 자랑스러운 성취는?" rows={4}
-                  className="w-full rounded-lg px-3 py-2 border outline-none resize-none" style={inputStyle} />
-              </div>
-              <div>
-                <LabelRow label="다음 달 집중할 것" labelColor="#7B9ED9" onVoiceResult={text => setMrFocus(prev => prev ? `${prev} ${text}` : text)} />
-                <textarea value={mrFocus} onChange={e => setMrFocus(e.target.value)}
-                  placeholder="다음 달에 집중하고 싶은 것은?" rows={4}
-                  className="w-full rounded-lg px-3 py-2 border outline-none resize-none" style={inputStyle} />
-              </div>
-              {/* KPT 섹션 — 설정에서 ON 시 표시 */}
-              {appSettings.showMonthlyKpt && (
-                <div className="mt-2 space-y-3">
-                  <h4 style={{ fontSize: 12, fontWeight: 700, color: t.textSub }}>🔄 KPT 월간 회고</h4>
-                  <div>
-                    <LabelRow label="Keep" labelColor="#006b62" onVoiceResult={text => setMrKptKeep(prev => prev ? `${prev} ${text}` : text)} />
-                    <textarea value={mrKptKeep} onChange={e => setMrKptKeep(e.target.value)} rows={2}
-                      className="w-full rounded-lg px-3 py-2 border outline-none resize-none" style={inputStyle} />
-                  </div>
-                  <div>
-                    <LabelRow label="Problem" labelColor="#D4735A" onVoiceResult={text => setMrKptProblem(prev => prev ? `${prev} ${text}` : text)} />
-                    <textarea value={mrKptProblem} onChange={e => setMrKptProblem(e.target.value)} rows={2}
-                      className="w-full rounded-lg px-3 py-2 border outline-none resize-none" style={inputStyle} />
-                  </div>
-                  <div>
-                    <LabelRow label="Try" labelColor="#7B9ED9" onVoiceResult={text => setMrKptTry(prev => prev ? `${prev} ${text}` : text)} />
-                    <textarea value={mrKptTry} onChange={e => setMrKptTry(e.target.value)} rows={2}
-                      className="w-full rounded-lg px-3 py-2 border outline-none resize-none" style={inputStyle} />
-                  </div>
-                </div>
-              )}
-            </div>
-            <button onClick={saveMonthlyReview}
-              className="w-full mt-4 py-2.5 rounded-xl"
-              style={{ fontSize: 13, fontWeight: 600, backgroundColor: t.accent, color: '#fff' }}>
-              저장
-            </button>
-          </div>
-        )}
+        {/* 월간 탭 — 자동집계 + 집중블록(주차) + 베스트(하이브리드 픽) + 회고 + 과거(연도별·작년 비교) */}
+        {tab === 'month' && <MonthTab />}
       </div>
     </div>
   );

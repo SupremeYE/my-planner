@@ -1,7 +1,7 @@
 import { useMemo } from 'react';
 import {
   format, parseISO, startOfWeek, endOfWeek, startOfMonth, endOfMonth,
-  subWeeks, subMonths, addDays, getDay, isSameDay,
+  subWeeks, subMonths, addWeeks, addDays, getDay, isSameDay,
 } from 'date-fns';
 import { usePlanner } from '../store';
 import type { Todo, Tag } from '../store';
@@ -169,6 +169,82 @@ export function weekFocusReport(
     prevTotalMinutes: prev.total,
     deltaMinutes: cur.total - prev.total,
     daily,
+    byCategory,
+  };
+}
+
+export interface MonthFocusReport {
+  totalMinutes: number;
+  avgPerDayMinutes: number;        // 그 달 일수 평균
+  prevTotalMinutes: number;        // 직전 달(전월)
+  deltaMinutes: number;            // 이번 달 - 지난 달
+  /** 그 달의 주차별(1~5주차) 합계. 각 주의 달 범위 교집합만 집계. */
+  weekly: Array<{ key: string; label: string; isCurrent: boolean; totalMinutes: number }>;
+  byCategory: Array<{ tagId: string; tagName: string; tagColor: string; totalMinutes: number }>;
+}
+
+/**
+ * 임의 달(monthStart 기준)의 집중시간 리포트.
+ * 합계·주차별·태그별·전월 비교 모두 useTimeReport와 동일한 엔진(aggregateRange)을 재사용.
+ * useTimeReport는 'now' 고정이라 과거/임의 달을 못 꺼내므로, 월간 리뷰 탭이 이걸 사용한다.
+ */
+export function monthFocusReport(
+  todos: Todo[],
+  tags: Tag[],
+  monthStart: Date,
+  weekStartsOn: 0 | 1,
+  todayStr: string,
+): MonthFocusReport {
+  const trackTags = tags.filter(tg => tg.trackTime);
+  const tagMap = new Map(trackTags.map(tg => [tg.id, tg]));
+  const trackTagIds = new Set(trackTags.map(tg => tg.id));
+  const fmtD = (d: Date) => format(d, 'yyyy-MM-dd');
+
+  const mStart = startOfMonth(monthStart);
+  const mEnd = endOfMonth(monthStart);
+  const mStartStr = fmtD(mStart);
+  const mEndStr = fmtD(mEnd);
+  const cur = aggregateRange(todos, mStartStr, mEndStr, trackTagIds);
+
+  const prevRef = subMonths(monthStart, 1);
+  const prev = aggregateRange(todos, fmtD(startOfMonth(prevRef)), fmtD(endOfMonth(prevRef)), trackTagIds);
+
+  const byCategory = Array.from(cur.byTag.entries())
+    .map(([tagId, v]) => ({
+      tagId,
+      tagName: tagMap.get(tagId)?.name ?? '(삭제된 태그)',
+      tagColor: tagMap.get(tagId)?.color ?? '#999999',
+      totalMinutes: v.minutes,
+    }))
+    .filter(c => c.totalMinutes > 0)
+    .sort((a, b) => b.totalMinutes - a.totalMinutes);
+
+  // 주차별 — 그 달과 겹치는 각 주의 (월 범위 교집합) 합계
+  const weekly: MonthFocusReport['weekly'] = [];
+  let wkStart = startOfWeek(mStart, { weekStartsOn });
+  let n = 1;
+  while (wkStart <= mEnd) {
+    const wkEnd = endOfWeek(wkStart, { weekStartsOn });
+    const segStart = wkStart < mStart ? mStart : wkStart;
+    const segEnd = wkEnd > mEnd ? mEnd : wkEnd;
+    const segStartStr = fmtD(segStart);
+    const segEndStr = fmtD(segEnd);
+    weekly.push({
+      key: fmtD(wkStart),
+      label: `${n}주`,
+      isCurrent: todayStr >= segStartStr && todayStr <= segEndStr,
+      totalMinutes: aggregateRange(todos, segStartStr, segEndStr, trackTagIds).total,
+    });
+    wkStart = addWeeks(wkStart, 1);
+    n++;
+  }
+
+  return {
+    totalMinutes: cur.total,
+    avgPerDayMinutes: cur.total / mEnd.getDate(),
+    prevTotalMinutes: prev.total,
+    deltaMinutes: cur.total - prev.total,
+    weekly,
     byCategory,
   };
 }
