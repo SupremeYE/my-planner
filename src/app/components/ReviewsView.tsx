@@ -235,13 +235,18 @@ function PastTimeline({ dayDate, onSelect }: { dayDate: string; onSelect: (date:
 }
 
 // ─── 일간 탭 ───
-function DayTab() {
+type JumpReq = { date: string; nonce: number } | null;
+
+function DayTab({ jump }: { jump?: JumpReq }) {
   const { reviewRecords, addReviewRecord, updateReviewRecord } = usePlanner();
   const { t } = useTheme();
   const isDesktop = useMediaQuery('(min-width: 1024px)');
 
   const todayStr = getLogicalToday();
   const [dayDate, setDayDate] = useState(todayStr);
+
+  // 돌아보기 카드 점프 → 해당 날짜로
+  useEffect(() => { if (jump) setDayDate(jump.date); }, [jump?.nonce]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const dayRecord = reviewRecords.find(r => r.date === dayDate);
 
@@ -560,7 +565,7 @@ function FocusBlock({
   );
 }
 
-function WeekTab() {
+function WeekTab({ jump }: { jump?: JumpReq }) {
   const {
     todos, tags, habits,
     weeklyReviews, addWeeklyReview, updateWeeklyReview,
@@ -573,6 +578,8 @@ function WeekTab() {
 
   // ── 주 범위 단일 계산 — 아래 모든 통계/회고/과거 조회가 공유 ──
   const [anchor, setAnchor] = useState(() => parseISO(getLogicalToday()));
+  // 돌아보기 카드 점프 → 해당 주로
+  useEffect(() => { if (jump) setAnchor(parseISO(jump.date)); }, [jump?.nonce]); // eslint-disable-line react-hooks/exhaustive-deps
   const range = useMemo(() => {
     const start = startOfWeek(anchor, { weekStartsOn });
     const end = endOfWeek(anchor, { weekStartsOn });
@@ -928,7 +935,7 @@ function BestCategory({ emoji, label, candidates, value, onChange }: {
   );
 }
 
-function MonthTab() {
+function MonthTab({ jump }: { jump?: JumpReq }) {
   const {
     todos, tags, habits,
     monthlyReviews, addMonthlyReview, updateMonthlyReview,
@@ -941,6 +948,8 @@ function MonthTab() {
 
   // ── 월 범위 단일 계산 — 아래 모든 섹션이 공유 ──
   const [anchor, setAnchor] = useState(() => startOfMonth(parseISO(getLogicalToday())));
+  // 돌아보기 카드 점프 → 해당 달로
+  useEffect(() => { if (jump) setAnchor(startOfMonth(parseISO(jump.date))); }, [jump?.nonce]); // eslint-disable-line react-hooks/exhaustive-deps
   const monthKey = format(anchor, 'yyyy-MM');
   const monthStartStr = `${monthKey}-01`;
   const monthEndStr = format(endOfMonth(anchor), 'yyyy-MM-dd');
@@ -1273,11 +1282,268 @@ function MonthTab() {
   );
 }
 
+// ─── 돌아보기 / 검색 아카이브 ────────────────────────────────────────────────
+
+type ArchiveKind = 'gratitude' | 'happy' | 'kpt' | 'daily' | 'weekly' | 'monthly';
+interface ArchiveItem {
+  id: string;
+  kind: ArchiveKind;
+  date: string;          // yyyy-MM-dd — 정렬·그룹·연도·점프 기준
+  dateLabel: string;
+  time?: string;         // 행복: 시각
+  text: string;          // 검색 대상 + 미리보기 본문
+  jump: { tab: 'day' | 'week' | 'month'; date: string };
+}
+
+// 키워드 매칭 하이라이트(mark). 대소문자 무시, 전체 occurrence.
+function highlightText(text: string, q: string, markBg: string): React.ReactNode {
+  if (!q) return text;
+  const lower = text.toLowerCase();
+  const ql = q.toLowerCase();
+  const parts: React.ReactNode[] = [];
+  let i = 0, key = 0;
+  let pos = lower.indexOf(ql);
+  if (pos === -1) return text;
+  while (pos !== -1) {
+    if (pos > i) parts.push(text.slice(i, pos));
+    parts.push(<mark key={key++} style={{ backgroundColor: markBg, color: 'inherit', borderRadius: 3, padding: '0 1px' }}>{text.slice(pos, pos + q.length)}</mark>);
+    i = pos + q.length;
+    pos = lower.indexOf(ql, i);
+  }
+  if (i < text.length) parts.push(text.slice(i));
+  return parts;
+}
+
+const ARCHIVE_FILTERS = [
+  { key: 'all', label: '전체', emoji: '' },
+  { key: 'gratitude', label: '감사', emoji: '🙏' },
+  { key: 'happy', label: '행복', emoji: '✨' },
+  { key: 'kpt', label: 'KPT', emoji: '🔄' },
+  { key: 'weekly', label: '주간', emoji: '📅' },
+  { key: 'monthly', label: '월간', emoji: '🗓' },
+] as const;
+
+function ArchiveOverlay({ onClose, onJump }: {
+  onClose: () => void;
+  onJump: (tab: 'day' | 'week' | 'month', date: string) => void;
+}) {
+  const { reviewRecords, happyMoments, weeklyReviews, monthlyReviews } = usePlanner();
+  const { t } = useTheme();
+  const isDesktop = useMediaQuery('(min-width: 1024px)');
+
+  const [rawQuery, setRawQuery] = useState('');
+  const [query, setQuery] = useState('');
+  const [typeFilter, setTypeFilter] = useState<'all' | ArchiveKind>('all');
+  const [yearFilter, setYearFilter] = useState<string>('all');
+
+  // 검색 디바운스(220ms)
+  useEffect(() => {
+    const id = window.setTimeout(() => setQuery(rawQuery.trim()), 220);
+    return () => window.clearTimeout(id);
+  }, [rawQuery]);
+
+  // 타입별 배지 색(토큰만): 감사=green / 행복=coral / KPT=gold / 데일리=info / 주간=info / 월간=text
+  const kindMeta: Record<ArchiveKind, { label: string; emoji: string; color: string }> = {
+    gratitude: { label: '감사', emoji: '🙏', color: t.success },
+    happy: { label: '행복', emoji: '✨', color: t.danger },
+    kpt: { label: 'KPT', emoji: '🔄', color: t.accent },
+    daily: { label: '데일리', emoji: '📔', color: t.textMuted },
+    weekly: { label: '주간', emoji: '📅', color: t.info },
+    monthly: { label: '월간', emoji: '🗓', color: t.text },
+  };
+
+  // ── 통합 스트림 (review_records 감사/KPT/daily_* + happy_moments + weekly + monthly) ──
+  const items = useMemo<ArchiveItem[]>(() => {
+    const out: ArchiveItem[] = [];
+    const join = (arr: (string | undefined | null)[]) => arr.map(s => (s ?? '').trim()).filter(Boolean).join(' · ');
+
+    for (const r of reviewRecords) {
+      const g = (r.gratitude ?? []).map(s => s.trim()).filter(Boolean);
+      if (g.length) {
+        out.push({ id: `g-${r.id}`, kind: 'gratitude', date: r.date,
+          dateLabel: format(parseISO(r.date), 'M월 d일 (E)', { locale: ko }),
+          text: `🙏 ${g.join(', ')}`, jump: { tab: 'day', date: r.date } });
+      }
+      const kpt = join([r.kptKeep, r.kptProblem, r.kptTry]);
+      if (kpt) {
+        out.push({ id: `k-${r.id}`, kind: 'kpt', date: r.date,
+          dateLabel: format(parseISO(r.date), 'M월 d일 (E)', { locale: ko }),
+          text: kpt, jump: { tab: 'day', date: r.date } });
+      }
+      // 과거 데일리 리뷰(daily_*) 읽기전용 승계
+      const daily = join([r.dailySummary, r.dailyGood, r.dailyImprove]);
+      if (daily) {
+        out.push({ id: `d-${r.id}`, kind: 'daily', date: r.date,
+          dateLabel: format(parseISO(r.date), 'M월 d일 (E)', { locale: ko }),
+          text: daily, jump: { tab: 'day', date: r.date } });
+      }
+    }
+
+    // 행복: happy_moments (백필분 포함). review_records.happiness 는 이 테이블로 분리됐으므로 중복 방지로 미포함.
+    for (const h of happyMoments) {
+      if (!h.content?.trim()) continue;
+      out.push({ id: `h-${h.id}`, kind: 'happy', date: h.date,
+        dateLabel: format(parseISO(h.date), 'M월 d일 (E)', { locale: ko }),
+        time: h.happenedAt ? format(parseISO(h.happenedAt), 'a h:mm', { locale: ko }) : undefined,
+        text: h.content.trim(), jump: { tab: 'day', date: h.date } });
+    }
+
+    for (const w of weeklyReviews) {
+      const text = join([w.good, w.hard, w.nextWeek, w.kptKeep, w.kptProblem, w.kptTry]);
+      if (!text) continue;
+      const rg = weekKeyToRange(w.weekKey);
+      out.push({ id: `w-${w.id}`, kind: 'weekly', date: rg.startStr,
+        dateLabel: `${format(rg.start, 'M.d')}–${format(rg.end, 'M.d')} 주간`,
+        text, jump: { tab: 'week', date: rg.startStr } });
+    }
+
+    for (const m of monthlyReviews) {
+      const text = join([m.highlight, m.didWell, m.regret, m.nextFocus, m.achievement,
+        m.bestVideo && `🎬 ${m.bestVideo}`, m.bestMusic && `🎵 ${m.bestMusic}`,
+        m.bestBook && `📖 ${m.bestBook}`, m.bestPlace && `📍 ${m.bestPlace}`,
+        m.kptKeep, m.kptProblem, m.kptTry]);
+      if (!text) continue;
+      const mDate = `${m.month}-01`;
+      out.push({ id: `m-${m.id}`, kind: 'monthly', date: mDate,
+        dateLabel: format(parseISO(mDate), 'yyyy년 M월', { locale: ko }),
+        text, jump: { tab: 'month', date: mDate } });
+    }
+
+    // 날짜 역순(같은 날은 시각 역순)
+    out.sort((a, b) => b.date.localeCompare(a.date) || (b.time ?? '').localeCompare(a.time ?? ''));
+    return out;
+  }, [reviewRecords, happyMoments, weeklyReviews, monthlyReviews]);
+
+  const years = useMemo(() => {
+    const s = new Set(items.map(it => it.date.slice(0, 4)));
+    return Array.from(s).sort((a, b) => b.localeCompare(a));
+  }, [items]);
+
+  // 타입 필터 × 키워드 × 연도 AND 결합
+  const filtered = useMemo(() => {
+    const q = query.toLowerCase();
+    return items.filter(it => {
+      if (typeFilter !== 'all' && it.kind !== typeFilter) return false;
+      if (yearFilter !== 'all' && it.date.slice(0, 4) !== yearFilter) return false;
+      if (q && !it.text.toLowerCase().includes(q)) return false;
+      return true;
+    });
+  }, [items, typeFilter, yearFilter, query]);
+
+  // 월별 그룹(역순 유지)
+  const groups = useMemo(() => {
+    const gs: { month: string; label: string; items: ArchiveItem[] }[] = [];
+    for (const it of filtered) {
+      const month = it.date.slice(0, 7);
+      let g = gs.find(x => x.month === month);
+      if (!g) { g = { month, label: format(parseISO(`${month}-01`), 'yyyy년 M월', { locale: ko }), items: [] }; gs.push(g); }
+      g.items.push(it);
+    }
+    return gs;
+  }, [filtered]);
+
+  const markBg = `${t.accent}33`;
+
+  const renderCard = (it: ArchiveItem) => {
+    const meta = kindMeta[it.kind];
+    return (
+      <button key={it.id} onClick={() => onJump(it.jump.tab, it.jump.date)}
+        className="w-full text-left p-3 rounded-xl transition-colors"
+        style={{ backgroundColor: t.card, border: `1px solid ${t.borderLight}`, breakInside: 'avoid', marginBottom: 10, display: 'block' }}>
+        <div className="flex items-center gap-2 mb-1.5 flex-wrap">
+          <span className="px-2 py-0.5 rounded-full" style={{ fontSize: 10, fontWeight: 700, backgroundColor: `${meta.color}1f`, color: meta.color }}>
+            {meta.emoji} {meta.label}
+          </span>
+          <span style={{ fontSize: 12, fontWeight: 700, color: t.text }}>{it.dateLabel}</span>
+          {it.time && <span style={{ fontSize: 11, color: t.danger, fontWeight: 600 }}>{it.time}</span>}
+        </div>
+        <p style={{ fontSize: 12.5, color: t.textSub, lineHeight: 1.5, display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
+          {highlightText(it.text, query, markBg)}
+        </p>
+      </button>
+    );
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex flex-col" style={{ backgroundColor: t.bg }}>
+      {/* 상단: 돌아가기 + 타이틀 */}
+      <div className="flex items-center gap-2 px-4 lg:px-6 pt-5 pb-3 flex-shrink-0" style={{ borderBottom: `1px solid ${t.borderLight}` }}>
+        <button onClick={onClose} className="flex items-center gap-1 p-1 -ml-1" style={{ fontSize: 14, color: t.textSub, fontWeight: 600 }}>
+          <ChevronLeft size={20} /> 돌아가기
+        </button>
+        <h1 className="mx-auto" style={{ fontSize: 17, fontWeight: 700, color: t.text, fontFamily: 'var(--font-gmarket)' }}>돌아보기</h1>
+        <span style={{ width: 72 }} />
+      </div>
+
+      {/* 검색 + 필터 */}
+      <div className="px-4 lg:px-6 pt-3 pb-2 flex-shrink-0 space-y-2.5">
+        <div className="flex items-center gap-2 rounded-xl px-3" style={{ backgroundColor: t.card, border: `1px solid ${t.borderLight}` }}>
+          <Search size={16} style={{ color: t.textMuted, flexShrink: 0 }} />
+          <input value={rawQuery} onChange={e => setRawQuery(e.target.value)} autoFocus
+            placeholder="기록 전체에서 검색" className="flex-1 py-2.5 outline-none bg-transparent min-w-0"
+            style={{ fontSize: 14, color: t.text }} />
+          {rawQuery && (
+            <button onClick={() => setRawQuery('')} className="flex-shrink-0" style={{ color: t.textMuted }}><X size={15} /></button>
+          )}
+        </div>
+        <div className="flex items-center gap-2 overflow-x-auto pb-0.5">
+          {ARCHIVE_FILTERS.map(f => {
+            const on = typeFilter === f.key;
+            return (
+              <button key={f.key} onClick={() => setTypeFilter(f.key)} className="rounded-full flex-shrink-0"
+                style={{ fontSize: 12, fontWeight: on ? 600 : 400, padding: '5px 11px', whiteSpace: 'nowrap',
+                  backgroundColor: on ? t.accent : t.bgSub, color: on ? '#fff' : t.textSub, border: `1px solid ${on ? t.accent : t.borderLight}` }}>
+                {f.emoji && `${f.emoji} `}{f.label}
+              </button>
+            );
+          })}
+          {years.length > 0 && (
+            <select value={yearFilter} onChange={e => setYearFilter(e.target.value)} className="rounded-full flex-shrink-0 outline-none"
+              style={{ fontSize: 12, padding: '5px 11px', backgroundColor: t.bgSub, color: t.textSub, border: `1px solid ${t.borderLight}` }}>
+              <option value="all">전체 연도</option>
+              {years.map(y => <option key={y} value={y}>{y}년</option>)}
+            </select>
+          )}
+        </div>
+      </div>
+
+      {/* 결과 스트림 */}
+      <div className="flex-1 overflow-y-auto px-4 lg:px-6 py-3">
+        {groups.length === 0 ? (
+          <p className="text-center py-16" style={{ fontSize: 14, color: t.textMuted }}>검색 결과가 없어요</p>
+        ) : (
+          <div style={isDesktop ? { columnCount: 2, columnGap: 16 } : undefined}>
+            {groups.map(g => (
+              <React.Fragment key={g.month}>
+                <div style={{ breakInside: 'avoid', columnSpan: 'all' as any,
+                  position: isDesktop ? 'static' : 'sticky', top: 0, zIndex: 1,
+                  backgroundColor: t.bg, padding: '6px 0 8px', marginTop: 2 }}>
+                  <h3 style={{ fontSize: 12, fontWeight: 700, color: t.textMuted, letterSpacing: '.3px' }}>{g.label} · {g.items.length}건</h3>
+                </div>
+                {g.items.map(renderCard)}
+              </React.Fragment>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 export function ReviewsView() {
   const { reviewRecords } = usePlanner();
   const { t } = useTheme();
   // 'list' 는 탭 UI 에서 제거되었지만 과거 기록 승계 대비로 union·블록은 보존(진입 불가)
   const [tab, setTab] = useState<'day' | 'week' | 'month' | 'list'>('day');
+  const [archiveOpen, setArchiveOpen] = useState(false);
+  // 카드 → 원본 점프: 대상 탭으로 전환하며 날짜/주/달을 주입(nonce 로 동일값 재점프도 트리거)
+  const [jump, setJump] = useState<{ date: string; nonce: number } | null>(null);
+
+  const handleJump = useCallback((target: 'day' | 'week' | 'month', date: string) => {
+    setArchiveOpen(false);
+    setTab(target);
+    setJump(prev => ({ date, nonce: (prev?.nonce ?? 0) + 1 }));
+  }, []);
 
   const tabs = [
     { key: 'day', label: '일간' },
@@ -1287,16 +1553,17 @@ export function ReviewsView() {
 
   return (
     <div className="flex-1 overflow-y-auto">
+      {archiveOpen && <ArchiveOverlay onClose={() => setArchiveOpen(false)} onJump={handleJump} />}
       {/* Header */}
       <div className="px-6 pt-6 pb-4 flex items-start justify-between">
         <div>
           <h1 style={{ fontSize: 22, fontWeight: 700, color: t.text, fontFamily: 'var(--font-gmarket)' }}>리뷰 & 기록</h1>
           <p style={{ fontSize: 13, color: t.textSub, marginTop: 4 }}>매일의 기록이 성장의 발판이 됩니다</p>
         </div>
-        {/* 🔍 검색 — Stage 5 에서 연결(현재 placeholder) */}
-        <button type="button" disabled title="검색 (준비 중)"
-          className="flex items-center justify-center rounded-xl"
-          style={{ width: 38, height: 38, backgroundColor: t.bgSub, border: `1px solid ${t.borderLight}`, color: t.textMuted, opacity: 0.5, cursor: 'not-allowed' }}>
+        {/* 🔍 돌아보기 아카이브 */}
+        <button type="button" onClick={() => setArchiveOpen(true)} title="돌아보기 · 검색"
+          className="flex items-center justify-center rounded-xl transition-colors"
+          style={{ width: 38, height: 38, backgroundColor: t.bgSub, border: `1px solid ${t.borderLight}`, color: t.textSub }}>
           <Search size={17} />
         </button>
       </div>
@@ -1316,7 +1583,7 @@ export function ReviewsView() {
 
       <div className="px-6 pb-8">
         {/* 일간 탭 */}
-        {tab === 'day' && <DayTab />}
+        {tab === 'day' && <DayTab jump={jump} />}
 
         {/* List Tab — 진입 제거(보존). 후속 "돌아보기"에서 과거 daily/happiness 기록 승계 예정 */}
         {tab === 'list' && (
@@ -1352,10 +1619,10 @@ export function ReviewsView() {
         )}
 
         {/* 주간 탭 — 통계 정확화 + 회고(KPT) + 과거(월별 그룹·작년 비교) */}
-        {tab === 'week' && <WeekTab />}
+        {tab === 'week' && <WeekTab jump={jump} />}
 
         {/* 월간 탭 — 자동집계 + 집중블록(주차) + 베스트(하이브리드 픽) + 회고 + 과거(연도별·작년 비교) */}
-        {tab === 'month' && <MonthTab />}
+        {tab === 'month' && <MonthTab jump={jump} />}
       </div>
     </div>
   );
