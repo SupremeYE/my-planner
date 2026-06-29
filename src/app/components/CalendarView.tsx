@@ -2,7 +2,6 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { ArrowRight, Check, ChevronDown, ChevronLeft, ChevronRight, Star, X } from 'lucide-react';
 import {
   addDays,
-  addMinutes,
   addMonths,
   endOfWeek,
   format,
@@ -17,6 +16,7 @@ import { ko } from 'date-fns/locale';
 import { usePlanner, Event, PeriodRecord, SelfCareRecord, Todo, getLogicalToday } from '../store';
 import { isDoOvertimeVsPlan, doElapsedTitleSuffix } from '../../lib/todoDoDuration';
 import { expandRecurringTodos, isVirtualTodoId, parseVirtualTodoId } from '../../lib/recurrenceExpansion';
+import { buildTodoToggleUpdate } from '../../lib/todoToggle';
 import { isEventPast } from '../../api/events';
 import { useTheme } from '../ThemeContext';
 import { TimePicker } from './TimePicker';
@@ -25,8 +25,7 @@ import { EventModal } from './EventModal';
 import ConfirmModal from './ConfirmModal';
 import { RecurrenceBranchModal } from './RecurrenceBranchModal';
 import { useFabAction } from '../FabContext';
-import { WeekViewPC } from './WeekViewPC';
-import { WeekViewMobile } from './WeekViewMobile';
+import { Timeline } from './timeline/Timeline';
 
 type TabType = 'month' | 'week';
 type FilterType = 'all' | 'todo' | 'event' | 'habit' | 'selfcare';
@@ -336,6 +335,33 @@ export function CalendarView() {
     setSelectedTagIds([]);
   }, [filter]);
 
+  // 주간 타임라인 블록 탭/컨텍스트 → 편집 모달 (Timeline 이 dispatch 하는 editTodo 수신)
+  useEffect(() => {
+    // 'Event' 식별자는 store 의 앱 Event 타입으로 가려져 있어 DOM 핸들러는 any 로 받는다(DailyView 동일).
+    const handler = (e: any) => setEditingTodo(e.detail);
+    window.addEventListener('editTodo', handler);
+    return () => window.removeEventListener('editTodo', handler);
+  }, []);
+
+  // 주간(days=7) Timeline 용 per-day 데이터 (반복 전개 후 backlog/cancelled 제외)
+  const weekDaysData = useMemo(() => {
+    const weekStart = startOfWeek(viewDate, { weekStartsOn });
+    const daysArr = Array.from({ length: 7 }, (_, i) => addDays(weekStart, i));
+    const startStr = format(daysArr[0], 'yyyy-MM-dd');
+    const endStr = format(daysArr[6], 'yyyy-MM-dd');
+    const expanded = expandRecurringTodos(todos, startStr, endStr);
+    return daysArr.map(d => {
+      const dateStr = format(d, 'yyyy-MM-dd');
+      return {
+        date: dateStr,
+        todos: expanded.filter(td => td.date === dateStr && td.status !== 'backlog' && td.status !== 'cancelled'),
+      };
+    });
+  }, [viewDate, weekStartsOn, todos]);
+
+  // 모바일 주간 = 일자 탭 전환 → 선택일의 todos/events 를 일간 Timeline(days=1) 에 전달
+  const selectedDayTodos = weekDaysData.find(d => d.date === selectedDate)?.todos ?? [];
+  const selectedDayEvents = events.filter(ev => ev.date === selectedDate);
 
   const handleSelectDate = (dateStr: string) => {
     setSelectedDate(dateStr);
@@ -426,34 +452,9 @@ export function CalendarView() {
     (showSelfcareSection && panelSelfCare.length > 0) ||
     (showMemoSection && !!panelMemo);
 
-  // ── 할일 동작 (일간 페이지 로직 재사용) ──
+  // ── 할일 동작 (일간 페이지 로직 재사용 → buildTodoToggleUpdate 공유 헬퍼) ──
   const handleToggleTodo = (todo: Todo) => {
-    // 완료 → 미완료 되돌리기: 기존 동작 유지
-    if (todo.status === 'done') {
-      updateTodo(todo.id, { status: 'active', doStart: undefined, doEnd: undefined, doElapsedSec: undefined });
-      return;
-    }
-    // 완료 처리: DailyView와 동일한 분기 (실적 0분 기록 방지)
-    if (todo.doStart && todo.doEnd) {
-      // 1. 이미 DO 기록이 있으면 그대로 유지
-      updateTodo(todo.id, { status: 'done' });
-    } else if (todo.planStart && todo.planEnd) {
-      // 2. PLAN을 DO로 복사
-      const [sh, sm] = todo.planStart.split(':').map(Number);
-      const [eh, em] = todo.planEnd.split(':').map(Number);
-      const durSec = Math.max(0, (eh * 60 + em - (sh * 60 + sm)) * 60);
-      updateTodo(todo.id, {
-        status: 'done',
-        doStart: todo.planStart,
-        doEnd: todo.planEnd,
-        doElapsedSec: durSec,
-      });
-    } else {
-      // 3. PLAN/DO 둘 다 없으면 현재 시각 기준 30분 블록
-      const s = format(new Date(), 'HH:mm');
-      const e = format(addMinutes(new Date(), 30), 'HH:mm');
-      updateTodo(todo.id, { status: 'done', doStart: s, doEnd: e, doElapsedSec: 1800 });
-    }
+    updateTodo(todo.id, buildTodoToggleUpdate(todo));
   };
 
   // 미루기: 다음 날짜로 이동 (반복 인스턴스는 이 날짜만 취소 후 단일 할일로 이동 — SnoozeModal과 동일)
@@ -740,24 +741,42 @@ export function CalendarView() {
       {tab === 'week' ? (
         <div className="flex-1 px-3 pb-3 pt-2.5 lg:px-4 lg:pb-4 lg:pt-3 flex flex-col" style={{ minHeight: 0, overflow: 'hidden' }}>
           <div className="bg-white rounded-2xl shadow-sm h-full" style={{ border: '1px solid #eef4fa', display: 'flex', flexDirection: 'column', minHeight: 0, overflow: 'hidden' }}>
-            {/* 모바일: 3일·일별·주간요약 탭 뷰 */}
+            {/* 모바일: 일자 탭 전환 → 일간 편집 타임라인(days=1) */}
             <div className="flex flex-col md:hidden" style={{ flex: 1, minHeight: 0, overflow: 'hidden' }}>
-              <WeekViewMobile
-                viewDate={viewDate}
+              <div className="flex flex-shrink-0" style={{ borderBottom: `1px solid ${t.borderLight}` }}>
+                {weekDaysData.map(wd => {
+                  const day = parseISO(wd.date);
+                  const isSel = wd.date === selectedDate;
+                  const isToday = wd.date === getLogicalToday();
+                  return (
+                    <button key={wd.date} onClick={() => handleSelectDate(wd.date)}
+                      className="flex-1 flex flex-col items-center py-1.5"
+                      style={{ borderBottom: isSel ? `2px solid ${t.accent}` : '2px solid transparent', background: 'none' }}>
+                      <span style={{ fontSize: 9, color: t.textMuted, fontWeight: 600 }}>{format(day, 'E', { locale: ko })}</span>
+                      <span style={{ fontSize: 13, fontWeight: isSel ? 800 : 600, color: isSel ? t.accent : isToday ? t.text : t.textSub }}>{format(day, 'd')}</span>
+                    </button>
+                  );
+                })}
+              </div>
+              <Timeline
+                days={1}
                 selectedDate={selectedDate}
-                onSelectDate={handleSelectDate}
-                weekStartsOn={weekStartsOn}
-                onToday={handleToday}
+                dateTodos={selectedDayTodos}
+                dateEvents={selectedDayEvents}
+                onShowContextMenu={(todo) => setEditingTodo(todo)}
               />
             </div>
-            {/* PC: Plan·Do 분할 뷰 */}
+            {/* PC: 7일 × P/D 편집 타임라인(days=7) */}
             <div className="hidden md:flex flex-col" style={{ flex: 1, minHeight: 0, overflow: 'hidden' }}>
-              <WeekViewPC
-                viewDate={viewDate}
+              <Timeline
+                days={7}
+                weekDays={weekDaysData}
                 selectedDate={selectedDate}
+                dateTodos={selectedDayTodos}
+                dateEvents={selectedDayEvents}
                 onSelectDate={handleSelectDate}
-                weekStartsOn={weekStartsOn}
                 onToday={handleToday}
+                onShowContextMenu={(todo) => setEditingTodo(todo)}
               />
             </div>
           </div>
