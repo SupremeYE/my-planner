@@ -8,6 +8,8 @@ import React, { useMemo, useState } from 'react';
 import { X, Plus, Trash2 } from 'lucide-react';
 import { format, parseISO } from 'date-fns';
 import { useTheme } from '../../app/ThemeContext';
+import { useMediaQuery } from '../../app/hooks/useMediaQuery';
+import { MoneySheet } from './MoneySheet';
 import type { UseMoney, AllocationInput } from './useMoney';
 import type { MoneyAccount } from './types';
 import { MONEY_PALETTE, formatWon, formatManShort, paletteColor } from './tokens';
@@ -23,15 +25,17 @@ const SEG = {
 const uid = () => crypto.randomUUID();
 
 // ── 수입 분배 확인 도넛(SVG 링) ── (월말 회고에서도 재사용 — 계획 vs 실제 비교)
-export function DistributionDonut({ segments, total }: { segments: { label: string; value: number; color: string }[]; total: number }) {
+//  · size 로 지름 조절(기본 128). PC 계획하기에서는 크게.
+export function DistributionDonut({ segments, total, size = 128 }: { segments: { label: string; value: number; color: string }[]; total: number; size?: number }) {
   const { t } = useTheme();
-  const r = 52, cx = 64, cy = 64, C = 2 * Math.PI * r;
+  const r = size * 0.406, cx = size / 2, cy = size / 2, C = 2 * Math.PI * r, sw = size * 0.125;
+  const labelFont = Math.round(size / 11.6), valueFont = Math.round(size / 9.1);
   const active = segments.filter(s => s.value > 0);
   let acc = 0;
   return (
     <div className="flex items-center gap-4">
-      <svg width={128} height={128} viewBox="0 0 128 128" className="flex-shrink-0">
-        <circle cx={cx} cy={cy} r={r} fill="none" stroke={t.bgSub} strokeWidth={16} />
+      <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} className="flex-shrink-0">
+        <circle cx={cx} cy={cy} r={r} fill="none" stroke={t.bgSub} strokeWidth={sw} />
         {total > 0 && active.map((s, i) => {
           const frac = Math.min(1, s.value / total);
           const len = frac * C;
@@ -39,13 +43,13 @@ export function DistributionDonut({ segments, total }: { segments: { label: stri
           const off = -acc;
           acc += len;
           return (
-            <circle key={i} cx={cx} cy={cy} r={r} fill="none" stroke={s.color} strokeWidth={16}
+            <circle key={i} cx={cx} cy={cy} r={r} fill="none" stroke={s.color} strokeWidth={sw}
               strokeDasharray={dash} strokeDashoffset={off}
               transform={`rotate(-90 ${cx} ${cy})`} strokeLinecap="butt" />
           );
         })}
-        <text x={cx} y={cy - 2} textAnchor="middle" style={{ fontSize: 11, fill: t.textMuted }}>예상 수입</text>
-        <text x={cx} y={cy + 14} textAnchor="middle" style={{ fontSize: 14, fontWeight: 700, fill: t.text }}>{formatManShort(total)}</text>
+        <text x={cx} y={cy - 2} textAnchor="middle" style={{ fontSize: labelFont, fill: t.textMuted }}>예상 수입</text>
+        <text x={cx} y={cy + valueFont} textAnchor="middle" style={{ fontSize: valueFont, fontWeight: 700, fill: t.text }}>{formatManShort(total)}</text>
       </svg>
       <div className="flex-1 min-w-0 flex flex-col gap-1.5">
         {segments.map((s, i) => (
@@ -71,6 +75,7 @@ type Row = { key: string; name: string; amount: string; accountId: string | null
 
 export function MoneyPlanSheet({ m, onClose }: { m: UseMoney; onClose: () => void }) {
   const { t } = useTheme();
+  const isDesktop = useMediaQuery('(min-width: 1024px)');  // PC에서만 도넛 확대(레이아웃은 lg: 클래스)
   const plan = m.currentPlan;
 
   // ── 초기 분배 항목(시트 열릴 때 1회 스냅샷) — 저장된 allocations > 레거시 계획 필드 > 기본 시드 ──
@@ -206,10 +211,7 @@ export function MoneyPlanSheet({ m, onClose }: { m: UseMoney; onClose: () => voi
   ].filter(s => s.value > 0 || s.label === (livingName.trim() || '생활비'));
 
   return (
-    <div className="fixed inset-0 z-[60] flex items-end lg:items-center justify-center" style={{ background: 'rgba(58,53,46,0.5)' }} onClick={onClose}>
-      <div onClick={e => e.stopPropagation()}
-        className="w-full lg:w-[480px] lg:max-w-[92vw] rounded-t-3xl lg:rounded-3xl"
-        style={{ background: t.card, padding: '20px 20px 28px', maxHeight: '90vh', overflowY: 'auto' }}>
+    <MoneySheet onClose={onClose} size="wide">
         {/* 헤더 */}
         <div className="flex justify-between items-start" style={{ marginBottom: 18 }}>
           <div>
@@ -219,6 +221,10 @@ export function MoneyPlanSheet({ m, onClose }: { m: UseMoney; onClose: () => voi
           <button onClick={onClose} style={{ color: t.textMuted }}><X size={18} /></button>
         </div>
 
+        {/* PC: 좌(수입·고정·가용) + 우(분배·도넛) 2단 / 모바일: 단일 컬럼(순서 동일) */}
+        <div className="lg:grid lg:grid-cols-2 lg:gap-7 lg:items-start">
+        {/* ── 좌측: 입력(수입·고정·가용) ── */}
+        <div className="lg:min-w-0">
         {/* 1. 예상 수입 */}
         <div style={{ marginBottom: 16 }}>
           <div style={{ fontSize: 13, fontWeight: 700, color: t.text, marginBottom: 8 }}>① 이번 달 예상 수입</div>
@@ -267,7 +273,10 @@ export function MoneyPlanSheet({ m, onClose }: { m: UseMoney; onClose: () => voi
             </div>
           )}
         </div>
+        </div>{/* ── /좌측 ── */}
 
+        {/* ── 우측: 분배 + 도넛(메인) ── */}
+        <div className="lg:min-w-0">
         {/* 4. 통장 쪼개기(자유 분배) */}
         <div style={{ marginBottom: 16, opacity: overFixed ? 0.45 : 1, pointerEvents: overFixed ? 'none' : 'auto' }}>
           <div style={{ fontSize: 13, fontWeight: 700, color: t.text, marginBottom: 2 }}>④ 통장 쪼개기 (분배)</div>
@@ -354,17 +363,18 @@ export function MoneyPlanSheet({ m, onClose }: { m: UseMoney; onClose: () => voi
           <div style={{ marginBottom: 18 }}>
             <div style={{ fontSize: 13, fontWeight: 700, color: t.text, marginBottom: 10 }}>⑤ 수입 분배 확인</div>
             <div style={{ ...card, padding: 16 }}>
-              <DistributionDonut segments={donutSegments} total={incomeNum} />
+              <DistributionDonut segments={donutSegments} total={incomeNum} size={isDesktop ? 176 : 128} />
             </div>
           </div>
         )}
+        </div>{/* ── /우측 ── */}
+        </div>{/* ── /2단 그리드 ── */}
 
-        <button onClick={save} disabled={!canSave} className="w-full"
-          style={{ padding: 14, borderRadius: 12, background: canSave ? MONEY_PALETTE.ink : t.border, color: '#FDFAF4', fontSize: 14, fontWeight: 700, opacity: canSave ? 1 : 0.7 }}>
-          {plan ? '계획 수정하기' : '이번 달 계획 저장'}
-        </button>
-      </div>
-    </div>
+      <button onClick={save} disabled={!canSave} className="w-full"
+        style={{ padding: 14, borderRadius: 12, background: canSave ? MONEY_PALETTE.ink : t.border, color: '#FDFAF4', fontSize: 14, fontWeight: 700, opacity: canSave ? 1 : 0.7 }}>
+        {plan ? '계획 수정하기' : '이번 달 계획 저장'}
+      </button>
+    </MoneySheet>
   );
 }
 
