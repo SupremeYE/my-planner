@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import React from 'react';
-import { format } from 'date-fns';
+import { format, parseISO } from 'date-fns';
+import { ko } from 'date-fns/locale';
 import { usePlanner, Todo, Event, TimelineLog, SelfCareRecord, getTimerElapsedSec } from '../../store';
 import { useTheme } from '../../ThemeContext';
 import { formatDuration, formatTotalDoKo, todoDoDurationSeconds } from '../../../lib/todoDoDuration';
@@ -20,7 +21,13 @@ import {
 // 데이터(선택 날짜·해당 날짜 todos/events)와 컨텍스트 메뉴 콜백은 props 로 받고, 나머지(updateTodo·
 // 수면·로그·타이머·시간대 설정값)는 usePlanner 로 직접 읽는다. 블록 탭=편집은 기존처럼 window
 // CustomEvent('editTodo') 로 부모(DailyView)에 위임한다.
-// days: 1=일간(현재) / 7=주간(Stage 4 예정, 아직 미사용).
+// days: 1=일간(기본, dateTodos/dateEvents 사용) / 7=주간(weekDays 사용 — Stage 4).
+// 주간(PC) 은 7일 × P/D 14컬럼 그리드로 블록 이동·리사이즈·탭편집을 일간과 동일한 핸들러로 제공한다.
+// (수면=탭 편집 / 이벤트·로그·진행중 타이머 오버레이는 일간 전용 — 주간은 계획·실적 블록과 수면만 표시)
+export interface TimelineWeekDay {
+  date: string;
+  todos: Todo[];
+}
 interface TimelineProps {
   days?: number;
   selectedDate: string;
@@ -28,10 +35,17 @@ interface TimelineProps {
   dateEvents: Event[];
   onShowContextMenu: (todo: Todo, pos: { x: number; y: number }, source?: 'do' | 'plan') => void;
   className?: string;
+  // ── 주간(days=7) 전용 ──
+  weekDays?: TimelineWeekDay[];
+  onSelectDate?: (date: string) => void;
+  onToday?: () => void;
 }
 
-export function Timeline({ days = 1, selectedDate, dateTodos, dateEvents, onShowContextMenu, className }: TimelineProps) {
-  void days; // 7=주간은 Stage 4 에서 사용 예정
+// 주간 그리드: 시간 레이블 폭 + (7일 × P/D 2컬럼)
+const WEEK_TIME_COL = 44;
+
+export function Timeline({ days = 1, selectedDate, dateTodos, dateEvents, onShowContextMenu, className, weekDays, onSelectDate, onToday }: TimelineProps) {
+  const isWeek = days > 1 && !!weekDays;
   const {
     todos, updateTodo, tags,
     activeTimer,
@@ -69,7 +83,7 @@ export function Timeline({ days = 1, selectedDate, dateTodos, dateEvents, onShow
   } | null>(null);
   const timelineRelativeRef = useRef<HTMLDivElement>(null);
   const [createPreview, setCreatePreview] = useState<{ startMin: number; endMin: number; lane: 'plan' | 'do' } | null>(null);
-  const [createTarget, setCreateTarget] = useState<{ start: string; end: string; lane: 'plan' | 'do' } | null>(null);
+  const [createTarget, setCreateTarget] = useState<{ start: string; end: string; lane: 'plan' | 'do'; date?: string } | null>(null);
   const [hoverSlot, setHoverSlot] = useState<{ startMin: number; endMin: number; lane: 'plan' | 'do' } | null>(null);
   const [showLogModal, setShowLogModal] = useState(false);
   const [timelineTab, setTimelineTab] = useState<'plan' | 'do' | 'compare'>('compare');
@@ -414,6 +428,32 @@ export function Timeline({ days = 1, selectedDate, dateTodos, dateEvents, onShow
 
   // (모바일 터치 빈영역 생성은 위 handleCreatePointer* 로 통합 — 별도 네이티브 touch 리스너 제거)
 
+  // ── 주간 컬럼 빈영역 클릭 → 추가 (PC 마우스 전용, 기본 60분) ──
+  // 좁은 컬럼에서 스크롤/탭 혼동을 피하려 드래그 범위 없이 클릭만 지원한다.
+  const weekCreateRef = useRef<{ date: string; lane: 'plan' | 'do'; startMin: number; startY: number; moved: boolean; pointerId: number } | null>(null);
+  const handleWeekCreateDown = (e: React.PointerEvent<HTMLDivElement>, date: string, lane: 'plan' | 'do') => {
+    if (e.button === 2 || e.pointerType !== 'mouse') return;
+    if ((e.target as HTMLElement).closest('.timeline-block')) return;
+    const rect = e.currentTarget.getBoundingClientRect();
+    const raw = tlStartHour * 60 + (e.clientY - rect.top) / PX_PER_MIN;
+    const startMin = Math.max(tlStartHour * 60, Math.min(tlEndHour * 60 - 15, Math.round(raw / 15) * 15));
+    weekCreateRef.current = { date, lane, startMin, startY: e.clientY, moved: false, pointerId: e.pointerId };
+  };
+  const handleWeekCreateMove = (e: React.PointerEvent<HTMLDivElement>) => {
+    const d = weekCreateRef.current;
+    if (!d || e.pointerId !== d.pointerId) return;
+    if (Math.abs(e.clientY - d.startY) > 5) d.moved = true;
+  };
+  const handleWeekCreateUp = (e: React.PointerEvent<HTMLDivElement>) => {
+    const d = weekCreateRef.current;
+    if (!d || e.pointerId !== d.pointerId) { weekCreateRef.current = null; return; }
+    if (!d.moved && !(e.target as HTMLElement).closest('.timeline-block')) {
+      const endMin = Math.min(tlEndHour * 60, Math.max(d.startMin + 15, d.startMin + CREATE_DEFAULT_MIN));
+      setCreateTarget({ start: minutesToTime(d.startMin), end: minutesToTime(endMin), lane: d.lane, date: d.date });
+    }
+    weekCreateRef.current = null;
+  };
+
   useEffect(() => {
     const clampLogOffset = (offset: number) => {
       const limit = window.innerWidth < 1024 ? 56 : 120;
@@ -660,7 +700,8 @@ export function Timeline({ days = 1, selectedDate, dateTodos, dateEvents, onShow
     return tag?.color || null;
   };
 
-  const renderBlock = (todo: Todo, type: 'plan' | 'do') => {
+  // layout: 주간 컬럼 내부 배치용 left/right 오버라이드 (지정 시 compare 레인 분할/탭필터 무시).
+  const renderBlock = (todo: Todo, type: 'plan' | 'do', layout?: { left: string; right: string }) => {
     const start = type === 'plan' ? todo.planStart : todo.doStart;
     const end = type === 'plan' ? todo.planEnd : todo.doEnd;
     if (!start || !end) return null;
@@ -681,7 +722,7 @@ export function Timeline({ days = 1, selectedDate, dateTodos, dateEvents, onShow
     const top = (startMin / 60 - tlStartHour) * HOUR_HEIGHT;
     const height = isCheckOnlyDo ? 30 : Math.max((endMin - startMin) * PX_PER_MIN, 20);
     const tagColor = getTodoTagColor(todo);
-    const laneBounds = getTimelineLaneBounds(isPlan ? 'plan' : 'do');
+    const laneBounds = layout ?? getTimelineLaneBounds(isPlan ? 'plan' : 'do');
     if (!laneBounds) return null;
     const canDrag = isPlan || !isCheckOnlyDo;
 
@@ -1022,6 +1063,182 @@ export function Timeline({ days = 1, selectedDate, dateTodos, dateEvents, onShow
       });
   };
 
+  // ── Timeline 소유 모달 (일간·주간 공유) ──
+  const timelineModals = (
+    <>
+      {createTarget && (
+        <TimelineAddModal
+          date={createTarget.date ?? selectedDate}
+          initialStart={createTarget.start}
+          initialEnd={createTarget.end}
+          initialLane={createTarget.lane}
+          onClose={() => setCreateTarget(null)}
+        />
+      )}
+      {editingSleepRecord && (
+        <SleepTimeEditModal
+          record={editingSleepRecord}
+          onClose={() => setEditingSleepRecord(null)}
+          onConfirm={(sleepStart, sleepEnd) => {
+            const [sh, sm] = sleepStart.split(':').map(Number);
+            const [eh, em] = sleepEnd.split(':').map(Number);
+            let endMin = eh * 60 + em;
+            const startMin = sh * 60 + sm;
+            if (endMin <= startMin) endMin += 24 * 60;
+            updateSelfCareRecord(editingSleepRecord.id, {
+              sleepStart, sleepEnd,
+              content: `${sleepStart} ~ ${sleepEnd}`,
+              duration: endMin - startMin,
+            });
+            setEditingSleepRecord(null);
+          }}
+        />
+      )}
+      {showLogModal && (
+        <TimelineLogModal
+          date={selectedDate}
+          logs={timelineLogs}
+          onAdd={addTimelineLog}
+          onDelete={deleteTimelineLog}
+          onClose={() => setShowLogModal(false)}
+        />
+      )}
+    </>
+  );
+
+  // ── 주간(days=7) 렌더 — 7일 × P/D 14컬럼, 일간과 동일한 블록 핸들러로 편집 ──
+  if (isWeek && weekDays) {
+    const weekFlatCols = `${WEEK_TIME_COL}px repeat(14, minmax(0, 1fr))`;
+    const weekHours: number[] = [];
+    for (let h = tlStartHour; h <= tlEndHour; h++) weekHours.push(h);
+    const weekBodyHeight = (tlEndHour - tlStartHour) * HOUR_HEIGHT;
+    const SLOT_PAD = { left: '2px', right: '2px' };
+    const nowInWindow = currentMinutes >= tlStartHour * 60 && currentMinutes <= tlEndHour * 60;
+
+    return (
+      <div className={`flex-1 min-w-0 flex flex-col overflow-hidden${className ? ' ' + className : ''}`}>
+        {/* 범례 + Today */}
+        <div className="px-3 py-2 flex items-center justify-between flex-shrink-0" style={{ borderBottom: `1px solid ${t.borderLight}` }}>
+          <div className="flex items-center gap-3">
+            <span style={{ fontSize: 10, fontWeight: 700, color: '#5B8FD8' }}>● PLAN</span>
+            <span style={{ fontSize: 10, fontWeight: 700, color: '#5BAA78' }}>● DO</span>
+            <span style={{ fontSize: 10, fontWeight: 700, color: '#94A3B8' }}>● 수면</span>
+          </div>
+          {onToday && (
+            <button onClick={onToday}
+              style={{ fontSize: 11, fontWeight: 700, color: t.accent, backgroundColor: t.bgSub, border: `1px solid ${t.border}`, borderRadius: 8, padding: '2px 12px', cursor: 'pointer' }}>
+              Today
+            </button>
+          )}
+        </div>
+
+        {/* 스크롤 컨테이너 (sticky 헤더 + 바디 동일 컨테이너 → 컬럼 정렬 보장) */}
+        <div ref={scrollRef} className="flex-1" style={{ overflowY: 'auto', minHeight: 0, overscrollBehavior: 'contain' }}>
+          {/* sticky 헤더: 날짜 행 + P/D 서브헤더 */}
+          <div style={{ position: 'sticky', top: 0, zIndex: 20, backgroundColor: t.card, borderBottom: `1px solid ${t.border}` }}>
+            <div style={{ display: 'grid', gridTemplateColumns: weekFlatCols }}>
+              <div />
+              {weekDays.map((wd, i) => {
+                const isToday = wd.date === nowStr;
+                const isSelected = wd.date === selectedDate;
+                const day = parseISO(wd.date);
+                return (
+                  <button key={wd.date} onClick={() => onSelectDate?.(wd.date)}
+                    style={{ gridColumn: 'span 2', display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '8px 4px 4px', borderLeft: i > 0 ? `1px solid ${t.borderLight}` : 'none', background: 'none', cursor: 'pointer' }}>
+                    <span style={{ fontSize: 10, color: t.textMuted, fontWeight: 600 }}>{format(day, 'E', { locale: ko })}</span>
+                    <span style={{
+                      display: 'flex', alignItems: 'center', justifyContent: 'center', width: 26, height: 26, borderRadius: '50%', marginTop: 3, fontSize: 12, fontWeight: 700,
+                      backgroundColor: isSelected ? t.text : isToday ? t.textSub : 'transparent',
+                      color: isSelected || isToday ? '#fff' : t.text,
+                    }}>
+                      {format(day, 'd')}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: weekFlatCols }}>
+              <div />
+              {weekDays.map((wd, i) => (
+                <React.Fragment key={wd.date}>
+                  <div style={{ textAlign: 'center', fontSize: 9, fontWeight: 700, color: '#5B8FD8', backgroundColor: '#EEF4FF', padding: '3px 0', borderLeft: i > 0 ? `1px solid ${t.borderLight}` : 'none', borderRight: '1px dashed #C8D8F0' }}>P</div>
+                  <div style={{ textAlign: 'center', fontSize: 9, fontWeight: 700, color: '#5BAA78', backgroundColor: '#EEFAF2', padding: '3px 0' }}>D</div>
+                </React.Fragment>
+              ))}
+            </div>
+          </div>
+
+          {/* 바디 */}
+          <div className="relative" style={{ height: weekBodyHeight + 16, WebkitUserSelect: 'none', userSelect: 'none' }}>
+            {/* 정각 가로선 */}
+            {weekHours.map(h => (
+              <div key={h} className="absolute left-0 right-0 flex items-start" style={{ top: (h - tlStartHour) * HOUR_HEIGHT }}>
+                <span style={{ width: WEEK_TIME_COL, fontSize: 10, color: t.textMuted, textAlign: 'right', paddingRight: 8, flexShrink: 0 }}>{String(h % 24).padStart(2, '0')}:00</span>
+                <div className="flex-1" style={{ borderTop: `1px solid ${t.border}` }} />
+              </div>
+            ))}
+            {/* 30분 점선 */}
+            {weekHours.slice(0, -1).map(h => (
+              <div key={`half-${h}`} className="absolute" style={{ left: WEEK_TIME_COL, right: 0, top: (h - tlStartHour) * HOUR_HEIGHT + HOUR_HEIGHT / 2, borderTop: `1px dashed ${t.borderLight}` }} />
+            ))}
+            {/* 날짜 컬럼 (14 flat: 7일 × P/D) */}
+            <div className="absolute" style={{ left: WEEK_TIME_COL, right: 0, top: 0, bottom: 0, display: 'grid', gridTemplateColumns: 'repeat(14, minmax(0, 1fr))' }}>
+              {weekDays.map((wd, dayIdx) => {
+                const planTodos = wd.todos.filter(td => td.planStart && td.planEnd);
+                const doTodos = wd.todos.filter(td => td.doStart && td.doEnd);
+                const sleepRects = sleepRectsForColumn(wd.date, selfCareRecords, tlStartHour, tlEndHour);
+                const isToday = wd.date === nowStr;
+                return (
+                  <div key={wd.date} style={{ gridColumn: 'span 2', position: 'relative', borderLeft: dayIdx > 0 ? `1px solid ${t.borderLight}` : 'none' }}>
+                    <div style={{ position: 'absolute', inset: 0, display: 'grid', gridTemplateColumns: '1fr 1fr' }}>
+                      {/* PLAN 슬롯 */}
+                      <div style={{ position: 'relative', borderRight: '1px dashed #C8D8F0' }}
+                        onPointerDown={e => handleWeekCreateDown(e, wd.date, 'plan')}
+                        onPointerMove={handleWeekCreateMove}
+                        onPointerUp={handleWeekCreateUp}>
+                        {planTodos.map(td => renderBlock(td, 'plan', SLOT_PAD))}
+                      </div>
+                      {/* DO 슬롯 (수면 = 탭 편집) */}
+                      <div style={{ position: 'relative' }}
+                        onPointerDown={e => handleWeekCreateDown(e, wd.date, 'do')}
+                        onPointerMove={handleWeekCreateMove}
+                        onPointerUp={handleWeekCreateUp}>
+                        {sleepRects.map((rect, ri) => {
+                          const hh = Math.floor(rect.totalMin / 60);
+                          const mm = rect.totalMin % 60;
+                          const durationLabel = hh > 0 ? (mm > 0 ? `${hh}h ${mm}m` : `${hh}h`) : `${mm}m`;
+                          const top = rect.offsetMin * PX_PER_MIN;
+                          const height = Math.max(rect.lengthMin * PX_PER_MIN, 16);
+                          return (
+                            <button key={`sleep-${rect.record.id}-${ri}`} type="button"
+                              onClick={() => setEditingSleepRecord(rect.record)}
+                              className="timeline-block"
+                              style={{ position: 'absolute', top, height, left: 2, right: 2, backgroundColor: 'rgba(200,210,220,0.45)', border: '1px solid rgba(148,163,184,0.4)', borderLeft: '3px solid #94A3B8', borderRadius: 8, padding: '3px 5px', zIndex: 1, cursor: 'pointer', textAlign: 'left', overflow: 'hidden' }}>
+                              <div style={{ fontSize: 10, fontWeight: 700, color: '#64748B', lineHeight: 1.3 }}>🌙 수면</div>
+                              {height >= 28 && <div style={{ fontSize: 9, fontWeight: 600, color: '#94A3B8', lineHeight: 1.3 }}>{durationLabel}</div>}
+                            </button>
+                          );
+                        })}
+                        {doTodos.map(td => renderBlock(td, 'do', SLOT_PAD))}
+                      </div>
+                    </div>
+                    {/* 현재 시각선 (오늘 컬럼) */}
+                    {isToday && nowInWindow && (
+                      <div className="absolute left-0 right-0 z-20 pointer-events-none" style={{ top: currentTimeTop }}>
+                        <div style={{ height: 2, backgroundColor: CURRENT_TIME_COLOR }} />
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+        {timelineModals}
+      </div>
+    );
+  }
+
   return (
     <div className={`flex-1 min-w-0 flex flex-col overflow-hidden${className ? ' ' + className : ''}`}>
       {/* Timeline header */}
@@ -1231,44 +1448,7 @@ export function Timeline({ days = 1, selectedDate, dateTodos, dateEvents, onShow
         </div>
       </div>
 
-      {/* Timeline-owned modals */}
-      {createTarget && (
-        <TimelineAddModal
-          date={selectedDate}
-          initialStart={createTarget.start}
-          initialEnd={createTarget.end}
-          initialLane={createTarget.lane}
-          onClose={() => setCreateTarget(null)}
-        />
-      )}
-      {editingSleepRecord && (
-        <SleepTimeEditModal
-          record={editingSleepRecord}
-          onClose={() => setEditingSleepRecord(null)}
-          onConfirm={(sleepStart, sleepEnd) => {
-            const [sh, sm] = sleepStart.split(':').map(Number);
-            const [eh, em] = sleepEnd.split(':').map(Number);
-            let endMin = eh * 60 + em;
-            const startMin = sh * 60 + sm;
-            if (endMin <= startMin) endMin += 24 * 60;
-            updateSelfCareRecord(editingSleepRecord.id, {
-              sleepStart, sleepEnd,
-              content: `${sleepStart} ~ ${sleepEnd}`,
-              duration: endMin - startMin,
-            });
-            setEditingSleepRecord(null);
-          }}
-        />
-      )}
-      {showLogModal && (
-        <TimelineLogModal
-          date={selectedDate}
-          logs={timelineLogs}
-          onAdd={addTimelineLog}
-          onDelete={deleteTimelineLog}
-          onClose={() => setShowLogModal(false)}
-        />
-      )}
+      {timelineModals}
     </div>
   );
 }
