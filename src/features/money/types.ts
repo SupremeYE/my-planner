@@ -34,7 +34,7 @@ export interface MoneyTransaction {
   createdAt?: string;
 }
 
-export type AccountType = 'deposit' | 'savings' | 'cash' | 'investment';
+export type AccountType = 'bank' | 'deposit' | 'savings' | 'cash' | 'investment';   // bank=입출금/은행(급여·생활비 통장)
 export type InvestKind = 'stock' | 'fund' | 'coin';   // 투자계좌 종목 구분
 
 export interface MoneyAccount {
@@ -45,6 +45,8 @@ export interface MoneyAccount {
   interestRate: number | null;
   icon: string | null;
   sortOrder: number;
+  includeInTotal: boolean;    // 순자산 합계 포함 여부(보기 필터, 기본 true)
+  isDefault: boolean;         // 기본 통장(급여/생활비 기준, 기본 false)
   // 투자계좌(type='investment') 전용 — 그 외 계좌는 모두 null.
   investKind: InvestKind | null;  // 주식/펀드/코인
   principal: number | null;       // 매입원금(수익률 계산 기준). 없으면 등락률 미표시
@@ -62,6 +64,7 @@ export interface MoneyCard {
   billingDay: number | null;
   unpaidAmount: number;
   sortOrder: number;
+  linkedAccountId: string | null;   // 결제(연결) 통장 — 체크=즉시 차감 / 신용=결제일 차감(자동반영은 DE-3부터)
   createdAt?: string;
 }
 

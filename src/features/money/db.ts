@@ -77,6 +77,7 @@ const accounts = {
       id: r.id, name: r.name, type: r.type, balance: Number(r.balance ?? 0),
       interestRate: num(r.interest_rate), icon: r.icon ?? null, sortOrder: r.sort_order ?? 0,
       investKind: r.invest_kind ?? null, principal: num(r.principal), quantity: num(r.quantity),
+      includeInTotal: r.include_in_total ?? true, isDefault: r.is_default ?? false,
       createdAt: r.created_at ?? undefined,
     }));
   },
@@ -85,6 +86,7 @@ const accounts = {
       id: item.id, name: item.name, type: item.type, balance: item.balance,
       interest_rate: item.interestRate ?? null, icon: item.icon ?? null, sort_order: item.sortOrder ?? 0,
       invest_kind: item.investKind ?? null, principal: item.principal ?? null, quantity: item.quantity ?? null,
+      include_in_total: item.includeInTotal ?? true, is_default: item.isDefault ?? false,
     }, { onConflict: 'id' });
     if (error) console.error('[money] accounts upsert:', error.message);
   },
@@ -103,13 +105,15 @@ const cards = {
     return (data ?? []).map((r: any): MoneyCard => ({
       id: r.id, name: r.name, type: r.type, color: r.color ?? null,
       billingDay: num(r.billing_day), unpaidAmount: Number(r.unpaid_amount ?? 0),
-      sortOrder: r.sort_order ?? 0, createdAt: r.created_at ?? undefined,
+      sortOrder: r.sort_order ?? 0, linkedAccountId: r.linked_account_id ?? null,
+      createdAt: r.created_at ?? undefined,
     }));
   },
   upsert: async (item: MoneyCard) => {
     const { error } = await supabase.from('money_cards').upsert({
       id: item.id, name: item.name, type: item.type, color: item.color ?? null,
       billing_day: item.billingDay ?? null, unpaid_amount: item.unpaidAmount ?? 0, sort_order: item.sortOrder ?? 0,
+      linked_account_id: item.linkedAccountId ?? null,
     }, { onConflict: 'id' });
     if (error) console.error('[money] cards upsert:', error.message);
   },

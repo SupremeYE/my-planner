@@ -94,6 +94,8 @@ export function CardManager({ m, onClose }: { m: UseMoney; onClose: () => void }
                   const txs = m.cardUnbilledTxs(c);
                   const open = openId === c.id;
                   const canOpen = !isCheck && txs.length > 0;
+                  const linkedName = c.linkedAccountId ? m.accounts.find(a => a.id === c.linkedAccountId)?.name : null;
+                  const sub = [isCheck ? '체크 · 즉시출금' : `신용${c.billingDay ? ` · 매월 ${c.billingDay}일` : ''}${txs.length ? ` · 미청구 ${txs.length}건` : ''}`, linkedName ? `결제 ${linkedName}` : null].filter(Boolean).join(' · ');
                   return (
                     <div key={c.id} style={{ background: t.card, borderRadius: 14, border: `1px solid ${t.borderLight}`, overflow: 'hidden' }}>
                       <div className="flex items-center gap-3" style={{ padding: '11px 13px' }}>
@@ -101,9 +103,7 @@ export function CardManager({ m, onClose }: { m: UseMoney; onClose: () => void }
                           <div style={{ width: 36, height: 36, borderRadius: 9, background: `${c.color || MONEY_PALETTE.gold}20`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 17, flexShrink: 0 }}>💳</div>
                           <div className="min-w-0">
                             <div style={{ fontSize: 13, fontWeight: 600, color: t.text }}>{c.name}</div>
-                            <div style={{ fontSize: 11, color: t.textMuted }}>
-                              {isCheck ? '체크 · 즉시출금' : `신용${c.billingDay ? ` · 매월 ${c.billingDay}일` : ''}${txs.length ? ` · 미청구 ${txs.length}건` : ''}`}
-                            </div>
+                            <div style={{ fontSize: 11, color: t.textMuted }}>{sub}</div>
                           </div>
                         </button>
                         {!isCheck && (

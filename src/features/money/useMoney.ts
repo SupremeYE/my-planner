@@ -236,7 +236,8 @@ export function useMoney(): UseMoney {
   // 월 환산 고정비 합(주간≈×52/12, 연간÷12) — 계획의 "고정 지출 차감"용. fixedTotal(원시 합)과 구분.
   const fixedMonthly = useMemo(() => fixedCosts.reduce((s, f) => s + monthlyEquivalent(f), 0), [fixedCosts]);
   const loanMonthly = useMemo(() => loans.reduce((s, l) => s + (l.monthlyPayment ?? 0), 0), [loans]);
-  const assets = useMemo(() => accounts.reduce((s, a) => s + a.balance, 0), [accounts]);
+  // 순자산 합 — '순자산 포함' 꺼진 자산은 제외(DE-1 보기 필터)
+  const assets = useMemo(() => accounts.filter(a => a.includeInTotal).reduce((s, a) => s + a.balance, 0), [accounts]);
   const investments = useMemo(() => accounts.filter(a => a.type === 'investment'), [accounts]);
   // 투자 요약: 평가액 합 + (원금 입력된 종목만) 손익/수익률. 시세 자동연동은 후순위 — 평가액은 수동 입력.
   const investTotal = useMemo(() => investments.reduce((s, a) => s + a.balance, 0), [investments]);

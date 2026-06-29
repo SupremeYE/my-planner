@@ -9,7 +9,7 @@ import {
   MONEY_PALETTE, resolveCategoryColor, categoryInitial, formatWon, formatManShort, subcategoryShade, INVEST_KIND_META,
 } from './tokens';
 import type { MoneyCategory, MoneyAccount, MoneyCard, MoneyLoan, MoneyGoal, MoneyFixedCost, PeriodType } from './types';
-import { TransactionForm, AccountForm, CardForm, FixedCostForm, LoanForm, GoalForm } from './MoneyForms';
+import { TransactionForm, AccountForm, CardForm, FixedCostForm, LoanForm, GoalForm, BalanceFixSheet } from './MoneyForms';
 import { MoneyPlanSheet } from './MoneyPlanSheet';
 import { WeekBanner, WeekReviewSheet } from './MoneyWeekReview';
 import { MonthBanner, MonthReviewSheet } from './MoneyMonthReview';
@@ -572,6 +572,7 @@ export function TransactionList({ m, limit, onEdit }: { m: UseMoney; limit?: num
 // ── 자산 패널 (항목 탭=수정 / 섹션 +추가) ──
 type AssetEditor =
   | { kind: 'account'; item: MoneyAccount | null }
+  | { kind: 'balance'; item: MoneyAccount }
   | { kind: 'card'; item: MoneyCard | null }
   | { kind: 'fixed'; item: MoneyFixedCost | null }
   | null;
@@ -608,16 +609,27 @@ export function AssetPanel({ m }: { m: UseMoney }) {
       <div>
         <SectionHead title="🏦 통장 · 예금" onAdd={() => setEditor({ kind: 'account', item: null })} />
         <div className="flex flex-col gap-2">
-          {banks.map(a => (
-            <button key={a.id} onClick={() => setEditor({ kind: 'account', item: a })} className="flex items-center gap-3 text-left w-full active:scale-[0.99] transition-transform" style={rowBtn}>
-              <div style={{ width: 40, height: 40, borderRadius: 10, background: `${MONEY_PALETTE.green}20`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20 }}>{a.icon || '🏦'}</div>
-              <div className="flex-1 min-w-0">
-                <div style={{ fontSize: 13, fontWeight: 600, color: t.text }}>{a.name}</div>
-                <div style={{ fontSize: 11, color: t.textMuted }}>{a.type === 'savings' ? '적금' : a.type === 'cash' ? '현금' : '예금'}{a.interestRate != null ? ` · 연 ${a.interestRate}%` : ''}</div>
+          {banks.map(a => {
+            const typeLabel = a.type === 'bank' ? '입출금' : a.type === 'savings' ? '적금' : a.type === 'cash' ? '현금' : '예금';
+            const sub = [typeLabel, a.interestRate != null ? `연 ${a.interestRate}%` : null, !a.includeInTotal ? '순자산 제외' : null].filter(Boolean).join(' · ');
+            return (
+              <div key={a.id} className="flex items-center gap-3" style={rowBtn}>
+                <button onClick={() => setEditor({ kind: 'account', item: a })} className="flex items-center gap-3 text-left flex-1 min-w-0 active:scale-[0.99] transition-transform">
+                  <div style={{ width: 40, height: 40, borderRadius: 10, background: `${MONEY_PALETTE.green}20`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20, flexShrink: 0 }}>{a.icon || '🏦'}</div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-1.5" style={{ fontSize: 13, fontWeight: 600, color: t.text }}>
+                      <span className="truncate">{a.name}</span>
+                      {a.isDefault && <span style={{ fontSize: 9, fontWeight: 700, color: MONEY_PALETTE.gold, background: `${MONEY_PALETTE.gold}1f`, borderRadius: 6, padding: '1px 5px', flexShrink: 0 }}>기본</span>}
+                    </div>
+                    <div style={{ fontSize: 11, color: t.textMuted }}>{sub}</div>
+                  </div>
+                  <div style={{ fontSize: 15, fontWeight: 700, color: t.text }}>{a.balance.toLocaleString('ko-KR')}</div>
+                </button>
+                <button onClick={() => setEditor({ kind: 'balance', item: a })}
+                  style={{ flexShrink: 0, fontSize: 11, fontWeight: 600, color: t.textSub, border: `1.5px solid ${t.border}`, borderRadius: 8, padding: '6px 9px', background: 'transparent', cursor: 'pointer' }}>보정</button>
               </div>
-              <div style={{ fontSize: 15, fontWeight: 700, color: t.text }}>{a.balance.toLocaleString('ko-KR')}</div>
-            </button>
-          ))}
+            );
+          })}
           {banks.length === 0 && <EmptyAdd text="등록된 통장이 없어요" onAdd={() => setEditor({ kind: 'account', item: null })} />}
         </div>
       </div>
@@ -630,12 +642,14 @@ export function AssetPanel({ m }: { m: UseMoney }) {
             const dday = daysUntilDay(c.billingDay);
             const unpaid = m.cardUnpaid(c);
             const isCheck = c.type === 'check';
+            const linkedName = c.linkedAccountId ? m.accounts.find(a => a.id === c.linkedAccountId)?.name : null;
+            const sub = [isCheck ? '체크' : `신용 · 미결제 ${unpaid.toLocaleString('ko-KR')}`, linkedName ? `💳→${linkedName}` : null].filter(Boolean).join(' · ');
             return (
               <button key={c.id} onClick={() => setEditor({ kind: 'card', item: c })} className="flex items-center gap-3 text-left w-full active:scale-[0.99] transition-transform" style={rowBtn}>
                 <div style={{ width: 40, height: 40, borderRadius: 10, background: `${c.color || MONEY_PALETTE.gold}20`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20 }}>💳</div>
                 <div className="flex-1 min-w-0">
                   <div style={{ fontSize: 13, fontWeight: 600, color: t.text }}>{c.name}</div>
-                  <div style={{ fontSize: 11, color: t.textMuted }}>{isCheck ? '체크' : `신용 · 미결제 ${unpaid.toLocaleString('ko-KR')}`}</div>
+                  <div style={{ fontSize: 11, color: t.textMuted }}>{sub}</div>
                 </div>
                 {!isCheck && (
                   <div className="text-right">
@@ -678,6 +692,7 @@ export function AssetPanel({ m }: { m: UseMoney }) {
       {/* 대출은 계획 탭으로 이동(Stage 7) */}
 
       {editor?.kind === 'account' && <AccountForm m={m} item={editor.item} onClose={() => setEditor(null)} />}
+      {editor?.kind === 'balance' && <BalanceFixSheet m={m} item={editor.item} onClose={() => setEditor(null)} />}
       {editor?.kind === 'card' && <CardForm m={m} item={editor.item} onClose={() => setEditor(null)} />}
       {editor?.kind === 'fixed' && <FixedCostForm m={m} item={editor.item} onClose={() => setEditor(null)} />}
       {showFixedMgr && <FixedCostManager m={m} onClose={() => setShowFixedMgr(false)} />}

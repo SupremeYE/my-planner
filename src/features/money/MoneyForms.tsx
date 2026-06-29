@@ -177,17 +177,20 @@ export function TransactionForm({ m, item, onClose }: { m: UseMoney; item: Money
 }
 
 // ── 2) 통장/자산 ──
-export function AccountForm({ m, item, onClose, defaultType = 'deposit' }: { m: UseMoney; item: MoneyAccount | null; onClose: () => void; defaultType?: AccountType }) {
+export function AccountForm({ m, item, onClose, defaultType = 'bank' }: { m: UseMoney; item: MoneyAccount | null; onClose: () => void; defaultType?: AccountType }) {
   const [name, setName] = useState(item?.name ?? '');
   const [type, setType] = useState<AccountType>(item?.type ?? defaultType);
   const [balance, setBalance] = useState(item ? String(item.balance) : '');
   const [rate, setRate] = useState(item?.interestRate != null ? String(item.interestRate) : '');
   const [icon, setIcon] = useState(item?.icon ?? '');
+  const [includeInTotal, setIncludeInTotal] = useState(item?.includeInTotal ?? true);
+  const [isDefault, setIsDefault] = useState(item?.isDefault ?? false);
   // 투자계좌 전용 필드
   const [investKind, setInvestKind] = useState<InvestKind>(item?.investKind ?? 'stock');
   const [principal, setPrincipal] = useState(item?.principal != null ? String(item.principal) : '');
   const [quantity, setQuantity] = useState(item?.quantity != null ? String(item.quantity) : '');
   const isInvest = type === 'investment';
+  const isBank = type === 'bank';
   const save = () => {
     m.saveAccount({
       id: item?.id ?? uuid(), name: name.trim(), type, balance: intVal(balance),
@@ -195,13 +198,15 @@ export function AccountForm({ m, item, onClose, defaultType = 'deposit' }: { m: 
       investKind: isInvest ? investKind : null,
       principal: isInvest ? numOrNull(principal) : null,
       quantity: isInvest ? numOrNull(quantity) : null,
+      includeInTotal,
+      isDefault: isBank ? isDefault : false,   // 기본 통장은 입출금/은행만
     });
     onClose();
   };
   return (
     <FormSheet title={item ? '자산 수정' : '자산 추가'} onClose={onClose} onSave={save} onDelete={item ? () => m.deleteAccount(item.id) : undefined} canSave={!!name.trim()}>
-      <Field label="이름"><TextInput value={name} onChange={setName} placeholder={isInvest ? '예: 삼성전자' : '예: 카뱅 저금통'} /></Field>
-      <Field label="종류"><SelectInput value={type} onChange={setType} options={[{ value: 'deposit', label: '예금' }, { value: 'savings', label: '적금' }, { value: 'cash', label: '현금' }, { value: 'investment', label: '투자' }]} /></Field>
+      <Field label="이름"><TextInput value={name} onChange={setName} placeholder={isInvest ? '예: 삼성전자' : isBank ? '예: 하나은행 급여통장' : '예: 카뱅 저금통'} /></Field>
+      <Field label="종류"><SelectInput value={type} onChange={setType} options={[{ value: 'bank', label: '입출금/은행' }, { value: 'deposit', label: '예금' }, { value: 'savings', label: '적금' }, { value: 'cash', label: '현금' }, { value: 'investment', label: '투자' }]} /></Field>
       {isInvest && (
         <Field label="종목구분"><Seg value={investKind} onChange={setInvestKind} options={[{ value: 'stock', label: '주식' }, { value: 'fund', label: '펀드' }, { value: 'coin', label: '코인' }]} /></Field>
       )}
@@ -215,6 +220,10 @@ export function AccountForm({ m, item, onClose, defaultType = 'deposit' }: { m: 
         <Field label="연이율"><TextInput value={rate} onChange={setRate} placeholder="% (선택)" type="number" /></Field>
       )}
       <Field label="이모지"><TextInput value={icon} onChange={setIcon} placeholder={isInvest ? '📈 (선택)' : '🏦 (선택)'} /></Field>
+      <Field label="순자산 포함"><Seg value={includeInTotal ? 'y' : 'n'} onChange={v => setIncludeInTotal(v === 'y')} options={[{ value: 'y', label: '포함' }, { value: 'n', label: '제외' }]} /></Field>
+      {isBank && (
+        <Field label="기본 통장"><Seg value={isDefault ? 'y' : 'n'} onChange={v => setIsDefault(v === 'y')} options={[{ value: 'y', label: '기본' }, { value: 'n', label: '일반' }]} /></Field>
+      )}
     </FormSheet>
   );
 }
@@ -226,14 +235,22 @@ export function CardForm({ m, item, onClose }: { m: UseMoney; item: MoneyCard | 
   const [unpaid, setUnpaid] = useState(item ? String(item.unpaidAmount) : '');
   const [billingDay, setBillingDay] = useState(item?.billingDay != null ? String(item.billingDay) : '');
   const [color, setColor] = useState<string | null>(item?.color ?? null);
+  const [linkedAccountId, setLinkedAccountId] = useState(item?.linkedAccountId ?? '');
+  // 결제통장 후보 — 투자계좌 제외(실제 돈이 빠지는 통장만)
+  const acctOptions = [{ value: '', label: '연결 통장 없음' },
+    ...m.accounts.filter(a => a.type !== 'investment').map(a => ({ value: a.id, label: a.name }))];
   const save = () => {
-    m.saveCard({ id: item?.id ?? uuid(), name: name.trim(), type, color, billingDay: numOrNull(billingDay), unpaidAmount: intVal(unpaid), sortOrder: item?.sortOrder ?? 0 });
+    m.saveCard({ id: item?.id ?? uuid(), name: name.trim(), type, color, billingDay: numOrNull(billingDay), unpaidAmount: intVal(unpaid), sortOrder: item?.sortOrder ?? 0, linkedAccountId: linkedAccountId || null });
     onClose();
   };
   return (
     <FormSheet title={item ? '카드 수정' : '카드 추가'} onClose={onClose} onSave={save} onDelete={item ? () => m.deleteCard(item.id) : undefined} canSave={!!name.trim()}>
       <Field label="이름"><TextInput value={name} onChange={setName} placeholder="예: 삼성카드" /></Field>
       <Field label="종류"><Seg value={type} onChange={setType} options={[{ value: 'credit', label: '신용' }, { value: 'check', label: '체크' }]} /></Field>
+      <Field label="결제통장"><SelectInput value={linkedAccountId} onChange={setLinkedAccountId} options={acctOptions} /></Field>
+      <div style={{ fontSize: 11, color: MONEY_PALETTE.mute, margin: '-4px 0 12px', paddingLeft: 76 }}>
+        {type === 'check' ? '체크: 사용 즉시 이 통장에서 차감' : '신용: 결제일에 이 통장에서 미결제액 차감'} (자동반영은 추후 이체 기능부터)
+      </div>
       {type === 'credit' && (
         <>
           <Field label="기준 미결제액"><TextInput value={unpaid} onChange={setUnpaid} placeholder="이월액(선택) · 0" type="number" /></Field>
@@ -244,6 +261,21 @@ export function CardForm({ m, item, onClose }: { m: UseMoney; item: MoneyCard | 
         </>
       )}
       <Field label="색상"><ColorPicker value={color} onChange={setColor} /></Field>
+    </FormSheet>
+  );
+}
+
+// ── 3-1) 잔액 보정 — 자산 행에서 금액만 빠르게 수정(DE-1: 수동 보정. 자동반영 없음) ──
+export function BalanceFixSheet({ m, item, onClose }: { m: UseMoney; item: MoneyAccount; onClose: () => void }) {
+  const { t } = useTheme();
+  const [balance, setBalance] = useState(String(item.balance));
+  const save = () => { m.saveAccount({ ...item, balance: intVal(balance) }); onClose(); };
+  return (
+    <FormSheet title={`${item.name} 잔액 보정`} onClose={onClose} onSave={save} canSave>
+      <div style={{ fontSize: 12, color: t.textSub, marginBottom: 12 }}>
+        현재 실제 통장 잔액을 입력해 맞춰주세요. (거래 자동반영 없이 잔액만 수정)
+      </div>
+      <Field label={item.type === 'investment' ? '평가액' : '잔액'}><TextInput value={balance} onChange={setBalance} placeholder="현재 잔액(원)" type="number" /></Field>
     </FormSheet>
   );
 }
