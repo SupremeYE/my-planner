@@ -5,7 +5,6 @@ import { DailyView } from './components/DailyView';
 import { CalendarView } from './components/CalendarView';
 import { GoalsHubView } from './components/GoalsHubView';
 import { TodosView } from './components/TodosView';
-import { InboxView } from './components/InboxView';
 import { ProjectsView, ProjectDetailView } from './components/ProjectView';
 import { HabitsView } from './components/HabitsView';
 import { SelfCareView } from './components/SelfCareView';
@@ -38,7 +37,7 @@ export const router = createBrowserRouter([
       { path: 'daily',        Component: DailyView },
       { path: 'calendar',     Component: CalendarView },
       { path: 'todos',        Component: TodosView },
-      { path: 'inbox',        Component: InboxView },
+      { path: 'inbox',        element: <Navigate to="/todos" replace /> },
       { path: 'goals',        Component: GoalsHubView },
       { path: 'projects',     Component: ProjectsView },
       { path: 'projects/:id', Component: ProjectDetailView },

@@ -1,17 +1,17 @@
 import { useState, useMemo } from 'react';
 import { format, isToday, isTomorrow, isPast, parseISO } from 'date-fns';
 import {
-  Plus, Trash2, ChevronDown, ChevronUp,
+  Trash2, ChevronDown, ChevronUp,
   Check, Star, Pencil, ListTodo, Play,
-  AlertTriangle, ArrowDownToLine,
+  AlertTriangle, ArrowDownToLine, Inbox,
 } from 'lucide-react';
 import { usePlanner, Todo, TodoStatus, getLogicalToday } from '../store';
 import { useTheme } from '../ThemeContext';
 import ConfirmModal from './ConfirmModal';
 import { MandalartSourceBadge } from './mandalart/MandalartSourceBadge';
 import { TodoModal } from './TodoModal';
-import { EventModal } from './EventModal';
-import { AddEntryMenu } from './AddEntryMenu';
+import { QuickAddInput } from './QuickAddInput';
+import { isInboxCandidate } from '../../lib/inbox';
 
 // ─── Constants ───────────────────────────────────────────────
 const STATUS_CONFIG: Record<string, { label: string; color: string; bgColor: string }> = {
@@ -213,17 +213,22 @@ function TodoRow({
   );
 }
 
-// ─── Tab 1: 할 일 (미완료 중심: 밀림 / 오늘 / 예정) ─────────────────
+// ─── Tab 1: 할 일 (미분류 → 밀림 → 오늘 → 예정) ─────────────────
 function TodoListTab() {
   const { todos, updateTodo, deleteTodo, toggleTop3 } = usePlanner();
   const { t } = useTheme();
   const [editingTodo, setEditingTodo] = useState<Todo | null>(null);
-  const [showAddModal, setShowAddModal] = useState(false);
-  const [addDefaultDate, setAddDefaultDate] = useState<string | undefined>(undefined);
 
   const todayStr = getLogicalToday();
 
-  // 날짜 배정된 미완료 할일만 (done/cancelled/backlog 제외, 미지정은 /inbox 전담)
+  // 미분류 (date=null·미완료) — 옛 인박스. 사이드바 배지 countInboxActive 와 동일 기준.
+  // created_at ASC 적재라 reverse = 최근 추가가 위.
+  const unassigned = useMemo(
+    () => todos.filter(td => isInboxCandidate(td) && td.status !== 'done').slice().reverse(),
+    [todos]
+  );
+
+  // 날짜 배정된 미완료 할일만 (done/cancelled/backlog 제외)
   const incompleteAssigned = useMemo(
     () => todos.filter(td =>
       td.date !== null &&
@@ -257,24 +262,51 @@ function TodoListTab() {
     return Object.entries(groups).sort(([a], [b]) => a.localeCompare(b));
   }, [incompleteAssigned, todayStr]);
 
-  const openAdd = (date?: string) => {
-    setAddDefaultDate(date);
-    setShowAddModal(true);
-  };
-
-  const total = overdue.length + todayTodos.length + upcomingGrouped.reduce((s, [, list]) => s + list.length, 0);
+  const total = unassigned.length + overdue.length + todayTodos.length + upcomingGrouped.reduce((s, [, list]) => s + list.length, 0);
 
   return (
     <div className="space-y-5">
+      {/* 던지기 입력창 — 통합 진입점 (옛 인박스) */}
+      <div className="px-4">
+        <QuickAddInput defaultDate={null} placeholder="여기에 던지기: 장보기, 내일 3시 회의 #업무 …" />
+      </div>
+
       {total === 0 && (
-        <div className="text-center py-16">
+        <div className="text-center py-12">
           <ListTodo size={36} color={t.borderLight} className="mx-auto mb-3" />
           <p style={{ fontSize: 13, color: t.textMuted }}>미완료 할일이 없어요</p>
-          <p style={{ fontSize: 12, color: t.textMuted, marginTop: 4 }}>상단 + 버튼으로 추가해보세요</p>
+          <p style={{ fontSize: 12, color: t.textMuted, marginTop: 4 }}>위 입력창에 떠오르는 걸 던져보세요</p>
         </div>
       )}
 
-      {/* ── 밀림 (최상단, 강조) ── */}
+      {/* ── 미분류 (옛 인박스 · date=null) ── */}
+      {unassigned.length > 0 && (
+        <div className="px-4">
+          <div className="flex items-center gap-2 mb-2.5">
+            <Inbox size={13} color={t.textSub} />
+            <span style={{ fontSize: 11, fontWeight: 700, color: t.textSub, letterSpacing: '0.02em' }}>
+              미분류
+            </span>
+            <div className="flex-1 h-px" style={{ backgroundColor: t.borderLight }} />
+            <span style={{ fontSize: 10, color: t.textMuted }}>{unassigned.length}개</span>
+          </div>
+          <div className="space-y-2">
+            {unassigned.map(todo => (
+              <TodoRow
+                key={todo.id}
+                todo={todo}
+                onStatusToggle={() => updateTodo(todo.id, { status: STATUS_NEXT[todo.status] })}
+                onEdit={() => setEditingTodo(todo)}
+                onDelete={() => deleteTodo(todo.id)}
+                onTop3Toggle={() => toggleTop3(todo.id)}
+                onMoveToToday={() => updateTodo(todo.id, { date: todayStr, status: 'active' })}
+              />
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* ── 밀림 (강조) ── */}
       {overdue.length > 0 && (
         <div className="px-4">
           <div
@@ -317,14 +349,6 @@ function TodoListTab() {
             오늘 · {format(new Date(), 'M/d')} ({DAYS[new Date().getDay()]})
           </span>
           <div className="flex-1 h-px" style={{ backgroundColor: t.borderLight }} />
-          <button
-            onClick={() => openAdd(todayStr)}
-            className="p-1 rounded-lg hover:opacity-70"
-            style={{ color: t.textMuted }}
-            title="오늘 할일 추가"
-          >
-            <Plus size={13} />
-          </button>
           <span style={{ fontSize: 10, color: t.textMuted }}>{todayTodos.length}개</span>
         </div>
         {todayTodos.length === 0 ? (
@@ -357,13 +381,6 @@ function TodoListTab() {
                   {getDateLabel(date)}
                 </span>
                 <div className="flex-1 h-px" style={{ backgroundColor: t.borderLight }} />
-                <button
-                  onClick={() => openAdd(date)}
-                  className="p-1 rounded-lg hover:opacity-70"
-                  style={{ color: t.textMuted }}
-                >
-                  <Plus size={13} />
-                </button>
                 <span style={{ fontSize: 10, color: t.textMuted }}>{dateTodos.length}개</span>
               </div>
               <div className="space-y-2">
@@ -383,12 +400,6 @@ function TodoListTab() {
         </div>
       )}
 
-      {showAddModal && (
-        <TodoModal
-          date={addDefaultDate}
-          onClose={() => { setShowAddModal(false); setAddDefaultDate(undefined); }}
-        />
-      )}
       {editingTodo && (
         <TodoModal
           todo={editingTodo}
@@ -406,10 +417,9 @@ function DoneTodosTab() {
   const [editingTodo, setEditingTodo] = useState<Todo | null>(null);
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
 
-  // done + cancelled (기존 AllTodosTab 의 doneTodos 정책과 동일)
+  // done + cancelled (미분류[date=null] 완료 항목도 포함 — 인박스 통합)
   const doneOrCancelled = useMemo(
     () => todos.filter(td =>
-      td.date !== null &&
       (td.status === 'done' || td.status === 'cancelled')
     ),
     [todos]
@@ -417,8 +427,8 @@ function DoneTodosTab() {
 
   const grouped = useMemo(() => {
     const groups: Record<string, Todo[]> = {};
-    doneOrCancelled.forEach(td => { (groups[td.date!] ??= []).push(td); });
-    // 최신 날짜 위
+    doneOrCancelled.forEach(td => { (groups[td.date ?? ''] ??= []).push(td); });
+    // 최신 날짜 위 (미분류[''] 는 가장 아래)
     return Object.entries(groups).sort(([a], [b]) => b.localeCompare(a));
   }, [doneOrCancelled]);
 
@@ -448,7 +458,7 @@ function DoneTodosTab() {
               className="flex items-center gap-2 mb-2.5 w-full"
             >
               <span style={{ fontSize: 11, fontWeight: 700, color: t.textSub, letterSpacing: '0.02em' }}>
-                {getDateLabel(date)}
+                {date ? getDateLabel(date) : '미분류'}
               </span>
               <div className="flex-1 h-px" style={{ backgroundColor: t.borderLight }} />
               <span style={{ fontSize: 10, color: t.textMuted }}>{dateTodos.length}개</span>
@@ -486,11 +496,9 @@ function DoneTodosTab() {
 type Tab = 'list' | 'done';
 
 export function TodosView() {
-  const { todos, selectedDate } = usePlanner();
+  const { todos } = usePlanner();
   const { t } = useTheme();
   const [tab, setTab] = useState<Tab>('list');
-  const [showAddModal, setShowAddModal] = useState(false);
-  const [showAddEventModal, setShowAddEventModal] = useState(false);
 
   // 탭 카운트 뱃지 — 할 일(미완료) / 완료함(done+cancelled)
   const todayStr = getLogicalToday();
@@ -533,10 +541,6 @@ export function TodosView() {
               <ListTodo size={18} color={t.accent} />
               <h1 style={{ fontSize: 18, fontWeight: 700, color: t.text }}>할일</h1>
             </div>
-            <AddEntryMenu
-              onAddTodo={() => setShowAddModal(true)}
-              onAddEvent={() => setShowAddEventModal(true)}
-            />
           </div>
 
           {/* 탭 */}
@@ -601,17 +605,6 @@ export function TodosView() {
       <div className="flex-1 overflow-y-auto py-4">
         {tab === 'list' ? <TodoListTab /> : <DoneTodosTab />}
       </div>
-
-      {/* 상단 헤더 할일 추가 버튼용 모달 */}
-      {showAddModal && (
-        <TodoModal onClose={() => setShowAddModal(false)} />
-      )}
-      {showAddEventModal && (
-        <EventModal
-          date={selectedDate}
-          onClose={() => setShowAddEventModal(false)}
-        />
-      )}
     </div>
   );
 }

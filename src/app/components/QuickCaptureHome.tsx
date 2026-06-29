@@ -53,7 +53,7 @@ const CAPTURE_REGISTRY: CaptureButton[] = [
   { id: 'sleep_in', label: '취침', icon: Bed, type: 'instant', accent: 'text',   pairWith: 'wake_up' },
 
   // ── 캡처 ──
-  { id: 'todo',   label: '할 일',  icon: Plus,     type: 'navigate', route: '/inbox' },
+  { id: 'todo',   label: '할 일',  icon: Plus,     type: 'navigate', route: '/todos' },
   { id: 'moment', label: '모먼트', icon: Camera,   type: 'navigate', route: '/moments' },
   { id: 'scrap',  label: '스크랩', icon: LinkIcon, type: 'navigate', route: '/scraps' },
 

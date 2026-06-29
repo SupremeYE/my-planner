@@ -9,8 +9,8 @@ export const isInboxCandidate = (t: Todo) =>
   t.date === null && t.status !== 'backlog' && t.status !== 'cancelled' && !isVirtualTodoId(t.id);
 
 /**
- * 사이드바/네비 배지용 미정리 개수 = 날짜 미지정 + 미완료(active 등) Inbox 항목 수.
- * InboxView 의 "active" 리스트 길이와 동일하게 맞춘다(done 은 제외).
+ * 사이드바/네비 배지용 미정리 개수 = 날짜 미지정 + 미완료(active 등) 항목 수.
+ * 할일 페이지 "미분류" 섹션의 항목 수와 동일하게 맞춘다(done 은 제외).
  */
 export const countInboxActive = (todos: Todo[]): number =>
   todos.filter(t => isInboxCandidate(t) && t.status !== 'done').length;

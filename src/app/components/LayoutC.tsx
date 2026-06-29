@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Outlet, NavLink, useNavigate } from 'react-router';
 import {
-  Sun, CalendarDays, BarChart2, FolderKanban, ListTodo, Inbox,
+  Sun, CalendarDays, BarChart2, FolderKanban, ListTodo,
   ChevronLeft, ChevronRight, Calendar, Plus, Target, CheckCircle2,
   ChevronDown, X, Home, Menu, Settings, Clapperboard, ChefHat, Sparkles, Bookmark, MapPin, Footprints,
   Flower2, SprayCan, Wallet,
@@ -22,7 +22,6 @@ const NAV_ITEMS = [
   { to: '/daily',     icon: Sun,          label: '일간' },
   { to: '/calendar',  icon: CalendarDays, label: '캘린더' },
   { to: '/todos',     icon: ListTodo,     label: '할일' },
-  { to: '/inbox',     icon: Inbox,        label: '인박스' },
   { to: '/goals',     icon: BarChart2,    label: '목표관리' },
   { to: '/money',     icon: Wallet,       label: '머니' },
   { to: '/culture',   icon: Clapperboard, label: '문화 기록' },
@@ -390,7 +389,7 @@ export function LayoutC() {
                 <>
                   <Icon size={14} color={isActive ? t.accent : 'currentColor'} />
                   {label}
-                  {to === '/inbox' && inboxCount > 0 && (
+                  {to === '/todos' && inboxCount > 0 && (
                     <span
                       className="flex items-center justify-center rounded-full"
                       style={{
