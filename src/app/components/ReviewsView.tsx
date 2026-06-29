@@ -1329,7 +1329,11 @@ function ArchiveOverlay({ onClose, onJump }: {
 }) {
   const { reviewRecords, happyMoments, weeklyReviews, monthlyReviews } = usePlanner();
   const { t } = useTheme();
-  const isDesktop = useMediaQuery('(min-width: 1024px)');
+  // 3단 분기: PC(lg) 3열 / 태블릿(md) 2열 / 모바일 1열 (B안)
+  const isLg = useMediaQuery('(min-width: 1024px)');
+  const isMd = useMediaQuery('(min-width: 768px)');
+  const columnCount = isLg ? 3 : isMd ? 2 : 1;
+  const useColumns = columnCount > 1;
 
   const [rawQuery, setRawQuery] = useState('');
   const [query, setQuery] = useState('');
@@ -1512,11 +1516,11 @@ function ArchiveOverlay({ onClose, onJump }: {
         {groups.length === 0 ? (
           <p className="text-center py-16" style={{ fontSize: 14, color: t.textMuted }}>검색 결과가 없어요</p>
         ) : (
-          <div style={isDesktop ? { columnCount: 2, columnGap: 16 } : undefined}>
+          <div style={useColumns ? { columnCount, columnGap: 18 } : undefined}>
             {groups.map(g => (
               <React.Fragment key={g.month}>
                 <div style={{ breakInside: 'avoid', columnSpan: 'all' as any,
-                  position: isDesktop ? 'static' : 'sticky', top: 0, zIndex: 1,
+                  position: useColumns ? 'static' : 'sticky', top: 0, zIndex: 1,
                   backgroundColor: t.bg, padding: '6px 0 8px', marginTop: 2 }}>
                   <h3 style={{ fontSize: 12, fontWeight: 700, color: t.textMuted, letterSpacing: '.3px' }}>{g.label} · {g.items.length}건</h3>
                 </div>
@@ -1533,6 +1537,7 @@ function ArchiveOverlay({ onClose, onJump }: {
 export function ReviewsView() {
   const { reviewRecords } = usePlanner();
   const { t } = useTheme();
+  const isDesktop = useMediaQuery('(min-width: 1024px)');
   // 'list' 는 탭 UI 에서 제거되었지만 과거 기록 승계 대비로 union·블록은 보존(진입 불가)
   const [tab, setTab] = useState<'day' | 'week' | 'month' | 'list'>('day');
   const [archiveOpen, setArchiveOpen] = useState(false);
@@ -1560,11 +1565,14 @@ export function ReviewsView() {
           <h1 style={{ fontSize: 22, fontWeight: 700, color: t.text, fontFamily: 'var(--font-gmarket)' }}>리뷰 & 기록</h1>
           <p style={{ fontSize: 13, color: t.textSub, marginTop: 4 }}>매일의 기록이 성장의 발판이 됩니다</p>
         </div>
-        {/* 🔍 돌아보기 아카이브 */}
+        {/* 🔍 돌아보기 아카이브 — PC는 텍스트 알약 / 모바일은 아이콘만 */}
         <button type="button" onClick={() => setArchiveOpen(true)} title="돌아보기 · 검색"
-          className="flex items-center justify-center rounded-xl transition-colors"
-          style={{ width: 38, height: 38, backgroundColor: t.bgSub, border: `1px solid ${t.borderLight}`, color: t.textSub }}>
-          <Search size={17} />
+          className="flex items-center justify-center gap-1.5 transition-colors"
+          style={isDesktop
+            ? { height: 40, padding: '0 16px', borderRadius: 999, backgroundColor: t.card, border: `1px solid ${t.border}`, color: t.textSub, fontSize: 13, fontWeight: 600 }
+            : { width: 38, height: 38, borderRadius: 12, backgroundColor: t.bgSub, border: `1px solid ${t.borderLight}`, color: t.textSub }}>
+          <Search size={isDesktop ? 16 : 17} />
+          {isDesktop && <span>돌아보기</span>}
         </button>
       </div>
 
