@@ -1267,11 +1267,10 @@ export function SettingsSheet({ m, onClose }: { m: UseMoney; onClose: () => void
 }
 
 // ── 탭 본문 라우팅(공유) ──
-//  · desktop=true(PC): 가계부 탭은 넓은 2단, 그 외 단일 컬럼 탭은 너무 넓어지지 않게 가운데 폭 제한.
+//  · desktop=true(PC): 가계부 탭은 넓은 2단, 그 외 탭은 단일 컬럼으로 콘텐츠 영역을 채움(건강 등 타 페이지와 동일).
 export function MoneyTabPanel({ tab, m, desktop = false }: { tab: MoneyTab; m: UseMoney; desktop?: boolean }) {
   if (tab === 'budget') return <BudgetPanel m={m} desktop={desktop} />;
-  const panel = tab === 'asset' ? <AssetPanel m={m} />
-    : tab === 'invest' ? <InvestPanel m={m} />
-    : <PlanPanel m={m} />;
-  return desktop ? <div style={{ maxWidth: 760, margin: '0 auto' }}>{panel}</div> : panel;
+  if (tab === 'asset') return <AssetPanel m={m} />;
+  if (tab === 'invest') return <InvestPanel m={m} />;
+  return <PlanPanel m={m} />;
 }
