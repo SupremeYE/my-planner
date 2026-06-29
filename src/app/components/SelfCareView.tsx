@@ -1816,7 +1816,7 @@ export function SelfCareView() {
       </div>
 
       {/* ━━ PC 레이아웃 (lg 이상): 좌 타임라인 사이드바 + 우 본문 ━━ */}
-      <div className="hidden lg:flex gap-6 px-8 pb-12 max-w-6xl mx-auto">
+      <div className="hidden lg:flex gap-6 px-8 pb-12">
         {/* 좌측 패널 (고정 ~320px) */}
         <aside className="flex-shrink-0" style={{ width: 320 }}>
           <div className="sticky top-6 space-y-4">

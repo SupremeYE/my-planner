@@ -323,7 +323,7 @@ export function RecipeListTab() {
 
   return (
     <>
-      <div className="max-w-[1200px] mx-auto px-4 lg:px-8 py-4 lg:py-6">
+      <div className="px-4 lg:px-8 py-4 lg:py-6">
         {/* 검색 */}
         <div className="relative mb-3">
           <Search size={16} color={t.textMuted}
@@ -432,7 +432,7 @@ export function RecipeListTab() {
               <h2 style={{ fontSize: 13, fontWeight: 700, color: t.textSub }}>먼지 쌓인 레시피</h2>
               <span style={{ fontSize: 11, color: t.textMuted }}>저장만 하고 안 해봤어요 👀</span>
             </div>
-            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+            <div className="grid grid-cols-2 lg:grid-cols-4 xl:grid-cols-5 gap-3">
               {dusty.map(r => (
                 <RecipeCard key={r.id} recipe={r} onClick={() => openDetail(r)} />
               ))}
@@ -445,7 +445,7 @@ export function RecipeListTab() {
         </h2>
 
         {loading ? (
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+          <div className="grid grid-cols-2 lg:grid-cols-4 xl:grid-cols-5 gap-3">
             {Array.from({ length: 4 }).map((_, i) => (
               <div key={i} className="rounded-2xl" style={{ aspectRatio: '4 / 3.6', backgroundColor: t.bgSub }} />
             ))}
@@ -462,7 +462,7 @@ export function RecipeListTab() {
             </button>
           </div>
         ) : (
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+          <div className="grid grid-cols-2 lg:grid-cols-4 xl:grid-cols-5 gap-3">
             {filtered.map(r => (
               <RecipeCard key={r.id} recipe={r}
                 onClick={() => openDetail(r)}
@@ -571,7 +571,7 @@ function CookableSection({ ready, oneMissing, onPickRecipe }:
         title="지금 만들 수 있어요" hint="냉장고 주재료 매칭" count={items.length}
         open={open} onToggle={toggle} />
       {open && (
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+        <div className="grid grid-cols-2 lg:grid-cols-4 xl:grid-cols-5 gap-3">
           {items.map(({ m, kind }) => {
             const badge: MatchBadge = kind === 'ready'
               ? { kind: 'ready', label: '✓ 재료 있음' }
@@ -597,7 +597,7 @@ function UrgentRecipesSection({ hits, onPickRecipe }:
         title="유통기한 임박 재료 레시피" hint="D-2 이내 재료 활용" count={hits.length}
         open={open} onToggle={toggle} />
       {open && (
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+        <div className="grid grid-cols-2 lg:grid-cols-4 xl:grid-cols-5 gap-3">
           {hits.map(h => {
             const top = h.urgentItems[0];
             const label = top.daysLeft === 0

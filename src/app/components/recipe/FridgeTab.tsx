@@ -326,7 +326,7 @@ export function FridgeTab() {
 
   return (
     <>
-      <div className="max-w-[1200px] mx-auto px-4 lg:px-8 py-4 lg:py-6">
+      <div className="px-4 lg:px-8 py-4 lg:py-6">
         {/* 빠른 입력 — 텍스트 + 음성 */}
         <div className="mb-4 rounded-2xl p-3"
           style={{ backgroundColor: t.card, border: `1px solid ${t.border}` }}>

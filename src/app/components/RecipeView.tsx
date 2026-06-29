@@ -39,7 +39,7 @@ export function RecipeView() {
 
       {/* 헤더 (sticky — 부모 main이 스크롤 컨테이너) */}
       <div className="sticky top-0 z-20" style={{ backgroundColor: t.bg }}>
-        <div className="max-w-[1200px] mx-auto px-4 lg:px-8 pt-4 pb-3 flex items-center justify-between gap-3">
+        <div className="px-4 lg:px-8 pt-4 pb-3 flex items-center justify-between gap-3">
           <h1 className="flex items-center gap-2" style={{ fontSize: 22, fontWeight: 700, color: t.text }}>
             <ActiveIcon size={24} color={t.accent} />
             {active.label}
