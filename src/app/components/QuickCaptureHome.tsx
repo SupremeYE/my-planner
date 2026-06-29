@@ -78,8 +78,9 @@ const greeting = (h: number) =>
 
 // ── 취침/기상 페어링 (정책 B) ──
 // 취침 = sleepStart 만 든 미해결 레코드 insert (date=취침일)
-// 기상 = 지난 16h 내 미해결 레코드를 찾아 sleepEnd+duration 채우고 date=기상일로 정규화
-const SLEEP_PAIR_WINDOW_MS = 16 * 60 * 60 * 1000;
+// 기상 = 지난 24h 내 미해결 레코드를 찾아 sleepEnd+duration 채우고 date=기상일로 정규화.
+//        못 찾으면 기상 시각만 든 레코드를 새로 만들어 누른 시각이 버려지지 않게 한다.
+const SLEEP_PAIR_WINDOW_MS = 24 * 60 * 60 * 1000;
 
 // 레코드의 취침 시점 datetime 재구성 ("yyyy-MM-dd" + "HH:mm" → 로컬 Date ms). 실패 시 NaN
 const sleepStartMs = (r: SelfCareRecord): number =>
@@ -164,17 +165,27 @@ export function QuickCaptureHome() {
     }
   };
 
-  // 기상: 16h 내 미해결 레코드를 찾아 sleepEnd+duration 채우고 date=기상일로 정규화. 없으면 토스트만(레코드 생성 안 함)
+  // 기상: 24h 내 미해결 레코드를 찾아 sleepEnd+duration 채우고 date=기상일로 정규화.
+  //   짝 취침이 없으면(또는 24h 초과) 기상 시각만 든 레코드를 새로 만든다 — 누른 시각이
+  //   통째로 버려지지 않게(취침 시각은 수면 페이지에서 나중에 채워 완성 가능).
   const handleWakeUp = () => {
     if (!guard()) return;
     try {
       const ts = new Date();
+      const hhmm = format(ts, 'HH:mm');
       const pending = findUnresolvedSleep(selfCareRecords, ts);
       if (!pending) {
-        showToast('어제 취침 기록이 없어요. 수면 페이지에서 추가해주세요');
+        addSelfCareRecord({
+          date: format(ts, 'yyyy-MM-dd'),
+          category: 'sleep',
+          content: `~ ${hhmm}`,
+          duration: 0,
+          sleepEnd: hhmm,
+          // sleepStart 미지정 → 수면 페이지에서 취침 시각을 채우면 수면시간 계산됨
+        });
+        showToast(`기상 기록됨 · ${hhmm} · 취침 시각은 수면 페이지에서 채워주세요`);
         return;
       }
-      const hhmm = format(ts, 'HH:mm');
       const durationMin = Math.max(0, Math.round((ts.getTime() - sleepStartMs(pending)) / 60000));
       updateSelfCareRecord(pending.id, {
         sleepEnd: hhmm,
