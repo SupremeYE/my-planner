@@ -1054,6 +1054,16 @@ export const db = {
       const { error } = await supabase.from('self_care_records').delete().eq('id', id);
       if (error) console.error('[db] self_care_records delete:', error.message);
     },
+    // 일간 칩 집약 — 그날 수면(category=sleep) 요약. 같은 날 여럿이면 최근 1건. 없으면 null.
+    summaryForDate: async (date: string): Promise<{ durationMin: number; sleepStart: string | null; sleepEnd: string | null } | null> => {
+      const { data, error } = await supabase
+        .from('self_care_records').select('duration, sleep_start, sleep_end')
+        .eq('date', date).eq('category', 'sleep').order('created_at', { ascending: false });
+      if (error) { console.error('[db] self_care_records summaryForDate:', error.message); return null; }
+      if (!data || data.length === 0) return null;
+      const r = data[0];
+      return { durationMin: r.duration ?? 0, sleepStart: r.sleep_start ?? null, sleepEnd: r.sleep_end ?? null };
+    },
   },
 
   reviewRecords: {
@@ -1173,6 +1183,19 @@ export const db = {
     },
     deletePhoto: async (path: string) => {
       await supabase.storage.from('food-photos').remove([path]);
+    },
+    // 일간 칩 집약 — 그날 식사 요약(끼니 수·첫 음식·끼니 종류). 없으면 null.
+    summaryForDate: async (date: string): Promise<{ count: number; firstName: string | null; mealTypes: string[] } | null> => {
+      const { data, error } = await supabase
+        .from('food_records').select('food_name, meal_type')
+        .eq('date', date).order('created_at', { ascending: true });
+      if (error) { console.error('[db] food_records summaryForDate:', error.message); return null; }
+      if (!data || data.length === 0) return null;
+      return {
+        count: data.length,
+        firstName: data[0].food_name ?? null,
+        mealTypes: [...new Set(data.map((r: any) => r.meal_type).filter(Boolean))] as string[],
+      };
     },
   },
 
@@ -1688,6 +1711,14 @@ export const db = {
       const { error } = await supabase.from('condition_records').delete().eq('id', id);
       if (error) console.error('[db] condition_records delete:', error.message);
     },
+    // 일간 칩 집약 — 그날(논리 날짜) 컨디션 요약. 데이터 없으면 null.
+    summaryForDate: async (date: string): Promise<{ stress: number | null; symptomCount: number } | null> => {
+      const { data, error } = await supabase
+        .from('condition_records').select('stress, symptoms').eq('date', date).maybeSingle();
+      if (error) { console.error('[db] condition_records summaryForDate:', error.message); return null; }
+      if (!data) return null;
+      return { stress: data.stress ?? null, symptomCount: (data.symptoms ?? []).length };
+    },
   },
 
   // 사용자 커스텀 증상 — 한 번 저장하면 이후 칩 풀에서 계속 재사용
@@ -1780,6 +1811,20 @@ export const db = {
       const { error } = await supabase.from('culture_records').delete().eq('id', id);
       if (error) console.error('[db] culture_records delete:', error.message);
     },
+    // 일간 칩 집약 — 그날(시청일=watched_date) 미디어 요약. 없으면 null.
+    summaryForDate: async (date: string): Promise<{ count: number; firstTitle: string | null; firstRating: number | null; firstType: string | null } | null> => {
+      const { data, error } = await supabase
+        .from('culture_records').select('title, rating, content_type')
+        .eq('watched_date', date).order('created_at', { ascending: true });
+      if (error) { console.error('[db] culture_records summaryForDate:', error.message); return null; }
+      if (!data || data.length === 0) return null;
+      return {
+        count: data.length,
+        firstTitle: data[0].title ?? null,
+        firstRating: data[0].rating != null ? Number(data[0].rating) : null,
+        firstType: data[0].content_type ?? null,
+      };
+    },
   },
 
   // ── 음악 기록 (문화 기록 > 음악, Stage 1) ──
@@ -1851,9 +1896,43 @@ export const db = {
       const { error } = await supabase.from('music_records').update({ stickers }).eq('id', id);
       if (error) console.error('[db] music_records stickers update:', error.message);
     },
+    // 일간 칩 집약 — 그날(listened_date) 들은 음악 요약. 없으면 null.
+    summaryForDate: async (date: string): Promise<{ count: number; firstTitle: string | null; firstArtist: string | null } | null> => {
+      const { data, error } = await supabase
+        .from('music_records').select('track_title, artist')
+        .eq('listened_date', date).order('created_at', { ascending: true });
+      if (error) { console.error('[db] music_records summaryForDate:', error.message); return null; }
+      if (!data || data.length === 0) return null;
+      return { count: data.length, firstTitle: data[0].track_title ?? null, firstArtist: data[0].artist ?? null };
+    },
     delete: async (id: string) => {
       const { error } = await supabase.from('music_records').delete().eq('id', id);
       if (error) console.error('[db] music_records delete:', error.message);
+    },
+  },
+
+  // ── 독서 이력(reading_logs) — 일간 칩 집약용 그날 조회 (Stage 2.5) ──
+  // 작성 경로는 BooksView 가 담당. 여기선 조회/요약만 제공.
+  readingLogs: {
+    fetchByDate: async (date: string): Promise<
+      { id: string; bookId: string; page: number; durationMinutes: number | null; note: string | null; bookTitle: string | null }[]
+    > => {
+      const { data, error } = await supabase
+        .from('reading_logs').select('id, book_id, page, duration_minutes, note, books(title)')
+        .eq('date', date).order('created_at', { ascending: true });
+      if (error) { console.error('[db] reading_logs fetchByDate:', error.message); return []; }
+      return (data ?? []).map((r: any) => ({
+        id: r.id, bookId: r.book_id, page: r.page,
+        durationMinutes: r.duration_minutes ?? null, note: r.note ?? null,
+        bookTitle: r.books?.title ?? null,
+      }));
+    },
+    summaryForDate: async (date: string): Promise<{ count: number; lastBookTitle: string | null; lastPage: number | null; totalMinutes: number | null } | null> => {
+      const logs = await db.readingLogs.fetchByDate(date);
+      if (!logs.length) return null;
+      const last = logs[logs.length - 1];
+      const mins = logs.reduce((s, l) => s + (l.durationMinutes ?? 0), 0);
+      return { count: logs.length, lastBookTitle: last.bookTitle, lastPage: last.page ?? null, totalMinutes: mins > 0 ? mins : null };
     },
   },
 
@@ -3060,6 +3139,19 @@ export const db = {
       if (error) console.error('[db] workout_logs listByDate:', error.message);
       return (data ?? []).map(toWorkoutLog);
     },
+    // 일간 칩 집약 — 그날(performed_on) 운동 요약(세션 수·종목명). 없으면 null.
+    summaryForDate: async (date: string): Promise<{ count: number; names: string[] } | null> => {
+      const { data, error } = await supabase.from('workout_logs')
+        .select('exercises(name_ko, name_en)')
+        .eq('performed_on', date)
+        .order('created_at', { ascending: true });
+      if (error) { console.error('[db] workout_logs summaryForDate:', error.message); return null; }
+      if (!data || data.length === 0) return null;
+      const names = (data as any[])
+        .map(r => r.exercises?.name_ko || r.exercises?.name_en)
+        .filter(Boolean) as string[];
+      return { count: data.length, names };
+    },
     listAll: async (): Promise<WorkoutLog[]> => {
       const { data, error } = await supabase.from('workout_logs')
         .select('*, exercises(*), workout_sets(*)')
@@ -3397,6 +3489,15 @@ export const db = {
         .limit(limit);
       if (error) console.error('[db] place_visits listRecent:', error.message);
       return (data ?? []).map(toPlaceVisit);
+    },
+    // 일간 칩 집약 — 그날(visited_on) 다녀온 곳 요약(방문 수·첫 장소명). 없으면 null.
+    summaryForDate: async (date: string): Promise<{ count: number; firstName: string | null } | null> => {
+      const { data, error } = await supabase
+        .from('place_visits').select('name')
+        .eq('visited_on', date).order('created_at', { ascending: true });
+      if (error) { console.error('[db] place_visits summaryForDate:', error.message); return null; }
+      if (!data || data.length === 0) return null;
+      return { count: data.length, firstName: data[0].name ?? null };
     },
     // 생성 — 저장된 place 연결(placeId) 또는 place 없이 직접(name/regionCode 비정규화).
     // user_id 는 DB DEFAULT auth.uid().
