@@ -64,8 +64,10 @@ export function sleepRectsForColumn(
       const total = e - s;
 
       // recDate 자정은 columnDate 자정 기준 offsetDays*1440 만큼 떨어져 있다.
-      const intervalStart = offsetDays * 1440 + s;
-      const intervalEnd = offsetDays * 1440 + e;
+      // record.date는 '일어난 날(기상일)' 기준이므로 기상(eRaw)을 recDate에 앵커하고
+      // 거기서 수면 길이만큼 빼서 취침 위치를 잡는다. (취침이 자정 이전이면 전날로 이어짐)
+      const intervalEnd = offsetDays * 1440 + eRaw;
+      const intervalStart = intervalEnd - total;
 
       const lo = Math.max(intervalStart, W0);
       const hi = Math.min(intervalEnd, W1);
