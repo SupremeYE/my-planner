@@ -7,10 +7,11 @@ import { MoneySheet } from './MoneySheet';
 import type { UseMoney } from './useMoney';
 import {
   MONEY_PALETTE, resolveCategoryColor, categoryInitial, formatWon, formatManShort, subcategoryShade, INVEST_KIND_META,
+  ASSET_GROUP_META, ASSET_GROUP_ORDER,
 } from './tokens';
 import type { MoneyCategory, MoneyAccount, MoneyCard, MoneyLoan, MoneyGoal, MoneyFixedCost, PeriodType } from './types';
 import { TransactionForm, AccountForm, CardForm, FixedCostForm, LoanForm, GoalForm, BalanceFixSheet } from './MoneyForms';
-import { MoneyPlanSheet } from './MoneyPlanSheet';
+import { MoneyPlanSheet, DistributionDonut } from './MoneyPlanSheet';
 import { WeekBanner, WeekReviewSheet } from './MoneyWeekReview';
 import { MonthBanner, MonthReviewSheet } from './MoneyMonthReview';
 import { CURRENCY_SYMBOL } from './fx';
@@ -585,25 +586,48 @@ export function AssetPanel({ m }: { m: UseMoney }) {
   const banks = m.accounts.filter(a => a.type !== 'investment');
   const rowBtn = { background: t.card, borderRadius: 14, padding: 14, boxShadow: t.shadow } as React.CSSProperties;
 
+  // ── DE-2 자산 시각화 ── 그룹별 합계('순자산 포함' 자산만) + 부채(카드+대출) + 실질 순자산.
+  const inclAccounts = m.accounts.filter(a => a.includeInTotal);
+  const groupSegments = ASSET_GROUP_ORDER
+    .map(key => ({ label: ASSET_GROUP_META[key].label, color: ASSET_GROUP_META[key].color,
+      value: inclAccounts.filter(a => a.type === key).reduce((s, a) => s + a.balance, 0) }))
+    .filter(g => g.value > 0);
+  const debt = m.cardDebt + m.loanDebt;
+  const realNet = m.assets - debt;   // 총자산 − (카드 미결제 + 대출)
+
   return (
     <div className="flex flex-col gap-3">
-      {/* 순자산 */}
+      {/* 순자산 = 총자산 − 부채(카드+대출) */}
       <div style={{ background: t.card, borderRadius: 20, padding: 18, boxShadow: t.shadow }}>
         <div className="text-center">
           <div style={{ fontSize: 12, color: t.textMuted, marginBottom: 4 }}>순자산</div>
-          <div style={{ fontSize: 26, fontWeight: 900, color: t.text }}>{formatWon(m.netWorth)}</div>
-          <div className="flex gap-3 mt-3">
+          <div style={{ fontSize: 26, fontWeight: 900, color: realNet < 0 ? MONEY_PALETTE.coral : t.text }}>{formatWon(realNet)}</div>
+          <div className="flex gap-2 mt-3">
             <div className="flex-1" style={{ background: `${MONEY_PALETTE.green}18`, borderRadius: 12, padding: 10 }}>
-              <div style={{ fontSize: 10, color: t.textSub }}>+ 자산</div>
+              <div style={{ fontSize: 10, color: t.textSub }}>총자산</div>
               <div style={{ fontSize: 15, fontWeight: 700, color: MONEY_PALETTE.green }}>{m.assets.toLocaleString('ko-KR')}</div>
             </div>
             <div className="flex-1" style={{ background: `${MONEY_PALETTE.coral}14`, borderRadius: 12, padding: 10 }}>
-              <div style={{ fontSize: 10, color: t.textSub }}>− 카드 부채</div>
+              <div style={{ fontSize: 10, color: t.textSub }}>− 카드</div>
               <div style={{ fontSize: 15, fontWeight: 700, color: MONEY_PALETTE.coral }}>{m.cardDebt.toLocaleString('ko-KR')}</div>
             </div>
+            {m.loanDebt > 0 && (
+              <div className="flex-1" style={{ background: `${MONEY_PALETTE.coral}14`, borderRadius: 12, padding: 10 }}>
+                <div style={{ fontSize: 10, color: t.textSub }}>− 대출</div>
+                <div style={{ fontSize: 15, fontWeight: 700, color: MONEY_PALETTE.coral }}>{m.loanDebt.toLocaleString('ko-KR')}</div>
+              </div>
+            )}
           </div>
         </div>
       </div>
+
+      {/* 자산 구성 — 그룹별 도넛 + 합계(순자산 포함 자산 기준) */}
+      {groupSegments.length > 0 && (
+        <div style={{ background: t.card, borderRadius: 20, padding: 18, boxShadow: t.shadow }}>
+          <div style={{ fontSize: 13, fontWeight: 700, color: t.text, marginBottom: 14 }}>📊 자산 구성</div>
+          <DistributionDonut segments={groupSegments} total={m.assets} size={148} centerLabel="총 자산" />
+        </div>
+      )}
 
       {/* 통장·예금 */}
       <div>

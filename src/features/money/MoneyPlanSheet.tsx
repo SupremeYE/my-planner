@@ -26,7 +26,7 @@ const uid = () => crypto.randomUUID();
 
 // ── 수입 분배 확인 도넛(SVG 링) ── (월말 회고에서도 재사용 — 계획 vs 실제 비교)
 //  · size 로 지름 조절(기본 128). PC 계획하기에서는 크게.
-export function DistributionDonut({ segments, total, size = 128 }: { segments: { label: string; value: number; color: string }[]; total: number; size?: number }) {
+export function DistributionDonut({ segments, total, size = 128, centerLabel = '예상 수입' }: { segments: { label: string; value: number; color: string }[]; total: number; size?: number; centerLabel?: string }) {
   const { t } = useTheme();
   const r = size * 0.406, cx = size / 2, cy = size / 2, C = 2 * Math.PI * r, sw = size * 0.125;
   const labelFont = Math.round(size / 11.6), valueFont = Math.round(size / 9.1);
@@ -48,7 +48,7 @@ export function DistributionDonut({ segments, total, size = 128 }: { segments: {
               transform={`rotate(-90 ${cx} ${cy})`} strokeLinecap="butt" />
           );
         })}
-        <text x={cx} y={cy - 2} textAnchor="middle" style={{ fontSize: labelFont, fill: t.textMuted }}>예상 수입</text>
+        <text x={cx} y={cy - 2} textAnchor="middle" style={{ fontSize: labelFont, fill: t.textMuted }}>{centerLabel}</text>
         <text x={cx} y={cy + valueFont} textAnchor="middle" style={{ fontSize: valueFont, fontWeight: 700, fill: t.text }}>{formatManShort(total)}</text>
       </svg>
       <div className="flex-1 min-w-0 flex flex-col gap-1.5">

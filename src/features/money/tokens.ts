@@ -39,6 +39,16 @@ export const INVEST_KIND_META: Record<'stock' | 'fund' | 'coin', { label: string
   coin: { label: '코인', unit: '개', color: '#E8A84C' },
 };
 
+// 자산 종류(그룹) 메타 — 자산 구성 도넛/그룹 합계의 라벨·식별색(의미론적 상수). 표시 순서대로.
+export const ASSET_GROUP_ORDER = ['bank', 'deposit', 'savings', 'investment', 'cash'] as const;
+export const ASSET_GROUP_META: Record<(typeof ASSET_GROUP_ORDER)[number], { label: string; color: string }> = {
+  bank:       { label: '입출금', color: MONEY_PALETTE.green },   // 급여·생활비 통장
+  deposit:    { label: '예금',   color: MONEY_PALETTE.gold },
+  savings:    { label: '적금',   color: '#E8A84C' },
+  investment: { label: '투자',   color: '#5B9BD5' },
+  cash:       { label: '현금',   color: MONEY_PALETTE.mute },
+};
+
 // 카테고리 색 해석 우선순위: 명시 color > 이름 매핑 > 기본
 export function resolveCategoryColor(cat?: { name?: string | null; color?: string | null } | null): string {
   if (cat?.color) return cat.color;
