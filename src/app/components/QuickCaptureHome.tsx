@@ -10,6 +10,7 @@ import {
 import { useTheme } from '../ThemeContext';
 import { usePlanner, type SelfCareRecord } from '../store';
 import { promotedIdAt } from '../../lib/quickCapturePromote';
+import { db } from '../../lib/db';
 
 /* ============================================================
  *  CAPTURE_REGISTRY  ── 런처 모델 (Stage 0 확정 13개 타일)
@@ -168,12 +169,22 @@ export function QuickCaptureHome() {
   // 기상: 24h 내 미해결 레코드를 찾아 sleepEnd+duration 채우고 date=기상일로 정규화.
   //   짝 취침이 없으면(또는 24h 초과) 기상 시각만 든 레코드를 새로 만든다 — 누른 시각이
   //   통째로 버려지지 않게(취침 시각은 수면 페이지에서 나중에 채워 완성 가능).
-  const handleWakeUp = () => {
+  const handleWakeUp = async () => {
     if (!guard()) return;
     try {
       const ts = new Date();
       const hhmm = format(ts, 'HH:mm');
-      const pending = findUnresolvedSleep(selfCareRecords, ts);
+      // 1) 메모리 상태에서 미해결 취침 찾기
+      let pending = findUnresolvedSleep(selfCareRecords, ts);
+      // 2) 없으면 DB에서 최신 상태로 재확인 — 방금 누른 취침이 낙관적 업데이트/realtime
+      //    배열 교체 타이밍으로 상태에 아직 없거나, 다른 기기에서 취침을 눌렀을 때를 방어.
+      //    (db.upsert 는 상태와 무관하게 항상 저장되므로 취침은 DB 에 반드시 존재)
+      if (!pending) {
+        try {
+          const fresh = await db.selfCareRecords.fetchAll();
+          pending = findUnresolvedSleep(fresh, ts);
+        } catch { /* DB 조회 실패 시 아래 wake-only 폴백 */ }
+      }
       if (!pending) {
         addSelfCareRecord({
           date: format(ts, 'yyyy-MM-dd'),
@@ -187,12 +198,20 @@ export function QuickCaptureHome() {
         return;
       }
       const durationMin = Math.max(0, Math.round((ts.getTime() - sleepStartMs(pending)) / 60000));
-      updateSelfCareRecord(pending.id, {
+      const changes = {
         sleepEnd: hhmm,
         duration: durationMin,
         content: `${pending.sleepStart} ~ ${hhmm}`,
         date: format(ts, 'yyyy-MM-dd'), // 기상일로 정규화
-      });
+      };
+      // 취침이 메모리 상태에 있으면 store 경유(상태+DB 동시 갱신).
+      // DB 재조회로만 찾은 경우 store 의 update 는 상태에 없는 id 라 DB 저장이 누락되므로
+      // 병합 레코드를 DB 에 직접 upsert 한다(realtime 으로 상태 동기화됨).
+      if (selfCareRecords.some(r => r.id === pending!.id)) {
+        updateSelfCareRecord(pending.id, changes);
+      } else {
+        await db.selfCareRecords.upsert({ ...pending, ...changes });
+      }
       showToast(`기상 기록됨 · ${hhmm} (${fmtDuration(durationMin)})`);
     } catch (e) {
       console.error('[QuickCaptureHome] wake_up failed', e);
