@@ -7,7 +7,7 @@ import {
 } from 'lucide-react';
 import { format, addDays, subDays, addMonths, subMonths, startOfMonth, getDaysInMonth, getDay as getDayOfWeek, parseISO, addMinutes } from 'date-fns';
 import { ko } from 'date-fns/locale';
-import { usePlanner, Todo, getLogicalToday } from '../store';
+import { usePlanner, Todo, Event, getLogicalToday } from '../store';
 import { useTheme } from '../ThemeContext';
 import { useNotification } from '../hooks/useNotification';
 import { TimePicker } from './TimePicker';
@@ -542,7 +542,7 @@ function DailyDatePickerModal({ selectedDate, onClose, onConfirm }: {
 // ─── Main Daily View ───
 export function DailyView() {
   const {
-    selectedDate, setSelectedDate, todos, events, updateTodo, addTodo, toggleEventCompleted, deleteRecurringTodo, habits,
+    selectedDate, setSelectedDate, todos, events, updateTodo, addTodo, toggleEventCompleted, deleteEvent, deleteRecurringTodo, habits,
     activeTimer, startTimer, stopTimer, tags, projects, weeklyGoals, milestones,
     dayStartHour: tlStartHour, dayEndHour: tlEndHour, setDayHours,
   } = usePlanner();
@@ -562,6 +562,8 @@ export function DailyView() {
     onAddEvent: () => setShowAddEventModal(true),
   });
   const [editingTodo, setEditingTodo] = useState<Todo | null>(null);
+  const [editingEvent, setEditingEvent] = useState<Event | null>(null);
+  const [deletingEvent, setDeletingEvent] = useState<Event | null>(null);
   const [focusingTodo, setFocusingTodo] = useState<Todo | null>(null);
   const [snoozingTodo, setSnoozingTodo] = useState<Todo | null>(null);
   const [contextMenu, setContextMenu] = useState<{ todo: Todo; pos: { x: number; y: number }; source?: 'do' | 'plan' } | null>(null);
@@ -602,6 +604,13 @@ export function DailyView() {
     const handler = (e: any) => setSnoozingTodo(e.detail);
     window.addEventListener('snoozeTodo', handler);
     return () => window.removeEventListener('snoozeTodo', handler);
+  }, []);
+
+  // Listen for editEvent events from timeline (일정 블록 탭/우클릭 → 편집)
+  useEffect(() => {
+    const handler = (e: any) => setEditingEvent(e.detail);
+    window.addEventListener('editEvent', handler);
+    return () => window.removeEventListener('editEvent', handler);
   }, []);
 
   const dateTodos = expandRecurringTodos(todos, selectedDate, selectedDate)
@@ -1032,7 +1041,7 @@ export function DailyView() {
                     const isPast = !isDone && isEventPast(evt);
                     const accentColor = evt.color || t.info;
                     return (
-                      <div key={evt.id} className="flex items-center gap-2.5 py-1.5"
+                      <div key={evt.id} className="group flex items-center gap-2.5 py-1.5"
                         style={{ opacity: isDone ? 0.55 : (isPast ? 0.75 : 1) }}>
                         <button
                           onClick={() => toggleEventCompleted(evt.id, !isDone)}
@@ -1042,12 +1051,32 @@ export function DailyView() {
                         >
                           {isDone && <Check size={11} color="#fff" strokeWidth={3} />}
                         </button>
-                        <div className="min-w-0">
+                        <div className="min-w-0 flex-1 cursor-pointer" onClick={() => setEditingEvent(evt)}>
                           <span style={{ fontSize: 13, color: isDone ? t.textMuted : t.text, textDecoration: isDone ? 'line-through' : 'none' }}>{evt.title}</span>
                           <div className="flex items-center gap-2 mt-0.5">
                             {evt.startTime && <span style={{ fontSize: 10, color: t.textMuted }}>{evt.startTime}{evt.endTime ? ` - ${evt.endTime}` : ''}</span>}
                             {evt.location && <span style={{ fontSize: 10, color: t.textMuted }}>📍 {evt.location}</span>}
                           </div>
+                        </div>
+                        <div className="flex items-center gap-1 flex-shrink-0">
+                          <button
+                            onClick={() => setEditingEvent(evt)}
+                            aria-label="일정 편집"
+                            title="편집"
+                            className="p-1.5 rounded-lg transition-colors"
+                            style={{ color: t.textMuted, backgroundColor: t.bgSub }}
+                          >
+                            <Edit3 size={13} />
+                          </button>
+                          <button
+                            onClick={() => setDeletingEvent(evt)}
+                            aria-label="일정 삭제"
+                            title="삭제"
+                            className="p-1.5 rounded-lg transition-colors"
+                            style={{ color: t.danger, backgroundColor: t.bgSub }}
+                          >
+                            <Trash2 size={13} />
+                          </button>
                         </div>
                       </div>
                     );
@@ -1117,6 +1146,16 @@ export function DailyView() {
       {showAddModal && <TodoModal date={selectedDate} onClose={() => setShowAddModal(false)} />}
       {showAddEventModal && <EventModal date={selectedDate} onClose={() => setShowAddEventModal(false)} />}
       {editingTodo && <TodoModal date={selectedDate} todo={editingTodo} onClose={() => setEditingTodo(null)} />}
+      {editingEvent && <EventModal date={editingEvent.date ?? selectedDate} event={editingEvent} onClose={() => setEditingEvent(null)} />}
+      {deletingEvent && (
+        <ConfirmModal
+          message={`"${deletingEvent.title}" 일정을 삭제할까요?`}
+          confirmText="삭제"
+          confirmDanger
+          onConfirm={() => { deleteEvent(deletingEvent.id); setDeletingEvent(null); }}
+          onCancel={() => setDeletingEvent(null)}
+        />
+      )}
       {snoozingTodo && <SnoozeModal todo={snoozingTodo} onClose={() => setSnoozingTodo(null)} />}
       {contextMenu && (() => {
         const MENU_W = 160;

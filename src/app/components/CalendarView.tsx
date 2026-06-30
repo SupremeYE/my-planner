@@ -317,7 +317,8 @@ export function CalendarView() {
   });
 
   const [selectedTagIds, setSelectedTagIds] = useState<string[]>([]);
-  const [panelDate, setPanelDate] = useState<string | null>(null);
+  // 진입 시 현재 선택 날짜의 상세를 바로 표시 (탭하지 않아도 그 날짜의 할일/일정이 보이도록)
+  const [panelDate, setPanelDate] = useState<string | null>(selectedDate);
   const [isCalendarExpanded, setIsCalendarExpanded] = useState(true);
   // 하단 상세 패널 — 일간 페이지와 동일한 직접 관리(수정/삭제/미루기)용 상태
   const [editingTodo, setEditingTodo] = useState<Todo | null>(null);
@@ -341,6 +342,13 @@ export function CalendarView() {
     const handler = (e: any) => setEditingTodo(e.detail);
     window.addEventListener('editTodo', handler);
     return () => window.removeEventListener('editTodo', handler);
+  }, []);
+
+  // 타임라인 일정 블록 탭/우클릭 → 일정 편집 모달 (Timeline 이 dispatch 하는 editEvent 수신)
+  useEffect(() => {
+    const handler = (e: any) => setEditingEvent(e.detail);
+    window.addEventListener('editEvent', handler);
+    return () => window.removeEventListener('editEvent', handler);
   }, []);
 
   // 주간(days=7) Timeline 용 per-day 데이터 (반복 전개 후 backlog/cancelled 제외)

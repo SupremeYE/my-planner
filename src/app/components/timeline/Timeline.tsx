@@ -47,7 +47,7 @@ const WEEK_TIME_COL = 44;
 export function Timeline({ days = 1, selectedDate, dateTodos, dateEvents, onShowContextMenu, className, weekDays, onSelectDate, onToday }: TimelineProps) {
   const isWeek = days > 1 && !!weekDays;
   const {
-    todos, updateTodo, tags,
+    todos, updateTodo, updateEvent, tags,
     activeTimer,
     selfCareRecords, updateSelfCareRecord,
     dayStartHour: tlStartHour, dayEndHour: tlEndHour,
@@ -280,6 +280,144 @@ export function Timeline({ days = 1, selectedDate, dateTodos, dateEvents, onShow
     try { el.setPointerCapture(d.pointerId); } catch { /* noop */ }
     el.style.touchAction = 'none';
     setDragState({ todoId: todo.id, type, mode: 'resize', startY: e.clientY, origStartMin, origEndMin });
+  };
+
+  // ── 일정(Event) 블록 이동/리사이즈 — 할일 블록과 동일한 Pointer Events 패턴 ──
+  // 일정도 타임라인에서 드래그로 시간 이동/리사이즈하고, 짧은 탭은 편집(EventModal) 으로 위임한다.
+  // (할일은 plan/do 두 레인이라 BlockDrag 를 공유하기 어려워 일정 전용 핸들러로 분리)
+  type EventDrag = {
+    pointerId: number;
+    el: HTMLElement;
+    event: Event;
+    mode: 'move' | 'resize';
+    pointerType: string;
+    startX: number;
+    startY: number;
+    origStartMin: number;
+    origEndMin: number;
+    activated: boolean;
+    moved: boolean;
+    longPressTimer: ReturnType<typeof setTimeout> | null;
+    preview: { startMin: number; endMin: number } | null;
+  };
+  const eventDragRef = useRef<EventDrag | null>(null);
+  const [eventDragState, setEventDragState] = useState<{ eventId: string } | null>(null);
+  const [eventDragPreview, setEventDragPreview] = useState<{ startMin: number; endMin: number } | null>(null);
+
+  const activateEventDrag = (d: EventDrag) => {
+    d.activated = true;
+    d.el.style.touchAction = 'none';
+    if (d.pointerType !== 'mouse') {
+      d.el.style.transform = 'scale(1.03)';
+      d.el.style.boxShadow = '0 6px 16px rgba(0,0,0,0.18)';
+      if (navigator.vibrate) { try { navigator.vibrate(10); } catch { /* noop */ } }
+    }
+    setEventDragState({ eventId: d.event.id });
+  };
+
+  const clearEventDrag = (d: EventDrag) => {
+    if (d.longPressTimer) { clearTimeout(d.longPressTimer); d.longPressTimer = null; }
+    try { d.el.releasePointerCapture(d.pointerId); } catch { /* noop */ }
+    d.el.style.touchAction = '';
+    d.el.style.transform = '';
+    d.el.style.boxShadow = '';
+    if (eventDragRef.current === d) eventDragRef.current = null;
+    setEventDragState(null);
+    setEventDragPreview(null);
+  };
+
+  const handleEventPointerMove = (e: React.PointerEvent) => {
+    const d = eventDragRef.current;
+    if (!d || e.pointerId !== d.pointerId) return;
+    if (!d.activated) {
+      const dx = e.clientX - d.startX;
+      const dy = e.clientY - d.startY;
+      if (d.pointerType === 'mouse') {
+        if (Math.abs(dx) > 5 || Math.abs(dy) > 5) activateEventDrag(d);
+        else return;
+      } else {
+        if (Math.abs(dx) > 8 || Math.abs(dy) > 8) clearEventDrag(d);
+        return;
+      }
+    }
+    const dy = e.clientY - d.startY;
+    const dMin = Math.round(dy / PX_PER_MIN / BLOCK_SNAP_MIN) * BLOCK_SNAP_MIN;
+    let preview: { startMin: number; endMin: number };
+    if (d.mode === 'move') {
+      const duration = d.origEndMin - d.origStartMin;
+      const newStart = Math.max(tlStartHour * 60, d.origStartMin + dMin);
+      const newEnd = Math.min(tlEndHour * 60, newStart + duration);
+      preview = { startMin: newEnd - duration, endMin: newEnd };
+    } else {
+      const newEnd = Math.max(d.origStartMin + BLOCK_SNAP_MIN, Math.min(tlEndHour * 60, d.origEndMin + dMin));
+      preview = { startMin: d.origStartMin, endMin: newEnd };
+    }
+    d.preview = preview;
+    d.moved = true;
+    setEventDragPreview(preview);
+  };
+
+  const handleEventPointerUp = (e: React.PointerEvent) => {
+    const d = eventDragRef.current;
+    if (!d || e.pointerId !== d.pointerId) return;
+    if (d.activated && d.moved && d.preview) {
+      updateEvent(d.event.id, {
+        startTime: minutesToTime(d.preview.startMin),
+        endTime: minutesToTime(d.preview.endMin),
+      });
+    } else if (!d.activated) {
+      window.dispatchEvent(new CustomEvent('editEvent', { detail: d.event }));
+    }
+    clearEventDrag(d);
+  };
+
+  const handleEventPointerCancel = (e: React.PointerEvent) => {
+    const d = eventDragRef.current;
+    if (!d || e.pointerId !== d.pointerId) return;
+    clearEventDrag(d);
+  };
+
+  const handleEventPointerDown = (
+    e: React.PointerEvent, evt: Event, origStartMin: number, origEndMin: number,
+  ) => {
+    if (e.button === 2) return; // 우클릭은 onContextMenu 가 처리
+    const el = e.currentTarget as HTMLElement;
+    const d: EventDrag = {
+      pointerId: e.pointerId, el, event: evt, mode: 'move',
+      pointerType: e.pointerType, startX: e.clientX, startY: e.clientY,
+      origStartMin, origEndMin, activated: false, moved: false,
+      longPressTimer: null, preview: null,
+    };
+    eventDragRef.current = d;
+    if (e.pointerType === 'mouse') {
+      try { el.setPointerCapture(d.pointerId); } catch { /* noop */ }
+    } else {
+      d.longPressTimer = setTimeout(() => {
+        d.longPressTimer = null;
+        if (eventDragRef.current !== d) return;
+        try { el.setPointerCapture(d.pointerId); } catch { /* noop */ }
+        activateEventDrag(d);
+      }, 250);
+    }
+  };
+
+  const handleEventResizePointerDown = (
+    e: React.PointerEvent, evt: Event, origStartMin: number, origEndMin: number,
+  ) => {
+    if (e.button === 2) return;
+    e.stopPropagation();
+    e.preventDefault();
+    const el = e.currentTarget as HTMLElement;
+    const d: EventDrag = {
+      pointerId: e.pointerId, el, event: evt, mode: 'resize',
+      pointerType: e.pointerType, startX: e.clientX, startY: e.clientY,
+      origStartMin, origEndMin, activated: true, moved: false,
+      longPressTimer: null, preview: null,
+    };
+    eventDragRef.current = d;
+    try { el.setPointerCapture(d.pointerId); } catch { /* noop */ }
+    el.style.touchAction = 'none';
+    setEventDragState({ eventId: evt.id });
   };
 
   // Sleep block drag (mouse)
@@ -556,7 +694,9 @@ export function Timeline({ days = 1, selectedDate, dateTodos, dateEvents, onShow
   useEffect(() => {
     const onTouchMoveNative = (e: TouchEvent) => {
       const d = pointerDragRef.current;
-      if (d && d.activated && d.pointerType !== 'mouse') e.preventDefault();
+      const ed = eventDragRef.current;
+      if ((d && d.activated && d.pointerType !== 'mouse') ||
+          (ed && ed.activated && ed.pointerType !== 'mouse')) e.preventDefault();
     };
     document.addEventListener('touchmove', onTouchMoveNative, { passive: false });
     return () => document.removeEventListener('touchmove', onTouchMoveNative);
@@ -911,30 +1051,69 @@ export function Timeline({ days = 1, selectedDate, dateTodos, dateEvents, onShow
     );
   };
 
-  // Event block (일정) — 타임라인 왼쪽 컬럼에 파란색으로 렌더링
+  // Event block (일정) — 타임라인 왼쪽(PLAN) 컬럼에 렌더링.
+  // 할일 블록처럼 드래그=시간 이동/리사이즈, 짧은 탭/우클릭=편집(EventModal) 로 동작한다.
   const renderEventBlock = (evt: Event) => {
     if (!evt.startTime || !evt.endTime) return null;
     const laneBounds = getTimelineLaneBounds('plan');
     if (!laneBounds) return null;
-    const startMin = timeToMinutes(evt.startTime);
-    const endMin = timeToMinutes(evt.endTime);
+    let startMin = timeToMinutes(evt.startTime);
+    let endMin = timeToMinutes(evt.endTime);
+    const isDragging = eventDragState?.eventId === evt.id;
+    if (isDragging && eventDragPreview) {
+      startMin = eventDragPreview.startMin;
+      endMin = eventDragPreview.endMin;
+    }
     const top = (startMin / 60 - tlStartHour) * HOUR_HEIGHT;
     const height = Math.max((endMin - startMin) * PX_PER_MIN, 20);
     const eventColor = evt.color || '#7B9ED9';
     const isDone = !!evt.completed;
     const isPast = !isDone && isEventPast(evt);
+    const timeLabel = isDragging && eventDragPreview
+      ? `${minutesToTime(startMin)} - ${minutesToTime(endMin)}`
+      : `${evt.startTime} - ${evt.endTime}`;
 
     return (
       <div key={`ev-${evt.id}`}
-        className="absolute rounded-lg px-2.5 py-1.5 overflow-hidden timeline-block"
+        className="absolute rounded-lg px-2.5 py-1.5 overflow-hidden group timeline-block"
         style={{
           top, height,
           left: laneBounds.left, right: laneBounds.right,
           backgroundColor: `${eventColor}24`,
           border: `1.5px solid ${eventColor}`,
-          zIndex: 3,
-          opacity: isDone ? 0.5 : (isPast ? 0.7 : 1),
-        }}>
+          zIndex: isDragging ? 30 : 3,
+          opacity: isDragging ? 0.85 : (isDone ? 0.5 : (isPast ? 0.7 : 1)),
+          cursor: isDragging ? 'grabbing' : 'grab',
+          userSelect: 'none',
+          transition: isDragging ? 'none' : 'opacity 0.15s',
+          boxShadow: `0 2px 8px ${eventColor}14, 0 1px 2px rgba(0,0,0,0.04)`,
+        }}
+        onPointerDown={(e) => handleEventPointerDown(e, evt, timeToMinutes(evt.startTime!), timeToMinutes(evt.endTime!))}
+        onPointerMove={handleEventPointerMove}
+        onPointerUp={handleEventPointerUp}
+        onPointerCancel={handleEventPointerCancel}
+        onContextMenu={(e) => {
+          e.preventDefault();
+          window.dispatchEvent(new CustomEvent('editEvent', { detail: evt }));
+        }}
+        title={`${evt.title}\n${timeLabel}`}
+      >
+        {/* 모바일 편집 버튼 — 본체 롱프레스는 '이동'이라 탭 편집 접근용 */}
+        <button
+          type="button"
+          aria-label="일정 편집"
+          className="absolute lg:hidden flex items-center justify-center"
+          style={{
+            top: 1, right: 1, width: 22, height: 22, borderRadius: 6,
+            color: eventColor, opacity: 0.6, zIndex: 6, lineHeight: 1,
+            fontSize: 15, fontWeight: 700, background: 'transparent', touchAction: 'none',
+          }}
+          onPointerDown={(e) => e.stopPropagation()}
+          onClick={(e) => {
+            e.stopPropagation();
+            window.dispatchEvent(new CustomEvent('editEvent', { detail: evt }));
+          }}
+        >⋯</button>
         <div style={{
           fontSize: 11, fontWeight: 600, color: eventColor,
           overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
@@ -943,11 +1122,33 @@ export function Timeline({ days = 1, selectedDate, dateTodos, dateEvents, onShow
           📅 {evt.title}
         </div>
         {height > 30 && (
-          <div style={{ fontSize: 9, color: eventColor, opacity: 0.8, marginTop: 1 }}>
-            {evt.startTime} - {evt.endTime}
+          <div style={{ fontSize: 9, color: eventColor, opacity: 0.8, marginTop: 1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+            {timeLabel}
             {evt.location && ` · ${evt.location}`}
           </div>
         )}
+        {/* PC 리사이즈 손잡이 (hover 노출) */}
+        <div
+          className="absolute left-0 right-0 bottom-0 hidden lg:flex justify-center items-center opacity-0 group-hover:opacity-100 transition-opacity"
+          style={{ height: 8, cursor: 'ns-resize', touchAction: 'none', backgroundColor: isDragging ? 'transparent' : `${eventColor}22` }}
+          onPointerDown={(e) => handleEventResizePointerDown(e, evt, timeToMinutes(evt.startTime!), timeToMinutes(evt.endTime!))}
+          onPointerMove={handleEventPointerMove}
+          onPointerUp={handleEventPointerUp}
+          onPointerCancel={handleEventPointerCancel}
+        >
+          <div style={{ width: 20, height: 2, borderRadius: 1, backgroundColor: eventColor }} />
+        </div>
+        {/* 모바일 리사이즈 손잡이 */}
+        <div
+          className="absolute left-0 right-0 bottom-0 lg:hidden flex justify-center items-end"
+          style={{ height: 22, touchAction: 'none', paddingBottom: 3, cursor: 'ns-resize' }}
+          onPointerDown={(e) => handleEventResizePointerDown(e, evt, timeToMinutes(evt.startTime!), timeToMinutes(evt.endTime!))}
+          onPointerMove={handleEventPointerMove}
+          onPointerUp={handleEventPointerUp}
+          onPointerCancel={handleEventPointerCancel}
+        >
+          <div style={{ width: 24, height: 3, borderRadius: 2, backgroundColor: `${eventColor}99` }} />
+        </div>
       </div>
     );
   };
