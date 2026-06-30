@@ -412,6 +412,10 @@ function RecordChips({ date }: { date: string }) {
     key: 'places', icon: '📍', name: '간 곳', to: '/places',
     value: `${s.places.firstName ?? '방문'}${s.places.count > 1 ? ` 외 ${s.places.count - 1}` : ''}`,
   });
+  if (s.memo) conditional.push({
+    key: 'memo', icon: '📝', name: '메모', to: '/memos',
+    value: `${s.memo.firstContent ? s.memo.firstContent.slice(0, 12) : '메모'}${s.memo.count > 1 ? ` 외 ${s.memo.count - 1}` : ''}`,
+  });
 
   const renderChip = (c: RecordChip) => {
     const empty = c.value === null;

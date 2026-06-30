@@ -4,7 +4,7 @@ import { createEvent as createEventApi, deleteEvent as deleteEventApi, getEvents
 import type {
   Todo, Habit, Project, Milestone,
   SelfCareRecord, ReviewRecord, WeeklyReview, MonthlyReview, HappyMoment, TimelineLog,
-  FoodRecord, DiningType, TasteRating, Event, WeeklyGoal, MonthlyGoal, BrainstormItem, Tag, Routine,
+  FoodRecord, DiningType, TasteRating, Event, WeeklyGoal, MonthlyGoal, BrainstormItem, Memo, Tag, Routine,
   PeriodRecord, HabitMonthlyMemo, AnnualGoal, QuarterlyGoal,
   WeightRecord, WeightGoal, ConditionRecord, UserSymptom, CultureRecord, MusicRecord,
   Recipe, RecipeIngredient, RecipeStep, RecipeCookLog,
@@ -1292,6 +1292,57 @@ export const db = {
     upsert: async (date: string, text: string) => {
       const { error } = await supabase.from('brainstorm_memos').upsert({ date, text });
       if (error) console.error('[db] brainstorm_memos upsert:', error.message);
+    },
+  },
+
+  // ── 메모(memos) — 일간 리디자인 Stage 5. user_id 는 DB DEFAULT auth.uid() 로 자동. ──
+  memos: {
+    fetchAll: async (): Promise<Memo[]> => {
+      const { data, error } = await supabase
+        .from('memos').select('*').order('created_at', { ascending: false });
+      if (error) console.error('[db] memos fetch:', error.message);
+      return (data ?? []).map((r: any): Memo => ({
+        id: r.id,
+        content: r.content ?? '',
+        date: r.date ?? null,
+        tags: r.tags ?? [],
+        confirmed: !!r.confirmed,
+        createdAt: r.created_at ?? undefined,
+        updatedAt: r.updated_at ?? undefined,
+      }));
+    },
+    upsert: async (memo: Memo) => {
+      const { error } = await supabase.from('memos').upsert({
+        id: memo.id,
+        content: memo.content,
+        date: memo.date ?? null,
+        tags: memo.tags ?? [],
+        confirmed: memo.confirmed,
+        updated_at: new Date().toISOString(),
+      }, { onConflict: 'id' });
+      if (error) console.error('[db] memos upsert:', error.message);
+    },
+    setConfirmed: async (id: string, confirmed: boolean) => {
+      const { error } = await supabase.from('memos')
+        .update({ confirmed, updated_at: new Date().toISOString() }).eq('id', id);
+      if (error) console.error('[db] memos setConfirmed:', error.message);
+    },
+    delete: async (id: string) => {
+      const { error } = await supabase.from('memos').delete().eq('id', id);
+      if (error) console.error('[db] memos delete:', error.message);
+    },
+    // 일간 칩 집약 — 그날 메모 요약. 없으면 null.
+    summaryForDate: async (date: string): Promise<{ count: number; firstContent: string | null; confirmedCount: number } | null> => {
+      const { data, error } = await supabase
+        .from('memos').select('content, confirmed')
+        .eq('date', date).order('created_at', { ascending: true });
+      if (error) { console.error('[db] memos summaryForDate:', error.message); return null; }
+      if (!data || data.length === 0) return null;
+      return {
+        count: data.length,
+        firstContent: data[0].content ?? null,
+        confirmedCount: data.filter((r: any) => r.confirmed).length,
+      };
     },
   },
 

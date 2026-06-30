@@ -6,7 +6,7 @@ import {
   Menu, Heart, Repeat, BookOpen, Library, Settings, BarChart3,
   Smile, Utensils, Camera, Clapperboard, ChefHat,
   Sparkles, Bookmark, PenLine, MapPin, Footprints,
-  Flower2, SprayCan, Wallet,
+  Flower2, SprayCan, Wallet, StickyNote,
   User, LogOut, Mail,
 } from 'lucide-react';
 import { usePlanner, getWeekKey, getLogicalToday } from '../store';
@@ -170,6 +170,7 @@ const lifestyleNavItems = [
   { to: '/housekeeping', icon: SprayCan, label: '살림' },
   { to: '/vision', icon: Sparkles, label: '비전보드' },
   { to: '/scraps', icon: Bookmark, label: '스크랩' },
+  { to: '/memos', icon: StickyNote, label: '메모' },
   { to: '/diary', icon: PenLine, label: '일기' },
 ];
 
@@ -433,6 +434,7 @@ function MobileMenuOverlay({ onClose }: { onClose: () => void }) {
     { to: '/housekeeping', icon: SprayCan, label: '살림' },
     { to: '/vision', icon: Sparkles, label: '비전보드' },
     { to: '/scraps', icon: Bookmark, label: '스크랩' },
+    { to: '/memos', icon: StickyNote, label: '메모' },
     { to: '/diary', icon: PenLine, label: '일기' },
   ];
 

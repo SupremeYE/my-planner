@@ -571,6 +571,18 @@ export interface BrainstormItem {
   weekKey?: string;
 }
 
+// 메모(memos) — 일간 리디자인 Stage 5. 독립 페이지/테이블(brainstorm 과 별개).
+// db.memos.* + useMemos 훅으로 다루며 전역 store 상태에는 두지 않는다.
+export interface Memo {
+  id: string;
+  content: string;
+  date: string | null;   // 귀속 논리 날짜(일간 "오늘 메모" 칩 집약 키)
+  tags: string[];         // Tag.id 배열
+  confirmed: boolean;     // "확인" 처리 여부
+  createdAt?: string;
+  updatedAt?: string;
+}
+
 export type TimerMode = 'pomodoro' | 'stopwatch';
 
 export interface ActiveTimer {

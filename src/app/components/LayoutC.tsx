@@ -4,7 +4,7 @@ import {
   Sun, CalendarDays, BarChart2, FolderKanban, ListTodo,
   ChevronLeft, ChevronRight, Calendar, Plus, Target, CheckCircle2,
   ChevronDown, X, Home, Menu, Settings, Clapperboard, ChefHat, Sparkles, Bookmark, MapPin, Footprints,
-  Flower2, SprayCan, Wallet,
+  Flower2, SprayCan, Wallet, StickyNote,
 } from 'lucide-react';
 import { usePlanner, getWeekKey, getLogicalToday } from '../store';
 import { countInboxActive } from '../../lib/inbox';
@@ -32,6 +32,7 @@ const NAV_ITEMS = [
   { to: '/housekeeping', icon: SprayCan,  label: '살림' },
   { to: '/vision',    icon: Sparkles,     label: '비전보드' },
   { to: '/scraps',    icon: Bookmark,     label: '스크랩' },
+  { to: '/memos',     icon: StickyNote,   label: '메모' },
   { to: '/projects',  icon: FolderKanban, label: '프로젝트' },
 ];
 
