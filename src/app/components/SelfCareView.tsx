@@ -383,7 +383,7 @@ function TimeEditInput({ value, onChange, onDone }: {
 }
 
 export function SleepSection() {
-  const { selfCareRecords, addSelfCareRecord, deleteSelfCareRecord, appSettings } = usePlanner();
+  const { selfCareRecords, addSelfCareRecord, updateSelfCareRecord, deleteSelfCareRecord, appSettings } = usePlanner();
   const { t } = useTheme();
   const sleepGoalMin = appSettings.sleepGoalMinutes ?? SLEEP_GOAL_DEFAULT_MIN;
   const sleepGoalHours = sleepGoalMin / 60;
@@ -391,6 +391,7 @@ export function SleepSection() {
   const [sleepStart, setSleepStart] = useState('');
   const [sleepEnd, setSleepEnd] = useState('');
   const [editingField, setEditingField] = useState<'start' | 'end' | null>(null);
+  const [editingId, setEditingId] = useState<string | null>(null); // 편집 중인 기록 id (null=새 기록)
   const [inputOpen, setInputOpen] = useState(false);
   const [weekOffset, setWeekOffset] = useState(0); // 0=이번주, -1=지난주 ...
 
@@ -437,8 +438,30 @@ export function SleepSection() {
     setSleepStart('');
     setSleepEnd('');
     setEditingField(null);
+    setEditingId(null);
     setDate(d);
     setInputOpen(true);
+  };
+
+  // 기존 기록을 입력 카드에 불러와 편집 — 미완성(취침만/기상만) 기록을 마저 채워 완성할 때도 사용
+  const openEdit = (r: SelfCareRecord) => {
+    setDate(r.date);
+    setSleepStart(r.sleepStart ?? '');
+    setSleepEnd(r.sleepEnd ?? '');
+    setEditingField(null);
+    setEditingId(r.id);
+    setInputOpen(true);
+  };
+
+  // 상단 [수면 기록하기] 버튼 → 최근(어제~오늘) 미완성 기록이 있으면 그걸 열어 마저 채우게 하고,
+  // 없으면 빈 새 기록으로 연다. (대시보드에서 취침만 눌러 둔 기록을 폼에서 바로 이어 기록)
+  const openInputForm = () => {
+    const yesterday = format(subDays(new Date(), 1), 'yyyy-MM-dd');
+    const pending = sleepRecords.find(
+      r => (!!r.sleepStart) !== (!!r.sleepEnd) && r.date >= yesterday,
+    );
+    if (pending) openEdit(pending);
+    else openRecordFor(getLogicalToday());
   };
 
   // 입력 카드가 열리면 화면에 보이도록 스크롤
@@ -454,17 +477,20 @@ export function SleepSection() {
 
   const handleAdd = () => {
     if (!sleepStart || !sleepEnd) return;
-    addSelfCareRecord({
+    const fields = {
       date,
-      category: 'sleep',
+      category: 'sleep' as const,
       content: `${sleepStart} ~ ${sleepEnd}`,
       duration: previewMin,
       sleepStart,
       sleepEnd,
-    });
+    };
+    if (editingId) updateSelfCareRecord(editingId, fields); // 기존 기록 수정(미완성 완성 포함)
+    else addSelfCareRecord(fields);
     setSleepStart('');
     setSleepEnd('');
     setEditingField(null);
+    setEditingId(null);
     setInputOpen(false);
     // 방금 기록한 날짜가 속한 주로 차트를 이동해 바로 확인 가능하게
     const recMonday = startOfWeek(parseISO(date), { weekStartsOn: 1 });
@@ -666,7 +692,7 @@ export function SleepSection() {
       {/* 입력 폼 토글 버튼 (기본 접힘) */}
       {!inputOpen && (
         <button
-          onClick={() => setInputOpen(true)}
+          onClick={openInputForm}
           className="w-full flex items-center justify-center gap-1.5 py-2.5 rounded-2xl mb-3 transition-colors"
           style={{ fontSize: 13, fontWeight: 700, color: '#fff', backgroundColor: SLEEP_COLOR }}
         >
@@ -679,9 +705,9 @@ export function SleepSection() {
       <div ref={formRef} className="p-3 lg:p-4 rounded-2xl mb-3" style={{ backgroundColor: t.card, border: `1px solid ${t.borderLight}` }}>
         {/* 입력 헤더 + 닫기 */}
         <div className="flex items-center justify-between mb-3">
-          <span style={{ fontSize: 12, fontWeight: 700, color: SLEEP_COLOR }}>수면 기록</span>
+          <span style={{ fontSize: 12, fontWeight: 700, color: SLEEP_COLOR }}>{editingId ? '수면 수정' : '수면 기록'}</span>
           <button
-            onClick={() => { setInputOpen(false); setEditingField(null); }}
+            onClick={() => { setInputOpen(false); setEditingField(null); setEditingId(null); }}
             className="p-1 rounded"
             style={{ color: t.textMuted, background: 'none', border: 'none', cursor: 'pointer' }}
             aria-label="닫기"
@@ -734,7 +760,7 @@ export function SleepSection() {
             cursor: sleepStart && sleepEnd ? 'pointer' : 'default',
           }}
         >
-          기록하기
+          {editingId ? '수정하기' : '기록하기'}
         </button>
       </div>
       )}
@@ -1239,21 +1265,35 @@ export function SleepSection() {
               )
             ) : (
               <div className="space-y-2">
-                {displayed.map(r => (
+                {displayed.map(r => {
+                  // 취침·기상 중 하나만 있는 미완성 기록 — 탭하면 폼에서 마저 채워 완성
+                  const incomplete = (!!r.sleepStart) !== (!!r.sleepEnd);
+                  return (
                   <div key={r.id} className="flex items-center gap-3 px-4 py-2.5 rounded-xl"
-                    style={{ backgroundColor: t.card, border: `1px solid ${t.borderLight}` }}>
+                    style={{ backgroundColor: t.card, border: `1px solid ${incomplete ? SLEEP_COLOR + '55' : t.borderLight}` }}>
                     <Moon size={12} color={SLEEP_COLOR} />
                     <span style={{ fontSize: 11, color: t.textMuted, width: 44, flexShrink: 0 }}>{r.date.slice(5)}</span>
-                    <span style={{ fontSize: 13, color: t.text, flex: 1 }}>{r.content}</span>
-                    <span style={{ fontSize: 11, color: SLEEP_COLOR, fontWeight: 600, flexShrink: 0 }}>
-                      {fmtSleep(r.duration)}
+                    <button onClick={() => openEdit(r)}
+                      className="flex items-center gap-2 flex-1 min-w-0 text-left"
+                      style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}>
+                      <span style={{ fontSize: 13, color: t.text, flex: 1, minWidth: 0 }}>{r.content}</span>
+                      {incomplete && (
+                        <span className="px-1.5 py-0.5 rounded-full flex-shrink-0"
+                          style={{ fontSize: 9.5, fontWeight: 700, color: SLEEP_COLOR, backgroundColor: SLEEP_COLOR + '1A' }}>
+                          {r.sleepStart ? '기상 입력' : '취침 입력'}
+                        </span>
+                      )}
+                    </button>
+                    <span style={{ fontSize: 11, color: incomplete ? t.textMuted : SLEEP_COLOR, fontWeight: 600, flexShrink: 0 }}>
+                      {incomplete ? '—' : fmtSleep(r.duration)}
                     </span>
                     <button onClick={() => deleteSelfCareRecord(r.id)}
                       className="p-1 rounded" style={{ color: t.textMuted, background: 'none', border: 'none', cursor: 'pointer' }}>
                       <X size={13} />
                     </button>
                   </div>
-                ))}
+                  );
+                })}
               </div>
             )}
 
