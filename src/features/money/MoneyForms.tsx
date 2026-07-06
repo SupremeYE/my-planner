@@ -137,14 +137,15 @@ function PaymentMethodField({ m, value, onChange }: { m: UseMoney; value: string
 }
 
 // ── 1) 거래 ──
-export function TransactionForm({ m, item, onClose }: { m: UseMoney; item: MoneyTransaction | null; onClose: () => void }) {
+export function TransactionForm({ m, item, presetDate, onClose }: { m: UseMoney; item: MoneyTransaction | null; presetDate?: string; onClose: () => void }) {
   const [type, setType] = useState<TxType>(item?.type ?? 'expense');
   const [amount, setAmount] = useState(item ? String(item.amount) : '');
   // categoryId 는 대분류(parentId) + 소분류(subId)로 분리 편집. 저장 시 subId가 있으면 소분류 id, 없으면 대분류 id.
   const initCat = m.categoryOf(item?.categoryId ?? null);
   const [parentId, setParentId] = useState(initCat ? (initCat.parentId ?? initCat.id) : '');
   const [subId, setSubId] = useState(initCat?.parentId ? initCat.id : '');
-  const [spentAt, setSpentAt] = useState(item?.spentAt ?? new Date().toISOString().slice(0, 10));
+  // 날짜 기본값: 편집=기존 날짜 / 신규=지정 날짜(캘린더 탭 등) / 그 외=오늘.
+  const [spentAt, setSpentAt] = useState(item?.spentAt ?? presetDate ?? new Date().toISOString().slice(0, 10));
   const [memo, setMemo] = useState(item?.memo ?? '');
   const [pm, setPm] = useState(item?.paymentMethod ?? '');
   const [emoji, setEmoji] = useState(item?.emoji ?? '');

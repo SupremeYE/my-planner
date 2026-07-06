@@ -2,7 +2,7 @@
 //  철학: "입력"보다 "확인". 빠르게 보고 다음 주 방향만 잡는 용도 — 입력 강제 없음(소감만 선택).
 //  · WeekBanner : 가계부 탭 상단 슬림 배너(이번 주 예산 진행) — 탭하면 시트.
 //  · WeekReviewSheet : 주차 선택 → ① 주간 예산 ② 소비 요약(전주 대비·무지출) ③ 다음 주 조정(메모 선택).
-//  · 주(week)는 급여일/기간 시작 기준 7일 분할(getMoneyWeeks) — 월초 계획과 동일 기준.
+//  · 주(week)는 달력 주(전역 '주 시작 요일') 경계로 분할(getMoneyWeeks) — 일간/캘린더와 동일 기준.
 //  · 색은 전부 tokens(MONEY_PALETTE) 경유, 배경/텍스트는 ThemeContext. PC 레이아웃 불변(공유 패널 내부 콘텐츠).
 import React, { useMemo, useState } from 'react';
 import { X } from 'lucide-react';
@@ -117,8 +117,8 @@ export function WeekReviewSheet({ m, onClose }: { m: UseMoney; onClose: () => vo
         {/* 헤더 */}
         <div className="flex justify-between items-start" style={{ marginBottom: 14 }}>
           <div>
-            <div style={{ fontSize: 18, fontWeight: 800, color: t.text }}>이번 주 돌아보기</div>
-            <div style={{ fontSize: 12, color: t.textMuted, marginTop: 2 }}>{m.period.label} · 빠르게 확인하고 다음 주 방향만 잡아요</div>
+            <div style={{ fontSize: 18, fontWeight: 800, color: t.text }}>{isCurrent ? '이번 주 돌아보기' : `${week.index}주차 돌아보기`}</div>
+            <div style={{ fontSize: 12, color: t.textMuted, marginTop: 2 }}>{m.period.label} · {format(week.startDate, 'M.d')}–{format(week.endDate, 'M.d')} · 빠르게 확인하고 다음 주 방향만 잡아요</div>
           </div>
           <button onClick={onClose} style={{ color: t.textMuted }}><X size={18} /></button>
         </div>

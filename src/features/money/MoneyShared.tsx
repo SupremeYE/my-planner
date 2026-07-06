@@ -1,7 +1,7 @@
 // 하온 머니 — 공용 프레젠테이션 조각(모바일/PC 공유). 레이아웃 셸만 Mobile/Desktop 에서 분기.
 import React, { useState } from 'react';
 import { format, parseISO, subDays, addDays, differenceInCalendarDays, differenceInCalendarMonths } from 'date-fns';
-import { Send, X, Plus, Tags, ChevronRight } from 'lucide-react';
+import { Send, X, Plus, Tags, ChevronRight, ChevronLeft } from 'lucide-react';
 import { useTheme } from '../../app/ThemeContext';
 import { MoneySheet } from './MoneySheet';
 import type { UseMoney } from './useMoney';
@@ -118,18 +118,39 @@ export function MoneyTabBar({ tab, setTab }: { tab: MoneyTab; setTab: (t: MoneyT
   );
 }
 
-// ── 기간 바 ──
+// ── 기간 바 (전월/다음달 이동 + 오늘 복귀) ──
 export function PeriodBar({ m }: { m: UseMoney }) {
   const { t } = useTheme();
   const s = parseISO(m.period.start), e = parseISO(m.period.end);
   const basis = m.settings.periodType === 'payday' ? '급여일 기준' : '월 기준';
+  const navBtn: React.CSSProperties = {
+    width: 30, height: 30, borderRadius: 9, display: 'flex', alignItems: 'center', justifyContent: 'center',
+    background: t.card, color: t.textSub, boxShadow: t.shadow, flexShrink: 0,
+  };
   return (
-    <div className="flex items-center justify-between px-1 py-1">
-      <span style={{ fontSize: 12, color: t.textSub, display: 'flex', alignItems: 'center', gap: 6 }}>
-        <span style={{ color: MONEY_PALETTE.gold }}>●</span>
-        {format(s, 'M/d')} – {format(e, 'M/d')} ({basis})
+    <div className="flex items-center justify-between px-1 py-1" style={{ gap: 8 }}>
+      {/* 좌: 기간 범위 + 기준 (좁으면 말줄임) */}
+      <span className="flex items-center min-w-0" style={{ fontSize: 12, color: t.textSub, gap: 5, overflow: 'hidden' }}>
+        <span style={{ color: MONEY_PALETTE.gold, flexShrink: 0 }}>●</span>
+        <span style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+          {format(s, 'M.d')} – {format(e, 'M.d')} <span style={{ color: t.textMuted }}>· {basis}</span>
+        </span>
       </span>
-      <span style={{ fontSize: 14, fontWeight: 700, color: t.text }}>{m.period.label}</span>
+      {/* 우: 오늘 복귀 + ‹ 연·월 › */}
+      <div className="flex items-center flex-shrink-0" style={{ gap: 5 }}>
+        {!m.isCurrentPeriod && (
+          <button onClick={() => m.setPeriodOffset(0)}
+            style={{ fontSize: 11, fontWeight: 600, color: MONEY_PALETTE.gold, padding: '4px 9px', borderRadius: 8, background: `${MONEY_PALETTE.gold}18`, whiteSpace: 'nowrap' }}>
+            오늘
+          </button>
+        )}
+        <button onClick={() => m.setPeriodOffset(m.periodOffset - 1)} style={navBtn} title="이전 기간"><ChevronLeft size={16} /></button>
+        <div className="text-center" style={{ minWidth: 58 }}>
+          <div style={{ fontSize: 14, fontWeight: 700, color: t.text, lineHeight: 1.15 }}>{m.period.label}</div>
+          <div style={{ fontSize: 9.5, color: t.textMuted, lineHeight: 1 }}>{format(s, 'yyyy')}</div>
+        </div>
+        <button onClick={() => m.setPeriodOffset(m.periodOffset + 1)} style={navBtn} title="다음 기간"><ChevronRight size={16} /></button>
+      </div>
     </div>
   );
 }
@@ -170,7 +191,9 @@ export function BudgetBar({ m }: { m: UseMoney }) {
       </div>
       <div className="flex justify-between items-center" style={{ marginTop: 6 }}>
         <span style={{ fontSize: 11, color: t.textMuted }}>
-          D-{m.daysLeft} · 하루 {m.dailyAllowance.toLocaleString('ko-KR')}원 사용 가능
+          {m.isCurrentPeriod
+            ? `D-${m.daysLeft} · 하루 ${m.dailyAllowance.toLocaleString('ko-KR')}원 사용 가능`
+            : '지난/다음 기간 보기'}
         </span>
         <span style={{ fontSize: 11, fontWeight: 600, color: over ? MONEY_PALETTE.coral : t.textSub }}>
           {over ? `${formatManShort(used - budget)} 초과` : `${formatManShort(budget - used)} 남음`}
@@ -181,22 +204,30 @@ export function BudgetBar({ m }: { m: UseMoney }) {
 }
 
 // ── 지출 캘린더(기간 단위 그리드 + 무지출/지출/수입 마킹 + 스트릭) ──
-export function SpendCalendar({ m }: { m: UseMoney }) {
+//  · 날짜 셀 탭 → 그 날짜로 거래 입력(onPickDate). 원하는 날짜에 자유롭게 기록.
+//  · 주 시작 요일은 전역 설정(m.weekStartsOn)을 따른다.
+export function SpendCalendar({ m, onPickDate }: { m: UseMoney; onPickDate?: (date: string) => void }) {
   const { t } = useTheme();
   const todayStr = format(new Date(), 'yyyy-MM-dd');
+  const ws = m.weekStartsOn; // 0=일, 1=월
 
   // 기간(start~end)을 날짜 배열로 펼친 뒤, 시작 요일만큼 앞에 빈칸을 채워 주별 그리드 정렬.
   const days: string[] = [];
   for (let d = new Date(m.period.startDate); d <= m.period.endDate; d = new Date(d.getFullYear(), d.getMonth(), d.getDate() + 1)) {
     days.push(format(d, 'yyyy-MM-dd'));
   }
-  const leadEmpty = m.period.startDate.getDay(); // 0(일)~6(토)
+  // 주 시작 요일 기준 앞 빈칸 수 + 요일 헤더 회전.
+  const leadEmpty = (m.period.startDate.getDay() - ws + 7) % 7;
+  const weekdayNames = Array.from({ length: 7 }, (_, i) => ['일', '월', '화', '수', '목', '금', '토'][(ws + i) % 7]);
   const cells: (string | null)[] = [...Array(leadEmpty).fill(null), ...days];
 
   return (
     <div style={{ background: t.card, borderRadius: 20, padding: 18, boxShadow: t.shadow }}>
       <div className="flex justify-between items-center" style={{ marginBottom: 14 }}>
-        <span style={{ fontSize: 14, fontWeight: 700, color: t.text }}>지출 캘린더</span>
+        <div className="flex flex-col" style={{ gap: 2 }}>
+          <span style={{ fontSize: 14, fontWeight: 700, color: t.text }}>지출 캘린더</span>
+          {onPickDate && <span style={{ fontSize: 10.5, color: t.textMuted }}>날짜를 탭하면 그날 지출을 기록해요</span>}
+        </div>
         {m.noSpendStreak > 0 ? (
           <span style={{ fontSize: 11, fontWeight: 600, padding: '3px 10px', borderRadius: 20, background: `${MONEY_PALETTE.green}20`, color: MONEY_PALETTE.green }}>
             {m.noSpendStreak}일 무지출 🔥
@@ -207,7 +238,7 @@ export function SpendCalendar({ m }: { m: UseMoney }) {
       </div>
 
       <div className="grid" style={{ gridTemplateColumns: 'repeat(7, 1fr)', gap: 4, marginBottom: 4 }}>
-        {['일', '월', '화', '수', '목', '금', '토'].map(w => (
+        {weekdayNames.map(w => (
           <div key={w} style={{ textAlign: 'center', fontSize: 10, color: t.textMuted, fontWeight: 500 }}>{w}</div>
         ))}
       </div>
@@ -225,9 +256,11 @@ export function SpendCalendar({ m }: { m: UseMoney }) {
           const isNoSpend = !hasExpense && !isFuture && !isToday && !beforeTracking;
           const dayNum = parseInt(date.slice(8, 10), 10);
           return (
-            <div key={i} className="relative flex flex-col items-center justify-center"
+            <button key={i} type="button"
+              onClick={onPickDate ? () => onPickDate(date) : undefined}
+              className={`relative flex flex-col items-center justify-center ${onPickDate ? 'active:scale-90 transition-transform' : ''}`}
               style={{
-                aspectRatio: '1', borderRadius: 12, gap: 1,
+                aspectRatio: '1', borderRadius: 12, gap: 1, cursor: onPickDate ? 'pointer' : 'default',
                 background: isToday ? MONEY_PALETTE.ink : isNoSpend ? '#F0EBE2' : 'transparent',
               }}>
               {hasIncome && (
@@ -242,7 +275,7 @@ export function SpendCalendar({ m }: { m: UseMoney }) {
                   -{formatManShort(agg!.expense)}
                 </span>
               )}
-            </div>
+            </button>
           );
         })}
       </div>
@@ -386,9 +419,10 @@ export function SpendTrendChart({ m }: { m: UseMoney }) {
   const buckets: { key: string; label: string; current: boolean }[] = [];
   let keyOf: (d: string) => string;
   if (gran === 'weekly') {
-    // 이번 주(일~토): 오늘이 속한 주의 일요일부터 7일. 캘린더(SpendCalendar)와 동일한 요일 기준.
+    // 이번 주: 오늘이 속한 달력 주의 시작 요일(전역 설정 m.weekStartsOn)부터 7일. 캘린더와 동일 기준.
+    const ws = m.weekStartsOn;
     const todayStr = format(now, 'yyyy-MM-dd');
-    const weekStart = subDays(now, now.getDay()); // getDay() 0=일
+    const weekStart = subDays(now, (now.getDay() - ws + 7) % 7);
     for (let i = 0; i < 7; i++) {
       const d = addDays(weekStart, i);
       const key = format(d, 'yyyy-MM-dd');
@@ -1106,17 +1140,19 @@ function PlanBanner({ m, onOpen }: { m: UseMoney; onOpen: () => void }) {
 //  · 모바일 분기는 절대 변경 금지 — PC 최적화는 desktop 분기에서만.
 export function BudgetPanel({ m, desktop = false }: { m: UseMoney; desktop?: boolean }) {
   const { t } = useTheme();
-  const [editTx, setEditTx] = useState<{ item: any } | null>(null);
+  const [editTx, setEditTx] = useState<{ item: any; date?: string } | null>(null);
   const [showPlan, setShowPlan] = useState(false);
   const [showWeek, setShowWeek] = useState(false);
   const [showMonth, setShowMonth] = useState(false);
+  // 캘린더 날짜 탭 → 그 날짜로 새 거래 입력.
+  const pickDate = (date: string) => setEditTx({ item: null, date });
 
   // 공통 "최근 거래" 블록 + 시트 오버레이(두 레이아웃 공유).
   const recentBlock = (
     <div>
       <div className="flex items-center justify-between" style={{ marginBottom: 10, marginLeft: 2 }}>
         <span style={{ fontSize: 15, fontWeight: 700, color: t.text }}>최근 거래</span>
-        <button onClick={() => setEditTx({ item: null })} className="flex items-center gap-1" style={{ fontSize: 12, color: MONEY_PALETTE.gold, fontWeight: 600 }}>
+        <button onClick={() => setEditTx({ item: null, date: m.isCurrentPeriod ? undefined : m.period.end })} className="flex items-center gap-1" style={{ fontSize: 12, color: MONEY_PALETTE.gold, fontWeight: 600 }}>
           <Plus size={13} /> 직접 추가
         </button>
       </div>
@@ -1125,7 +1161,7 @@ export function BudgetPanel({ m, desktop = false }: { m: UseMoney; desktop?: boo
   );
   const sheets = (
     <>
-      {editTx && <TransactionForm m={m} item={editTx.item} onClose={() => setEditTx(null)} />}
+      {editTx && <TransactionForm m={m} item={editTx.item} presetDate={editTx.date} onClose={() => setEditTx(null)} />}
       {showPlan && <MoneyPlanSheet m={m} onClose={() => setShowPlan(false)} />}
       {showWeek && <WeekReviewSheet m={m} onClose={() => setShowWeek(false)} />}
       {showMonth && <MonthReviewSheet m={m} onClose={() => setShowMonth(false)} />}
@@ -1141,7 +1177,7 @@ export function BudgetPanel({ m, desktop = false }: { m: UseMoney; desktop?: boo
         <div className="grid gap-4" style={{ gridTemplateColumns: '1.35fr 1fr', alignItems: 'start' }}>
           <div className="flex flex-col gap-3 min-w-0">
             <BudgetBar m={m} />
-            <SpendCalendar m={m} />
+            <SpendCalendar m={m} onPickDate={pickDate} />
             <SpendTrendChart m={m} />
           </div>
           <div className="flex flex-col gap-3 min-w-0">
@@ -1164,7 +1200,7 @@ export function BudgetPanel({ m, desktop = false }: { m: UseMoney; desktop?: boo
       <MonthBanner m={m} onOpen={() => setShowMonth(true)} />
       <SummaryStrip m={m} />
       <BudgetBar m={m} />
-      <SpendCalendar m={m} />
+      <SpendCalendar m={m} onPickDate={pickDate} />
       <SpendTrendChart m={m} />
       <CategoryBreakdown m={m} />
       {recentBlock}
