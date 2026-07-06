@@ -1,8 +1,9 @@
 // 하온 머니 — 공용 데이터 훅. 8개 테이블 로드/Realtime 구독 + 파생값 메모이즈 + 액션.
 // beauty/useBeauty 패턴 동일(UI 의존 0). 핵심: 채팅형 자연어 입력 → money-parse → 거래 기록.
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { format, subDays } from 'date-fns';
+import { format, subDays, addMonths } from 'date-fns';
 import { supabase } from '../../lib/supabase';
+import { usePlanner } from '../../app/store';
 import { useRealtimeSync } from '../../app/hooks/useRealtimeSync';
 import { moneyDb } from './db';
 import { getMoneyPeriod, daysLeftInPeriod, getMoneyWeeks, currentWeek as currentWeekOf, type MoneyPeriod, type MoneyWeek } from './period';
@@ -58,8 +59,13 @@ export interface UseMoney {
   reviews: MoneyReview[];
   settings: MoneySettings;
   period: MoneyPeriod;
+  // 기간 이동(전월/다음달 보기) — 0=이번 기간, -1=직전, +1=다음.
+  periodOffset: number;
+  setPeriodOffset: (n: number) => void;
+  isCurrentPeriod: boolean;                 // periodOffset === 0 (D-day/스트릭 등 '오늘' 기준 UI 노출 판단)
+  weekStartsOn: 0 | 1;                      // 전역 '주 시작 요일'(캘린더/주차 정렬 기준)
   // 주간 회고(Plan-Stage 2A)
-  weeks: MoneyWeek[];                       // 이번 기간을 7일 단위로 분할한 주차 목록
+  weeks: MoneyWeek[];                       // 이번 기간을 달력 주 단위로 분할한 주차 목록
   thisWeek: MoneyWeek | null;              // 오늘이 속한 주(기간 밖이면 null)
   weeklyLivingBudget: number;              // 주당 생활비 예산 = (계획 생활비 ?? 월예산) / 주 수
   weekSpending: (week: MoneyWeek) => number;   // 그 주의 지출 합(기간 거래 기준)
@@ -141,6 +147,11 @@ export function useMoney(): UseMoney {
     periodType: 'payday', payday: 25, monthlyBudget: 1200000, currency: 'KRW', fxAlertThreshold: 3.0,
   });
   const [loading, setLoading] = useState(true);
+  // 기간 이동 오프셋(월 단위) — 기간바 ‹ › 로 전월/다음달 열람.
+  const [periodOffset, setPeriodOffset] = useState(0);
+  // 전역 '주 시작 요일'(설정 › 캘린더) — 머니 캘린더/주차도 이 값을 따른다(일관성).
+  const { appSettings } = usePlanner();
+  const weekStartsOn = (appSettings.weekStartsOn ?? 1) as 0 | 1;
 
   const refresh = useCallback(async () => {
     const [cat, tx, acc, crd, fx, ln, gl, pl, al, rv, st] = await Promise.all([
@@ -202,7 +213,9 @@ export function useMoney(): UseMoney {
     return c.parentId ? catById.get(c.parentId) ?? c : c;
   }, [catById]);
 
-  const period = useMemo(() => getMoneyPeriod(settings), [settings]);
+  // 오프셋만큼 이동한 참조일로 기간 계산(0=이번 달, -1=전월 …). payday/calendar 모두 월 단위 이동.
+  const period = useMemo(() => getMoneyPeriod(settings, addMonths(new Date(), periodOffset)), [settings, periodOffset]);
+  const isCurrentPeriod = periodOffset === 0;
 
   // 이번 기간 계획 — period.start 와 동일한 period_start 의 계획(없으면 null = 미수립).
   const currentPlan = useMemo(
@@ -312,7 +325,7 @@ export function useMoney(): UseMoney {
 
   // ── 주간 회고(Plan-Stage 2A) 파생 ──
   // 기간을 7일 단위로 분할(마지막 주는 잔여). 오늘이 속한 주.
-  const weeks = useMemo(() => getMoneyWeeks(period), [period]);
+  const weeks = useMemo(() => getMoneyWeeks(period, weekStartsOn), [period, weekStartsOn]);
   const thisWeek = useMemo(() => currentWeekOf(weeks), [weeks]);
   // 주당 생활비 예산 = 예산 기준액(생활비 한도 ?? 월예산 폴백) / 주 수.
   const weeklyLivingBudget = useMemo(() => {
@@ -599,7 +612,8 @@ export function useMoney(): UseMoney {
     loading, categories, expenseCategories, incomeCategories, subcategoriesOf, rootCategoryOf,
     transactions, periodTransactions, accounts, investments, cards, fixedCosts, loans, goals,
     plans, currentPlan, allocations, currentAllocations, livingLimit, budgetBase, reviews, settings,
-    period, income, expense, balance, fixedTotal, fixedMonthly, loanMonthly, assets, cardDebt, loanDebt, netWorth,
+    period, periodOffset, setPeriodOffset, isCurrentPeriod, weekStartsOn,
+    income, expense, balance, fixedTotal, fixedMonthly, loanMonthly, assets, cardDebt, loanDebt, netWorth,
     investTotal, investPrincipal, investReturn, investReturnPct,
     daysLeft, dailyAllowance, noSpendStreak, trackingStartDate, spendByDay,
     weeks, thisWeek, weeklyLivingBudget, weekSpending, weekNoSpendDays, reviewOfWeek,
