@@ -855,7 +855,9 @@ export function DailyView() {
     const isHighlighted = highlightTodoId === todo.id;
 
     // Haon(H): 솔리드 행 recipe(불투명 흰색 + 하이라인 + 소프트 그림자). 태그 있는 행만 좌측 3px 액센트 바.
+    // 핵심(KEY, isTop3) 행은 코랄 톤으로 뚜렷하게 강조(배경 틴트·코랄 테두리·핑크 글로우 + 좌측 그라데이션 바).
     // 그 외 테마: 기존 동작(카드색 + 태그색 좌측 바) 유지.
+    const isKeyRow = isHaon(t) && todo.isTop3;
     let rowStyle: CSSProperties;
     if (isHighlighted) {
       rowStyle = {
@@ -865,6 +867,17 @@ export function DailyView() {
         borderLeft: `3px solid ${t.accent}`,
         boxShadow: `0 0 0 2px ${t.accent}30`,
         borderRadius: t.solidRowRadius ?? 14,
+      };
+    } else if (isKeyRow) {
+      // 핵심 행: 좌측은 코랄 그라데이션 바가 차지하므로 태그 좌측 바는 생략(태그는 칩으로 계속 노출).
+      rowStyle = {
+        cursor: 'pointer',
+        backgroundColor: isDone ? '#F7F4FB' : (t.keyRowBg ?? '#FFF5F2'),
+        border: t.keyRowBorder ?? '1px solid rgba(255,111,145,0.35)',
+        boxShadow: t.keyRowShadow ?? '0 2px 4px rgba(120,90,160,0.10), 0 10px 24px rgba(255,111,145,0.22)',
+        borderRadius: t.solidRowRadius ?? 14,
+        position: 'relative',
+        overflow: 'hidden',
       };
     } else if (isHaon(t)) {
       rowStyle = {
@@ -891,6 +904,10 @@ export function DailyView() {
         className="group flex items-start gap-3 py-2.5 px-3 rounded-xl transition-all"
         style={rowStyle}
       >
+        {/* 핵심(KEY) 좌측 코랄 그라데이션 바 (행이 overflow:hidden + rounded 라 코너에 클립) */}
+        {isKeyRow && (
+          <span aria-hidden className="absolute left-0 top-0 bottom-0" style={{ width: 4, background: t.primaryGradient ?? t.accent }} />
+        )}
         {/* Status checkbox */}
         <button onClick={() => handleTodoCheckboxAction(todo)}
           className="w-5 h-5 rounded-full flex items-center justify-center flex-shrink-0 transition-all mt-0.5"
@@ -915,7 +932,7 @@ export function DailyView() {
               <Star size={13} fill={todo.isTop3 ? t.accent : 'none'} color={todo.isTop3 ? t.accent : t.textMuted} />
             </button>
             <span style={{
-              fontSize: 13, fontWeight: 600,
+              fontSize: 13, fontWeight: isKeyRow ? 700 : 600,
               color: isDone ? t.textMuted : t.text,
               textDecoration: isDone ? 'line-through' : 'none',
               overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
@@ -924,6 +941,14 @@ export function DailyView() {
             </span>
           </div>
           <div className="flex items-center gap-1.5 mt-1 flex-wrap">
+            {/* 핵심 배지 — 코랄 그라데이션 pill (파스텔 H + isTop3) */}
+            {isKeyRow && (
+              <span className="inline-flex items-center gap-0.5 px-1.5 py-px rounded-full" style={{
+                fontSize: 9, fontWeight: 700, color: '#fff', background: t.primaryGradient ?? t.accent, lineHeight: '14px',
+              }}>
+                <Star size={8} fill="#fff" color="#fff" /> 핵심
+              </span>
+            )}
             {todo.mandalartCellId && <MandalartSourceBadge />}
             {milestone && project && (
               <span
@@ -1193,16 +1218,42 @@ export function DailyView() {
                 <div className="flex-1" />
                 <button onClick={() => navigate('/todos')} style={{ fontSize: 11, color: t.textMuted, fontWeight: 600 }}>전체 →</button>
               </div>
-              <div className="space-y-2">
-                {importantTodos.map(todo => TodoRow({ todo }))}
-                {regularTodos.map(todo => TodoRow({ todo }))}
-                {dateTodos.length === 0 && (
-                  <div className="py-6 text-center">
-                    <p style={{ fontSize: 13, color: t.textMuted }}>오늘 할일이 없어요</p>
-                    <p style={{ fontSize: 12, color: t.textMuted, marginTop: 4 }}>위 입력창에 던져보세요</p>
+              {/* 파스텔(H) + 핵심 있으면: 핵심 그룹(서브헤더) → 구분선 → 그 외 그룹. 그 외엔 기존 concat 유지. */}
+              {isHaon(t) && importantTodos.length > 0 ? (
+                <>
+                  <div className="flex items-center gap-1.5 mb-2">
+                    <Star size={12} fill={t.accent} color={t.accent} />
+                    <span style={{ fontSize: 10, color: t.accent, fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase' }}>핵심</span>
+                    <span style={{ fontSize: 10, color: t.textMuted }}>{importantTodos.length}/3</span>
                   </div>
-                )}
-              </div>
+                  <div className="space-y-2">
+                    {importantTodos.map(todo => TodoRow({ todo }))}
+                  </div>
+                  {regularTodos.length > 0 && (
+                    <>
+                      <div className="flex items-center gap-2 mt-3 mb-2">
+                        <div className="flex-1 h-px" style={{ backgroundColor: t.borderLight }} />
+                        <span style={{ fontSize: 10, color: t.textMuted, fontWeight: 700, letterSpacing: '0.04em' }}>그 외</span>
+                        <div className="flex-1 h-px" style={{ backgroundColor: t.borderLight }} />
+                      </div>
+                      <div className="space-y-2">
+                        {regularTodos.map(todo => TodoRow({ todo }))}
+                      </div>
+                    </>
+                  )}
+                </>
+              ) : (
+                <div className="space-y-2">
+                  {importantTodos.map(todo => TodoRow({ todo }))}
+                  {regularTodos.map(todo => TodoRow({ todo }))}
+                  {dateTodos.length === 0 && (
+                    <div className="py-6 text-center">
+                      <p style={{ fontSize: 13, color: t.textMuted }}>오늘 할일이 없어요</p>
+                      <p style={{ fontSize: 12, color: t.textMuted, marginTop: 4 }}>위 입력창에 던져보세요</p>
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
 
             {/* 🔔 습관 알림 — 체크/기록은 습관 페이지에서 */}

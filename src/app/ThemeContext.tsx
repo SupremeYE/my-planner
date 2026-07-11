@@ -66,6 +66,12 @@ export interface ThemeTokens {
   solidRowBorder?: string;
   solidRowShadow?: string;
   solidRowRadius?: number;
+
+  // 핵심(KEY, isTop3) 할 일 행 강조 — 코랄 톤 배경 틴트 + 코랄 테두리 + 핑크 글로우 그림자.
+  // 좌측 바/배지는 primaryGradient 재사용.
+  keyRowBg?: string;
+  keyRowBorder?: string;
+  keyRowShadow?: string;
 }
 
 // ── Design A: Curator — slate / cool surface (HTML 참고 팔레트) ──
@@ -251,6 +257,11 @@ export const tokenH: ThemeTokens = {
   solidRowBorder: '1px solid rgba(122,92,162,0.20)',
   solidRowShadow: '0 2px 4px rgba(120,90,160,0.12), 0 10px 22px rgba(120,90,160,0.16)',
   solidRowRadius: 14,
+
+  // 핵심(KEY) 행 — 옅은 코랄 배경 + 코랄 테두리 + 핑크 글로우 그림자(입체감 유지)
+  keyRowBg: '#FFF5F2',
+  keyRowBorder: '1px solid rgba(255,111,145,0.35)',
+  keyRowShadow: '0 2px 4px rgba(120,90,160,0.10), 0 10px 24px rgba(255,111,145,0.22)',
 };
 
 export type LayoutMode = 'sidebar' | 'topnav';
