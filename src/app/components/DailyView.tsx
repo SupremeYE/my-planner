@@ -461,8 +461,11 @@ function RecordChips({ date }: { date: string }) {
         className="relative flex flex-col gap-1 rounded-2xl px-3 py-2.5 text-left transition-all"
         style={{
           minHeight: 72,
-          backgroundColor: empty ? 'transparent' : t.card,
-          border: empty ? `1px dashed ${t.border}` : `1px solid ${t.border}`,
+          // Haon(H): 반투명 흰 카드 + 은은한 테두리/그림자로 배경에서 분리.
+          // 그 외 테마: recordCard* 토큰이 없으므로 기존 모양(t.card/t.border) 유지.
+          backgroundColor: empty ? 'transparent' : (t.recordCardBg ?? t.card),
+          border: empty ? `1px dashed ${t.border}` : (t.recordCardBorder ?? `1px solid ${t.border}`),
+          boxShadow: empty ? undefined : t.recordCardShadow,
           opacity: empty ? 0.6 : 1,
         }}
       >
@@ -1177,6 +1180,12 @@ export function DailyView() {
           dateEvents={dateEvents}
           onShowContextMenu={(todo, pos, source) => setContextMenu({ todo, pos, source })}
           className={mobileTab === 'todos' ? 'hidden lg:flex' : ''}
+          // Haon(H) 테마에서만 타임블록 기본색(라일락)·now 라인(소프트 코랄) 오버라이드.
+          // 미전달(웜 테마 등) 시 Timeline 기본값 유지 → 캘린더 공유 컴포넌트에 영향 없음.
+          nowLineColor={t.nowLine}
+          defaultBlockBg={t.blockDefaultBg}
+          defaultBlockBorder={t.blockDefaultBorder}
+          defaultBlockText={t.blockDefaultText}
         />
         </div>{/* /Columns Wrapper */}
       </div>

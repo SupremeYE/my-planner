@@ -39,12 +39,17 @@ interface TimelineProps {
   weekDays?: TimelineWeekDay[];
   onSelectDate?: (date: string) => void;
   onToday?: () => void;
+  // ── 색상 오버라이드(옵션) — 일간 파스텔 테마 전용. 미전달 시 기존 하드코딩값 유지(캘린더 무영향) ──
+  nowLineColor?: string;       // 현재 시각선 색 (기본 CURRENT_TIME_COLOR)
+  defaultBlockBg?: string;     // 태그 없는 블록 배경 (기본 초록 계열)
+  defaultBlockBorder?: string; // 태그 없는 블록 테두리
+  defaultBlockText?: string;   // 태그 없는 블록 텍스트
 }
 
 // 주간 그리드: 시간 레이블 폭 + (7일 × P/D 2컬럼)
 const WEEK_TIME_COL = 44;
 
-export function Timeline({ days = 1, selectedDate, dateTodos, dateEvents, onShowContextMenu, className, weekDays, onSelectDate, onToday }: TimelineProps) {
+export function Timeline({ days = 1, selectedDate, dateTodos, dateEvents, onShowContextMenu, className, weekDays, onSelectDate, onToday, nowLineColor = CURRENT_TIME_COLOR, defaultBlockBg, defaultBlockBorder, defaultBlockText }: TimelineProps) {
   const isWeek = days > 1 && !!weekDays;
   const {
     todos, updateTodo, updateEvent, tags,
@@ -890,17 +895,17 @@ export function Timeline({ days = 1, selectedDate, dateTodos, dateEvents, onShow
       textColor = OVERTIME_BAR_BORDER;
       borderClr = OVERTIME_BAR_BORDER;
     } else if (isCheckOnlyDo) {
-      bg = tagColor ? `${tagColor}12` : 'rgba(212,237,224,0.45)';
-      textColor = tagColor || '#3D7A58';
-      borderClr = tagColor || '#6BAA7A';
+      bg = tagColor ? `${tagColor}12` : (defaultBlockBg ?? 'rgba(212,237,224,0.45)');
+      textColor = tagColor || defaultBlockText || '#3D7A58';
+      borderClr = tagColor || defaultBlockBorder || '#6BAA7A';
     } else if (tagColor) {
       bg = tagColor + '1A';
       textColor = tagColor;
       borderClr = tagColor;
     } else {
-      bg = 'rgba(212,237,224,0.52)';
-      textColor = '#3D7A58';
-      borderClr = '#6BAA7A';
+      bg = defaultBlockBg ?? 'rgba(212,237,224,0.52)';
+      textColor = defaultBlockText ?? '#3D7A58';
+      borderClr = defaultBlockBorder ?? '#6BAA7A';
     }
 
     const baseTimeLabel = isDragging && dragPreview
@@ -1426,7 +1431,7 @@ export function Timeline({ days = 1, selectedDate, dateTodos, dateEvents, onShow
                     {/* 현재 시각선 (오늘 컬럼) */}
                     {isToday && nowInWindow && (
                       <div className="absolute left-0 right-0 z-20 pointer-events-none" style={{ top: currentTimeTop }}>
-                        <div style={{ height: 2, backgroundColor: CURRENT_TIME_COLOR }} />
+                        <div style={{ height: 2, backgroundColor: nowLineColor }} />
                       </div>
                     )}
                   </div>
@@ -1591,8 +1596,8 @@ export function Timeline({ days = 1, selectedDate, dateTodos, dateEvents, onShow
           {showCurrentTime && (
             <div className="absolute left-0 right-0 z-20 pointer-events-none" style={{ top: currentTimeTop }}>
               <div className="flex items-center" style={{ marginLeft: TIMELINE_LABEL_WIDTH - 4 }}>
-                <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: CURRENT_TIME_COLOR }} />
-                <div className="flex-1 h-[2px]" style={{ backgroundColor: CURRENT_TIME_COLOR }} />
+                <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: nowLineColor }} />
+                <div className="flex-1 h-[2px]" style={{ backgroundColor: nowLineColor }} />
               </div>
             </div>
           )}

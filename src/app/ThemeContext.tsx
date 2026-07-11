@@ -44,6 +44,16 @@ export interface ThemeTokens {
   shadowFab?: string;
   radiusCard?: number;       // 카드 radius (24–32)
   fontNumeric?: string;      // 숫자 강조 (Sora)
+
+  // 오늘 기록 카드 (배경 분리용 테두리+그림자)
+  recordCardBg?: string;
+  recordCardBorder?: string;
+  recordCardShadow?: string;
+  // 타임블록 기본색(태그 없는 블록) + now 라인 — Timeline 에 prop 으로 전달
+  blockDefaultBg?: string;
+  blockDefaultBorder?: string;
+  blockDefaultText?: string;
+  nowLine?: string;
 }
 
 // ── Design A: Curator — slate / cool surface (HTML 참고 팔레트) ──
@@ -193,7 +203,10 @@ export const tokenH: ThemeTokens = {
   checkDone: '#7FCB8F',
 
   // 파스텔-글래스 확장
-  appGradient: 'linear-gradient(135deg, #E4D7F5 0%, #F6DCE6 50%, #FCE6D8 100%)',
+  // 배경: 옅은 흰 캔버스(#FBF8FC) + 방사형 blob 2개 (채도 낮춤)
+  appGradient:
+    'radial-gradient(1200px 600px at 15% 0%, rgba(200,168,233,0.20), transparent 60%), ' +
+    'radial-gradient(1000px 700px at 100% 100%, rgba(246,188,186,0.18), transparent 55%), #FBF8FC',
   cardFrosted: 'rgba(255,255,255,0.55)',
   glassBorder: '1px solid rgba(255,255,255,0.6)',
   glassBlur: 'blur(20px) saturate(140%)',
@@ -205,6 +218,16 @@ export const tokenH: ThemeTokens = {
   shadowFab: '0 10px 24px rgba(46,42,91,0.30)',
   radiusCard: 28,
   fontNumeric: "'Sora', 'Pretendard', sans-serif",
+
+  // 오늘 기록 카드 — 배경 분리(테두리+그림자)
+  recordCardBg: 'rgba(255,255,255,0.72)',
+  recordCardBorder: '1px solid rgba(120,90,160,0.14)',
+  recordCardShadow: '0 4px 14px rgba(120,90,160,0.07)',
+  // 타임블록 기본색(태그 없는 블록) = 옅은 라일락 · now 라인 = 소프트 코랄
+  blockDefaultBg: 'rgba(200,168,233,0.32)',
+  blockDefaultBorder: 'rgba(150,120,200,0.45)',
+  blockDefaultText: '#4A3E6B',
+  nowLine: '#FF9A8B',
 };
 
 export type LayoutMode = 'sidebar' | 'topnav';
