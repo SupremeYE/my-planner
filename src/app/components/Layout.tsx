@@ -559,6 +559,8 @@ export function Layout() {
   const [leftSidebarOpen, setLeftSidebarOpen] = useState(true);
   const [rightPanelOpen, setRightPanelOpen] = useState(true);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  // 사이드바 메뉴 hover 피드백(파스텔 H 테마 한정) — 어떤 항목 위에 커서가 있는지 표시
+  const [hoveredNav, setHoveredNav] = useState<string | null>(null);
   const location = useLocation();
   const desktopMainRef = useRef<HTMLElement>(null);
   const mobileMainRef = useRef<HTMLElement>(null);
@@ -579,6 +581,28 @@ export function Layout() {
 
   const navActiveStyle = { backgroundColor: t.accentLight, color: t.text, fontWeight: 600 };
   const navInactiveStyle = { backgroundColor: 'transparent', color: t.textSub, fontWeight: 400 };
+
+  // 파스텔(H) 테마에서만 hover 피드백 적용 (DailyView isHaon과 동일 기준: cardFrosted 존재)
+  const isPastel = !!t.cardFrosted;
+  // 비활성 항목 hover: 옅은 라벤더 tint + 글자 진해짐 + 살짝 슬라이드(펼침) / 확대(접힘).
+  // active 항목은 hover에도 그대로. transition-all(className)이 부드럽게 애니메이션.
+  const navItemStyle = (isActive: boolean, key: string, collapsed = false): React.CSSProperties => {
+    if (isActive) return { ...navActiveStyle };
+    const hovered = isPastel && hoveredNav === key;
+    return {
+      ...navInactiveStyle,
+      backgroundColor: hovered ? t.bgHover : 'transparent',
+      color: hovered ? t.text : t.textSub,
+      transform: hovered ? (collapsed ? 'scale(1.06)' : 'translateX(3px)') : 'none',
+    };
+  };
+  const navHover = (key: string) => (
+    isPastel
+      ? { onMouseEnter: () => setHoveredNav(key), onMouseLeave: () => setHoveredNav(prev => (prev === key ? null : prev)) }
+      : {}
+  );
+  const navIconColor = (isActive: boolean, key: string) =>
+    isActive || (isPastel && hoveredNav === key) ? t.text : t.textMuted;
 
   return (
     <div className="min-h-screen" style={{ backgroundColor: t.bg, fontFamily: t.font, transition: 'background-color 0.3s, color 0.3s' }}>
@@ -636,8 +660,9 @@ export function Layout() {
                 key={to}
                 to={to}
                 className="flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all"
+                {...navHover(to)}
                 style={({ isActive }) => ({
-                  ...(isActive ? navActiveStyle : navInactiveStyle),
+                  ...navItemStyle(isActive, to, !leftSidebarOpen),
                   fontSize: 13,
                   justifyContent: leftSidebarOpen ? 'flex-start' : 'center',
                 })}
@@ -646,7 +671,7 @@ export function Layout() {
                 {({ isActive }) => (
                   <>
                     <div className="relative">
-                      <Icon size={18} color={isActive ? t.text : t.textMuted} />
+                      <Icon size={18} color={navIconColor(isActive, to)} />
                       {/* 사이드바 접힘 상태: 아이콘 우상단 미니 점 */}
                       {to === '/todos' && inboxCount > 0 && !leftSidebarOpen && (
                         <span className="absolute -top-1 -right-1 w-2 h-2 rounded-full" style={{ backgroundColor: t.accent }} />
@@ -680,14 +705,15 @@ export function Layout() {
                       key={to}
                       to={to}
                       className="flex items-center gap-3 px-3 py-2 rounded-xl transition-all"
+                      {...navHover(to)}
                       style={({ isActive }) => ({
-                        ...(isActive ? navActiveStyle : navInactiveStyle),
+                        ...navItemStyle(isActive, to),
                         fontSize: 13,
                       })}
                     >
                       {({ isActive }) => (
                         <>
-                          <Icon size={18} color={isActive ? t.text : t.textMuted} />
+                          <Icon size={18} color={navIconColor(isActive, to)} />
                           <span>{label}</span>
                         </>
                       )}
@@ -739,9 +765,8 @@ export function Layout() {
                       key={project.id}
                       to={`/projects/${project.id}`}
                       className="flex items-center gap-2.5 px-2.5 py-1.5 rounded-xl transition-all"
-                      style={({ isActive }) => ({
-                        backgroundColor: isActive ? t.accentLight : 'transparent',
-                      })}
+                      {...navHover(`/projects/${project.id}`)}
+                      style={({ isActive }) => navItemStyle(isActive, `/projects/${project.id}`)}
                     >
                       {({ isActive }) => (
                         <>
@@ -789,13 +814,12 @@ export function Layout() {
                     key={to}
                     to={to}
                     className="flex items-center justify-center p-3 rounded-xl transition-all"
-                    style={({ isActive }) => ({
-                      backgroundColor: isActive ? t.accentLight : 'transparent',
-                    })}
+                    {...navHover(to)}
+                    style={({ isActive }) => navItemStyle(isActive, to, true)}
                     title={label}
                   >
                     {({ isActive }) => (
-                      <Icon size={18} color={isActive ? t.text : t.textMuted} />
+                      <Icon size={18} color={navIconColor(isActive, to)} />
                     )}
                   </NavLink>
                 ))}
@@ -806,13 +830,12 @@ export function Layout() {
                   to="/projects"
                   end
                   className="flex items-center justify-center p-3 rounded-xl transition-all"
-                  style={({ isActive }) => ({
-                    backgroundColor: isActive ? t.accentLight : 'transparent',
-                  })}
+                  {...navHover('/projects')}
+                  style={({ isActive }) => navItemStyle(isActive, '/projects', true)}
                   title="프로젝트"
                 >
                   {({ isActive }) => (
-                    <FolderKanban size={18} color={isActive ? t.text : t.textMuted} />
+                    <FolderKanban size={18} color={navIconColor(isActive, '/projects')} />
                   )}
                 </NavLink>
               </div>
