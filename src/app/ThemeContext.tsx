@@ -239,6 +239,10 @@ function resolveTokens(theme: DesignTheme): ThemeTokens {
 const THEME_STORE_KEY = 'haon.theme';
 const VALID_THEMES: DesignTheme[] = ['A', 'B', 'C', 'D', 'H'];
 
+// ⚠️ 임시(확인용): 파스텔-글래스(H) 육안 확인을 위해 기본값을 잠시 H로 둔다.
+// 확인이 끝나면 이 값을 다시 'B'(웜)로 되돌린다. (localStorage 저장값이 있으면 그게 우선)
+const DEFAULT_THEME: DesignTheme = 'H';
+
 function readInitialTheme(): DesignTheme {
   try {
     const saved = localStorage.getItem(THEME_STORE_KEY) as DesignTheme | null;
@@ -246,7 +250,7 @@ function readInitialTheme(): DesignTheme {
   } catch {
     /* SSR/프라이빗 모드 등에서 localStorage 접근 불가 시 무시 */
   }
-  return 'B';
+  return DEFAULT_THEME;
 }
 
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
