@@ -1,0 +1,96 @@
+# Haon 디자인 마이그레이션 — 일간 페이지 레퍼런스
+
+> **목적:** 일간(DailyView) 페이지가 Haon "Soft Pastel — Solid Elevation" v1.1의 **레퍼런스 구현**이다.
+> 다른 페이지를 마이그레이션할 때 이 문서의 표면 모델·토큰·헬퍼·규칙을 그대로 따른다.
+> UI 단일 기준은 루트 `DESIGN.md`. 이 문서는 그 구현 현황과 페이지 이전 지침을 정리한다.
+
+최종 업데이트: 2026-07-11
+
+---
+
+## 1. 적용된 디자인 시스템
+- **Haon "Soft Pastel — Solid Elevation" v1.1** (루트 `DESIGN.md`가 단일 기준)
+- **테마 H** (`tokenH`, `src/app/ThemeContext.tsx`)에 구현. **기본 테마도 H** (`DEFAULT_THEME = 'H'`)
+- **게이팅 원칙:** 신규 파스텔 스타일은 `isHaon(t) = !!t.cardFrosted`(사이드바는 `isPastel`)로 **H 테마에서만** 적용.
+  기존 테마(A/B/C/D)는 전부 원래대로 유지 → **회귀 0, opt-in 마이그레이션.**
+
+## 2. 표면 모델 (가장 중요한 규칙)
+| 구분 | 처리 | backdrop-filter |
+|---|---|---|
+| **본문**(카드·행·배너·입력) | **솔리드** — 불투명 흰색 + 하이라인 테두리 + 소프트 그림자 | ❌ 없음 |
+| **오버레이**(상단 날짜 바·모바일 탭바·모달·팝오버) | **글래스** — 반투명 + blur | ✅ 여기만 |
+
+> 규칙: **스크롤과 함께 움직이면 솔리드, 화면 위에 떠 있으면 글래스.**
+
+## 3. 토큰 (`tokenH` 확장 — `ThemeContext.tsx`)
+- **캔버스:** `appGradient` (near-white `#FBF8FC` + 라일락/코랄 방사형 blob 2개)
+- **솔리드 카드:** `solidCardBg #FFF` / `solidCardBorder rgba(122,92,162,.12)` / `solidCardShadow 0 8px 20px rgba(120,90,160,.12)` / `solidCardRadius 20`
+- **솔리드 행(항목 카드):** `solidRowBorder rgba(122,92,162,.20)`(더 진함) / `solidRowShadow`(2겹, 입체감) / `solidRowRadius 14`
+- **기록 카드:** `recordCard*` (솔리드 카드와 동일 recipe)
+- **핵심(KEY) 행:** `keyRowBg #FFF5F2` / `keyRowBorder rgba(255,111,145,.35)` / `keyRowShadow`(핑크 글로우)
+- **글래스:** `cardFrosted rgba(255,255,255,.55)` / `glassBorder` / `glassBlur blur(20px) saturate(140%)`
+- **그라데이션:** `primaryGradient`(코랄→핑크, 주 CTA·강조) / `accentGradientWarm` / `accentGradientCool`
+- **그림자:** `shadowCard` / `shadowButton`(핑크) / `shadowFab`
+- **타임블록:** `blockDefaultBg/Border/Text`(라일락) / `nowLine #FF9A8B`(소프트 코랄)
+- **색·타이포:** `accent #FF6F91` / `accentLight #F6BCBA` / `accentSoft #F4E7FB`(라벤더) / `text #2E2A5B` / `textSub` / `textMuted` / `bgHover #EFE3FA` / `fontNumeric(Sora)`
+
+## 4. 공용 헬퍼 — `src/app/styles/haonStyles.ts` ✅ 추출 완료
+페이지 마이그레이션용 공유 모듈. 각 페이지는 여기서 import 해서 동일 recipe를 재사용한다.
+
+| 헬퍼 | 용도 |
+|---|---|
+| `isHaon(t)` | 파스텔(H) 테마 게이팅 (`!!t.cardFrosted`) |
+| `canvasStyle(t)` | 페이지 캔버스 배경(방사형 blob) |
+| `solidCardStyle(t)` | 본문 카드(불투명 흰색 + 하이라인 + 소프트 그림자) |
+| `solidRowStyle(t)` | 항목 행 카드(진한 테두리 + 2겹 그림자) |
+| `glassBarStyle(t)` | 오버레이 글래스(떠 있는 바) |
+| `mixHex()` / `hexToRgb()` | 태그 칩 채도 파스텔 채움 + 어두운 텍스트 |
+
+> 모든 헬퍼는 `isHaon(t)`가 아니면 기존(base 토큰) 스타일을 반환 → 다른 테마에서 안전.
+
+## 5. 일간 페이지 요소별 적용 현황 ✅
+- 캔버스 배경 blob / 상단 날짜 바·모바일 탭바 **글래스**
+- 던지기 박스(`QuickAddInput solid` prop) → 솔리드 + **코랄 그라데이션 + 버튼**
+- 오늘 일정 카드 → 솔리드 / 이벤트 항목도 **솔리드 행 카드화**
+- 오늘 할 일 카드 → 솔리드 / 할 일 행 → 솔리드 행(진한 테두리 + 2겹 그림자) + **태그 좌측 3px 액센트 바**
+- **핵심(KEY) 섹션 분리**("⭐ 핵심 n/3" 헤더 + "그 외" 구분선) + 코랄 좌측 바·틴트·글로우·'핵심' 배지
+- 기록 카드 / 습관 배너 → 솔리드
+- 태그 칩 → 채도 파스텔 채움 + 어두운 텍스트 (`mixHex`)
+- 타임라인 블록·now 라인 파스텔
+- **Today 버튼** → 라벤더 pill(레드온레드 제거) / **스크롤바 숨김**(레이아웃 시프트 제거)
+- **사이드바 hover 피드백**(전역 chrome, `Layout.tsx`, 파스텔 한정)
+
+## 6. 상호작용·반응형
+- 전환은 `transition-all`(~150ms).
+- 모바일 **오늘/타임블록 2탭** + 하단 네비, `lg:` prefix로 PC/모바일 개별 최적화 유지.
+
+## 7. 다른 페이지 마이그레이션 지침
+**따라야 할 규칙**
+1. 페이지마다 `isHaon(t)` 게이팅으로 opt-in (기존 테마 보존).
+2. 카드 = `solidCardStyle`, 항목 행 = `solidRowStyle`, 오버레이만 `glassBarStyle`, 강조 = `primaryGradient`, 태그 = `mixHex`.
+3. `backdrop-filter`는 오버레이 전용, 페이지 배경은 `canvasStyle`.
+4. **토큰만 사용, 하드코딩 금지** (필요한 토큰이 없으면 `tokenH`에 추가).
+5. 기본 테마 전환은 **전 페이지 완료 후** (DESIGN.md §9). 지금은 opt-in 단계.
+
+**참고**
+- `QuickAddInput`은 `solid` prop opt-in → 다른 페이지에서 쓸 때 `solid` 전달 필요.
+- 다른 페이지들은 아직 미마이그레이션 — 지금은 파스텔 캔버스 위에 기존(base 토큰) 카드로 렌더됨.
+
+## 8. 페이지별 진행 체크리스트
+- [x] 일간 (DailyView) — 레퍼런스 완료
+- [x] 공용 헬퍼 추출 (`haonStyles.ts`)
+- [ ] 대시보드 (DashboardView)
+- [ ] 캘린더 (CalendarView)
+- [ ] 할일 (TodosView)
+- [ ] 주간 (WeeklyView)
+- [ ] 목표관리 (Goals / Projects)
+- [ ] 습관 & 루틴
+- [ ] 리뷰 & 기록
+- [ ] 자기관리(건강/식단/독서 등 라이프스타일)
+- [ ] 설정
+- [ ] (전 페이지 완료 후) 기본 테마 파스텔 확정
+
+## 9. 알려진 기존 이슈 (이번 리팩터 범위 아님, 참고용)
+- KEY n>3 시 헤더 "4/3"(소프트 캡, 의도됨).
+- 스토어 `toggleTop3`(하드 3) vs DailyView `toggleKeyTodo`(소프트 토스트) 캡 정책 불일치.
+- Dashboard '중요' 카운트는 `starred` 필드 사용(≠ `isTop3`).
