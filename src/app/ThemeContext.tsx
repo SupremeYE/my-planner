@@ -247,8 +247,9 @@ export const tokenH: ThemeTokens = {
   solidCardShadow: '0 8px 20px rgba(120,90,160,0.12)',
   solidCardRadius: 20,
   solidRowBg: '#FFFFFF',
-  solidRowBorder: '1px solid rgba(122,92,162,0.10)',
-  solidRowShadow: '0 6px 16px rgba(120,90,160,0.10)',
+  // 항목 카드(할일·일정)는 배경과 확실히 구분되도록 더 진한 테두리 + 이중 그림자로 입체감 강화
+  solidRowBorder: '1px solid rgba(122,92,162,0.20)',
+  solidRowShadow: '0 2px 4px rgba(120,90,160,0.12), 0 10px 22px rgba(120,90,160,0.16)',
   solidRowRadius: 14,
 };
 

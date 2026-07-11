@@ -59,6 +59,19 @@ function solidCardStyle(t: ThemeTokens): CSSProperties {
   return { backgroundColor: t.bgSub, border: `1px solid ${t.border}` };
 }
 
+// 솔리드 항목 행(할일·일정 카드) — 진한 하이라인 + 이중 그림자로 배경과 분리, 입체감.
+function solidRowStyle(t: ThemeTokens): CSSProperties {
+  if (isHaon(t)) {
+    return {
+      background: t.solidRowBg ?? '#FFFFFF',
+      border: t.solidRowBorder ?? '1px solid rgba(122,92,162,0.20)',
+      borderRadius: t.solidRowRadius ?? 14,
+      boxShadow: t.solidRowShadow ?? '0 2px 4px rgba(120,90,160,0.12), 0 10px 22px rgba(120,90,160,0.16)',
+    };
+  }
+  return {};
+}
+
 // ─── hex 색 mix (태그 칩: 채도 있는 파스텔 채움 + 어두운 텍스트 시블링) ───
 function hexToRgb(hex: string): { r: number; g: number; b: number } | null {
   const h = hex.trim().replace('#', '');
@@ -1127,8 +1140,9 @@ export function DailyView() {
                     const isPast = !isDone && isEventPast(evt);
                     const accentColor = evt.color || t.info;
                     return (
-                      <div key={evt.id} className="group flex items-center gap-2.5 py-1.5"
-                        style={{ opacity: isDone ? 0.55 : (isPast ? 0.75 : 1) }}>
+                      <div key={evt.id}
+                        className={`group flex items-center gap-2.5 ${isHaon(t) ? 'px-3 py-2.5' : 'py-1.5'}`}
+                        style={{ opacity: isDone ? 0.55 : (isPast ? 0.75 : 1), ...solidRowStyle(t) }}>
                         <button
                           onClick={() => toggleEventCompleted(evt.id, !isDone)}
                           className="w-5 h-5 rounded-full flex items-center justify-center flex-shrink-0 transition-all"
