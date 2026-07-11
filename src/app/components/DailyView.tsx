@@ -1089,13 +1089,32 @@ export function DailyView() {
         </div>
         <div className="flex items-center gap-1.5 lg:gap-2">
           {selectedDate !== nowStr && (
-            <button
-              onClick={goToday}
-              className="px-2 py-1 rounded-lg"
-              style={{ fontSize: 11, fontWeight: 600, backgroundColor: t.accentLight, color: t.accent, whiteSpace: 'nowrap' }}
-            >
-              Today
-            </button>
+            isHaon(t) ? (
+              // 파스텔(H): 붉은 코랄 배경+코랄 글자(레드온레드) → 차분한 라벤더 솔리드 pill +
+              // 딥인디고 글자 + 작은 코랄 '오늘' 도트로 페이지 톤에 맞춤.
+              <button
+                onClick={goToday}
+                className="flex items-center gap-1 px-2.5 py-1 rounded-full transition-all"
+                style={{
+                  fontSize: 11, fontWeight: 600, whiteSpace: 'nowrap',
+                  backgroundColor: t.accentSoft,
+                  color: t.text,
+                  border: '1px solid rgba(122,92,162,0.16)',
+                  boxShadow: '0 2px 6px rgba(120,90,160,0.10)',
+                }}
+              >
+                <span aria-hidden style={{ width: 5, height: 5, borderRadius: 9999, background: t.accent, flexShrink: 0 }} />
+                Today
+              </button>
+            ) : (
+              <button
+                onClick={goToday}
+                className="px-2 py-1 rounded-lg"
+                style={{ fontSize: 11, fontWeight: 600, backgroundColor: t.accentLight, color: t.accent, whiteSpace: 'nowrap' }}
+              >
+                Today
+              </button>
+            )
           )}
           {/* 데스크탑: 기존 모달 */}
           <button onClick={() => setShowTimelineSettings(true)} className="hidden lg:flex px-3 py-1.5 rounded-lg items-center gap-1.5"
