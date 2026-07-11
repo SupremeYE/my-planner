@@ -34,33 +34,48 @@ const STATUS_CONFIG: Record<string, { label: string; color: string; bgColor: str
   cancelled: { label: '취소', color: '#DC2626', bgColor: '#FEE2E2' },
 };
 
-// ─── Haon Soft Pastel Glassmorphism helpers (DESIGN.md) ───
-// 확장 토큰(cardFrosted 등)이 있는 테마(H)에서만 프로스티드 글래스로 렌더하고,
+// ─── Haon Soft Pastel — Solid Elevation helpers (DESIGN.md v1.1) ───
+// 확장 토큰(solidCard* 등)이 있는 테마(H)에서만 파스텔 솔리드 표면으로 렌더하고,
 // 없는 기존 테마(A/B/C/D)에서는 원래의 모양(bgSub 카드)을 그대로 유지한다.
-// → 일간 페이지가 파스텔 테마에서 레퍼런스로 보이면서 웜 테마 호환도 깨지지 않음.
+// v1.1 핵심: 본문 표면은 글래스가 아니라 불투명 흰색 + 하이라인 + 소프트 그림자.
+//   글래스(반투명+blur)는 오버레이(떠 있는 상단 날짜 바·모달·팝오버)에만 사용한다.
 const isHaon = (t: ThemeTokens) => !!t.cardFrosted;
 
-// 페이지 캔버스: 파스텔 대각선 그라디언트 (없으면 배경 미지정 → 기존 레이아웃 배경 유지)
+// 페이지 캔버스: 파스텔 방사형 blob (없으면 배경 미지정 → 기존 레이아웃 배경 유지)
 function canvasStyle(t: ThemeTokens): CSSProperties {
   return t.appGradient ? { background: t.appGradient } : {};
 }
 
-// 프로스티드 글래스 카드 (밀도 낮은 주요 표면)
-function glassCardStyle(t: ThemeTokens): CSSProperties {
+// 솔리드 카드 (본문 표면) — 불투명 흰색 + 1px 하이라인 + 소프트 그림자, backdrop-filter 없음.
+function solidCardStyle(t: ThemeTokens): CSSProperties {
   if (isHaon(t)) {
     return {
-      background: t.cardFrosted,
-      backdropFilter: t.glassBlur,
-      WebkitBackdropFilter: t.glassBlur,
-      border: t.glassBorder ?? `1px solid ${t.border}`,
-      borderRadius: t.radiusCard ?? 24,
-      boxShadow: t.shadowCard ?? t.shadow,
+      background: t.solidCardBg ?? '#FFFFFF',
+      border: t.solidCardBorder ?? '1px solid rgba(122,92,162,0.12)',
+      borderRadius: t.solidCardRadius ?? 20,
+      boxShadow: t.solidCardShadow ?? '0 8px 20px rgba(120,90,160,0.12)',
     };
   }
   return { backgroundColor: t.bgSub, border: `1px solid ${t.border}` };
 }
 
-// 반투명 프로스티드 바(헤더·탭바) — 컨텐츠 위에 은은하게 떠 있는 느낌
+// ─── hex 색 mix (태그 칩: 채도 있는 파스텔 채움 + 어두운 텍스트 시블링) ───
+function hexToRgb(hex: string): { r: number; g: number; b: number } | null {
+  const h = hex.trim().replace('#', '');
+  const v = h.length === 3 ? h.split('').map(c => c + c).join('') : h;
+  if (!/^[0-9a-fA-F]{6}$/.test(v)) return null;
+  const n = parseInt(v, 16);
+  return { r: (n >> 16) & 255, g: (n >> 8) & 255, b: n & 255 };
+}
+// target: 255=흰색 쪽, 0=검정 쪽. amt: 0~1 섞는 정도.
+function mixHex(hex: string, target: number, amt: number): string {
+  const rgb = hexToRgb(hex);
+  if (!rgb) return hex;
+  const m = (c: number) => Math.round(c + (target - c) * amt);
+  return `rgb(${m(rgb.r)}, ${m(rgb.g)}, ${m(rgb.b)})`;
+}
+
+// 반투명 프로스티드 바(떠 있는 상단 날짜 바·탭바) — 오버레이 글래스 (DESIGN v1.1 허용)
 function glassBarStyle(t: ThemeTokens): CSSProperties {
   if (isHaon(t)) {
     return {
@@ -786,13 +801,16 @@ export function DailyView() {
     );
   };
 
-  // Tag chip
+  // Tag chip — Haon(H): 채도 있는 파스텔 채움 + 어두운 텍스트 시블링. 그 외 테마: 기존 저채도 워시.
   const TagChip = ({ tagId }: { tagId: string }) => {
     const tag = tags.find(tg => tg.id === tagId);
     if (!tag) return null;
+    const filled = isHaon(t);
     return (
       <span className="inline-flex items-center px-1.5 py-px rounded-full" style={{
-        fontSize: 9, backgroundColor: tag.color + '18', color: tag.color,
+        fontSize: 9,
+        backgroundColor: filled ? mixHex(tag.color, 255, 0.78) : tag.color + '18',
+        color: filled ? mixHex(tag.color, 0, 0.32) : tag.color,
         lineHeight: '14px',
       }}>
         {tag.name}
@@ -822,18 +840,43 @@ export function DailyView() {
     const isDone = todo.status === 'done';
 
     const isHighlighted = highlightTodoId === todo.id;
+
+    // Haon(H): 솔리드 행 recipe(불투명 흰색 + 하이라인 + 소프트 그림자). 태그 있는 행만 좌측 3px 액센트 바.
+    // 그 외 테마: 기존 동작(카드색 + 태그색 좌측 바) 유지.
+    let rowStyle: CSSProperties;
+    if (isHighlighted) {
+      rowStyle = {
+        cursor: 'pointer',
+        backgroundColor: t.accentLight,
+        border: `1.5px solid ${t.accent}`,
+        borderLeft: `3px solid ${t.accent}`,
+        boxShadow: `0 0 0 2px ${t.accent}30`,
+        borderRadius: t.solidRowRadius ?? 14,
+      };
+    } else if (isHaon(t)) {
+      rowStyle = {
+        cursor: 'pointer',
+        backgroundColor: isDone ? '#F7F4FB' : (t.solidRowBg ?? '#FFFFFF'),
+        border: t.solidRowBorder ?? '1px solid rgba(122,92,162,0.10)',
+        boxShadow: t.solidRowShadow ?? '0 6px 16px rgba(120,90,160,0.10)',
+        borderRadius: t.solidRowRadius ?? 14,
+      };
+      if (firstTag) rowStyle.borderLeft = `3px solid ${firstTag.color}`;
+    } else {
+      rowStyle = {
+        cursor: 'pointer',
+        backgroundColor: isDone ? t.bgSub + '80' : t.card,
+        border: `1px solid ${accentColor}20`,
+        borderLeft: `3px solid ${accentColor}${isDone ? '40' : ''}`,
+      };
+    }
+
     return (
       <div
         key={todo.id}
         id={`todo-row-${todo.id}`}
         className="group flex items-start gap-3 py-2.5 px-3 rounded-xl transition-all"
-        style={{
-          cursor: 'pointer',
-          backgroundColor: isHighlighted ? t.accentLight : (isDone ? t.bgSub + '80' : t.card),
-          border: isHighlighted ? `1.5px solid ${t.accent}` : `1px solid ${accentColor}20`,
-          borderLeft: isHighlighted ? `3px solid ${t.accent}` : `3px solid ${accentColor}${isDone ? '40' : ''}`,
-          boxShadow: isHighlighted ? `0 0 0 2px ${t.accent}30` : undefined,
-        }}
+        style={rowStyle}
       >
         {/* Status checkbox */}
         <button onClick={() => handleTodoCheckboxAction(todo)}
@@ -1064,10 +1107,10 @@ export function DailyView() {
           style={{ borderRight: `1px solid ${t.border}` }}>
           <div className="space-y-4">
             {/* 던지기 입력창 — 통합 진입점(이 날짜로 캡처, 날짜/시간/#태그 파싱) */}
-            <QuickAddInput defaultDate={selectedDate} placeholder="여기에 던지기: 운동, 오후 3시 회의 #업무 …" />
+            <QuickAddInput solid defaultDate={selectedDate} placeholder="여기에 던지기: 운동, 오후 3시 회의 #업무 …" />
 
             {/* 오늘 일정 */}
-            <div className="rounded-2xl p-4" style={glassCardStyle(t)}>
+            <div className="rounded-2xl p-4" style={solidCardStyle(t)}>
               <div className="flex items-center gap-2 mb-2.5">
                 <CalendarDays size={13} color={t.info} />
                 <span style={{ fontSize: 10, color: t.info, fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase' }}>오늘 일정</span>
@@ -1129,7 +1172,7 @@ export function DailyView() {
             </div>
 
             {/* 오늘 할 일 (중요 먼저) */}
-            <div className="rounded-2xl p-4" style={glassCardStyle(t)}>
+            <div className="rounded-2xl p-4" style={solidCardStyle(t)}>
               <div className="flex items-center gap-2 mb-3">
                 <span style={{ fontSize: 10, color: t.accent, fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase' }}>오늘 할 일</span>
                 <span style={{ fontSize: 10, color: t.textMuted }}>{dateTodos.length}</span>
@@ -1153,7 +1196,7 @@ export function DailyView() {
               <button
                 onClick={() => navigate('/habits')}
                 className="w-full flex items-center gap-3 rounded-2xl px-4 py-3 text-left transition-all"
-                style={{ backgroundColor: t.card, border: `1px solid ${t.danger}33` }}
+                style={isHaon(t) ? solidCardStyle(t) : { backgroundColor: t.card, border: `1px solid ${t.danger}33` }}
               >
                 <span className="flex items-center justify-center rounded-xl flex-shrink-0" style={{ width: 38, height: 38, backgroundColor: `${t.danger}14` }}>
                   <Bell size={17} color={t.danger} />

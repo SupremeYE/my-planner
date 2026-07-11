@@ -54,6 +54,18 @@ export interface ThemeTokens {
   blockDefaultBorder?: string;
   blockDefaultText?: string;
   nowLine?: string;
+
+  // 솔리드 표면 (본문 카드·행) — DESIGN v1.1: 본문은 글래스가 아니라
+  // 불투명 흰색 + 1px 하이라인 테두리 + 소프트 컬러 그림자 (backdrop-filter 없음).
+  // 글래스는 오버레이(상단 날짜 바·모달·팝오버) 전용.
+  solidCardBg?: string;
+  solidCardBorder?: string;
+  solidCardShadow?: string;
+  solidCardRadius?: number;
+  solidRowBg?: string;
+  solidRowBorder?: string;
+  solidRowShadow?: string;
+  solidRowRadius?: number;
 }
 
 // ── Design A: Curator — slate / cool surface (HTML 참고 팔레트) ──
@@ -219,15 +231,25 @@ export const tokenH: ThemeTokens = {
   radiusCard: 28,
   fontNumeric: "'Sora', 'Pretendard', sans-serif",
 
-  // 오늘 기록 카드 — 불투명 흰색 + 강화된 테두리/그림자로 배경과 분리
+  // 오늘 기록 카드 — 솔리드 카드 recipe와 동일(불투명 흰색 + 하이라인 + 소프트 그림자)
   recordCardBg: '#FFFFFF',
-  recordCardBorder: '1px solid rgba(122,92,162,0.24)',
-  recordCardShadow: '0 6px 18px rgba(120,90,160,0.14)',
+  recordCardBorder: '1px solid rgba(122,92,162,0.12)',
+  recordCardShadow: '0 8px 20px rgba(120,90,160,0.12)',
   // 타임블록 기본색(태그 없는 블록) = 옅은 라일락 · now 라인 = 소프트 코랄
   blockDefaultBg: 'rgba(200,168,233,0.32)',
   blockDefaultBorder: 'rgba(150,120,200,0.45)',
   blockDefaultText: '#4A3E6B',
   nowLine: '#FF9A8B',
+
+  // 솔리드 표면 recipe (본문 카드·행) — DESIGN v1.1
+  solidCardBg: '#FFFFFF',
+  solidCardBorder: '1px solid rgba(122,92,162,0.12)',
+  solidCardShadow: '0 8px 20px rgba(120,90,160,0.12)',
+  solidCardRadius: 20,
+  solidRowBg: '#FFFFFF',
+  solidRowBorder: '1px solid rgba(122,92,162,0.10)',
+  solidRowShadow: '0 6px 16px rgba(120,90,160,0.10)',
+  solidRowRadius: 14,
 };
 
 export type LayoutMode = 'sidebar' | 'topnav';

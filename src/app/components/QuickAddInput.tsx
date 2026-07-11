@@ -16,6 +16,8 @@ interface QuickAddInputProps {
   onSubmitted?: () => void;
   autoFocus?: boolean;
   placeholder?: string;
+  /** DESIGN v1.1 솔리드 표면(불투명 흰색 카드 + 코랄 그라데이션 + 버튼). 파스텔(H) 테마에서만 적용. */
+  solid?: boolean;
 }
 
 /** EventModal 신규 일정 기본 색과 동일하게 맞춘다(데이터 기본값, 테마 토큰 아님) */
@@ -43,9 +45,12 @@ function plusOneHour(time: string): string {
   return `${hh.toString().padStart(2, '0')}:${(m || 0).toString().padStart(2, '0')}`;
 }
 
-export function QuickAddInput({ defaultDate = null, onSubmitted, autoFocus, placeholder }: QuickAddInputProps) {
+export function QuickAddInput({ defaultDate = null, onSubmitted, autoFocus, placeholder, solid }: QuickAddInputProps) {
   const { addTodo, addEvent, addTag, tags: allTags, projects } = usePlanner();
   const { t } = useTheme();
+
+  // 솔리드 표면: solid prop + 파스텔(H) 테마(cardFrosted 존재)에서만. 그 외에는 기존 모양 유지.
+  const solidBox = !!solid && !!t.cardFrosted;
 
   const [text, setText] = useState('');
   const [asEvent, setAsEvent] = useState(false);
@@ -179,7 +184,13 @@ export function QuickAddInput({ defaultDate = null, onSubmitted, autoFocus, plac
     <div>
       <div
         className="flex items-center gap-2 rounded-xl px-3 py-2"
-        style={{ backgroundColor: t.bgSub, border: `1px solid ${t.border}` }}
+        style={solidBox
+          ? {
+              backgroundColor: t.solidCardBg ?? '#FFFFFF',
+              border: t.solidCardBorder ?? '1px solid rgba(122,92,162,0.12)',
+              boxShadow: t.solidCardShadow ?? '0 8px 20px rgba(120,90,160,0.12)',
+            }
+          : { backgroundColor: t.bgSub, border: `1px solid ${t.border}` }}
       >
         <input
           autoFocus={autoFocus}
@@ -197,7 +208,9 @@ export function QuickAddInput({ defaultDate = null, onSubmitted, autoFocus, plac
           className="flex items-center justify-center rounded-lg shrink-0"
           style={{
             width: 32, height: 32,
-            backgroundColor: hasInput ? t.accent : t.border,
+            // 솔리드 표면일 때 활성 버튼은 코랄→핑크 그라데이션 유지
+            background: solidBox && hasInput ? (t.primaryGradient ?? t.accent) : undefined,
+            backgroundColor: solidBox && hasInput ? undefined : (hasInput ? t.accent : t.border),
             color: '#fff',
             opacity: hasInput ? 1 : 0.6,
             cursor: hasInput ? 'pointer' : 'not-allowed',
