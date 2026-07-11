@@ -6,6 +6,19 @@
 @import url('https://fonts.googleapis.com/css2?family=Caveat:wght@500;600&display=swap');
 @import url('https://cdn.jsdelivr.net/gh/webfontworld/gmarket/GmarketSans.css');
 @import url('https://cdn.jsdelivr.net/gh/webfontworld/NanumSquareRound/NanumSquareRound.css');
+/* Haon 디자인 시스템 — 숫자 강조용 Sora (DESIGN.md §4). 미로드 시 Pretendard 폴백 */
+@import url('https://fonts.googleapis.com/css2?family=Sora:wght@400;600&display=swap');
+
+/* ── 온글잎 긍정 (Ownglyph-Positive) — 일기 본문 전용 손글씨 (self-hosted) ──
+   DESIGN.md §4 Font loading 절차대로 TTF→woff2 변환 후 public/fonts/ 에 배치.
+   family name 은 반드시 'Ownglyph-Positive'. 일기 본문(DiaryView) 외 사용 금지. */
+@font-face {
+  font-family: 'Ownglyph-Positive';
+  src: url('/fonts/ownglyph-positive.woff2') format('woff2'),
+       url('/fonts/ownglyph-positive.ttf') format('truetype');
+  font-weight: 400;
+  font-display: swap;
+}
 
 :root {
   --font-pretendard: 'Pretendard', -apple-system, BlinkMacSystemFont, 'Apple SD Gothic Neo', sans-serif;
@@ -27,6 +40,12 @@
   --font-nanum-round: 'NanumSquareRound', var(--font-pretendard);
   /* 깔끔한 본문 — 감정 기록 본문/미리보기 전용(일기 손글씨 Gaegu와 분리). 미로드 시 Gowun/Pretendard로 폴백 */
   --font-noto-sans: 'Noto Sans KR', var(--font-gowun);
+  /* Haon 디자인 시스템 폰트 토큰 (DESIGN.md §3) */
+  /* 숫자 강조(잔액·통계) — Sora, 미로드 시 Pretendard 폴백 */
+  --font-sora: 'Sora', var(--font-pretendard);
+  /* 일기 본문 전용 — 온글잎 긍정. 미로드 시 기존 손글씨(Gaegu)→Pretendard 폴백.
+     DESIGN.md 상 일기 본문(DiaryView) 외에는 절대 사용하지 않는다. */
+  --font-diary: 'Ownglyph-Positive', var(--font-hand);
 }
 
 body {

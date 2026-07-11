@@ -151,7 +151,7 @@ function noteAreaStyle(t: ThemeTokens): React.CSSProperties {
     backgroundColor: t.card,
     backgroundImage: `repeating-linear-gradient(to bottom, transparent 0, transparent ${NOTE_LINE_H - 1}px, ${lineColor} ${NOTE_LINE_H - 1}px, ${lineColor} ${NOTE_LINE_H}px)`,
     backgroundAttachment: 'local',
-    fontFamily: 'var(--font-hand)',
+    fontFamily: 'var(--font-diary)',
     fontSize: 18,
     lineHeight: `${NOTE_LINE_H}px`,
     color: t.text,
@@ -437,7 +437,7 @@ const AutoGrowTextarea = React.forwardRef<HTMLTextAreaElement, {
         padding: 0,
         margin: 0,
         overflow: 'hidden',
-        fontFamily: 'var(--font-hand)',
+        fontFamily: 'var(--font-diary)',
         fontSize: 18,
         lineHeight: `${NOTE_LINE_H}px`,
         color: t.text,
@@ -863,7 +863,7 @@ function ReadCard({
       {/* 줄 친 종이 — line-height 와 배경 줄 간격을 동일 px(32)로 맞춰 정렬이 깨지지 않음 */}
       <div
         style={{
-          fontFamily: 'var(--font-hand)',
+          fontFamily: 'var(--font-diary)',
           fontSize: 18,
           lineHeight: `${NOTE_LINE_H}px`,
           color: t.text,
@@ -1750,7 +1750,7 @@ function MemoryDetailSheet({ entry, onClose, onDeleted }: { entry: DiaryEntry; o
               {entry.title}
             </p>
           )}
-          <p style={{ fontFamily: 'var(--font-hand)', fontSize: 18, lineHeight: '32px', color: t.text, whiteSpace: 'pre-wrap' }}>
+          <p style={{ fontFamily: 'var(--font-diary)', fontSize: 18, lineHeight: '32px', color: t.text, whiteSpace: 'pre-wrap' }}>
             {entry.content}
           </p>
           <div className="h-4" />
@@ -1839,7 +1839,7 @@ function EmptyHint({ t, text }: { t: ThemeTokens; text: string }) {
 
 function excerptStyle(t: ThemeTokens): React.CSSProperties {
   return {
-    fontFamily: 'var(--font-hand)',
+    fontFamily: 'var(--font-diary)',
     fontSize: 16,
     lineHeight: 1.5,
     color: t.textSub,
