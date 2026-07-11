@@ -1116,7 +1116,7 @@ export function DailyView() {
         <div className="flex-1 flex overflow-hidden" style={{ minHeight: 0 }}>
         {/* Left Column: 오늘 허브 (던지기 → 일정 → 할일 → 습관 알림 → 기록 칩) */}
         <div
-          className={`flex-1 min-w-0 overflow-y-auto px-4 lg:px-6 py-4${mobileTab === 'timeline' ? ' hidden lg:block' : ''}`}
+          className={`flex-1 min-w-0 overflow-y-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden px-4 lg:px-6 py-4${mobileTab === 'timeline' ? ' hidden lg:block' : ''}`}
           style={{ borderRight: `1px solid ${t.border}` }}>
           <div className="space-y-4">
             {/* 던지기 입력창 — 통합 진입점(이 날짜로 캡처, 날짜/시간/#태그 파싱) */}
