@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, type CSSProperties } from 'react';
 import { useSearchParams, NavLink, useNavigate } from 'react-router';
 import {
   ChevronLeft, ChevronRight, Star, Play,
@@ -8,7 +8,7 @@ import {
 import { format, addDays, subDays, addMonths, subMonths, startOfMonth, getDaysInMonth, getDay as getDayOfWeek, parseISO, addMinutes } from 'date-fns';
 import { ko } from 'date-fns/locale';
 import { usePlanner, Todo, Event, getLogicalToday } from '../store';
-import { useTheme } from '../ThemeContext';
+import { useTheme, type ThemeTokens } from '../ThemeContext';
 import { useNotification } from '../hooks/useNotification';
 import { TimePicker } from './TimePicker';
 import ConfirmModal from './ConfirmModal';
@@ -33,6 +33,45 @@ const STATUS_CONFIG: Record<string, { label: string; color: string; bgColor: str
   snoozed: { label: '미루기', color: '#D97706', bgColor: '#FEF3C7' },
   cancelled: { label: '취소', color: '#DC2626', bgColor: '#FEE2E2' },
 };
+
+// ─── Haon Soft Pastel Glassmorphism helpers (DESIGN.md) ───
+// 확장 토큰(cardFrosted 등)이 있는 테마(H)에서만 프로스티드 글래스로 렌더하고,
+// 없는 기존 테마(A/B/C/D)에서는 원래의 모양(bgSub 카드)을 그대로 유지한다.
+// → 일간 페이지가 파스텔 테마에서 레퍼런스로 보이면서 웜 테마 호환도 깨지지 않음.
+const isHaon = (t: ThemeTokens) => !!t.cardFrosted;
+
+// 페이지 캔버스: 파스텔 대각선 그라디언트 (없으면 배경 미지정 → 기존 레이아웃 배경 유지)
+function canvasStyle(t: ThemeTokens): CSSProperties {
+  return t.appGradient ? { background: t.appGradient } : {};
+}
+
+// 프로스티드 글래스 카드 (밀도 낮은 주요 표면)
+function glassCardStyle(t: ThemeTokens): CSSProperties {
+  if (isHaon(t)) {
+    return {
+      background: t.cardFrosted,
+      backdropFilter: t.glassBlur,
+      WebkitBackdropFilter: t.glassBlur,
+      border: t.glassBorder ?? `1px solid ${t.border}`,
+      borderRadius: t.radiusCard ?? 24,
+      boxShadow: t.shadowCard ?? t.shadow,
+    };
+  }
+  return { backgroundColor: t.bgSub, border: `1px solid ${t.border}` };
+}
+
+// 반투명 프로스티드 바(헤더·탭바) — 컨텐츠 위에 은은하게 떠 있는 느낌
+function glassBarStyle(t: ThemeTokens): CSSProperties {
+  if (isHaon(t)) {
+    return {
+      background: 'rgba(255,255,255,0.45)',
+      backdropFilter: t.glassBlur,
+      WebkitBackdropFilter: t.glassBlur,
+      borderBottom: `1px solid rgba(255,255,255,0.55)`,
+    };
+  }
+  return { borderBottom: `1px solid ${t.border}` };
+}
 
 // ─── Snooze Date Picker Modal ───
 function SnoozeModal({ todo, onClose }: { todo: Todo; onClose: () => void }) {
@@ -934,9 +973,9 @@ export function DailyView() {
   // Today's habits
 
   return (
-    <div className="relative flex-1 flex flex-col overflow-hidden h-full">
+    <div className="relative flex-1 flex flex-col overflow-hidden h-full" style={canvasStyle(t)}>
       {/* Header */}
-      <div className="relative flex items-center justify-between px-3 py-3 lg:px-6 lg:py-4 flex-shrink-0" style={{ borderBottom: `1px solid ${t.border}` }}>
+      <div className="relative flex items-center justify-between px-3 py-3 lg:px-6 lg:py-4 flex-shrink-0" style={glassBarStyle(t)}>
         <div className="w-10 lg:w-28 flex-shrink-0" />
         <div className="absolute inset-x-0 top-1/2 -translate-y-1/2 flex justify-center px-3 lg:px-6 pointer-events-none">
           <div className="flex items-center gap-1 lg:gap-2 max-w-full pointer-events-auto">
@@ -990,7 +1029,7 @@ export function DailyView() {
       {/* Content */}
       <div className="flex-1 overflow-hidden flex flex-col" style={{ minHeight: 0 }}>
         {/* Mobile Tab Bar */}
-        <div className="flex lg:hidden flex-shrink-0" style={{ borderBottom: `1px solid ${t.border}` }}>
+        <div className="flex lg:hidden flex-shrink-0" style={glassBarStyle(t)}>
           <button
             onClick={() => setMobileTab('todos')}
             className="flex-1 py-2.5 text-center transition-colors"
@@ -1024,7 +1063,7 @@ export function DailyView() {
             <QuickAddInput defaultDate={selectedDate} placeholder="여기에 던지기: 운동, 오후 3시 회의 #업무 …" />
 
             {/* 오늘 일정 */}
-            <div className="rounded-2xl p-4" style={{ backgroundColor: t.bgSub, border: `1px solid ${t.border}` }}>
+            <div className="rounded-2xl p-4" style={glassCardStyle(t)}>
               <div className="flex items-center gap-2 mb-2.5">
                 <CalendarDays size={13} color={t.info} />
                 <span style={{ fontSize: 10, color: t.info, fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase' }}>오늘 일정</span>
@@ -1086,7 +1125,7 @@ export function DailyView() {
             </div>
 
             {/* 오늘 할 일 (중요 먼저) */}
-            <div className="rounded-2xl p-4" style={{ backgroundColor: t.bgSub, border: `1px solid ${t.border}` }}>
+            <div className="rounded-2xl p-4" style={glassCardStyle(t)}>
               <div className="flex items-center gap-2 mb-3">
                 <span style={{ fontSize: 10, color: t.accent, fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase' }}>오늘 할 일</span>
                 <span style={{ fontSize: 10, color: t.textMuted }}>{dateTodos.length}</span>

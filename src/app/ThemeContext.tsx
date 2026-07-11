@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState } from 'react';
 
-export type DesignTheme = 'A' | 'B' | 'C' | 'D';
+export type DesignTheme = 'A' | 'B' | 'C' | 'D' | 'H';
 
 export interface ThemeTokens {
   bg: string;
@@ -28,6 +28,22 @@ export interface ThemeTokens {
   font: string;
   shadow: string;
   checkDone: string;
+
+  // ── Haon Soft Pastel Glassmorphism 확장 필드 (DESIGN.md) ──
+  // 파스텔-글래스 테마(H)에서만 채워지고, 기존 테마는 undefined.
+  // 컴포넌트는 `t.appGradient ?? t.bg` 처럼 폴백해 기존 테마 호환을 유지한다.
+  appGradient?: string;      // 페이지 캔버스 — 대각선 파스텔 그라디언트
+  cardFrosted?: string;      // 프로스티드 글래스 카드 배경 (rgba)
+  glassBorder?: string;      // 은은한 밝은 테두리
+  glassBlur?: string;        // backdrop-filter 값
+  primaryGradient?: string;  // Primary 버튼 코랄→핑크
+  accentGradientWarm?: string;
+  accentGradientCool?: string;
+  shadowCard?: string;       // card-floating
+  shadowButton?: string;     // button-colored
+  shadowFab?: string;
+  radiusCard?: number;       // 카드 radius (24–32)
+  fontNumeric?: string;      // 숫자 강조 (Sora)
 }
 
 // ── Design A: Curator — slate / cool surface (HTML 참고 팔레트) ──
@@ -146,6 +162,51 @@ export const tokenD: ThemeTokens = {
   checkDone: '#006b62',
 };
 
+// ── Design H: Haon — Soft Pastel Glassmorphism (DESIGN.md 단일 기준) ──
+// 파스텔 그라디언트 캔버스 + 프로스티드 글래스 카드 + 코랄→핑크 강조.
+// 기존 웜(B)은 그대로 보존하고, 이 테마는 새 옵션으로만 추가한다.
+export const tokenH: ThemeTokens = {
+  bg: '#F6DCE6',            // appGradient 미지원 폴백용 파스텔 단색
+  bgSub: '#F4E7FB',        // lavender-mist
+  bgHover: '#EFE3FA',
+  card: '#FFFFFF',         // card-solid (밀도 높은 콘텐츠)
+  sidebar: 'rgba(255,255,255,0.55)',
+  text: '#2E2A5B',         // text-primary (deep indigo-navy)
+  textSub: '#6E6A93',      // text-secondary
+  textMuted: '#A5A2BE',    // text-muted
+  accent: '#FF6F91',       // pink-vivid
+  accentLight: '#F6BCBA',  // soft-coral
+  accentSoft: '#F4E7FB',   // lavender-mist
+  border: 'rgba(46,42,91,0.10)',
+  borderLight: 'rgba(46,42,91,0.06)',
+  planBlock: '#EAE4FB',    // 쿨 라일락 톤 (PLAN)
+  planBorder: 'rgba(200,168,233,0.5)',
+  planText: '#5B4FA0',
+  doBlock: '#FF6F91',      // 코랄→핑크 강조 (DO)
+  doText: '#FFFFFF',
+  danger: '#F58A8A',
+  dangerLight: '#FCE6E6',
+  success: '#7FCB8F',
+  info: '#9BB4F4',
+  font: "'Pretendard', -apple-system, 'Segoe UI', Roboto, sans-serif",
+  shadow: '0 20px 50px rgba(120,90,160,0.18)',
+  checkDone: '#7FCB8F',
+
+  // 파스텔-글래스 확장
+  appGradient: 'linear-gradient(135deg, #E4D7F5 0%, #F6DCE6 50%, #FCE6D8 100%)',
+  cardFrosted: 'rgba(255,255,255,0.55)',
+  glassBorder: '1px solid rgba(255,255,255,0.6)',
+  glassBlur: 'blur(20px) saturate(140%)',
+  primaryGradient: 'linear-gradient(135deg, #FF9A8B 0%, #FF6F91 100%)',
+  accentGradientWarm: 'linear-gradient(135deg, #F6BCBA 0%, #E3AADD 100%)',
+  accentGradientCool: 'linear-gradient(135deg, #C8A8E9 0%, #C3C7F4 100%)',
+  shadowCard: '0 20px 50px rgba(120,90,160,0.18)',
+  shadowButton: '0 8px 20px rgba(255,111,145,0.35)',
+  shadowFab: '0 10px 24px rgba(46,42,91,0.30)',
+  radiusCard: 28,
+  fontNumeric: "'Sora', 'Pretendard', sans-serif",
+};
+
 export type LayoutMode = 'sidebar' | 'topnav';
 
 export function getLayoutMode(theme: DesignTheme): LayoutMode {
@@ -169,13 +230,52 @@ function resolveTokens(theme: DesignTheme): ThemeTokens {
   if (theme === 'A') return tokenA;
   if (theme === 'B') return tokenB;
   if (theme === 'C') return tokenC;
+  if (theme === 'H') return tokenH;
   return tokenD;
 }
 
+// 기본값은 웜(B) 유지. 파스텔(H)은 옵션으로만 추가.
+// 확인용 스위치: localStorage 에 저장된 값이 있으면 그것을 우선 사용한다.
+const THEME_STORE_KEY = 'haon.theme';
+const VALID_THEMES: DesignTheme[] = ['A', 'B', 'C', 'D', 'H'];
+
+function readInitialTheme(): DesignTheme {
+  try {
+    const saved = localStorage.getItem(THEME_STORE_KEY) as DesignTheme | null;
+    if (saved && VALID_THEMES.includes(saved)) return saved;
+  } catch {
+    /* SSR/프라이빗 모드 등에서 localStorage 접근 불가 시 무시 */
+  }
+  return 'B';
+}
+
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
-  const [theme, setTheme] = useState<DesignTheme>('B');
+  const [theme, setThemeState] = useState<DesignTheme>(readInitialTheme);
+
+  const setTheme = React.useCallback((next: DesignTheme) => {
+    setThemeState(next);
+    try {
+      localStorage.setItem(THEME_STORE_KEY, next);
+    } catch {
+      /* 저장 실패는 무시 (테마 전환 자체는 동작) */
+    }
+  }, []);
+
   const t = resolveTokens(theme);
   const layoutMode = getLayoutMode(theme);
+
+  // 확인용 콘솔 스위치: window.setHaonTheme('H') / ('B') 로 즉시 전환 + 저장.
+  React.useEffect(() => {
+    (window as any).setHaonTheme = (next: DesignTheme) => {
+      if (!VALID_THEMES.includes(next)) {
+        console.warn(`[Haon] 알 수 없는 테마: ${next}. 사용 가능: ${VALID_THEMES.join(', ')}`);
+        return;
+      }
+      setTheme(next);
+      console.log(`[Haon] 테마 → ${next}`);
+    };
+    return () => { delete (window as any).setHaonTheme; };
+  }, [setTheme]);
 
   return (
     <ThemeContext.Provider value={{ theme, setTheme, t, layoutMode }}>
