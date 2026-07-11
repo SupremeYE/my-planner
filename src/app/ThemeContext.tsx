@@ -219,10 +219,10 @@ export const tokenH: ThemeTokens = {
   radiusCard: 28,
   fontNumeric: "'Sora', 'Pretendard', sans-serif",
 
-  // 오늘 기록 카드 — 배경 분리(테두리+그림자)
-  recordCardBg: 'rgba(255,255,255,0.72)',
-  recordCardBorder: '1px solid rgba(120,90,160,0.14)',
-  recordCardShadow: '0 4px 14px rgba(120,90,160,0.07)',
+  // 오늘 기록 카드 — 불투명 흰색 + 강화된 테두리/그림자로 배경과 분리
+  recordCardBg: '#FFFFFF',
+  recordCardBorder: '1px solid rgba(122,92,162,0.24)',
+  recordCardShadow: '0 6px 18px rgba(120,90,160,0.14)',
   // 타임블록 기본색(태그 없는 블록) = 옅은 라일락 · now 라인 = 소프트 코랄
   blockDefaultBg: 'rgba(200,168,233,0.32)',
   blockDefaultBorder: 'rgba(150,120,200,0.45)',

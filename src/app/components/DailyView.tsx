@@ -454,6 +454,9 @@ function RecordChips({ date }: { date: string }) {
 
   const renderChip = (c: RecordChip) => {
     const empty = c.value === null;
+    // Haon(H): 기록 유무와 무관하게 카드 컨테이너(불투명 흰색·테두리·그림자)는 동일 유지 —
+    // 흐려지는 건 안쪽 텍스트뿐. 그 외 테마: recordCard* 토큰이 없으므로 기존 동작(빈 상태=투명+점선) 유지.
+    const haonCard = !!t.recordCardBg;
     return (
       <button
         key={c.key}
@@ -461,17 +464,15 @@ function RecordChips({ date }: { date: string }) {
         className="relative flex flex-col gap-1 rounded-2xl px-3 py-2.5 text-left transition-all"
         style={{
           minHeight: 72,
-          // Haon(H): 반투명 흰 카드 + 은은한 테두리/그림자로 배경에서 분리.
-          // 그 외 테마: recordCard* 토큰이 없으므로 기존 모양(t.card/t.border) 유지.
-          backgroundColor: empty ? 'transparent' : (t.recordCardBg ?? t.card),
-          border: empty ? `1px dashed ${t.border}` : (t.recordCardBorder ?? `1px solid ${t.border}`),
-          boxShadow: empty ? undefined : t.recordCardShadow,
-          opacity: empty ? 0.6 : 1,
+          backgroundColor: haonCard ? t.recordCardBg : (empty ? 'transparent' : t.card),
+          border: haonCard ? t.recordCardBorder : (empty ? `1px dashed ${t.border}` : `1px solid ${t.border}`),
+          boxShadow: haonCard ? t.recordCardShadow : undefined,
+          opacity: haonCard ? 1 : (empty ? 0.6 : 1),
         }}
       >
         <span className="absolute" style={{ top: 8, right: 9, fontSize: 12, color: t.textMuted, fontWeight: 700 }}>↗</span>
         <span style={{ fontSize: 19, lineHeight: 1, filter: empty ? 'grayscale(0.4)' : 'none' }}>{c.icon}</span>
-        <span style={{ fontSize: 12, fontWeight: 700, color: t.text }}>{c.name}</span>
+        <span style={{ fontSize: 12, fontWeight: 700, color: empty ? t.textMuted : t.text }}>{c.name}</span>
         <span style={{ fontSize: 11, color: empty ? t.textMuted : t.textSub, lineHeight: 1.35, fontWeight: empty ? 600 : 400, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
           {empty ? '아직 없음' : c.value}
         </span>
