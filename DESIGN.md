@@ -149,7 +149,16 @@ blobs, the accents, and the charts, not in loud backgrounds.
 
 ## 4. Typography
 
-Fonts: **Pretendard** for all app UI/titles/body (unifies the app; full Hangul + Latin).
+> **스코프 계약 (중요).** 폰트 규칙의 단일 기준(SSOT)은 이 §4/§8 이다 (CLAUDE.md 는 참조만
+> 하고 규칙을 중복 정의하지 않는다). 다만 **§4/§8 의 폰트 규정은 테마 H 전용 계약**이다.
+> 역할(page-title/section/body/label/numeric/diary/decorative)→폰트 매핑은 **테마별로 선언**되며,
+> 그 per-theme 값은 `ThemeContext.tsx` 의 `ThemeTokens.fontPageTitle` 등 역할 필드가 보유한다.
+> 테마 H 는 아래 표(Pretendard/Sora/Ownglyph)를 그대로 따르고, 다른 테마(A/B/C/D)는 각자의
+> 기존 폰트 정체성(예: B 는 제목 DM Serif·본문 Gowun Dodum)을 **그대로 보존**한다. 즉 §4 를
+> 전역 적용해 다른 테마의 DM Serif/GmarketSans/손글씨를 제거하는 것이 아니다. `@theme` 의
+> `--font-page-title` 등 CSS 역할 토큰은 이 H 계약 기준값을 담는다.
+
+Fonts (테마 H 기준): **Pretendard** for all app UI/titles/body (unifies the app; full Hangul + Latin).
 **Sora** optional for emphasis numbers. **온글잎 긍정 (Ownglyph-Positive)** for diary
 body text ONLY (deliberate handwriting exception; never elsewhere).
 

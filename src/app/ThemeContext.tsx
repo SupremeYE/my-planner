@@ -29,6 +29,19 @@ export interface ThemeTokens {
   shadow: string;
   checkDone: string;
 
+  // ── 폰트 역할 필드 (Stage 1 배관 — family 만; 굵기 잠금은 추후 단계) ──
+  // 역할→폰트는 "테마별 선언"이다. DESIGN.md §4/§8 타이포 규정은 테마 H 전용 계약이며,
+  // 다른 테마(A/B/C/D)는 각자의 기존 폰트 정체성을 그대로 보존한다.
+  // 이 단계에서는 어떤 컴포넌트도 이 필드를 소비하지 않는다(시각 변화 0). Stage 2에서
+  // 하드코딩 폰트를 이 필드로 치환한다.
+  fontPageTitle?: string;   // 페이지 대제목
+  fontSection?: string;     // 섹션·카드 제목
+  fontBody?: string;        // 본문·입력
+  fontLabel?: string;       // 라벨·버튼·칩
+  // fontNumeric 는 아래 Haon 확장 블록에 이미 선언되어 있다(숫자 강조).
+  fontDiary?: string;       // 일기 본문 (H: Ownglyph)
+  fontDecorative?: string;  // 손글씨 장식 (H: 미사용)
+
   // ── Haon Soft Pastel Glassmorphism 확장 필드 (DESIGN.md) ──
   // 파스텔-글래스 테마(H)에서만 채워지고, 기존 테마는 undefined.
   // 컴포넌트는 `t.appGradient ?? t.bg` 처럼 폴백해 기존 테마 호환을 유지한다.
@@ -101,6 +114,15 @@ export const tokenA: ThemeTokens = {
   font: "'Pretendard', -apple-system, BlinkMacSystemFont, sans-serif",
   shadow: '0 1px 3px rgba(38,52,61,0.06)',
   checkDone: '#006b62',
+
+  // 폰트 역할(기존 렌더 보존): 제목 DM Serif · 본문/라벨 Pretendard · 숫자 Gmarket · 일기 Ownglyph · 장식 Gaegu
+  fontPageTitle: "'DM Serif Display', serif",
+  fontSection: "'DM Serif Display', serif",
+  fontBody: "'Pretendard', -apple-system, BlinkMacSystemFont, sans-serif",
+  fontLabel: "'Pretendard', -apple-system, BlinkMacSystemFont, sans-serif",
+  fontNumeric: "'GmarketSansBold', 'GmarketSans', 'Pretendard', sans-serif",
+  fontDiary: "'Ownglyph-Positive', 'Gaegu', 'Pretendard', sans-serif",
+  fontDecorative: "'Gaegu', cursive",
 };
 
 // ── Design B: Haon Sunrise — 선라이즈 코랄/피치 라이트 테마 ──
@@ -130,6 +152,15 @@ export const tokenB: ThemeTokens = {
   font: "'Gowun Dodum', 'Pretendard Variable', 'Pretendard', sans-serif",
   shadow: '0 4px 20px rgba(244,165,130,0.08), 0 1px 3px rgba(45,42,58,0.04)',
   checkDone: '#7FB89A',
+
+  // 폰트 역할(선라이즈 정체성 보존): 제목 DM Serif · 본문/라벨 Gowun Dodum · 숫자 Gmarket · 일기 Ownglyph · 장식 Gaegu
+  fontPageTitle: "'DM Serif Display', serif",
+  fontSection: "'DM Serif Display', serif",
+  fontBody: "'Gowun Dodum', 'Pretendard Variable', 'Pretendard', sans-serif",
+  fontLabel: "'Gowun Dodum', 'Pretendard Variable', 'Pretendard', sans-serif",
+  fontNumeric: "'GmarketSansBold', 'GmarketSans', 'Pretendard', sans-serif",
+  fontDiary: "'Ownglyph-Positive', 'Gaegu', 'Pretendard', sans-serif",
+  fontDecorative: "'Gaegu', cursive",
 };
 
 // ── Design C: Top-Nav — Curator 팔레트 (A와 동일 톤) ──
@@ -159,6 +190,15 @@ export const tokenC: ThemeTokens = {
   font: "'Pretendard', -apple-system, BlinkMacSystemFont, sans-serif",
   shadow: '0 2px 8px rgba(38,52,61,0.07)',
   checkDone: '#006b62',
+
+  // 폰트 역할(기존 렌더 보존): 제목 DM Serif · 본문/라벨 Pretendard · 숫자 Gmarket · 일기 Ownglyph · 장식 Gaegu
+  fontPageTitle: "'DM Serif Display', serif",
+  fontSection: "'DM Serif Display', serif",
+  fontBody: "'Pretendard', -apple-system, BlinkMacSystemFont, sans-serif",
+  fontLabel: "'Pretendard', -apple-system, BlinkMacSystemFont, sans-serif",
+  fontNumeric: "'GmarketSansBold', 'GmarketSans', 'Pretendard', sans-serif",
+  fontDiary: "'Ownglyph-Positive', 'Gaegu', 'Pretendard', sans-serif",
+  fontDecorative: "'Gaegu', cursive",
 };
 
 // ── Design D: Enhanced Dashboard (Curator 팔레트, A와 동일) ──
@@ -188,6 +228,15 @@ export const tokenD: ThemeTokens = {
   font: "'Pretendard', -apple-system, BlinkMacSystemFont, sans-serif",
   shadow: '0 1px 3px rgba(38,52,61,0.06)',
   checkDone: '#006b62',
+
+  // 폰트 역할(기존 렌더 보존): 제목 DM Serif · 본문/라벨 Pretendard · 숫자 Gmarket · 일기 Ownglyph · 장식 Gaegu
+  fontPageTitle: "'DM Serif Display', serif",
+  fontSection: "'DM Serif Display', serif",
+  fontBody: "'Pretendard', -apple-system, BlinkMacSystemFont, sans-serif",
+  fontLabel: "'Pretendard', -apple-system, BlinkMacSystemFont, sans-serif",
+  fontNumeric: "'GmarketSansBold', 'GmarketSans', 'Pretendard', sans-serif",
+  fontDiary: "'Ownglyph-Positive', 'Gaegu', 'Pretendard', sans-serif",
+  fontDecorative: "'Gaegu', cursive",
 };
 
 // ── Design H: Haon — Soft Pastel Glassmorphism (DESIGN.md 단일 기준) ──
@@ -236,6 +285,15 @@ export const tokenH: ThemeTokens = {
   shadowFab: '0 10px 24px rgba(46,42,91,0.30)',
   radiusCard: 28,
   fontNumeric: "'Sora', 'Pretendard', sans-serif",
+
+  // 폰트 역할 — DESIGN.md §4 계약(H 전용): 제목/본문/라벨 = Pretendard, 숫자 = Sora,
+  // 일기 = Ownglyph. 장식 손글씨는 §8 "일기 외 손글씨 금지"에 따라 미사용(undefined).
+  fontPageTitle: "'Pretendard', -apple-system, 'Segoe UI', Roboto, sans-serif",
+  fontSection: "'Pretendard', -apple-system, 'Segoe UI', Roboto, sans-serif",
+  fontBody: "'Pretendard', -apple-system, 'Segoe UI', Roboto, sans-serif",
+  fontLabel: "'Pretendard', -apple-system, 'Segoe UI', Roboto, sans-serif",
+  fontDiary: "'Ownglyph-Positive', 'Gaegu', 'Pretendard', sans-serif",
+  // fontDecorative: 미사용 (§8)
 
   // 오늘 기록 카드 — 솔리드 카드 recipe와 동일(불투명 흰색 + 하이라인 + 소프트 그림자)
   recordCardBg: '#FFFFFF',
