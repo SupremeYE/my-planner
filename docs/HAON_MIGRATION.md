@@ -70,7 +70,7 @@
 2. 카드 = `solidCardStyle`, 항목 행 = `solidRowStyle`, 오버레이만 `glassBarStyle`, 강조 = `primaryGradient`, 태그 = `mixHex`.
 3. `backdrop-filter`는 오버레이 전용, 페이지 배경은 `canvasStyle`.
 4. **토큰만 사용, 하드코딩 금지** (필요한 토큰이 없으면 `tokenH`에 추가).
-5. 기본 테마 전환은 **전 페이지 완료 후** (DESIGN.md §9). 지금은 opt-in 단계.
+5. 기본 테마 전환은 **전 페이지 완료 후** (DESIGN.md §10). 지금은 opt-in 단계.
 
 **참고**
 - `QuickAddInput`은 `solid` prop opt-in → 다른 페이지에서 쓸 때 `solid` 전달 필요.
