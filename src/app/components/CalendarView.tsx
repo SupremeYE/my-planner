@@ -177,7 +177,7 @@ function MonthView({ viewDate, filter, selectedTagIds, weekStartsOn, onSelectDat
     <div>
       <div className="grid grid-cols-7 mb-1">
         {weekdayLabels.map(label => (
-          <div key={label} className="text-center py-2" style={{ fontSize: 12, color: '#888', fontWeight: 600 }}>
+          <div key={label} className="text-center py-2" style={{ fontSize: 12, color: isHaon(t) ? t.textMuted : '#888', fontWeight: 600 }}>
             {label}
           </div>
         ))}
@@ -738,11 +738,11 @@ export function CalendarView() {
       <div className="px-3 py-3 lg:px-4 lg:py-4" style={{ flexShrink: 0, ...(isHaon(t) ? glassBarStyle(t) : { backgroundColor: t.sidebar, borderBottom: `1px solid ${t.border}` }) }}>
         <div className="flex items-center gap-2 mb-3">
           <button onClick={handlePrev} className="p-1.5 lg:p-2 rounded-xl hover:bg-[#eef4fa]">
-            <ChevronLeft size={18} color="#888" />
+            <ChevronLeft size={18} color={isHaon(t) ? t.textMuted : '#888'} />
           </button>
-          <span className="flex-1 text-center" style={{ fontSize: 16, fontWeight: 700, color: '#26343d' }}>{navLabel}</span>
+          <span className="flex-1 text-center" style={{ fontSize: 16, fontWeight: 700, color: isHaon(t) ? t.text : '#26343d' }}>{navLabel}</span>
           <button onClick={handleNext} className="p-1.5 lg:p-2 rounded-xl hover:bg-[#eef4fa]">
-            <ChevronRight size={18} color="#888" />
+            <ChevronRight size={18} color={isHaon(t) ? t.textMuted : '#888'} />
           </button>
         </div>
 
@@ -870,7 +870,7 @@ export function CalendarView() {
 
       {tab === 'week' ? (
         <div className="flex-1 px-3 pb-3 pt-2.5 lg:px-4 lg:pb-4 lg:pt-3 flex flex-col" style={{ minHeight: 0, overflow: 'hidden' }}>
-          <div className="bg-white rounded-2xl shadow-sm h-full" style={{ border: '1px solid #eef4fa', display: 'flex', flexDirection: 'column', minHeight: 0, overflow: 'hidden' }}>
+          <div className="bg-white rounded-2xl shadow-sm h-full" style={{ ...(isHaon(t) ? solidCardStyle(t) : { border: '1px solid #eef4fa' }), display: 'flex', flexDirection: 'column', minHeight: 0, overflow: 'hidden' }}>
             {/* 모바일: 일자 탭 전환 → 일간 편집 타임라인(days=1) */}
             <div className="flex flex-col md:hidden" style={{ flex: 1, minHeight: 0, overflow: 'hidden' }}>
               <div className="flex flex-shrink-0" style={{ borderBottom: `1px solid ${t.borderLight}` }}>
@@ -923,7 +923,7 @@ export function CalendarView() {
           >
             <div
               className="bg-white rounded-2xl p-4 shadow-sm"
-              style={{ border: '1px solid #eef4fa' }}
+              style={isHaon(t) ? { ...solidCardStyle(t) } : { border: '1px solid #eef4fa' }}
               onTouchStart={handleMonthTouchStart}
               onTouchEnd={handleMonthTouchEnd}
             >
@@ -956,7 +956,7 @@ export function CalendarView() {
           <div className="flex-1 min-h-0 overflow-hidden">
             <div
               className="rounded-[18px] h-full overflow-hidden"
-              style={{ backgroundColor: t.card, border: `1px solid ${t.border}` }}
+              style={isHaon(t) ? { ...solidCardStyle(t) } : { backgroundColor: t.card, border: `1px solid ${t.border}` }}
             >
               <div className="h-full overflow-y-auto px-4 py-4 lg:px-5">
                 {!panelDate && (
