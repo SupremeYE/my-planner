@@ -40,7 +40,7 @@
   --font-nanum-round: 'NanumSquareRound', var(--font-pretendard);
   /* 깔끔한 본문 — 감정 기록 본문/미리보기 전용(일기 손글씨 Gaegu와 분리). 미로드 시 Gowun/Pretendard로 폴백 */
   --font-noto-sans: 'Noto Sans KR', var(--font-gowun);
-  /* Haon 디자인 시스템 폰트 토큰 (DESIGN.md §3) */
+  /* Haon 디자인 시스템 폰트 토큰 (DESIGN.md §4) */
   /* 숫자 강조(잔액·통계) — Sora, 미로드 시 Pretendard 폴백 */
   --font-sora: 'Sora', var(--font-pretendard);
   /* 일기 본문 전용 — 온글잎 긍정. 미로드 시 기존 손글씨(Gaegu)→Pretendard 폴백.
