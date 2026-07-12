@@ -1,4 +1,4 @@
-import { useState, useMemo, type CSSProperties } from 'react';
+import { useState, useMemo, useRef, useEffect, type CSSProperties } from 'react';
 import { format, isToday, isTomorrow, isPast, parseISO } from 'date-fns';
 import {
   Trash2, ChevronDown, ChevronUp,
@@ -69,6 +69,24 @@ function TodoRow({
   const milestone = todo.milestoneId ? milestones.find(m => m.id === todo.milestoneId) : null;
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
+  // 완료 체크 시 즉시 사라지지 않고 부드럽게 슬라이드 아웃한 뒤 실제 상태를 커밋한다.
+  const [leaving, setLeaving] = useState(false);
+  const leaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => () => { if (leaveTimer.current) clearTimeout(leaveTimer.current); }, []);
+
+  // 완료 경계를 넘어(할일↔완료함) 현재 목록에서 빠지는 토글일 때만 애니메이션, 그 외(예: 미루기→예정)는 즉시.
+  const handleStatusToggle = () => {
+    const next = STATUS_NEXT[todo.status];
+    const wasDone = todo.status === 'done' || todo.status === 'cancelled';
+    const willBeDone = next === 'done' || next === 'cancelled';
+    if (wasDone !== willBeDone && !leaving) {
+      setLeaving(true);
+      leaveTimer.current = setTimeout(onStatusToggle, 300);
+    } else {
+      onStatusToggle();
+    }
+  };
+
   const isDone = todo.status === 'done';
   const isCancelled = todo.status === 'cancelled';
   const cfg = STATUS_CONFIG[todo.status] ?? STATUS_CONFIG.active;
@@ -104,6 +122,26 @@ function TodoRow({
 
   return (
     <>
+      {/* 완료함으로 넘어갈 때 슬라이드 아웃 — 높이 collapse(grid 1fr→0fr) + 우측 슬라이드 + 페이드.
+          overflow는 애니메이션 중(leaving)에만 hidden → 평상시 카드 그림자 클립 없음. */}
+      <div
+        style={{
+          display: 'grid',
+          gridTemplateRows: leaving ? '0fr' : '1fr',
+          opacity: leaving ? 0 : 1,
+          overflow: leaving ? 'hidden' : 'visible',
+          marginTop: leaving ? 0 : undefined,
+          pointerEvents: leaving ? 'none' : undefined,
+          transition: 'grid-template-rows 300ms ease, opacity 260ms ease, margin-top 300ms ease',
+        }}
+      >
+        <div
+          style={{
+            minHeight: 0,
+            transform: leaving ? 'translateX(28px)' : 'translateX(0)',
+            transition: 'transform 300ms ease',
+          }}
+        >
       <div
         className="rounded-2xl transition-all"
         style={rowStyle}
@@ -124,7 +162,7 @@ function TodoRow({
         <div className="flex items-start gap-3 px-3 py-3">
           {/* Status toggle */}
           <button
-            onClick={onStatusToggle}
+            onClick={handleStatusToggle}
             className="flex-shrink-0 mt-0.5 w-5 h-5 rounded-full border-2 flex items-center justify-center transition-all"
             style={{
               borderColor: isDone ? t.accent : cfg.color,
@@ -234,6 +272,8 @@ function TodoRow({
               <Trash2 size={13} color={t.textMuted} />
             </button>
           </div>
+        </div>
+      </div>
         </div>
       </div>
 
