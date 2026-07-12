@@ -433,9 +433,11 @@ export function CalendarView() {
       .sort((a, b) => (a.startTime ?? '').localeCompare(b.startTime ?? ''))
     : [];
   // 반복 할일 가상 인스턴스 포함 — 그 날짜에 존재하는 할일을 모두 표시
+  // expandRecurringTodos 는 비반복 할일을 날짜와 무관하게 전부 반환하므로(월별 셀 getItems 와 동일),
+  // 반드시 date === panelDate 로 걸러 선택 날짜의 할일만 남긴다.
   const panelTodos = panelDate
     ? expandRecurringTodos(todos, panelDate, panelDate)
-      .filter(todo => todo.status !== 'backlog' && todo.status !== 'cancelled')
+      .filter(todo => todo.date === panelDate && todo.status !== 'backlog' && todo.status !== 'cancelled')
       .slice()
       .sort((a, b) => (a.planStart ?? a.doStart ?? '').localeCompare(b.planStart ?? b.doStart ?? ''))
     : [];
