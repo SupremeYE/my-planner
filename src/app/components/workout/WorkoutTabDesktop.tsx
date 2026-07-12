@@ -7,7 +7,6 @@ import { GrowthChart } from './GrowthChart';
 import type { UseWorkout } from './useWorkout';
 import { agoLabel, summarizeSets, isoToShortLabel, MAIN_BODY_PARTS, BODY_PART_EMOJI } from './workoutUtils';
 
-const SERIF = "'DM Serif Display', serif";
 
 // ── PC 전용 대시보드 레이아웃 ───────────────────────────────────────────────────
 // 가로 공간을 채우는 별도 레이아웃: 상단 히어로 배너(전체폭 1줄) + 2단 대시보드.
@@ -48,7 +47,7 @@ function HeroBanner({ w }: { w: UseWorkout }) {
         {/* 스트릭 */}
         <div className="flex items-center gap-2 flex-shrink-0">
           <Flame size={26} color="#fff" />
-          <span style={{ fontSize: 38, fontWeight: 800, fontFamily: SERIF, lineHeight: 1 }}>{w.streak}</span>
+          <span style={{ fontSize: 38, fontWeight: 800, fontFamily: t.fontStat, lineHeight: 1 }}>{w.streak}</span>
           <span style={{ fontSize: 15, fontWeight: 600, opacity: 0.95, marginLeft: 2 }}>일 연속</span>
         </div>
 

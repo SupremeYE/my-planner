@@ -341,7 +341,7 @@ function CorePCCell({ title, pct, t, onClick }: {
       <span style={{ fontFamily: t.fontDecorative, fontWeight: 700, fontSize: 12, lineHeight: 1.15, ...clamp2 }}>
         {title}
       </span>
-      <b style={{ fontFamily: "'DM Serif Display', serif", fontSize: 15, fontWeight: 400 }}>{pct}%</b>
+      <b style={{ fontFamily: t.fontNumeric, fontSize: 15, fontWeight: 400 }}>{pct}%</b>
     </button>
   );
 }
@@ -429,7 +429,7 @@ function SubCenterPCCell({ name, pct, t, onClick }: {
       <span style={{ fontFamily: t.fontDecorative, fontWeight: 700, fontSize: 12, lineHeight: 1.15, ...clamp2 }}>
         {name}
       </span>
-      <b style={{ fontFamily: "'DM Serif Display', serif", fontSize: 13, fontWeight: 400, color: t.accent }}>
+      <b style={{ fontFamily: t.fontNumeric, fontSize: 13, fontWeight: 400, color: t.accent }}>
         {pct}%
       </b>
     </button>

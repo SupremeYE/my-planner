@@ -430,7 +430,7 @@ export function MomentView() {
                     minWidth: 60,
                   }}
                 >
-                  <span style={{ fontFamily: "'DM Serif Display', serif", fontSize: 16, lineHeight: 1.1 }}>{y}</span>
+                  <span style={{ fontFamily: t.fontNumeric, fontSize: 16, lineHeight: 1.1 }}>{y}</span>
                   {y === currentYear && (
                     <span style={{ fontSize: 9, marginTop: 1, opacity: 0.85 }}>올해</span>
                   )}
@@ -599,10 +599,10 @@ export function MomentView() {
                     {/* 월 그룹 헤더: 영문 월(DM Serif) + 'YYYY · N개의 순간' + 우측 순서 편집 pill */}
                     <div className="flex items-baseline justify-between gap-3">
                       <div className="flex items-baseline gap-2 min-w-0">
-                        <span style={{ fontFamily: "'DM Serif Display', serif", fontSize: 24, color: t.text, lineHeight: 1.1 }}>
+                        <span style={{ fontFamily: t.fontSection, fontSize: 24, color: t.text, lineHeight: 1.1 }}>
                           {format(new Date(`${key}-01T00:00:00`), 'MMMM')}
                         </span>
-                        <span style={{ fontFamily: "'DM Serif Display', serif", fontSize: 18, color: t.textSub, lineHeight: 1.1 }}>
+                        <span style={{ fontFamily: t.fontNumeric, fontSize: 18, color: t.textSub, lineHeight: 1.1 }}>
                           {format(new Date(`${key}-01T00:00:00`), 'yyyy')}
                         </span>
                         <span style={{ fontSize: 13, color: t.textMuted }}>· {group.length}개의 순간</span>
@@ -696,7 +696,7 @@ export function MomentView() {
                     minWidth: 54,
                   }}
                 >
-                  <span style={{ fontFamily: "'DM Serif Display', serif", fontSize: 15, lineHeight: 1.1 }}>{y}</span>
+                  <span style={{ fontFamily: t.fontNumeric, fontSize: 15, lineHeight: 1.1 }}>{y}</span>
                   {y === currentYear && (
                     <span style={{ fontSize: 9, marginTop: 1, opacity: 0.85 }}>올해</span>
                   )}
@@ -804,7 +804,7 @@ export function MomentView() {
                     {/* 월별 그룹 헤더 (예: June 2026 · 12개) + 순서 편집 pill */}
                     <div className="flex items-baseline justify-between gap-2">
                       <div className="flex items-baseline gap-1.5 min-w-0">
-                        <span style={{ fontFamily: "'DM Serif Display', serif", fontSize: 16, color: t.text, lineHeight: 1.1 }}>
+                        <span style={{ fontFamily: t.fontSection, fontSize: 16, color: t.text, lineHeight: 1.1 }}>
                           {format(new Date(`${key}-01T00:00:00`), 'MMMM yyyy')}
                         </span>
                         <span style={{ fontSize: 12, color: t.textMuted }}>· {group.length}개</span>
@@ -1307,7 +1307,7 @@ function StatCard({ label, value, t, valueColor }: { label: string; value: numbe
   return (
     <div className="rounded-xl px-3 py-2.5" style={{ backgroundColor: t.card, border: `1px solid ${t.border}` }}>
       <div style={{ fontSize: 11, color: t.textSub }}>{label}</div>
-      <div style={{ fontFamily: "'DM Serif Display', serif", fontSize: 22, color: valueColor ?? t.text, lineHeight: 1.15, marginTop: 1 }}>
+      <div style={{ fontFamily: t.fontStat, fontSize: 22, color: valueColor ?? t.text, lineHeight: 1.15, marginTop: 1 }}>
         {value}
         <span style={{ fontSize: 12, color: t.textMuted, marginLeft: 2, fontFamily: 'var(--font-gowun)' }}>개</span>
       </div>

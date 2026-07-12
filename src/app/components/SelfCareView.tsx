@@ -1650,7 +1650,7 @@ function TimeStackBar({ report }: { report: ReturnType<typeof useTimeReport> }) 
           <BarChart data={rows} barCategoryGap="22%">
             <CartesianGrid vertical={false} stroke="rgba(194,168,130,0.1)" />
             <XAxis dataKey="label" tickLine={false} axisLine={false}
-              tick={{ fontSize: 11, fill: t.textMuted, fontFamily: "'Noto Sans KR', sans-serif" }} />
+              tick={{ fontSize: 11, fill: t.textMuted, fontFamily: t.fontLabel }} />
             <YAxis hide />
             <Tooltip cursor={{ fill: 'rgba(194,168,130,0.08)' }} content={<ChartTooltip t={t} />} />
             <Bar dataKey="_empty" stackId="a" fill={t.borderLight} radius={[4, 4, 0, 0]} legendType="none" name="" isAnimationActive={false} />

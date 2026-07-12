@@ -329,7 +329,7 @@ function CoreCell({ title, pct, t, onClick }: {
       }}>
         {title}
       </span>
-      <span style={{ fontFamily: "'DM Serif Display', serif", fontSize: 20 }}>{pct}%</span>
+      <span style={{ fontFamily: t.fontStat, fontSize: 20 }}>{pct}%</span>
     </button>
   );
 }
@@ -443,7 +443,7 @@ function SubCenterCell({ name, pct, onClick }: { name: string; pct: number; onCl
       }}>
         {name}
       </span>
-      <span style={{ fontFamily: "'DM Serif Display', serif", fontSize: 18, color: t.accent }}>
+      <span style={{ fontFamily: t.fontNumeric, fontSize: 18, color: t.accent }}>
         {pct}%
       </span>
     </button>

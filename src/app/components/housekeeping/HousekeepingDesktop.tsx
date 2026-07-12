@@ -16,7 +16,6 @@ import { PhotoCaptureSheet } from '../capture/PhotoCaptureSheet';
 import type { ExtractedItem } from '../capture/useVisionExtract';
 import type { HouseholdItem } from '../../store';
 
-const SERIF = "'DM Serif Display', serif";
 const newId = () =>
   (typeof crypto !== 'undefined' && 'randomUUID' in crypto)
     ? crypto.randomUUID()
@@ -35,7 +34,7 @@ function DCardHeader({ title, count, action }: { title: string; count?: number; 
   return (
     <div className="flex items-center justify-between gap-2 mb-3">
       <div className="flex items-center gap-2">
-        <span style={{ fontFamily: SERIF, fontSize: 20, color: t.text }}>{title}</span>
+        <span style={{ fontFamily: t.fontSection, fontSize: 20, color: t.text }}>{title}</span>
         {count != null && <span style={{ fontSize: 12, fontWeight: 600, color: t.textMuted }}>{count}</span>}
       </div>
       {action}
@@ -162,7 +161,7 @@ export function HousekeepingDesktop() {
       {/* 헤더 */}
       <div className="flex items-end justify-between gap-3 mb-4">
         <div>
-          <h1 style={{ fontFamily: SERIF, fontSize: 30, color: t.text, lineHeight: 1.1 }}>살림 노트</h1>
+          <h1 style={{ fontFamily: t.fontPageTitle, fontSize: 30, color: t.text, lineHeight: 1.1 }}>살림 노트</h1>
           <p style={{ fontSize: 13.5, color: t.textSub, marginTop: 3 }}>슬슬 할 때 된 것들, 하온이 챙겨줄게요</p>
         </div>
         <div className="flex items-center gap-2">

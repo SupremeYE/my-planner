@@ -81,7 +81,7 @@ export function PeriodCascadeMobile() {
           <button onClick={() => setYear(y => y - 1)} className="p-1.5 rounded-lg" style={{ color: t.textMuted }}>
             <ChevronLeft size={16} />
           </button>
-          <div style={{ fontFamily: "'DM Serif Display', serif", fontSize: 26, color: t.text }}>{year}</div>
+          <div style={{ fontFamily: t.fontStat, fontSize: 26, color: t.text }}>{year}</div>
           <button onClick={() => setYear(y => y + 1)} className="p-1.5 rounded-lg" style={{ color: t.textMuted }}>
             <ChevronRight size={16} />
           </button>
