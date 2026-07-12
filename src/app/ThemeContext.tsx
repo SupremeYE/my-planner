@@ -312,11 +312,12 @@ export const tokenH: ThemeTokens = {
   radiusCard: 28,
   fontNumeric: "'Sora', 'Pretendard', sans-serif",
 
-  // 폰트 역할 — DESIGN.md §4 계약(H 전용): 제목/본문/라벨/독서/브랜드/확언 = Pretendard,
-  // 숫자·통계 = Sora, 일기 = Ownglyph. 장식·펜 손글씨는 §8 "일기 외 손글씨 금지"에 따라
-  // Pretendard 로 폴백한다(H 에서는 손글씨 정체성을 쓰지 않음).
-  fontPageTitle: "'Pretendard', -apple-system, 'Segoe UI', Roboto, sans-serif",
-  fontSection: "'Pretendard', -apple-system, 'Segoe UI', Roboto, sans-serif",
+  // 폰트 역할 — DESIGN.md §4 계약(H 전용): 제목(page-title/section) = GmarketSans,
+  // 본문·카드제목·라벨/독서/브랜드/확언 = Pretendard, 숫자·통계 = Sora, 일기 = Ownglyph.
+  // 장식·펜 손글씨는 §8 "일기 외 손글씨 금지"에 따라 Pretendard 로 폴백한다.
+  // ※ 실렌더 검토 결과 H 제목은 Gmarket 채택(v1.x). fontNumeric 과 동일 폴백 체인 사용.
+  fontPageTitle: "'GmarketSansBold', 'GmarketSans', 'Pretendard', sans-serif",
+  fontSection: "'GmarketSansBold', 'GmarketSans', 'Pretendard', sans-serif",
   fontBody: "'Pretendard', -apple-system, 'Segoe UI', Roboto, sans-serif",
   fontLabel: "'Pretendard', -apple-system, 'Segoe UI', Roboto, sans-serif",
   fontDiary: "'Ownglyph-Positive', 'Gaegu', 'Pretendard', sans-serif",
