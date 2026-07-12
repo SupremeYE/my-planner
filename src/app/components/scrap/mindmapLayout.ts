@@ -38,7 +38,7 @@ export interface LayoutResult {
 const NODE_H = 40;          // 노드 높이(고정)
 const MIN_W = 64;           // 최소 폭
 const MAX_W = 220;          // 최대 폭(긴 라벨은 말줄임 처리는 렌더 측)
-const CHAR_W = 11;          // 글자당 대략 폭(Nanum Pen 기준 근사)
+const CHAR_W = 11;          // 글자당 대략 폭(px, 근사값)
 const PAD_X = 24;           // 노드 좌우 패딩
 const H_LEVEL = 72;         // 가로 트리: 부모→자식 수평 간격
 const V_SIBLING = 18;       // 가로 트리: 형제 세로 간격
