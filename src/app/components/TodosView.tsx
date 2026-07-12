@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, type CSSProperties } from 'react';
 import { format, isToday, isTomorrow, isPast, parseISO } from 'date-fns';
 import {
   Trash2, ChevronDown, ChevronUp,
@@ -12,6 +12,7 @@ import { MandalartSourceBadge } from './mandalart/MandalartSourceBadge';
 import { TodoModal } from './TodoModal';
 import { QuickAddInput } from './QuickAddInput';
 import { isInboxCandidate } from '../../lib/inbox';
+import { isHaon, canvasStyle, solidCardStyle, solidRowStyle, glassBarStyle, mixHex } from '../styles/haonStyles';
 
 // ─── Constants ───────────────────────────────────────────────
 const STATUS_CONFIG: Record<string, { label: string; color: string; bgColor: string }> = {
@@ -74,16 +75,52 @@ function TodoRow({
   const duePast = todo.dueDate && todo.dueDate < getLogicalToday();
   const project = todo.projectId ? projects.find(p => p.id === todo.projectId) : null;
 
+  // Haon(H): 배지(프로젝트·마일스톤)는 채도 파스텔 채움 + 어두운 텍스트 시블링. 그 외 테마는 기존 저채도 워시.
+  const badgeBg = (c: string) => (isHaon(t) ? mixHex(c, 255, 0.78) : c + '18');
+  const badgeText = (c: string) => (isHaon(t) ? mixHex(c, 0, 0.32) : c);
+
+  // Haon(H): 항목 행 = 솔리드 행 recipe. 핵심(KEY, isTop3) 행은 코랄 톤(keyRow 토큰 + 좌측 코랄 그라데이션 바).
+  // 그 외 테마(A/B/C/D)는 기존 카드 모양 유지.
+  const isKeyRow = isHaon(t) && todo.isTop3;
+  let rowStyle: CSSProperties;
+  if (isKeyRow) {
+    rowStyle = {
+      background: t.keyRowBg ?? '#FFF5F2',
+      border: t.keyRowBorder ?? '1px solid rgba(255,111,145,0.35)',
+      boxShadow: t.keyRowShadow ?? '0 2px 4px rgba(120,90,160,0.10), 0 10px 24px rgba(255,111,145,0.22)',
+      borderRadius: t.solidRowRadius ?? 14,
+      position: 'relative',
+      opacity: isCancelled ? 0.6 : 1,
+    };
+  } else if (isHaon(t)) {
+    rowStyle = { ...solidRowStyle(t), opacity: isCancelled ? 0.6 : 1 };
+  } else {
+    rowStyle = {
+      backgroundColor: t.card,
+      border: `1px solid ${isDone ? t.borderLight : t.border}`,
+      opacity: isCancelled ? 0.6 : 1,
+    };
+  }
+
   return (
     <>
       <div
         className="rounded-2xl transition-all"
-        style={{
-          backgroundColor: t.card,
-          border: `1px solid ${isDone ? t.borderLight : t.border}`,
-          opacity: isCancelled ? 0.6 : 1,
-        }}
+        style={rowStyle}
       >
+        {/* 핵심(KEY) 좌측 코랄 그라데이션 바 — 자체 좌측 코너를 행 반경에 맞춰 라운딩(overflow 마스킹 없이) */}
+        {isKeyRow && (
+          <span
+            aria-hidden
+            className="absolute left-0 top-0 bottom-0"
+            style={{
+              width: 4,
+              background: t.primaryGradient ?? t.accent,
+              borderTopLeftRadius: t.solidRowRadius ?? 14,
+              borderBottomLeftRadius: t.solidRowRadius ?? 14,
+            }}
+          />
+        )}
         <div className="flex items-start gap-3 px-3 py-3">
           {/* Status toggle */}
           <button
@@ -107,7 +144,7 @@ function TodoRow({
               <span
                 style={{
                   fontSize: 13,
-                  fontWeight: 500,
+                  fontWeight: isKeyRow ? 700 : 500,
                   color: isDone || isCancelled ? t.textMuted : t.text,
                   textDecoration: isDone ? 'line-through' : 'none',
                   lineHeight: 1.5,
@@ -125,7 +162,7 @@ function TodoRow({
                 {milestone && project && (
                   <span
                     className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full"
-                    style={{ fontSize: 10, backgroundColor: project.color + '18', color: project.color, fontWeight: 600, lineHeight: '14px', maxWidth: 160 }}
+                    style={{ fontSize: 10, backgroundColor: badgeBg(project.color), color: badgeText(project.color), fontWeight: 600, lineHeight: '14px', maxWidth: 160 }}
                     title={milestone.title}
                   >
                     🚩 <span className="truncate" style={{ maxWidth: 130 }}>{milestone.title}</span>
@@ -134,7 +171,7 @@ function TodoRow({
                 {project && (
                   <span
                     className="inline-flex items-center px-1.5 py-0.5 rounded-full"
-                    style={{ fontSize: 10, backgroundColor: project.color + '18', color: project.color, lineHeight: '14px' }}
+                    style={{ fontSize: 10, backgroundColor: badgeBg(project.color), color: badgeText(project.color), lineHeight: '14px' }}
                   >
                     {project.name}
                   </span>
@@ -268,7 +305,7 @@ function TodoListTab() {
     <div className="space-y-5">
       {/* 던지기 입력창 — 통합 진입점 (옛 인박스) */}
       <div className="px-4">
-        <QuickAddInput defaultDate={null} placeholder="여기에 던지기: 장보기, 내일 3시 회의 #업무 …" />
+        <QuickAddInput solid defaultDate={null} placeholder="여기에 던지기: 장보기, 내일 3시 회의 #업무 …" />
       </div>
 
       {total === 0 && (
@@ -311,10 +348,11 @@ function TodoListTab() {
         <div className="px-4">
           <div
             className="rounded-2xl p-3"
-            style={{
-              backgroundColor: t.dangerLight,
-              border: `1px solid ${t.danger}33`,
-            }}
+            style={
+              isHaon(t)
+                ? solidCardStyle(t)
+                : { backgroundColor: t.dangerLight, border: `1px solid ${t.danger}33` }
+            }
           >
             <div className="flex items-center gap-2 mb-2.5">
               <AlertTriangle size={14} color={t.danger} />
@@ -529,11 +567,11 @@ export function TodosView() {
   );
 
   return (
-    <div className="flex flex-col h-full" style={{ backgroundColor: t.bg }}>
-      {/* Header */}
+    <div className="flex flex-col h-full" style={isHaon(t) ? canvasStyle(t) : { backgroundColor: t.bg }}>
+      {/* Header — 스크롤 위에 떠 있는 오버레이라 파스텔(H)에서만 글래스(backdrop-filter는 여기에만) */}
       <div
         className="flex-shrink-0 sticky top-0 z-10"
-        style={{ backgroundColor: t.sidebar, borderBottom: `1px solid ${t.border}` }}
+        style={isHaon(t) ? glassBarStyle(t) : { backgroundColor: t.sidebar, borderBottom: `1px solid ${t.border}` }}
       >
         <div className="px-3 py-3 lg:px-6 lg:py-4">
           <div className="flex items-center justify-between">
@@ -559,7 +597,9 @@ export function TodosView() {
                     fontSize: 12,
                     fontWeight: isActive ? 700 : 500,
                     color: isActive ? '#fff' : t.textSub,
-                    backgroundColor: isActive ? t.accent : 'transparent',
+                    ...(isActive
+                      ? (isHaon(t) ? { background: t.primaryGradient ?? t.accent } : { backgroundColor: t.accent })
+                      : { backgroundColor: 'transparent' }),
                   }}
                 >
                   <span>{label}</span>

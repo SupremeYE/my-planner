@@ -81,7 +81,7 @@
 - [x] 공용 헬퍼 추출 (`haonStyles.ts`)
 - [ ] 대시보드 (DashboardView)
 - [ ] 캘린더 (CalendarView)
-- [ ] 할일 (TodosView)
+- [x] 할일 (TodosView) — 순수 스타일 마이그레이션 (태그 칩·좌측 액센트 바 parity는 별도 태스크)
 - [ ] 주간 (WeeklyView)
 - [ ] 목표관리 (Goals / Projects)
 - [ ] 습관 & 루틴
