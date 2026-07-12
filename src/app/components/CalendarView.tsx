@@ -200,16 +200,46 @@ function MonthView({ viewDate, filter, selectedTagIds, weekStartsOn, onSelectDat
               onClick={() => onSelectDate(dateStr)}
               className="relative flex flex-col items-start p-1 rounded-xl transition-all"
               style={{
-                backgroundColor: isToday ? '#d5e3fd' : isSelected ? '#f8fbff' : 'transparent',
-                border: isSelected ? '1px solid #d5e3fd' : '1px solid transparent',
-                boxShadow: isSelected && !isToday ? '0 0 0 1px rgba(81,95,116,0.04)' : 'none',
+                // Haon(H): §6.5 — 셀 전체 배경 틴트 대신 날짜 숫자 원 마커로 선택/오늘 표시(아래 span).
+                backgroundColor: isHaon(t)
+                  ? 'transparent'
+                  : (isToday ? '#d5e3fd' : isSelected ? '#f8fbff' : 'transparent'),
+                border: isHaon(t)
+                  ? '1px solid transparent'
+                  : (isSelected ? '1px solid #d5e3fd' : '1px solid transparent'),
+                boxShadow: isHaon(t)
+                  ? 'none'
+                  : (isSelected && !isToday ? '0 0 0 1px rgba(81,95,116,0.04)' : 'none'),
                 minHeight: 72,
               }}
             >
               <div className="self-center flex flex-col items-center gap-0.5">
-                <span style={{ fontSize: 13, color: isToday ? '#515f74' : '#26343d', fontWeight: isSelected || isToday ? 700 : 400 }}>
-                  {day}
-                </span>
+                {isHaon(t) ? (
+                  // §6.5 — 선택일=소프트 코랄 채움 원(강조, 카테고리색 아님) / 오늘=코랄 하이라인 링(조용한 마커).
+                  // 오늘==선택: 채움 원(선택 우선) + 링(오늘 보조) 공존 → 두 상태 시각 구분 유지.
+                  <span
+                    style={{
+                      width: 22,
+                      height: 22,
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      borderRadius: '50%',
+                      boxSizing: 'border-box',
+                      fontSize: 12,
+                      fontWeight: isSelected || isToday ? 700 : 400,
+                      color: t.text,
+                      backgroundColor: isSelected ? mixHex(t.accent, 255, 0.72) : 'transparent',
+                      border: isToday ? `1.5px solid ${t.accent}` : '1.5px solid transparent',
+                    }}
+                  >
+                    {day}
+                  </span>
+                ) : (
+                  <span style={{ fontSize: 13, color: isToday ? '#515f74' : '#26343d', fontWeight: isSelected || isToday ? 700 : 400 }}>
+                    {day}
+                  </span>
+                )}
                 {hasPeriod && (
                   <span
                     style={{
@@ -217,7 +247,8 @@ function MonthView({ viewDate, filter, selectedTagIds, weekStartsOn, onSelectDat
                       width: 5,
                       height: 5,
                       borderRadius: '50%',
-                      backgroundColor: isToday ? '#515f74' : '#E07899',
+                      // H: 오늘 슬레이트(#515f74) 오버라이드 미적용(오늘은 링으로 표시) → 기간 마커 본연색만.
+                      backgroundColor: isToday && !isHaon(t) ? '#515f74' : '#E07899',
                       flexShrink: 0,
                     }}
                   />
