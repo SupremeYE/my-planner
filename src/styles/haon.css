@@ -33,6 +33,18 @@
   --color-haon-info: #9bb4f4;
   --color-haon-danger: #f58a8a;
 
+  /* 카테고리 색 (DESIGN §3) — 앱 공통 공유 토큰: 캘린더 day-cell·필터칩 + 홈 QuickCapture 칩.
+     각 카테고리 = 채도 dot + 옅은 fill. 세이지(#6BAA7A)는 §3에 '카테고리 전용 hue'로 등록됨.
+     ⚠️ 정의만 — 소비처(CHIP_COLORS/FILTER_TABS/CalendarView) 교체는 다음 Stage. */
+  --cat-todo-dot: #9e6fd6; /* 할일 = 라일락 */
+  --cat-todo-fill: #c8a8e9;
+  --cat-schedule-dot: #7b82e3; /* 일정 = 블루 (코랄→블루 확정) */
+  --cat-schedule-fill: #c3c7f4;
+  --cat-habit-dot: #c56fb8; /* 습관 = 마젠타 */
+  --cat-habit-fill: #e3aadd;
+  --cat-selfcare-dot: #6baa7a; /* 자기관리 = 세이지 (카테고리 전용 hue) */
+  --cat-selfcare-fill: #cfe3ce;
+
   /* Radius (DESIGN §5) */
   --radius-haon-sm: 10px;
   --radius-haon-md: 16px;
@@ -71,6 +83,16 @@
   --color-haon-warning: #f6c177;
   --color-haon-info: #9bb4f4;
   --color-haon-danger: #f58a8a;
+
+  /* 카테고리 색 (DESIGN §3) — 인라인 style·var() 참조용 :root 미러 (앱 공통: 캘린더 + QuickCapture 칩) */
+  --cat-todo-dot: #9e6fd6;
+  --cat-todo-fill: #c8a8e9;
+  --cat-schedule-dot: #7b82e3;
+  --cat-schedule-fill: #c3c7f4;
+  --cat-habit-dot: #c56fb8;
+  --cat-habit-fill: #e3aadd;
+  --cat-selfcare-dot: #6baa7a;
+  --cat-selfcare-fill: #cfe3ce;
 
   /* 배경: 직선 3색 스윕 → 옅은 흰 캔버스 + 방사형 blob 2개(채도 낮춤) */
   --haon-bg-base: #fbf8fc;
