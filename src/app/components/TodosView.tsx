@@ -390,10 +390,23 @@ function TodoListTab() {
             className="rounded-2xl p-3"
             style={
               isHaon(t)
-                ? solidCardStyle(t)
+                ? { ...solidCardStyle(t), position: 'relative' }
                 : { backgroundColor: t.dangerLight, border: `1px solid ${t.danger}33` }
             }
           >
+            {/* 파스텔(H): 좌측 코랄 액센트 바 — 자체 좌측 코너를 카드 반경에 맞춰 라운딩(overflow 마스킹 없이) */}
+            {isHaon(t) && (
+              <span
+                aria-hidden
+                className="absolute left-0 top-0 bottom-0"
+                style={{
+                  width: 4,
+                  background: t.primaryGradient ?? t.accent,
+                  borderTopLeftRadius: t.solidCardRadius ?? 20,
+                  borderBottomLeftRadius: t.solidCardRadius ?? 20,
+                }}
+              />
+            )}
             <div className="flex items-center gap-2 mb-2.5">
               <AlertTriangle size={14} color={t.danger} />
               <span style={{ fontSize: 11, fontWeight: 700, color: t.danger, letterSpacing: '0.04em' }}>
@@ -621,8 +634,13 @@ export function TodosView() {
             </div>
           </div>
 
-          {/* 탭 */}
-          <div className="flex gap-1 mt-3 p-1 rounded-xl" style={{ backgroundColor: t.bgSub, border: `1px solid ${t.border}` }}>
+          {/* 탭 — 파스텔(H): near-neutral 트랙(borderLight) + 가로 스트레치 제거(maxWidth, 좌측정렬). 그 외 테마 무변경 */}
+          <div
+            className="flex gap-1 mt-3 p-1 rounded-xl"
+            style={isHaon(t)
+              ? { backgroundColor: t.borderLight, border: `1px solid ${t.border}`, maxWidth: 460 }
+              : { backgroundColor: t.bgSub, border: `1px solid ${t.border}` }}
+          >
             {([
               { value: 'list' as Tab, label: '할 일', count: listCount, badge: overdueCount },
               { value: 'done' as Tab, label: '완료함', count: doneCount, badge: 0 },
@@ -635,13 +653,26 @@ export function TodosView() {
                   className="flex-1 py-1.5 rounded-lg transition-all flex items-center justify-center gap-1.5"
                   style={{
                     fontSize: 12,
-                    fontWeight: isActive ? 700 : 500,
-                    color: isActive ? '#fff' : t.textSub,
+                    fontWeight: isActive ? (isHaon(t) ? 600 : 700) : 500,
+                    color: isActive
+                      ? (isHaon(t) ? t.text : '#fff')
+                      : (isHaon(t) ? t.textMuted : t.textSub),
+                    ...(isHaon(t) ? { position: 'relative' } : {}),
                     ...(isActive
-                      ? (isHaon(t) ? { background: t.primaryGradient ?? t.accent } : { backgroundColor: t.accent })
+                      ? (isHaon(t)
+                          ? { ...solidCardStyle(t), borderRadius: undefined }
+                          : { backgroundColor: t.accent })
                       : { backgroundColor: 'transparent' }),
                   }}
                 >
+                  {/* 파스텔(H) 활성 탭: 코랄 강조는 하단 중앙 3px 언더라인으로만 (그라데이션 풀 채움 제거) */}
+                  {isActive && isHaon(t) && (
+                    <span
+                      aria-hidden
+                      className="absolute left-1/2 -translate-x-1/2"
+                      style={{ bottom: 3, width: 26, height: 3, borderRadius: 9999, background: t.primaryGradient ?? t.accent }}
+                    />
+                  )}
                   <span>{label}</span>
                   {count > 0 && (
                     <span
@@ -651,8 +682,12 @@ export function TodosView() {
                         minWidth: 18,
                         height: 16,
                         fontWeight: 700,
-                        backgroundColor: isActive ? 'rgba(255,255,255,0.25)' : t.borderLight,
-                        color: isActive ? '#fff' : t.textSub,
+                        backgroundColor: isActive
+                          ? (isHaon(t) ? mixHex(t.accent, 255, 0.80) : 'rgba(255,255,255,0.25)')
+                          : t.borderLight,
+                        color: isActive
+                          ? (isHaon(t) ? mixHex(t.accent, 0, 0.30) : '#fff')
+                          : (isHaon(t) ? t.textMuted : t.textSub),
                       }}
                     >
                       {count}
