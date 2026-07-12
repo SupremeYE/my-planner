@@ -193,6 +193,18 @@ Default → Hover (slight lift: shadow +1 step, border darkens a touch) → Pres
 (scale 0.98) → Focus (coral focus ring, `0 0 0 3px rgba(255,111,145,0.25)`) →
 Disabled (opacity 0.5, no shadow).
 
+### Quick-capture type chip (smart emphasis pulse)
+The quick-capture leading chip shows the entry type (할일 = `success`, 일정 = `info`)
+and is **tappable** to toggle the type (caret ▾ affordance; type priority is
+manual tap > keyword prefix `일정`/`할일` > default 할일). When the parser detects a
+**time** but the type is still the default (할일) and the user has neither tapped nor
+used a prefix, the chip gets a **smart-emphasis pulse**: a soft coral ring
+(`accent`) that gently breathes to hint "this could be an 일정" — **no hint text, no
+auto-conversion.** The ring color is the `accent` token (never hardcoded; injected as
+an inline CSS var). Pulse spec: `box-shadow` ring `0 0 0 0` → `0 0 0 4px`, ~1.6s
+ease-in-out, infinite. **`prefers-reduced-motion: reduce` → animation off, replaced by
+a static `0 0 0 3px` ring.** Implemented as `.haon-type-pulse` in `haon.css`.
+
 ---
 
 ## 6. Data visualization

@@ -1,11 +1,12 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { format, parseISO } from 'date-fns';
 import { ko } from 'date-fns/locale';
-import { CalendarClock, Inbox, Plus, RefreshCw, Star } from 'lucide-react';
+import { CalendarClock, ChevronDown, Inbox, Plus, RefreshCw, Star } from 'lucide-react';
 import { usePlanner, Event, Todo, getLogicalToday } from '../store';
 import { useTheme } from '../ThemeContext';
 import { parseQuickEntry } from '../../lib/quickParse';
 import { pickNewTagColor } from '../../lib/tagPalette';
+import { hexToRgb } from '../styles/haonStyles';
 import { TodoModal } from './TodoModal';
 import { EventModal } from './EventModal';
 
@@ -53,11 +54,27 @@ export function QuickAddInput({ defaultDate = null, onSubmitted, autoFocus, plac
   const solidBox = !!solid && !!t.cardFrosted;
 
   const [text, setText] = useState('');
-  const [asEvent, setAsEvent] = useState(false);
+  // 사용자가 타입 칩을 직접 탭해 명시한 타입(수동 선택). null = 미선택.
+  const [manualType, setManualType] = useState<'event' | 'todo' | null>(null);
   const [detailModal, setDetailModal] = useState<'todo' | 'event' | null>(null);
 
   const parsed = useMemo(() => parseQuickEntry(text), [text]);
   const hasInput = text.trim().length > 0;
+
+  // 타입 결정 우선순위: 수동 탭 > 프리픽스(typeHint) > 기본(할일).
+  // 파생값으로 두면 "시간 사라지면 해제"가 수동/프리픽스 선택을 덮어쓰지 않는다
+  // (asEvent=true 가 되는 경로는 오직 manualType/typeHint 뿐 → 시간 유무와 무관하게 보존).
+  const asEvent = useMemo(() => {
+    if (manualType) return manualType === 'event';
+    if (parsed.typeHint) return parsed.typeHint === 'event';
+    return false;
+  }, [manualType, parsed.typeHint]);
+
+  // 스마트 강조 펄스: 시간 감지 AND 최종 타입 == 할일 AND 수동 탭 없음 AND 프리픽스 없음.
+  const pulseTypeChip = parsed.hasTime && !asEvent && !manualType && !parsed.typeHint;
+  // 펄스 링 색은 accent 토큰에서 파생(하드코딩 금지). CSS 변수로 주입한다.
+  const accentRgb = hexToRgb(t.accent);
+  const pulseRing = accentRgb ? `rgba(${accentRgb.r}, ${accentRgb.g}, ${accentRgb.b}, 0.30)` : t.accent;
 
   // 날짜 토큰이 없으면 호출 맥락의 기본 날짜로 폴백 (Inbox 면 null)
   const effectiveDate = parsed.date ?? defaultDate ?? null;
@@ -75,11 +92,6 @@ export function QuickAddInput({ defaultDate = null, onSubmitted, autoFocus, plac
     }
     return parsed.title;
   }, [parsed.title, parsed.projectName, matchedProject]);
-
-  // 시간이 사라지면 일정 모드 해제
-  useEffect(() => {
-    if (!parsed.hasTime && asEvent) setAsEvent(false);
-  }, [parsed.hasTime, asEvent]);
 
   /** 파싱된 태그 이름들을 기존 태그에 매칭하고, 없으면 새로 만들어 id 배열로 변환 */
   const resolveTagIds = (): string[] => {
@@ -102,7 +114,7 @@ export function QuickAddInput({ defaultDate = null, onSubmitted, autoFocus, plac
 
   const reset = () => {
     setText('');
-    setAsEvent(false);
+    setManualType(null);
   };
 
   // "자세히" 로 모달을 열 때 파싱 값을 함께 넘기기 위해 한 번 계산한다.
@@ -195,7 +207,11 @@ export function QuickAddInput({ defaultDate = null, onSubmitted, autoFocus, plac
         <input
           autoFocus={autoFocus}
           value={text}
-          onChange={e => setText(e.target.value)}
+          onChange={e => {
+            const v = e.target.value;
+            setText(v);
+            if (!v.trim()) setManualType(null); // 입력 클리어 시 수동 선택 리셋
+          }}
           onKeyDown={e => { if (e.key === 'Enter') submit(); }}
           placeholder={placeholder ?? '빠른 입력: 내일 3시 치과 #케어 @프로젝트 !'}
           className="flex-1 bg-transparent outline-none"
@@ -223,8 +239,26 @@ export function QuickAddInput({ defaultDate = null, onSubmitted, autoFocus, plac
 
       {hasInput && (
         <div className="flex flex-wrap items-center gap-1.5 mt-2 px-1">
-          {/* 타입: 할일=그린 / 일정=블루 */}
-          {chip('type', asEvent ? '일정' : '할일', asEvent ? t.info : t.success)}
+          {/* 타입 칩: 할일=그린 / 일정=블루. 탭하면 토글(수동 선택 기록).
+              시간 감지 & 기본 할일 & 수동/프리픽스 미선택이면 코랄 링이 은은히 맥동해 전환 어포던스 제공. */}
+          <button
+            type="button"
+            onClick={() => setManualType(asEvent ? 'todo' : 'event')}
+            className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5${pulseTypeChip ? ' haon-type-pulse' : ''}`}
+            style={{
+              fontSize: 11,
+              fontWeight: 600,
+              color: asEvent ? t.info : t.success,
+              backgroundColor: `${asEvent ? t.info : t.success}1A`,
+              border: `1px solid ${asEvent ? t.info : t.success}33`,
+              whiteSpace: 'nowrap',
+              ...(pulseTypeChip ? { ['--haon-type-pulse-ring']: pulseRing } : {}),
+            } as React.CSSProperties}
+            aria-label={asEvent ? '타입: 일정 (탭하여 할일로 전환)' : '타입: 할일 (탭하여 일정으로 전환)'}
+          >
+            {asEvent ? '일정' : '할일'}
+            <ChevronDown size={11} />
+          </button>
           {/* 날짜 or Inbox */}
           {chip(
             'date',
@@ -246,24 +280,6 @@ export function QuickAddInput({ defaultDate = null, onSubmitted, autoFocus, plac
           {matchedProject && chip('proj', `@${matchedProject.name}`, t.accent)}
           {/* Top3 */}
           {parsed.isTop3 && chip('top3', '중요', t.accent, <Star size={11} fill={t.accent} />)}
-
-          {/* 일정 전환 토글 (시간 감지 시) */}
-          {parsed.hasTime && (
-            <button
-              type="button"
-              onClick={() => setAsEvent(v => !v)}
-              className="inline-flex items-center gap-1 rounded-full px-2 py-0.5"
-              style={{
-                fontSize: 11,
-                fontWeight: 600,
-                color: asEvent ? t.success : t.info,
-                backgroundColor: 'transparent',
-                border: `1px dashed ${asEvent ? t.success : t.info}`,
-              }}
-            >
-              {asEvent ? '할일로?' : '일정으로?'}
-            </button>
-          )}
 
           {/* 자세히 → 기존 모달 열기 */}
           <button

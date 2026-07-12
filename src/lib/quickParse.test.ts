@@ -80,3 +80,33 @@ test('N시간은 시간으로 오인하지 않음', () => {
   assert.equal(r.hasTime, false);
   assert.equal(r.title, '3시간 공부');
 });
+
+// 타입 프리픽스 (일정/할일)
+test("'일정' 프리픽스 → typeHint event + 키워드 제거 후 정상 파싱", () => {
+  const r = parseQuickEntry('일정 내일 10시 미팅', NOW);
+  assert.equal(r.typeHint, 'event');
+  assert.equal(r.title, '미팅');
+  assert.equal(r.hasTime, true);
+  assert.equal(r.startTime, '10:00');
+  assert.equal(r.date, '2026-06-14');
+});
+
+test("'할일' 프리픽스 → typeHint todo", () => {
+  const r = parseQuickEntry('할일 3시까지 보고서', NOW);
+  assert.equal(r.typeHint, 'todo');
+  assert.equal(r.hasTime, true);
+});
+
+test('프리픽스 없으면 typeHint null (기존 케이스 회귀)', () => {
+  assert.equal(parseQuickEntry('장보기', NOW).typeHint, null);
+  assert.equal(parseQuickEntry('내일 오후 3시 치과 #케어', NOW).typeHint, null);
+});
+
+test("붙여쓴 '일정미팅' / 단독 '일정' 은 프리픽스 아님(제목 유지)", () => {
+  const r1 = parseQuickEntry('일정미팅 준비', NOW);
+  assert.equal(r1.typeHint, null);
+  assert.equal(r1.title, '일정미팅 준비');
+  const r2 = parseQuickEntry('일정', NOW);
+  assert.equal(r2.typeHint, null);
+  assert.equal(r2.title, '일정');
+});

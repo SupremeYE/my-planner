@@ -52,6 +52,12 @@ export interface ParsedEntry {
   projectName: string | null;
   /** 단독/선두 '!' 토큰 */
   isTop3: boolean;
+  /**
+   * 문장 맨 앞 키워드 프리픽스로 지정된 타입 힌트.
+   * '일정 ...' → 'event', '할일 ...' → 'todo', 없으면 null.
+   * 호출부에서 타입 결정 우선순위(수동 탭 > 프리픽스 > 기본 할일)에 사용한다.
+   */
+  typeHint?: 'event' | 'todo' | null;
 }
 
 /** 한글 요일 라벨 → getDay 숫자 (0=일). 호출부에서 custom recurrenceDays 변환용 */
@@ -90,6 +96,15 @@ function hourTo24(hour: number, meridiem?: string): number {
 export function parseQuickEntry(input: string, now: Date = new Date()): ParsedEntry {
   let working = input ?? '';
   const today = startOfDay(now);
+
+  // ── 타입 프리픽스 (맨 앞 '일정 '/'할일 ', 나머지 파싱보다 먼저 strip) ──────────
+  // '일정 내일 10시 미팅' → typeHint 'event' + '내일 10시 미팅' 로 이어서 파싱.
+  // 공백 구분자 필수: '일정'/'할일' 단독이거나 '일정미팅'처럼 붙으면 프리픽스가 아니라 제목이다.
+  let typeHint: ParsedEntry['typeHint'] = null;
+  working = working.replace(/^\s*(일정|할일)\s+/, (_, kw: string) => {
+    typeHint = kw === '일정' ? 'event' : 'todo';
+    return '';
+  });
 
   // ── 태그 (#케어, 복수) ──────────────────────────────────────────────────
   const tags: string[] = [];
@@ -236,5 +251,6 @@ export function parseQuickEntry(input: string, now: Date = new Date()): ParsedEn
     tags,
     projectName,
     isTop3,
+    typeHint,
   };
 }

@@ -132,3 +132,27 @@
   color: #fff;
   box-shadow: var(--shadow-button-colored);
 }
+
+/* 퀵캡처 타입 칩 — 스마트 강조 펄스 (DESIGN §5).
+   시간이 감지됐고 타입이 기본(할일)이며 수동 탭·프리픽스 선택이 없을 때만,
+   "일정으로 바꿀 수 있다"는 어포던스로 코랄 링이 은은히 맥동한다. 힌트 텍스트·자동 전환 없음.
+   링 색은 인라인 CSS 변수(--haon-type-pulse-ring, t.accent 파생)로 주입 → 색 하드코딩 없음. */
+@keyframes haon-type-pulse {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 var(--haon-type-pulse-ring, transparent);
+  }
+  50% {
+    box-shadow: 0 0 0 4px var(--haon-type-pulse-ring, transparent);
+  }
+}
+.haon-type-pulse {
+  animation: haon-type-pulse 1.6s ease-in-out infinite;
+}
+/* 모션 최소화 선호 시 애니메이션 없이 정적 강조 링으로 대체 */
+@media (prefers-reduced-motion: reduce) {
+  .haon-type-pulse {
+    animation: none;
+    box-shadow: 0 0 0 3px var(--haon-type-pulse-ring, transparent);
+  }
+}
