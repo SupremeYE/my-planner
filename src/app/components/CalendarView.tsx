@@ -26,7 +26,7 @@ import ConfirmModal from './ConfirmModal';
 import { RecurrenceBranchModal } from './RecurrenceBranchModal';
 import { useFabAction } from '../FabContext';
 import { Timeline } from './timeline/Timeline';
-import { isHaon, canvasStyle, glassBarStyle, solidCardStyle } from '../styles/haonStyles';
+import { isHaon, canvasStyle, glassBarStyle, solidCardStyle, mixHex } from '../styles/haonStyles';
 
 type TabType = 'month' | 'week';
 type FilterType = 'all' | 'todo' | 'event' | 'habit' | 'selfcare';
@@ -45,6 +45,15 @@ const FILTER_TABS: { key: FilterType; label: string; activeColor: string }[] = [
   { key: 'habit', label: '습관', activeColor: '#006b62' },
   { key: 'selfcare', label: '자기관리', activeColor: '#A08050' },
 ];
+
+// item.type / 필터 key → §3 카테고리 CSS 변수(haon.css --cat-*) 접미사.
+// getItems 의 type 리터럴 'event' 는 schedule 토큰(--cat-schedule-*)에 매핑(키 정합).
+const CAT_VAR: Record<Exclude<FilterType, 'all'>, 'todo' | 'schedule' | 'habit' | 'selfcare'> = {
+  todo: 'todo',
+  event: 'schedule',
+  habit: 'habit',
+  selfcare: 'selfcare',
+};
 
 const HOUR_HEIGHT = 48;
 const CURRENT_TIME_COLOR = '#D4735A';
@@ -93,6 +102,7 @@ function MonthView({ viewDate, filter, selectedTagIds, weekStartsOn, onSelectDat
   collapsed?: boolean;
 }) {
   const { todos: rawTodos, events, habits, selfCareRecords, periodRecords, selectedDate } = usePlanner();
+  const { t } = useTheme();
 
   const firstDay = startOfMonth(viewDate);
   const startOffset = (getDay(firstDay) - weekStartsOn + 7) % 7;
@@ -215,6 +225,37 @@ function MonthView({ viewDate, filter, selectedTagIds, weekStartsOn, onSelectDat
               </div>
               <div className="flex flex-col gap-0.5 w-full mt-0.5">
                 {shown.map(item => {
+                  // Haon(H): §6.4 — 색 채운 미니바 대신 '작은 카테고리 dot + 본문색 truncated 라벨'
+                  if (isHaon(t)) {
+                    return (
+                      <div key={item.id} className="flex items-center gap-1 w-full overflow-hidden">
+                        <span
+                          aria-hidden
+                          style={{
+                            width: 5,
+                            height: 5,
+                            borderRadius: '50%',
+                            backgroundColor: `var(--cat-${CAT_VAR[item.type]}-dot)`,
+                            flexShrink: 0,
+                          }}
+                        />
+                        <span
+                          style={{
+                            fontSize: 9,
+                            fontWeight: 500,
+                            color: t.text,
+                            whiteSpace: 'nowrap',
+                            overflow: 'hidden',
+                            textOverflow: 'ellipsis',
+                            display: 'block',
+                            lineHeight: '14px',
+                          }}
+                        >
+                          {item.text}
+                        </span>
+                      </div>
+                    );
+                  }
                   const color = CHIP_COLORS[item.type];
                   return (
                     <div
@@ -240,7 +281,7 @@ function MonthView({ viewDate, filter, selectedTagIds, weekStartsOn, onSelectDat
                   );
                 })}
                 {overflow > 0 && (
-                  <span style={{ fontSize: 9, color: '#999', paddingLeft: 2 }}>
+                  <span style={{ fontSize: 9, color: isHaon(t) ? t.textMuted : '#999', paddingLeft: 2 }}>
                     +{overflow}개
                   </span>
                 )}
@@ -728,18 +769,30 @@ export function CalendarView() {
             <div className="flex gap-1.5 mt-2 overflow-x-auto" style={{ scrollbarWidth: 'none' }}>
               {FILTER_TABS.map(item => {
                 const active = filter === item.key;
+                // '전체'는 카테고리 아님 → null(중립 처리). 나머지는 §3 카테고리 토큰.
+                const catKey = item.key === 'all' ? null : CAT_VAR[item.key];
                 return (
                   <button
                     key={item.key}
                     onClick={() => setFilter(item.key)}
                     className="flex-shrink-0 px-3 py-1 rounded-full transition-all"
-                    style={{
-                      fontSize: 11,
-                      fontWeight: active ? 700 : 500,
-                      backgroundColor: active ? item.activeColor : '#eef4fa',
-                      color: active ? '#fff' : item.activeColor,
-                      border: `1.5px solid ${active ? item.activeColor : item.activeColor + '60'}`,
-                    }}
+                    style={isHaon(t)
+                      // Haon(H): 활성 = 카테고리 소프트 틴트 fill + dot 색 보더(그라데이션 풀채움 금지, §6.3).
+                      // '전체'는 중립 솔리드(흰 카드+뉴트럴 보더, 코랄 금지). 비활성 = 투명+뮤트.
+                      ? {
+                          fontSize: 11,
+                          fontWeight: active ? 700 : 500,
+                          backgroundColor: active ? (catKey ? `var(--cat-${catKey}-fill)` : t.card) : 'transparent',
+                          color: active ? t.text : t.textMuted,
+                          border: `1.5px solid ${active ? (catKey ? `var(--cat-${catKey}-dot)` : t.border) : t.borderLight}`,
+                        }
+                      : {
+                          fontSize: 11,
+                          fontWeight: active ? 700 : 500,
+                          backgroundColor: active ? item.activeColor : '#eef4fa',
+                          color: active ? '#fff' : item.activeColor,
+                          border: `1.5px solid ${active ? item.activeColor : item.activeColor + '60'}`,
+                        }}
                   >
                     {item.label}
                   </button>
@@ -757,13 +810,22 @@ export function CalendarView() {
                         prev.includes(tag.id) ? prev.filter(id => id !== tag.id) : [...prev, tag.id]
                       )}
                       className="flex-shrink-0 px-3 py-1 rounded-full transition-all"
-                      style={{
-                        fontSize: 11,
-                        fontWeight: active ? 700 : 500,
-                        backgroundColor: active ? `${tag.color}22` : '#eef4fa',
-                        color: tag.color,
-                        border: `1.5px solid ${active ? tag.color : `${tag.color}66`}`,
-                      }}
+                      style={isHaon(t)
+                        // Haon(H): §5 태그칩 패턴 — 채도 파스텔 채움(활성) + 어두운 텍스트. 비활성은 아웃라인.
+                        ? {
+                            fontSize: 11,
+                            fontWeight: active ? 700 : 500,
+                            backgroundColor: active ? mixHex(tag.color, 255, 0.78) : 'transparent',
+                            color: mixHex(tag.color, 0, 0.32),
+                            border: `1.5px solid ${active ? mixHex(tag.color, 0, 0.32) : mixHex(tag.color, 255, 0.5)}`,
+                          }
+                        : {
+                            fontSize: 11,
+                            fontWeight: active ? 700 : 500,
+                            backgroundColor: active ? `${tag.color}22` : '#eef4fa',
+                            color: tag.color,
+                            border: `1.5px solid ${active ? tag.color : `${tag.color}66`}`,
+                          }}
                     >
                       {tag.name}
                     </button>
