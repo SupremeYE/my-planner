@@ -1008,12 +1008,12 @@ export function DailyView() {
               title="날짜 선택"
             >
               <div className="text-center">
-                <h2 style={{ fontSize: 18, fontWeight: 700, color: t.text, fontFamily: "'DM Serif Display', serif" }}
+                {/* 날짜 제목 — Haon(H)은 DESIGN.md §4 page-title = Pretendard 700. 그 외 테마는 기존 DM Serif 유지. */}
+                <h2 style={{ fontSize: 18, fontWeight: 700, color: t.text, fontFamily: isHaon(t) ? 'var(--font-pretendard)' : "'DM Serif Display', serif" }}
                   className="lg:text-[20px] whitespace-nowrap">
                   {format(dateObj, 'M월 d일')}
                 </h2>
                 <p style={{ fontSize: 12, color: t.textSub }} className="whitespace-nowrap">{dayName}</p>
-                <p style={{ fontSize: 9.5, color: t.textMuted, fontWeight: 600, letterSpacing: '0.02em' }} className="whitespace-nowrap">{dayBoundLabel}</p>
               </div>
             </button>
             <button onClick={goNext} className="p-1.5 rounded-lg flex-shrink-0" style={{ color: t.textSub }}>
@@ -1242,6 +1242,8 @@ export function DailyView() {
           dateEvents={dateEvents}
           onShowContextMenu={(todo, pos, source) => setContextMenu({ todo, pos, source })}
           className={mobileTab === 'todos' ? 'hidden lg:flex' : ''}
+          // 하루 경계 라벨을 TIMELINE 헤더 우측에 노출(일간 전용 — 캘린더의 Timeline엔 미전달).
+          dayBoundLabel={dayBoundLabel}
           // Haon(H) 테마에서만 타임블록 기본색(라일락)·now 라인(소프트 코랄) 오버라이드.
           // 미전달(웜 테마 등) 시 Timeline 기본값 유지 → 캘린더 공유 컴포넌트에 영향 없음.
           nowLineColor={t.nowLine}

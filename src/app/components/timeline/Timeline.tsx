@@ -44,12 +44,13 @@ interface TimelineProps {
   defaultBlockBg?: string;     // 태그 없는 블록 배경 (기본 초록 계열)
   defaultBlockBorder?: string; // 태그 없는 블록 테두리
   defaultBlockText?: string;   // 태그 없는 블록 텍스트
+  dayBoundLabel?: string;      // "하루 기준 · 04:00 – 익일 02:00" — TIMELINE 라벨 우측에 작게 노출(일간 전용)
 }
 
 // 주간 그리드: 시간 레이블 폭 + (7일 × P/D 2컬럼)
 const WEEK_TIME_COL = 44;
 
-export function Timeline({ days = 1, selectedDate, dateTodos, dateEvents, onShowContextMenu, className, weekDays, onSelectDate, onToday, nowLineColor = CURRENT_TIME_COLOR, defaultBlockBg, defaultBlockBorder, defaultBlockText }: TimelineProps) {
+export function Timeline({ days = 1, selectedDate, dateTodos, dateEvents, onShowContextMenu, className, weekDays, onSelectDate, onToday, nowLineColor = CURRENT_TIME_COLOR, defaultBlockBg, defaultBlockBorder, defaultBlockText, dayBoundLabel }: TimelineProps) {
   const isWeek = days > 1 && !!weekDays;
   const {
     todos, updateTodo, updateEvent, tags,
@@ -1449,11 +1450,21 @@ export function Timeline({ days = 1, selectedDate, dateTodos, dateEvents, onShow
     <div className={`flex-1 min-w-0 flex flex-col overflow-hidden${className ? ' ' + className : ''}`}>
       {/* Timeline header */}
       <div className="px-3 py-2.5 lg:px-4 flex-shrink-0" style={{ borderBottom: `1px solid ${t.border}` }}>
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <span style={{ fontSize: 13, fontWeight: 800, color: t.text, letterSpacing: '0.08em' }}>TIMELINE</span>
+        <div className="flex items-center justify-between gap-2">
+          <div className="flex items-baseline gap-1.5 min-w-0">
+            <span className="flex-shrink-0" style={{ fontSize: 13, fontWeight: 800, color: t.text, letterSpacing: '0.08em' }}>TIMELINE</span>
+            {/* 하루 경계 라벨 — TIMELINE 우측에 작게. 공간이 부족하면 말줄임(모바일 헤더 오버플로 방지) */}
+            {dayBoundLabel && (
+              <span
+                className="truncate"
+                style={{ fontSize: 9.5, color: t.textMuted, fontWeight: 600, letterSpacing: '0.01em', minWidth: 0 }}
+                title={dayBoundLabel}
+              >
+                {dayBoundLabel}
+              </span>
+            )}
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-shrink-0">
             <button onClick={() => setShowLogModal(true)}
               className="flex items-center gap-1 px-2 py-1.5 rounded-lg lg:gap-1.5 lg:px-2.5"
               style={{ fontSize: 11, color: t.textSub, backgroundColor: t.bgSub, border: `1px solid ${t.border}` }}>
