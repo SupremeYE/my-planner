@@ -77,6 +77,7 @@ Four design themes (A, B, C, D) defined in `src/styles/theme.css` as CSS custom 
 - 답변은 항상 한국어로
 - 컴포넌트 단위로 작업
 - 기존 컬러/디자인 시스템 유지
+- 폰트는 ThemeContext 역할 필드 또는 brand.ts만 사용. 하드코딩 폰트명은 pre-commit(lint:fonts)에서 차단됨. 신규 폰트 역할이 필요하면 먼저 ThemeContext+DESIGN.md에 등록 후 사용.
 - **PC 레이아웃은 절대 건드리지 말 것** — 모바일 전용 수정은 Tailwind `lg:` prefix 사용 (e.g. `hidden lg:flex`, `px-3 lg:px-6`)
 - 모바일 기준: 375px (iPhone), 하단 네비바 56px(`pb-16` 이미 적용됨)
 
