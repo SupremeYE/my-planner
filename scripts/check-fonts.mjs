@@ -20,7 +20,10 @@
  *   C. --font-diary / Ownglyph 를 DiaryView.tsx 외 파일에서 사용 시 위반 (§4/§8)
  *
  * 제외(스캔 안 함): ThemeContext.tsx(테마 정의 SSOT), src 하위 .css 파일.
- * 순수 주석 라인(// * /* 로 시작)은 오탐 방지를 위해 스캔에서 제외한다.
+ * 순수 주석 라인(슬래시-슬래시, 블록 주석 시작/끝/이어지는 라인, JSX 주석
+ * 시작 형태)은 오탐 방지를 위해 스캔에서 제외한다. 자세한 프리픽스 목록은
+ * 아래 isCommentLine 참고.
+ * (코드 뒤 트레일링 주석은 제외하지 않는다 — 실제 폰트 리터럴이면 여전히 위반.)
  *
  * 출력: 파일:라인:매치값 [사유] 목록 + 파일별/총 위반 수. 위반 있으면 exit 1.
  */
@@ -57,9 +60,21 @@ function walk(dir) {
   return out;
 }
 
+// 라인 '전체'가 주석인 경우에만 스킵한다(코드 뒤 트레일링 주석은 스킵 아님).
+//   - //          한 줄 주석
+//   - /*  */  *   블록 주석 시작/끝/이어지는 라인
+//   - {/*         JSX 주석 라인 ( {/* ... */} )
+// 라인 '시작'만 검사하므로 `fontFamily: X, // 메모` 같은 트레일링 주석은
+// 스킵되지 않고, 그 라인에 실제 폰트 리터럴이 있으면 여전히 위반으로 잡힌다.
 function isCommentLine(line) {
   const t = line.trim();
-  return t.startsWith('//') || t.startsWith('*') || t.startsWith('/*');
+  return (
+    t.startsWith('//') ||
+    t.startsWith('/*') ||
+    t.startsWith('*/') ||
+    t.startsWith('*') ||
+    t.startsWith('{/*')
+  );
 }
 
 const violations = []; // { file, line, value, reasons: [] }
