@@ -40,7 +40,13 @@ export interface ThemeTokens {
   fontLabel?: string;       // 라벨·버튼·칩
   // fontNumeric 는 아래 Haon 확장 블록에 이미 선언되어 있다(숫자 강조).
   fontDiary?: string;       // 일기 본문 (H: Ownglyph)
-  fontDecorative?: string;  // 손글씨 장식 (H: 미사용)
+  fontDecorative?: string;  // 손글씨 장식 (H: Pretendard 폴백 — §8)
+  // ── Stage 1.95 신규 역할 필드 (등록만; 소비처 없음 — 치환은 Stage 2) ──
+  fontReading?: string;     // 독서·구절 명조 본문 (A/B/C/D: Georgia/Noto Serif KR, H: Pretendard)
+  fontBrand?: string;       // 스플래시·로그인·로고 브랜드 명조 (A/B/C/D: Gowun Batang, H: Pretendard)
+  fontQuote?: string;       // 확언·태그라인 감성 본문 (A/B/C/D: Gowun Dodum, H: Pretendard)
+  fontDecoratePen?: string; // 손글씨 장식(펜) (A/B/C/D: Nanum Pen Script, H: Pretendard 폴백)
+  fontStat?: string;        // 디스플레이 통계 숫자(%·연도) (A/B/C/D: DM Serif, H: Sora)
 
   // ── Haon Soft Pastel Glassmorphism 확장 필드 (DESIGN.md) ──
   // 파스텔-글래스 테마(H)에서만 채워지고, 기존 테마는 undefined.
@@ -123,6 +129,11 @@ export const tokenA: ThemeTokens = {
   fontNumeric: "'GmarketSansBold', 'GmarketSans', 'Pretendard', sans-serif",
   fontDiary: "'Ownglyph-Positive', 'Gaegu', 'Pretendard', sans-serif",
   fontDecorative: "'Gaegu', cursive",
+  fontReading: "'Georgia', 'Noto Serif KR', serif",
+  fontBrand: "'Gowun Batang', serif",
+  fontQuote: "'Gowun Dodum', 'Pretendard', sans-serif",
+  fontDecoratePen: "'Nanum Pen Script', cursive",
+  fontStat: "'DM Serif Display', serif",
 };
 
 // ── Design B: Haon Sunrise — 선라이즈 코랄/피치 라이트 테마 ──
@@ -161,6 +172,11 @@ export const tokenB: ThemeTokens = {
   fontNumeric: "'GmarketSansBold', 'GmarketSans', 'Pretendard', sans-serif",
   fontDiary: "'Ownglyph-Positive', 'Gaegu', 'Pretendard', sans-serif",
   fontDecorative: "'Gaegu', cursive",
+  fontReading: "'Georgia', 'Noto Serif KR', serif",
+  fontBrand: "'Gowun Batang', serif",
+  fontQuote: "'Gowun Dodum', 'Pretendard', sans-serif",
+  fontDecoratePen: "'Nanum Pen Script', cursive",
+  fontStat: "'DM Serif Display', serif",
 };
 
 // ── Design C: Top-Nav — Curator 팔레트 (A와 동일 톤) ──
@@ -199,6 +215,11 @@ export const tokenC: ThemeTokens = {
   fontNumeric: "'GmarketSansBold', 'GmarketSans', 'Pretendard', sans-serif",
   fontDiary: "'Ownglyph-Positive', 'Gaegu', 'Pretendard', sans-serif",
   fontDecorative: "'Gaegu', cursive",
+  fontReading: "'Georgia', 'Noto Serif KR', serif",
+  fontBrand: "'Gowun Batang', serif",
+  fontQuote: "'Gowun Dodum', 'Pretendard', sans-serif",
+  fontDecoratePen: "'Nanum Pen Script', cursive",
+  fontStat: "'DM Serif Display', serif",
 };
 
 // ── Design D: Enhanced Dashboard (Curator 팔레트, A와 동일) ──
@@ -237,6 +258,11 @@ export const tokenD: ThemeTokens = {
   fontNumeric: "'GmarketSansBold', 'GmarketSans', 'Pretendard', sans-serif",
   fontDiary: "'Ownglyph-Positive', 'Gaegu', 'Pretendard', sans-serif",
   fontDecorative: "'Gaegu', cursive",
+  fontReading: "'Georgia', 'Noto Serif KR', serif",
+  fontBrand: "'Gowun Batang', serif",
+  fontQuote: "'Gowun Dodum', 'Pretendard', sans-serif",
+  fontDecoratePen: "'Nanum Pen Script', cursive",
+  fontStat: "'DM Serif Display', serif",
 };
 
 // ── Design H: Haon — Soft Pastel Glassmorphism (DESIGN.md 단일 기준) ──
@@ -286,14 +312,20 @@ export const tokenH: ThemeTokens = {
   radiusCard: 28,
   fontNumeric: "'Sora', 'Pretendard', sans-serif",
 
-  // 폰트 역할 — DESIGN.md §4 계약(H 전용): 제목/본문/라벨 = Pretendard, 숫자 = Sora,
-  // 일기 = Ownglyph. 장식 손글씨는 §8 "일기 외 손글씨 금지"에 따라 미사용(undefined).
+  // 폰트 역할 — DESIGN.md §4 계약(H 전용): 제목/본문/라벨/독서/브랜드/확언 = Pretendard,
+  // 숫자·통계 = Sora, 일기 = Ownglyph. 장식·펜 손글씨는 §8 "일기 외 손글씨 금지"에 따라
+  // Pretendard 로 폴백한다(H 에서는 손글씨 정체성을 쓰지 않음).
   fontPageTitle: "'Pretendard', -apple-system, 'Segoe UI', Roboto, sans-serif",
   fontSection: "'Pretendard', -apple-system, 'Segoe UI', Roboto, sans-serif",
   fontBody: "'Pretendard', -apple-system, 'Segoe UI', Roboto, sans-serif",
   fontLabel: "'Pretendard', -apple-system, 'Segoe UI', Roboto, sans-serif",
   fontDiary: "'Ownglyph-Positive', 'Gaegu', 'Pretendard', sans-serif",
-  // fontDecorative: 미사용 (§8)
+  fontDecorative: "'Pretendard', -apple-system, 'Segoe UI', Roboto, sans-serif", // §8: 손글씨 금지 → Pretendard 폴백
+  fontReading: "'Pretendard', -apple-system, 'Segoe UI', Roboto, sans-serif",
+  fontBrand: "'Pretendard', -apple-system, 'Segoe UI', Roboto, sans-serif",
+  fontQuote: "'Pretendard', -apple-system, 'Segoe UI', Roboto, sans-serif",
+  fontDecoratePen: "'Pretendard', -apple-system, 'Segoe UI', Roboto, sans-serif", // §8: 손글씨 금지 → Pretendard 폴백
+  fontStat: "'Sora', 'Pretendard', sans-serif",
 
   // 오늘 기록 카드 — 솔리드 카드 recipe와 동일(불투명 흰색 + 하이라인 + 소프트 그림자)
   recordCardBg: '#FFFFFF',

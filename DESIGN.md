@@ -174,6 +174,23 @@ Weight → role (use only these four; avoid 100–300 and 800–900):
 | Emphasis number | Sora | 600 | 22–32px |
 | Diary body (exception) | Ownglyph-Positive | 400 | 15–17px |
 
+#### 확장 역할 — 테마별 선언 (Stage 1.95)
+
+위 표(H 계약)에 더해, 앱은 아래 5개 확장 역할을 둔다. 스코프 계약과 동일하게
+**H = Pretendard/Sora, A/B/C/D = 기존 정체성 보존**이다. 각 값은
+`ThemeContext.tsx` 의 역할 필드(`fontReading` 등)가 보유하며, 컴포넌트는 리터럴이
+아니라 이 필드를 참조한다(치환은 Stage 2). 등록만 된 상태이며 소비처는 아직 없다.
+
+| Role (필드) | 용도 | A / B / C / D | H (계약) |
+|---|---|---|---|
+| `fontReading` | 독서·구절 명조 본문 | `'Georgia', 'Noto Serif KR', serif` | Pretendard |
+| `fontBrand` | 스플래시·로그인·로고 브랜드 명조 | `'Gowun Batang', serif` | Pretendard |
+| `fontQuote` | 확언·태그라인 감성 본문 | `'Gowun Dodum', 'Pretendard', sans-serif` | Pretendard |
+| `fontDecoratePen` | 손글씨 장식(펜) | `'Nanum Pen Script', cursive` | Pretendard (§8 폴백) |
+| `fontStat` | 디스플레이 통계 숫자(%·연도) | `'DM Serif Display', serif` | `'Sora', 'Pretendard', sans-serif` |
+
+참고: 기존 `fontDecorative`(장식 손글씨)는 A/B/C/D = `'Gaegu', cursive`, H = Pretendard(§8 폴백).
+
 ### Font loading
 - **Pretendard** — CDN: `https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.min.css`
 - **Sora** — Google Fonts.
@@ -246,6 +263,7 @@ only layout and navigation adapt.
 - Don't use pure black text or hard gray shadows.
 - Don't wash tag chips out to near-invisible low opacity.
 - Don't use the diary handwriting font anywhere except diary body text.
+- In theme H, `fontDecorative`/`fontDecoratePen` fall back to Pretendard (no handwriting identity in H); handwriting fonts (Gaegu/Nanum Pen) belong to themes A/B/C/D only.
 - Don't change the default theme to pastel until every page is migrated (see §9).
 
 ---
