@@ -51,7 +51,7 @@ export function SelfCareGauge({ score, recentCareCount, spark, careCount }: Prop
       </div>
 
       {/* 상태 문구 (손글씨 액센트) */}
-      <p style={{ fontFamily: "'Nanum Pen Script', cursive", fontSize: 26, color: empty ? t.textSub : tier.color, marginTop: 8, lineHeight: 1 }}>
+      <p style={{ fontFamily: t.fontDecoratePen, fontSize: 26, color: empty ? t.textSub : tier.color, marginTop: 8, lineHeight: 1 }}>{/* 손글씨 장식 */}
         {empty ? '케어를 추가해 시작해요' : tier.label}
       </p>
       <p style={{ fontSize: 12, color: t.textMuted, marginTop: 4 }}>

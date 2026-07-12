@@ -15,7 +15,7 @@ export function GoalsHubView() {
       <div className="px-4 lg:px-8 pt-6 lg:pt-9">
         <div
           style={{
-            fontFamily: "'Nanum Pen Script', cursive",
+            fontFamily: t.fontDecoratePen, // 손글씨 장식 eyebrow
             fontSize: 20,
             color: t.accent,
             lineHeight: 1,
@@ -25,7 +25,7 @@ export function GoalsHubView() {
         </div>
         <h1
           style={{
-            fontFamily: "'DM Serif Display', serif",
+            fontFamily: t.fontPageTitle, // 페이지 최상위 제목
             fontSize: 34,
             lineHeight: 1,
             marginTop: 4,

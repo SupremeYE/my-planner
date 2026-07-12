@@ -96,7 +96,7 @@ export function DrawTab() {
       <div style={cardStyle}>
         <div className="flex items-center justify-center" style={{ height: 92, fontSize: 38, backgroundColor: withAlpha(t.accent, 0.12) }}>{emo}</div>
         <div style={{ padding: '16px 18px 18px' }}>
-          <div style={{ fontFamily: "'DM Serif Display', serif", fontSize: 23, color: t.text }}>{place.name}</div>
+          <div style={{ fontFamily: t.fontSection, fontSize: 23, color: t.text }}>{place.name}</div>{/* 카드 항목 헤더 */}
           <div style={{ fontSize: 12.5, color: t.textSub, marginTop: 2 }}>{[place.category, region].filter(Boolean).join(' · ')}</div>
           {place.address && <div style={{ fontSize: 12, color: t.textMuted, marginTop: 4 }}>📍 {place.address}</div>}
 
@@ -109,7 +109,7 @@ export function DrawTab() {
           {/* 왜 이 곳? — 손글씨 */}
           <div style={{ marginTop: 14, background: withAlpha(t.accent, 0.07), borderRadius: 12, padding: '11px 14px', borderLeft: `3px solid ${t.accent}` }}>
             <div style={{ fontSize: 11, color: t.accent, marginBottom: 2 }}>왜 이 곳?</div>
-            <div style={{ fontFamily: "'Nanum Pen Script', cursive", fontSize: 19, color: t.text, lineHeight: 1.25 }}>{reason}</div>
+            <div style={{ fontFamily: t.fontDecoratePen, fontSize: 19, color: t.text, lineHeight: 1.25 }}>{reason}</div>
           </div>
 
           {blog && (
@@ -145,7 +145,7 @@ export function DrawTab() {
     return (
       <div style={cardStyle}>
         <div style={{ padding: '16px 18px 4px' }}>
-          <div style={{ fontFamily: "'DM Serif Display', serif", fontSize: 21, color: t.text }}>오늘의 코스</div>
+          <div style={{ fontFamily: t.fontSection, fontSize: 21, color: t.text }}>오늘의 코스</div>{/* 카드 헤더 */}
           <div style={{ fontSize: 12, color: t.textSub, marginTop: 2 }}>
             {stops.length}곳 {totalKm > 0 ? `· 약 ${totalKm.toFixed(1)}km` : ''}{transportMeta ? ` · ${transportMeta.icon} ${transportMeta.label}` : ''}
           </div>
@@ -162,7 +162,7 @@ export function DrawTab() {
                 <div style={{ flex: 1, paddingBottom: 4 }}>
                   <div style={{ fontSize: 14.5, fontWeight: 700, color: t.text }}>{emo} {s.place.name}</div>
                   <div style={{ fontSize: 11.5, color: t.textSub }}>{s.place.category}</div>
-                  <div style={{ fontFamily: "'Nanum Pen Script', cursive", fontSize: 16, color: t.accent, marginTop: 2 }}>{s.reason}</div>
+                  <div style={{ fontFamily: t.fontDecoratePen, fontSize: 16, color: t.accent, marginTop: 2 }}>{s.reason}</div>
                 </div>
               </div>
             );
@@ -190,8 +190,8 @@ export function DrawTab() {
       <div className="mx-auto px-4 py-6 lg:py-9" style={{ maxWidth: 460 }}>
         {phase === 'setup' && (
           <div>
-            <div style={{ fontFamily: "'Nanum Pen Script', cursive", fontSize: 22, color: t.accent, lineHeight: 1 }}>오늘은 어디로 갈까</div>
-            <div style={{ fontFamily: "'DM Serif Display', serif", fontSize: 24, color: t.text, marginTop: 2 }}>뽑기</div>
+            <div style={{ fontFamily: t.fontDecoratePen, fontSize: 22, color: t.accent, lineHeight: 1 }}>오늘은 어디로 갈까</div>
+            <div style={{ fontFamily: t.fontPageTitle, fontSize: 24, color: t.text, marginTop: 2 }}>뽑기</div>{/* 페이지 최상위 제목 */}
 
             {/* ① 테마 */}
             <div style={{ marginTop: 20 }}>
@@ -234,7 +234,7 @@ export function DrawTab() {
             <div style={{ marginTop: 28 }}>
               {!loading && pool.length === 0 ? (
                 <div style={{ textAlign: 'center', padding: '8px 0' }}>
-                  <div style={{ fontFamily: "'Nanum Pen Script', cursive", fontSize: 19, color: t.textSub }}>이 테마엔 아직 저장된 곳이 없어요</div>
+                  <div style={{ fontFamily: t.fontDecoratePen, fontSize: 19, color: t.textSub }}>이 테마엔 아직 저장된 곳이 없어요</div>
                   <button onClick={() => setSearchParams({ tab: 'library' })} className="inline-flex items-center gap-1.5" style={{ marginTop: 10, padding: '10px 18px', borderRadius: 12, border: 'none', backgroundColor: t.accent, color: '#fff', fontSize: 13.5, fontWeight: 700, cursor: 'pointer' }}>
                     보관함에서 더 담아볼까요? <ArrowRight size={15} />
                   </button>
@@ -251,14 +251,14 @@ export function DrawTab() {
         {phase === 'drawing' && (
           <div className="flex flex-col items-center justify-center" style={{ minHeight: 360, gap: 26 }}>
             <div className="draw-orb flex items-center justify-center" style={{ width: 86, height: 86, borderRadius: '50%', backgroundColor: t.accent, color: '#fff', fontSize: 34 }}>🎲</div>
-            <div style={{ fontFamily: "'Nanum Pen Script', cursive", fontSize: 23, color: t.text, minHeight: 30 }}>{DRAW_COPY[copyIdx]}</div>
+            <div style={{ fontFamily: t.fontDecoratePen, fontSize: 23, color: t.text, minHeight: 30 }}>{DRAW_COPY[copyIdx]}</div>
           </div>
         )}
 
         {phase === 'result' && result && (result.kind === 'one' ? <OneCard place={result.place} reason={result.reason} /> : <CourseCard stops={result.stops} />)}
         {phase === 'result' && !result && (
           <div style={{ textAlign: 'center', padding: '40px 0' }}>
-            <div style={{ fontFamily: "'Nanum Pen Script', cursive", fontSize: 20, color: t.textSub }}>코스를 만들 좌표가 있는 곳이 부족해요</div>
+            <div style={{ fontFamily: t.fontDecoratePen, fontSize: 20, color: t.textSub }}>코스를 만들 좌표가 있는 곳이 부족해요</div>
             <div style={{ fontSize: 12.5, color: t.textMuted, marginTop: 6 }}>장소를 카카오로 검색·저장하면 코스를 짤 수 있어요</div>
             <button onClick={reset} className="inline-flex items-center gap-1.5" style={{ marginTop: 14, padding: '9px 16px', borderRadius: 11, border: `1.5px solid ${t.border}`, background: 'transparent', color: t.text, fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>
               <RefreshCw size={14} /> 다시

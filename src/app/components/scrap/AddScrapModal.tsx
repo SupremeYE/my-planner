@@ -232,7 +232,7 @@ export default function AddScrapModal({ onClose, onSaved }: Props) {
             <ArrowLeft size={20} color={t.text} className="lg:hidden" />
             <X size={20} color={t.text} className="hidden lg:block" />
           </button>
-          <h2 style={{ fontFamily: "'DM Serif Display', serif", fontSize: 22, color: t.text, lineHeight: 1 }}>
+          <h2 style={{ fontFamily: t.fontPageTitle, fontSize: 22, color: t.text, lineHeight: 1 }}> {/* 모달 최상위 제목 */}
             스크랩 추가
           </h2>
           <button

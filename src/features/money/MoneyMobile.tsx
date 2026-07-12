@@ -16,7 +16,7 @@ export function MoneyMobile() {
       <div style={{ padding: '8px 20px 0' }}>
         {/* 헤더 */}
         <div className="flex items-center justify-between" style={{ paddingBottom: 8 }}>
-          <span style={{ fontFamily: "'DM Serif Display', serif", fontSize: 26, color: t.text }}>Money</span>
+          <span style={{ fontFamily: t.fontPageTitle, fontSize: 26, color: t.text }}>Money</span>{/* 페이지 브랜드 제목 */}
           <button onClick={() => setShowSettings(true)}
             className="flex items-center justify-center"
             style={{ width: 36, height: 36, borderRadius: '50%', background: t.card, color: t.textSub, boxShadow: t.shadow }}>

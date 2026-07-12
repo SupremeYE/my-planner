@@ -168,7 +168,7 @@ export function LibraryTab() {
   // 빈 상태
   const EmptyPlaces = () => (
     <div style={{ textAlign: 'center', padding: '40px 20px' }}>
-      <div style={{ fontFamily: "'Nanum Pen Script', cursive", fontSize: 22, color: t.textSub }}>
+      <div style={{ fontFamily: t.fontDecoratePen, fontSize: 22, color: t.textSub }}>
         아직 모아둔 곳이 없어요
       </div>
       <div style={{ fontSize: 12.5, color: t.textMuted, marginTop: 4 }}>마음에 드는 장소를 하나씩 담아볼까요?</div>
@@ -237,7 +237,7 @@ export function LibraryTab() {
             </button>
             <div className="flex items-center gap-2 mb-1">
               <span style={{ fontSize: 22 }}>{mobileFolder.icon || '📁'}</span>
-              <span style={{ fontFamily: "'DM Serif Display', serif", fontSize: 20, color: t.text }}>{mobileFolder.name}</span>
+              <span style={{ fontFamily: t.fontSection, fontSize: 20, color: t.text }}>{mobileFolder.name}</span>{/* 폴더 드릴다운 헤더 */}
               <button onClick={() => setEditFolder(mobileFolder)} style={{ marginLeft: 'auto', color: t.textSub, background: 'none', border: 'none', cursor: 'pointer', padding: 4 }}><Pencil size={15} /></button>
             </div>
             {!selectMode ? (
@@ -354,7 +354,7 @@ export function LibraryTab() {
             if (pcFolder !== 'all' && list.length === 0) {
               return (
                 <div style={{ textAlign: 'center', padding: '50px 0', color: t.textSub }}>
-                  <div style={{ fontFamily: "'Nanum Pen Script', cursive", fontSize: 21 }}>아직 비어있어요</div>
+                  <div style={{ fontFamily: t.fontDecoratePen, fontSize: 21 }}>아직 비어있어요</div>
                   <button onClick={() => setAddPlaceFor(pcFolder)} className="inline-flex items-center gap-1.5 mt-3" style={{ padding: '9px 16px', borderRadius: 11, border: 'none', backgroundColor: t.accent, color: '#fff', fontSize: 13.5, fontWeight: 700, cursor: 'pointer' }}>
                     <Plus size={15} /> 이 폴더에 장소 담기
                   </button>

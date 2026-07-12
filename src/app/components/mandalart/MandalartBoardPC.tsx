@@ -120,7 +120,7 @@ export function MandalartBoardPC({ boardId, boardTitle, cells, onMutate, onNotif
           <div className="flex-1 h-2 rounded-full overflow-hidden" style={{ backgroundColor: t.bgSub, minWidth: 140 }}>
             <div className="h-full" style={{ width: `${progress.overall}%`, backgroundColor: t.success }} />
           </div>
-          <span style={{ fontFamily: "'DM Serif Display', serif", fontSize: 22, color: t.text }}>
+          <span style={{ fontFamily: t.fontSection, fontSize: 22, color: t.text }}> {/* 툴바 진행률 수치, 섹션 헤더급 */}
             {progress.overall}%
           </span>
         </div>

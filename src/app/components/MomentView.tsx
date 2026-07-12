@@ -391,7 +391,7 @@ export function MomentView() {
               <div style={{ fontFamily: 'var(--font-gaegu)', fontSize: 16, color: t.textSub }}>
                 오늘 하루, 기억하고 싶은 순간
               </div>
-              <h1 style={{ fontFamily: "'DM Serif Display', serif", fontSize: 40, color: t.text, lineHeight: 1.1, marginTop: 2 }}>
+              <h1 style={{ fontFamily: t.fontPageTitle, fontSize: 40, color: t.text, lineHeight: 1.1, marginTop: 2 }}> {/* 페이지 최상위 제목 */}
                 모먼트
               </h1>
               <p style={{ fontSize: 14, color: t.textSub, marginTop: 4 }}>순간을 모아 한 해를 돌아봐요</p>

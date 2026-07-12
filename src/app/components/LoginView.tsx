@@ -197,7 +197,7 @@ export function LoginView() {
             <h1
               style={{
                 marginTop: 28,
-                fontFamily: "'Gowun Batang', serif",
+                fontFamily: t.fontBrand,
                 fontSize: 38,
                 fontWeight: 700,
                 letterSpacing: '-1px',
@@ -236,7 +236,7 @@ export function LoginView() {
             </div>
             <h2
               style={{
-                fontFamily: "'Gowun Batang', serif",
+                fontFamily: t.fontBrand,
                 fontSize: 24,
                 fontWeight: 700,
                 color: t.text,

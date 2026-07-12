@@ -116,7 +116,7 @@ export function MusicSection({ section, setSection }: {
 
           {/* 헤더: "음악"(DM Serif) + 코랄 원형 추가 버튼 */}
           <div className="flex items-center justify-between mb-4">
-            <h1 style={{ fontFamily: "'DM Serif Display', serif", fontSize: 28, color: t.text }}>음악</h1>
+            <h1 style={{ fontFamily: t.fontPageTitle, fontSize: 28, color: t.text }}>음악</h1> {/* 페이지 최상위 제목 */}
             <button onClick={() => setAddOpen(true)} aria-label="곡 추가"
               className="flex items-center justify-center rounded-full active:scale-95 transition-transform"
               style={{ width: 44, height: 44, backgroundColor: coral, color: '#fff',
@@ -199,7 +199,7 @@ export function MusicSection({ section, setSection }: {
               <p className="flex items-center gap-1" style={{ fontSize: 13, color: t.textMuted }}>
                 문화 기록 <ChevronRight size={13} /> 음악
               </p>
-              <h1 style={{ fontFamily: "'DM Serif Display', serif", fontSize: 30, color: t.text, lineHeight: 1.2 }}>
+              <h1 style={{ fontFamily: t.fontPageTitle, fontSize: 30, color: t.text, lineHeight: 1.2 }}> {/* 페이지 최상위 제목 */}
                 음악
               </h1>
             </div>

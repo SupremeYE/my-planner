@@ -59,7 +59,7 @@ export function DiaryView() {
         {/* 헤더 */}
         <header className="mb-5">
           <div style={{ fontFamily: 'var(--font-script)', fontSize: 22, color: t.accent, lineHeight: 1 }}>my diary</div>
-          <h1 style={{ fontFamily: "'DM Serif Display', serif", fontSize: 32, color: t.text, lineHeight: 1.1, marginTop: 2 }}>
+          <h1 style={{ fontFamily: t.fontPageTitle, fontSize: 32, color: t.text, lineHeight: 1.1, marginTop: 2 }}> {/* 페이지 최상위 제목 */}
             일기
           </h1>
           <p style={{ fontSize: 13, color: t.textSub, marginTop: 4 }}>하루의 마음을 글로 남겨요</p>
@@ -104,7 +104,7 @@ function DateNav({ date, onChange, right }: { date: string; onChange: (d: string
   return (
     <div className="flex items-center justify-between mb-3">
       <div className="flex items-baseline gap-2">
-        <span style={{ fontFamily: "'DM Serif Display', serif", fontSize: 22, color: t.text }}>{day}</span>
+        <span style={{ fontFamily: t.fontSection, fontSize: 22, color: t.text }}>{day}</span> {/* 날짜 네비 헤더 */}
         <span style={{ fontSize: 14, color: t.textSub }}>· {weekday}</span>
       </div>
       <div className="flex items-center gap-2">
@@ -581,7 +581,7 @@ function WriteCard({
               padding: '0 0 10px',
               marginBottom: 12,
               borderBottom: `1px solid ${t.border}`,
-              fontFamily: "'DM Serif Display', serif",
+              fontFamily: t.fontSection, // 제목 입력창
               fontSize: 20,
               color: t.text,
             }}
@@ -832,7 +832,7 @@ function ReadCard({
       <div className="flex items-start justify-between gap-3 mb-3">
         <div className="min-w-0">
           {title && (
-            <h3 style={{ fontFamily: "'DM Serif Display', serif", fontSize: 20, color: t.text, marginBottom: 2 }}>
+            <h3 style={{ fontFamily: t.fontSection, fontSize: 20, color: t.text, marginBottom: 2 }}> {/* 카드 제목 */}
               {title}
             </h3>
           )}
@@ -921,7 +921,7 @@ function WeekStrip({
             </div>
             <div
               className="relative"
-              style={{ fontFamily: "'DM Serif Display', serif", fontSize: 16, marginTop: 2, color: sel ? '#fff' : t.text }}
+              style={{ fontFamily: t.fontSection, fontSize: 16, marginTop: 2, color: sel ? '#fff' : t.text }} /* 달력 날짜 숫자 헤더 */
             >
               {format(d, 'd')}
               {written && (
@@ -1235,7 +1235,7 @@ function QuestionDiaryTab() {
             </span>
           )}
         </div>
-        <p style={{ fontFamily: "'DM Serif Display', serif", fontSize: 21, lineHeight: 1.45, color: t.text }}>
+        <p style={{ fontFamily: t.fontSection, fontSize: 21, lineHeight: 1.45, color: t.text }}> {/* 질문 카드 헤더 */}
           {currentQuestion ? currentQuestion.text : '질문을 불러오는 중...'}
         </p>
         {!existingId && currentQuestion && (
@@ -1413,7 +1413,7 @@ function ExploreSheet({
             <div className="w-10 h-1 rounded-full" style={{ background: t.border }} />
           </div>
           <div className="flex items-center justify-between">
-            <h3 style={{ fontFamily: "'DM Serif Display', serif", fontSize: 20, color: t.text }}>질문 탐색</h3>
+            <h3 style={{ fontFamily: t.fontPageTitle, fontSize: 20, color: t.text }}>질문 탐색</h3> {/* 시트 최상위 제목 */}
             <button onClick={onClose} className="p-1.5 rounded-lg" style={{ color: t.textSub }} aria-label="닫기">
               <X size={18} />
             </button>
@@ -1624,7 +1624,7 @@ function YearBlock({
         >
           {yearsAgo}년 전
         </span>
-        <span style={{ fontFamily: "'DM Serif Display', serif", fontSize: 15, color: t.textSub }}>{year}</span>
+        <span style={{ fontFamily: t.fontSection, fontSize: 15, color: t.textSub }}>{year}</span> {/* 섹션 연도 라벨 */}
       </div>
 
       {items.length === 0 ? (
@@ -1731,7 +1731,7 @@ function MemoryDetailSheet({ entry, onClose, onDeleted }: { entry: DiaryEntry; o
               >
                 {isQuestion ? '질문일기' : '자유일기'}
               </span>
-              <div style={{ fontFamily: "'DM Serif Display', serif", fontSize: 18, color: t.text }}>{dateText}</div>
+              <div style={{ fontFamily: t.fontPageTitle, fontSize: 18, color: t.text }}>{dateText}</div> {/* 모달 최상위 제목 */}
             </div>
             <button onClick={onClose} className="flex-none p-1.5 rounded-lg" style={{ color: t.textSub }} aria-label="닫기">
               <X size={18} />

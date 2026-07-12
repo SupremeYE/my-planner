@@ -112,7 +112,7 @@ export function ResetPasswordView() {
 
         {done ? (
           <>
-            <h2 style={{ marginTop: 20, fontFamily: "'Gowun Batang', serif", fontSize: 22, fontWeight: 700, color: t.text }}>
+            <h2 style={{ marginTop: 20, fontFamily: t.fontBrand, fontSize: 22, fontWeight: 700, color: t.text }}>
               비밀번호가 변경되었어요
             </h2>
             <p style={{ marginTop: 8, fontSize: 13, color: t.textSub, textAlign: 'center' }}>
@@ -140,7 +140,7 @@ export function ResetPasswordView() {
           </>
         ) : (
           <>
-            <h2 style={{ marginTop: 20, fontFamily: "'Gowun Batang', serif", fontSize: 22, fontWeight: 700, color: t.text }}>
+            <h2 style={{ marginTop: 20, fontFamily: t.fontBrand, fontSize: 22, fontWeight: 700, color: t.text }}>
               새 비밀번호 설정
             </h2>
             <p style={{ marginTop: 8, fontSize: 13, color: t.textSub, textAlign: 'center' }}>

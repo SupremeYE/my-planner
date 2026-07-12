@@ -169,7 +169,7 @@ export function BeautyShelfFull({ active, archived, onOpen, onClose, onAdd }: {
         <button type="button" onClick={onClose} className="p-1.5 -ml-1.5 rounded-lg lg:hidden" style={{ color: t.textSub }} aria-label="뒤로">
           <ChevronLeft size={22} />
         </button>
-        <h2 className="flex-1" style={{ fontFamily: "'DM Serif Display', serif", fontSize: 22, color: t.text }}>화장품 보유함</h2>
+        <h2 className="flex-1" style={{ fontFamily: t.fontPageTitle, fontSize: 22, color: t.text }}>화장품 보유함</h2>{/* 전체화면 오버레이 최상위 제목 */}
         <button type="button" onClick={onClose} className="hidden lg:block p-1.5 rounded-lg" style={{ color: t.textMuted }} aria-label="닫기">
           <X size={18} />
         </button>

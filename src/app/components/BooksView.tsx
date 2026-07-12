@@ -1302,7 +1302,7 @@ function BookDetailModal({
                                 color: t.text,
                                 lineHeight: 1.5,
                                 flex: 1,
-                                fontFamily: 'Georgia, "Noto Serif KR", serif',
+                                fontFamily: t.fontReading,
                                 display: '-webkit-box',
                                 WebkitLineClamp: 1,
                                 WebkitBoxOrient: 'vertical' as const,
@@ -1347,7 +1347,7 @@ function BookDetailModal({
                             style={{
                               backgroundColor: 'transparent',
                               color: t.text,
-                              fontFamily: 'Georgia, "Noto Serif KR", serif',
+                              fontFamily: t.fontReading,
                               fontSize: 16,
                               minHeight: 140,
                               lineHeight: 1.8,
@@ -1644,7 +1644,7 @@ function BookDetailModal({
                   backgroundColor: t.card,
                   border: `1px solid ${t.border}`,
                   color: t.text,
-                  fontFamily: 'Georgia, "Noto Serif KR", serif',
+                  fontFamily: t.fontReading,
                   fontSize: 15,
                   minHeight: 160,
                   lineHeight: 1.8,
@@ -1819,7 +1819,7 @@ function QuoteCard({
               color: t.text,
               lineHeight: 1.75,
               flex: 1,
-              fontFamily: 'Georgia, "Noto Serif KR", serif',
+              fontFamily: t.fontReading,
               paddingLeft: 4,
               fontWeight: 500,
             }}
@@ -2163,7 +2163,7 @@ function StatsPanel({ books, onSelect }: { books: Book[]; onSelect: (b: Book) =>
                 fontSize: 14,
                 color: t.text,
                 lineHeight: 1.8,
-                fontFamily: 'Georgia, "Noto Serif KR", serif',
+                fontFamily: t.fontReading,
               }}>
                 {featuredQuote.text}
               </p>

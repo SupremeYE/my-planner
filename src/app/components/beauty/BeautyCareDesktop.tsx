@@ -207,7 +207,7 @@ export function BeautyCareDesktop() {
             <StatBox label="사용기한 임박" value={<>{imminentCount}<span style={{ fontSize: 14 }}>개</span></>} accent={imminentCount > 0} />
           </div>
           {overCount > 0 && (
-            <p style={{ fontFamily: "'Nanum Pen Script', cursive", fontSize: 20, color: t.danger, marginTop: 12 }}>
+            <p style={{ fontFamily: t.fontDecoratePen, fontSize: 20, color: t.danger, marginTop: 12 }}>{/* 손글씨 장식 */}
               주기 지난 케어 {overCount}개 — 슬슬 챙겨줄까요?
             </p>
           )}

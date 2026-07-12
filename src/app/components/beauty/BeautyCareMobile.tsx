@@ -29,7 +29,7 @@ function SectionTitle({ children, count, action }: { children: React.ReactNode; 
   const { t } = useTheme();
   return (
     <div className="flex items-center gap-2 mb-2.5 mt-6">
-      <h2 style={{ fontFamily: "'DM Serif Display', serif", fontSize: 20, color: t.text }}>{children}</h2>
+      <h2 style={{ fontFamily: t.fontSection, fontSize: 20, color: t.text }}>{children}</h2>{/* 섹션 헤더 */}
       {count != null && <span style={{ fontSize: 12, fontWeight: 600, color: t.textMuted }}>{count}</span>}
       <div className="flex-1" style={{ height: 1, backgroundColor: `${t.accent}33` }} />
       {action}
@@ -79,7 +79,7 @@ export function BeautyCareMobile() {
 
       <div className="px-4 pt-5 pb-24">
         {/* 헤더 */}
-        <h1 style={{ fontFamily: "'DM Serif Display', serif", fontSize: 28, color: t.text, lineHeight: 1.1 }}>케어</h1>
+        <h1 style={{ fontFamily: t.fontPageTitle, fontSize: 28, color: t.text, lineHeight: 1.1 }}>케어</h1>{/* 페이지 최상위 제목 */}
         <p style={{ fontSize: 13, color: t.textSub, marginTop: 4 }}>잘 돌보고 있는지, 하온이 지켜볼게요</p>
 
         {/* ① 셀프케어 게이지 */}

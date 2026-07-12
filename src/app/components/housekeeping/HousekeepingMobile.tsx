@@ -32,7 +32,7 @@ function SectionTitle({ children, count }: { children: React.ReactNode; count?: 
   const { t } = useTheme();
   return (
     <div className="flex items-center gap-2 mb-2.5 mt-5">
-      <h2 style={{ fontFamily: "'DM Serif Display', serif", fontSize: 20, color: t.text }}>{children}</h2>
+      <h2 style={{ fontFamily: t.fontSection, fontSize: 20, color: t.text }}>{children}</h2>{/* 섹션 헤더 */}
       {count != null && <span style={{ fontSize: 12, fontWeight: 600, color: t.textMuted }}>{count}</span>}
       <div className="flex-1" style={{ height: 1, backgroundColor: `${t.accent}33` }} />
     </div>
@@ -172,7 +172,7 @@ export function HousekeepingMobile() {
 
       <div className="px-4 pt-5 pb-24">
         {/* 헤더 */}
-        <h1 style={{ fontFamily: "'DM Serif Display', serif", fontSize: 28, color: t.text, lineHeight: 1.1 }}>살림 노트</h1>
+        <h1 style={{ fontFamily: t.fontPageTitle, fontSize: 28, color: t.text, lineHeight: 1.1 }}>살림 노트</h1>{/* 페이지 최상위 제목 */}
         <p style={{ fontSize: 13, color: t.textSub, marginTop: 4 }}>슬슬 할 때 된 것들, 하온이 챙겨줄게요</p>
 
         {/* ① 넛지 배너 */}

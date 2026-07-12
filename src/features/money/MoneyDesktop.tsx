@@ -17,7 +17,7 @@ export function MoneyDesktop() {
       <div style={{ padding: '24px 24px 60px' }}>
         {/* 헤더 */}
         <div className="flex items-center justify-between" style={{ marginBottom: 12 }}>
-          <span style={{ fontFamily: "'DM Serif Display', serif", fontSize: 32, color: t.text }}>Money</span>
+          <span style={{ fontFamily: t.fontPageTitle, fontSize: 32, color: t.text }}>Money</span>{/* 페이지 브랜드 제목 */}
           <button onClick={() => setShowSettings(true)}
             className="flex items-center justify-center"
             style={{ width: 38, height: 38, borderRadius: '50%', background: t.card, color: t.textSub, boxShadow: t.shadow }}>
