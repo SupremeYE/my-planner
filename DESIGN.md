@@ -191,6 +191,8 @@ Weight → role (use only these four; avoid 100–300 and 800–900):
 
 참고: 기존 `fontDecorative`(장식 손글씨)는 A/B/C/D = `'Gaegu', cursive`, H = Pretendard(§8 폴백).
 
+브랜드 마크(로고 워드마크·스플래시·로그인/재설정 타이틀)는 테마 독립 브랜드 상수(`src/app/styles/brand.ts` — Gowun Batang)를 따르며, 앱 UI 가 아니라 브랜드 정체성이므로 §4 UI 폰트 규정(테마별 역할 필드) 대상이 아니다. 테마 H 에서도 브랜드 마크는 Pretendard 로 바뀌지 않는다.
+
 ### Font loading
 - **Pretendard** — CDN: `https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.min.css`
 - **Sora** — Google Fonts.

@@ -1,4 +1,5 @@
 import React from 'react';
+import { BRAND_FONT_WORDMARK, BRAND_FONT_SUBTEXT } from '../styles/brand';
 
 interface HaonLogoProps {
   height?: number;
@@ -97,7 +98,7 @@ export function HaonLogo({ height = 44, showSubtitle = false }: HaonLogoProps) {
         {/* Wordmark */}
         <span
           style={{
-            fontFamily: "'Gowun Batang', 'Gowun Dodum', serif",
+            fontFamily: BRAND_FONT_WORDMARK, // 브랜드 워드마크 — 테마 독립 고정
             fontWeight: 800,
             fontSize,
             letterSpacing: '-0.04em',
@@ -120,7 +121,7 @@ export function HaonLogo({ height = 44, showSubtitle = false }: HaonLogoProps) {
             marginTop: 6,
             marginLeft: markSize + height * 0.18,
             letterSpacing: '0.02em',
-            fontFamily: "'Gowun Dodum', sans-serif",
+            fontFamily: BRAND_FONT_SUBTEXT, // 브랜드 태그라인 — 테마 독립 고정
           }}
         >
           하루를 온전히, 나에게

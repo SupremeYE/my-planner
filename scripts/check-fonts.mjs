@@ -42,7 +42,10 @@ const FONT_FAMILY_RE = /fontFamily\s*[:=]\s*(['"])(.*?)\1/;
 const ALLOWED_FONTFAMILY_PREFIX = 'var(--font-';
 
 // 스캔 제외 파일 (basename 기준)
-const EXCLUDED_FILES = new Set(['ThemeContext.tsx']);
+//  - ThemeContext.tsx: 테마 정의 SSOT (역할별 폰트 리터럴 보유)
+//  - brand.ts: 하온 브랜드 마크 전용 폰트 상수 SSOT (테마 독립). 브랜드 폰트명
+//    리터럴은 이 파일에만 허용하고, 다른 파일에서의 하드코딩은 계속 위반으로 잡는다.
+const EXCLUDED_FILES = new Set(['ThemeContext.tsx', 'brand.ts']);
 // 규칙 C 예외 파일 (일기 본문 전용 폰트 허용)
 const DIARY_ALLOWED = 'DiaryView.tsx';
 
