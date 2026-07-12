@@ -231,14 +231,21 @@ Weight → role (use only these four; avoid 100–300 and 800–900):
 - **Card** — `solid-card` recipe. Radius 20–24px. Record cards use the same recipe (keep the border/shadow identical whether or not a record exists; only the inner text is muted in the empty state).
 - **List row** — `solid-row` recipe. Leading star/icon, title (+ optional tag chip), trailing status pill + action. Tagged rows get a 3px left accent bar in the tag hue.
 - **Quick-capture box** — `solid-card` recipe, opaque white. The "+" is a coral-gradient circle. (No heavy purple fill.)
-- **Primary button** — `gradients.primary-button`, white text, weight 600, radius 16px/pill, soft coral shadow.
+- **Buttons** — one shared, **token-driven** recipe (never hardcoded hex). Common to all variants: radius 12–16px (pill for compact actions), label Pretendard 600 (§4), `opacity 0.45–0.5` when disabled. Variants:
+  - **primary** (default filled action) — **solid `t.accent`** fill, white text, soft coral shadow. Solid is the baseline: a full coral→pink **gradient fill reads as "loud"** (same call already made for tabs/banners). The gradient is an **emphasis-only option** for select accents (e.g. FAB, a hero CTA), implemented as `t.primaryGradient ?? t.accent`.
+  - **secondary** — `t.accentLight` fill + `t.accent` text + `1px solid t.border` (use `t.accent` for a stronger outline). The standard 취소 / 보조 action.
+  - **ghost / text** — tint only (`t.accentLight`, or `accent` at ~10–15% alpha), no border, `t.accent` text; inline / low-emphasis actions. Bare icon-only buttons with no fill use `t.textMuted`.
+  - **danger** (soft — reversible-looking risk) — `t.danger` text on `t.dangerLight` fill.
+  - **dangerSolid** (destructive confirm) — solid `t.danger` fill, white text.
+  - ⚠️ **Off-palette hardcoded button colors are prohibited** — recover them into the variants/tokens above: slate-blue (`#515f74` / `#5B8FE0` / `#d5e3fd` / `#eef4fa`), hardcoded reds (`#DC2626` / `#ef4444` / `#E53E3E` / `#CC0000`), tan-wood (`#C4A882` / `#F5F0E8`), greens (`#6BAA7A` / `#dcfce7`). `ConfirmModal` (uses none of the tokens today) is the first recovery target.
 - **Chip / tag** — pill; filled with a saturated pastel (`tags.chip-by-hue`) and a darker text sibling. Status pills (예정/완료) are small and soft.
 - **Icon button** — circle 44–48px, pastel tinted background, icon in `text-primary`.
-- **FAB** — circle 56px, `deep-indigo` solid, white icon.
+- **FAB** — circle **46px**, **solid coral (`t.accent`)**, white icon, soft shadow (matches the global add-FAB). Module-local FABs may be 56px but keep the coral fill. The primary **gradient emphasis-fill** option applies here (`t.primaryGradient ?? t.accent`).
 - **Input** — `solid-card` fill, radius 12–14px, hairline border, placeholder `text-muted`.
 - **Toggle** — pill track, coral (on), white knob.
 - **Bottom nav (mobile)** — solid or glass floating bar; active item tinted/gradient.
 - **Sidebar (desktop)** — left rail; active item = coral-gradient pill.
+- **Segmented control (tabs / view toggles)** — app-wide **solid-elevation** segments: active = opaque white pill + soft shadow + deep-indigo 600 label + a **3px coral underline**; inactive = transparent + muted label; track = near-neutral low-saturation (NOT warm beige, NOT strong lilac). One pattern for todo-page tabs, goals/lifestyle tabs, and the 캘린더 뷰토글 (calendar specifics in §6.1).
 - **Calendar** — 캘린더 상세(뷰 토글·필터 칩·멀티항목 day-cell·날짜 마커·바텀 시트 등)는 §6 (캘린더 페이지) 참조.
 - **Timeline** — PLAN and DO blocks keep distinct pastel default hues (tags override); blocks get a slightly stronger border to read against the grid; the "now" line is soft coral `#FF9A8B`, not harsh red.
 
@@ -246,6 +253,18 @@ Weight → role (use only these four; avoid 100–300 and 800–900):
 Default → Hover (slight lift: shadow +1 step, border darkens a touch) → Pressed
 (scale 0.98) → Focus (coral focus ring, `0 0 0 3px rgba(255,111,145,0.25)`) →
 Disabled (opacity 0.5, no shadow).
+
+These states are **owned by the shared Button / SegmentedControl components** — the single
+implementation site. They are largely un-implemented across today's hand-styled buttons; the
+shared component is where they get built (a `buttonStyle(t, variant)` recipe supplies the static
+per-variant color/shadow, the component layer adds hover/pressed/focus/disabled).
+
+### Theming & scope (buttons)
+Buttons are **token-driven, therefore theme-agnostic** — the same recipe serves all themes
+(A/B/C/D/H) because every variant reads tokens (`t.accent`, `t.danger`, `t.accentLight`, …); **no
+`isHaon` gating**. The primary gradient option falls back with `t.primaryGradient ?? t.accent`.
+**Brand screens are excluded**: LoginView / ResetPasswordView and anything sourced from
+`brand.ts` keep their brand identity and do NOT adopt the shared Button.
 
 ### Quick-capture type chip (smart emphasis pulse)
 The quick-capture leading chip shows the entry type — colored with the shared **카테고리 색**
@@ -273,10 +292,10 @@ Only the calendar-specific patterns are detailed below; shared rules are cross-r
 repeated.
 
 ### 6.1 View toggle (월별 / 주별)
-Segmented control using **solid elevation** — the same decision as the todo-page tabs. Active =
-opaque white pill + soft shadow + deep-indigo 600 label + a 3px coral-gradient underline;
-inactive = transparent + muted label; track = near-neutral low-saturation (NOT warm beige, NOT
-strong lilac). Replaces the current warm-beige/cream toggle.
+Uses the app-wide **Segmented control** (§5) — active = opaque white pill + soft shadow +
+deep-indigo 600 label + 3px coral underline; inactive = transparent + muted label; track =
+near-neutral low-saturation (NOT warm beige, NOT strong lilac). Replaces the old warm-beige/cream
+toggle. No calendar-specific deviation from §5.
 
 ### 6.2 Month header
 `‹  [YYYY년 M월]  ›` — centered or left, secondary controls on the right. Label in
