@@ -734,7 +734,7 @@ export function CalendarView() {
   };
 
   return (
-    <div className="relative" style={{ height: '100%', display: 'flex', flexDirection: 'column', ...(isHaon(t) ? canvasStyle(t) : { backgroundColor: t.bg }) }}>
+    <div className={`relative lg:h-full lg:flex lg:flex-col${tab === 'week' ? ' h-full flex flex-col' : ''}`} style={{ ...(isHaon(t) ? canvasStyle(t) : { backgroundColor: t.bg }) }}>
       <div className="px-3 py-3 lg:px-4 lg:py-4" style={{ flexShrink: 0, ...(isHaon(t) ? glassBarStyle(t) : { backgroundColor: t.sidebar, borderBottom: `1px solid ${t.border}` }) }}>
         <div className="flex items-center gap-2 mb-3">
           <button onClick={handlePrev} className="p-1.5 lg:p-2 rounded-xl hover:bg-[#eef4fa]">
@@ -912,14 +912,10 @@ export function CalendarView() {
           </div>
         </div>
       ) : (
-        <div className="flex-1 px-3 pb-3 pt-2.5 lg:px-4 lg:pb-4 lg:pt-3 flex flex-col" style={{ minHeight: 0, overflow: 'hidden' }}>
+        <div className="flex-1 px-3 pb-3 pt-2.5 lg:px-4 lg:pb-4 lg:pt-3 lg:flex lg:flex-col lg:min-h-0 lg:overflow-hidden">
           <div
-            style={{
-              overflow: 'hidden',
-              maxHeight: isCalendarExpanded ? 520 : 145,
-              transition: 'max-height 0.32s ease',
-              flexShrink: 0,
-            }}
+            className={`lg:overflow-hidden lg:flex-shrink-0 ${isCalendarExpanded ? 'lg:max-h-[520px]' : 'lg:max-h-[145px]'}`}
+            style={{ transition: 'max-height 0.32s ease' }}
           >
             <div
               className="bg-white rounded-2xl p-4 shadow-sm"
@@ -953,14 +949,14 @@ export function CalendarView() {
             />
           </button>
 
-          <div className="flex-1 min-h-0 overflow-hidden">
+          <div className="lg:flex-1 lg:min-h-0 lg:overflow-hidden">
             <div
-              className="rounded-[18px] h-full overflow-hidden"
+              className="rounded-[18px] lg:h-full overflow-hidden"
               style={isHaon(t) ? { ...solidCardStyle(t) } : { backgroundColor: t.card, border: `1px solid ${t.border}` }}
             >
-              <div className="h-full overflow-y-auto px-4 py-4 lg:px-5">
+              <div className="lg:h-full lg:overflow-y-auto px-4 py-4 lg:px-5">
                 {!panelDate && (
-                  <div className="h-full flex items-center justify-center">
+                  <div className="lg:h-full flex items-center justify-center py-10 lg:py-0">
                     <p style={{ fontSize: 13, color: t.textMuted }}>날짜를 선택하면 기록이 표시돼요</p>
                   </div>
                 )}
