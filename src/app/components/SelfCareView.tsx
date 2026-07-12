@@ -1423,7 +1423,7 @@ function ChartTooltip({ active, payload, label, t }: any) {
   return (
     <div className="rounded-xl px-3 py-2" style={{
       backgroundColor: t.card, border: `1px solid ${t.borderLight}`,
-      boxShadow: '0 4px 16px rgba(0,0,0,0.08)', fontFamily: "'Noto Sans KR', sans-serif",
+      boxShadow: '0 4px 16px rgba(0,0,0,0.08)', fontFamily: t.fontBody,
     }}>
       {label != null && <div style={{ fontSize: 11, color: t.textMuted, marginBottom: 4 }}>{label}</div>}
       {rows.map((p: any) => (

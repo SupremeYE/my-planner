@@ -13,8 +13,9 @@ const SERIF = "'DM Serif Display', serif";
 // 가로 공간을 채우는 별도 레이아웃: 상단 히어로 배너(전체폭 1줄) + 2단 대시보드.
 // 데이터/CRUD 는 useWorkout 훅을 그대로 공유한다(레이아웃만 분리).
 export function WorkoutTabDesktop({ w }: { w: UseWorkout }) {
+  const { t } = useTheme();
   return (
-    <div className="w-full" style={{ fontFamily: "'Noto Sans KR', sans-serif" }}>
+    <div className="w-full" style={{ fontFamily: t.fontBody }}>
       <HeroBanner w={w} />
 
       {/* 2단 대시보드: 좌(넓게 ~1.5fr) / 우(~1fr) */}

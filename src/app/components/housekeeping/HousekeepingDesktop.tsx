@@ -158,7 +158,7 @@ export function HousekeepingDesktop() {
   const chip = (sev: number) => sev >= 3 ? { bg: t.accent, fg: '#fff' } : { bg: t.accentLight, fg: t.accent };
 
   return (
-    <div className="w-full px-6 pt-6 pb-10" style={{ fontFamily: "'Noto Sans KR', sans-serif" }}>
+    <div className="w-full px-6 pt-6 pb-10" style={{ fontFamily: t.fontBody }}>
       {/* 헤더 */}
       <div className="flex items-end justify-between gap-3 mb-4">
         <div>

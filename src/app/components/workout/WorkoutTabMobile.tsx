@@ -14,7 +14,7 @@ export function WorkoutTabMobile({ w }: { w: UseWorkout }) {
   const today = w.today;
 
   return (
-    <div className="mx-auto w-full" style={{ maxWidth: 440, fontFamily: "'Noto Sans KR', sans-serif" }}>
+    <div className="mx-auto w-full" style={{ maxWidth: 440, fontFamily: t.fontBody }}>
       <div className="space-y-3 pb-4">
 
         {/* 1) 스트릭/요약 히어로 */}

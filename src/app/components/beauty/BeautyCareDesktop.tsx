@@ -177,7 +177,7 @@ export function BeautyCareDesktop() {
   const overCount = useMemo(() => b.specialCares.filter(c => c.status === 'over').length, [b.specialCares]);
 
   return (
-    <div className="w-full px-6 pt-6 pb-10" style={{ fontFamily: "'Noto Sans KR', sans-serif" }}>
+    <div className="w-full px-6 pt-6 pb-10" style={{ fontFamily: t.fontBody }}>
       {/* 헤더 */}
       <div className="flex items-end justify-between gap-3 mb-4">
         <div>
