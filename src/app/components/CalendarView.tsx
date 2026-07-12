@@ -26,6 +26,7 @@ import ConfirmModal from './ConfirmModal';
 import { RecurrenceBranchModal } from './RecurrenceBranchModal';
 import { useFabAction } from '../FabContext';
 import { Timeline } from './timeline/Timeline';
+import { isHaon, canvasStyle, glassBarStyle, solidCardStyle } from '../styles/haonStyles';
 
 type TabType = 'month' | 'week';
 type FilterType = 'all' | 'todo' | 'event' | 'habit' | 'selfcare';
@@ -659,8 +660,8 @@ export function CalendarView() {
   };
 
   return (
-    <div className="relative" style={{ height: '100%', display: 'flex', flexDirection: 'column', backgroundColor: t.bg }}>
-      <div className="px-3 py-3 lg:px-4 lg:py-4" style={{ flexShrink: 0, backgroundColor: t.sidebar, borderBottom: `1px solid ${t.border}` }}>
+    <div className="relative" style={{ height: '100%', display: 'flex', flexDirection: 'column', ...(isHaon(t) ? canvasStyle(t) : { backgroundColor: t.bg }) }}>
+      <div className="px-3 py-3 lg:px-4 lg:py-4" style={{ flexShrink: 0, ...(isHaon(t) ? glassBarStyle(t) : { backgroundColor: t.sidebar, borderBottom: `1px solid ${t.border}` }) }}>
         <div className="flex items-center gap-2 mb-3">
           <button onClick={handlePrev} className="p-1.5 lg:p-2 rounded-xl hover:bg-[#eef4fa]">
             <ChevronLeft size={18} color="#888" />
@@ -671,27 +672,53 @@ export function CalendarView() {
           </button>
         </div>
 
-        <div className="flex gap-1 p-1 rounded-xl" style={{ backgroundColor: '#EFE7D8', border: '1px solid #E2D5BF' }}>
-          {(['month', 'week'] as TabType[]).map(value => (
-            <button
-              key={value}
-              onClick={() => {
-                setTab(value);
-                if (value === 'week') setViewDate(parseISO(selectedDate));
-              }}
-              className="flex-1 py-1.5 rounded-lg transition-all"
-              style={{
-                fontSize: 12,
-                fontWeight: tab === value ? 700 : 500,
-                backgroundColor: tab === value ? '#FDFAF4' : 'transparent',
-                color: tab === value ? '#8D7152' : '#B0A188',
-                border: tab === value ? '1px solid #C4A882' : '1px solid transparent',
-                boxShadow: tab === value ? '0 1px 3px rgba(196,168,130,0.25)' : 'none',
-              }}
-            >
-              {value === 'month' ? '월별' : '주별'}
-            </button>
-          ))}
+        <div
+          className="flex gap-1 p-1 rounded-xl"
+          style={isHaon(t)
+            ? { backgroundColor: t.borderLight, border: `1px solid ${t.border}` }
+            : { backgroundColor: '#EFE7D8', border: '1px solid #E2D5BF' }}
+        >
+          {(['month', 'week'] as TabType[]).map(value => {
+            const active = tab === value;
+            return (
+              <button
+                key={value}
+                onClick={() => {
+                  setTab(value);
+                  if (value === 'week') setViewDate(parseISO(selectedDate));
+                }}
+                className="flex-1 py-1.5 rounded-lg transition-all"
+                style={{
+                  fontSize: 12,
+                  fontWeight: active ? (isHaon(t) ? 600 : 700) : 500,
+                  ...(isHaon(t)
+                    ? {
+                        position: 'relative',
+                        color: active ? t.text : t.textMuted,
+                        ...(active
+                          ? { ...solidCardStyle(t), borderRadius: undefined }
+                          : { backgroundColor: 'transparent' }),
+                      }
+                    : {
+                        backgroundColor: active ? '#FDFAF4' : 'transparent',
+                        color: active ? '#8D7152' : '#B0A188',
+                        border: active ? '1px solid #C4A882' : '1px solid transparent',
+                        boxShadow: active ? '0 1px 3px rgba(196,168,130,0.25)' : 'none',
+                      }),
+                }}
+              >
+                {/* 파스텔(H) 활성 탭: 코랄 강조는 하단 중앙 3px 언더라인으로만 (그라데이션 풀 채움 제거) — 할일 페이지 세그먼트 결정 재사용 (DESIGN §6.1) */}
+                {isHaon(t) && active && (
+                  <span
+                    aria-hidden
+                    className="absolute left-1/2 -translate-x-1/2"
+                    style={{ bottom: 3, width: 26, height: 3, borderRadius: 9999, background: t.primaryGradient ?? t.accent }}
+                  />
+                )}
+                {value === 'month' ? '월별' : '주별'}
+              </button>
+            );
+          })}
         </div>
 
         {tab === 'month' && (
