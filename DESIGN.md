@@ -145,6 +145,29 @@ blobs, the accents, and the charts, not in loud backgrounds.
 - Text: `text-primary` body, `text-secondary` supporting, `text-muted` hints/empty states. Never pure black.
 - Accent restraint: keep most of a screen calm; give strong color to ONE focal element (e.g. the main "오늘 할 일" card or the primary CTA), not everywhere.
 
+### 카테고리 색 (앱 공통 — 캘린더 + QuickCapture 공유)
+
+App-wide **shared** category tokens: identical everywhere a category appears — 캘린더
+day-cell dots, 캘린더 필터 칩, and the home QuickCapture type chip all read the SAME set, so
+the calendar and the chip never drift. Registered once here (confirmed — Option B: sage
+자기관리 + 일정 unified to blue). Each category has a pale **fill** (chip bg, subtle row tint)
+and a saturated **dot / left-accent** (day-cell dot); derive intermediate tints with `mixHex`,
+do not hand-pick extra hexes.
+
+| 카테고리 | hue | dot | fill |
+|---|---|---|---|
+| 할일 (todo) | 라일락 lilac | `#9E6FD6` | `#C8A8E9` |
+| 일정 (schedule) | 블루 blue | `#7B82E3` | `#C3C7F4` |
+| 습관 (habit) | 마젠타 magenta | `#C56FB8` | `#E3AADD` |
+| 자기관리 (self-care) | 세이지 sage | `#6BAA7A` | `#CFE3CE` |
+
+- **세이지 (`#6BAA7A`)** — reused from the existing Haon warm tokens (not net-new), now
+  registered as a **category-only hue** in the palette.
+- **QuickCapture 칩 일정색 확정: 코랄 → 블루.** The 일정 type chip moves off coral to the
+  category 블루 above (resolves coral overload); 할일 stays 라일락. See §5 (Quick-capture type chip).
+- **코랄은 카테고리 색으로 쓰지 않는다** — coral (`accent_gradient`) is reserved for
+  emphasis / FAB / the selected-day tint only, never a category.
+
 ---
 
 ## 4. Typography
@@ -185,7 +208,7 @@ Weight → role (use only these four; avoid 100–300 and 800–900):
 - **Toggle** — pill track, coral (on), white knob.
 - **Bottom nav (mobile)** — solid or glass floating bar; active item tinted/gradient.
 - **Sidebar (desktop)** — left rail; active item = coral-gradient pill.
-- **Calendar** — 7-col grid; today = filled coral circle; event = colored dot.
+- **Calendar** — 캘린더 상세(뷰 토글·필터 칩·멀티항목 day-cell·날짜 마커·바텀 시트 등)는 §6 (캘린더 페이지) 참조.
 - **Timeline** — PLAN and DO blocks keep distinct pastel default hues (tags override); blocks get a slightly stronger border to read against the grid; the "now" line is soft coral `#FF9A8B`, not harsh red.
 
 ### Interaction states (apply to buttons, inputs, chips)
@@ -194,8 +217,9 @@ Default → Hover (slight lift: shadow +1 step, border darkens a touch) → Pres
 Disabled (opacity 0.5, no shadow).
 
 ### Quick-capture type chip (smart emphasis pulse)
-The quick-capture leading chip shows the entry type (할일 = `success`, 일정 = `info`)
-and is **tappable** to toggle the type (caret ▾ affordance; type priority is
+The quick-capture leading chip shows the entry type — colored with the shared **카테고리 색**
+(할일 = 라일락, 일정 = 블루; 일정은 코랄→블루로 확정, §3 참조) — and is **tappable** to toggle
+the type (caret ▾ affordance; type priority is
 manual tap > keyword prefix `일정`/`할일` > default 할일). When the parser detects a
 **time** but the type is still the default (할일) and the user has neither tapped nor
 used a prefix, the chip gets a **smart-emphasis pulse**: a soft coral ring
@@ -207,7 +231,86 @@ a static `0 0 0 3px` ring.** Implemented as `.haon-type-pulse` in `haon.css`.
 
 ---
 
-## 6. Data visualization
+## 6. 캘린더 페이지 (page-specific patterns)
+
+The **라이프 캘린더** (`/calendar`) shows life entries — 할일 / 일정 / 습관 / 자기관리 — on
+the Theme H pastel canvas. It never renders money, amounts, or currency (the 머니 캘린더 is a
+separate page, out of scope here). Surfaces follow §1 (solid in-flow cards, glass on overlays
+only); category color is the main functional color on this page (§3, 카테고리 색).
+
+Only the calendar-specific patterns are detailed below; shared rules are cross-referenced, not
+repeated.
+
+### 6.1 View toggle (월별 / 주별)
+Segmented control using **solid elevation** — the same decision as the todo-page tabs. Active =
+opaque white pill + soft shadow + deep-indigo 600 label + a 3px coral-gradient underline;
+inactive = transparent + muted label; track = near-neutral low-saturation (NOT warm beige, NOT
+strong lilac). Replaces the current warm-beige/cream toggle.
+
+### 6.2 Month header
+`‹  [YYYY년 M월]  ›` — centered or left, secondary controls on the right. Label in
+Pretendard 600–700 (§4).
+
+### 6.3 Category filter pills (전체 / 할일 / 일정 / 습관 / 자기관리)
+A single horizontal scrollable row, no wrap. Each pill carries its category dot/outline in the
+confirmed 카테고리 색 (§3). Selected = solid elevation OR a soft category-tint fill — **never a
+loud gradient fill**. Unselected = hairline outline + muted label; 전체 selected = neutral solid.
+
+### 6.4 Multi-entry day cell
+Each cell stacks: date number (top) → 0–N category entry rows → a `+N개` overflow chip when
+entries exceed the visible cap (3–4, tuned to cell height). Each entry row = a small
+category-color dot + a truncated single-line label. This replaces the current single flat coral
+bars — every entry now shows its OWN category color (§3). Always pair dot + label (never color
+alone). Never render money/amounts in a cell.
+
+### 6.5 Date markers
+- **Selected day** = a soft pastel fill circle behind the date number (a pale accent tint —
+  coral or lilac from the palette), number in indigo/coral on top. ⚠️ Replaces the current
+  off-palette **blue** selected-date circle.
+- **Today** = a quieter, distinct marker (a hairline ring, or a dot under the number).
+  ⚠️ This supersedes the old §5 rule "today = filled coral circle": the filled circle is now the
+  *selected* affordance, so today must be a quiet ring/dot and stay visually distinguishable
+  from selected.
+- **Outside-month** dates = muted (lower contrast toward the canvas).
+
+### 6.6 Bottom detail sheet
+Tap a day → a bottom sheet shows that day's entries grouped by category (할일 / 일정 / 습관 /
+자기관리). Surface = overlay glass, or a solid sheet with a top drag handle, with peek/expand
+states (§1 overlay glass). Rows reuse `solidRowStyle`: category-color accent + label + time;
+할일 rows keep the check + KEY star affordances consistent with the todo page.
+
+### 6.7 Bottom tab bar + center FAB
+The floating bottom tab bar and any glass surfaces follow §1 / §5 (overlay glass). Only the
+raised center **FAB** may use the small coral→pink gradient (a valid small-accent use, §3); its
+action = add an entry for the focused day.
+
+### 6.8 카테고리 색 (공유)
+Day-cell dots, filter pills, and the home QuickCapture type chip share ONE category token set —
+see §3 (카테고리 색). Do not let the calendar and the chip drift; they are the same tokens.
+
+### Do not (calendar)
+- No money / amount / currency element (this is a life calendar; the money calendar is separate).
+- No glass / backdrop-filter on in-flow cells or the grid — solid white only; glass is overlay-only (§1).
+- No full / large gradient fills — coral→pink is a small accent only (FAB / active underline / selected tint).
+- No blue selected-date circle — use a soft pastel fill circle from the palette.
+- No color-only category distinction — always pair dot + label.
+- No coral as a category color (reserved for accent / FAB / selected day).
+- No hardcoded color or font-family — register in DESIGN.md first (§3, §4).
+- No category-color drift between the calendar and the QuickCapture chip — one shared token set.
+- Any component pattern not registered here (or elsewhere in DESIGN.md) → register first, then build.
+
+### haonStyles (구현 Stage 메모)
+- **Reuse:** `canvasStyle` (page bg), `solidCardStyle` (grid container / summary / solid sheet),
+  `solidRowStyle` (sheet rows), `glassBarStyle` (top bar / tab bar / glass sheet), `mixHex`
+  (muted dates, selected-day tint, category dot/fill derivation), `isHaon` (Theme H gating).
+- **New — register before build (not yet in code):** a day-cell layout helper (stacked entries +
+  `+N개`), a date-marker helper (selected fill circle vs today ring/dot), the category dot /
+  entry-row dot, and the shared 카테고리 색 tokens (same set as the QuickCapture chip). These are
+  introduced in a later implementation Stage, not defined here.
+
+---
+
+## 7. Data visualization
 
 Smooth spline line charts (no sharp polylines); strokes in `pink-vivid` / `lilac-purple`
 / `periwinkle`; area fill `chart-area-fill` fading to transparent; minimal gridlines;
@@ -216,7 +319,7 @@ one highlighted point with a rounded pill tooltip. Progress bars: pill, track
 
 ---
 
-## 7. Responsive / platform-adaptive
+## 8. Responsive / platform-adaptive
 
 Both platforms must stay individually optimized. Use Tailwind `lg:` for desktop-only.
 
@@ -233,7 +336,7 @@ only layout and navigation adapt.
 
 ---
 
-## 8. Do / Don't
+## 9. Do / Don't
 
 **Do**
 - Make content cards solid opaque white, lifted by a soft colored shadow + hairline border.
@@ -249,11 +352,11 @@ only layout and navigation adapt.
 - Don't use pure black text or hard gray shadows.
 - Don't wash tag chips out to near-invisible low opacity.
 - Don't use the diary handwriting font anywhere except diary body text.
-- Don't change the default theme to pastel until every page is migrated (see §9).
+- Don't change the default theme to pastel until every page is migrated (see §10).
 
 ---
 
-## 9. Implementation & migration notes
+## 10. Implementation & migration notes
 
 - Implement tokens in Tailwind v4 `@theme` + `:root` CSS variables (this project has no `tailwind.config`). Components reference token names, not raw hex.
 - Pastel-glass is theme `H` (`tokenH`), layered onto the existing `ThemeContext`. The warm theme (`B`) stays the default and fully preserved; pastel is opt-in during migration.
