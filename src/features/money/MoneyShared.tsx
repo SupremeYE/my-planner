@@ -290,7 +290,7 @@ export function SpendCalendar({ m, onPickDate }: { m: UseMoney; onPickDate?: (da
       {/* 스트릭 카운터(Nanum Pen Script) */}
       {m.noSpendStreak > 0 && (
         <div style={{ textAlign: 'center', marginTop: 10, paddingTop: 10, borderTop: `1px solid ${t.borderLight}` }}>
-          <div style={{ fontFamily: "'Nanum Pen Script', cursive", fontSize: 28, color: MONEY_PALETTE.gold, lineHeight: 1 }}>
+          <div style={{ fontFamily: t.fontDecoratePen, fontSize: 28, color: MONEY_PALETTE.gold, lineHeight: 1 }}>{/* 손글씨 장식 */}
             {m.noSpendStreak}일 연속 무지출!
           </div>
           <div style={{ fontSize: 11, color: t.textSub, marginTop: 2 }}>한 푼도 안 쓴 날을 이어가고 있어요 ✨</div>

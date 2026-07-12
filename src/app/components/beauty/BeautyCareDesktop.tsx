@@ -19,7 +19,6 @@ import type { ExtractedItem } from '../capture/useVisionExtract';
 import type { BeautyProduct, BeautySpecialCare } from '../../store';
 import type { CareStatus } from '../../../lib/careUtils';
 
-const SERIF = "'DM Serif Display', serif";
 const newId = () =>
   (typeof crypto !== 'undefined' && 'randomUUID' in crypto)
     ? crypto.randomUUID()
@@ -37,7 +36,7 @@ function DCardHeader({ title, action }: { title: string; action?: React.ReactNod
   const { t } = useTheme();
   return (
     <div className="flex items-center justify-between gap-2 mb-3">
-      <span style={{ fontFamily: SERIF, fontSize: 20, color: t.text }}>{title}</span>
+      <span style={{ fontFamily: t.fontSection, fontSize: 20, color: t.text }}>{title}</span>
       {action}
     </div>
   );
@@ -124,7 +123,7 @@ function StatBox({ label, value, accent }: { label: string; value: React.ReactNo
   return (
     <div className="rounded-2xl px-4 py-3" style={{ backgroundColor: t.bgSub, border: `1px solid ${t.borderLight}` }}>
       <div style={{ fontSize: 12, color: t.textSub, fontWeight: 600 }}>{label}</div>
-      <div style={{ fontSize: 24, fontWeight: 800, fontFamily: SERIF, color: accent ? t.accent : t.text, marginTop: 2 }}>{value}</div>
+      <div style={{ fontSize: 24, fontWeight: 800, fontFamily: t.fontStat, color: accent ? t.accent : t.text, marginTop: 2 }}>{value}</div>
     </div>
   );
 }
@@ -177,11 +176,11 @@ export function BeautyCareDesktop() {
   const overCount = useMemo(() => b.specialCares.filter(c => c.status === 'over').length, [b.specialCares]);
 
   return (
-    <div className="w-full px-6 pt-6 pb-10" style={{ fontFamily: "'Noto Sans KR', sans-serif" }}>
+    <div className="w-full px-6 pt-6 pb-10" style={{ fontFamily: t.fontBody }}>
       {/* 헤더 */}
       <div className="flex items-end justify-between gap-3 mb-4">
         <div>
-          <h1 style={{ fontFamily: SERIF, fontSize: 30, color: t.text, lineHeight: 1.1 }}>케어</h1>
+          <h1 style={{ fontFamily: t.fontPageTitle, fontSize: 30, color: t.text, lineHeight: 1.1 }}>케어</h1>
           <p style={{ fontSize: 13.5, color: t.textSub, marginTop: 3 }}>잘 돌보고 있는지, 하온이 지켜볼게요</p>
         </div>
         <div className="flex items-center gap-2">
@@ -207,7 +206,7 @@ export function BeautyCareDesktop() {
             <StatBox label="사용기한 임박" value={<>{imminentCount}<span style={{ fontSize: 14 }}>개</span></>} accent={imminentCount > 0} />
           </div>
           {overCount > 0 && (
-            <p style={{ fontFamily: "'Nanum Pen Script', cursive", fontSize: 20, color: t.danger, marginTop: 12 }}>
+            <p style={{ fontFamily: t.fontDecoratePen, fontSize: 20, color: t.danger, marginTop: 12 }}>{/* 손글씨 장식 */}
               주기 지난 케어 {overCount}개 — 슬슬 챙겨줄까요?
             </p>
           )}

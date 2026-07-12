@@ -240,7 +240,7 @@ export function MapTab() {
       <div style={{ backgroundColor: t.card }}>
         <div style={{ padding: '16px 16px 12px', position: 'relative' }}>
           <button onClick={() => setSelected(null)} style={{ position: 'absolute', top: 12, right: 12, color: t.textSub, background: 'none', border: 'none', cursor: 'pointer' }}><X size={18} /></button>
-          <div style={{ fontFamily: "'DM Serif Display', serif", fontSize: 20, color: t.text, paddingRight: 24 }}>{p.name}</div>
+          <div style={{ fontFamily: t.fontSection, fontSize: 20, color: t.text, paddingRight: 24 }}>{p.name}</div>{/* 상세 카드 헤더 */}
           {p.category && <div style={{ fontSize: 12, color: t.textSub, marginTop: 2 }}>{p.category}</div>}
           {p.address && <div className="flex items-start gap-1.5" style={{ fontSize: 12, color: t.textSub, marginTop: 8 }}><MapPin size={13} style={{ marginTop: 1, flexShrink: 0 }} />{p.address}</div>}
           {p.phone && <div style={{ fontSize: 12, color: t.textSub, marginTop: 4 }}>☎ {p.phone}</div>}
@@ -349,7 +349,7 @@ export function MapTab() {
         <div className="relative" style={{ flex: 1, minHeight: 0 }}>
           {mapError ? (
             <div className="flex flex-col items-center justify-center h-full" style={{ textAlign: 'center', padding: '0 24px' }}>
-              <div style={{ fontFamily: "'Nanum Pen Script', cursive", fontSize: 22, color: t.textSub }}>지도를 띄울 수 없어요</div>
+              <div style={{ fontFamily: t.fontDecoratePen, fontSize: 22, color: t.textSub }}>지도를 띄울 수 없어요</div>
               <div style={{ fontSize: 12.5, color: t.textMuted, marginTop: 6 }}>{mapError}</div>
             </div>
           ) : (
@@ -419,9 +419,9 @@ export function MapTab() {
                     padding: '14px 16px 16px',
                   }}
                 >
-                  <div style={{ fontFamily: "'DM Serif Display', serif", fontSize: 20, color: t.text }}>
+                  <div style={{ fontFamily: t.fontSection, fontSize: 20, color: t.text }}>
                     {p.name}
-                  </div>
+                  </div>{/* 단일 필터 카드 헤더 */}
                   {p.category && (
                     <div style={{ fontSize: 12, color: t.textSub, marginTop: 2 }}>{p.category}</div>
                   )}

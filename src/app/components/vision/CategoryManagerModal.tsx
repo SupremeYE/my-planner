@@ -104,7 +104,7 @@ export default function CategoryManagerModal({ categories, onClose, onChanged }:
               <ArrowLeft size={20} color={t.text} className="lg:hidden" />
               <X size={20} color={t.text} className="hidden lg:block" />
             </button>
-            <h2 style={{ fontFamily: "'DM Serif Display', serif", fontSize: 22, color: t.text, lineHeight: 1 }}>
+            <h2 style={{ fontFamily: t.fontPageTitle, fontSize: 22, color: t.text, lineHeight: 1 }}> {/* 모달 최상위 제목 */}
               카테고리 관리
             </h2>
             <div style={{ width: 28 }} />

@@ -168,7 +168,7 @@ export default function VisionFormModal({ item, categories, onClose, onSaved, on
             <ArrowLeft size={20} color={t.text} className="lg:hidden" />
             <X size={20} color={t.text} className="hidden lg:block" />
           </button>
-          <h2 style={{ fontFamily: "'DM Serif Display', serif", fontSize: 22, color: t.text, lineHeight: 1 }}>
+          <h2 style={{ fontFamily: t.fontPageTitle, fontSize: 22, color: t.text, lineHeight: 1 }}> {/* 모달 최상위 제목 */}
             {isEdit ? '비전 수정' : '비전 추가'}
           </h2>
           <button

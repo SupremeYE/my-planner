@@ -131,7 +131,7 @@ export function MemoryTab() {
               <button onClick={() => setSelected(null)} className="flex items-center gap-1" style={{ fontSize: 12.5, color: t.textSub, background: 'none', border: 'none', cursor: 'pointer', padding: '0 0 8px' }}>
                 <ChevronLeft size={15} /> 전체
               </button>
-              <div style={{ fontFamily: "'DM Serif Display', serif", fontSize: 20, color: t.text }}>
+              <div style={{ fontFamily: t.fontSection, fontSize: 20, color: t.text }}>{/* 사이드 패널 섹션 헤더 */}
                 {REGION_LABELS[selected] ?? selected} <span style={{ fontSize: 13, color: t.danger, fontWeight: 700 }}>{counts[selected] ?? 0}번</span>
               </div>
               <div style={{ marginTop: 10 }}><RegionList regionId={selected} /></div>
@@ -177,7 +177,7 @@ export function MemoryTab() {
       {selected && (
         <div className="lg:hidden" style={{ position: 'absolute', left: 0, right: 0, bottom: 0, zIndex: 8, backgroundColor: t.card, borderTop: `1px solid ${t.borderLight}`, borderRadius: '18px 18px 0 0', boxShadow: `0 -8px 24px -12px ${withAlpha(t.text, 0.4)}`, maxHeight: '52%', display: 'flex', flexDirection: 'column' }}>
           <div className="flex items-center justify-between" style={{ padding: '12px 18px 8px', flexShrink: 0 }}>
-            <div style={{ fontFamily: "'DM Serif Display', serif", fontSize: 19, color: t.text }}>
+            <div style={{ fontFamily: t.fontPageTitle, fontSize: 19, color: t.text }}>{/* 하단 시트 최상위 제목 */}
               {REGION_LABELS[selected] ?? selected} <span style={{ fontSize: 12.5, color: t.danger, fontWeight: 700 }}>{counts[selected] ?? 0}번</span>
             </div>
             <button onClick={() => setSelected(null)} style={{ fontSize: 12.5, color: t.textSub, background: 'none', border: 'none', cursor: 'pointer' }}>전체보기</button>

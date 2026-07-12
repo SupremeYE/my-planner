@@ -541,7 +541,7 @@ export function ScrapView() {
         </div>
         <h1
           style={{
-            fontFamily: "'DM Serif Display', serif",
+            fontFamily: t.fontPageTitle, // 페이지 최상위 제목
             fontSize: 40,
             lineHeight: 1,
             marginTop: 6,

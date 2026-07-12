@@ -6,7 +6,6 @@ import { GrowthChart } from './GrowthChart';
 import type { UseWorkout } from './useWorkout';
 import { agoLabel, summarizeSets, MAIN_BODY_PARTS, BODY_PART_EMOJI } from './workoutUtils';
 
-const SERIF = "'DM Serif Display', serif";
 
 // Stage 1 모바일 레이아웃 — 단일 컬럼. 동작/디자인 무변경(상태만 useWorkout 훅에서 주입).
 export function WorkoutTabMobile({ w }: { w: UseWorkout }) {
@@ -14,14 +13,14 @@ export function WorkoutTabMobile({ w }: { w: UseWorkout }) {
   const today = w.today;
 
   return (
-    <div className="mx-auto w-full" style={{ maxWidth: 440, fontFamily: "'Noto Sans KR', sans-serif" }}>
+    <div className="mx-auto w-full" style={{ maxWidth: 440, fontFamily: t.fontBody }}>
       <div className="space-y-3 pb-4">
 
         {/* 1) 스트릭/요약 히어로 */}
         <div style={{ background: `linear-gradient(135deg, ${t.accent} 0%, ${t.accentSoft} 100%)`, borderRadius: 18, padding: 16, color: '#fff' }}>
           <div className="flex items-center gap-2">
             <Flame size={20} color="#fff" />
-            <span style={{ fontSize: 28, fontWeight: 800, fontFamily: SERIF, lineHeight: 1 }}>{w.streak}</span>
+            <span style={{ fontSize: 28, fontWeight: 800, fontFamily: t.fontStat, lineHeight: 1 }}>{w.streak}</span>
             <span style={{ fontSize: 14, fontWeight: 600, opacity: 0.95 }}>일 연속</span>
           </div>
           <div style={{ fontSize: 12.5, opacity: 0.9, marginTop: 6 }}>

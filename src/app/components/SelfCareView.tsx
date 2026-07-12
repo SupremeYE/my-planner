@@ -1423,7 +1423,7 @@ function ChartTooltip({ active, payload, label, t }: any) {
   return (
     <div className="rounded-xl px-3 py-2" style={{
       backgroundColor: t.card, border: `1px solid ${t.borderLight}`,
-      boxShadow: '0 4px 16px rgba(0,0,0,0.08)', fontFamily: "'Noto Sans KR', sans-serif",
+      boxShadow: '0 4px 16px rgba(0,0,0,0.08)', fontFamily: t.fontBody,
     }}>
       {label != null && <div style={{ fontSize: 11, color: t.textMuted, marginBottom: 4 }}>{label}</div>}
       {rows.map((p: any) => (
@@ -1650,7 +1650,7 @@ function TimeStackBar({ report }: { report: ReturnType<typeof useTimeReport> }) 
           <BarChart data={rows} barCategoryGap="22%">
             <CartesianGrid vertical={false} stroke="rgba(194,168,130,0.1)" />
             <XAxis dataKey="label" tickLine={false} axisLine={false}
-              tick={{ fontSize: 11, fill: t.textMuted, fontFamily: "'Noto Sans KR', sans-serif" }} />
+              tick={{ fontSize: 11, fill: t.textMuted, fontFamily: t.fontLabel }} />
             <YAxis hide />
             <Tooltip cursor={{ fill: 'rgba(194,168,130,0.08)' }} content={<ChartTooltip t={t} />} />
             <Bar dataKey="_empty" stackId="a" fill={t.borderLight} radius={[4, 4, 0, 0]} legendType="none" name="" isAnimationActive={false} />

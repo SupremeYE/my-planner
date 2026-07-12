@@ -60,6 +60,19 @@
   /* Fonts (실제 정의는 fonts.css 의 CSS 변수) */
   --font-diary: 'Ownglyph-Positive', 'Gaegu', 'Pretendard', sans-serif;
   --font-sora: 'Sora', 'Pretendard', sans-serif;
+
+  /* ── 폰트 역할 토큰 (DESIGN.md §4 — 테마 H 계약 기준값) ──
+     Tailwind v4 가 font-page-title/font-section/... 유틸리티를 생성한다.
+     역할별 실제 폰트는 테마마다 다르며 그 per-theme 값은 ThemeContext 의
+     ThemeTokens.fontPageTitle 등이 보유한다(컴포넌트는 인라인 style 로 소비).
+     여기 값은 §4/§8 을 따르는 H(=Pretendard/Sora/Ownglyph) 기준값이다.
+     Stage 1(배관)에서는 아직 어떤 컴포넌트도 이 유틸/변수를 사용하지 않는다. */
+  --font-page-title: var(--font-pretendard);
+  --font-section: var(--font-pretendard);
+  --font-body: var(--font-pretendard);
+  --font-label: var(--font-pretendard);
+  --font-numeric: var(--font-sora);
+  --font-decorative: var(--font-gaegu);
 }
 
 /* ── CSS 변수: 팔레트를 :root 에도 명시적으로 심는다.

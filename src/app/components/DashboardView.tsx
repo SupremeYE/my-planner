@@ -65,7 +65,7 @@ function StatCard({
       >
         {value}
       </div>
-      <div style={{ fontSize: 11, color: t.textSub, marginTop: 3, fontFamily: "'Noto Sans KR', sans-serif" }}>{label}</div>
+      <div style={{ fontSize: 11, color: t.textSub, marginTop: 3, fontFamily: t.fontLabel }}>{label}</div>
       {sub && (
         <div style={{ fontSize: 10, color: subColor || t.accent, marginTop: 4 }}>
           {sub}

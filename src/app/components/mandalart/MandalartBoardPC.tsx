@@ -120,7 +120,7 @@ export function MandalartBoardPC({ boardId, boardTitle, cells, onMutate, onNotif
           <div className="flex-1 h-2 rounded-full overflow-hidden" style={{ backgroundColor: t.bgSub, minWidth: 140 }}>
             <div className="h-full" style={{ width: `${progress.overall}%`, backgroundColor: t.success }} />
           </div>
-          <span style={{ fontFamily: "'DM Serif Display', serif", fontSize: 22, color: t.text }}>
+          <span style={{ fontFamily: t.fontSection, fontSize: 22, color: t.text }}> {/* 툴바 진행률 수치, 섹션 헤더급 */}
             {progress.overall}%
           </span>
         </div>
@@ -172,7 +172,7 @@ export function MandalartBoardPC({ boardId, boardTitle, cells, onMutate, onNotif
                 }}
               >
                 <span style={{ fontSize: 22, fontWeight: 300 }}>+</span>
-                <span style={{ fontFamily: "'Gaegu', cursive", fontWeight: 700, fontSize: 11, color: t.accent }}>
+                <span style={{ fontFamily: t.fontDecorative, fontWeight: 700, fontSize: 11, color: t.accent }}>
                   {subCell ? `${subCell.content || '세부'} 펼치기` : '세부 추가'}
                 </span>
               </button>
@@ -338,10 +338,10 @@ function CorePCCell({ title, pct, t, onClick }: {
       onClick={onClick}
       style={{ ...cellBase, backgroundColor: t.accent, color: '#fff', border: `1px solid ${t.accent}` }}
     >
-      <span style={{ fontFamily: "'Gaegu', cursive", fontWeight: 700, fontSize: 12, lineHeight: 1.15, ...clamp2 }}>
+      <span style={{ fontFamily: t.fontDecorative, fontWeight: 700, fontSize: 12, lineHeight: 1.15, ...clamp2 }}>
         {title}
       </span>
-      <b style={{ fontFamily: "'DM Serif Display', serif", fontSize: 15, fontWeight: 400 }}>{pct}%</b>
+      <b style={{ fontFamily: t.fontNumeric, fontSize: 15, fontWeight: 400 }}>{pct}%</b>
     </button>
   );
 }
@@ -426,10 +426,10 @@ function SubCenterPCCell({ name, pct, t, onClick }: {
         border: '1px solid transparent',
       }}
     >
-      <span style={{ fontFamily: "'Gaegu', cursive", fontWeight: 700, fontSize: 12, lineHeight: 1.15, ...clamp2 }}>
+      <span style={{ fontFamily: t.fontDecorative, fontWeight: 700, fontSize: 12, lineHeight: 1.15, ...clamp2 }}>
         {name}
       </span>
-      <b style={{ fontFamily: "'DM Serif Display', serif", fontSize: 13, fontWeight: 400, color: t.accent }}>
+      <b style={{ fontFamily: t.fontNumeric, fontSize: 13, fontWeight: 400, color: t.accent }}>
         {pct}%
       </b>
     </button>

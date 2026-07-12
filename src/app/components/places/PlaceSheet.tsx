@@ -50,7 +50,7 @@ export function PlaceSheet({ title, onClose, children, footer }: Props) {
         </div>
         {/* 헤더 */}
         <div className="flex items-center justify-between px-5 pt-3 pb-3 lg:pt-5">
-          <h3 style={{ fontFamily: "'DM Serif Display', serif", fontSize: 20, color: t.text }}>{title}</h3>
+          <h3 style={{ fontFamily: t.fontPageTitle, fontSize: 20, color: t.text }}>{title}</h3>{/* 시트 최상위 제목 */}
           <button onClick={close} className="p-1 -mr-1" aria-label="닫기">
             <X size={20} color={t.textSub} />
           </button>

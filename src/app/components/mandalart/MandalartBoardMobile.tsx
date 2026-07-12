@@ -219,7 +219,7 @@ export function MandalartBoardMobile({ boardId, boardTitle, cells, onMutate, onN
         onClick={() => openEditFor({ kind: 'core' })}
       >
         <div style={{ fontSize: 11, color: t.textMuted }}>핵심 목표</div>
-        <div style={{ fontFamily: "'Gaegu', cursive", fontWeight: 700, fontSize: 20, marginTop: 2, color: t.text }}>
+        <div style={{ fontFamily: t.fontDecorative, fontWeight: 700, fontSize: 20, marginTop: 2, color: t.text }}>
           {boardTitle || '제목을 적어주세요'}
         </div>
         <div className="h-2 rounded-full overflow-hidden mt-3" style={{ backgroundColor: t.bgSub }}>
@@ -322,14 +322,14 @@ function CoreCell({ title, pct, t, onClick }: {
       style={{ backgroundColor: t.accent, color: '#fff', minWidth: 0 }}
     >
       <span style={{
-        fontFamily: "'Gaegu', cursive", fontWeight: 700, fontSize: 14,
+        fontFamily: t.fontDecorative, fontWeight: 700, fontSize: 14,
         lineHeight: 1.15,
         display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical',
         overflow: 'hidden', wordBreak: 'break-word',
       }}>
         {title}
       </span>
-      <span style={{ fontFamily: "'DM Serif Display', serif", fontSize: 20 }}>{pct}%</span>
+      <span style={{ fontFamily: t.fontStat, fontSize: 20 }}>{pct}%</span>
     </button>
   );
 }
@@ -437,13 +437,13 @@ function SubCenterCell({ name, pct, onClick }: { name: string; pct: number; onCl
       style={{ backgroundColor: t.accentLight, color: t.text, minWidth: 0 }}
     >
       <span style={{
-        fontFamily: "'Gaegu', cursive", fontWeight: 700, fontSize: 14, lineHeight: 1.15,
+        fontFamily: t.fontDecorative, fontWeight: 700, fontSize: 14, lineHeight: 1.15,
         display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical',
         overflow: 'hidden', wordBreak: 'break-word',
       }}>
         {name}
       </span>
-      <span style={{ fontFamily: "'DM Serif Display', serif", fontSize: 18, color: t.accent }}>
+      <span style={{ fontFamily: t.fontNumeric, fontSize: 18, color: t.accent }}>
         {pct}%
       </span>
     </button>

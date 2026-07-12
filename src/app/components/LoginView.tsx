@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useTheme } from '../ThemeContext';
 import { useAuth } from '../AuthContext';
+import { BRAND_FONT_SERIF } from '../styles/brand';
 
 const SUNRISE = 'linear-gradient(155deg, #FFD89A 0%, #F4A582 50%, #A8C8E8 100%)';
 
@@ -35,7 +36,7 @@ function HaonLogo({ size = 88 }: { size?: number }) {
       />
       <span
         style={{
-          fontFamily: "'Gowun Batang', serif",
+          fontFamily: BRAND_FONT_SERIF, // 브랜드 로고 — 테마 독립 고정
           fontSize: size * 0.38,
           fontWeight: 700,
           color: '#fff',
@@ -197,7 +198,7 @@ export function LoginView() {
             <h1
               style={{
                 marginTop: 28,
-                fontFamily: "'Gowun Batang', serif",
+                fontFamily: t.fontBrand,
                 fontSize: 38,
                 fontWeight: 700,
                 letterSpacing: '-1px',
@@ -236,7 +237,7 @@ export function LoginView() {
             </div>
             <h2
               style={{
-                fontFamily: "'Gowun Batang', serif",
+                fontFamily: t.fontBrand,
                 fontSize: 24,
                 fontWeight: 700,
                 color: t.text,

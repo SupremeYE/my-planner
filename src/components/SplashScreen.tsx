@@ -1,3 +1,5 @@
+import { BRAND_FONT_SERIF, BRAND_FONT_SOFT } from '../app/styles/brand';
+
 interface SplashScreenProps {
   isFadingOut: boolean;
 }
@@ -18,7 +20,7 @@ export default function SplashScreen({ isFadingOut }: SplashScreenProps) {
         opacity: isFadingOut ? 0 : 1,
         zIndex: 9999,
         gap: 14,
-        fontFamily: "'Gowun Dodum', 'Pretendard', sans-serif",
+        fontFamily: BRAND_FONT_SOFT, // 스플래시 컨테이너 — 테마 독립 브랜드
       }}
     >
       <div
@@ -54,7 +56,7 @@ export default function SplashScreen({ isFadingOut }: SplashScreenProps) {
         />
         <span
           style={{
-            fontFamily: "'Gowun Batang', serif",
+            fontFamily: BRAND_FONT_SERIF, // 브랜드 타이틀 — 테마 독립 고정
             fontSize: 38,
             fontWeight: 700,
             color: '#FFFFFF',
@@ -69,7 +71,7 @@ export default function SplashScreen({ isFadingOut }: SplashScreenProps) {
       </div>
       <div
         style={{
-          fontFamily: "'Gowun Batang', serif",
+          fontFamily: BRAND_FONT_SERIF, // 브랜드 서브타이틀 — 테마 독립 고정
           fontSize: 26,
           fontWeight: 700,
           color: '#2D2A3A',

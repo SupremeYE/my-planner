@@ -129,8 +129,8 @@ export function MusicDetailSheet({ record, onClose, onDelete }: MusicDetailSheet
           )}
 
           {/* 제목 / 아티스트 / 앨범·연도 */}
-          <h2 className="text-center" style={{ fontFamily: "'DM Serif Display', serif", fontSize: 24,
-            color: t.text, lineHeight: 1.25 }}>
+          <h2 className="text-center" style={{ fontFamily: t.fontPageTitle, fontSize: 24,
+            color: t.text, lineHeight: 1.25 }}> {/* 시트 최상위 제목 */}
             {record.trackTitle}
           </h2>
           <p className="text-center mt-1" style={{ fontSize: 14, color: t.textSub, fontWeight: 600 }}>

@@ -172,7 +172,16 @@ do not hand-pick extra hexes.
 
 ## 4. Typography
 
-Fonts: **Pretendard** for all app UI/titles/body (unifies the app; full Hangul + Latin).
+> **스코프 계약 (중요).** 폰트 규칙의 단일 기준(SSOT)은 이 §4/§8 이다 (CLAUDE.md 는 참조만
+> 하고 규칙을 중복 정의하지 않는다). 다만 **§4/§8 의 폰트 규정은 테마 H 전용 계약**이다.
+> 역할(page-title/section/body/label/numeric/diary/decorative)→폰트 매핑은 **테마별로 선언**되며,
+> 그 per-theme 값은 `ThemeContext.tsx` 의 `ThemeTokens.fontPageTitle` 등 역할 필드가 보유한다.
+> 테마 H 는 아래 표(Pretendard/Sora/Ownglyph)를 그대로 따르고, 다른 테마(A/B/C/D)는 각자의
+> 기존 폰트 정체성(예: B 는 제목 DM Serif·본문 Gowun Dodum)을 **그대로 보존**한다. 즉 §4 를
+> 전역 적용해 다른 테마의 DM Serif/GmarketSans/손글씨를 제거하는 것이 아니다. `@theme` 의
+> `--font-page-title` 등 CSS 역할 토큰은 이 H 계약 기준값을 담는다.
+
+Fonts (테마 H 기준): **Pretendard** for all app UI/titles/body (unifies the app; full Hangul + Latin).
 **Sora** optional for emphasis numbers. **온글잎 긍정 (Ownglyph-Positive)** for diary
 body text ONLY (deliberate handwriting exception; never elsewhere).
 
@@ -187,6 +196,25 @@ Weight → role (use only these four; avoid 100–300 and 800–900):
 | Label / button / chip | Pretendard | 500 | 12–14px |
 | Emphasis number | Sora | 600 | 22–32px |
 | Diary body (exception) | Ownglyph-Positive | 400 | 15–17px |
+
+#### 확장 역할 — 테마별 선언 (Stage 1.95)
+
+위 표(H 계약)에 더해, 앱은 아래 5개 확장 역할을 둔다. 스코프 계약과 동일하게
+**H = Pretendard/Sora, A/B/C/D = 기존 정체성 보존**이다. 각 값은
+`ThemeContext.tsx` 의 역할 필드(`fontReading` 등)가 보유하며, 컴포넌트는 리터럴이
+아니라 이 필드를 참조한다(치환은 Stage 2). 등록만 된 상태이며 소비처는 아직 없다.
+
+| Role (필드) | 용도 | A / B / C / D | H (계약) |
+|---|---|---|---|
+| `fontReading` | 독서·구절 명조 본문 | `'Georgia', 'Noto Serif KR', serif` | Pretendard |
+| `fontBrand` | 스플래시·로그인·로고 브랜드 명조 | `'Gowun Batang', serif` | Pretendard |
+| `fontQuote` | 확언·태그라인 감성 본문 | `'Gowun Dodum', 'Pretendard', sans-serif` | Pretendard |
+| `fontDecoratePen` | 손글씨 장식(펜) | `'Nanum Pen Script', cursive` | Pretendard (§8 폴백) |
+| `fontStat` | 디스플레이 통계 숫자(%·연도) | `'DM Serif Display', serif` | `'Sora', 'Pretendard', sans-serif` |
+
+참고: 기존 `fontDecorative`(장식 손글씨)는 A/B/C/D = `'Gaegu', cursive`, H = Pretendard(§8 폴백).
+
+브랜드 마크(로고 워드마크·스플래시·로그인/재설정 타이틀)는 테마 독립 브랜드 상수(`src/app/styles/brand.ts` — Gowun Batang)를 따르며, 앱 UI 가 아니라 브랜드 정체성이므로 §4 UI 폰트 규정(테마별 역할 필드) 대상이 아니다. 테마 H 에서도 브랜드 마크는 Pretendard 로 바뀌지 않는다.
 
 ### Font loading
 - **Pretendard** — CDN: `https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.min.css`
@@ -352,6 +380,7 @@ only layout and navigation adapt.
 - Don't use pure black text or hard gray shadows.
 - Don't wash tag chips out to near-invisible low opacity.
 - Don't use the diary handwriting font anywhere except diary body text.
+- In theme H, `fontDecorative`/`fontDecoratePen` fall back to Pretendard (no handwriting identity in H); handwriting fonts (Gaegu/Nanum Pen) belong to themes A/B/C/D only.
 - Don't change the default theme to pastel until every page is migrated (see §10).
 
 ---

@@ -167,7 +167,7 @@ export function SendCellModal({ cellId, defaultText, isAction, onClose, onNotify
               만다라트 칸 보내기
             </div>
             <div style={{
-              fontFamily: "'DM Serif Display', serif",
+              fontFamily: t.fontPageTitle, // 모달 최상위 제목
               fontSize: 20, color: t.text, marginTop: 2,
             }}>
               어디로 보낼까요?

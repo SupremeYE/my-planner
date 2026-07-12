@@ -289,7 +289,7 @@ export default function ScrapDetailSheet({ scrap: initialScrap, onClose, onChang
             {scrap.title && (
               <h2
                 style={{
-                  fontFamily: "'DM Serif Display', serif",
+                  fontFamily: t.fontPageTitle, // 시트 최상위 제목
                   fontSize: 22,
                   lineHeight: 1.25,
                   color: t.text,

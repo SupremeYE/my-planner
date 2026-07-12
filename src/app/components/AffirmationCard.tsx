@@ -42,7 +42,7 @@ export function AffirmationCard({ date }: { date: string }) {
           background: cardBg,
           border: `1px solid ${borderColor}`,
           boxShadow: `0 1px 3px ${isB ? 'rgba(160,84,30,0.08)' : 'rgba(196,168,130,0.12)'}`,
-          fontFamily: "'Gowun Dodum', 'Pretendard', sans-serif",
+          fontFamily: t.fontQuote,
         }}
       >
         <span
@@ -67,7 +67,7 @@ export function AffirmationCard({ date }: { date: string }) {
           style={{
             fontSize: 13,
             color: t.text,
-            fontFamily: "'Gowun Dodum', 'Pretendard', sans-serif",
+            fontFamily: t.fontQuote,
           }}
         />
         <button
@@ -98,7 +98,7 @@ export function AffirmationCard({ date }: { date: string }) {
         background: cardBg,
         border: `1px solid ${borderColor}`,
         boxShadow: `0 1px 3px ${isB ? 'rgba(160,84,30,0.08)' : 'rgba(196,168,130,0.12)'}`,
-        fontFamily: "'Gowun Dodum', 'Pretendard', sans-serif",
+        fontFamily: t.fontQuote, // 확언 카드 감성 본문
         minWidth: 0,
       }}
     >
@@ -119,7 +119,7 @@ export function AffirmationCard({ date }: { date: string }) {
           flex: 1,
           fontSize: 13,
           color: textColor,
-          fontFamily: "'Gowun Dodum', 'Pretendard', sans-serif",
+          fontFamily: t.fontQuote,
           letterSpacing: '-0.005em',
           lineHeight: 1.65,
           wordBreak: 'keep-all',
@@ -137,7 +137,7 @@ export function AffirmationCard({ date }: { date: string }) {
           whiteSpace: 'nowrap',
           overflow: 'hidden',
           textOverflow: 'ellipsis',
-          fontFamily: "'Gowun Dodum', 'Pretendard', sans-serif",
+          fontFamily: t.fontQuote,
           letterSpacing: '-0.005em',
         }}
         title={displayText}

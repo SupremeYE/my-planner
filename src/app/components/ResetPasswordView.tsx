@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useTheme } from '../ThemeContext';
 import { useAuth } from '../AuthContext';
+import { BRAND_FONT_SERIF } from '../styles/brand';
 
 const SUNRISE = 'linear-gradient(155deg, #FFD89A 0%, #F4A582 50%, #A8C8E8 100%)';
 
@@ -33,7 +34,7 @@ function HaonLogo({ size = 72 }: { size?: number }) {
       />
       <span
         style={{
-          fontFamily: "'Gowun Batang', serif",
+          fontFamily: BRAND_FONT_SERIF, // 브랜드 로고 — 테마 독립 고정
           fontSize: size * 0.38,
           fontWeight: 700,
           color: '#fff',
@@ -112,7 +113,7 @@ export function ResetPasswordView() {
 
         {done ? (
           <>
-            <h2 style={{ marginTop: 20, fontFamily: "'Gowun Batang', serif", fontSize: 22, fontWeight: 700, color: t.text }}>
+            <h2 style={{ marginTop: 20, fontFamily: t.fontBrand, fontSize: 22, fontWeight: 700, color: t.text }}>
               비밀번호가 변경되었어요
             </h2>
             <p style={{ marginTop: 8, fontSize: 13, color: t.textSub, textAlign: 'center' }}>
@@ -140,7 +141,7 @@ export function ResetPasswordView() {
           </>
         ) : (
           <>
-            <h2 style={{ marginTop: 20, fontFamily: "'Gowun Batang', serif", fontSize: 22, fontWeight: 700, color: t.text }}>
+            <h2 style={{ marginTop: 20, fontFamily: t.fontBrand, fontSize: 22, fontWeight: 700, color: t.text }}>
               새 비밀번호 설정
             </h2>
             <p style={{ marginTop: 8, fontSize: 13, color: t.textSub, textAlign: 'center' }}>

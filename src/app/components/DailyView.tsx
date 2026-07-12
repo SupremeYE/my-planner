@@ -1009,7 +1009,7 @@ export function DailyView() {
             >
               <div className="text-center">
                 {/* 날짜 제목 — Haon(H)은 DESIGN.md §4 page-title = Pretendard 700. 그 외 테마는 기존 DM Serif 유지. */}
-                <h2 style={{ fontSize: 18, fontWeight: 700, color: t.text, fontFamily: isHaon(t) ? 'var(--font-pretendard)' : "'DM Serif Display', serif" }}
+                <h2 style={{ fontSize: 18, fontWeight: 700, color: t.text, fontFamily: t.fontSection }} /* 날짜 제목 - 섹션 헤더 */
                   className="lg:text-[20px] whitespace-nowrap">
                   {format(dateObj, 'M월 d일')}
                 </h2>
