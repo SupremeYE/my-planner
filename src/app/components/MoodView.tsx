@@ -499,7 +499,7 @@ function CalendarView({ records, today, onAddRecord, onEdit, onDelete }: {
       {/* Grid */}
       <div className="grid grid-cols-7 gap-px rounded-xl overflow-hidden" style={{ backgroundColor: t.borderLight }}>
         {cells.map((day, i) => {
-          if (!day) return <div key={i} style={{ backgroundColor: t.bg, minHeight: 44 }} />;
+          if (!day) return <div key={i} style={{ backgroundColor: t.bgSub, minHeight: 44 }} />;
           const ds = dateStr(day);
           const dayRecs = records.filter(r => r.date === ds);
           const isToday = ds === today;
@@ -510,7 +510,7 @@ function CalendarView({ records, today, onAddRecord, onEdit, onDelete }: {
           return (
             <div key={i} onClick={() => setSelectedDate(isSelected ? null : ds)}
               className="relative flex flex-col cursor-pointer select-none"
-              style={{ minHeight: 44, backgroundColor: color ? color.bg : t.bg, outline: isSelected ? `2px solid ${t.accent}` : isToday ? `2px solid ${t.accent}88` : 'none', outlineOffset: -1, padding: '3px 4px' }}>
+              style={{ minHeight: 44, backgroundColor: color ? color.bg : t.bgSub, outline: isSelected ? `2px solid ${t.accent}` : isToday ? `2px solid ${t.accent}88` : 'none', outlineOffset: -1, padding: '3px 4px' }}>
               <span style={{ fontSize: 11, lineHeight: 1, color: isToday ? t.accent : color ? color.accent : t.textMuted, fontWeight: isToday ? 700 : 400 }}>{day}</span>
               {latestRec && (
                 <div className="flex-1 flex items-center justify-center">

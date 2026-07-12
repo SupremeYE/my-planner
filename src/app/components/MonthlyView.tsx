@@ -599,7 +599,7 @@ function MonthlyGoalsContent({ viewDate }: { viewDate: Date }) {
                       </button>
                     </div>
                   </div>
-                  <div className="h-2 rounded-full overflow-hidden mb-1" style={{ backgroundColor: t.bg }}>
+                  <div className="h-2 rounded-full overflow-hidden mb-1" style={{ backgroundColor: t.bgSub }}>
                     <div className="h-full rounded-full transition-all" style={{ width: `${pct}%`, backgroundColor: t.accent }} />
                   </div>
                   <div className="flex items-center justify-between">

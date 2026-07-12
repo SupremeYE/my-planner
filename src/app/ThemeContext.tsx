@@ -269,7 +269,7 @@ export const tokenD: ThemeTokens = {
 // 파스텔 그라디언트 캔버스 + 프로스티드 글래스 카드 + 코랄→핑크 강조.
 // 기존 웜(B)은 그대로 보존하고, 이 테마는 새 옵션으로만 추가한다.
 export const tokenH: ThemeTokens = {
-  bg: '#F6DCE6',            // appGradient 미지원 폴백용 파스텔 단색
+  bg: '#FBF8FC',            // near-white 캔버스 (canvasStyle appGradient 베이스와 동일) — 미마이그레이션 페이지 배경 통일
   bgSub: '#F4E7FB',        // lavender-mist
   bgHover: '#EFE3FA',
   card: '#FFFFFF',         // card-solid (밀도 높은 콘텐츠)
