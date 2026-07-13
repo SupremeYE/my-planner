@@ -812,7 +812,7 @@ function StatsTab({ records }: { records: MoodRecord[] }) {
               { label: '총 기록 수', value: `${totalCount}건`, sub: '감정 기록' },
             ].map((s, i) => (
               <div key={i} style={cardBase} className="flex flex-col items-center justify-center py-4 text-center">
-                <span style={{ fontSize: 20, fontWeight: 700, color: t.text, fontFamily: 'var(--font-gmarket)', display: 'block' }}>{s.value}</span>
+                <span style={{ fontSize: 20, fontWeight: 700, color: t.text, fontFamily: t.fontStat, display: 'block' }}>{s.value}</span>
                 <span style={{ fontSize: 11, color: t.textMuted, marginTop: 2 }}>{s.label}</span>
                 <span style={{ fontSize: 10, color: t.accent, marginTop: 1 }}>{s.sub}</span>
               </div>

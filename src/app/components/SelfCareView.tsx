@@ -193,7 +193,7 @@ export function PeriodSection() {
               style={{ backgroundColor: PERIOD_COLOR + '12', border: `1px solid ${PERIOD_COLOR}30` }}>
               <div className="flex-1 text-center">
                 <div style={{ fontSize: 10, color: t.textMuted, fontWeight: 600, marginBottom: 2 }}>평균 주기</div>
-                <div style={{ fontSize: 20, fontWeight: 700, color: cycleLabelColor(prediction.avgCycle), fontFamily: 'var(--font-gmarket)' }}>
+                <div style={{ fontSize: 20, fontWeight: 700, color: cycleLabelColor(prediction.avgCycle), fontFamily: t.fontStat }}>
                   {prediction.avgCycle}일
                 </div>
               </div>
@@ -774,14 +774,14 @@ export function SleepSection() {
               <div style={{ fontSize: 10, color: t.textMuted, fontWeight: 600, marginBottom: 2 }}>
                 {weekOffset === 0 ? '이번주 평균' : '주간 평균'}
               </div>
-              <div style={{ fontSize: 18, fontWeight: 700, color: t.text, fontFamily: 'var(--font-gmarket)' }}>
+              <div style={{ fontSize: 18, fontWeight: 700, color: t.text, fontFamily: t.fontStat }}>
                 {weekAvg > 0 ? fmtSleep(weekAvg) : '—'}
               </div>
             </div>
             <div style={{ width: 1, backgroundColor: t.borderLight, flexShrink: 0 }} />
             <div className="flex-1 text-center">
               <div style={{ fontSize: 10, color: t.textMuted, fontWeight: 600, marginBottom: 2 }}>{monthLabel}</div>
-              <div style={{ fontSize: 18, fontWeight: 700, color: t.text, fontFamily: 'var(--font-gmarket)' }}>
+              <div style={{ fontSize: 18, fontWeight: 700, color: t.text, fontFamily: t.fontStat }}>
                 {monthAvg > 0 ? fmtSleep(monthAvg) : '—'}
               </div>
             </div>
@@ -968,7 +968,7 @@ export function SleepSection() {
                   <div style={{
                     fontSize: 30, fontWeight: 700,
                     color: totalDebt > 0 ? '#D4735A' : SLEEP_COLOR,
-                    fontFamily: 'var(--font-gmarket)', lineHeight: 1.1,
+                    fontFamily: t.fontStat, lineHeight: 1.1,
                   }}>
                     {totalDebt > 0 ? `−${fmtSleep(totalDebt)}` : '0시간'}
                   </div>
@@ -1034,7 +1034,7 @@ export function SleepSection() {
                 <div className="flex items-center justify-center gap-1 mb-1" style={{ fontSize: 10, color: SLEEP_COLOR, fontWeight: 700, letterSpacing: '0.06em' }}>
                   <Moon size={10} /> 평균 취침
                 </div>
-                <div style={{ fontSize: 20, fontWeight: 700, color: t.text, fontFamily: 'var(--font-gmarket)' }}>
+                <div style={{ fontSize: 20, fontWeight: 700, color: t.text, fontFamily: t.fontStat }}>
                   {regularity.startStat ? minutesToHHMM(regularity.startStat.mean) : '—'}
                 </div>
                 <div style={{ fontSize: 10, color: t.textMuted, marginTop: 2 }}>
@@ -1046,7 +1046,7 @@ export function SleepSection() {
                 <div className="flex items-center justify-center gap-1 mb-1" style={{ fontSize: 10, color: SLEEP_COLOR, fontWeight: 700, letterSpacing: '0.06em' }}>
                   <Sun size={10} /> 평균 기상
                 </div>
-                <div style={{ fontSize: 20, fontWeight: 700, color: t.text, fontFamily: 'var(--font-gmarket)' }}>
+                <div style={{ fontSize: 20, fontWeight: 700, color: t.text, fontFamily: t.fontStat }}>
                   {regularity.endStat ? minutesToHHMM(regularity.endStat.mean) : '—'}
                 </div>
                 <div style={{ fontSize: 10, color: t.textMuted, marginTop: 2 }}>
@@ -1117,7 +1117,7 @@ export function SleepSection() {
                     <div style={{ fontSize: 10, color: SLEEP_COLOR, fontWeight: 700, letterSpacing: '0.06em' }}>
                       잘 잔 다음날
                     </div>
-                    <div style={{ fontSize: 20, fontWeight: 700, color: t.text, fontFamily: 'var(--font-gmarket)', marginTop: 4 }}>
+                    <div style={{ fontSize: 20, fontWeight: 700, color: t.text, fontFamily: t.fontStat, marginTop: 4 }}>
                       {correlation.wellAvg != null ? correlation.wellAvg.toFixed(1) : '—'}
                     </div>
                     <div style={{ fontSize: 10, color: t.textMuted, marginTop: 2 }}>
@@ -1128,7 +1128,7 @@ export function SleepSection() {
                     <div style={{ fontSize: 10, color: STRESS_COLOR, fontWeight: 700, letterSpacing: '0.06em' }}>
                       못 잔 다음날
                     </div>
-                    <div style={{ fontSize: 20, fontWeight: 700, color: t.text, fontFamily: 'var(--font-gmarket)', marginTop: 4 }}>
+                    <div style={{ fontSize: 20, fontWeight: 700, color: t.text, fontFamily: t.fontStat, marginTop: 4 }}>
                       {correlation.poorAvg != null ? correlation.poorAvg.toFixed(1) : '—'}
                     </div>
                     <div style={{ fontSize: 10, color: t.textMuted, marginTop: 2 }}>
@@ -1474,7 +1474,7 @@ function TimeDonut({ data, size = 150, showLegend = true, centerFontSize = 19 }:
           ) : (
             <>
               <span style={{ fontSize: 9, color: t.textMuted, fontWeight: 600 }}>총 시간</span>
-              <span style={{ fontSize: centerFontSize, color: t.text, fontFamily: 'var(--font-gmarket)', lineHeight: 1.1 }}>{fmtMinKo(total)}</span>
+              <span style={{ fontSize: centerFontSize, color: t.text, fontFamily: t.fontStat, lineHeight: 1.1 }}>{fmtMinKo(total)}</span>
             </>
           )}
         </div>

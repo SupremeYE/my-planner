@@ -432,7 +432,7 @@ function StatCard({ value, unit, label, sub, pct, barColor }: {
   const { t } = useTheme();
   return (
     <div className="rounded-xl" style={{ backgroundColor: t.card, border: `1px solid ${t.borderLight}`, padding: '13px 14px' }}>
-      <span style={{ fontSize: 22, fontWeight: 700, color: t.text, fontFamily: 'var(--font-gmarket)', lineHeight: 1 }}>
+      <span style={{ fontSize: 22, fontWeight: 700, color: t.text, fontFamily: t.fontStat, lineHeight: 1 }}>
         {value}{unit && <span style={{ fontSize: 12, color: t.textMuted, fontWeight: 400, marginLeft: 1 }}>{unit}</span>}
       </span>
       <div style={{ fontSize: 11, color: t.textMuted, marginTop: 5 }}>{label}{sub ? ` · ${sub}` : ''}</div>
@@ -448,7 +448,7 @@ function MiniCell({ value, unit, label }: { value: string; unit?: string; label:
   const { t } = useTheme();
   return (
     <div className="rounded-xl flex flex-col" style={{ backgroundColor: t.card, border: `1px solid ${t.borderLight}`, padding: '12px 10px' }}>
-      <span style={{ fontSize: 20, fontWeight: 700, color: t.text, fontFamily: 'var(--font-gmarket)', lineHeight: 1 }}>
+      <span style={{ fontSize: 20, fontWeight: 700, color: t.text, fontFamily: t.fontStat, lineHeight: 1 }}>
         {value}{unit && <span style={{ fontSize: 11, color: t.textMuted, fontWeight: 400, marginLeft: 1 }}>{unit}</span>}
       </span>
       <span style={{ fontSize: 10.5, color: t.textMuted, marginTop: 6 }}>{label}</span>
@@ -541,7 +541,7 @@ function FocusBlock({
         <>
           {/* (a) 큰 숫자 + 증감 */}
           <div className="flex items-baseline gap-2.5" style={{ margin: '6px 0 2px' }}>
-            <span style={{ fontSize: 38, fontWeight: 700, color: t.text, fontFamily: 'var(--font-gmarket)', lineHeight: 1 }}>
+            <span style={{ fontSize: 38, fontWeight: 700, color: t.text, fontFamily: t.fontStat, lineHeight: 1 }}>
               {fmtHours(totalMinutes)}<span style={{ fontSize: 18, color: t.textMuted, fontWeight: 400, marginLeft: 2 }}>h</span>
             </span>
             <span className="rounded-lg" style={{ fontSize: 13, fontWeight: 700, color: deltaColor, border: `1px solid ${deltaColor}`, padding: '3px 9px' }}>{deltaText}</span>
