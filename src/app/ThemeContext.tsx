@@ -23,6 +23,10 @@ export interface ThemeTokens {
   doText: string;
   danger: string;
   dangerLight: string;
+  // warning: 임박·주의 강조 (danger 와 구분 — danger=위험·삭제, warning=임박·주의).
+  // dueSoon/마감 임박, 주의 상태 등에 재사용되는 공통 시맨틱 색. 전 테마 필수.
+  warning: string;
+  warningLight: string;
   success: string;
   info: string;
   font: string;
@@ -115,6 +119,8 @@ export const tokenA: ThemeTokens = {
   doText: '#f6f7ff',
   danger: '#9f403d',
   dangerLight: '#fdecea',
+  warning: '#C7902E',
+  warningLight: '#F7EEDA',
   success: '#006b62',
   info: '#506076',
   font: "'Pretendard', -apple-system, BlinkMacSystemFont, sans-serif",
@@ -158,6 +164,8 @@ export const tokenB: ThemeTokens = {
   doText: '#FFFFFF',
   danger: '#E07A6B',
   dangerLight: '#FCE9E4',
+  warning: '#D9962E',
+  warningLight: '#F8EEDA',
   success: '#7FB89A',
   info: '#8FB7DA',
   font: "'Gowun Dodum', 'Pretendard Variable', 'Pretendard', sans-serif",
@@ -201,6 +209,8 @@ export const tokenC: ThemeTokens = {
   doText: '#f6f7ff',
   danger: '#9f403d',
   dangerLight: '#fdecea',
+  warning: '#C7902E',
+  warningLight: '#F7EEDA',
   success: '#006b62',
   info: '#506076',
   font: "'Pretendard', -apple-system, BlinkMacSystemFont, sans-serif",
@@ -244,6 +254,8 @@ export const tokenD: ThemeTokens = {
   doText: '#f6f7ff',
   danger: '#9f403d',
   dangerLight: '#fdecea',
+  warning: '#C7902E',
+  warningLight: '#F7EEDA',
   success: '#006b62',
   info: '#506076',
   font: "'Pretendard', -apple-system, BlinkMacSystemFont, sans-serif",
@@ -289,6 +301,9 @@ export const tokenH: ThemeTokens = {
   doText: '#FFFFFF',
   danger: '#F58A8A',
   dangerLight: '#FCE6E6',
+  // DESIGN.md §3 warning #F6C177 (임박·주의). danger(#F58A8A, 위험·삭제)와 구분.
+  warning: '#F6C177',
+  warningLight: '#FCEFD4',
   success: '#7FCB8F',
   info: '#9BB4F4',
   font: "'Pretendard', -apple-system, 'Segoe UI', Roboto, sans-serif",

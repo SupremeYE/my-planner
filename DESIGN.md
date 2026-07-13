@@ -144,6 +144,7 @@ blobs, the accents, and the charts, not in loud backgrounds.
 - Primary action → `gradients.primary-button` (coral→pink). Active nav item → same gradient pill.
 - Text: `text-primary` body, `text-secondary` supporting, `text-muted` hints/empty states. Never pure black.
 - Accent restraint: keep most of a screen calm; give strong color to ONE focal element (e.g. the main "오늘 할 일" card or the primary CTA), not everywhere.
+- Semantic status: `warning` (`#F6C177`) = **임박·주의** 강조 (마감 임박 dueSoon, 주의 상태) — `danger`와 구분한다 (**danger** = 위험·삭제 등 파괴적/실패, **warning** = 임박·주의로 아직 되돌릴 수 있는 경고). 하드코딩 앰버(예: `#E0A030`) 금지, `t.warning`/`t.warningLight` 토큰만 사용.
 
 ### 카테고리 색 (앱 공통 — 캘린더 + QuickCapture 공유)
 
