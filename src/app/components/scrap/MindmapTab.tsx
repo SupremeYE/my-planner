@@ -434,7 +434,7 @@ export default function MindmapTab({ scrapId, onNavigateScrap }: Props) {
                       y={n.y + n.h / 2}
                       textAnchor="middle"
                       dominantBaseline="central"
-                      fontFamily="var(--font-nanum-pen)"
+                      fontFamily={t.fontDecoratePen}
                       fontSize={n.isRoot ? 19 : 17}
                       fill={textColor}
                     >
@@ -630,7 +630,7 @@ export default function MindmapTab({ scrapId, onNavigateScrap }: Props) {
                   padding: '6px 10px', borderRadius: 10,
                   border: `2px solid ${t.accent}`,
                   backgroundColor: t.card, color: t.text,
-                  fontSize: 17, fontFamily: 'var(--font-nanum-pen)',
+                  fontSize: 17, fontFamily: t.fontDecoratePen,
                   outline: 'none', boxShadow: '0 6px 20px rgba(0,0,0,0.16)',
                 }}
               />
@@ -659,7 +659,7 @@ export default function MindmapTab({ scrapId, onNavigateScrap }: Props) {
               backgroundColor: t.bgSub,
               color: t.text,
               fontSize: 16,
-              fontFamily: 'var(--font-nanum-pen)',
+              fontFamily: t.fontDecoratePen,
               outline: 'none',
             }}
           />

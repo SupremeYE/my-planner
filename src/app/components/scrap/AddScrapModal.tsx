@@ -442,7 +442,7 @@ export default function AddScrapModal({ onClose, onSaved }: Props) {
                 fontSize: 16,
                 resize: 'none',
                 outline: 'none',
-                fontFamily: 'var(--font-nanum-pen)',
+                fontFamily: t.fontDecoratePen,
                 lineHeight: 1.4,
               }}
             />

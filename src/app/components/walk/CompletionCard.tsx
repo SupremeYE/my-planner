@@ -120,7 +120,7 @@ export function CompletionCard({ draft, onSaved, onDiscard }: { draft: WalkDraft
               rows={2}
               style={{
                 width: '100%', background: 'transparent', border: 'none', outline: 'none', resize: 'none',
-                fontFamily: 'var(--font-nanum-pen)', fontSize: 26, lineHeight: 1.2,
+                fontFamily: t.fontDecoratePen, fontSize: 26, lineHeight: 1.2,
                 color: photoPreview ? '#fff' : t.text,
               }}
             />

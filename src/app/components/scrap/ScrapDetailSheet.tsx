@@ -332,7 +332,7 @@ export default function ScrapDetailSheet({ scrap: initialScrap, onClose, onChang
                       backgroundColor: t.bgSub,
                       color: t.text,
                       fontSize: 16,
-                      fontFamily: 'var(--font-nanum-pen)',
+                      fontFamily: t.fontDecoratePen,
                       lineHeight: 1.4,
                       outline: 'none',
                       resize: 'none',
@@ -363,7 +363,7 @@ export default function ScrapDetailSheet({ scrap: initialScrap, onClose, onChang
               ) : scrap.comment ? (
                 <p
                   style={{
-                    fontFamily: 'var(--font-nanum-pen)',
+                    fontFamily: t.fontDecoratePen,
                     fontSize: 18,
                     lineHeight: 1.4,
                     color: t.textSub,
@@ -545,7 +545,7 @@ export default function ScrapDetailSheet({ scrap: initialScrap, onClose, onChang
                     backgroundColor: t.bgSub,
                     color: t.text,
                     fontSize: 16,
-                    fontFamily: 'var(--font-nanum-pen)',
+                    fontFamily: t.fontDecoratePen,
                     lineHeight: 1.4,
                     outline: 'none',
                     resize: 'none',
@@ -637,7 +637,7 @@ export default function ScrapDetailSheet({ scrap: initialScrap, onClose, onChang
                             <p
                               style={{
                                 flex: 1,
-                                fontFamily: 'var(--font-nanum-pen)',
+                                fontFamily: t.fontDecoratePen,
                                 fontSize: 17,
                                 lineHeight: 1.45,
                                 color: t.text,

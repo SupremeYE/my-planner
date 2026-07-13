@@ -58,7 +58,7 @@ export function DiaryView() {
       <div className="w-full px-4 lg:px-10 pt-5 lg:pt-7 pb-24">
         {/* 헤더 */}
         <header className="mb-5">
-          <div style={{ fontFamily: 'var(--font-script)', fontSize: 22, color: t.accent, lineHeight: 1 }}>my diary</div>
+          <div style={{ fontFamily: t.fontDecorative, fontSize: 22, color: t.accent, lineHeight: 1 }}>my diary</div>
           <h1 style={{ fontFamily: t.fontPageTitle, fontSize: 32, color: t.text, lineHeight: 1.1, marginTop: 2 }}> {/* 페이지 최상위 제목 */}
             일기
           </h1>
@@ -1673,7 +1673,7 @@ function MemoryCard({ entry, onOpen }: { entry: DiaryEntry; onOpen: (e: DiaryEnt
         </p>
       )}
       {!isQuestion && entry.title && (
-        <p style={{ fontFamily: 'var(--font-hand)', fontSize: 17, fontWeight: 700, color: t.text, marginBottom: 2 }}>
+        <p style={{ fontFamily: t.fontDecorative, fontSize: 17, fontWeight: 700, color: t.text, marginBottom: 2 }}>
           {entry.title}
         </p>
       )}
@@ -1746,7 +1746,7 @@ function MemoryDetailSheet({ entry, onClose, onDeleted }: { entry: DiaryEntry; o
             </p>
           )}
           {!isQuestion && entry.title && (
-            <p style={{ fontFamily: 'var(--font-hand)', fontSize: 22, fontWeight: 700, color: t.text, marginBottom: 8 }}>
+            <p style={{ fontFamily: t.fontDecorative, fontSize: 22, fontWeight: 700, color: t.text, marginBottom: 8 }}>
               {entry.title}
             </p>
           )}

@@ -272,7 +272,7 @@ export default function VisionFormModal({ item, categories, onClose, onSaved, on
                 fontSize: 14,
                 resize: 'none',
                 outline: 'none',
-                fontFamily: 'var(--font-gaegu)',
+                fontFamily: t.fontDecorative,
               }}
             />
           </div>
