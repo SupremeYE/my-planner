@@ -70,6 +70,33 @@ export function glassBarStyle(t: ThemeTokens): CSSProperties {
   return { borderBottom: `1px solid ${t.border}` };
 }
 
+// ─── 다중 선택 패턴 (DESIGN.md §5 — Selection mode & bulk-action bar) ───
+// 선택된 행: 기존 행 표면(solidRowStyle/카드) 위에 코랄 링만 덧댄다(배경·그림자 불변).
+// outline 은 boxShadow/border 와 독립이라 기존 rowStyle 과 충돌 없이 스프레드 가능.
+export function selectedRowStyle(t: ThemeTokens): CSSProperties {
+  return { outline: `2px solid ${t.accent}`, outlineOffset: -2 };
+}
+
+// 일괄 액션 바(리스트 하단 floating) — 오버레이라 H 에서 글래스 허용(§1), 그 외 테마는 솔리드 카드.
+export function actionBarStyle(t: ThemeTokens): CSSProperties {
+  if (isHaon(t)) {
+    return {
+      background: 'rgba(255,255,255,0.75)',
+      backdropFilter: t.glassBlur,
+      WebkitBackdropFilter: t.glassBlur,
+      border: '1px solid rgba(255,255,255,0.6)',
+      borderRadius: 16,
+      boxShadow: '0 8px 24px rgba(120,90,160,0.18)',
+    };
+  }
+  return {
+    backgroundColor: t.card,
+    border: `1px solid ${t.border}`,
+    borderRadius: 16,
+    boxShadow: '0 4px 16px rgba(0,0,0,0.12)',
+  };
+}
+
 // ─── 버튼 recipe (DESIGN.md §5 — 공통 buttonStyle) ───
 // §5 버튼 스펙을 그대로 구현하는 정적 스타일 객체. 버튼은 색 토큰 기반이라 전 테마 공통
 // (A/B/C/D/H) — isHaon 게이팅 없음. 각 variant 는 t.accent / t.danger / t.accentLight 등
