@@ -69,3 +69,48 @@ export function glassBarStyle(t: ThemeTokens): CSSProperties {
   }
   return { borderBottom: `1px solid ${t.border}` };
 }
+
+// ─── 버튼 recipe (DESIGN.md §5 — 공통 buttonStyle) ───
+// §5 버튼 스펙을 그대로 구현하는 정적 스타일 객체. 버튼은 색 토큰 기반이라 전 테마 공통
+// (A/B/C/D/H) — isHaon 게이팅 없음. 각 variant 는 t.accent / t.danger / t.accentLight 등
+// 토큰만 참조하므로 테마별 정체성이 자동 보존된다.
+//
+// ⚠️ 범위: 이 recipe 는 "정적 스타일"만 제공한다. 상호작용 상태(hover/pressed/focus)는
+// style 객체로 표현 불가 → 다음 단계의 얇은 <Button> + haon.css 가 담당(§5 Interaction states).
+// primary 그라데이션은 recipe 기본이 아니다 — 필요 시 소비처가 `t.primaryGradient ?? t.accent`
+// 관용구(§3/§5)를 쓴다(recipe 기본은 솔리드).
+//
+// 소비처는 아직 없다(정의만; 페이지 치환은 다음 단계).
+export type ButtonVariant = 'primary' | 'secondary' | 'ghost' | 'danger' | 'dangerSolid';
+
+export function buttonStyle(
+  t: ThemeTokens,
+  variant: ButtonVariant = 'primary',
+  disabled = false,
+): CSSProperties {
+  // 공통: radius 12–16px, weight 600, disabled 시 opacity 0.5 (헬퍼로 포함 — 소비처 생략 가능)
+  const base: CSSProperties = {
+    borderRadius: 14,
+    fontWeight: 600,
+    border: '1px solid transparent',
+    cursor: disabled ? 'not-allowed' : 'pointer',
+    ...(disabled ? { opacity: 0.5 } : null),
+  };
+  switch (variant) {
+    // 채움 t.accent + 흰 텍스트 (솔리드 — 그라데이션 아님)
+    case 'primary':
+      return { ...base, background: t.accent, color: '#FFFFFF' };
+    // t.accentLight 채움 + t.accent 텍스트 + t.border 테두리 (취소·보조)
+    case 'secondary':
+      return { ...base, background: t.accentLight, color: t.accent, border: `1px solid ${t.border}` };
+    // tint 만 (t.accentLight), 테두리 없음, t.accent 텍스트 (인라인·저강조)
+    case 'ghost':
+      return { ...base, background: t.accentLight, color: t.accent };
+    // 연한 위험 액션 — t.dangerLight 배경 + t.danger 텍스트
+    case 'danger':
+      return { ...base, background: t.dangerLight, color: t.danger };
+    // 파괴적 확정 — t.danger 채움 + 흰 텍스트
+    case 'dangerSolid':
+      return { ...base, background: t.danger, color: '#FFFFFF' };
+  }
+}
