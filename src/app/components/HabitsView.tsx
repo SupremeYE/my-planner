@@ -833,7 +833,7 @@ function HabitTrackerView() {
         <button onClick={movePrev} className="p-1.5 rounded-lg" style={{ color: t.textSub, backgroundColor: t.bgSub }}>
           <ChevronLeft size={14} />
         </button>
-        <span style={{ fontSize: 16, fontWeight: 700, color: t.text, fontFamily: 'var(--font-gmarket)' }}>{rangeLabel}</span>
+        <span style={{ fontSize: 16, fontWeight: 700, color: t.text, fontFamily: t.fontLabel }}>{rangeLabel}</span>
         <button onClick={moveNext} className="p-1.5 rounded-lg" style={{ color: t.textSub, backgroundColor: t.bgSub }}>
           <ChevronRight size={14} />
         </button>

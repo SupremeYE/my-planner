@@ -16,8 +16,6 @@ import { ko } from 'date-fns/locale';
 import { AffirmationCard } from './AffirmationCard';
 import { todoDoDurationSeconds, formatTotalDoKo, formatDoElapsedKo } from '../../lib/todoDoDuration';
 
-const SERIF = 'var(--font-gmarket)';
-
 function isHabitApplicableOnDate(habit: any, date: Date) {
   const dow = date.getDay();
   if (habit.repeat === 'weekday') return dow >= 1 && dow <= 5;
@@ -58,7 +56,7 @@ function StatCard({
       <div
         style={{
           fontSize: 28,
-          fontFamily: SERIF,
+          fontFamily: t.fontStat,
           color: t.text,
           lineHeight: 1.15,
         }}
@@ -388,7 +386,7 @@ function ProjectCard({
             style={{
               fontSize: 13,
               color: project.color,
-              fontFamily: SERIF,
+              fontFamily: t.fontNumeric,
               fontWeight: 600,
             }}
           >
@@ -739,7 +737,7 @@ export function DashboardView() {
                   <div key={mg.id}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
                       <span style={{ fontSize: 12.5, color: t.text, fontWeight: 500 }}>{mg.text}</span>
-                      <span style={{ fontSize: 12.5, fontFamily: SERIF, color: t.accent, fontWeight: 600 }}>
+                      <span style={{ fontSize: 12.5, fontFamily: t.fontNumeric, color: t.accent, fontWeight: 600 }}>
                         {pct}%
                       </span>
                     </div>
@@ -784,7 +782,7 @@ export function DashboardView() {
             <span style={{ fontSize: 13, color: t.textSub }}>
               {weeklyDone}/{weeklyTotal} 완료
             </span>
-            <span style={{ fontSize: 15, fontFamily: SERIF, color: t.accent, fontWeight: 600 }}>
+            <span style={{ fontSize: 15, fontFamily: t.fontNumeric, color: t.accent, fontWeight: 600 }}>
               {weeklyPct}%
             </span>
           </div>
@@ -870,7 +868,7 @@ export function DashboardView() {
                 marginLeft: 'auto',
                 fontSize: 12,
                 color: t.accent,
-                fontFamily: SERIF,
+                fontFamily: t.fontNumeric,
                 fontWeight: 600,
               }}
             >
@@ -940,7 +938,7 @@ export function DashboardView() {
                 marginLeft: 'auto',
                 fontSize: 12,
                 color: t.accent,
-                fontFamily: SERIF,
+                fontFamily: t.fontNumeric,
                 fontWeight: 600,
               }}
             >
