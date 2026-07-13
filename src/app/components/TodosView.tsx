@@ -64,7 +64,7 @@ function TodoRow({
   todo, onStatusToggle, onEdit, onDelete, onTop3Toggle, onMoveToToday,
 }: TodoRowProps) {
   const { t } = useTheme();
-  const { projects, weeklyGoals, milestones } = usePlanner();
+  const { projects, weeklyGoals, milestones, tags } = usePlanner();
   const weeklyGoal = todo.weeklyGoalId ? weeklyGoals.find(w => w.id === todo.weeklyGoalId) : null;
   const milestone = todo.milestoneId ? milestones.find(m => m.id === todo.milestoneId) : null;
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
@@ -194,9 +194,24 @@ function TodoRow({
             </div>
 
             {/* Meta badges */}
-            {(project || weeklyGoal || milestone || todo.mandalartCellId || todo.planStart || todo.dueDate || (todo.status !== 'active' && todo.status !== 'backlog')) && (
+            {(project || weeklyGoal || milestone || todo.mandalartCellId || (todo.tags && todo.tags.length > 0) || todo.planStart || todo.dueDate || (todo.status !== 'active' && todo.status !== 'backlog')) && (
               <div className="flex items-center gap-1.5 mt-1 flex-wrap">
                 {todo.mandalartCellId && <MandalartSourceBadge />}
+                {/* 태그 칩 — 일간·할일이 동일한 todo.tags 단일 소스를 읽으므로 두 화면 태그 표시가 일치한다.
+                    배지 헬퍼(badgeBg/badgeText) 공유로 H 테마 파스텔 채움 / 그 외 워시가 주변 배지와 일치. */}
+                {(todo.tags ?? []).map(tagId => {
+                  const tag = tags.find(tg => tg.id === tagId);
+                  if (!tag) return null;
+                  return (
+                    <span
+                      key={tagId}
+                      className="inline-flex items-center px-1.5 py-0.5 rounded-full"
+                      style={{ fontSize: 10, backgroundColor: badgeBg(tag.color), color: badgeText(tag.color), lineHeight: '14px' }}
+                    >
+                      {tag.name}
+                    </span>
+                  );
+                })}
                 {milestone && project && (
                   <span
                     className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full"
