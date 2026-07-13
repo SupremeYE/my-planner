@@ -722,7 +722,7 @@ export function SleepSection() {
             value={date}
             onChange={e => setDate(e.target.value)}
             className="w-full rounded-xl px-3 py-2 border outline-none"
-            style={{ borderColor: t.borderLight, backgroundColor: t.bgSub, color: t.text, fontSize: 13 }}
+            style={{ borderColor: t.borderLight, backgroundColor: t.bgSub, color: t.text, fontSize: 13, WebkitAppearance: 'none', appearance: 'none', boxSizing: 'border-box', minWidth: 0 }}
           />
           <p style={{ fontSize: 10.5, color: t.textMuted, marginTop: 6, paddingLeft: 2 }}>
             일어난 날 기준으로 기록해요

@@ -274,7 +274,7 @@ export function WeightTab() {
             <label style={{ fontSize: 12, color: t.textSub }}>날짜</label>
             <input type="date" value={date} onChange={e => setDate(e.target.value)}
               className="w-full mt-1 px-3 py-2 rounded-xl outline-none"
-              style={{ backgroundColor: t.bgSub, border: `1px solid ${t.border}`, color: t.text }} />
+              style={{ backgroundColor: t.bgSub, border: `1px solid ${t.border}`, color: t.text, WebkitAppearance: 'none', appearance: 'none', boxSizing: 'border-box', minWidth: 0 }} />
           </div>
           <div>
             <label style={{ fontSize: 12, color: t.textSub }}>체중 (kg) *</label>

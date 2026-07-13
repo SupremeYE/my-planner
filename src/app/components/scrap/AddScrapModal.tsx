@@ -256,7 +256,7 @@ export default function AddScrapModal({ onClose, onSaved }: Props) {
           <div>
             <label style={{ fontSize: 12, color: t.textSub, fontWeight: 600 }}>링크</label>
             <div className="flex gap-2 mt-2">
-              <div className="flex-1 flex items-center gap-2 px-3 py-2 rounded-lg"
+              <div className="flex-1 min-w-0 flex items-center gap-2 px-3 py-2 rounded-lg"
                 style={{ backgroundColor: t.bgSub, border: `1px solid ${t.border}` }}>
                 <Link2 size={14} color={t.textMuted} />
                 <input
@@ -275,6 +275,7 @@ export default function AddScrapModal({ onClose, onSaved }: Props) {
                   autoComplete="off"
                   style={{
                     flex: 1,
+                    minWidth: 0,
                     backgroundColor: 'transparent',
                     color: t.text,
                     fontSize: 14,
@@ -296,6 +297,7 @@ export default function AddScrapModal({ onClose, onSaved }: Props) {
                   borderRadius: 10,
                   border: 'none',
                   minWidth: 80,
+                  flexShrink: 0,
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
