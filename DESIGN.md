@@ -249,6 +249,7 @@ Weight → role (use only these four; avoid 100–300 and 800–900):
 - **Segmented control (tabs / view toggles)** — app-wide **solid-elevation** segments: active = opaque white pill + soft shadow + deep-indigo 600 label + a **3px coral underline**; inactive = transparent + muted label; track = near-neutral low-saturation (NOT warm beige, NOT strong lilac). One pattern for todo-page tabs, goals/lifestyle tabs, and the 캘린더 뷰토글 (calendar specifics in §6.1).
 - **Calendar** — 캘린더 상세(뷰 토글·필터 칩·멀티항목 day-cell·날짜 마커·바텀 시트 등)는 §6 (캘린더 페이지) 참조.
 - **Timeline** — PLAN and DO blocks keep distinct pastel default hues (tags override); blocks get a slightly stronger border to read against the grid; the "now" line is soft coral `#FF9A8B`, not harsh red.
+- **Selection mode / bulk-action bar** — list pages (할일 등) 다중 선택 + 일괄 액션 패턴. 규격은 아래 "Selection mode & bulk-action bar" 참조.
 
 ### Interaction states (apply to buttons, inputs, chips)
 Default → Hover (slight lift: shadow +1 step, border darkens a touch) → Pressed
@@ -279,6 +280,24 @@ auto-conversion.** The ring color is the `accent` token (never hardcoded; inject
 an inline CSS var). Pulse spec: `box-shadow` ring `0 0 0 0` → `0 0 0 4px`, ~1.6s
 ease-in-out, infinite. **`prefers-reduced-motion: reduce` → animation off, replaced by
 a static `0 0 0 3px` ring.** Implemented as `.haon-type-pulse` in `haon.css`.
+
+### Selection mode & bulk-action bar (list pages)
+할일 등 리스트 페이지에서 여러 항목을 한 번에 처리하는 공통 다중 선택 패턴. 전 테마 공통(토큰
+기반, `isHaon` 게이팅은 표면 recipe 에만).
+- **진입/해제** — 페이지 헤더 우측의 "선택" 텍스트 토글(ghost/secondary variant, §5). 켜면 선택
+  모드, 다시 누르거나 액션바의 "취소"로 해제. 해제 시 선택 집합은 비운다.
+- **행 체크박스** — 선택 모드에서 각 행 **좌측**에 원형 체크박스. 미선택 = hairline `t.border`
+  outline, 선택 = solid `t.accent` 채움 + 흰 체크(√). 상태 토글(완료) 버튼과 시각적으로 구분되게
+  좌측 최선두에 둔다. 행 전체 탭 = 선택 토글(선택 모드일 때만; 평상시 탭 동작은 보존).
+- **선택된 행** — `selectedRowStyle(t)`: 2px `t.accent` 링(`outline`, offset −2)을 기존
+  `solidRowStyle`(H) / 카드(그 외) 위에 덧댄다. 배경·그림자는 건드리지 않음(링만 추가). 하드코딩 색 없음.
+- **액션바** — 리스트 하단에 떠 있는 floating bar. `actionBarStyle(t)` 표면(오버레이라 H 에서
+  글래스 허용 — §1). 좌측 "**N개 선택**" 카운트, 우측 일괄 액션: 삭제 = `danger` variant(§5),
+  취소 = ghost/secondary. **파괴적 일괄 액션은 반드시 `ConfirmModal`(confirmDanger) 경유** — 개수를
+  문구에 노출("N개를 삭제할까요?"). 선택 0개면 액션바 숨김.
+- **토큰만** — 링·체크·바·버튼 전부 `t.accent` / `t.danger` / `t.border` / `t.accentLight`
+  토큰. off-palette 하드코딩 색 금지(§5).
+- **v1 범위** — 일괄 **삭제**만. 오늘로 이동·상태 일괄 변경 등은 후속 Stage.
 
 ---
 
