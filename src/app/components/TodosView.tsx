@@ -12,7 +12,7 @@ import { MandalartSourceBadge } from './mandalart/MandalartSourceBadge';
 import { TodoModal } from './TodoModal';
 import { QuickAddInput } from './QuickAddInput';
 import { isInboxCandidate } from '../../lib/inbox';
-import { isHaon, canvasStyle, solidCardStyle, solidRowStyle, glassBarStyle, mixHex } from '../styles/haonStyles';
+import { isHaon, canvasStyle, solidCardStyle, solidRowStyle, glassBarStyle, mixHex, selectedRowStyle, actionBarStyle, buttonStyle } from '../styles/haonStyles';
 
 // ─── Constants ───────────────────────────────────────────────
 const STATUS_CONFIG: Record<string, { label: string; color: string; bgColor: string }> = {
@@ -58,10 +58,17 @@ interface TodoRowProps {
   onTop3Toggle: () => void;
   /** 밀림 섹션에서 노출되는 '오늘로' 버튼 */
   onMoveToToday?: () => void;
+  /** 다중 선택 모드 여부 — 켜지면 좌측 체크박스 + 행 탭=선택, 우측 액션 숨김 */
+  selectMode?: boolean;
+  /** 이 행이 선택되었는지 */
+  selected?: boolean;
+  /** 선택 토글 콜백 */
+  onSelectToggle?: () => void;
 }
 
 function TodoRow({
   todo, onStatusToggle, onEdit, onDelete, onTop3Toggle, onMoveToToday,
+  selectMode = false, selected = false, onSelectToggle,
 }: TodoRowProps) {
   const { t } = useTheme();
   const { projects, weeklyGoals, milestones, tags } = usePlanner();
@@ -119,6 +126,8 @@ function TodoRow({
       opacity: isCancelled ? 0.6 : 1,
     };
   }
+  // 다중 선택: 기존 행 표면 위에 코랄 링만 덧댐(배경·그림자 불변) — DESIGN §5 Selection mode
+  if (selected) rowStyle = { ...rowStyle, ...selectedRowStyle(t) };
 
   return (
     <>
@@ -160,21 +169,39 @@ function TodoRow({
           />
         )}
         <div className="flex items-start gap-3 px-3 py-3">
-          {/* Status toggle */}
-          <button
-            onClick={handleStatusToggle}
-            className="flex-shrink-0 mt-0.5 w-5 h-5 rounded-full border-2 flex items-center justify-center transition-all"
-            style={{
-              borderColor: isDone ? t.accent : cfg.color,
-              backgroundColor: isDone ? t.accent : 'transparent',
-            }}
-          >
-            {isDone && <Check size={10} color="#fff" strokeWidth={3} />}
-            {todo.status === 'inProgress' && <Play size={8} color={cfg.color} fill={cfg.color} />}
-          </button>
+          {/* Leading — 선택모드: 체크박스 / 평상시: 상태 토글 */}
+          {selectMode ? (
+            <button
+              onClick={onSelectToggle}
+              aria-label={selected ? '선택 해제' : '선택'}
+              className="flex-shrink-0 mt-0.5 w-5 h-5 rounded-full border-2 flex items-center justify-center transition-all"
+              style={{
+                borderColor: selected ? t.accent : t.border,
+                backgroundColor: selected ? t.accent : 'transparent',
+              }}
+            >
+              {selected && <Check size={10} color="#fff" strokeWidth={3} />}
+            </button>
+          ) : (
+            <button
+              onClick={handleStatusToggle}
+              className="flex-shrink-0 mt-0.5 w-5 h-5 rounded-full border-2 flex items-center justify-center transition-all"
+              style={{
+                borderColor: isDone ? t.accent : cfg.color,
+                backgroundColor: isDone ? t.accent : 'transparent',
+              }}
+            >
+              {isDone && <Check size={10} color="#fff" strokeWidth={3} />}
+              {todo.status === 'inProgress' && <Play size={8} color={cfg.color} fill={cfg.color} />}
+            </button>
+          )}
 
-          {/* Content */}
-          <div className="flex-1 min-w-0">
+          {/* Content — 선택모드에서는 행 본문 탭도 선택 토글 */}
+          <div
+            className="flex-1 min-w-0"
+            onClick={selectMode ? onSelectToggle : undefined}
+            style={selectMode ? { cursor: 'pointer' } : undefined}
+          >
             <div className="flex items-start gap-1.5">
               {todo.isTop3 && (
                 <Star size={11} fill={t.accent} color={t.accent} className="flex-shrink-0 mt-0.5" />
@@ -260,7 +287,8 @@ function TodoRow({
             )}
           </div>
 
-          {/* Action buttons */}
+          {/* Action buttons — 선택모드에서는 오작동 방지 위해 숨김 */}
+          {!selectMode && (
           <div className="flex items-center gap-0.5 flex-shrink-0">
             {onMoveToToday && (
               <button
@@ -287,6 +315,7 @@ function TodoRow({
               <Trash2 size={13} color={t.textMuted} />
             </button>
           </div>
+          )}
         </div>
       </div>
         </div>
@@ -305,8 +334,15 @@ function TodoRow({
   );
 }
 
+// 다중 선택 공통 props (탭 → 행 전달)
+interface TabSelectionProps {
+  selectMode: boolean;
+  selected: Set<string>;
+  onSelectToggle: (id: string) => void;
+}
+
 // ─── Tab 1: 할 일 (미분류 → 밀림 → 오늘 → 예정) ─────────────────
-function TodoListTab() {
+function TodoListTab({ selectMode, selected, onSelectToggle }: TabSelectionProps) {
   const { todos, updateTodo, deleteTodo, toggleTop3 } = usePlanner();
   const { t } = useTheme();
   const [editingTodo, setEditingTodo] = useState<Todo | null>(null);
@@ -391,6 +427,9 @@ function TodoListTab() {
                 onEdit={() => setEditingTodo(todo)}
                 onDelete={() => deleteTodo(todo.id)}
                 onTop3Toggle={() => toggleTop3(todo.id)}
+                selectMode={selectMode}
+                selected={selected.has(todo.id)}
+                onSelectToggle={() => onSelectToggle(todo.id)}
                 onMoveToToday={() => updateTodo(todo.id, { date: todayStr, status: 'active' })}
               />
             ))}
@@ -440,6 +479,9 @@ function TodoListTab() {
                   onEdit={() => setEditingTodo(todo)}
                   onDelete={() => deleteTodo(todo.id)}
                   onTop3Toggle={() => toggleTop3(todo.id)}
+                selectMode={selectMode}
+                selected={selected.has(todo.id)}
+                onSelectToggle={() => onSelectToggle(todo.id)}
                   onMoveToToday={() => updateTodo(todo.id, { date: todayStr })}
                 />
               ))}
@@ -471,6 +513,9 @@ function TodoListTab() {
                 onEdit={() => setEditingTodo(todo)}
                 onDelete={() => deleteTodo(todo.id)}
                 onTop3Toggle={() => toggleTop3(todo.id)}
+                selectMode={selectMode}
+                selected={selected.has(todo.id)}
+                onSelectToggle={() => onSelectToggle(todo.id)}
               />
             ))}
           </div>
@@ -498,6 +543,9 @@ function TodoListTab() {
                     onEdit={() => setEditingTodo(todo)}
                     onDelete={() => deleteTodo(todo.id)}
                     onTop3Toggle={() => toggleTop3(todo.id)}
+                selectMode={selectMode}
+                selected={selected.has(todo.id)}
+                onSelectToggle={() => onSelectToggle(todo.id)}
                   />
                 ))}
               </div>
@@ -517,7 +565,7 @@ function TodoListTab() {
 }
 
 // ─── Tab 2: 완료함 (done + cancelled, 날짜별 최신 위) ─────────────
-function DoneTodosTab() {
+function DoneTodosTab({ selectMode, selected, onSelectToggle }: TabSelectionProps) {
   const { todos, updateTodo, deleteTodo, toggleTop3 } = usePlanner();
   const { t } = useTheme();
   const [editingTodo, setEditingTodo] = useState<Todo | null>(null);
@@ -580,6 +628,9 @@ function DoneTodosTab() {
                     onEdit={() => setEditingTodo(todo)}
                     onDelete={() => deleteTodo(todo.id)}
                     onTop3Toggle={() => toggleTop3(todo.id)}
+                selectMode={selectMode}
+                selected={selected.has(todo.id)}
+                onSelectToggle={() => onSelectToggle(todo.id)}
                   />
                 ))}
               </div>
@@ -602,9 +653,31 @@ function DoneTodosTab() {
 type Tab = 'list' | 'done';
 
 export function TodosView() {
-  const { todos } = usePlanner();
+  const { todos, deleteTodos } = usePlanner();
   const { t } = useTheme();
   const [tab, setTab] = useState<Tab>('list');
+
+  // ── 다중 선택 ──
+  const [selectMode, setSelectMode] = useState(false);
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [showBulkDelete, setShowBulkDelete] = useState(false);
+
+  const clearSelection = () => setSelected(new Set());
+  const exitSelectMode = () => { setSelectMode(false); clearSelection(); };
+  const onSelectToggle = (id: string) => {
+    setSelected(prev => {
+      const next = new Set(prev);
+      next.has(id) ? next.delete(id) : next.add(id);
+      return next;
+    });
+  };
+  // 탭 전환 시 선택 초기화(탭마다 대상 id가 다름)
+  const changeTab = (next: Tab) => { setTab(next); exitSelectMode(); };
+  const confirmBulkDelete = () => {
+    deleteTodos([...selected]);
+    clearSelection();
+    setShowBulkDelete(false);
+  };
 
   // 탭 카운트 뱃지 — 할 일(미완료) / 완료함(done+cancelled)
   const todayStr = getLogicalToday();
@@ -635,7 +708,7 @@ export function TodosView() {
   );
 
   return (
-    <div className="flex flex-col h-full" style={isHaon(t) ? canvasStyle(t) : { backgroundColor: t.bg }}>
+    <div className="relative flex flex-col h-full" style={isHaon(t) ? canvasStyle(t) : { backgroundColor: t.bg }}>
       {/* Header — 스크롤 위에 떠 있는 오버레이라 파스텔(H)에서만 글래스(backdrop-filter는 여기에만) */}
       <div
         className="flex-shrink-0 sticky top-0 z-10"
@@ -647,6 +720,18 @@ export function TodosView() {
               <ListTodo size={18} color={t.accent} />
               <h1 style={{ fontSize: 18, fontWeight: 700, color: t.text }}>할일</h1>
             </div>
+            {/* 다중 선택 진입/해제 토글 (DESIGN §5 Selection mode) */}
+            <button
+              onClick={() => (selectMode ? exitSelectMode() : setSelectMode(true))}
+              className="px-3 py-1.5 rounded-lg transition-colors"
+              style={
+                selectMode
+                  ? buttonStyle(t, 'secondary')
+                  : { fontSize: 12, fontWeight: 600, color: t.accent, backgroundColor: t.accentLight }
+              }
+            >
+              <span style={{ fontSize: 12, fontWeight: 600 }}>{selectMode ? '취소' : '선택'}</span>
+            </button>
           </div>
 
           {/* 탭 — 파스텔(H): near-neutral 트랙(borderLight) + 가로 스트레치 제거(maxWidth, 좌측정렬). 그 외 테마 무변경 */}
@@ -664,7 +749,7 @@ export function TodosView() {
               return (
                 <button
                   key={value}
-                  onClick={() => setTab(value)}
+                  onClick={() => changeTab(value)}
                   className="flex-1 py-1.5 rounded-lg transition-all flex items-center justify-center gap-1.5"
                   style={{
                     fontSize: 12,
@@ -733,8 +818,47 @@ export function TodosView() {
 
       {/* Content */}
       <div className="flex-1 overflow-y-auto py-4">
-        {tab === 'list' ? <TodoListTab /> : <DoneTodosTab />}
+        {tab === 'list'
+          ? <TodoListTab selectMode={selectMode} selected={selected} onSelectToggle={onSelectToggle} />
+          : <DoneTodosTab selectMode={selectMode} selected={selected} onSelectToggle={onSelectToggle} />}
       </div>
+
+      {/* 일괄 액션 바 (floating) — 선택 1개 이상일 때만. 모바일 하단 네비(56px) 위로 띄움 */}
+      {selectMode && selected.size > 0 && (
+        <div
+          className="absolute left-1/2 -translate-x-1/2 z-20 flex items-center gap-3 px-4 py-2.5 bottom-20 lg:bottom-6"
+          style={actionBarStyle(t)}
+        >
+          <span style={{ fontSize: 13, fontWeight: 700, color: t.text, whiteSpace: 'nowrap' }}>
+            {selected.size}개 선택
+          </span>
+          <button
+            onClick={() => setShowBulkDelete(true)}
+            className="flex items-center gap-1 px-3 py-1.5 rounded-xl"
+            style={buttonStyle(t, 'danger')}
+          >
+            <Trash2 size={13} />
+            <span style={{ fontSize: 12, fontWeight: 600 }}>삭제</span>
+          </button>
+          <button
+            onClick={exitSelectMode}
+            className="px-3 py-1.5 rounded-xl"
+            style={{ fontSize: 12, fontWeight: 600, color: t.textSub, backgroundColor: t.bgSub }}
+          >
+            취소
+          </button>
+        </div>
+      )}
+
+      {showBulkDelete && (
+        <ConfirmModal
+          message={`선택한 할일 ${selected.size}개를 삭제할까요?`}
+          confirmText="삭제"
+          confirmDanger
+          onConfirm={confirmBulkDelete}
+          onCancel={() => setShowBulkDelete(false)}
+        />
+      )}
     </div>
   );
 }

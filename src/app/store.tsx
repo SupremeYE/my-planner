@@ -777,6 +777,7 @@ interface PlannerContextType {
   addTodo: (todo: Omit<Todo, 'id'>) => void;
   updateTodo: (id: string, changes: Partial<Todo>) => void;
   deleteTodo: (id: string) => void;
+  deleteTodos: (ids: string[]) => void;
   toggleTop3: (id: string) => void;
   deleteRecurringTodo: (parentId: string, instanceDate: string, scope: 'this' | 'future' | 'all') => void;
   updateRecurringTodo: (parentId: string, instanceDate: string, changes: Partial<Todo>, scope: 'this' | 'future' | 'all') => void;
@@ -1270,6 +1271,14 @@ export function PlannerProvider({ children }: { children: React.ReactNode }) {
       return prev.filter(t => t.id !== id);
     });
     db.todos.delete(id);
+  }, []);
+
+  // 다중 선택 일괄 삭제 — 로컬 state 1회 필터 + DB batch delete(.in). Realtime(todos 구독)이 타 기기에 반영.
+  const deleteTodos = useCallback((ids: string[]) => {
+    if (ids.length === 0) return;
+    const idSet = new Set(ids);
+    setTodos(prev => prev.filter(t => !idSet.has(t.id)));
+    db.todos.deleteMany(ids);
   }, []);
 
   // 반복 일정 삭제 (scope: 'this' | 'future' | 'all')
@@ -2101,7 +2110,7 @@ export function PlannerProvider({ children }: { children: React.ReactNode }) {
       timelineLogs,
       dailyAffirmations, setDailyAffirmation,
       appSettings, updateAppSettings,
-      addTodo, updateTodo, deleteTodo, toggleTop3, deleteRecurringTodo, updateRecurringTodo,
+      addTodo, updateTodo, deleteTodo, deleteTodos, toggleTop3, deleteRecurringTodo, updateRecurringTodo,
       addEvent, updateEvent, deleteEvent, toggleEventCompleted,
       addHabit, addHabitFull, updateHabit, deleteHabit, toggleHabit,
       updateHabitProgress, updateHabitMemo,
