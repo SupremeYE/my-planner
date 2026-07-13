@@ -4,8 +4,6 @@ import { usePlanner, getLogicalToday } from '../store';
 import { useTheme } from '../ThemeContext';
 import { useVoiceInput } from '../hooks/useVoiceInput';
 
-// 본문 폰트 — 리뷰 페이지 작성 내용과 동일하게 NanumSquareRound
-const BODY_FONT = 'var(--font-nanum-round)';
 
 /**
  * ✨ 행복한 순간 캡처 — 모바일 FAB 스피드다이얼 / 돌아보기 버튼 공용 입력 모달.
@@ -79,7 +77,7 @@ export function HappyCaptureModal({ onClose, onSaved }: {
             placeholder="어떤 순간이 행복했나요?"
             onKeyDown={e => { if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) save(); }}
             className="flex-1 rounded-lg px-3 py-2 border outline-none resize-none min-w-0"
-            style={{ borderColor: t.border, backgroundColor: t.bgSub, color: t.text, fontSize: 14, fontFamily: BODY_FONT }}
+            style={{ borderColor: t.border, backgroundColor: t.bgSub, color: t.text, fontSize: 14, fontFamily: t.fontBody }}
           />
           <button
             type="button"

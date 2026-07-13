@@ -163,7 +163,7 @@ export function SendCellModal({ cellId, defaultText, isAction, onClose, onNotify
       >
         <div className="flex items-center justify-between mb-3">
           <div>
-            <div style={{ fontSize: 11, color: t.textMuted, fontFamily: 'var(--font-gowun)' }}>
+            <div style={{ fontSize: 11, color: t.textMuted, fontFamily: t.fontLabel }}>
               만다라트 칸 보내기
             </div>
             <div style={{

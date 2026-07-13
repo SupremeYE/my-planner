@@ -232,7 +232,7 @@ export function RecipeCookFlow({ recipe, onClose }: RecipeCookFlowProps) {
 
               {/* 단계 설명 — 세리프 크게 */}
               <p className="text-center whitespace-pre-wrap"
-                style={{ fontFamily: 'var(--font-gowun-serif)', fontSize: 24, lineHeight: 1.5,
+                style={{ fontFamily: t.fontReading, fontSize: 24, lineHeight: 1.5,
                   color: t.text, fontWeight: 700 }}>
                 {step.instruction}
               </p>
@@ -307,7 +307,7 @@ export function RecipeCookFlow({ recipe, onClose }: RecipeCookFlowProps) {
               style={{ width: 72, height: 72, backgroundColor: t.accentLight }}>
               <PartyPopper size={36} color={t.accent} />
             </div>
-            <h2 style={{ fontFamily: 'var(--font-gowun-serif)', fontSize: 26, fontWeight: 800, color: t.text, textAlign: 'center' }}>
+            <h2 style={{ fontFamily: t.fontSection, fontSize: 26, fontWeight: 800, color: t.text, textAlign: 'center' }}>
               완성!
             </h2>
             <p style={{ fontSize: 14, color: t.textSub, marginTop: 6, textAlign: 'center' }}>

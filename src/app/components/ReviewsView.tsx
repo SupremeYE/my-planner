@@ -93,8 +93,6 @@ const RECORD_TYPES = [
   { key: 'daily', emoji: '📔', label: '데일리 리뷰' },
 ];
 
-// 본문(감사·KPT) 입력 폰트 — 이 페이지 한정 NanumSquareRound
-const BODY_FONT = 'var(--font-nanum-round)';
 
 // ─── mood_records 타입(읽기 전용) ───
 interface MoodRow {
@@ -300,7 +298,7 @@ function DayTab({ jump }: { jump?: JumpReq }) {
 
   const inputStyle = {
     borderColor: t.border, backgroundColor: t.bgSub, color: t.text, fontSize: 13,
-    fontFamily: BODY_FONT,
+    fontFamily: t.fontBody,
   };
 
   const writeCol = (
@@ -690,7 +688,7 @@ function WeekTab({ jump }: { jump?: JumpReq }) {
 
   const inputStyle = {
     borderColor: t.border, backgroundColor: t.bgSub, color: t.text, fontSize: 13,
-    fontFamily: BODY_FONT,
+    fontFamily: t.fontBody,
   };
 
   // 과거 주간 카드 1개 렌더 (작년 비교 카드/일반 카드 공용)
@@ -1076,7 +1074,7 @@ function MonthTab({ jump }: { jump?: JumpReq }) {
     setExpanded(prev => ({ ...prev, [yr]: !(prev[yr] ?? idx === 0) }));
 
   const inputStyle = {
-    borderColor: t.border, backgroundColor: t.bgSub, color: t.text, fontSize: 13, fontFamily: BODY_FONT,
+    borderColor: t.border, backgroundColor: t.bgSub, color: t.text, fontSize: 13, fontFamily: t.fontBody,
   };
 
   const renderMonthCard = (r: MonthlyReview, anniversary = false) => {
