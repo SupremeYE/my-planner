@@ -882,11 +882,11 @@ export function Layout() {
             )}
             {!rightPanelOpen && (
               <div className="flex-1 flex flex-col items-center gap-4 pt-4">
-                <div className="p-2 rounded-lg" style={{ backgroundColor: t.accentLight }}>
-                  <Target size={18} color={t.accent} />
+                <div className="p-2 rounded-lg" style={{ backgroundColor: t.accentSoft }}>
+                  <Target size={18} color={t.textMuted} />
                 </div>
-                <div className="p-2 rounded-lg" style={{ backgroundColor: t.accentLight }}>
-                  <BarChart2 size={18} color={t.accent} />
+                <div className="p-2 rounded-lg" style={{ backgroundColor: t.accentSoft }}>
+                  <BarChart2 size={18} color={t.textMuted} />
                 </div>
               </div>
             )}
