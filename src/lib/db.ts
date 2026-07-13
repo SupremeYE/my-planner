@@ -985,6 +985,11 @@ export const db = {
       const { error } = await supabase.from('todos').delete().eq('id', id);
       if (error) console.error('[db] todos delete:', error.message);
     },
+    deleteMany: async (ids: string[]) => {
+      if (ids.length === 0) return;
+      const { error } = await supabase.from('todos').delete().in('id', ids);
+      if (error) console.error('[db] todos deleteMany:', error.message);
+    },
   },
 
   habits: {
