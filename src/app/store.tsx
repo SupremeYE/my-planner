@@ -878,7 +878,7 @@ interface PlannerContextType {
   stopTimer: () => void;
 
   // Project actions
-  addProject: (project: Omit<Project, 'id'>) => void;
+  addProject: (project: Omit<Project, 'id'>) => string;
   updateProject: (id: string, changes: Partial<Project>) => void;
   deleteProject: (id: string) => void;
 
@@ -1991,6 +1991,7 @@ export function PlannerProvider({ children }: { children: React.ReactNode }) {
     const newProject: Project = { ...project, id: newId() };
     setProjects(prev => [...prev, newProject]);
     db.projects.upsert(newProject);
+    return newProject.id;
   }, []);
 
   const updateProject = useCallback((id: string, changes: Partial<Project>) => {

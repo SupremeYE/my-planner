@@ -9,6 +9,7 @@ import { TimePicker } from './TimePicker';
 import { RecurrenceBranchModal } from './RecurrenceBranchModal';
 import { isVirtualTodoId, parseVirtualTodoId, DOW_LABELS } from '../../lib/recurrenceExpansion';
 import { DEFAULT_TAG_COLORS, TAG_PALETTE_KEY, MAX_TAG_COLORS } from '../../lib/tagPalette';
+import { PROJECT_COLORS } from './ProjectView';
 
 interface TodoModalProps {
   /** date prop은 기본 날짜로 사용되며, 모달 안에서 변경/해제할 수 있다. */
@@ -35,7 +36,7 @@ interface TodoModalProps {
 }
 
 export function TodoModal({ date, todo, initialPlanStart, initialPlanEnd, initialWeeklyGoalId, initialProjectId, initialMilestoneId, initialText, initialTags, initialIsTop3, initialRecurrenceRule, initialRecurrenceDays, onClose }: TodoModalProps) {
-  const { addTodo, updateTodo, deleteTodo, deleteRecurringTodo, updateRecurringTodo, tags: allTags, projects, milestones, addTag, updateTag, deleteTag } = usePlanner();
+  const { addTodo, updateTodo, deleteTodo, deleteRecurringTodo, updateRecurringTodo, tags: allTags, projects, milestones, addTag, updateTag, deleteTag, addProject } = usePlanner();
   const { t } = useTheme();
 
   // ── 반복 관련 ───────────────────────────────────────────────────────────────
@@ -70,6 +71,8 @@ export function TodoModal({ date, todo, initialPlanStart, initialPlanEnd, initia
   const [selectedTags, setSelectedTags] = useState<string[]>(todo?.tags ?? initialTags ?? []);
   const [projectId, setProjectId] = useState(todo?.projectId ?? initialProjectId ?? '');
   const [milestoneId, setMilestoneId] = useState(todo?.milestoneId ?? initialMilestoneId ?? '');
+  const [showNewProject, setShowNewProject] = useState(false);
+  const [newProjectName, setNewProjectName] = useState('');
   const [showNewTag, setShowNewTag] = useState(false);
   const [newTagName, setNewTagName] = useState('');
   const [newTagColor, setNewTagColor] = useState(DEFAULT_TAG_COLORS[0]);
@@ -184,6 +187,18 @@ export function TodoModal({ date, todo, initialPlanStart, initialPlanEnd, initia
     setSelectedTags(prev =>
       prev.includes(tagId) ? prev.filter(id => id !== tagId) : [...prev, tagId],
     );
+  };
+
+  // 할일 만들다가 새 프로젝트를 이름만으로 즉석 생성 → 방금 만든 프로젝트 자동 선택.
+  // 색은 기존 PROJECT_COLORS 팔레트 기본값. 세부(설명·기간·목표연결)는 프로젝트 페이지에서 이어서 설정.
+  const handleCreateProject = () => {
+    const name = newProjectName.trim();
+    if (!name) return;
+    const id = addProject({ name, color: PROJECT_COLORS[0], status: 'active' });
+    setProjectId(id);
+    setMilestoneId('');
+    setNewProjectName('');
+    setShowNewProject(false);
   };
 
   const handleCreateTag = () => {
@@ -516,7 +531,18 @@ export function TodoModal({ date, todo, initialPlanStart, initialPlanEnd, initia
 
           {/* 프로젝트 */}
           <div>
-            <label style={{ fontSize: 11, color: t.textSub, fontWeight: 600 }}>프로젝트</label>
+            <div className="flex items-center justify-between">
+              <label style={{ fontSize: 11, color: t.textSub, fontWeight: 600 }}>프로젝트</label>
+              {!showNewProject && (
+                <button
+                  type="button"
+                  onClick={() => { setShowNewProject(true); setNewProjectName(''); }}
+                  style={{ fontSize: 11, color: t.accent, fontWeight: 600, background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}
+                >
+                  + 새 프로젝트
+                </button>
+              )}
+            </div>
             <select
               value={projectId}
               onChange={e => { setProjectId(e.target.value); setMilestoneId(''); }}
@@ -533,6 +559,45 @@ export function TodoModal({ date, todo, initialPlanStart, initialPlanEnd, initia
                 <option key={p.id} value={p.id}>{p.name}</option>
               ))}
             </select>
+            {/* 인라인 새 프로젝트 생성 — 이름만 입력. 세부 설정은 프로젝트 페이지에서 이어감(단일 소스). */}
+            {showNewProject && (
+              <div className="flex gap-2 mt-2">
+                <input
+                  type="text"
+                  autoFocus
+                  value={newProjectName}
+                  onChange={e => setNewProjectName(e.target.value)}
+                  onKeyDown={e => {
+                    if (e.key === 'Enter') { e.preventDefault(); handleCreateProject(); }
+                    if (e.key === 'Escape') { setShowNewProject(false); setNewProjectName(''); }
+                  }}
+                  placeholder="새 프로젝트 이름"
+                  maxLength={60}
+                  className="flex-1 min-w-0 rounded-lg px-3 py-2 outline-none"
+                  style={{ border: `1px solid ${t.border}`, backgroundColor: t.bgSub, color: t.text, fontSize: 13 }}
+                />
+                <button
+                  type="button"
+                  onClick={handleCreateProject}
+                  disabled={!newProjectName.trim()}
+                  style={{
+                    flexShrink: 0,
+                    backgroundColor: newProjectName.trim() ? t.accent : t.bgSub,
+                    color: newProjectName.trim() ? '#fff' : t.textMuted,
+                    fontSize: 13, fontWeight: 700, padding: '0 14px', borderRadius: 10, border: 'none',
+                  }}
+                >
+                  만들기
+                </button>
+                <button
+                  type="button"
+                  onClick={() => { setShowNewProject(false); setNewProjectName(''); }}
+                  style={{ flexShrink: 0, backgroundColor: t.accentLight, color: t.accent, fontSize: 13, fontWeight: 600, padding: '0 12px', borderRadius: 10, border: 'none' }}
+                >
+                  취소
+                </button>
+              </div>
+            )}
           </div>
 
           {/* 마일스톤 (프로젝트 선택 시) */}
