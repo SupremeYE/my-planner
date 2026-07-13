@@ -631,7 +631,7 @@ export function Layout() {
                   <button
                     onClick={() => setLeftSidebarOpen(false)}
                     className="p-2 rounded-lg transition-colors hover:bg-opacity-80"
-                    style={{ backgroundColor: t.accentLight, color: t.accent }}
+                    style={{ backgroundColor: t.bgSub, color: t.textSub }}
                     title="사이드바 접기"
                   >
                     <Menu size={16} />
@@ -644,7 +644,7 @@ export function Layout() {
                 <button
                   onClick={() => setLeftSidebarOpen(true)}
                   className="p-2 rounded-lg transition-colors hover:bg-opacity-80"
-                  style={{ backgroundColor: t.accentLight, color: t.accent }}
+                  style={{ backgroundColor: t.bgSub, color: t.textSub }}
                   title="사이드바 펼치기"
                 >
                   <Menu size={16} />
@@ -869,7 +869,7 @@ export function Layout() {
               <button
                 onClick={() => setRightPanelOpen(!rightPanelOpen)}
                 className="p-2 rounded-lg transition-colors hover:bg-opacity-80 flex-shrink-0"
-                style={{ backgroundColor: t.accentLight, color: t.accent }}
+                style={{ backgroundColor: t.bgSub, color: t.textSub }}
                 title={rightPanelOpen ? '대시보드 접기' : '대시보드 펼치기'}
               >
                 <Menu size={16} />
@@ -905,7 +905,7 @@ export function Layout() {
             <button
               onClick={() => setMobileMenuOpen(true)}
               className="p-2 rounded-xl transition-colors"
-              style={{ backgroundColor: t.accentLight, color: t.accent }}
+              style={{ backgroundColor: t.bgSub, color: t.textSub }}
             >
               <Menu size={16} />
             </button>
