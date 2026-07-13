@@ -181,9 +181,9 @@ do not hand-pick extra hexes.
 > 전역 적용해 다른 테마의 DM Serif/GmarketSans/손글씨를 제거하는 것이 아니다. `@theme` 의
 > `--font-page-title` 등 CSS 역할 토큰은 이 H 계약 기준값을 담는다.
 
-Fonts (테마 H 기준): H = 제목(page-title/section) **GmarketSans**, 본문·카드제목·라벨
-**Pretendard**, 숫자 **Sora**, 일기 **Ownglyph**. 즉 페이지/섹션 제목만 GmarketSans 이고
-나머지 앱 UI(본문·입력·카드제목·라벨)는 Pretendard 로 통일한다(full Hangul + Latin).
+Fonts (테마 H 기준): H = 제목(page-title/section/card-title) **GmarketSans**, 본문·라벨
+**Pretendard**, 숫자 **Sora**, 일기 **Ownglyph**. 카드제목은 `fontSection` 을 공유하므로
+제목 계열(GmarketSans)로 함께 수렴하고, 본문·입력·라벨만 Pretendard 로 통일한다(full Hangul + Latin).
 **Sora** for emphasis numbers. **온글잎 긍정 (Ownglyph-Positive)** for diary
 body text ONLY (deliberate handwriting exception; never elsewhere).
 <!-- 실렌더 검토 결과 H 제목은 Gmarket 채택(v1.x). -->
@@ -194,7 +194,7 @@ Weight → role (use only these four; avoid 100–300 and 800–900):
 |---|---|---|---|
 | Page title | GmarketSans | 700 | 26–30px |
 | Section heading | GmarketSans | 600 | 18–22px |
-| Card title | Pretendard | 600 | 16–18px |
+| Card title | GmarketSans (fontSection 공유) | 600 | 16–18px |
 | Body / input | Pretendard | 400 | 14–15px |
 | Label / button / chip | Pretendard | 500 | 12–14px |
 | Emphasis number | Sora | 600 | 22–32px |

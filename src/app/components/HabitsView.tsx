@@ -1290,7 +1290,7 @@ export function HabitsView() {
     <div className="flex-1 overflow-y-auto">
       {/* Header */}
       <div className="px-4 lg:px-6 pt-6 pb-4">
-        <h1 style={{ fontSize: 22, fontWeight: 700, color: t.text, fontFamily: 'var(--font-gmarket)' }}>습관 & 루틴</h1>
+        <h1 style={{ fontSize: 22, fontWeight: 700, color: t.text, fontFamily: t.fontPageTitle }}>습관 & 루틴</h1>
         <p style={{ fontSize: 13, color: t.textSub, marginTop: 4 }}>좋은 습관을 만들고, 루틴으로 하루를 설계하세요</p>
       </div>
 

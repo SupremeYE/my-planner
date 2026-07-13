@@ -1564,7 +1564,7 @@ function ArchiveOverlay({ onClose, onJump }: {
         <button onClick={onClose} className="flex items-center gap-1 p-1 -ml-1" style={{ fontSize: 14, color: t.textSub, fontWeight: 600 }}>
           <ChevronLeft size={20} /> 돌아가기
         </button>
-        <h1 className="mx-auto" style={{ fontSize: 17, fontWeight: 700, color: t.text, fontFamily: 'var(--font-gmarket)' }}>돌아보기</h1>
+        <h1 className="mx-auto" style={{ fontSize: 17, fontWeight: 700, color: t.text, fontFamily: t.fontPageTitle }}>돌아보기</h1>
         <span style={{ width: 72 }} />
       </div>
 
@@ -1664,7 +1664,7 @@ export function ReviewsView() {
       {/* Header */}
       <div className="px-6 pt-6 pb-4 flex items-start justify-between">
         <div>
-          <h1 style={{ fontSize: 22, fontWeight: 700, color: t.text, fontFamily: 'var(--font-gmarket)' }}>리뷰 & 기록</h1>
+          <h1 style={{ fontSize: 22, fontWeight: 700, color: t.text, fontFamily: t.fontPageTitle }}>리뷰 & 기록</h1>
           <p style={{ fontSize: 13, color: t.textSub, marginTop: 4 }}>매일의 기록이 성장의 발판이 됩니다</p>
         </div>
         {/* 🔍 돌아보기 아카이브 — PC는 텍스트 알약 / 모바일은 아이콘만 */}
