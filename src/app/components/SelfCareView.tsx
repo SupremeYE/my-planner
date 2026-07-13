@@ -1821,7 +1821,7 @@ export function SelfCareView() {
     <div className="flex-1 overflow-y-auto">
       {/* ① Header */}
       <div className="px-6 pt-6 pb-4 lg:px-8">
-        <h1 style={{ fontSize: 22, fontWeight: 700, color: t.text, fontFamily: 'var(--font-gmarket)' }}>시간 리포트</h1>
+        <h1 style={{ fontSize: 22, fontWeight: 700, color: t.text, fontFamily: t.fontPageTitle }}>시간 리포트</h1>
         <p style={{ fontSize: 13, color: t.textSub, marginTop: 4 }}>태그별로 시간 사용을 자동 집계해 보여줘요</p>
       </div>
 

@@ -269,7 +269,7 @@ export function MomentView() {
 
         {/* 헤더 (모바일 전용) */}
         <div className="lg:hidden">
-          <h1 style={{ fontSize: 22, fontWeight: 700, color: t.text, fontFamily: 'var(--font-gmarket)' }}>모먼트</h1>
+          <h1 style={{ fontSize: 22, fontWeight: 700, color: t.text, fontFamily: t.fontPageTitle }}>모먼트</h1>
           <p style={{ fontSize: 13, color: t.textSub, marginTop: 2 }}>순간을 짧게 기록해요</p>
         </div>
 
