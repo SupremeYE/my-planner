@@ -388,7 +388,7 @@ export function MomentView() {
           {/* 페이지 헤더: 좌측 타이틀 / 우측 스탯 스트립 */}
           <div className="flex items-end justify-between gap-6">
             <div>
-              <div style={{ fontFamily: 'var(--font-gaegu)', fontSize: 16, color: t.textSub }}>
+              <div style={{ fontFamily: t.fontDecorative, fontSize: 16, color: t.textSub }}>
                 오늘 하루, 기억하고 싶은 순간
               </div>
               <h1 style={{ fontFamily: t.fontPageTitle, fontSize: 40, color: t.text, lineHeight: 1.1, marginTop: 2 }}> {/* 페이지 최상위 제목 */}
@@ -947,7 +947,7 @@ function ReorderGrid({
             ) : (
               <div
                 className="absolute inset-0 flex items-center justify-center"
-                style={{ fontFamily: 'var(--font-gaegu)', fontSize: 13, color: t.textSub }}
+                style={{ fontFamily: t.fontDecorative, fontSize: 13, color: t.textSub }}
               >
                 📝
               </div>
@@ -957,7 +957,7 @@ function ReorderGrid({
               style={{ height: '55%', background: 'linear-gradient(to top, rgba(0,0,0,0.5), rgba(0,0,0,0))' }}
             />
             <div className="absolute inset-x-0 bottom-0 px-1.5 pb-1 pointer-events-none">
-              <div className="truncate" style={{ fontFamily: 'var(--font-gaegu)', fontSize: 11, color: '#fff', lineHeight: 1.2 }}>
+              <div className="truncate" style={{ fontFamily: t.fontDecorative, fontSize: 11, color: '#fff', lineHeight: 1.2 }}>
                 {title}
               </div>
             </div>
@@ -1006,7 +1006,7 @@ function MomentGridTile({
       ) : (
         <div
           className="absolute inset-0 flex items-center justify-center p-1.5 text-center"
-          style={{ fontFamily: 'var(--font-gaegu)', fontSize: 13, color: t.textSub, lineHeight: 1.3 }}
+          style={{ fontFamily: t.fontDecorative, fontSize: 13, color: t.textSub, lineHeight: 1.3 }}
         >
           📝
         </div>
@@ -1038,7 +1038,7 @@ function MomentGridTile({
       <div className="absolute inset-x-0 bottom-0 px-1.5 pb-1">
         <div
           className="truncate"
-          style={{ fontFamily: 'var(--font-gaegu)', fontSize: 11, color: '#fff', lineHeight: 1.2 }}
+          style={{ fontFamily: t.fontDecorative, fontSize: 11, color: '#fff', lineHeight: 1.2 }}
         >
           {title}
         </div>
@@ -1071,7 +1071,7 @@ function HighlightMiniTile({ moment, t }: { moment: Moment; t: ThemeTokens }) {
       ) : (
         <div
           className="absolute inset-0 flex items-center justify-center text-center p-1"
-          style={{ fontFamily: 'var(--font-gaegu)', fontSize: 12, color: t.textSub }}
+          style={{ fontFamily: t.fontDecorative, fontSize: 12, color: t.textSub }}
         >
           📝
         </div>
@@ -1081,7 +1081,7 @@ function HighlightMiniTile({ moment, t }: { moment: Moment; t: ThemeTokens }) {
         style={{ height: '55%', background: 'linear-gradient(to top, rgba(0,0,0,0.55), rgba(0,0,0,0))' }}
       />
       <div className="absolute inset-x-0 bottom-0 px-1.5 pb-1">
-        <div className="truncate" style={{ fontFamily: 'var(--font-gaegu)', fontSize: 10.5, color: '#fff', lineHeight: 1.2 }}>
+        <div className="truncate" style={{ fontFamily: t.fontDecorative, fontSize: 10.5, color: '#fff', lineHeight: 1.2 }}>
           {title}
         </div>
       </div>
@@ -1178,7 +1178,7 @@ function MomentFeedCardPC({
             rows={3}
             className="w-full resize-none outline-none rounded-md p-2"
             style={{
-              fontFamily: 'var(--font-gaegu)',
+              fontFamily: t.fontDecorative,
               fontSize: 17,
               color: t.text,
               lineHeight: 1.45,
@@ -1189,7 +1189,7 @@ function MomentFeedCardPC({
         ) : (
           <p
             style={{
-              fontFamily: 'var(--font-gaegu)',
+              fontFamily: t.fontDecorative,
               fontSize: 17,
               color: t.text,
               lineHeight: 1.45,
@@ -1281,7 +1281,7 @@ function HighlightCard({ moment, t }: { moment: Moment; t: ThemeTokens }) {
       ) : (
         <div
           className="absolute inset-0 flex items-center justify-center text-center p-1.5"
-          style={{ fontFamily: 'var(--font-gaegu)', fontSize: 13, color: t.textSub }}
+          style={{ fontFamily: t.fontDecorative, fontSize: 13, color: t.textSub }}
         >
           📝
         </div>
@@ -1293,7 +1293,7 @@ function HighlightCard({ moment, t }: { moment: Moment; t: ThemeTokens }) {
       <div className="absolute inset-x-0 bottom-0 px-2 pb-1.5">
         <div
           className="truncate"
-          style={{ fontFamily: 'var(--font-gaegu)', fontSize: 12, color: '#fff', lineHeight: 1.2 }}
+          style={{ fontFamily: t.fontDecorative, fontSize: 12, color: '#fff', lineHeight: 1.2 }}
         >
           {title}
         </div>
@@ -1400,7 +1400,7 @@ function MomentCardMobile({ moment, expanded, onToggle, onDelete, onUpdateConten
                   rows={3}
                   className="w-full resize-none outline-none rounded-md p-2"
                   style={{
-                    fontFamily: 'var(--font-gaegu)',
+                    fontFamily: t.fontDecorative,
                     fontSize: 18,
                     color: t.text,
                     lineHeight: 1.5,
@@ -1409,7 +1409,7 @@ function MomentCardMobile({ moment, expanded, onToggle, onDelete, onUpdateConten
                   }}
                 />
               ) : (
-                <p style={{ fontFamily: 'var(--font-gaegu)', fontSize: 18, color: t.text, lineHeight: 1.5, whiteSpace: 'pre-wrap' }}>
+                <p style={{ fontFamily: t.fontDecorative, fontSize: 18, color: t.text, lineHeight: 1.5, whiteSpace: 'pre-wrap' }}>
                   {title}
                 </p>
               )}
@@ -1470,7 +1470,7 @@ function MomentCardMobile({ moment, expanded, onToggle, onDelete, onUpdateConten
           <div className="min-w-0 flex-1">
             <p
               className="truncate"
-              style={{ fontFamily: 'var(--font-gaegu)', fontSize: 17, color: t.text }}
+              style={{ fontFamily: t.fontDecorative, fontSize: 17, color: t.text }}
             >
               {title}
             </p>

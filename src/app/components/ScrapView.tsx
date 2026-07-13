@@ -212,7 +212,7 @@ function ScrapCard({ scrap, onClick }: { scrap: Scrap; onClick?: () => void }) {
               fontSize: 14,
               lineHeight: 1.3,
               color: t.textSub,
-              fontFamily: 'var(--font-nanum-pen)',
+              fontFamily: t.fontDecoratePen,
               display: '-webkit-box',
               WebkitLineClamp: 2,
               WebkitBoxOrient: 'vertical',
@@ -529,7 +529,7 @@ export function ScrapView() {
           <Bookmark size={16} strokeWidth={2.2} />
           <span
             style={{
-              fontFamily: 'var(--font-nanum-pen)',
+              fontFamily: t.fontDecoratePen,
               fontSize: 22,
               letterSpacing: 0.5,
               lineHeight: 1,

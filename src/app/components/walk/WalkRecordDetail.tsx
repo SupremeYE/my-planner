@@ -85,10 +85,10 @@ export function WalkRecordDetail({ session, onClose, onChanged }: { session: Wal
               <textarea
                 value={memo} onChange={e => setMemo(e.target.value)} autoFocus rows={2}
                 placeholder="메모…"
-                style={{ width: '100%', background: withAlpha(photo ? '#000' : t.bgSub, photo ? 0.25 : 1), borderRadius: 10, border: 'none', outline: 'none', resize: 'none', padding: 8, fontFamily: 'var(--font-nanum-pen)', fontSize: 24, lineHeight: 1.2, color: photo ? '#fff' : t.text }}
+                style={{ width: '100%', background: withAlpha(photo ? '#000' : t.bgSub, photo ? 0.25 : 1), borderRadius: 10, border: 'none', outline: 'none', resize: 'none', padding: 8, fontFamily: t.fontDecoratePen, fontSize: 24, lineHeight: 1.2, color: photo ? '#fff' : t.text }}
               />
             ) : session.memo ? (
-              <p style={{ fontFamily: 'var(--font-nanum-pen)', fontSize: 26, lineHeight: 1.2, color: photo ? '#fff' : t.text, whiteSpace: 'pre-wrap' }}>{session.memo}</p>
+              <p style={{ fontFamily: t.fontDecoratePen, fontSize: 26, lineHeight: 1.2, color: photo ? '#fff' : t.text, whiteSpace: 'pre-wrap' }}>{session.memo}</p>
             ) : null}
           </div>
         </div>

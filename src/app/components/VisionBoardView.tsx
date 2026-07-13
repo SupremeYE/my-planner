@@ -133,7 +133,7 @@ function VisionCard({
           {item.caption ? (
             <p
               style={{
-                fontFamily: 'var(--font-gaegu)',
+                fontFamily: t.fontDecorative,
                 fontWeight: 700,
                 fontSize: 18,
                 color: t.text,
@@ -154,7 +154,7 @@ function VisionCard({
       {hasImage && item.caption && (
         <div
           style={{
-            fontFamily: 'var(--font-gaegu)',
+            fontFamily: t.fontDecorative,
             fontWeight: 700,
             fontSize: 16,
             color: t.text,
@@ -326,7 +326,7 @@ export function VisionBoardView() {
         <div className="flex flex-col">
           <span
             style={{
-              fontFamily: 'var(--font-nanum-pen)',
+              fontFamily: t.fontDecoratePen,
               fontSize: 22,
               color: t.accent,
               letterSpacing: 0.5,
