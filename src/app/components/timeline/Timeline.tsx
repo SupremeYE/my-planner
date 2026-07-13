@@ -27,6 +27,7 @@ import {
 export interface TimelineWeekDay {
   date: string;
   todos: Todo[];
+  events?: Event[];
 }
 interface TimelineProps {
   days?: number;
@@ -1159,6 +1160,46 @@ export function Timeline({ days = 1, selectedDate, dateTodos, dateEvents, onShow
     );
   };
 
+  // 주간(days=7) 전용 이벤트 블록 — 데일리 드래그 좌표 로직과 분리한 경량 버전(탭 → 편집).
+  // 데일리 renderEventBlock 과 동일한 시간→위치 규칙·색상을 쓰되, 각 날짜 PLAN 슬롯 내부(left/right 2px)에 렌더.
+  const renderWeekEventBlock = (evt: Event) => {
+    if (!evt.startTime || !evt.endTime) return null;
+    const startMin = timeToMinutes(evt.startTime);
+    const endMin = timeToMinutes(evt.endTime);
+    const top = (startMin / 60 - tlStartHour) * HOUR_HEIGHT;
+    const height = Math.max((endMin - startMin) * PX_PER_MIN, 16);
+    const eventColor = evt.color || '#7B9ED9';
+    const isDone = !!evt.completed;
+    const isPast = !isDone && isEventPast(evt);
+    return (
+      <button
+        key={`wk-ev-${evt.id}`}
+        type="button"
+        className="timeline-block"
+        onPointerDown={(e) => e.stopPropagation()}
+        onClick={() => window.dispatchEvent(new CustomEvent('editEvent', { detail: evt }))}
+        style={{
+          position: 'absolute', top, height, left: 2, right: 2,
+          backgroundColor: `${eventColor}24`,
+          border: `1.5px solid ${eventColor}`,
+          borderRadius: 8, padding: '2px 4px', zIndex: 2,
+          cursor: 'pointer', textAlign: 'left', overflow: 'hidden',
+          opacity: isDone ? 0.5 : (isPast ? 0.7 : 1),
+        }}
+        title={`${evt.title}\n${evt.startTime} - ${evt.endTime}`}
+      >
+        <div style={{ fontSize: 10, fontWeight: 700, color: eventColor, lineHeight: 1.3, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', textDecoration: isDone ? 'line-through' : 'none' }}>
+          📅 {evt.title}
+        </div>
+        {height >= 28 && (
+          <div style={{ fontSize: 9, fontWeight: 600, color: eventColor, opacity: 0.8, lineHeight: 1.3, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+            {evt.startTime} - {evt.endTime}
+          </div>
+        )}
+      </button>
+    );
+  };
+
   // Timer block
   const renderTimerBlock = () => {
     if (!activeTimer) return null;
@@ -1404,6 +1445,7 @@ export function Timeline({ days = 1, selectedDate, dateTodos, dateEvents, onShow
                         onPointerMove={handleWeekCreateMove}
                         onPointerUp={handleWeekCreateUp}>
                         {planTodos.map(td => renderBlock(td, 'plan', SLOT_PAD))}
+                        {(wd.events ?? []).map(evt => renderWeekEventBlock(evt))}
                       </div>
                       {/* DO 슬롯 (수면 = 탭 편집) */}
                       <div style={{ position: 'relative' }}

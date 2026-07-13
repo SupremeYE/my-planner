@@ -436,9 +436,11 @@ export function CalendarView() {
       return {
         date: dateStr,
         todos: expanded.filter(td => td.date === dateStr && td.status !== 'backlog' && td.status !== 'cancelled'),
+        // 일간 PLAN 과 동일 소스(events)를 날짜별로 전달 → 주별 타임라인에도 시간 지정 일정 렌더
+        events: events.filter(ev => ev.date === dateStr),
       };
     });
-  }, [viewDate, weekStartsOn, todos]);
+  }, [viewDate, weekStartsOn, todos, events]);
 
   // 모바일 주간 = 일자 탭 전환 → 선택일의 todos/events 를 일간 Timeline(days=1) 에 전달
   const selectedDayTodos = weekDaysData.find(d => d.date === selectedDate)?.todos ?? [];
