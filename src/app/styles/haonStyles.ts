@@ -114,3 +114,56 @@ export function buttonStyle(
       return { ...base, background: t.danger, color: '#FFFFFF' };
   }
 }
+
+// ─── 추가 액션 패턴 (Context add-action — DESIGN.md §5 "Context add-action") ───
+// "한 매핑, 두 렌더링": 페이지→주 추가 액션은 단일 소스, 렌더는 모바일 FAB / PC 헤더 "+ 추가" 두 갈래.
+// 아래는 "성격 다른 다종 기록"을 고르는 chooser 표면 recipe(정적 스타일만) — 모바일 바텀시트 /
+// PC 팝오버 / 딤 배경. 시트·팝오버는 오버레이라 글래스 허용(§1); 비-H(A/B/C/D)는 솔리드 폴백.
+// ⚠️ 소비처는 아직 없다(정의만; 배치는 Stage 2, 페이지별 분기 연결은 Stage 3).
+// 헤더 "+ 추가" 버튼은 buttonStyle(t, 'ghost')(accentLight/accent pill)을 재사용 — 새 버튼 헬퍼 없음.
+
+// 모바일 바텀시트/팝오버 뒤 딤 배경 — 오버레이 뒤 콘텐츠를 어둡게. 전 테마 공통(색 토큰 무관).
+export function sheetBackdropStyle(): CSSProperties {
+  return { background: 'rgba(46,42,91,0.32)' };
+}
+
+// 모바일 바텀시트 컨테이너 — 상단만 라운드 + 드래그 핸들 영역, 하단 고정. 오버레이 글래스(§1).
+export function bottomSheetStyle(t: ThemeTokens): CSSProperties {
+  if (isHaon(t)) {
+    return {
+      background: t.cardFrosted ?? 'rgba(255,255,255,0.92)',
+      backdropFilter: t.glassBlur,
+      WebkitBackdropFilter: t.glassBlur,
+      borderTop: '1px solid rgba(255,255,255,0.6)',
+      borderTopLeftRadius: 24,
+      borderTopRightRadius: 24,
+      boxShadow: '0 -8px 24px rgba(120,90,160,0.16)',
+    };
+  }
+  return {
+    backgroundColor: t.bgSub,
+    borderTop: `1px solid ${t.border}`,
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+  };
+}
+
+// PC "+ 추가" 팝오버(다종 항목 chooser) — 헤더 버튼 아래 앵커, 오버레이 글래스(§1).
+export function addPopoverStyle(t: ThemeTokens): CSSProperties {
+  if (isHaon(t)) {
+    return {
+      background: t.cardFrosted ?? 'rgba(255,255,255,0.92)',
+      backdropFilter: t.glassBlur,
+      WebkitBackdropFilter: t.glassBlur,
+      border: '1px solid rgba(255,255,255,0.6)',
+      borderRadius: 16,
+      boxShadow: '0 8px 24px rgba(120,90,160,0.14)',
+    };
+  }
+  return {
+    backgroundColor: t.bgSub,
+    border: `1px solid ${t.border}`,
+    borderRadius: 14,
+    boxShadow: '0 8px 24px rgba(0,0,0,0.10)',
+  };
+}

@@ -280,6 +280,52 @@ an inline CSS var). Pulse spec: `box-shadow` ring `0 0 0 0` → `0 0 0 4px`, ~1.
 ease-in-out, infinite. **`prefers-reduced-motion: reduce` → animation off, replaced by
 a static `0 0 0 3px` ring.** Implemented as `.haon-type-pulse` in `haon.css`.
 
+### Context add-action (추가 액션 — 한 매핑, 두 렌더링)
+
+**One mapping, two renderings.** Each page has exactly ONE primary add affordance, and its
+action follows the page's **primary entity** — a single source mapping (page → add-action), not
+a per-surface guess. That one mapping renders two ways by breakpoint:
+- **Mobile** — the floating **FAB** (§5 FAB; `fixed`, coral). Retained as-is.
+- **Desktop (`lg:`)** — **no floating FAB.** A **"+ 추가" button in the content-column header**
+  (title row, right slot), anchored INSIDE the content column so it never overlaps the 대시보드
+  right rail in either the expanded (288px) or collapsed (64px) state (resolves ⑨c — the old FAB
+  was `lg:absolute` with no positioned ancestor, so it anchored to the viewport and drew over the
+  rail). **Scope: Theme H only, `lg:` only. Non-H themes (A/B/C/D) and mobile render unchanged.**
+
+**Three add-action shapes** (pick per page from the mapping):
+1. **바로 (direct)** — a single add action of ONE kind → open the add modal / sheet / inline form
+   immediately, no chooser. Most pages (scrap, vision, projects, food, mood, books, …).
+2. **바텀시트 / 팝오버 (chooser)** — several records of DIFFERENT kinds under one entry point →
+   present the options. Mobile = bottom sheet (slide-up); desktop = a small popover/dropdown
+   anchored under the header "+ 추가". Only for genuinely multi-kind record pages — currently
+   **/health** (수면·컨디션·몸무게·생리·운동 "기록" actions only; setting-type items like 목표 are
+   NOT put in the sheet).
+3. **던지기입력 (throw-in)** — free-text capture → focus **QuickAddInput** directly (prefix parse
+   `일정 ` / `할일 `, §5 Quick-capture chip; parser in `src/lib/quickParse.ts`). For /daily,
+   /calendar, /todos — reuses the existing parse logic, no new branch.
+
+**Page → shape mapping (single source of truth).** daily·calendar·todos = 던지기입력 / health =
+바텀시트 (기록 액션만) / scrap·vision·projects·habits·food·mood·books·culture·recipes·places·selfcare
+= 바로. Pages that today fall back to the generic 할일 throw-in because they registered no FabAction
+(health, reviews, moments, diary, walk, goals) must register their OWN primary-entity action so the
+affordance matches the page (health→기록 시트, reviews/moments/diary→바로 작성, walk→산책 시작,
+goals→인라인). Register a page's shape here before wiring it.
+
+**Bottom sheet spec (mobile chooser).** Slide-up from the bottom, **ease-out**, with a **backdrop
+dim** behind; the FAB "+" **rotates to "×"** while open (tap-out or × dismisses). Surface = overlay
+(glass allowed, §1) with a top drag handle and top-rounded corners. Options are "기록" actions only.
+
+**Collapsed-rail icons.** With the desktop FAB moved into the header, the 대시보드 collapsed-rail
+placeholder icons use **muted tokens** (`t.textMuted` on `t.accentSoft`), not `t.accent`/coral —
+they are passive nav hints, not actions (⑨b; coral stays reserved for accent / FAB / selected-day,
+§3). The interactive rail toggle button keeps a subtle neutral fill (`t.bgSub` / `t.textSub`).
+
+**haonStyles helpers (register before build; definitions only — no consumers yet).**
+`bottomSheetStyle` (mobile sheet surface), `sheetBackdropStyle` (dim backdrop), `addPopoverStyle`
+(desktop "+ 추가" popover). The header "+ 추가" button reuses `buttonStyle(t, 'ghost')`
+(accentLight/accent pill) — no new button helper. Placement (Stage 2) and per-page branching
+(Stage 3) land later.
+
 ---
 
 ## 6. 캘린더 페이지 (page-specific patterns)
