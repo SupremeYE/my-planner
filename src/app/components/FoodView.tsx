@@ -516,9 +516,23 @@ function CalendarTab({
         <button onClick={() => setViewMonth(m => subMonths(m, 1))} className="p-2">
           <ChevronLeft size={18} color={t.textSub} />
         </button>
-        <span style={{ fontSize: 15, fontWeight: 700, color: t.text }}>
-          {format(viewMonth, 'yyyy년 M월')}
-        </span>
+        <div className="flex items-center gap-2">
+          <span style={{ fontSize: 15, fontWeight: 700, color: t.text }}>
+            {format(viewMonth, 'yyyy년 M월')}
+          </span>
+          {!(selectedDate && isToday(selectedDate)) && (
+            <button
+              onClick={() => {
+                const today = new Date();
+                setViewMonth(today);
+                setSelectedDate(today);
+              }}
+              className="px-2.5 py-1 rounded-full"
+              style={{ backgroundColor: t.accentLight, color: t.accent, fontSize: 11, fontWeight: 600 }}>
+              오늘
+            </button>
+          )}
+        </div>
         <button onClick={() => setViewMonth(m => addMonths(m, 1))} className="p-2">
           <ChevronRight size={18} color={t.textSub} />
         </button>
