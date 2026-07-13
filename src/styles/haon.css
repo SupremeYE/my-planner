@@ -168,6 +168,60 @@
   box-shadow: var(--shadow-button-colored);
 }
 
+/* ── 공통 버튼 상호작용 상태 (DESIGN §5 :242) — HaonButton 이 소비 ──
+   정적 스타일(색·radius·weight)은 buttonStyle(t,variant) recipe(haonStyles)가,
+   상호작용(hover/pressed/focus/disabled)은 아래 클래스가 담당한다. 버튼별 rest 그림자는
+   인라인 CSS 변수(--haon-btn-rest-shadow)로 주입 → 색 하드코딩 없음. 코랄 포커스 링은
+   §5 가 명시한 고정 상수(rgba(255,111,145,0.25)). */
+.haon-btn {
+  box-shadow: var(--haon-btn-rest-shadow, none);
+  transition: box-shadow 0.15s ease, transform 0.12s ease, opacity 0.15s ease;
+  outline: none;
+}
+.haon-btn:hover:not(:disabled) {
+  box-shadow: 0 8px 20px rgba(120, 90, 160, 0.2);
+}
+.haon-btn:active:not(:disabled) {
+  transform: scale(0.98);
+}
+.haon-btn:focus-visible {
+  box-shadow: 0 0 0 3px rgba(255, 111, 145, 0.25);
+}
+.haon-btn:disabled {
+  opacity: 0.5;
+  box-shadow: none;
+  cursor: not-allowed;
+}
+
+/* 로딩 스피너 (leftIcon 대체) — currentColor 상속(버튼 텍스트색과 동일) */
+@keyframes haon-btn-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+.haon-btn-spinner {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  border: 2px solid currentColor;
+  border-top-color: transparent;
+  opacity: 0.85;
+  animation: haon-btn-spin 0.7s linear infinite;
+}
+
+/* ── 세그먼트 컨트롤 상호작용 (DESIGN §5 / §6.1) — SegmentedControl 이 소비 ──
+   활성 pill 의 흰 배경·그림자·언더라인은 컴포넌트가, pressed/focus 는 아래 클래스가 담당. */
+.haon-seg {
+  transition: background 0.15s ease, color 0.15s ease, transform 0.12s ease;
+  outline: none;
+}
+.haon-seg:active:not(:disabled) {
+  transform: scale(0.98);
+}
+.haon-seg:focus-visible {
+  box-shadow: 0 0 0 3px rgba(255, 111, 145, 0.25);
+}
+
 /* 퀵캡처 타입 칩 — 스마트 강조 펄스 (DESIGN §5).
    시간이 감지됐고 타입이 기본(할일)이며 수동 탭·프리픽스 선택이 없을 때만,
    "일정으로 바꿀 수 있다"는 어포던스로 코랄 링이 은은히 맥동한다. 힌트 텍스트·자동 전환 없음.
