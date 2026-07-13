@@ -1160,35 +1160,42 @@ export function Timeline({ days = 1, selectedDate, dateTodos, dateEvents, onShow
     );
   };
 
-  // 주간(days=7) 전용 이벤트 블록 — 데일리 드래그 좌표 로직과 분리한 경량 버전(탭 → 편집).
-  // 데일리 renderEventBlock 과 동일한 시간→위치 규칙·색상을 쓰되, 각 날짜 PLAN 슬롯 내부(left/right 2px)에 렌더.
-  const renderWeekEventBlock = (evt: Event) => {
+  // 경량 이벤트 블록 — 데일리 드래그 좌표 로직과 분리(탭 → 편집). 주어진 레인 좌표(bounds) 안에 렌더.
+  //  · 주간(days=7): 각 날짜 PLAN/DO 슬롯 내부(left/right 2px)
+  //  · 데일리 DO 레인: 완료 일정 미러용 (getTimelineLaneBounds('do'))
+  // lane='do' 면 "완료 표시"이므로 done 스타일(취소선·감쇠) 강제.
+  const renderLiteEventBlock = (
+    evt: Event,
+    bounds: { left: number | string; right: number | string },
+    lane: 'plan' | 'do',
+  ) => {
     if (!evt.startTime || !evt.endTime) return null;
     const startMin = timeToMinutes(evt.startTime);
     const endMin = timeToMinutes(evt.endTime);
     const top = (startMin / 60 - tlStartHour) * HOUR_HEIGHT;
     const height = Math.max((endMin - startMin) * PX_PER_MIN, 16);
     const eventColor = evt.color || '#7B9ED9';
+    const isDoLane = lane === 'do';
     const isDone = !!evt.completed;
     const isPast = !isDone && isEventPast(evt);
     return (
       <button
-        key={`wk-ev-${evt.id}`}
+        key={`lite-ev-${lane}-${evt.id}`}
         type="button"
         className="timeline-block"
         onPointerDown={(e) => e.stopPropagation()}
         onClick={() => window.dispatchEvent(new CustomEvent('editEvent', { detail: evt }))}
         style={{
-          position: 'absolute', top, height, left: 2, right: 2,
+          position: 'absolute', top, height, left: bounds.left, right: bounds.right,
           backgroundColor: `${eventColor}24`,
           border: `1.5px solid ${eventColor}`,
           borderRadius: 8, padding: '2px 4px', zIndex: 2,
           cursor: 'pointer', textAlign: 'left', overflow: 'hidden',
-          opacity: isDone ? 0.5 : (isPast ? 0.7 : 1),
+          opacity: (isDone || isDoLane) ? 0.5 : (isPast ? 0.7 : 1),
         }}
         title={`${evt.title}\n${evt.startTime} - ${evt.endTime}`}
       >
-        <div style={{ fontSize: 10, fontWeight: 700, color: eventColor, lineHeight: 1.3, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', textDecoration: isDone ? 'line-through' : 'none' }}>
+        <div style={{ fontSize: 10, fontWeight: 700, color: eventColor, lineHeight: 1.3, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', textDecoration: (isDone || isDoLane) ? 'line-through' : 'none' }}>
           📅 {evt.title}
         </div>
         {height >= 28 && (
@@ -1445,7 +1452,7 @@ export function Timeline({ days = 1, selectedDate, dateTodos, dateEvents, onShow
                         onPointerMove={handleWeekCreateMove}
                         onPointerUp={handleWeekCreateUp}>
                         {planTodos.map(td => renderBlock(td, 'plan', SLOT_PAD))}
-                        {(wd.events ?? []).map(evt => renderWeekEventBlock(evt))}
+                        {(wd.events ?? []).map(evt => renderLiteEventBlock(evt, SLOT_PAD, 'plan'))}
                       </div>
                       {/* DO 슬롯 (수면 = 탭 편집) */}
                       <div style={{ position: 'relative' }}
@@ -1469,6 +1476,7 @@ export function Timeline({ days = 1, selectedDate, dateTodos, dateEvents, onShow
                           );
                         })}
                         {doTodos.map(td => renderBlock(td, 'do', SLOT_PAD))}
+                        {(wd.events ?? []).filter(ev => ev.completed).map(evt => renderLiteEventBlock(evt, SLOT_PAD, 'do'))}
                       </div>
                     </div>
                     {/* 현재 시각선 (오늘 컬럼) */}
@@ -1658,6 +1666,13 @@ export function Timeline({ days = 1, selectedDate, dateTodos, dateEvents, onShow
           {/* Blocks container */}
           <div className="absolute" style={{ left: TIMELINE_CONTENT_LEFT, right: 0, top: 0, bottom: 0 }}>
             {dateEvents.map(evt => renderEventBlock(evt))}
+            {/* 완료 일정 미러 — 할일과 동일하게 PLAN(위 renderEventBlock, 흐림) 은 유지하고 DO 레인에도 렌더 */}
+            {(() => {
+              const doBounds = getTimelineLaneBounds('do');
+              return doBounds
+                ? dateEvents.filter(ev => ev.completed).map(evt => renderLiteEventBlock(evt, doBounds, 'do'))
+                : null;
+            })()}
             {planTodos.map(todo => renderBlock(todo, 'plan'))}
             {doTodos.map(todo => renderBlock(todo, 'do'))}
             {renderTimerBlock()}
