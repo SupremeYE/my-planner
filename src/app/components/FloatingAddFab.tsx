@@ -312,8 +312,9 @@ export function FloatingAddFab({
         </button>
 
         {/* Theme H 데스크톱: 콘텐츠 헤더 우측 "+ 추가" pill (hidden lg:flex). 원형 FAB 대체.
-            클릭 동작은 원형 FAB 와 동일(runPrimary) — action=바로 실행 / quick=팝오버 토글. */}
-        {headerMode && (
+            클릭 동작은 원형 FAB 와 동일(runPrimary). 단, 일반 "빠른 입력"(kind:'quick'/미등록
+            폴백)에는 pill 을 띄우지 않는다 — 페이지 고유 추가 액션(kind:'action')일 때만 표시. */}
+        {headerMode && effective.kind === 'action' && (
           <button
             type="button"
             onClick={handleClick}
