@@ -194,3 +194,78 @@ export function addPopoverStyle(t: ThemeTokens): CSSProperties {
     boxShadow: '0 8px 24px rgba(0,0,0,0.10)',
   };
 }
+
+// ─── 진행중 상태 + 자동 캐리오버 패턴 (DESIGN.md §5 — "In-progress state & auto carry-over") ───
+// 축1(상태): 안시작(active)→진행중(inProgress)→완료(done) 3값 status. 진행중 시맨틱색 = t.success(민트).
+// 축2(이월): 미완 진행중을 다음 날 "이어서 하기" 섹션으로 자동 캐리오버(밀림/overdue 아님).
+// 전 축 토큰만: 진행중=t.success, 완료=t.checkDone, 안시작=t.accent/중립, DO 채움=blockDefault* hue.
+// 기존 STATUS_CONFIG 하드코딩(#059669/#D1FAE5)은 이 recipe 로 회수 대상.
+// ⚠️ 소비처는 아직 없다(정의만). 상태 배관은 Stage 2, 이월 배관은 Stage 3.
+export type TodoProgressState = 'active' | 'inProgress' | 'done';
+
+// 3상태 체크박스(원형 표면) — 안시작=빈 원(accent 링) / 진행중=success 링+틴트 / 완료=solid 채움.
+// 아이콘(Play/Check)은 소비처가 렌더한다 — 여기선 원형 컨테이너의 border/background 만 제공.
+// accentColor 미전달 시 t.accent 사용(핵심 행 등에서 코랄 링을 주고 싶으면 넘긴다).
+export function progressCheckboxStyle(
+  t: ThemeTokens,
+  state: TodoProgressState,
+  accentColor: string = t.accent,
+): CSSProperties {
+  if (state === 'done') {
+    return { border: 'none', backgroundColor: t.checkDone };
+  }
+  if (state === 'inProgress') {
+    return { border: `2px solid ${t.success}60`, backgroundColor: `${t.success}12` };
+  }
+  return { border: `2px solid ${accentColor}60`, backgroundColor: 'transparent' };
+}
+
+// "진행중" 뱃지 — 작은 pill. success 옅은 틴트 배경 + 진한 success 텍스트(민트 시블링).
+// 상태 pill(예정/완료)과 같은 크기·톤 계열. 폰트 크기·패딩은 소비처(§5 status pill)에서.
+export function progressBadgeStyle(t: ThemeTokens): CSSProperties {
+  return {
+    backgroundColor: mixHex(t.success, 255, 0.84),
+    color: mixHex(t.success, 0, 0.28),
+  };
+}
+
+// "N일째" 카운터 — 조용한 표시. 1~2일=무강조(textMuted), 3일 이상=슬쩍 강조(success 텍스트).
+// 반환은 색·굵기만; "N일째" 문구 조립과 접기(collapse)는 소비처(Stage 3).
+export function daysInProgressStyle(t: ThemeTokens, days: number): CSSProperties {
+  const emphasize = days >= 3;
+  return {
+    color: emphasize ? mixHex(t.success, 0, 0.28) : t.textMuted,
+    fontWeight: emphasize ? 600 : 500,
+  };
+}
+
+// "이어서 하기" 섹션 컨테이너 — 어제 이전 미완 진행중을 모으는 별도 섹션.
+// 진행중 톤(민트) 옅은 배경+테두리로 KEY 행(코랄)·overdue(밀림)와 구분. 방치 아님·진행중 신호.
+export function carryoverSectionStyle(t: ThemeTokens): CSSProperties {
+  if (isHaon(t)) {
+    return {
+      background: mixHex(t.success, 255, 0.9),
+      border: `1px solid ${t.success}59`,
+      borderRadius: t.solidCardRadius ?? 20,
+    };
+  }
+  return { backgroundColor: t.bgSub, border: `1px solid ${t.border}` };
+}
+
+// DO 타임블록 채움 — 진행중(타이머 추적)=연한 채움(hue 를 투명과 ~45% 섞음), 완료=꽉 참(hue 풀 채움).
+// baseColor: 태그색(hex) 또는 blockDefaultBg(rgba) 등 블록 hue. color-mix 로 포맷(hex/rgba) 무관 처리.
+// 시간 없는 수동 진행중은 애초에 DO 에 넣지 않으므로(소비처가 doStart/doEnd 로 게이팅) 여기 대상 아님.
+export function doBlockFillStyle(
+  t: ThemeTokens,
+  opts: { done: boolean; baseColor: string },
+): CSSProperties {
+  const { done, baseColor } = opts;
+  if (done) {
+    return { background: baseColor };
+  }
+  // 연한 채움: 진행중 블록은 절반 정도의 투명 채움으로 "아직 진행 중" 느낌. 테두리는 hue 유지.
+  return {
+    background: `color-mix(in srgb, ${baseColor} 45%, transparent)`,
+    border: `1px solid ${baseColor}`,
+  };
+}

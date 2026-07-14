@@ -92,6 +92,23 @@ timeline:
   block-text: "#4A3E6B"
   block-border-emphasis: "give blocks a slightly stronger border so they read against the light grid"
   now-line: "#FF9A8B"
+  # DO block fill by status: 진행중(타이머 추적) = light fill; 완료 = solid fill.
+  do-fill-in-progress: "light fill (color-mix ~45% of block hue with transparent)"
+  do-fill-done: "solid fill (block hue at full)"
+
+in-progress:
+  # 진행중은 새 색이 아니라 success(민트) 시맨틱 재사용. 완료(파랑/코랄)·안시작(중립)과 구분.
+  semantic-color: success        # = t.success (민트). NOT a new hue.
+  # 3상태 체크박스 — 짧은 탭=완료 유지(오작동 방지); 진행중은 롱프레스 상태 시트로 진입(Stage 2).
+  checkbox:
+    todo:       "빈 원 — hairline ring (accent 60% alpha), 투명 채움"
+    in-progress: "success 링(60% alpha) + success 12% 틴트 채움 + Play 글리프"
+    done:       "solid t.checkDone 채움 + 흰 체크(√), 테두리 없음"
+  badge: { bg: "success ~12% 틴트", text: "darker success sibling", label: "진행중" }
+  # "N일째" 조용한 표시. 1~2일=중립, 3일 이상=슬쩍 강조 + 오래된 건 접기.
+  days-counter: { normal: "text-muted (1-2일)", emphasis: "success (>=3일)" }
+  # 미완 진행중 자동 캐리오버 — 다음 날 목록 상단 "이어서 하기" 섹션. 밀림/overdue 아님(진행중 톤).
+  carry-over-section: { bg: "success ~10% 틴트", border: "success ~35% alpha", tone: mint, heading: "이어서 하기" }
 
 breakpoints: { mobile: "<768px", desktop: "lg (>=1024px)" }
 ---
@@ -345,6 +362,40 @@ they are passive nav hints, not actions (⑨b; coral stays reserved for accent /
 - **토큰만** — 링·체크·바·버튼 전부 `t.accent` / `t.danger` / `t.border` / `t.accentLight`
   토큰. off-palette 하드코딩 색 금지(§5).
 - **v1 범위** — 일괄 **삭제**만. 오늘로 이동·상태 일괄 변경 등은 후속 Stage.
+
+### In-progress state & auto carry-over (진행중 상태 + 자동 캐리오버)
+
+할일의 **상태(안시작 → 진행중 → 완료)**를 하나의 축으로 명시하고, 미완 진행중을 다음 날
+"이어서 하기" 섹션으로 자동 이월하는 공통 패턴. **Scope: Theme H 전용, 토큰만.** 비-H(A/B/C/D)는
+영향 없음. (상태 배관은 Stage 2, 이월 배관은 Stage 3 — 여기선 시각 패턴만 등록.)
+
+- **두 개의 독립 축** — ① 상태(source of truth): `status ∈ {active(안시작), inProgress(진행중),
+  done(완료)}`. 타이머와 분리("타이머 시작 → 진행중으로 만든다"는 one-way; 정지/일시정지는 진행중
+  유지). ② 이월: 미완 진행중은 자정 넘기면 다음 날 "이어서 하기"에 자동 등장(밀림 아님).
+- **진행중 시맨틱색 = `t.success`(민트)** — 새 색을 만들지 않는다. 완료(파랑/코랄 계열
+  `t.checkDone`/`t.accent`)·안시작(중립)과 색으로 구분. off-palette 하드코딩 색 금지(§5). 기존
+  `STATUS_CONFIG` 하드코딩(`#059669`/`#D1FAE5`)은 이 토큰 recipe 로 회수 대상.
+- **3상태 체크박스** — 원형 leading 컨트롤. **안시작** = 빈 원(hairline `t.accent` 60% 링).
+  **진행중** = `t.success` 60% 링 + `t.success` 12% 틴트 채움 + 가운데 `Play` 글리프.
+  **완료** = solid `t.checkDone` 채움 + 흰 체크(√), 테두리 없음. `progressCheckboxStyle(t, state)`
+  가 원형 표면 스타일만 제공(아이콘 Play/Check 렌더는 소비처). **짧은 탭 = 완료 토글**(기존 동작
+  보존, 오작동 방지); 수동 "진행중" 지정은 **체크박스 롱프레스 → 상태 시트**로 진입(Stage 2).
+- **"진행중" 뱃지** — 작은 pill. `t.success` ~12% 틴트 배경 + darker-success 텍스트.
+  `progressBadgeStyle(t)`. 상태 pill(예정/완료)과 동일 크기·톤 계열.
+- **"N일째" 카운터** — 진행 시작일 기준 누적 일수를 **조용히** 표시. 1~2일 = `t.textMuted`(무강조),
+  **3일 이상 = `t.success` 로 슬쩍 강조**. `daysInProgressStyle(t, days)`. 오래된 건 접기(collapse)
+  는 소비처 로직(Stage 3).
+- **"이어서 하기" 섹션** — 오늘 목록 상단, 어제 이전의 미완 진행중을 모으는 별도 섹션. **진행중
+  톤(민트)** 옅은 배경 + 테두리로 KEY 행(코랄)·overdue(밀림)와 시각적으로 구분. 방치가 아니라
+  진행중이라는 신호. `carryoverSectionStyle(t)`. heading = "이어서 하기".
+- **DO 타임블록 채움 (진행중 vs 완료)** — 타이머로 추적된 **진행중** 블록 = **연한 채움**(블록 hue
+  를 투명과 ~45% color-mix), **완료** 블록 = **꽉 참**(hue 풀 채움, 기존 동작). `doBlockFillStyle(t,
+  { done, baseColor })`. **시간 없는 수동 진행중은 DO 에 넣지 않는다**(할일에 뱃지만) — 소비처가
+  `doStart/doEnd` 유무로 이미 게이팅(Timeline `doTodos` 필터). 진행중 뱃지·N일째·연한채움은
+  `blockDefault*` / `t.success` 토큰만 사용.
+- **토큰만** — 위 전부 `t.success` / `t.checkDone` / `t.accent` / `t.textMuted` / `blockDefault*`
+  토큰. `progressCheckboxStyle` · `progressBadgeStyle` · `daysInProgressStyle` ·
+  `carryoverSectionStyle` · `doBlockFillStyle` 를 `haonStyles.ts` 에 **정의만** 등록(소비처 없음).
 
 ---
 
