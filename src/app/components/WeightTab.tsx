@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { format, subDays, subYears, parseISO } from 'date-fns';
+import { format, subDays, parseISO } from 'date-fns';
 import { Trash2, Plus, X } from 'lucide-react';
 import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine,
@@ -8,20 +8,15 @@ import { useTheme } from '../ThemeContext';
 import { db } from '../../lib/db';
 import { useRealtimeSync } from '../hooks/useRealtimeSync';
 import type { WeightRecord, WeightGoal, WeightSlot } from '../store';
-import { getLogicalToday } from '../store';
+import { getLogicalToday, usePlanner } from '../store';
+import { PeriodNavigator } from './ui/PeriodNavigator';
+import { getPeriodRange, type PeriodUnit } from '../lib/periodNav';
 import ConfirmModal from './ConfirmModal';
 
 // 차트 라인 색상 (디자인 시스템: 골드/코랄/그린)
 const COLOR_WEIGHT = '#C4A882';   // 골드
 const COLOR_FAT = '#D4735A';      // 코랄
 const COLOR_MUSCLE = '#6BAA7A';   // 그린
-
-type RangeKey = '7d' | '30d' | '1y';
-const RANGES: { key: RangeKey; label: string; days: number }[] = [
-  { key: '7d', label: '7일', days: 7 },
-  { key: '30d', label: '30일', days: 30 },
-  { key: '1y', label: '1년', days: 365 },
-];
 
 // 기록 시간대 토글 — 하루에 아침/저녁/기타 공존 (DB: UNIQUE(date, slot))
 const SLOTS: WeightSlot[] = ['아침', '저녁', '기타'];
@@ -112,6 +107,8 @@ function GoalModal({ initial, onClose, onSave }: {
 
 export function WeightTab() {
   const { t } = useTheme();
+  const { appSettings } = usePlanner();
+  const weekStartsOn = appSettings.weekStartsOn ?? 1;
 
   const [records, setRecords] = useState<WeightRecord[]>([]);
   const [goal, setGoal] = useState<WeightGoal | null>(null);
@@ -128,7 +125,9 @@ export function WeightTab() {
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [showGoalModal, setShowGoalModal] = useState(false);
 
-  const [range, setRange] = useState<RangeKey>('30d');
+  // 기간 네비게이터 — 롤링(7/30/1년) 대체. 기본 '월'/현재 기간.
+  const [unit, setUnit] = useState<PeriodUnit>('월');
+  const [offset, setOffset] = useState(0);
   const [showFat, setShowFat] = useState(false);
   const [showMuscle, setShowMuscle] = useState(false);
   const [listLimit, setListLimit] = useState(10);
@@ -201,15 +200,21 @@ export function WeightTab() {
   const change7 = changeFrom(7);
   const change30 = changeFrom(30);
 
-  // 선택 기간 내 최저/최고
-  const rangeDays = RANGES.find(r => r.key === range)!.days;
-  const rangeCutoff = format(subDays(new Date(), rangeDays - 1), 'yyyy-MM-dd');
-  const rangeRecords = useMemo(
-    () => sorted.filter(r => r.date >= rangeCutoff),
-    [sorted, rangeCutoff],
+  // 기간 네비게이터 — 현재 unit/offset 의 달력 경계 기간(주/월/년)
+  const period = useMemo(
+    () => getPeriodRange(unit, offset, { weekStartsOn }),
+    [unit, offset, weekStartsOn],
   );
-  const minW = rangeRecords.length ? Math.min(...rangeRecords.map(r => r.weight)) : null;
-  const maxW = rangeRecords.length ? Math.max(...rangeRecords.map(r => r.weight)) : null;
+  // 첫 기록(오름차순 첫 날) — 네비게이터 과거 이동 정지 기준
+  const firstRecordDate = sorted.length ? sorted[sorted.length - 1].date : null;
+
+  // 선택 기간 내 최저/최고
+  const periodRecords = useMemo(
+    () => sorted.filter(r => r.date >= period.start && r.date <= period.end),
+    [sorted, period.start, period.end],
+  );
+  const minW = periodRecords.length ? Math.min(...periodRecords.map(r => r.weight)) : null;
+  const maxW = periodRecords.length ? Math.max(...periodRecords.map(r => r.weight)) : null;
 
   // ── 진행률 ──
   const progress = useMemo(() => {
@@ -220,22 +225,32 @@ export function WeightTab() {
     return Math.max(0, Math.min(100, Math.round(raw)));
   }, [goal, latest]);
 
-  // ── 차트 데이터 (오래된→최신, 오름차순) ──
-  const chartCutoff = range === '1y'
-    ? format(subYears(new Date(), 1), 'yyyy-MM-dd')
-    : format(subDays(new Date(), rangeDays - 1), 'yyyy-MM-dd');
-  const chartData = useMemo(() =>
-    [...records]
-      .filter(r => r.date >= chartCutoff)
-      .sort((a, b) => a.date.localeCompare(b.date))
-      .map(r => ({
-        date: r.date.slice(5), // MM-dd
-        weight: r.weight,
-        bodyFat: r.bodyFat ?? null,
-        muscleMass: r.muscleMass ?? null,
-      })),
-    [records, chartCutoff],
-  );
+  // ── 차트 데이터 (기간 창 안, 오름차순) ──
+  // 주/월=일별, 년=월별. 하루/한 달 안 여러 기록(아침·저녁·기타)은 평균해 단일 라인으로 표시.
+  // (아침/저녁 겹쳐보기 + 갭 밴드는 Stage 4에서 이 부분을 교체)
+  const chartData = useMemo(() => {
+    const inPeriod = records.filter(r => r.date >= period.start && r.date <= period.end);
+    const groups = new Map<string, WeightRecord[]>();
+    for (const r of inPeriod) {
+      const key = unit === '년' ? r.date.slice(0, 7) : r.date; // 년=YYYY-MM, else YYYY-MM-DD
+      const g = groups.get(key);
+      if (g) g.push(r); else groups.set(key, [r]);
+    }
+    const mean = (ns: number[]) => ns.reduce((s, n) => s + n, 0) / ns.length;
+    const round1 = (n: number) => Math.round(n * 10) / 10;
+    return [...groups.entries()]
+      .sort((a, b) => a[0].localeCompare(b[0]))
+      .map(([key, recs]) => {
+        const fats = recs.map(r => r.bodyFat).filter((v): v is number => v != null);
+        const muscles = recs.map(r => r.muscleMass).filter((v): v is number => v != null);
+        return {
+          date: unit === '년' ? `${parseInt(key.slice(5), 10)}월` : key.slice(5),
+          weight: round1(mean(recs.map(r => r.weight))),
+          bodyFat: fats.length ? round1(mean(fats)) : null,
+          muscleMass: muscles.length ? round1(mean(muscles)) : null,
+        };
+      });
+  }, [records, period.start, period.end, unit]);
 
   const visibleRecords = sorted.slice(0, listLimit);
 
@@ -379,25 +394,23 @@ export function WeightTab() {
         {statCard('7일 전 대비', fmtChange(change7), changeColor(change7))}
         {statCard('30일 전 대비', fmtChange(change30), changeColor(change30))}
         {statCard(
-          `최저·최고 (${RANGES.find(r => r.key === range)!.label})`,
+          `최저·최고 (${unit})`,
           minW != null && maxW != null ? `${minW} / ${maxW}` : '—',
         )}
       </div>
 
       {/* (D) 추이 차트 */}
       <div className="p-4 rounded-2xl" style={{ backgroundColor: t.card, border: `1px solid ${t.border}` }}>
-        {/* 기간 토글 */}
-        <div className="flex gap-1.5 mb-3">
-          {RANGES.map(r => (
-            <button key={r.key} onClick={() => setRange(r.key)}
-              className="px-3 py-1 rounded-full transition-colors"
-              style={{
-                fontSize: 12, fontWeight: range === r.key ? 700 : 500,
-                backgroundColor: range === r.key ? t.accent : t.bgSub,
-                color: range === r.key ? '#fff' : t.textSub,
-              }}>{r.label}</button>
-          ))}
-        </div>
+        {/* 기간 네비게이터 (주/월/년 세그먼트 + ‹ › 스테퍼) — 롤링 7/30/1년 대체 */}
+        <PeriodNavigator
+          unit={unit}
+          onUnitChange={setUnit}
+          offset={offset}
+          onOffsetChange={setOffset}
+          weekStartsOn={weekStartsOn}
+          firstRecordDate={firstRecordDate}
+          className="mb-3"
+        />
 
         {/* 라인 토글 */}
         <div className="flex flex-wrap gap-2 mb-3">

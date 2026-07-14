@@ -10,6 +10,7 @@ import { useFabAction } from '../FabContext';
 import { db } from '../../lib/db';
 import { useRealtimeSync } from '../hooks/useRealtimeSync';
 import { useTimeReport, type TimeReportPeriod } from '../hooks/useTimeReport';
+import { PeriodNavigator } from './ui/PeriodNavigator';
 import { format, subDays, differenceInDays, parseISO, addDays, startOfWeek } from 'date-fns';
 
 const CATEGORIES = [
@@ -387,6 +388,8 @@ export function SleepSection() {
   const { t } = useTheme();
   const sleepGoalMin = appSettings.sleepGoalMinutes ?? SLEEP_GOAL_DEFAULT_MIN;
   const sleepGoalHours = sleepGoalMin / 60;
+  // 주 시작 요일 — 전역 설정 통일(결정2). 기존 하드코딩 월요일 → appSettings 기반.
+  const weekStartsOn = appSettings.weekStartsOn ?? 1;
   const [date, setDate] = useState(getLogicalToday());
   const [sleepStart, setSleepStart] = useState('');
   const [sleepEnd, setSleepEnd] = useState('');
@@ -493,9 +496,9 @@ export function SleepSection() {
     setEditingId(null);
     setInputOpen(false);
     // 방금 기록한 날짜가 속한 주로 차트를 이동해 바로 확인 가능하게
-    const recMonday = startOfWeek(parseISO(date), { weekStartsOn: 1 });
-    const curMonday = startOfWeek(new Date(), { weekStartsOn: 1 });
-    setWeekOffset(Math.round(differenceInDays(recMonday, curMonday) / 7));
+    const recWeekStart = startOfWeek(parseISO(date), { weekStartsOn });
+    const curWeekStart = startOfWeek(new Date(), { weekStartsOn });
+    setWeekOffset(Math.round(differenceInDays(recWeekStart, curWeekStart) / 7));
   };
 
   // 통계
@@ -503,11 +506,13 @@ export function SleepSection() {
   const todayStr = format(today, 'yyyy-MM-dd');
   const currentMonth = format(today, 'yyyy-MM');
 
-  // 선택된 주(월~일) 데이터 — weekOffset: 0=이번주, -1=지난주 ...
-  const weekStart = addDays(startOfWeek(today, { weekStartsOn: 1 }), weekOffset * 7);
+  // 선택된 주 데이터 — 주 시작 요일은 전역 설정(weekStartsOn) 기준. weekOffset: 0=이번주, -1=지난주 ...
+  const weekStart = addDays(startOfWeek(today, { weekStartsOn }), weekOffset * 7);
   const weekEnd = addDays(weekStart, 6);
   const weekDays = Array.from({ length: 7 }, (_, i) => format(addDays(weekStart, i), 'yyyy-MM-dd'));
-  const WEEK_LABELS = ['월', '화', '수', '목', '금', '토', '일'];
+  const WEEK_LABELS = weekStartsOn === 1
+    ? ['월', '화', '수', '목', '금', '토', '일']
+    : ['일', '월', '화', '수', '목', '금', '토'];
 
   // 보고 있는 주가 가장 많이 걸쳐 있는 달 기준으로 월간 통계 집계
   const monthCounts: Record<string, number> = {};
@@ -538,7 +543,6 @@ export function SleepSection() {
   const maxBar = Math.max(...weekData.map(d => d.duration), 10 * 60);
 
   const weekRangeLabel = `${format(weekStart, 'M.d')} – ${format(weekEnd, 'M.d')}`;
-  const weekTitle = weekOffset === 0 ? '이번주' : weekOffset === -1 ? '지난주' : weekRangeLabel;
 
   const hasStats = sleepRecords.length > 0;
 
@@ -787,31 +791,17 @@ export function SleepSection() {
             </div>
           </div>
 
-          {/* 주간 바 차트 + 주 이동 */}
+          {/* 주간 바 차트 + 주 이동 (공용 PeriodNavigator — 주 단위, 주 시작 요일=설정) */}
           <div>
-            <div className="flex items-center justify-between mb-2">
-              <button
-                onClick={() => setWeekOffset(o => o - 1)}
-                className="p-1 rounded-lg transition-colors"
-                style={{ color: t.textMuted, background: 'none', border: 'none', cursor: 'pointer' }}
-                aria-label="이전 주"
-              >
-                <ChevronLeft size={16} />
-              </button>
-              <div className="text-center">
-                <div style={{ fontSize: 12, fontWeight: 700, color: t.text }}>{weekTitle} 수면</div>
-                <div style={{ fontSize: 9, color: t.textMuted, marginTop: 1 }}>{weekRangeLabel}</div>
-              </div>
-              <button
-                onClick={() => setWeekOffset(o => Math.min(0, o + 1))}
-                disabled={weekOffset >= 0}
-                className="p-1 rounded-lg transition-colors"
-                style={{ color: weekOffset >= 0 ? t.borderLight : t.textMuted, background: 'none', border: 'none', cursor: weekOffset >= 0 ? 'default' : 'pointer' }}
-                aria-label="다음 주"
-              >
-                <ChevronRight size={16} />
-              </button>
-            </div>
+            <PeriodNavigator
+              units={['주']}
+              unit="주"
+              offset={weekOffset}
+              onOffsetChange={setWeekOffset}
+              weekStartsOn={weekStartsOn}
+              firstRecordDate={sleepRecords.length ? sleepRecords[sleepRecords.length - 1].date : null}
+              className="mb-2"
+            />
             <div className="flex items-end justify-between gap-1.5" style={{ height: 96 }}>
               {weekData.map(d => {
                 const isGood = d.duration >= 7 * 60;
