@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { Check, Pause, Play, Timer } from 'lucide-react';
+import { Check, Pause, Play, Square, Timer } from 'lucide-react';
 import { getTimerElapsedSec, getTimerRemainingSec, usePlanner } from '../store';
 import { useTheme } from '../ThemeContext';
 
@@ -160,11 +160,12 @@ export function GlobalFloatingTimer() {
           </button>
           <button
             onClick={stopTimer}
+            title="타이머 정지 (할일은 진행중 유지)"
             className="flex items-center gap-1.5 rounded-xl px-3 py-2"
             style={{ backgroundColor: '#C4A882', color: '#fff', fontSize: 12, fontWeight: 700 }}
           >
-            <Check size={12} />
-            완료
+            <Square size={12} fill="#fff" />
+            정지
           </button>
         </div>
       </div>

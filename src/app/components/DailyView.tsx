@@ -4,6 +4,7 @@ import {
   ChevronLeft, ChevronRight, Star, Play,
   Check, Clock, Trash2, X, MoreHorizontal,
   Settings, Edit3, Pause, Ban, CalendarDays, ArrowRight, Bell, ChevronRight as ChevronRightIcon,
+  Square, Hourglass,
 } from 'lucide-react';
 import { format, addDays, subDays, addMonths, subMonths, startOfMonth, getDaysInMonth, getDay as getDayOfWeek, parseISO, addMinutes } from 'date-fns';
 import { ko } from 'date-fns/locale';
@@ -284,6 +285,7 @@ function ContextMenu({ todo, position, onClose, onFocus, onDelete, deleteMessage
         { label: '편집', icon: Edit3, action: 'edit' },
         { divider: true },
         { label: '예정', icon: Clock, action: 'active', status: 'active' },
+        { label: '진행중', icon: Hourglass, action: 'inProgress', status: 'inProgress' },
         { label: '포커스 시작', icon: Play, action: 'focus' },
         { label: '미루기', icon: Pause, action: 'snoozed', status: 'snoozed' },
         { label: '취소', icon: Ban, action: 'cancelled', status: 'cancelled' },
@@ -548,7 +550,7 @@ function DailyDatePickerModal({ selectedDate, onClose, onConfirm }: {
 export function DailyView() {
   const {
     selectedDate, setSelectedDate, todos, events, updateTodo, addTodo, toggleEventCompleted, deleteEvent, deleteRecurringTodo, habits,
-    activeTimer, startTimer, stopTimer, tags, projects, weeklyGoals, milestones,
+    activeTimer, startTimer, stopTimer, finishActiveTimer, tags, projects, weeklyGoals, milestones,
     dayStartHour: tlStartHour, dayEndHour: tlEndHour, setDayHours,
   } = usePlanner();
   const { t } = useTheme();
@@ -661,7 +663,8 @@ export function DailyView() {
 
   const handleTodoCheckboxAction = (todo: Todo) => {
     if (activeTimer?.todoId === todo.id) {
-      stopTimer();
+      // 체크박스 = 완료: 타이머 시간 기록 + 'done' 전환 (정지와 구분)
+      finishActiveTimer();
       return;
     }
     if (todo.status === 'done') {
@@ -968,12 +971,12 @@ export function DailyView() {
           {todo.status !== 'done' && (!activeTimer || activeTimer.todoId === todo.id) && (
             <button onClick={() => handleTodoFocusAction(todo)}
               className="p-1.5 rounded-lg transition-colors"
-              title={todo.id === activeTimer?.todoId ? '포커스 완료' : '포커스 시작'}
+              title={todo.id === activeTimer?.todoId ? '타이머 정지 (진행중 유지)' : '포커스 시작'}
               style={{
                 color: todo.id === activeTimer?.todoId ? '#fff' : t.success,
                 backgroundColor: todo.id === activeTimer?.todoId ? t.success : t.success + '10',
               }}>
-              {todo.id === activeTimer?.todoId ? <Check size={12} /> : <Play size={12} />}
+              {todo.id === activeTimer?.todoId ? <Square size={12} fill="#fff" /> : <Play size={12} />}
             </button>
           )}
           <button onClick={(e) => {

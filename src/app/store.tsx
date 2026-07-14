@@ -886,6 +886,7 @@ interface PlannerContextType {
   pauseTimer: () => void;
   resumeTimer: () => void;
   stopTimer: () => void;
+  finishActiveTimer: () => void;
 
   // Project actions
   addProject: (project: Omit<Project, 'id'>) => string;
@@ -1116,17 +1117,21 @@ export function PlannerProvider({ children }: { children: React.ReactNode }) {
     }
   }, []);
 
-  const completeTimer = useCallback((timer: ActiveTimer) => {
+  // 타이머 시간을 todo 에 기록하고 타이머를 정리한다.
+  // markDone=false(정지): 상태를 'inProgress' 로 유지(시간만 기록) — "정지→진행중 유지".
+  // markDone=true(완료): 상태를 'done' 으로 전환.
+  const recordActiveTimer = useCallback((timer: ActiveTimer, markDone: boolean) => {
     const rawElapsedSec = getTimerElapsedSec(timer);
     const totalElapsedSec = timer.mode === 'pomodoro'
       ? Math.min(rawElapsedSec, timer.pomoDurationSec)
       : rawElapsedSec;
     const endHHMM = getTimerEndHHMM(timer.startHHMM, totalElapsedSec);
+    const nextStatus: TodoStatus = markDone ? 'done' : 'inProgress';
 
     setTodos(currentTodos => {
       const updated = currentTodos.map(t =>
         t.id === timer.todoId
-          ? { ...t, status: 'done' as TodoStatus, doStart: timer.startHHMM, doEnd: endHHMM, doElapsedSec: totalElapsedSec }
+          ? { ...t, status: nextStatus, doStart: timer.startHHMM, doEnd: endHHMM, doElapsedSec: totalElapsedSec }
           : t
       );
       const todo = updated.find(t => t.id === timer.todoId);
@@ -1999,10 +2004,28 @@ export function PlannerProvider({ children }: { children: React.ReactNode }) {
     });
   }, []);
 
+  // 정지: 시간만 기록하고 상태는 '진행중' 유지 (완료 아님).
   const stopTimer = useCallback(() => {
     if (!activeTimer) return;
-    completeTimer(activeTimer);
-  }, [activeTimer, completeTimer]);
+    recordActiveTimer(activeTimer, false);
+  }, [activeTimer, recordActiveTimer]);
+
+  // 완료: 시간 기록 + 상태 'done' 전환 (체크박스로 완료 처리할 때).
+  const finishActiveTimer = useCallback(() => {
+    if (!activeTimer) return;
+    recordActiveTimer(activeTimer, true);
+  }, [activeTimer, recordActiveTimer]);
+
+  // 자정 자동 일시정지: 진행 중 타이머가 날짜를 넘기지 않도록 00:00 에 일시정지.
+  // (경과 시간이 다음 날로 새지 않게 — Stage 3 날짜별 블록 적재의 전제)
+  useEffect(() => {
+    if (!activeTimer || activeTimer.isPaused) return;
+    const now = new Date();
+    const nextMidnight = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1, 0, 0, 1, 0);
+    const ms = Math.max(1000, nextMidnight.getTime() - now.getTime());
+    const id = window.setTimeout(() => { pauseTimer(); }, ms);
+    return () => window.clearTimeout(id);
+  }, [activeTimer, pauseTimer]);
 
   // ── Project actions ──
   const addProject = useCallback((project: Omit<Project, 'id'>) => {
@@ -2139,7 +2162,7 @@ export function PlannerProvider({ children }: { children: React.ReactNode }) {
       addBrainstormItem, deleteBrainstormItem, brainstormToTodo, brainstormToEvent,
       setBrainstormMemo,
       addWeeklyBrainstorm, weeklyBrainstormAssign,
-      startTimer, pauseTimer, resumeTimer, stopTimer,
+      startTimer, pauseTimer, resumeTimer, stopTimer, finishActiveTimer,
       addProject, updateProject, deleteProject,
       addMilestone, toggleMilestone, deleteMilestone,
       addTag, updateTag, deleteTag,
