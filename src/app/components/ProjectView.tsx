@@ -247,10 +247,9 @@ export function ProjectsView() {
             <p style={{ fontSize: 12, color: t.textMuted }}>총 {projects.length}개의 프로젝트</p>
           </div>
         </div>
-        {/* 데스크톱은 전역 헤더 "+ 추가" pill 로 통일 → lg:hidden. 모바일은 유지. */}
         <button
           onClick={() => setShowNewModal(true)}
-          className="flex items-center gap-2 px-4 py-2 rounded-xl lg:hidden"
+          className="flex items-center gap-2 px-4 py-2 rounded-xl"
           style={{ backgroundColor: t.accent, color: '#fff', fontSize: 13, fontWeight: 600 }}
         >
           <Plus size={14} />

@@ -844,9 +844,7 @@ export function Layout() {
         </aside>
 
         {/* Main Content */}
-        {/* H 테마: position:relative 로 콘텐츠 헤더 "+ 추가"(FloatingAddFab pill)를 콘텐츠 컬럼 기준 앵커
-            → 우측 대시보드 레일 펼침/접힘 both 겹침 없음(⑨c). 비-H 는 relative 미부여 → 렌더 변화 0. */}
-        <main ref={desktopMainRef} className="flex-1 overflow-hidden flex flex-col" style={{ backgroundColor: t.bg, position: isPastel ? 'relative' : undefined }}>
+        <main ref={desktopMainRef} className="flex-1 overflow-hidden flex flex-col" style={{ backgroundColor: t.bg }}>
           <NotificationPermissionBanner />
           <Outlet />
           <FloatingAddFab />

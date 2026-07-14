@@ -2,7 +2,6 @@ import { useEffect, useRef, useState } from 'react';
 import { CalendarDays, CheckSquare, Plus, Sparkles, X } from 'lucide-react';
 import { useTheme } from '../ThemeContext';
 import { useFab, type FabAction } from '../FabContext';
-import { isHaon } from '../styles/haonStyles';
 import { QuickAddInput } from './QuickAddInput';
 import { HappyCaptureModal } from './HappyCaptureModal';
 
@@ -34,9 +33,6 @@ export function FloatingAddFab({
 }: FloatingAddFabProps) {
   const { t } = useTheme();
   const { action } = useFab();
-  // Theme H 데스크톱(lg:)에서는 떠다니는 원형 FAB 대신 콘텐츠 헤더 우측 "+ 추가" pill 로 렌더한다
-  // (DESIGN.md §5 Context add-action). 모바일·비-H 는 기존 원형 FAB 유지 → 렌더 변화 0.
-  const headerMode = isHaon(t);
   const [open, setOpen] = useState(false);          // 빠른 입력 팝오버/시트
   const [quickDate, setQuickDate] = useState<string | null>(null); // 빠른 입력 기본 날짜
   const [speedOpen, setSpeedOpen] = useState(false); // 모바일 speed dial
@@ -54,11 +50,9 @@ export function FloatingAddFab({
 
   // 페이지가 위치 클래스를 지정하면(예: 내부 탭바가 있는 레시피 모듈) 그것으로 대체
   const fabClassName = effective.kind === 'hidden' ? undefined : effective.fabClassName;
-  // headerMode(Theme H·데스크톱): 데스크톱 앵커를 하단→상단 우측(콘텐츠 헤더 높이)으로. 모바일은 그대로 하단.
-  const desktopAnchor = headerMode ? 'lg:top-3 lg:bottom-auto' : desktopBottomClassName;
   const posBase = fabClassName
     ? `fixed lg:absolute right-4 lg:right-6 ${fabClassName}`
-    : `fixed lg:absolute right-4 lg:right-6 ${mobileBottomClassName} ${desktopAnchor}`;
+    : `fixed lg:absolute right-4 lg:right-6 ${mobileBottomClassName} ${desktopBottomClassName}`;
   // speed dial 펼침 시 dim(z-40) 위로 올린다(모바일 한정 — PC 는 speedOpen 이 항상 false)
   const posClass = `${posBase} ${speedOpen ? 'z-50' : 'z-30'}`;
 
@@ -211,16 +205,16 @@ export function FloatingAddFab({
         {/* PC 빠른 입력 팝오버 (quick 컨텍스트에서만, hidden lg:block) */}
         {isQuick && (
           <div
-            className={`hidden lg:block absolute right-0 ${headerMode ? 'top-[46px]' : 'bottom-[58px]'} rounded-2xl p-3`}
+            className="hidden lg:block absolute right-0 bottom-[58px] rounded-2xl p-3"
             style={{
               width: 380,
               backgroundColor: t.card,
               border: `1px solid ${t.border}`,
               boxShadow: '0 14px 30px rgba(38,52,61,0.18)',
               opacity: open ? 1 : 0,
-              transform: open ? 'translateY(0) scale(1)' : `translateY(${headerMode ? '-10px' : '10px'}) scale(0.96)`,
+              transform: open ? 'translateY(0) scale(1)' : 'translateY(10px) scale(0.96)',
               pointerEvents: open ? 'auto' : 'none',
-              transformOrigin: headerMode ? 'top right' : 'bottom right',
+              transformOrigin: 'bottom right',
               transition: 'opacity 0.18s ease-out, transform 0.18s ease-out',
             }}
           >
@@ -292,7 +286,7 @@ export function FloatingAddFab({
           onPointerLeave={endPress}
           onPointerCancel={endPress}
           onContextMenu={e => e.preventDefault()}
-          className={`flex items-center justify-center rounded-full ${headerMode ? 'lg:hidden' : ''}`}
+          className="flex items-center justify-center rounded-full"
           style={{
             width: 46,
             height: 46,
@@ -310,30 +304,6 @@ export function FloatingAddFab({
         >
           <Icon size={20} />
         </button>
-
-        {/* Theme H 데스크톱: 콘텐츠 헤더 우측 "+ 추가" pill (hidden lg:flex). 원형 FAB 대체.
-            클릭 동작은 원형 FAB 와 동일(runPrimary). 단, 일반 "빠른 입력"(kind:'quick'/미등록
-            폴백)에는 pill 을 띄우지 않는다 — 페이지 고유 추가 액션(kind:'action')일 때만 표시. */}
-        {headerMode && effective.kind === 'action' && (
-          <button
-            type="button"
-            onClick={handleClick}
-            className="hidden lg:flex items-center gap-1.5 rounded-full"
-            style={{
-              padding: '8px 15px',
-              backgroundColor: t.accentLight,
-              color: t.accent,
-              fontSize: 13,
-              fontWeight: 600,
-              boxShadow: '0 4px 12px rgba(38,52,61,0.10)',
-              whiteSpace: 'nowrap',
-            }}
-            aria-label={fabLabel}
-            title={fabLabel}
-          >
-            <Icon size={16} /> {fabLabel}
-          </button>
-        )}
       </div>
 
       {/* 모바일 speed dial dim (lg:hidden) */}

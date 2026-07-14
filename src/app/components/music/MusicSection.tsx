@@ -203,9 +203,8 @@ export function MusicSection({ section, setSection }: {
                 음악
               </h1>
             </div>
-            {/* 데스크톱은 전역 헤더 "+ 추가" pill 로 통일 → lg:hidden(모바일 원형 버튼은 별도 유지) */}
             <button onClick={() => setAddOpen(true)}
-              className="flex items-center gap-1.5 rounded-full px-4 py-2.5 flex-shrink-0 active:scale-95 transition-transform lg:hidden"
+              className="flex items-center gap-1.5 rounded-full px-4 py-2.5 flex-shrink-0 active:scale-95 transition-transform"
               style={{ backgroundColor: coral, color: '#fff', fontSize: 14, fontWeight: 700,
                 boxShadow: '0 4px 14px rgba(0,0,0,0.16)' }}>
               <Plus size={18} /> 음악 추가
