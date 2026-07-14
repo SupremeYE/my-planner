@@ -14,6 +14,7 @@ import {
 } from 'date-fns';
 import { ko } from 'date-fns/locale';
 import { AffirmationCard } from './AffirmationCard';
+import { useFabAction } from '../FabContext';
 import { todoDoDurationSeconds, formatTotalDoKo, formatDoElapsedKo } from '../../lib/todoDoDuration';
 
 function isHabitApplicableOnDate(habit: any, date: Date) {
@@ -429,6 +430,8 @@ function ProjectCard({
 export function DashboardView() {
   const { t } = useTheme();
   const navigate = useNavigate();
+  // 대시보드는 추가 액션이 없다 → 전역 FAB/"+ 추가" pill 숨김 (기본 빠른입력 폴백 방지)
+  useFabAction({ kind: 'hidden' });
   const {
     todos,
     events,

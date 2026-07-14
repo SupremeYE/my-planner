@@ -2328,9 +2328,10 @@ export function BooksView() {
             총 {books.length}권 · 완독 {books.filter(b => b.status === 'done').length}권
           </p>
         </div>
+        {/* 데스크톱은 전역 헤더 "+ 추가" pill 로 통일 → lg:hidden. 모바일은 유지. */}
         <button
           onClick={() => setShowSearch(true)}
-          className="flex items-center gap-1.5 px-3 py-2 rounded-xl"
+          className="flex items-center gap-1.5 px-3 py-2 rounded-xl lg:hidden"
           style={{ backgroundColor: t.accent, color: '#fff', fontSize: 13, fontWeight: 600 }}
         >
           <Plus size={16} />

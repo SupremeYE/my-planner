@@ -1606,9 +1606,10 @@ export function FoodView() {
         style={{ borderBottom: `1px solid ${t.border}` }}>
         <div className="flex items-center justify-between mb-3">
           <h1 style={{ fontSize: 20, fontWeight: 700, color: t.text, fontFamily: t.fontPageTitle }}>🍽️ 식단 기록</h1>
+          {/* 데스크톱은 전역 헤더 "+ 추가" pill 로 통일 → lg:hidden. 모바일은 유지. */}
           <button
             onClick={() => openAdd('breakfast')}
-            className="flex items-center gap-1.5 px-3 py-2 rounded-xl"
+            className="flex items-center gap-1.5 px-3 py-2 rounded-xl lg:hidden"
             style={{ backgroundColor: t.accent, color: '#fff', fontSize: 13, fontWeight: 600 }}>
             + 추가
           </button>

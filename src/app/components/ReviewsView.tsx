@@ -1668,8 +1668,9 @@ export function ReviewsView() {
           <p style={{ fontSize: 13, color: t.textSub, marginTop: 4 }}>매일의 기록이 성장의 발판이 됩니다</p>
         </div>
         {/* 🔍 돌아보기 아카이브 — PC는 텍스트 알약 / 모바일은 아이콘만 */}
+        {/* 돌아보기는 추가 버튼이 아님 → 데스크톱은 우측 상단 전역 "+ 추가" pill 왼쪽으로 이동(가림 방지) */}
         <button type="button" onClick={() => setArchiveOpen(true)} title="돌아보기 · 검색"
-          className="flex items-center justify-center gap-1.5 transition-colors"
+          className="flex items-center justify-center gap-1.5 transition-colors lg:mr-[120px]"
           style={isDesktop
             ? { height: 40, padding: '0 16px', borderRadius: 999, backgroundColor: t.card, border: `1px solid ${t.border}`, color: t.textSub, fontSize: 13, fontWeight: 600 }
             : { width: 38, height: 38, borderRadius: 12, backgroundColor: t.bgSub, border: `1px solid ${t.borderLight}`, color: t.textSub }}>

@@ -147,7 +147,8 @@ export function CultureRecordView() {
             <Clapperboard size={24} color={t.accent} />
             문화 기록
           </h1>
-          <div className="flex items-center gap-2">
+          {/* 데스크톱: 우측 상단 전역 "+ 추가" pill 공간 확보 → 검색·정렬을 pill 왼쪽으로 이동 */}
+          <div className="flex items-center gap-2 lg:mr-[150px]">
             {/* 검색 */}
             <div className="relative hidden lg:block">
               <Search size={15} color={t.textMuted}
@@ -186,9 +187,9 @@ export function CultureRecordView() {
                 </>
               )}
             </div>
-            {/* 추가하기 */}
+            {/* 추가하기 — 데스크톱은 전역 헤더 "+ 추가" pill 로 통일 → lg:hidden. 모바일은 유지. */}
             <button onClick={openAdd}
-              className="flex items-center gap-1.5 px-4 py-2 rounded-xl transition-colors"
+              className="flex items-center gap-1.5 px-4 py-2 rounded-xl transition-colors lg:hidden"
               style={{ backgroundColor: t.accent, color: '#fff', fontSize: 13, fontWeight: 600 }}>
               <Plus size={16} /> 추가하기
             </button>
