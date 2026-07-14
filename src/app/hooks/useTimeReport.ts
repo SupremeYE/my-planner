@@ -4,8 +4,9 @@ import {
   subWeeks, subMonths, addWeeks, addDays, getDay, isSameDay,
 } from 'date-fns';
 import { usePlanner } from '../store';
-import type { Todo, Tag } from '../store';
+import type { Todo, Tag, TodoTimeBlock } from '../store';
 import { todoDoDurationSeconds } from '../../lib/todoDoDuration';
+import { blockDurationSec } from '../../lib/timeBlocks';
 
 export type TimeReportPeriod = 'week' | 'month';
 
@@ -59,36 +60,53 @@ interface RangeAgg {
   total: number;
 }
 
-/** 한 기간(start~end, yyyy-MM-dd 비교) 동안 시간추적 태그별로 todo DO 시간을 집계 */
+/**
+ * 한 기간(start~end, yyyy-MM-dd 비교) 동안 시간추적 태그별로 DO 시간을 집계.
+ * Stage 3(누적): 시간 블록(작업한 date 기준)을 우선 합산하고, 블록이 없는 (todo,date)는
+ * 레거시 do_* 로 폴백한다(dual-read, 이중집계 방지). 완료 여부와 무관하게 실제 기록된 시간을 센다.
+ */
 function aggregateRange(
   todos: Todo[],
   startStr: string,
   endStr: string,
   trackTagIds: Set<string>,
+  timeBlocks: TodoTimeBlock[] = [],
 ): RangeAgg {
   const byTag = new Map<string, { minutes: number; todos: Array<{ name: string; minutes: number; date: string }> }>();
   let total = 0;
+  const todoById = new Map(todos.map(t => [t.id, t]));
+  const coveredByBlock = new Set<string>(); // `${todoId}|${date}` — 블록으로 집계된 것
 
-  for (const todo of todos) {
-    if (todo.status !== 'done') continue;
-    if (!todo.date || todo.date < startStr || todo.date > endStr) continue;
-
-    const sec = todoDoDurationSeconds(todo);
-    if (sec <= 0) continue;
-
+  const addFor = (todo: Todo, sec: number, date: string) => {
+    if (sec <= 0) return;
     const matched = (todo.tags ?? []).filter(id => trackTagIds.has(id));
-    if (matched.length === 0) continue;
-
+    if (matched.length === 0) return;
     // 시간추적 태그가 여러 개면 균등 분할
     const minutesEach = sec / 60 / matched.length;
-
     for (const tagId of matched) {
       const entry = byTag.get(tagId) ?? { minutes: 0, todos: [] };
       entry.minutes += minutesEach;
-      entry.todos.push({ name: todo.text, minutes: minutesEach, date: todo.date });
+      entry.todos.push({ name: todo.text, minutes: minutesEach, date });
       byTag.set(tagId, entry);
       total += minutesEach;
     }
+  };
+
+  // 블록 기반 — 작업한 날짜(block.date) 기준
+  for (const b of timeBlocks) {
+    if (b.date < startStr || b.date > endStr) continue;
+    const todo = todoById.get(b.todoId);
+    if (!todo) continue;
+    addFor(todo, blockDurationSec(b), b.date);
+    coveredByBlock.add(`${b.todoId}|${b.date}`);
+  }
+
+  // 레거시 do_* 폴백 — 그 (todo,date)에 블록이 없을 때만
+  for (const todo of todos) {
+    if (!todo.date || todo.date < startStr || todo.date > endStr) continue;
+    if (!todo.doStart || !todo.doEnd) continue;
+    if (coveredByBlock.has(`${todo.id}|${todo.date}`)) continue;
+    addFor(todo, todoDoDurationSeconds(todo), todo.date);
   }
 
   return { byTag, total };
@@ -104,9 +122,10 @@ export function focusMinutesForRange(
   tags: Tag[],
   startStr: string,
   endStr: string,
+  timeBlocks: TodoTimeBlock[] = [],
 ): number {
   const trackTagIds = new Set(tags.filter(tg => tg.trackTime).map(tg => tg.id));
-  return aggregateRange(todos, startStr, endStr, trackTagIds).total;
+  return aggregateRange(todos, startStr, endStr, trackTagIds, timeBlocks).total;
 }
 
 export interface WeekFocusReport {
@@ -129,6 +148,7 @@ export function weekFocusReport(
   weekStart: Date,
   weekStartsOn: 0 | 1,
   todayStr: string,
+  timeBlocks: TodoTimeBlock[] = [],
 ): WeekFocusReport {
   const trackTags = tags.filter(tg => tg.trackTime);
   const tagMap = new Map(trackTags.map(tg => [tg.id, tg]));
@@ -136,11 +156,11 @@ export function weekFocusReport(
   const fmtD = (d: Date) => format(d, 'yyyy-MM-dd');
 
   const weekEnd = endOfWeek(weekStart, { weekStartsOn });
-  const cur = aggregateRange(todos, fmtD(weekStart), fmtD(weekEnd), trackTagIds);
+  const cur = aggregateRange(todos, fmtD(weekStart), fmtD(weekEnd), trackTagIds, timeBlocks);
 
   const prevStart = subWeeks(weekStart, 1);
   const prevEnd = endOfWeek(prevStart, { weekStartsOn });
-  const prev = aggregateRange(todos, fmtD(prevStart), fmtD(prevEnd), trackTagIds);
+  const prev = aggregateRange(todos, fmtD(prevStart), fmtD(prevEnd), trackTagIds, timeBlocks);
 
   const byCategory = Array.from(cur.byTag.entries())
     .map(([tagId, v]) => ({
@@ -159,7 +179,7 @@ export function weekFocusReport(
       date: ds,
       dayLabel: WEEKDAY_KO[getDay(d)],
       isToday: ds === todayStr,
-      totalMinutes: aggregateRange(todos, ds, ds, trackTagIds).total,
+      totalMinutes: aggregateRange(todos, ds, ds, trackTagIds, timeBlocks).total,
     };
   });
 
@@ -194,6 +214,7 @@ export function monthFocusReport(
   monthStart: Date,
   weekStartsOn: 0 | 1,
   todayStr: string,
+  timeBlocks: TodoTimeBlock[] = [],
 ): MonthFocusReport {
   const trackTags = tags.filter(tg => tg.trackTime);
   const tagMap = new Map(trackTags.map(tg => [tg.id, tg]));
@@ -204,10 +225,10 @@ export function monthFocusReport(
   const mEnd = endOfMonth(monthStart);
   const mStartStr = fmtD(mStart);
   const mEndStr = fmtD(mEnd);
-  const cur = aggregateRange(todos, mStartStr, mEndStr, trackTagIds);
+  const cur = aggregateRange(todos, mStartStr, mEndStr, trackTagIds, timeBlocks);
 
   const prevRef = subMonths(monthStart, 1);
-  const prev = aggregateRange(todos, fmtD(startOfMonth(prevRef)), fmtD(endOfMonth(prevRef)), trackTagIds);
+  const prev = aggregateRange(todos, fmtD(startOfMonth(prevRef)), fmtD(endOfMonth(prevRef)), trackTagIds, timeBlocks);
 
   const byCategory = Array.from(cur.byTag.entries())
     .map(([tagId, v]) => ({
@@ -233,7 +254,7 @@ export function monthFocusReport(
       key: fmtD(wkStart),
       label: `${n}주`,
       isCurrent: todayStr >= segStartStr && todayStr <= segEndStr,
-      totalMinutes: aggregateRange(todos, segStartStr, segEndStr, trackTagIds).total,
+      totalMinutes: aggregateRange(todos, segStartStr, segEndStr, trackTagIds, timeBlocks).total,
     });
     wkStart = addWeeks(wkStart, 1);
     n++;
@@ -250,7 +271,7 @@ export function monthFocusReport(
 }
 
 export function useTimeReport(period: TimeReportPeriod): TimeReportData {
-  const { todos, tags, appSettings } = usePlanner();
+  const { todos, timeBlocks, tags, appSettings } = usePlanner();
   const weekStartsOn = (appSettings.weekStartsOn ?? 1) as 0 | 1;
 
   return useMemo<TimeReportData>(() => {
@@ -279,8 +300,8 @@ export function useTimeReport(period: TimeReportPeriod): TimeReportData {
     const tagMap = new Map(trackTags.map(t => [t.id, t]));
     const trackTagIds = new Set(trackTags.map(t => t.id));
 
-    const cur = aggregateRange(todos, curStartStr, curEndStr, trackTagIds);
-    const prev = aggregateRange(todos, fmtD(prevStart), fmtD(prevEnd), trackTagIds);
+    const cur = aggregateRange(todos, curStartStr, curEndStr, trackTagIds, timeBlocks);
+    const prev = aggregateRange(todos, fmtD(prevStart), fmtD(prevEnd), trackTagIds, timeBlocks);
 
     // ── byCategory (실적 있는 카테고리만, 시간 많은 순) ──
     const byCategory = Array.from(cur.byTag.entries())
@@ -305,7 +326,7 @@ export function useTimeReport(period: TimeReportPeriod): TimeReportData {
     const daily = Array.from({ length: dayCount }, (_, i) => {
       const d = addDays(curStart, i);
       const ds = fmtD(d);
-      const dayAgg = aggregateRange(todos, ds, ds, trackTagIds);
+      const dayAgg = aggregateRange(todos, ds, ds, trackTagIds, timeBlocks);
       const byCat: Record<string, number> = {};
       dayAgg.byTag.forEach((v, k) => { byCat[k] = v.minutes; });
       return {
@@ -361,5 +382,5 @@ export function useTimeReport(period: TimeReportPeriod): TimeReportData {
       daily,
       insight,
     };
-  }, [period, todos, tags, weekStartsOn]);
+  }, [period, todos, timeBlocks, tags, weekStartsOn]);
 }
