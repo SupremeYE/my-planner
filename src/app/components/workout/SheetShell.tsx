@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { ArrowLeft, X } from 'lucide-react';
 import { useTheme } from '../../ThemeContext';
+import { isHaon, bottomSheetStyle, sheetBackdropStyle } from '../../styles/haonStyles';
 
 // 운동 탭 공용 바텀시트 셸 — 모바일 슬라이드업 + PC 중앙 카드.
 // ScrapDetailSheet 와 동일한 진입/해제 애니메이션 패턴.
@@ -28,15 +29,16 @@ export function SheetShell({ title, onClose, children, headerRight, footer, wide
   return (
     <div
       className="fixed inset-0 z-50 flex items-stretch lg:items-center lg:justify-center"
-      style={{ backgroundColor: 'rgba(0,0,0,0.45)', opacity: isIn ? 1 : 0, transition: 'opacity 0.22s ease' }}
+      style={{ ...(isHaon(t) ? sheetBackdropStyle() : { backgroundColor: 'rgba(0,0,0,0.45)' }), opacity: isIn ? 1 : 0, transition: 'opacity 0.22s ease' }}
       onClick={handleClose}
     >
       <div
         onClick={e => e.stopPropagation()}
         className={`flex flex-col w-full ${wide ? 'lg:w-[760px]' : 'lg:w-[460px]'} lg:max-h-[92vh] lg:rounded-2xl overflow-hidden`}
         style={{
-          backgroundColor: t.card,
-          boxShadow: '0 24px 60px rgba(0,0,0,0.25)',
+          ...(isHaon(t)
+            ? bottomSheetStyle(t)
+            : { backgroundColor: t.card, boxShadow: '0 24px 60px rgba(0,0,0,0.25)' }),
           transform: isIn ? 'translateY(0)' : 'translateY(24px)',
           transition: 'transform 0.28s cubic-bezier(0.32, 0.72, 0, 1)',
           maxHeight: '92vh',

@@ -1,5 +1,7 @@
 import { Flame, Plus, ChevronRight, History as HistoryIcon, Pencil, TrendingUp } from 'lucide-react';
 import { useTheme } from '../../ThemeContext';
+import { isHaon, solidCardStyle, solidRowStyle } from '../../styles/haonStyles';
+import { HaonButton } from '../ui/HaonButton';
 import { exerciseLabel } from '../../../lib/db';
 import { ExerciseThumb } from './ExerciseThumb';
 import { GrowthChart } from './GrowthChart';
@@ -47,13 +49,14 @@ export function WorkoutTabMobile({ w }: { w: UseWorkout }) {
                     <div style={{ fontSize: 14, fontWeight: 600, color: t.text }} className="truncate">{exerciseLabel(re.exercise)}</div>
                     <div style={{ fontSize: 11, color: t.textMuted }}>{re.exercise.bodyPart} · {re.exercise.type}</div>
                   </div>
-                  <button
+                  <HaonButton
+                    variant="ghost"
                     onClick={() => w.setRecord({ exercise: re.exercise!, performedOn: today })}
-                    className="flex items-center gap-0.5 flex-shrink-0"
-                    style={{ fontSize: 12.5, fontWeight: 700, color: t.accent, backgroundColor: t.accentLight, borderRadius: 999, padding: '6px 12px' }}
+                    className="flex-shrink-0"
+                    style={{ borderRadius: 999 }}
                   >
-                    기록 <ChevronRight size={14} color={t.accent} />
-                  </button>
+                    기록 <ChevronRight size={14} />
+                  </HaonButton>
                 </div>
               ))}
             </div>
@@ -142,7 +145,7 @@ export function WorkoutTabMobile({ w }: { w: UseWorkout }) {
                   key={log.id}
                   onClick={() => w.setRecord({ exercise: log.exercise!, performedOn: log.performedOn, editingLog: log })}
                   className="w-full flex items-center gap-3 text-left"
-                  style={{ backgroundColor: t.bgSub, border: `1px solid ${t.borderLight}`, borderRadius: 12, padding: 9 }}
+                  style={{ ...(isHaon(t) ? solidRowStyle(t) : { backgroundColor: t.bgSub, border: `1px solid ${t.borderLight}` }), borderRadius: 12, padding: 9 }}
                 >
                   <ExerciseThumb exercise={log.exercise} size={42} radius={9} />
                   <div className="flex-1 min-w-0">
@@ -156,13 +159,14 @@ export function WorkoutTabMobile({ w }: { w: UseWorkout }) {
           ) : (
             <div style={{ fontSize: 13, color: t.textMuted, padding: '10px 0 4px' }}>오늘 기록한 운동이 없어요.</div>
           )}
-          <button
+          <HaonButton
+            variant="primary"
+            leftIcon={<Plus size={16} />}
             onClick={() => w.setPicker(true)}
-            className="w-full flex items-center justify-center gap-1.5 mt-2"
-            style={{ fontSize: 13.5, fontWeight: 700, color: '#fff', backgroundColor: t.accent, borderRadius: 12, padding: '11px 0' }}
+            className="w-full mt-2"
           >
-            <Plus size={16} color="#fff" /> 운동 추가
-          </button>
+            운동 추가
+          </HaonButton>
         </Card>
       </div>
     </div>
@@ -173,7 +177,7 @@ export function WorkoutTabMobile({ w }: { w: UseWorkout }) {
 function Card({ children }: { children: React.ReactNode }) {
   const { t } = useTheme();
   return (
-    <div style={{ backgroundColor: t.card, border: `1px solid ${t.borderLight}`, borderRadius: 16, padding: 14 }}>
+    <div style={{ ...(isHaon(t) ? solidCardStyle(t) : { backgroundColor: t.card, border: `1px solid ${t.borderLight}` }), borderRadius: 16, padding: 14 }}>
       {children}
     </div>
   );

@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Plus, X } from 'lucide-react';
 import { useTheme } from '../../ThemeContext';
+import { isHaon, addPopoverStyle, sheetBackdropStyle } from '../../styles/haonStyles';
+import { HaonButton } from '../ui/HaonButton';
 import { db, exerciseLabel } from '../../../lib/db';
 import type { RoutineDay } from '../../../lib/db';
 import { ExerciseThumb } from './ExerciseThumb';
@@ -60,7 +62,7 @@ export function RoutineWeekModal({ loggedExerciseIds, onClose, onChanged }: Prop
     <>
       <div
         className="fixed inset-0 z-50 flex items-center justify-center"
-        style={{ backgroundColor: 'rgba(0,0,0,0.45)', opacity: isIn ? 1 : 0, transition: 'opacity 0.2s ease', padding: 20 }}
+        style={{ ...(isHaon(t) ? sheetBackdropStyle() : { backgroundColor: 'rgba(0,0,0,0.45)' }), opacity: isIn ? 1 : 0, transition: 'opacity 0.2s ease', padding: 20 }}
         onClick={close}
       >
         <div
@@ -68,8 +70,9 @@ export function RoutineWeekModal({ loggedExerciseIds, onClose, onChanged }: Prop
           className="flex flex-col overflow-hidden"
           style={{
             width: 'min(1160px, 95vw)', maxHeight: '90vh',
-            backgroundColor: t.card, borderRadius: 20,
-            boxShadow: '0 24px 60px rgba(0,0,0,0.25)',
+            ...(isHaon(t)
+              ? addPopoverStyle(t)
+              : { backgroundColor: t.card, borderRadius: 20, boxShadow: '0 24px 60px rgba(0,0,0,0.25)' }),
             transform: isIn ? 'translateY(0)' : 'translateY(16px)',
             transition: 'transform 0.26s cubic-bezier(0.32, 0.72, 0, 1)',
           }}
@@ -194,13 +197,15 @@ function DayColumn({
       </div>
 
       {/* 종목 추가 */}
-      <button
+      <HaonButton
+        variant="ghost"
+        leftIcon={<Plus size={14} />}
         onClick={onAdd}
-        className="w-full flex items-center justify-center gap-1 mt-2"
-        style={{ fontSize: 12, fontWeight: 600, color: t.accent, border: `1px dashed ${t.border}`, borderRadius: 9, padding: '8px 0' }}
+        className="w-full mt-2"
+        style={{ border: `1px dashed ${t.border}` }}
       >
-        <Plus size={14} color={t.accent} /> 종목
-      </button>
+        종목
+      </HaonButton>
     </div>
   );
 }
