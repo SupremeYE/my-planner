@@ -177,9 +177,13 @@ export interface FoodRecord {
   isFasting?: boolean;
 }
 
+// 몸무게 기록 시간대 — 하루에 아침/저녁/기타 공존 가능 (DB: UNIQUE(date, slot))
+export type WeightSlot = '아침' | '저녁' | '기타';
+
 export interface WeightRecord {
   id: string;
   date: string;             // yyyy-MM-dd
+  slot: WeightSlot;         // 아침/저녁/기타 — 하루 여러 기록 구분 키
   weight: number;           // kg
   bodyFat?: number | null;  // %
   muscleMass?: number | null; // kg

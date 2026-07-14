@@ -1640,6 +1640,7 @@ export const db = {
       return (data ?? []).map((r: any): WeightRecord => ({
         id: r.id,
         date: r.date,
+        slot: (r.slot ?? '기타') as WeightRecord['slot'],
         weight: Number(r.weight),
         bodyFat: r.body_fat != null ? Number(r.body_fat) : null,
         muscleMass: r.muscle_mass != null ? Number(r.muscle_mass) : null,
@@ -1647,14 +1648,16 @@ export const db = {
       }));
     },
     upsert: async (record: WeightRecord) => {
+      // 충돌 키 = (date, slot): 하루에 아침/저녁/기타 공존, 같은 slot 재기록만 덮어쓰기.
       const { error } = await supabase.from('weight_records').upsert({
         id: record.id,
         date: record.date,
+        slot: record.slot,
         weight: record.weight,
         body_fat: record.bodyFat ?? null,
         muscle_mass: record.muscleMass ?? null,
         memo: record.memo ?? null,
-      }, { onConflict: 'date' });
+      }, { onConflict: 'date,slot' });
       if (error) console.error('[db] weight_records upsert:', error.message);
     },
     delete: async (id: string) => {

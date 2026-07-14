@@ -7,7 +7,7 @@ import {
 import { useTheme } from '../ThemeContext';
 import { db } from '../../lib/db';
 import { useRealtimeSync } from '../hooks/useRealtimeSync';
-import type { WeightRecord, WeightGoal } from '../store';
+import type { WeightRecord, WeightGoal, WeightSlot } from '../store';
 import { getLogicalToday } from '../store';
 import ConfirmModal from './ConfirmModal';
 
@@ -22,6 +22,11 @@ const RANGES: { key: RangeKey; label: string; days: number }[] = [
   { key: '30d', label: '30일', days: 30 },
   { key: '1y', label: '1년', days: 365 },
 ];
+
+// 기록 시간대 토글 — 하루에 아침/저녁/기타 공존 (DB: UNIQUE(date, slot))
+const SLOTS: WeightSlot[] = ['아침', '저녁', '기타'];
+// 폼 기본값 = 시간대 자동(오전→아침 / 오후→저녁). 기타는 사용자가 명시적으로 선택할 때만.
+const autoSlot = (): WeightSlot => (new Date().getHours() < 12 ? '아침' : '저녁');
 
 const numOrNull = (s: string): number | null => {
   const v = parseFloat(s);
@@ -113,6 +118,7 @@ export function WeightTab() {
 
   // 입력 폼
   const [date, setDate] = useState(getLogicalToday());
+  const [slot, setSlot] = useState<WeightSlot>(autoSlot);
   const [weight, setWeight] = useState('');
   const [bodyFat, setBodyFat] = useState('');
   const [muscle, setMuscle] = useState('');
@@ -145,11 +151,12 @@ export function WeightTab() {
   const hasMuscleData = records.some(r => r.muscleMass != null);
 
   // ── 저장 ──
-  const resetForm = () => { setWeight(''); setBodyFat(''); setMuscle(''); setMemo(''); };
+  const resetForm = () => { setSlot(autoSlot()); setWeight(''); setBodyFat(''); setMuscle(''); setMemo(''); };
 
   const buildRecord = (existingId?: string): WeightRecord => ({
     id: existingId ?? crypto.randomUUID(),
     date,
+    slot,
     weight: numOrNull(weight)!,
     bodyFat: numOrNull(bodyFat),
     muscleMass: numOrNull(muscle),
@@ -164,7 +171,8 @@ export function WeightTab() {
 
   const handleSubmit = () => {
     if (numOrNull(weight) == null) return;
-    const existing = records.find(r => r.date === date);
+    // 같은 날짜 + 같은 시간대(slot)일 때만 덮어쓰기 — 아침/저녁은 공존
+    const existing = records.find(r => r.date === date && r.slot === slot);
     if (existing) {
       setPendingOverwrite(existing);
       return;
@@ -269,6 +277,27 @@ export function WeightTab() {
             <X size={15} />
           </button>
         </div>
+
+        {/* 시간대(slot) 토글 — 기본값은 시간대 자동(오전→아침/오후→저녁) */}
+        <div className="mb-3">
+          <label style={{ fontSize: 12, color: t.textSub }}>시간대</label>
+          <div className="grid grid-cols-3 gap-1.5 mt-1">
+            {SLOTS.map(s => {
+              const active = slot === s;
+              return (
+                <button key={s} type="button" onClick={() => setSlot(s)}
+                  className="py-2 rounded-xl transition-all"
+                  style={{
+                    fontSize: 13, fontWeight: active ? 700 : 500,
+                    backgroundColor: active ? t.accent : t.bgSub,
+                    color: active ? '#fff' : t.textSub,
+                    border: `1px solid ${active ? t.accent : t.border}`,
+                  }}>{s}</button>
+              );
+            })}
+          </div>
+        </div>
+
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
           <div>
             <label style={{ fontSize: 12, color: t.textSub }}>날짜</label>
@@ -441,6 +470,8 @@ export function WeightTab() {
                 <span style={{ fontSize: 12, color: t.textSub, width: 60, flexShrink: 0 }}>{r.date.slice(5)}</span>
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 flex-wrap">
+                    <span className="px-1.5 py-0.5 rounded-md flex-shrink-0"
+                      style={{ fontSize: 10, fontWeight: 600, color: t.textSub, backgroundColor: t.bgSub }}>{r.slot}</span>
                     <span style={{ fontSize: 14, fontWeight: 700, color: t.text }}>{r.weight} kg</span>
                     {r.bodyFat != null && (
                       <span style={{ fontSize: 11, color: COLOR_FAT }}>체지방 {r.bodyFat}%</span>
@@ -470,8 +501,8 @@ export function WeightTab() {
       {/* 덮어쓰기 확인 모달 */}
       {pendingOverwrite && (
         <ConfirmModal
-          message="오늘 이미 기록이 있어요. 덮어쓸까요?"
-          description={`${pendingOverwrite.date}의 기존 기록(${pendingOverwrite.weight}kg)을 새 값으로 교체합니다.`}
+          message={`${pendingOverwrite.slot} 기록이 이미 있어요. 덮어쓸까요?`}
+          description={`${pendingOverwrite.date} ${pendingOverwrite.slot}의 기존 기록(${pendingOverwrite.weight}kg)을 새 값으로 교체합니다.`}
           confirmText="덮어쓰기"
           onConfirm={() => { saveRecord(buildRecord(pendingOverwrite.id)); setPendingOverwrite(null); }}
           onCancel={() => setPendingOverwrite(null)}
