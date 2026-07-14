@@ -504,7 +504,7 @@ function BookSearchModal({
     >
       <div
         className="w-full lg:max-w-md rounded-t-2xl lg:rounded-2xl overflow-hidden flex flex-col"
-        style={{ backgroundColor: t.sidebar, maxHeight: '90vh' }}
+        style={{ backgroundColor: t.card, maxHeight: '90vh' }}
         onClick={e => e.stopPropagation()}
       >
         {/* 헤더 */}
@@ -998,7 +998,7 @@ function BookDetailModal({
       >
         <div
           className="w-full lg:w-[92vw] lg:max-w-[1280px] rounded-t-2xl lg:rounded-2xl overflow-hidden flex flex-col lg:h-[88vh]"
-          style={{ backgroundColor: t.sidebar, maxHeight: '92vh' }}
+          style={{ backgroundColor: t.card, maxHeight: '92vh' }}
           onClick={e => e.stopPropagation()}
         >
           {/* 헤더 */}
@@ -1593,7 +1593,7 @@ function BookDetailModal({
       {mobileSheetMode !== null && (
         <div
           className="lg:hidden fixed inset-0 z-[60] flex flex-col"
-          style={{ backgroundColor: t.sidebar }}
+          style={{ backgroundColor: t.card }}
         >
           {/* 헤더: 뒤로가기 + 제목 + 저장 */}
           <div
