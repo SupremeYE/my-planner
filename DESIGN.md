@@ -461,9 +461,52 @@ Smooth spline line charts (no sharp polylines); strokes in `pink-vivid` / `lilac
 one highlighted point with a rounded pill tooltip. Progress bars: pill, track
 `rgba(46,42,91,0.10)`, fill `primary-button`.
 
-### 아침/저녁 2-series + 갭 밴드 (dual-series comparison chart)
+### 7.1 차트 팔레트 (SSOT — 모든 차트 페이지 공통)
 
-For paired daily readings (첫 소비처 = 아침/저녁 몸무게) rendered as **겹쳐보기(overlay) by default**:
+앱의 모든 차트/그래프/히트맵/막대가 참조하는 **단일 기준 파스텔 data-viz 세트**. 건강 페이지
+조사(수면·컨디션·몸무게 차트의 색 역할 R1~R8)에서 도출·확정. 아래 값은 **확정본**이며, 컴포넌트는
+이 역할에 매핑해 소비한다(하드코딩 금지 — 舊 워엄 하드코딩 `#5B8ED4`/`#D4735A`/`#C4A882` 등은 폐기).
+
+| 역할 | fill / 주색 | 텍스트·스트로크 | 용도 |
+|---|---|---|---|
+| **good (충족/양호)** | 세이지 `#8FCBA0` | `#3B7D54` | 수면 ≥7h, 수면부채 충족, 잘 잔 그룹, 정상 주기 |
+| **short (미달/부족)** | 코랄 `#F3A88F` | `#C55C3A` | 수면 <7h, 수면부채 부족, 못 잔 그룹, 비정상 주기 |
+| **trend (추이 라인·단일계열)** | 페리윙클 `#7B82E3` | `#7B82E3` | 수면 추이, 스트레스 추이, 운동 성장 |
+| **reference (참조/기준선)** | 뮤트 `#B0ACC4` | `#B0ACC4` | 수면 권장선, 몸무게 목표선 |
+| **empty (무기록/빈 상태)** | 뉴트럴 `#E4E1EC` | — | 기록 없는 차트 배경 셀 |
+
+- **trend 라인**: 2px stroke, 라운드 캡, 끝점(end-dot)에 흰 링. 스플라인(부드러운 곡선).
+- **reference 선**: `dashed 4 4` 점선.
+- ⚠️ **short ≠ danger.** `short`(부족·주의)는 되돌릴 수 있는 경고이지 오류·삭제가 아니다.
+  삭제·실패·위험은 `danger`(§3, `t.danger`)를 쓴다 — 둘을 섞지 않는다.
+
+**sequential (강도 순차 스케일 1→5)** — 코랄 단색 램프. 컨디션 스트레스 셀·히트맵 강도에 사용.
+
+| 1 (약) | 2 | 3 | 4 | 5 (강) |
+|---|---|---|---|---|
+| `#FBE7DF` | `#F6C7B4` | `#F0A98E` | `#E68A6A` | `#D96F4C` |
+
+**categorical (3계열)** — 서로 구분되는 3색. 체성분(체중/체지방/골격근)에 사용. 카테고리 색(§3)과
+hue 계열은 맞추되 **차트 전용 톤**임을 명시(§3 카테고리 토큰을 그대로 쓰는 것이 아님).
+
+| 계열 1 | 계열 2 | 계열 3 |
+|---|---|---|
+| 블루 `#7B82E3` | 코랄 `#F0997B` | 세이지 `#6BAA7A` |
+
+### 7.2 규정
+
+- **증감 방향(증가/감소)은 §7에서 재정의하지 않는다.** 기존 시맨틱 토큰 유지 — 증가 = `danger`,
+  감소 = `success` (§3 참조). 예: 몸무게 증감 라벨.
+- **진행바 트랙/채움은 위 기존 규정 유지** — track `rgba(46,42,91,0.10)`, fill `primary-button`.
+- **색만으로 계열을 구분하지 않는다(접근성).** 라인은 dash 패턴/마커를 병행하고, 막대·셀은 라벨을
+  병행한다(색맹·저대비 환경 대비).
+- **탭 아이덴티티색(수면 = 파랑, 생리 = 핑크)은 폐기.** 위 역할색(good/short/trend/sequential)으로
+  통합한다 — 페이지·탭마다 다른 브랜드색을 두지 않는다.
+
+### 7.3 아침/저녁 2-series + 갭 밴드 (dual-series comparison chart)
+
+두 값을 하루에 함께 재는 경우(첫 소비처 = 아침/저녁 몸무게)의 특수 패턴 — §7.1 SSOT 역할이 아니라
+비교 의도(아침 warm vs 저녁 cool)에 맞춰 별도 토큰을 쓴다. Rendered as **겹쳐보기(overlay) by default**:
 - **Two spline lines, one chart.** 아침 = warm token (`warning` #F6C177, 앰버=아침 해); 저녁 = cool
   token (`info` #9BB4F4, periwinkle=저녁). Tokens only — never hardcode hex at the call site.
 - **Gap band** — a faint fill **between the two lines** for each day both readings exist (아침↔저녁
