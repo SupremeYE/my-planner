@@ -2,8 +2,12 @@
 /**
  * 폰트 grep 가드 (Stage 1.5)
  * ---------------------------------------------------------------------------
- * 목적: 폰트가 컴포넌트에 하드코딩되는 것을 막고, 역할 토큰(테마 필드 t.font* /
- *       CSS 변수 var(--font-*))만 쓰이도록 강제하기 위한 독립 실행 린터.
+ * 목적: 폰트가 컴포넌트에 하드코딩되는 것을 막고, 테마 게이트된 역할 필드(t.font*)만
+ *       쓰이도록 강제하기 위한 독립 실행 린터.
+ *       ※ var(--font-*) CSS 변수 직접 소비도 위반이다(규칙 D). CSS 변수는 테마
+ *         비의존이라 A/B/C/D/H 전 테마에서 동일 렌더 → §4/§8 테마별 폰트 계약을
+ *         우회한다. 컴포넌트는 반드시 t.font* 역할 필드를 거쳐야 한다.
+ *         (일기 본문 --font-diary 는 DiaryView.tsx 내에서만 예외.)
  *
  * 현재는 하드코딩 폰트가 다수 남아 있어 대량 위반을 출력한다. 이 목록을
  * Stage 2(하드코딩 → 역할 필드 치환) 작업 체크리스트로 사용한다.
@@ -18,6 +22,10 @@
  *   B. fontFamily 값이 문자열 리터럴이면서 var(--font-*) 형태가 아니면 위반
  *      (t.font* 같은 식별자 참조는 리터럴이 아니므로 자동 통과)
  *   C. --font-diary / Ownglyph 를 DiaryView.tsx 외 파일에서 사용 시 위반 (§4/§8)
+ *   D. fontFamily 문맥의 var(--font-*) 직접 소비 → 위반 [var-font-bypass]
+ *      문자열 리터럴 'var(--font-*)' / "var(--font-*)" (style 객체·SVG 속성·const
+ *      정의 형태 모두 포함). 예외: --font-diary 는 DiaryView.tsx 내에서만 허용
+ *      (규칙 C 와 정합 — 일기 본문 정상 경로).
  *
  * 제외(스캔 안 함): ThemeContext.tsx(테마 정의 SSOT), src 하위 .css 파일.
  * 순수 주석 라인(슬래시-슬래시, 블록 주석 시작/끝/이어지는 라인, JSX 주석
@@ -111,6 +119,22 @@ for (const file of walk(SRC)) {
     if (base !== DIARY_ALLOWED && /(--font-diary|Ownglyph)/.test(raw)) {
       reasons.push('diary-scope');
       if (!value) value = raw.match(/(--font-diary|Ownglyph[\w-]*)/)[1];
+    }
+
+    // D. var(--font-*) 직접 소비 (CSS 변수 우회 — 역할 필드 t.font* 를 거치지 않음).
+    //    'var(--font-*)' / "var(--font-*)" 문자열 리터럴 (style 객체·SVG fontFamily
+    //    속성·const 정의 모두 해당). 예외: --font-diary 는 DiaryView.tsx 내에서만 허용.
+    const varFontMatches = raw.match(/(['"])var\(--font-[\w-]+\)\1/g);
+    if (varFontMatches) {
+      for (const m of varFontMatches) {
+        const varName = m.match(/--font-[\w-]+/)[0];
+        const diaryAllowed = varName === '--font-diary' && base === DIARY_ALLOWED;
+        if (!diaryAllowed) {
+          reasons.push('var-font-bypass');
+          if (!value) value = m.replace(/^['"]|['"]$/g, '');
+          break; // 한 라인 1회만 기록
+        }
+      }
     }
 
     if (reasons.length) {
