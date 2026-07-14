@@ -346,6 +346,33 @@ they are passive nav hints, not actions (⑨b; coral stays reserved for accent /
   토큰. off-palette 하드코딩 색 금지(§5).
 - **v1 범위** — 일괄 **삭제**만. 오늘로 이동·상태 일괄 변경 등은 후속 Stage.
 
+### Period navigator (기간 네비게이터 — 달력 고정 기간 이동, 공용)
+
+**One shared pattern** for calendar-anchored period browsing — replaces per-page rolling windows
+(the old 몸무게 7일/30일/1년 롤링, and the sleep/컨디션 인라인 주 스테퍼). Two composed parts, **no new
+segment visuals**:
+1. **Range segments (주 / 월 / 년)** — reuse the app-wide **`<SegmentedControl>`** (§5): active =
+   opaque white pill + soft shadow + deep-indigo 600 label + 3px coral underline; track = neutral
+   low-sat. Composition only — do **not** register a new segment style.
+2. **Period stepper `‹ [기간 라벨] ›`** — reuses the 수면 화면 stepper shape and §6.2 month-header
+   idiom. The ‹ › arrow icon buttons use `periodStepperStyle` (H = pale lavender tint circle;
+   非-H = `bgSub` fallback). Centered label in Pretendard 600–700 (§4).
+
+**Behavior contract** (shared component, built Stage 3). Props: `unit('주'|'월'|'년')`, `offset`
+(0 = current period), `onOffsetChange`, `weekStartsOn(0|1)`, `firstRecordDate`.
+- **Future-blocked (built in):** `offset >= 0` → next (›) disabled; can never step past today's period.
+- **First-record clamp:** stepping before the period containing `firstRecordDate` → prev (‹) disabled.
+- **Unit switch resets `offset = 0`** (jump back to the current period).
+- **Labels:** 주 = `"이번 주 M.DD–M.DD"` / 월 = `"YYYY년 M월"` / 년 = `"YYYY"`.
+- **Week boundary = `appSettings.weekStartsOn`** (default 월요일), passed as `weekStartsOn`; pass
+  `1` to force Monday. Unifies the two current call sites (수면 hardcodes Monday, 컨디션 reads the
+  setting) onto one rule (결정2).
+
+**Scope:** Theme H, tokens only; 비-H themes render the fallbacks above, unchanged behavior.
+**haonStyles helper (register before build; definition only — no consumers yet):**
+`periodStepperStyle(t, disabled)` (‹ › arrow button surface). Segment reuse = `<SegmentedControl>`;
+no new helper. Consumers wired Stage 3 (몸무게 롤링 → 교체, 수면 인라인 스테퍼 → 수렴).
+
 ---
 
 ## 6. 캘린더 페이지 (page-specific patterns)
@@ -433,6 +460,28 @@ Smooth spline line charts (no sharp polylines); strokes in `pink-vivid` / `lilac
 / `periwinkle`; area fill `chart-area-fill` fading to transparent; minimal gridlines;
 one highlighted point with a rounded pill tooltip. Progress bars: pill, track
 `rgba(46,42,91,0.10)`, fill `primary-button`.
+
+### 아침/저녁 2-series + 갭 밴드 (dual-series comparison chart)
+
+For paired daily readings (첫 소비처 = 아침/저녁 몸무게) rendered as **겹쳐보기(overlay) by default**:
+- **Two spline lines, one chart.** 아침 = warm token (`warning` #F6C177, 앰버=아침 해); 저녁 = cool
+  token (`info` #9BB4F4, periwinkle=저녁). Tokens only — never hardcode hex at the call site.
+- **Gap band** — a faint fill **between the two lines** for each day both readings exist (아침↔저녁
+  차이). Low-opacity neutral tint (`accentSoft` / lilac derived), well under the line strokes so it
+  reads as context, not a third series. Rendered only where both points exist (no band across gaps).
+- **Gap stats** (text, not a series): "오늘 갭 N kg" (그날 아침−저녁) + "기간 평균 갭" = the mean of
+  **per-day gaps** (average of daily 아침−저녁, NOT 평균아침 − 평균저녁). Sign/units follow the reading.
+- **`기타` slot** = a faint neutral dot only (`textMuted`, low opacity); **excluded from lines and
+  from gap math**. (Flip point: to promote 기타 to a 3rd series, change only this rule + 결정1.)
+- **Isolation toggles (보조):** 아침만 / 저녁만 hide the other line + the band; overlay is the default.
+
+**Per-unit render rules** (driven by the Period navigator, §5):
+- **주 / 월** — daily 아침·저녁 points + per-day gap band; stat = 기간 평균 갭 (평균 of daily gaps).
+- **년** — one point per month = that month's **아침/저녁 평균** line; the 월평균 갭 for a month = the
+  mean of **that month's daily gaps** (again NOT 월평균아침 − 월평균저녁).
+
+Charts read tokens directly (as the base §7 rules do) — no haonStyles helper. Scope: Theme H, tokens
+only; 비-H unaffected. First consumer wired Stage 4.
 
 ---
 

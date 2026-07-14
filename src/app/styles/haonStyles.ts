@@ -194,3 +194,33 @@ export function addPopoverStyle(t: ThemeTokens): CSSProperties {
     boxShadow: '0 8px 24px rgba(0,0,0,0.10)',
   };
 }
+
+// ─── 기간 네비게이터 (Period navigator — DESIGN.md §5 "Period navigator") ───
+// "달력 고정" 기간 이동 공용 패턴: [주/월/년 세그먼트] + [‹ 기간 라벨 › 스테퍼].
+// 세그먼트 시각은 기존 <SegmentedControl>(§5)을 재사용한다 — 신규 세그먼트 헬퍼 없음(조합만).
+// 여기서 등록하는 건 스테퍼 화살표(‹ ›) 아이콘 버튼 표면뿐. 라벨/집계/미래차단은 컴포넌트 로직.
+//
+// 공용 컴포넌트 계약(Stage 3 구현): props =
+//   unit('주'|'월'|'년'), offset(0=현재), onOffsetChange, weekStartsOn(0|1), firstRecordDate.
+//   · 미래 차단: offset >= 0 이면 다음(›) disabled — 오늘 이후 기간으로 못 감.
+//   · 첫 기록 정지: firstRecordDate 이전 기간이면 이전(‹) disabled.
+//   · 단위 전환 시 offset=0 으로 리셋(현재 기간).
+//   · 라벨: 주 "이번 주 M.DD–M.DD" / 월 "YYYY년 M월" / 년 "YYYY".
+// 수면·몸무게 공용(수면 인라인 스테퍼를 이 패턴으로 수렴 — Stage 3, 결정2).
+// ⚠️ 소비처는 아직 없다(정의만; 컴포넌트/치환은 Stage 3).
+//
+// 스테퍼 ‹ › 아이콘 버튼 표면 — H는 옅은 라벤더 tint 원형, 비-H는 bgSub 폴백(ConditionTab 관례).
+export function periodStepperStyle(t: ThemeTokens, disabled = false): CSSProperties {
+  const base: CSSProperties = {
+    display: 'inline-flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    border: 'none',
+    cursor: disabled ? 'default' : 'pointer',
+    ...(disabled ? { opacity: 0.4 } : null),
+  };
+  if (isHaon(t)) {
+    return { ...base, background: t.accentSoft, color: t.textSub, borderRadius: 999 };
+  }
+  return { ...base, background: t.bgSub, color: t.textSub, borderRadius: 8 };
+}
