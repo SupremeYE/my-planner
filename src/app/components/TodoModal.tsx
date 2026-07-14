@@ -8,6 +8,8 @@ import ConfirmModal from './ConfirmModal';
 import { TimePicker } from './TimePicker';
 import { RecurrenceBranchModal } from './RecurrenceBranchModal';
 import { isVirtualTodoId, parseVirtualTodoId, DOW_LABELS } from '../../lib/recurrenceExpansion';
+import { totalElapsedForTodo } from '../../lib/timeBlocks';
+import { formatTotalDoKo } from '../../lib/todoDoDuration';
 import { DEFAULT_TAG_COLORS, TAG_PALETTE_KEY, MAX_TAG_COLORS } from '../../lib/tagPalette';
 import { PROJECT_COLORS } from './ProjectView';
 
@@ -36,7 +38,7 @@ interface TodoModalProps {
 }
 
 export function TodoModal({ date, todo, initialPlanStart, initialPlanEnd, initialWeeklyGoalId, initialProjectId, initialMilestoneId, initialText, initialTags, initialIsTop3, initialRecurrenceRule, initialRecurrenceDays, onClose }: TodoModalProps) {
-  const { addTodo, updateTodo, deleteTodo, deleteRecurringTodo, updateRecurringTodo, tags: allTags, projects, milestones, addTag, updateTag, deleteTag, addProject } = usePlanner();
+  const { addTodo, updateTodo, deleteTodo, deleteRecurringTodo, updateRecurringTodo, tags: allTags, projects, milestones, addTag, updateTag, deleteTag, addProject, timeBlocks } = usePlanner();
   const { t } = useTheme();
 
   // ── 반복 관련 ───────────────────────────────────────────────────────────────
@@ -99,6 +101,14 @@ export function TodoModal({ date, todo, initialPlanStart, initialPlanEnd, initia
     const d = todo?.date ?? effectiveDate;
     return d ? getDay(parseISO(d)) : getDay(new Date());
   }, [todo?.date, effectiveDate]);
+
+  // 누적 시간 (Stage 3): 시간 블록 합(없으면 do_* 폴백). 세션 수도 함께 표기.
+  const accumulated = useMemo(() => {
+    if (!todo) return null;
+    const sec = totalElapsedForTodo(timeBlocks, todo);
+    if (sec <= 0) return null;
+    return { sec, sessions: timeBlocks.filter(b => b.todoId === todo.id).length };
+  }, [todo, timeBlocks]);
 
   const isValidHex = (value: string) => /^#[0-9A-Fa-f]{6}$/.test(value);
   const normalizeHexInput = (value: string) => `#${value.replace(/[^0-9A-Fa-f]/g, '').slice(0, 6).toUpperCase()}`;
@@ -428,6 +438,18 @@ export function TodoModal({ date, todo, initialPlanStart, initialPlanEnd, initia
               </div>
             </div>
           </div>
+
+          {/* 누적 시간 (Stage 3) — 여러 날 타이머 세션이 쌓인 총합 */}
+          {accumulated && (
+            <div className="flex items-center gap-2 px-3 py-2 rounded-xl"
+              style={{ backgroundColor: t.bgSub, border: `1px solid ${t.border}` }}>
+              <span style={{ fontSize: 11, fontWeight: 700, color: t.accent }}>누적 시간</span>
+              <span style={{ fontSize: 12, fontWeight: 700, color: t.text }}>{formatTotalDoKo(accumulated.sec)}</span>
+              {accumulated.sessions > 0 && (
+                <span style={{ fontSize: 11, color: t.textMuted }}>· {accumulated.sessions}개 세션</span>
+              )}
+            </div>
+          )}
 
           {/* 반복 일정 — 신규/일반/부모 반복/반복 인스턴스 모두 현재 값으로 채워 편집 가능;
               반복에서 분리된 단일 예외 레코드만 설정 UI 숨김 */}

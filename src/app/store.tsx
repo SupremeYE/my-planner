@@ -50,6 +50,19 @@ export interface Todo {
   recurrencePreset?: 'weekday' | 'weekend';
 }
 
+/**
+ * 할일 시간 블록 (Stage 3 — 누적).
+ * 타이머 세션 1회 = 1블록. 날짜별로 쌓이며(덮어쓰기 아님) todos.do_* 를 대체·보완한다.
+ */
+export interface TodoTimeBlock {
+  id: string;
+  todoId: string;
+  date: string;        // 작업한 날짜 yyyy-MM-dd (todo.date 예정일과 별개)
+  start?: string;      // HH:mm
+  end?: string;        // HH:mm
+  elapsedSec: number;  // 타이머 실측 초
+}
+
 export interface Event {
   id: string;
   sourceEventId?: string;
@@ -760,6 +773,8 @@ interface PlannerContextType {
   selectedDate: string;
   setSelectedDate: (d: string) => void;
   todos: Todo[];
+  timeBlocks: TodoTimeBlock[];
+  deleteTimeBlock: (id: string) => void;
   events: Event[];
   habits: Habit[];
   weeklyGoals: WeeklyGoal[];
@@ -930,6 +945,7 @@ export function PlannerProvider({ children }: { children: React.ReactNode }) {
 
   // ── Supabase 연동 상태 ──
   const [todos, setTodos] = useState<Todo[]>([]);
+  const [timeBlocks, setTimeBlocks] = useState<TodoTimeBlock[]>([]);
   // 최신 todos 스냅샷 (반복 가상 인스턴스 → 실제 예외 레코드 동기 변환 시 참조)
   const todosRef = useRef<Todo[]>([]);
   useEffect(() => { todosRef.current = todos; }, [todos]);
@@ -975,7 +991,7 @@ export function PlannerProvider({ children }: { children: React.ReactNode }) {
         brainstormItemsData, brainstormMemosData, tagsData, routinesData,
         periodData, habitMonthlyMemosData, annualGoalsData, quarterlyGoalsData,
         weeklyReviewsData, monthlyReviewsData, foodRecordsData,
-        happyMomentsData,
+        happyMomentsData, timeBlocksData,
       ] = await Promise.all([
         db.todos.fetchAll(),
         db.habits.fetchAll(),
@@ -1000,8 +1016,10 @@ export function PlannerProvider({ children }: { children: React.ReactNode }) {
         db.monthlyReviews.fetchAll(),
         db.foodRecords.fetchAll(),
         db.happyMoments.fetchAll(),
+        db.todoTimeBlocks.fetchAll(),
       ]);
       setTodos(todosData);
+      setTimeBlocks(timeBlocksData);
       setHabits(habitsData);
       setProjects(projectsData);
       setMilestones(milestonesData);
@@ -1058,6 +1076,7 @@ export function PlannerProvider({ children }: { children: React.ReactNode }) {
       review_records:    async () => setReviewRecords(await db.reviewRecords.fetchAll()),
       timeline_logs:     async () => setTimelineLogs(await db.timelineLogs.fetchAll()),
       events:            async () => setEvents(await db.events.fetchAll()),
+      todo_time_blocks:  async () => setTimeBlocks(await db.todoTimeBlocks.fetchAll()),
       weekly_goals:      async () => setWeeklyGoals(await db.weeklyGoals.fetchAll()),
       monthly_goals:     async () => setMonthlyGoals(await db.monthlyGoals.fetchAll()),
       brainstorm_items:  async () => setBrainstormItems(await db.brainstormItems.fetchAll()),
@@ -1142,6 +1161,23 @@ export function PlannerProvider({ children }: { children: React.ReactNode }) {
       if (todo) db.todos.upsert(todo);
       return updated;
     });
+
+    // Stage 3(누적): 이 세션을 시간 블록으로 적재(덮어쓰기 아님). do_* 는 dual-write 로 유지.
+    // 블록 날짜 = 타이머 시작 시각의 날짜(자정 자동 일시정지로 하루를 넘기지 않음).
+    if (totalElapsedSec > 0) {
+      const blockDate = format(new Date(timer.startedAt), 'yyyy-MM-dd');
+      const block: TodoTimeBlock = {
+        id: newEventId(),
+        todoId: timer.todoId,
+        date: blockDate,
+        start: timer.startHHMM,
+        end: endHHMM,
+        elapsedSec: totalElapsedSec,
+      };
+      setTimeBlocks(prev => [...prev, block]);
+      void db.todoTimeBlocks.insert(block);
+    }
+
     setActiveTimer(null);
     window.localStorage.removeItem(ACTIVE_TIMER_STORAGE_KEY);
   }, []);
@@ -2020,6 +2056,12 @@ export function PlannerProvider({ children }: { children: React.ReactNode }) {
     recordActiveTimer(activeTimer, true);
   }, [activeTimer, recordActiveTimer]);
 
+  // 시간 블록 삭제 (잘못 기록된 세션 제거).
+  const deleteTimeBlock = useCallback((id: string) => {
+    setTimeBlocks(prev => prev.filter(b => b.id !== id));
+    void db.todoTimeBlocks.delete(id);
+  }, []);
+
   // 자정 자동 일시정지: 진행 중 타이머가 날짜를 넘기지 않도록 00:00 에 일시정지.
   // (경과 시간이 다음 날로 새지 않게 — Stage 3 날짜별 블록 적재의 전제)
   useEffect(() => {
@@ -2139,7 +2181,7 @@ export function PlannerProvider({ children }: { children: React.ReactNode }) {
     <PlannerContext.Provider value={{
       isLoading,
       selectedDate, setSelectedDate,
-      todos, events, habits, weeklyGoals, monthlyGoals, annualGoals, quarterlyGoals, brainstormItems, brainstormMemos, activeTimer,
+      todos, timeBlocks, deleteTimeBlock, events, habits, weeklyGoals, monthlyGoals, annualGoals, quarterlyGoals, brainstormItems, brainstormMemos, activeTimer,
       projects, milestones, tags,
       routines, selfCareRecords, periodRecords, reviewRecords, weeklyReviews, monthlyReviews,
       happyMoments,

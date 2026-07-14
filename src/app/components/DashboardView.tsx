@@ -15,7 +15,8 @@ import {
 import { ko } from 'date-fns/locale';
 import { AffirmationCard } from './AffirmationCard';
 import { useFabAction } from '../FabContext';
-import { todoDoDurationSeconds, formatTotalDoKo, formatDoElapsedKo } from '../../lib/todoDoDuration';
+import { formatTotalDoKo, formatDoElapsedKo } from '../../lib/todoDoDuration';
+import { dateDoSeconds } from '../../lib/timeBlocks';
 
 function isHabitApplicableOnDate(habit: any, date: Date) {
   const dow = date.getDay();
@@ -434,6 +435,7 @@ export function DashboardView() {
   useFabAction({ kind: 'hidden' });
   const {
     todos,
+    timeBlocks,
     events,
     habits,
     weeklyGoals,
@@ -455,27 +457,22 @@ export function DashboardView() {
   const todayDone = todayTodos.filter((t) => t.status === 'done').length;
   const todayActive = todayTodos.filter((t) => t.status === 'active' || t.status === 'done').length;
 
-  // Focus time: 타이머 실제 초(doElapsedSec) 우선, 없으면 doStart~doEnd 분 차를 초로 환산
-  const focusSeconds = useMemo(() => {
-    let total = 0;
-    todayTodos.forEach((t) => {
-      if (t.doStart && t.doEnd) total += todoDoDurationSeconds(t);
-    });
-    return total;
-  }, [todayTodos]);
+  // Focus time (Stage 3 누적): 그날 작업한 시간 블록 합 + 블록 없는 레거시 do_* (dual-read).
+  // 블록 기준이라 다른 날 예정 할일을 오늘 작업한 경우도 오늘 집계에 잡힌다.
+  const focusSeconds = useMemo(
+    () => dateDoSeconds(timeBlocks, todayTodos, today),
+    [timeBlocks, todayTodos, today],
+  );
 
   const focusDisplay = useMemo(() => formatTotalDoKo(focusSeconds), [focusSeconds]);
 
   // Yesterday focus time for comparison
   const yesterdayStr = format(subDays(new Date(), 1), 'yyyy-MM-dd');
   const yesterdayTodos = todos.filter((t) => t.date === yesterdayStr);
-  const yesterdayFocusSeconds = useMemo(() => {
-    let total = 0;
-    yesterdayTodos.forEach((t) => {
-      if (t.doStart && t.doEnd) total += todoDoDurationSeconds(t);
-    });
-    return total;
-  }, [yesterdayTodos]);
+  const yesterdayFocusSeconds = useMemo(
+    () => dateDoSeconds(timeBlocks, yesterdayTodos, yesterdayStr),
+    [timeBlocks, yesterdayTodos, yesterdayStr],
+  );
   const focusDiffSec = focusSeconds - yesterdayFocusSeconds;
   const focusSub =
     focusDiffSec === 0

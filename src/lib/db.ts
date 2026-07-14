@@ -2,7 +2,7 @@ import { supabase } from './supabase';
 import { format, addDays, subDays } from 'date-fns';
 import { createEvent as createEventApi, deleteEvent as deleteEventApi, getEvents, upsertEvent as upsertEventApi } from '../api/events';
 import type {
-  Todo, Habit, Project, Milestone,
+  Todo, TodoTimeBlock, Habit, Project, Milestone,
   SelfCareRecord, ReviewRecord, WeeklyReview, MonthlyReview, HappyMoment, TimelineLog,
   FoodRecord, DiningType, TasteRating, Event, WeeklyGoal, MonthlyGoal, BrainstormItem, Tag, Routine,
   PeriodRecord, HabitMonthlyMemo, AnnualGoal, QuarterlyGoal,
@@ -49,6 +49,15 @@ type TodoRow = {
   recurrence_freq: string | null;
   recurrence_interval: number | null;
   recurrence_preset: string | null;
+};
+
+type TodoTimeBlockRow = {
+  id: string;
+  todo_id: string;
+  date: string;
+  start_time: string | null;
+  end_time: string | null;
+  elapsed_sec: number | null;
 };
 
 type HabitRow = {
@@ -266,6 +275,24 @@ const fromTodo = (t: Todo): TodoRow => ({
   recurrence_freq: t.recurrenceFreq ?? null,
   recurrence_interval: t.recurrenceInterval ?? null,
   recurrence_preset: t.recurrencePreset ?? null,
+});
+
+const toTimeBlock = (r: TodoTimeBlockRow): TodoTimeBlock => ({
+  id: r.id,
+  todoId: r.todo_id,
+  date: r.date,
+  start: r.start_time ?? undefined,
+  end: r.end_time ?? undefined,
+  elapsedSec: r.elapsed_sec ?? 0,
+});
+
+const fromTimeBlock = (b: TodoTimeBlock): Record<string, unknown> => ({
+  id: b.id,
+  todo_id: b.todoId,
+  date: b.date,
+  start_time: b.start ?? null,
+  end_time: b.end ?? null,
+  elapsed_sec: b.elapsedSec ?? 0,
 });
 
 const toHabit = (r: HabitRow): Habit => ({
@@ -1227,6 +1254,27 @@ export const db = {
     delete: async (id: string) => {
       const { error } = await supabase.from('timeline_logs').delete().eq('id', id);
       if (error) console.error('[db] timeline_logs delete:', error.message);
+    },
+  },
+
+  todoTimeBlocks: {
+    fetchAll: async (): Promise<TodoTimeBlock[]> => {
+      const { data, error } = await supabase
+        .from('todo_time_blocks').select('*').order('date').order('start_time');
+      if (error) console.error('[db] todo_time_blocks fetch:', error.message);
+      return (data ?? []).map(toTimeBlock);
+    },
+    insert: async (block: TodoTimeBlock) => {
+      const { error } = await supabase.from('todo_time_blocks').insert(fromTimeBlock(block));
+      if (error) console.error('[db] todo_time_blocks insert:', error.message);
+    },
+    delete: async (id: string) => {
+      const { error } = await supabase.from('todo_time_blocks').delete().eq('id', id);
+      if (error) console.error('[db] todo_time_blocks delete:', error.message);
+    },
+    deleteByTodo: async (todoId: string) => {
+      const { error } = await supabase.from('todo_time_blocks').delete().eq('todo_id', todoId);
+      if (error) console.error('[db] todo_time_blocks deleteByTodo:', error.message);
     },
   },
 

@@ -566,7 +566,7 @@ function FocusBlock({
 
 function WeekTab({ jump }: { jump?: JumpReq }) {
   const {
-    todos, tags, habits,
+    todos, timeBlocks, tags, habits,
     weeklyReviews, addWeeklyReview, updateWeeklyReview,
     appSettings,
   } = usePlanner();
@@ -613,8 +613,8 @@ function WeekTab({ jump }: { jump?: JumpReq }) {
 
   // ── 집중시간 분석 — 시간 리포트 엔진(aggregateRange) 재사용. 합계/요일별/태그별/직전주 비교 모두 단일 소스 ──
   const focus = useMemo(
-    () => weekFocusReport(todos, tags, range.start, weekStartsOn, getLogicalToday()),
-    [todos, tags, range.startStr, weekStartsOn],
+    () => weekFocusReport(todos, tags, range.start, weekStartsOn, getLogicalToday(), timeBlocks),
+    [todos, timeBlocks, tags, range.startStr, weekStartsOn],
   );
 
   // ── 회고 입력 (Stage 1 필드로 실제 저장) ──
@@ -936,7 +936,7 @@ function BestCategory({ emoji, label, candidates, value, onChange }: {
 
 function MonthTab({ jump }: { jump?: JumpReq }) {
   const {
-    todos, tags, habits,
+    todos, timeBlocks, tags, habits,
     monthlyReviews, addMonthlyReview, updateMonthlyReview,
     appSettings,
   } = usePlanner();
@@ -998,8 +998,8 @@ function MonthTab({ jump }: { jump?: JumpReq }) {
 
   // ── 집중시간(월 버전) — 시간 리포트 엔진(aggregateRange) 재사용 ──
   const focus = useMemo(
-    () => monthFocusReport(todos, tags, anchor, weekStartsOn, getLogicalToday()),
-    [todos, tags, monthKey, weekStartsOn],
+    () => monthFocusReport(todos, tags, anchor, weekStartsOn, getLogicalToday(), timeBlocks),
+    [todos, timeBlocks, tags, monthKey, weekStartsOn],
   );
 
   // ── 회고 + 베스트 (Stage 1 monthly_reviews 컬럼) ──

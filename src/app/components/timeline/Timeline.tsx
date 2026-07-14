@@ -4,7 +4,8 @@ import { format, parseISO } from 'date-fns';
 import { ko } from 'date-fns/locale';
 import { usePlanner, Todo, Event, TimelineLog, SelfCareRecord, getTimerElapsedSec } from '../../store';
 import { useTheme } from '../../ThemeContext';
-import { formatDuration, formatTotalDoKo, todoDoDurationSeconds } from '../../../lib/todoDoDuration';
+import { formatDuration, formatTotalDoKo } from '../../../lib/todoDoDuration';
+import { dateDoSeconds } from '../../../lib/timeBlocks';
 import { isEventPast } from '../../../api/events';
 import { sleepRectsForColumn } from '../../../lib/sleepTimeline';
 import { TimelineLogModal } from './TimelineLogModal';
@@ -54,7 +55,7 @@ const WEEK_TIME_COL = 44;
 export function Timeline({ days = 1, selectedDate, dateTodos, dateEvents, onShowContextMenu, className, weekDays, onSelectDate, onToday, nowLineColor = CURRENT_TIME_COLOR, defaultBlockBg, defaultBlockBorder, defaultBlockText, dayBoundLabel }: TimelineProps) {
   const isWeek = days > 1 && !!weekDays;
   const {
-    todos, updateTodo, updateEvent, tags,
+    todos, timeBlocks, updateTodo, updateEvent, tags,
     activeTimer,
     selfCareRecords, updateSelfCareRecord,
     dayStartHour: tlStartHour, dayEndHour: tlEndHour,
@@ -663,9 +664,8 @@ export function Timeline({ days = 1, selectedDate, dateTodos, dateEvents, onShow
   // 타임라인 요약 계산 (실제 DO 초: 타이머 기록 우선, 진행 중 타이머는 초 단위 합산)
   const totalPlanMin = dateTodos.filter(td => td.planStart && td.planEnd)
     .reduce((sum, td) => sum + (timeToMinutes(td.planEnd!) - timeToMinutes(td.planStart!)), 0);
-  const totalDoSec = dateTodos
-    .filter(td => td.doStart && td.doEnd)
-    .reduce((sum, td) => sum + todoDoDurationSeconds(td), 0) + activeTimerSec;
+  // Stage 3(누적): 그날 총 DO = 그 날짜 블록 합 + 블록 없는 레거시 do_* (dual-read) + 진행 중 타이머
+  const totalDoSec = dateDoSeconds(timeBlocks, dateTodos, selectedDate) + activeTimerSec;
   const doneCount = dateTodos.filter(td => td.status === 'done').length;
   const achieveRate = dateTodos.length > 0 ? Math.round((doneCount / dateTodos.length) * 100) : 0;
 
