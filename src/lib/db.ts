@@ -1268,6 +1268,11 @@ export const db = {
       const { error } = await supabase.from('todo_time_blocks').insert(fromTimeBlock(block));
       if (error) console.error('[db] todo_time_blocks insert:', error.message);
     },
+    update: async (block: TodoTimeBlock) => {
+      const { id, ...rest } = fromTimeBlock(block);
+      const { error } = await supabase.from('todo_time_blocks').update(rest).eq('id', id);
+      if (error) console.error('[db] todo_time_blocks update:', error.message);
+    },
     delete: async (id: string) => {
       const { error } = await supabase.from('todo_time_blocks').delete().eq('id', id);
       if (error) console.error('[db] todo_time_blocks delete:', error.message);

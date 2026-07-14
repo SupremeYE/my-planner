@@ -771,6 +771,7 @@ interface PlannerContextType {
   todos: Todo[];
   timeBlocks: TodoTimeBlock[];
   deleteTimeBlock: (id: string) => void;
+  updateTimeBlock: (id: string, changes: Partial<TodoTimeBlock>) => void;
   events: Event[];
   habits: Habit[];
   weeklyGoals: WeeklyGoal[];
@@ -2058,6 +2059,16 @@ export function PlannerProvider({ children }: { children: React.ReactNode }) {
     void db.todoTimeBlocks.delete(id);
   }, []);
 
+  // 시간 블록 수정 (타임라인에서 막대 드래그/리사이즈).
+  const updateTimeBlock = useCallback((id: string, changes: Partial<TodoTimeBlock>) => {
+    setTimeBlocks(prev => {
+      const updated = prev.map(b => b.id === id ? { ...b, ...changes } : b);
+      const block = updated.find(b => b.id === id);
+      if (block) void db.todoTimeBlocks.update(block);
+      return updated;
+    });
+  }, []);
+
   // 자정 자동 일시정지: 진행 중 타이머가 날짜를 넘기지 않도록 00:00 에 일시정지.
   // (경과 시간이 다음 날로 새지 않게 — Stage 3 날짜별 블록 적재의 전제)
   useEffect(() => {
@@ -2177,7 +2188,7 @@ export function PlannerProvider({ children }: { children: React.ReactNode }) {
     <PlannerContext.Provider value={{
       isLoading,
       selectedDate, setSelectedDate,
-      todos, timeBlocks, deleteTimeBlock, events, habits, weeklyGoals, monthlyGoals, annualGoals, quarterlyGoals, brainstormItems, brainstormMemos, activeTimer,
+      todos, timeBlocks, deleteTimeBlock, updateTimeBlock, events, habits, weeklyGoals, monthlyGoals, annualGoals, quarterlyGoals, brainstormItems, brainstormMemos, activeTimer,
       projects, milestones, tags,
       routines, selfCareRecords, periodRecords, reviewRecords, weeklyReviews, monthlyReviews,
       happyMoments,

@@ -550,7 +550,7 @@ function DailyDatePickerModal({ selectedDate, onClose, onConfirm }: {
 export function DailyView() {
   const {
     selectedDate, setSelectedDate, todos, events, updateTodo, addTodo, toggleEventCompleted, deleteEvent, deleteRecurringTodo, habits,
-    activeTimer, startTimer, stopTimer, finishActiveTimer, tags, projects, weeklyGoals, milestones,
+    activeTimer, startTimer, stopTimer, finishActiveTimer, deleteTimeBlock, tags, projects, weeklyGoals, milestones,
     dayStartHour: tlStartHour, dayEndHour: tlEndHour, setDayHours,
   } = usePlanner();
   const { t } = useTheme();
@@ -1277,16 +1277,22 @@ export function DailyView() {
         const rawX = contextMenu.pos.x;
         const adjustedX = rawX + MENU_W > window.innerWidth ? rawX - MENU_W : rawX;
         const adjustedPos = { x: adjustedX, y: contextMenu.pos.y };
-        const isVirtual = isVirtualTodoId(contextMenu.todo.id);
+        // Stage 3b: DO 블록 막대는 합성 todo(_blk)라 원본 todo 로 편집/삭제를 매핑한다.
+        const doBlk = (contextMenu.todo as Todo & { _blk?: { id: string; todoId: string } })._blk;
+        const menuTodo = doBlk ? (todos.find(t => t.id === doBlk.todoId) ?? contextMenu.todo) : contextMenu.todo;
+        const isVirtual = isVirtualTodoId(menuTodo.id);
         return (
           <ContextMenu
-            todo={contextMenu.todo}
+            todo={menuTodo}
             position={adjustedPos}
             onClose={() => setContextMenu(null)}
             onFocus={setFocusingTodo}
             variant={contextMenu.source ? 'block' : 'list'}
             onDelete={contextMenu.source === 'do'
-              ? () => { updateTodo(contextMenu.todo.id, { doStart: undefined, doEnd: undefined, doElapsedSec: undefined }); }
+              ? () => {
+                  if (doBlk) deleteTimeBlock(doBlk.id);
+                  else updateTodo(menuTodo.id, { doStart: undefined, doEnd: undefined, doElapsedSec: undefined });
+                }
               : contextMenu.source === 'plan'
                 ? () => { updateTodo(contextMenu.todo.id, { planStart: undefined, planEnd: undefined }); }
                 : isVirtual
