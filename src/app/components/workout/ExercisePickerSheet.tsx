@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Search, X, Check } from 'lucide-react';
 import { useTheme } from '../../ThemeContext';
+import { isHaon, solidCardStyle, sheetBackdropStyle } from '../../styles/haonStyles';
+import { HaonButton } from '../ui/HaonButton';
 import { db, exerciseLabel } from '../../../lib/db';
 import type { Exercise, ExerciseBodyPart } from '../../../lib/db';
 import { SheetShell } from './SheetShell';
@@ -160,7 +162,7 @@ export function ExercisePickerSheet({ title = '종목 선택', loggedExerciseIds
                   key={ex.id}
                   onClick={() => handleTap(ex)}
                   className="flex flex-col items-start text-left"
-                  style={{ backgroundColor: t.card, border: `1px solid ${t.borderLight}`, borderRadius: 14, padding: 10, gap: 8 }}
+                  style={{ ...(isHaon(t) ? solidCardStyle(t) : { backgroundColor: t.card, border: `1px solid ${t.borderLight}` }), borderRadius: 14, padding: 10, gap: 8 }}
                 >
                   <ExerciseThumb exercise={ex} size={64} radius={10} />
                   <div className="w-full min-w-0">
@@ -185,13 +187,13 @@ export function ExercisePickerSheet({ title = '종목 선택', loggedExerciseIds
       {adopting && (
         <div
           className="absolute inset-0 z-10 flex items-end lg:items-center lg:justify-center"
-          style={{ backgroundColor: 'rgba(0,0,0,0.4)' }}
+          style={isHaon(t) ? sheetBackdropStyle() : { backgroundColor: 'rgba(0,0,0,0.4)' }}
           onClick={() => setAdopting(null)}
         >
           <div
             onClick={e => e.stopPropagation()}
             className="w-full lg:w-[360px] lg:rounded-2xl rounded-t-2xl"
-            style={{ backgroundColor: t.card, padding: 18, paddingBottom: 'max(env(safe-area-inset-bottom), 18px)' }}
+            style={{ ...(isHaon(t) ? solidCardStyle(t) : { backgroundColor: t.card }), padding: 18, paddingBottom: 'max(env(safe-area-inset-bottom), 18px)' }}
           >
             <div className="flex items-center gap-3 mb-3">
               <ExerciseThumb exercise={adopting} size={48} />
@@ -215,13 +217,14 @@ export function ExercisePickerSheet({ title = '종목 선택', loggedExerciseIds
             <p style={{ fontSize: 11, color: t.textMuted, marginTop: 6 }}>
               한글 이름은 지금 한 번만 정하면 저장돼요. (자동 번역 안 함)
             </p>
-            <button
+            <HaonButton
+              variant="primary"
+              leftIcon={<Check size={16} />}
               onClick={confirmAdopt}
-              className="w-full flex items-center justify-center gap-1.5 mt-3"
-              style={{ backgroundColor: t.accent, color: '#fff', fontSize: 14, fontWeight: 700, borderRadius: 12, padding: '11px 0' }}
+              className="w-full mt-3"
             >
-              <Check size={16} color="#fff" /> 내 운동에 추가하고 기록
-            </button>
+              내 운동에 추가하고 기록
+            </HaonButton>
           </div>
         </div>
       )}

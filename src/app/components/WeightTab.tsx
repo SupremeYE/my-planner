@@ -5,6 +5,8 @@ import {
   ComposedChart, Line, Area, Scatter, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine,
 } from 'recharts';
 import { useTheme } from '../ThemeContext';
+import { isHaon, solidCardStyle, solidRowStyle } from '../styles/haonStyles';
+import { HaonButton } from './ui/HaonButton';
 import { db } from '../../lib/db';
 import { useRealtimeSync } from '../hooks/useRealtimeSync';
 import type { WeightRecord, WeightGoal, WeightSlot } from '../store';
@@ -50,7 +52,7 @@ function GoalModal({ initial, onClose, onSave }: {
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4"
       style={{ backgroundColor: 'rgba(0,0,0,0.35)' }} onClick={onClose}>
       <div className="rounded-2xl w-[360px] max-w-full p-5"
-        style={{ backgroundColor: t.bg, border: `1px solid ${t.border}` }}
+        style={isHaon(t) ? solidCardStyle(t) : { backgroundColor: t.bg, border: `1px solid ${t.border}` }}
         onClick={e => e.stopPropagation()}>
         <h3 style={{ fontSize: 16, fontWeight: 700, color: t.text, marginBottom: 16 }}>목표 체중 설정</h3>
 
@@ -84,20 +86,15 @@ function GoalModal({ initial, onClose, onSave }: {
         </div>
 
         <div className="flex gap-2 mt-5">
-          <button onClick={onClose} className="flex-1 py-2.5 rounded-xl"
-            style={{ backgroundColor: t.bgSub, color: t.textSub, fontSize: 14 }}>취소</button>
-          <button disabled={!canSave}
+          <HaonButton variant="secondary" onClick={onClose} className="flex-1 text-sm">취소</HaonButton>
+          <HaonButton variant="primary" disabled={!canSave}
             onClick={() => onSave({
               startWeight: numOrNull(startWeight)!,
               targetWeight: numOrNull(targetWeight)!,
               targetBodyFat: numOrNull(targetBodyFat),
               targetMuscleMass: numOrNull(targetMuscle),
             })}
-            className="flex-1 py-2.5 rounded-xl"
-            style={{
-              backgroundColor: canSave ? t.accent : t.bgSub,
-              color: canSave ? '#fff' : t.textMuted, fontSize: 14, fontWeight: 600,
-            }}>저장</button>
+            className="flex-1 text-sm">저장</HaonButton>
         </div>
       </div>
     </div>
@@ -294,7 +291,7 @@ export function WeightTab() {
   };
 
   const statCard = (label: string, value: string, color?: string) => (
-    <div className="p-3 rounded-2xl" style={{ backgroundColor: t.card, border: `1px solid ${t.border}` }}>
+    <div className="p-3 rounded-2xl" style={isHaon(t) ? solidCardStyle(t) : { backgroundColor: t.card, border: `1px solid ${t.border}` }}>
       <p style={{ fontSize: 11, color: t.textMuted, marginBottom: 4 }}>{label}</p>
       <p style={{ fontSize: 18, fontWeight: 700, color: color ?? t.text }}>{value}</p>
     </div>
@@ -326,14 +323,13 @@ export function WeightTab() {
     <div className="space-y-5">
       {/* (A) 입력 영역 — 기본 접힘 */}
       {!inputOpen && (
-        <button onClick={() => setInputOpen(true)}
-          className="w-full flex items-center justify-center gap-1.5 py-2.5 rounded-2xl"
-          style={{ fontSize: 14, fontWeight: 600, color: '#fff', backgroundColor: t.accent }}>
-          <Plus size={16} /> 몸무게 기록하기
-        </button>
+        <HaonButton variant="primary" onClick={() => setInputOpen(true)}
+          leftIcon={<Plus size={16} />} className="w-full text-sm">
+          몸무게 기록하기
+        </HaonButton>
       )}
       {inputOpen && (
-      <div className="p-4 rounded-2xl" style={{ backgroundColor: t.card, border: `1px solid ${t.border}` }}>
+      <div className="p-4 rounded-2xl" style={isHaon(t) ? solidCardStyle(t) : { backgroundColor: t.card, border: `1px solid ${t.border}` }}>
         <div className="flex items-center justify-between mb-3">
           <span style={{ fontSize: 13, fontWeight: 700, color: t.text }}>몸무게 기록</span>
           <button onClick={() => { setInputOpen(false); resetForm(); }} className="p-1 rounded"
@@ -397,25 +393,21 @@ export function WeightTab() {
             className="w-full mt-1 px-3 py-2 rounded-xl outline-none"
             style={{ backgroundColor: t.bgSub, border: `1px solid ${t.border}`, color: t.text }} />
         </div>
-        <button onClick={handleSubmit} disabled={!canSubmit}
-          className="w-full mt-3 py-2.5 rounded-xl"
-          style={{
-            backgroundColor: canSubmit ? t.accent : t.bgSub,
-            color: canSubmit ? '#fff' : t.textMuted, fontSize: 14, fontWeight: 600,
-          }}>기록하기</button>
+        <HaonButton variant="primary" onClick={handleSubmit} disabled={!canSubmit}
+          className="w-full mt-3 text-sm">기록하기</HaonButton>
       </div>
       )}
 
       {/* (B) 목표 영역 */}
       {goal ? (
-        <div className="p-4 rounded-2xl" style={{ backgroundColor: t.card, border: `1px solid ${t.border}` }}>
+        <div className="p-4 rounded-2xl" style={isHaon(t) ? solidCardStyle(t) : { backgroundColor: t.card, border: `1px solid ${t.border}` }}>
           <div className="flex items-center justify-between mb-3">
             <span style={{ fontSize: 13, fontWeight: 700, color: t.text }}>
               목표 {goal.targetWeight}kg
               <span style={{ fontSize: 12, fontWeight: 400, color: t.textMuted }}> (시작 {goal.startWeight}kg)</span>
             </span>
-            <button onClick={() => setShowGoalModal(true)}
-              style={{ fontSize: 12, color: t.accent, fontWeight: 600 }}>목표 수정</button>
+            <HaonButton variant="ghost" onClick={() => setShowGoalModal(true)}
+              className="text-xs px-2.5 py-1">목표 수정</HaonButton>
           </div>
           {progress != null && (
             <>
@@ -428,12 +420,11 @@ export function WeightTab() {
         </div>
       ) : (
         <div className="p-4 rounded-2xl flex items-center justify-between"
-          style={{ backgroundColor: t.card, border: `1px solid ${t.border}` }}>
+          style={isHaon(t) ? solidCardStyle(t) : { backgroundColor: t.card, border: `1px solid ${t.border}` }}>
           <span style={{ fontSize: 13, color: t.textSub }}>목표 체중을 설정해보세요</span>
-          <button onClick={() => setShowGoalModal(true)}
-            className="px-3 py-1.5 rounded-xl" style={{ backgroundColor: t.accent, color: '#fff', fontSize: 13, fontWeight: 600 }}>
+          <HaonButton variant="primary" onClick={() => setShowGoalModal(true)} className="text-sm">
             목표 설정
-          </button>
+          </HaonButton>
         </div>
       )}
 
@@ -449,7 +440,7 @@ export function WeightTab() {
       </div>
 
       {/* (D) 추이 차트 */}
-      <div className="p-4 rounded-2xl" style={{ backgroundColor: t.card, border: `1px solid ${t.border}` }}>
+      <div className="p-4 rounded-2xl" style={isHaon(t) ? solidCardStyle(t) : { backgroundColor: t.card, border: `1px solid ${t.border}` }}>
         {/* 기간 네비게이터 (주/월/년 세그먼트 + ‹ › 스테퍼) — 롤링 7/30/1년 대체 */}
         <PeriodNavigator
           unit={unit}
@@ -571,7 +562,7 @@ export function WeightTab() {
           <div className="space-y-2">
             {visibleRecords.map(r => (
               <div key={r.id} className="flex items-center gap-3 px-3 py-2.5 rounded-xl"
-                style={{ backgroundColor: t.card, border: `1px solid ${t.border}` }}>
+                style={isHaon(t) ? solidRowStyle(t) : { backgroundColor: t.card, border: `1px solid ${t.border}` }}>
                 <span style={{ fontSize: 12, color: t.textSub, width: 60, flexShrink: 0 }}>{r.date.slice(5)}</span>
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 flex-wrap">

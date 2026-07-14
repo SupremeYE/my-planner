@@ -5,6 +5,7 @@ import { db, exerciseLabel } from '../../../lib/db';
 import type { Exercise, WorkoutLog, WorkoutSet } from '../../../lib/db';
 import { SheetShell } from './SheetShell';
 import { ExerciseThumb } from './ExerciseThumb';
+import { HaonButton } from '../ui/HaonButton';
 import ConfirmModal from '../ConfirmModal';
 
 type EditSet = { weight: string; reps: string; durationMin: string; distanceKm: string; prefill: boolean };
@@ -128,27 +129,24 @@ export function RecordSheet({ exercise, performedOn, editingLog, onClose, onSave
       title={isEdit ? '기록 편집' : '운동 기록'}
       onClose={onClose}
       headerRight={
-        <button
+        <HaonButton
+          variant="ghost"
           onClick={handleSave}
           disabled={!canSave || saving}
-          style={{
-            fontSize: 14, fontWeight: 700,
-            color: canSave ? t.accent : t.textMuted,
-            opacity: saving ? 0.6 : 1, padding: '4px 6px',
-          }}
         >
           저장
-        </button>
+        </HaonButton>
       }
       footer={
         isEdit ? (
-          <button
+          <HaonButton
+            variant="danger"
+            leftIcon={<Trash2 size={15} />}
             onClick={() => setConfirmDelete(true)}
-            className="w-full flex items-center justify-center gap-1.5"
-            style={{ fontSize: 13, fontWeight: 600, color: t.danger, padding: '8px 0' }}
+            className="w-full"
           >
-            <Trash2 size={15} color={t.danger} /> 이 기록 삭제
-          </button>
+            이 기록 삭제
+          </HaonButton>
         ) : undefined
       }
     >
@@ -219,13 +217,15 @@ export function RecordSheet({ exercise, performedOn, editingLog, onClose, onSave
             </div>
           ))}
 
-          <button
+          <HaonButton
+            variant="ghost"
+            leftIcon={<Plus size={15} />}
             onClick={addSet}
-            className="w-full flex items-center justify-center gap-1.5"
-            style={{ fontSize: 13, fontWeight: 600, color: t.accent, border: `1px dashed ${t.border}`, borderRadius: 10, padding: '9px 0' }}
+            className="w-full"
+            style={{ border: `1px dashed ${t.border}` }}
           >
-            <Plus size={15} color={t.accent} /> 세트 추가
-          </button>
+            세트 추가
+          </HaonButton>
         </div>
 
         {/* 메모 */}

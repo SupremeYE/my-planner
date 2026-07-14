@@ -1,5 +1,7 @@
 import { Flame, Plus, ChevronRight, History as HistoryIcon, Pencil, TrendingUp, Calendar } from 'lucide-react';
 import { useTheme } from '../../ThemeContext';
+import { isHaon, solidCardStyle, solidRowStyle } from '../../styles/haonStyles';
+import { HaonButton } from '../ui/HaonButton';
 import { exerciseLabel } from '../../../lib/db';
 import type { WorkoutLog } from '../../../lib/db';
 import { ExerciseThumb } from './ExerciseThumb';
@@ -122,20 +124,21 @@ function TodayRoutineCard({ w }: { w: UseWorkout }) {
             <div
               key={re.id}
               className="flex items-center gap-3"
-              style={{ backgroundColor: t.bgSub, border: `1px solid ${t.borderLight}`, borderRadius: 12, padding: 9 }}
+              style={{ ...(isHaon(t) ? solidRowStyle(t) : { backgroundColor: t.bgSub, border: `1px solid ${t.borderLight}` }), borderRadius: 12, padding: 9 }}
             >
               <ExerciseThumb exercise={re.exercise} size={42} radius={9} />
               <div className="flex-1 min-w-0">
                 <div style={{ fontSize: 14, fontWeight: 600, color: t.text }} className="truncate">{exerciseLabel(re.exercise)}</div>
                 <div style={{ fontSize: 11, color: t.textMuted }}>{re.exercise.bodyPart} · {re.exercise.type}</div>
               </div>
-              <button
+              <HaonButton
+                variant="ghost"
                 onClick={() => w.setRecord({ exercise: re.exercise!, performedOn: w.today })}
-                className="flex items-center gap-0.5 flex-shrink-0"
-                style={{ fontSize: 12.5, fontWeight: 700, color: t.accent, backgroundColor: t.accentLight, borderRadius: 999, padding: '6px 12px' }}
+                className="flex-shrink-0"
+                style={{ borderRadius: 999 }}
               >
-                기록 <ChevronRight size={14} color={t.accent} />
-              </button>
+                기록 <ChevronRight size={14} />
+              </HaonButton>
             </div>
           ))}
         </div>
@@ -156,13 +159,14 @@ function TodayWorkoutCard({ w }: { w: UseWorkout }) {
       <DCardHeader
         title="오늘의 운동"
         action={
-          <button
+          <HaonButton
+            variant="primary"
+            leftIcon={<Plus size={15} />}
             onClick={() => w.setPicker(true)}
-            className="flex items-center gap-1.5"
-            style={{ fontSize: 13, fontWeight: 700, color: '#fff', backgroundColor: t.accent, borderRadius: 999, padding: '7px 14px' }}
+            style={{ borderRadius: 999 }}
           >
-            <Plus size={15} color="#fff" /> 운동 추가
-          </button>
+            운동 추가
+          </HaonButton>
         }
       />
       {w.todayLogs.length > 0 ? (
@@ -172,7 +176,7 @@ function TodayWorkoutCard({ w }: { w: UseWorkout }) {
               key={log.id}
               onClick={() => w.setRecord({ exercise: log.exercise!, performedOn: log.performedOn, editingLog: log })}
               className="group w-full flex items-center gap-3 text-left"
-              style={{ backgroundColor: t.bgSub, border: `1px solid ${t.borderLight}`, borderRadius: 12, padding: 10 }}
+              style={{ ...(isHaon(t) ? solidRowStyle(t) : { backgroundColor: t.bgSub, border: `1px solid ${t.borderLight}` }), borderRadius: 12, padding: 10 }}
             >
               <ExerciseThumb exercise={log.exercise} size={46} radius={10} />
               <div className="flex-1 min-w-0">
@@ -268,7 +272,7 @@ function RecentHistoryCard({ w }: { w: UseWorkout }) {
               key={log.id}
               onClick={() => w.setRecord({ exercise: log.exercise!, performedOn: log.performedOn, editingLog: log })}
               className="w-full flex items-center gap-3 text-left"
-              style={{ backgroundColor: t.bgSub, border: `1px solid ${t.borderLight}`, borderRadius: 12, padding: 9 }}
+              style={{ ...(isHaon(t) ? solidRowStyle(t) : { backgroundColor: t.bgSub, border: `1px solid ${t.borderLight}` }), borderRadius: 12, padding: 9 }}
             >
               <ExerciseThumb exercise={log.exercise} size={40} radius={9} />
               <div className="flex-1 min-w-0">
@@ -290,7 +294,7 @@ function RecentHistoryCard({ w }: { w: UseWorkout }) {
 function DCard({ children }: { children: React.ReactNode }) {
   const { t } = useTheme();
   return (
-    <div style={{ backgroundColor: t.card, border: `1px solid ${t.borderLight}`, borderRadius: 18, padding: 18 }}>
+    <div style={{ ...(isHaon(t) ? solidCardStyle(t) : { backgroundColor: t.card, border: `1px solid ${t.borderLight}` }), borderRadius: 18, padding: 18 }}>
       {children}
     </div>
   );

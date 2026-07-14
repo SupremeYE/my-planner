@@ -6,6 +6,7 @@ import type { RoutineDay } from '../../../lib/db';
 import { SheetShell } from './SheetShell';
 import { ExerciseThumb } from './ExerciseThumb';
 import { ExercisePickerSheet } from './ExercisePickerSheet';
+import { HaonButton } from '../ui/HaonButton';
 import { WEEKDAYS, todayDow } from './workoutUtils';
 
 interface Props {
@@ -130,13 +131,15 @@ export function RoutineSheet({ loggedExerciseIds, onClose, onChanged }: Props) {
             ))
           )}
 
-          <button
+          <HaonButton
+            variant="ghost"
+            leftIcon={<Plus size={16} />}
             onClick={() => setPicker(true)}
-            className="w-full flex items-center justify-center gap-1.5"
-            style={{ fontSize: 13, fontWeight: 600, color: t.accent, border: `1px dashed ${t.border}`, borderRadius: 12, padding: '11px 0' }}
+            className="w-full"
+            style={{ border: `1px dashed ${t.border}` }}
           >
-            <Plus size={16} color={t.accent} /> 종목 추가
-          </button>
+            종목 추가
+          </HaonButton>
         </div>
       </div>
 

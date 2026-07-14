@@ -1,5 +1,6 @@
 import { useSearchParams } from 'react-router';
 import { useTheme } from '../ThemeContext';
+import { isHaon, canvasStyle } from '../styles/haonStyles';
 import { SleepSection, PeriodSection } from './SelfCareView';
 import { WeightTab } from './WeightTab';
 import { ConditionTab } from './ConditionTab';
@@ -27,7 +28,7 @@ export function HealthView() {
   };
 
   return (
-    <div className="h-full overflow-y-auto" style={{ backgroundColor: t.bg }}>
+    <div className="h-full overflow-y-auto" style={isHaon(t) ? canvasStyle(t) : { backgroundColor: t.bg }}>
       {/* 페이지 헤더 */}
       <div className="px-4 pt-5 pb-3 lg:px-6 lg:pt-6">
         <h1 style={{ fontSize: 22, fontWeight: 700, color: t.text, fontFamily: t.fontPageTitle }}>건강</h1>
