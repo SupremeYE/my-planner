@@ -799,7 +799,6 @@ export function SleepSection() {
               offset={weekOffset}
               onOffsetChange={setWeekOffset}
               weekStartsOn={weekStartsOn}
-              firstRecordDate={sleepRecords.length ? sleepRecords[sleepRecords.length - 1].date : null}
               className="mb-2"
             />
             <div className="flex items-end justify-between gap-1.5" style={{ height: 96 }}>

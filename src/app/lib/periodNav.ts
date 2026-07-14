@@ -54,16 +54,7 @@ export function getPeriodRange(unit: PeriodUnit, offset: number, opts: PeriodOpt
 }
 
 // 미래 차단: offset >= 0(현재/이후)이면 다음(›) 불가 — 오늘 이후 기간으로 못 감.
+// 뒤로(‹)는 항상 허용(달력처럼 과거 자유 탐색, 기록 0건이어도 이동 가능) — 하한 클램프 없음.
 export function canGoNext(offset: number): boolean {
   return offset < 0;
-}
-
-// 첫 기록 정지: 한 칸 더 과거(offset-1) 기간이 통째로 firstRecordDate 이전이면 이전(‹) 불가.
-// firstRecordDate 없으면(기록 0건) 과거 탐색 불가.
-export function canGoPrev(
-  unit: PeriodUnit, offset: number, firstRecordDate: string | null | undefined, opts: PeriodOpts = {},
-): boolean {
-  if (!firstRecordDate) return false;
-  const prev = getPeriodRange(unit, offset - 1, opts);
-  return prev.end >= firstRecordDate;
 }

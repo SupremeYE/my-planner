@@ -201,9 +201,9 @@ export function addPopoverStyle(t: ThemeTokens): CSSProperties {
 // 여기서 등록하는 건 스테퍼 화살표(‹ ›) 아이콘 버튼 표면뿐. 라벨/집계/미래차단은 컴포넌트 로직.
 //
 // 공용 컴포넌트 계약(Stage 3 구현): props =
-//   unit('주'|'월'|'년'), offset(0=현재), onOffsetChange, weekStartsOn(0|1), firstRecordDate.
+//   unit('주'|'월'|'년'), offset(0=현재), onOffsetChange, weekStartsOn(0|1).
 //   · 미래 차단: offset >= 0 이면 다음(›) disabled — 오늘 이후 기간으로 못 감.
-//   · 첫 기록 정지: firstRecordDate 이전 기간이면 이전(‹) disabled.
+//   · 뒤로는 항상 허용: 이전(‹)은 비활성 없음 — 과거를 달력처럼 자유 탐색(하한 클램프 없음).
 //   · 단위 전환 시 offset=0 으로 리셋(현재 기간).
 //   · 라벨: 주 "이번 주 M.DD–M.DD" / 월 "YYYY년 M월" / 년 "YYYY".
 // 수면·몸무게 공용(수면 인라인 스테퍼를 이 패턴으로 수렴 — Stage 3, 결정2).

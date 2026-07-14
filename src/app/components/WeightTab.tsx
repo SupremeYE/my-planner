@@ -206,9 +206,6 @@ export function WeightTab() {
     () => getPeriodRange(unit, offset, { weekStartsOn }),
     [unit, offset, weekStartsOn],
   );
-  // 첫 기록(오름차순 첫 날) — 네비게이터 과거 이동 정지 기준
-  const firstRecordDate = sorted.length ? sorted[sorted.length - 1].date : null;
-
   // 선택 기간 내 최저/최고
   const periodRecords = useMemo(
     () => sorted.filter(r => r.date >= period.start && r.date <= period.end),
@@ -460,7 +457,6 @@ export function WeightTab() {
           offset={offset}
           onOffsetChange={setOffset}
           weekStartsOn={weekStartsOn}
-          firstRecordDate={firstRecordDate}
           className="mb-3"
         />
 

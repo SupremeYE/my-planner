@@ -359,9 +359,10 @@ segment visuals**:
    非-H = `bgSub` fallback). Centered label in Pretendard 600–700 (§4).
 
 **Behavior contract** (shared component, built Stage 3). Props: `unit('주'|'월'|'년')`, `offset`
-(0 = current period), `onOffsetChange`, `weekStartsOn(0|1)`, `firstRecordDate`.
+(0 = current period), `onOffsetChange`, `weekStartsOn(0|1)`.
 - **Future-blocked (built in):** `offset >= 0` → next (›) disabled; can never step past today's period.
-- **First-record clamp:** stepping before the period containing `firstRecordDate` → prev (‹) disabled.
+- **Backward always allowed:** prev (‹) is never disabled — the past is freely browsable like a
+  calendar (empty periods just render "기록 없음"), even with zero records. No lower clamp.
 - **Unit switch resets `offset = 0`** (jump back to the current period).
 - **Labels:** 주 = `"이번 주 M.DD–M.DD"` / 월 = `"YYYY년 M월"` / 년 = `"YYYY"`.
 - **Week boundary = `appSettings.weekStartsOn`** (default 월요일), passed as `weekStartsOn`; pass
