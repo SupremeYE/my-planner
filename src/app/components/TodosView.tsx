@@ -367,11 +367,19 @@ function TodoListTab({ selectMode, selected, onSelectToggle }: TabSelectionProps
     [todos]
   );
 
-  // 밀림: date < 오늘 AND status in (active, inProgress)
+  // 밀림: date < 오늘 AND status === active (진행중은 '밀림'이 아니라 이어가는 중 — 아래 별도)
   const overdue = useMemo(
     () => incompleteAssigned
-      .filter(td => td.date! < todayStr && (td.status === 'active' || td.status === 'inProgress'))
+      .filter(td => td.date! < todayStr && td.status === 'active')
       .sort((a, b) => a.date!.localeCompare(b.date!)),
+    [incompleteAssigned, todayStr]
+  );
+
+  // Stage 4(이월): 지난 날짜의 '진행중' — 밀림과 분리, 진행중 톤으로 이어가는 중 표시
+  const inProgressCarryover = useMemo(
+    () => incompleteAssigned
+      .filter(td => td.date! < todayStr && td.status === 'inProgress')
+      .sort((a, b) => (a.startedDate ?? a.date!).localeCompare(b.startedDate ?? b.date!)),
     [incompleteAssigned, todayStr]
   );
 
@@ -390,7 +398,7 @@ function TodoListTab({ selectMode, selected, onSelectToggle }: TabSelectionProps
     return Object.entries(groups).sort(([a], [b]) => a.localeCompare(b));
   }, [incompleteAssigned, todayStr]);
 
-  const total = unassigned.length + overdue.length + todayTodos.length + upcomingGrouped.reduce((s, [, list]) => s + list.length, 0);
+  const total = unassigned.length + overdue.length + inProgressCarryover.length + todayTodos.length + upcomingGrouped.reduce((s, [, list]) => s + list.length, 0);
 
   return (
     <div className="space-y-5">
@@ -482,6 +490,42 @@ function TodoListTab({ selectMode, selected, onSelectToggle }: TabSelectionProps
                 selectMode={selectMode}
                 selected={selected.has(todo.id)}
                 onSelectToggle={() => onSelectToggle(todo.id)}
+                  onMoveToToday={() => updateTodo(todo.id, { date: todayStr })}
+                />
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── 진행중 (이어가는 중, Stage 4 이월) — 밀림과 분리, 초록 톤 ── */}
+      {inProgressCarryover.length > 0 && (
+        <div className="px-4">
+          <div
+            className="rounded-2xl p-3"
+            style={isHaon(t) ? solidCardStyle(t) : { backgroundColor: `${t.success}12`, border: `1px solid ${t.success}33` }}
+          >
+            <div className="flex items-center gap-2 mb-2.5">
+              <Play size={13} color={t.success} fill={t.success} />
+              <span style={{ fontSize: 11, fontWeight: 700, color: t.success, letterSpacing: '0.04em' }}>
+                진행중 {inProgressCarryover.length}개
+              </span>
+              <span style={{ fontSize: 10, color: t.success, opacity: 0.8 }}>
+                지난 날 시작해 이어가는 중이에요 (밀림 아님)
+              </span>
+            </div>
+            <div className="space-y-2">
+              {inProgressCarryover.map(todo => (
+                <TodoRow
+                  key={todo.id}
+                  todo={todo}
+                  onStatusToggle={() => updateTodo(todo.id, { status: STATUS_NEXT[todo.status] })}
+                  onEdit={() => setEditingTodo(todo)}
+                  onDelete={() => deleteTodo(todo.id)}
+                  onTop3Toggle={() => toggleTop3(todo.id)}
+                  selectMode={selectMode}
+                  selected={selected.has(todo.id)}
+                  onSelectToggle={() => onSelectToggle(todo.id)}
                   onMoveToToday={() => updateTodo(todo.id, { date: todayStr })}
                 />
               ))}
@@ -702,7 +746,7 @@ export function TodosView() {
     () => todos.filter(td =>
       td.date !== null &&
       td.date < todayStr &&
-      (td.status === 'active' || td.status === 'inProgress')
+      td.status === 'active'
     ).length,
     [todos, todayStr]
   );

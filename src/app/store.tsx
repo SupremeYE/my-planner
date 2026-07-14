@@ -48,6 +48,8 @@ export interface Todo {
   recurrenceFreq?: 'daily' | 'weekly' | 'monthly' | 'yearly';
   recurrenceInterval?: number;     // N — 매 N 주기마다 (기본 1)
   recurrencePreset?: 'weekday' | 'weekend';
+  // 이월(carryover) — 처음 '진행중'이 된 날짜(yyyy-MM-dd). "N일째"·이어달리기 기준. (Stage 4)
+  startedDate?: string;
 }
 
 /**
@@ -1994,7 +1996,7 @@ export function PlannerProvider({ children }: { children: React.ReactNode }) {
     setTodos(prev => {
       const updated = prev.map(t =>
         t.id === realId
-          ? { ...t, status: 'inProgress' as TodoStatus, doStart: undefined, doEnd: undefined, doElapsedSec: undefined }
+          ? { ...t, status: 'inProgress' as TodoStatus, startedDate: t.startedDate ?? format(new Date(), 'yyyy-MM-dd'), doStart: undefined, doEnd: undefined, doElapsedSec: undefined }
           : t
       );
       const todo = updated.find(t => t.id === realId);
