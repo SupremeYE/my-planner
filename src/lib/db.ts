@@ -12,6 +12,7 @@ import type {
   BeautyProduct, BeautySpecialCare, HouseholdItem, ConsumableCycle, CleaningZone,
   Scrap, ScrapNote, ScrapSource, ScrapStatus,
   MindmapNode, MindmapTreeNode, MindmapDir,
+  TodoTimeBlock,
 } from '../app/store';
 
 function parseAnnualProfilesFromDb(raw: unknown): Record<string, { identity: string; values: string[] }> {
@@ -35,6 +36,7 @@ type TodoRow = {
   end_date: string | null;
   status: string; is_top3: boolean; plan_start: string | null; plan_end: string | null;
   do_start: string | null; do_end: string | null; do_elapsed_sec: number | null;
+  do_date: string | null;
   category: string | null;
   project_id: string | null;
   weekly_goal_id: string | null;
@@ -221,6 +223,30 @@ const toMindmapNode = (r: MindmapNodeRow): MindmapNode => ({
 
 // ── 변환 함수 ────────────────────────────────────────────────────────────────
 
+type TodoTimeBlockRow = {
+  id: string; user_id?: string; todo_id: string; date: string;
+  start_time: string | null; end_time: string | null; elapsed_sec: number; created_at?: string;
+};
+
+const toTodoTimeBlock = (r: TodoTimeBlockRow): TodoTimeBlock => ({
+  id: r.id,
+  todoId: r.todo_id,
+  date: r.date,
+  start: r.start_time ?? undefined,
+  end: r.end_time ?? undefined,
+  elapsedSec: r.elapsed_sec ?? 0,
+  createdAt: r.created_at ?? undefined,
+});
+
+const fromTodoTimeBlock = (b: TodoTimeBlock): TodoTimeBlockRow => ({
+  id: b.id,
+  todo_id: b.todoId,
+  date: b.date,
+  start_time: b.start ?? null,
+  end_time: b.end ?? null,
+  elapsed_sec: b.elapsedSec ?? 0,
+});
+
 const toTodo = (r: TodoRow): Todo => ({
   id: r.id, text: r.text, date: r.date, dueDate: r.due_date ?? undefined,
   endDate: r.end_date ?? undefined,
@@ -228,6 +254,7 @@ const toTodo = (r: TodoRow): Todo => ({
   planStart: r.plan_start ?? undefined, planEnd: r.plan_end ?? undefined,
   doStart: r.do_start ?? undefined, doEnd: r.do_end ?? undefined,
   doElapsedSec: r.do_elapsed_sec ?? undefined,
+  doDate: r.do_date ?? undefined,
   category: r.category ?? undefined, projectId: r.project_id ?? undefined,
   weeklyGoalId: r.weekly_goal_id ?? undefined,
   milestoneId: r.milestone_id ?? undefined,
@@ -247,6 +274,7 @@ const fromTodo = (t: Todo): TodoRow => ({
   plan_start: t.planStart ?? null, plan_end: t.planEnd ?? null,
   do_start: t.doStart ?? null, do_end: t.doEnd ?? null,
   do_elapsed_sec: t.doElapsedSec ?? null,
+  do_date: t.doDate ?? null,
   category: t.category ?? null, project_id: t.projectId ?? null,
   weekly_goal_id: t.weeklyGoalId ?? null,
   milestone_id: t.milestoneId ?? null,
@@ -989,6 +1017,24 @@ export const db = {
       if (ids.length === 0) return;
       const { error } = await supabase.from('todos').delete().in('id', ids);
       if (error) console.error('[db] todos deleteMany:', error.message);
+    },
+  },
+
+  // ⑬ Stage 3 — 날짜별 아카이브 시간 블록. 라이브 당일 블록은 todos.do_* 에 남고,
+  // 하루 넘어가면 과거 블록을 여기에 insert 한다(dual-read). 총합/리포트 집계에 재사용.
+  todoTimeBlocks: {
+    fetchAll: async (): Promise<TodoTimeBlock[]> => {
+      const { data, error } = await supabase.from('todo_time_blocks').select('*').order('date');
+      if (error) console.error('[db] todo_time_blocks fetch:', error.message);
+      return (data ?? []).map(toTodoTimeBlock);
+    },
+    insert: async (block: TodoTimeBlock) => {
+      const { error } = await supabase.from('todo_time_blocks').insert(fromTodoTimeBlock(block));
+      if (error) console.error('[db] todo_time_blocks insert:', error.message);
+    },
+    deleteByTodo: async (todoId: string) => {
+      const { error } = await supabase.from('todo_time_blocks').delete().eq('todo_id', todoId);
+      if (error) console.error('[db] todo_time_blocks deleteByTodo:', error.message);
     },
   },
 

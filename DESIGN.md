@@ -395,7 +395,10 @@ they are passive nav hints, not actions (⑨b; coral stays reserved for accent /
   `blockDefault*` / `t.success` 토큰만 사용.
 - **토큰만** — 위 전부 `t.success` / `t.checkDone` / `t.accent` / `t.textMuted` / `blockDefault*`
   토큰. `progressCheckboxStyle` · `progressBadgeStyle` · `daysInProgressStyle` ·
-  `carryoverSectionStyle` · `doBlockFillStyle` 를 `haonStyles.ts` 에 **정의만** 등록(소비처 없음).
+  `carryoverSectionStyle` · `doBlockFillStyle` 를 `haonStyles.ts` 에 등록.
+  **소비처(Stage 2·3):** progressCheckboxStyle=일간 체크박스·StatusSheet, progressBadgeStyle=진행중
+  뱃지(H), daysInProgressStyle=이어서 하기 "N일째", carryoverSectionStyle=이어서 하기 섹션.
+  DO 연한채움(진행중)/꽉참(완료)은 Timeline 이 status·doDate·아카이브 블록으로 직접 구현.
 
 ---
 

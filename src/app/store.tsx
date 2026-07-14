@@ -29,6 +29,9 @@ export interface Todo {
   doEnd?: string;
   /** 타이머 완료 시 실제 경과 시간(초). 타임라인 막대는 분 단위 doEnd와 별개로 집계·표시에 사용 */
   doElapsedSec?: number;
+  /** do_* 단일 블록이 귀속되는 논리적 날짜(yyyy-MM-dd). 캐리오버 시 시작일(date)과 달라진다.
+   * 레거시 행은 없음 → 읽는 쪽에서 date 로 폴백. 과거 날 블록은 TodoTimeBlock 으로 아카이브. */
+  doDate?: string;
   category?: string;
   projectId?: string;
   /** 연결된 주간 목표 id (Phase 4·5: 목표↔할일 롤업) */
@@ -44,6 +47,32 @@ export interface Todo {
   recurrenceEndDate?: string;      // yyyy-MM-dd, null이면 무기한
   recurrenceParentId?: string;     // 원본 이벤트 ID (예외 인스턴스가 참조)
   isException?: boolean;           // 이 인스턴스만 수정·삭제된 예외
+}
+
+// ⑬ Stage 3 — 날짜별 아카이브 시간 블록. 라이브(가장 최근 추적한) 당일 블록은 todos.do_* 에 남고,
+// 하루가 넘어가면 과거 블록을 이 형태로 아카이브한다(dual-read). 총 누적 = 블록 합 + 현재 do_*.
+export interface TodoTimeBlock {
+  id: string;
+  todoId: string;
+  date: string;        // yyyy-MM-dd (이 블록이 귀속되는 논리적 하루)
+  start?: string;      // "HH:mm"
+  end?: string;        // "HH:mm"
+  elapsedSec: number;
+  createdAt?: string;
+}
+
+/** 할일의 총 누적 시간(초) = 아카이브 블록 합 + 현재 라이브 do_* 경과. */
+export function getTodoTotalElapsedSec(todo: Todo, blocks: TodoTimeBlock[]): number {
+  const blockSum = blocks.reduce((s, b) => (b.todoId === todo.id ? s + (b.elapsedSec || 0) : s), 0);
+  return blockSum + (todo.doElapsedSec ?? 0);
+}
+
+/** 진행 며칠째인지(시작일 기준, 당일=1). date 문자열 비교로 계산(로컬 타임존 무관). */
+export function getDaysInProgress(startDate: string, onDate: string): number {
+  const s = parseISO(startDate);
+  const o = parseISO(onDate);
+  const diff = Math.round((o.getTime() - s.getTime()) / (1000 * 60 * 60 * 24));
+  return Math.max(1, diff + 1);
 }
 
 export interface Event {
@@ -747,6 +776,8 @@ interface PlannerContextType {
   selectedDate: string;
   setSelectedDate: (d: string) => void;
   todos: Todo[];
+  /** ⑬ Stage 3 — 날짜별 아카이브 시간 블록(과거 날 이력). 총 누적 = 블록 합 + 현재 do_*. */
+  timeBlocks: TodoTimeBlock[];
   events: Event[];
   habits: Habit[];
   weeklyGoals: WeeklyGoal[];
@@ -921,6 +952,8 @@ export function PlannerProvider({ children }: { children: React.ReactNode }) {
   // 최신 todos 스냅샷 (반복 가상 인스턴스 → 실제 예외 레코드 동기 변환 시 참조)
   const todosRef = useRef<Todo[]>([]);
   useEffect(() => { todosRef.current = todos; }, [todos]);
+  // ⑬ Stage 3 — 날짜별 아카이브 시간 블록(과거 날 이력). 라이브 당일은 todos.do_* 로.
+  const [timeBlocks, setTimeBlocks] = useState<TodoTimeBlock[]>([]);
   const [habits, setHabits] = useState<Habit[]>([]);
   const [habitMonthlyMemos, setHabitMonthlyMemos] = useState<HabitMonthlyMemo[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
@@ -963,7 +996,7 @@ export function PlannerProvider({ children }: { children: React.ReactNode }) {
         brainstormItemsData, brainstormMemosData, tagsData, routinesData,
         periodData, habitMonthlyMemosData, annualGoalsData, quarterlyGoalsData,
         weeklyReviewsData, monthlyReviewsData, foodRecordsData,
-        happyMomentsData,
+        happyMomentsData, todoTimeBlocksData,
       ] = await Promise.all([
         db.todos.fetchAll(),
         db.habits.fetchAll(),
@@ -988,6 +1021,7 @@ export function PlannerProvider({ children }: { children: React.ReactNode }) {
         db.monthlyReviews.fetchAll(),
         db.foodRecords.fetchAll(),
         db.happyMoments.fetchAll(),
+        db.todoTimeBlocks.fetchAll(),
       ]);
       setTodos(todosData);
       setHabits(habitsData);
@@ -1029,6 +1063,7 @@ export function PlannerProvider({ children }: { children: React.ReactNode }) {
       setMonthlyReviews(monthlyReviewsData);
       setFoodRecords(foodRecordsData);
       setHappyMoments(happyMomentsData);
+      setTimeBlocks(todoTimeBlocksData);
       setIsLoading(false);
     };
     load();
@@ -1039,6 +1074,7 @@ export function PlannerProvider({ children }: { children: React.ReactNode }) {
     // 각 테이블별 재fetch 함수
     const refetchers: Record<string, () => Promise<void>> = {
       todos:             async () => setTodos(await db.todos.fetchAll()),
+      todo_time_blocks:  async () => setTimeBlocks(await db.todoTimeBlocks.fetchAll()),
       habits:            async () => setHabits(await db.habits.fetchAll()),
       projects:          async () => setProjects(await db.projects.fetchAll()),
       milestones:        async () => setMilestones(await db.milestones.fetchAll()),
@@ -1121,10 +1157,11 @@ export function PlannerProvider({ children }: { children: React.ReactNode }) {
       : rawElapsedSec;
     const endHHMM = getTimerEndHHMM(timer.startHHMM, totalElapsedSec);
 
+    const blockDate = getLogicalToday(); // 이 세션의 시간 블록은 "오늘"(논리적 하루)에 귀속
     setTodos(currentTodos => {
       const updated = currentTodos.map(t =>
         t.id === timer.todoId
-          ? { ...t, status: targetStatus as TodoStatus, doStart: timer.startHHMM, doEnd: endHHMM, doElapsedSec: totalElapsedSec }
+          ? { ...t, status: targetStatus as TodoStatus, doStart: timer.startHHMM, doEnd: endHHMM, doElapsedSec: totalElapsedSec, doDate: blockDate }
           : t
       );
       const todo = updated.find(t => t.id === timer.todoId);
@@ -1277,6 +1314,7 @@ export function PlannerProvider({ children }: { children: React.ReactNode }) {
     setTodos(prev => {
       return prev.filter(t => t.id !== id);
     });
+    setTimeBlocks(prev => prev.filter(b => b.todoId !== id)); // 아카이브 블록도 로컬 정리(DB는 FK cascade)
     db.todos.delete(id);
   }, []);
 
@@ -1285,6 +1323,7 @@ export function PlannerProvider({ children }: { children: React.ReactNode }) {
     if (ids.length === 0) return;
     const idSet = new Set(ids);
     setTodos(prev => prev.filter(t => !idSet.has(t.id)));
+    setTimeBlocks(prev => prev.filter(b => !idSet.has(b.todoId)));
     db.todos.deleteMany(ids);
   }, []);
 
@@ -1947,10 +1986,31 @@ export function PlannerProvider({ children }: { children: React.ReactNode }) {
 
     // 반복 가상 인스턴스면 실제 예외 레코드로 구체화한 뒤 그 실제 id로 타이머를 건다.
     const realId = ensureMaterializedTodoId(todoId);
+    const todayLogical = getLogicalToday();
+
+    // ⑬ 캐리오버 누적: 이전 날에 추적된 do_* 블록이 남아 있으면(오늘이 아님) 아카이브로 옮기고
+    // 오늘용으로 do_* 를 비운다. 이렇게 해야 "그날 DO=그날 블록"과 총합 누적이 둘 다 유지된다.
+    const existing = todosRef.current.find(t => t.id === realId);
+    if (existing && (existing.doElapsedSec ?? 0) > 0 && existing.doStart && existing.doEnd) {
+      const prevBlockDate = existing.doDate ?? existing.date ?? todayLogical;
+      if (prevBlockDate !== todayLogical) {
+        const archived: TodoTimeBlock = {
+          id: newId(),
+          todoId: realId,
+          date: prevBlockDate,
+          start: existing.doStart,
+          end: existing.doEnd,
+          elapsedSec: existing.doElapsedSec ?? 0,
+        };
+        db.todoTimeBlocks.insert(archived);
+        setTimeBlocks(tb => [...tb, archived]);
+      }
+    }
+
     setTodos(prev => {
       const updated = prev.map(t =>
         t.id === realId
-          ? { ...t, status: 'inProgress' as TodoStatus, doStart: undefined, doEnd: undefined, doElapsedSec: undefined }
+          ? { ...t, status: 'inProgress' as TodoStatus, doStart: undefined, doEnd: undefined, doElapsedSec: undefined, doDate: undefined }
           : t
       );
       const todo = updated.find(t => t.id === realId);
@@ -2132,7 +2192,7 @@ export function PlannerProvider({ children }: { children: React.ReactNode }) {
     <PlannerContext.Provider value={{
       isLoading,
       selectedDate, setSelectedDate,
-      todos, events, habits, weeklyGoals, monthlyGoals, annualGoals, quarterlyGoals, brainstormItems, brainstormMemos, activeTimer,
+      todos, timeBlocks, events, habits, weeklyGoals, monthlyGoals, annualGoals, quarterlyGoals, brainstormItems, brainstormMemos, activeTimer,
       projects, milestones, tags,
       routines, selfCareRecords, periodRecords, reviewRecords, weeklyReviews, monthlyReviews,
       happyMoments,

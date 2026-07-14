@@ -4,12 +4,13 @@ import {
   ChevronLeft, ChevronRight, Star, Play,
   Check, Clock, Trash2, X, MoreHorizontal,
   Settings, Edit3, Pause, Ban, CalendarDays, ArrowRight, Bell, ChevronRight as ChevronRightIcon,
+  ChevronDown, ChevronUp,
 } from 'lucide-react';
 import { format, addDays, subDays, addMonths, subMonths, startOfMonth, getDaysInMonth, getDay as getDayOfWeek, parseISO, addMinutes } from 'date-fns';
 import { ko } from 'date-fns/locale';
-import { usePlanner, Todo, Event, TodoStatus, getLogicalToday } from '../store';
+import { usePlanner, Todo, Event, TodoStatus, getLogicalToday, getDaysInProgress, getTodoTotalElapsedSec } from '../store';
 import { useTheme } from '../ThemeContext';
-import { isHaon, canvasStyle, solidCardStyle, solidRowStyle, glassBarStyle, mixHex, progressCheckboxStyle } from '../styles/haonStyles';
+import { isHaon, canvasStyle, solidCardStyle, solidRowStyle, glassBarStyle, mixHex, progressCheckboxStyle, progressBadgeStyle, daysInProgressStyle, carryoverSectionStyle } from '../styles/haonStyles';
 import { useNotification } from '../hooks/useNotification';
 import { TimePicker } from './TimePicker';
 import ConfirmModal from './ConfirmModal';
@@ -35,6 +36,12 @@ const STATUS_CONFIG: Record<string, { label: string; color: string; bgColor: str
   snoozed: { label: '미루기', color: '#D97706', bgColor: '#FEF3C7' },
   cancelled: { label: '취소', color: '#DC2626', bgColor: '#FEE2E2' },
 };
+
+// 누적 시간(초) 짧은 표기: <1시간=분, 그 이상=시간(소수1)
+function fmtTotalSec(sec: number): string {
+  if (sec < 3600) return `${Math.round(sec / 60)}분`;
+  return `${(sec / 3600).toFixed(1)}시간`;
+}
 
 // ─── Snooze Date Picker Modal ───
 function SnoozeModal({ todo, onClose }: { todo: Todo; onClose: () => void }) {
@@ -548,7 +555,7 @@ function DailyDatePickerModal({ selectedDate, onClose, onConfirm }: {
 // ─── Main Daily View ───
 export function DailyView() {
   const {
-    selectedDate, setSelectedDate, todos, events, updateTodo, addTodo, toggleEventCompleted, deleteEvent, deleteRecurringTodo, habits,
+    selectedDate, setSelectedDate, todos, timeBlocks, events, updateTodo, addTodo, toggleEventCompleted, deleteEvent, deleteRecurringTodo, habits,
     activeTimer, startTimer, stopTimer, parkTimer, tags, projects, weeklyGoals, milestones,
     dayStartHour: tlStartHour, dayEndHour: tlEndHour, setDayHours,
   } = usePlanner();
@@ -580,6 +587,8 @@ export function DailyView() {
   const [keyHint, setKeyHint] = useState<string | null>(null);
   // → 버튼 길게 누르기(롱프레스) 판별용 (행마다 hook 추가 금지 → 부모 ref 공유)
   const snoozeLongPressRef = useRef<{ timer: ReturnType<typeof setTimeout> | null; fired: boolean }>({ timer: null, fired: false });
+  // 이어서 하기 섹션에서 3일 이상 오래 진행 중인 항목 접기/펼치기
+  const [showOldCarried, setShowOldCarried] = useState(false);
   // 체크박스 롱프레스 → 상태 시트(안시작/진행중/완료). 짧은 탭=완료는 그대로 유지.
   const [statusSheetTodo, setStatusSheetTodo] = useState<Todo | null>(null);
   const checkboxLongPressRef = useRef<{ timer: ReturnType<typeof setTimeout> | null; fired: boolean }>({ timer: null, fired: false });
@@ -626,6 +635,14 @@ export function DailyView() {
     .filter(td => td.date === selectedDate && td.status !== 'backlog');
   const importantTodos = dateTodos.filter(td => td.isTop3);
   const regularTodos = dateTodos.filter(td => !td.isTop3);
+
+  // ⑬ 이월(이어서 하기): 시작일이 이 날짜보다 앞선 미완 진행중 = 자동 캐리오버. 밀림 아님(진행중 톤).
+  // 오래된 것 먼저(위), 3일 이상은 "슬쩍 강조 + 접기". 완료하면 status 바뀌어 자동으로 빠진다.
+  const carriedTodos = todos
+    .filter(td => td.status === 'inProgress' && td.date != null && td.date < selectedDate)
+    .sort((a, b) => a.date!.localeCompare(b.date!));
+  const recentCarried = carriedTodos.filter(td => getDaysInProgress(td.date!, selectedDate) < 3);
+  const oldCarried = carriedTodos.filter(td => getDaysInProgress(td.date!, selectedDate) >= 3);
 
   // 오늘 날짜인 경우에만 알림 스케줄 등록
   const todayStr2 = getLogicalToday();
@@ -785,13 +802,14 @@ export function DailyView() {
     setFocusingTodo(todo);
   };
 
-  // Status badge
+  // Status badge — H 테마의 "진행중"은 하드코딩(#059669) 대신 success 토큰 recipe 로 라우팅.
   const StatusBadge = ({ status }: { status: string }) => {
     const cfg = STATUS_CONFIG[status] || STATUS_CONFIG.active;
+    const useToken = isHaon(t) && status === 'inProgress';
     return (
       <span className="px-2 py-0.5 rounded-full" style={{
         fontSize: 10, fontWeight: 600,
-        backgroundColor: cfg.bgColor, color: cfg.color,
+        ...(useToken ? progressBadgeStyle(t) : { backgroundColor: cfg.bgColor, color: cfg.color }),
       }}>
         {cfg.label}
       </span>
@@ -828,7 +846,7 @@ export function DailyView() {
   // 엘리먼트로 쓰면 매 렌더마다 새 컴포넌트 타입이 되어 행 전체가 unmount/remount → 모바일에서
   // 탭(touch) 도중 노드가 교체되며 체크박스 클릭이 유실되는 문제가 있었다. 함수 호출은 부모 트리에
   // 인라인되어 리마운트가 없다(키는 루트 div의 key로 유지).
-  const TodoRow = ({ todo }: { todo: Todo }) => {
+  const TodoRow = ({ todo, carriedDays, carriedTotalSec }: { todo: Todo; carriedDays?: number; carriedTotalSec?: number }) => {
     const project = todo.projectId ? projects.find(p => p.id === todo.projectId) : null;
     const weeklyGoal = todo.weeklyGoalId ? weeklyGoals.find(w => w.id === todo.weeklyGoalId) : null;
     const milestone = todo.milestoneId ? milestones.find(m => m.id === todo.milestoneId) : null;
@@ -986,6 +1004,11 @@ export function DailyView() {
 
         {/* Right side: status + actions always visible */}
         <div className="flex items-center gap-1.5 flex-shrink-0 mt-0.5">
+          {carriedDays != null && (
+            <span className="px-1.5 py-0.5 rounded-full" style={{ fontSize: 10, ...daysInProgressStyle(t, carriedDays) }}>
+              {carriedDays}일째{carriedTotalSec != null && carriedTotalSec > 0 ? ` · 총 ${fmtTotalSec(carriedTotalSec)}` : ''}
+            </span>
+          )}
           <StatusBadge status={todo.status} />
           {/* 미루기 → : 탭=내일로, 길게=날짜 지정(SnoozeModal) */}
           <button
@@ -1215,6 +1238,37 @@ export function DailyView() {
                 </div>
               )}
             </div>
+
+            {/* 이어서 하기 (미완 진행중 자동 캐리오버) — 진행중 톤(민트), 밀림 아님 */}
+            {carriedTodos.length > 0 && (
+              <div className="rounded-2xl p-4" style={carryoverSectionStyle(t)}>
+                <div className="flex items-center gap-2 mb-3">
+                  <Play size={12} color={t.success} fill={t.success} />
+                  <span style={{ fontSize: 10, color: t.success, fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase' }}>이어서 하기</span>
+                  <span style={{ fontSize: 10, color: t.textMuted }}>{carriedTodos.length}</span>
+                </div>
+                <div className="space-y-2">
+                  {recentCarried.map(todo => TodoRow({ todo, carriedDays: getDaysInProgress(todo.date!, selectedDate), carriedTotalSec: getTodoTotalElapsedSec(todo, timeBlocks) }))}
+                </div>
+                {oldCarried.length > 0 && (
+                  <>
+                    <button
+                      onClick={() => setShowOldCarried(v => !v)}
+                      className="flex items-center gap-1.5 mt-2 mb-1"
+                      style={{ fontSize: 11, color: t.textMuted, fontWeight: 600 }}
+                    >
+                      {showOldCarried ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
+                      오래 진행 중 {oldCarried.length}개
+                    </button>
+                    {showOldCarried && (
+                      <div className="space-y-2">
+                        {oldCarried.map(todo => TodoRow({ todo, carriedDays: getDaysInProgress(todo.date!, selectedDate), carriedTotalSec: getTodoTotalElapsedSec(todo, timeBlocks) }))}
+                      </div>
+                    )}
+                  </>
+                )}
+              </div>
+            )}
 
             {/* 오늘 할 일 (중요 먼저) */}
             <div className="rounded-2xl p-4" style={solidCardStyle(t)}>

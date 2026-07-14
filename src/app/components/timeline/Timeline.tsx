@@ -2,7 +2,7 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import React from 'react';
 import { format, parseISO } from 'date-fns';
 import { ko } from 'date-fns/locale';
-import { usePlanner, Todo, Event, TimelineLog, SelfCareRecord, getTimerElapsedSec } from '../../store';
+import { usePlanner, Todo, Event, TimelineLog, SelfCareRecord, TodoTimeBlock, getTimerElapsedSec } from '../../store';
 import { useTheme } from '../../ThemeContext';
 import { formatDuration, formatTotalDoKo, todoDoDurationSeconds } from '../../../lib/todoDoDuration';
 import { isEventPast } from '../../../api/events';
@@ -54,7 +54,7 @@ const WEEK_TIME_COL = 44;
 export function Timeline({ days = 1, selectedDate, dateTodos, dateEvents, onShowContextMenu, className, weekDays, onSelectDate, onToday, nowLineColor = CURRENT_TIME_COLOR, defaultBlockBg, defaultBlockBorder, defaultBlockText, dayBoundLabel }: TimelineProps) {
   const isWeek = days > 1 && !!weekDays;
   const {
-    todos, updateTodo, updateEvent, tags,
+    todos, timeBlocks, updateTodo, updateEvent, tags,
     activeTimer,
     selfCareRecords, updateSelfCareRecord,
     dayStartHour: tlStartHour, dayEndHour: tlEndHour,
@@ -660,12 +660,22 @@ export function Timeline({ days = 1, selectedDate, dateTodos, dateEvents, onShow
     ? getActiveTimerElapsedSec()
     : 0;
 
+  // ⑬ Stage 3 — DO 라이브 블록: 이 날에 귀속된 do_* (doDate ?? date === selectedDate).
+  // 캐리오버로 date!=selectedDate 인 진행중도 포함하려 전체 todos 에서 찾는다(dateTodos 는
+  // date===selectedDate 만이라 이월분 누락). 레거시(doDate 없음)는 date 폴백이라 기존과 동일.
+  const doTodos = todos.filter(td => td.doStart && td.doEnd && (td.doDate ?? td.date) === selectedDate);
+  // DO 아카이브 블록: 과거 날 시간 블록 중 이 날짜 것(읽기 전용 렌더).
+  const dayArchivedBlocks = timeBlocks
+    .filter(b => b.date === selectedDate && !!b.start && !!b.end)
+    .map(b => ({ block: b, todo: todos.find(td => td.id === b.todoId) }))
+    .filter((x): x is { block: TodoTimeBlock; todo: Todo } => !!x.todo);
+
   // 타임라인 요약 계산 (실제 DO 초: 타이머 기록 우선, 진행 중 타이머는 초 단위 합산)
   const totalPlanMin = dateTodos.filter(td => td.planStart && td.planEnd)
     .reduce((sum, td) => sum + (timeToMinutes(td.planEnd!) - timeToMinutes(td.planStart!)), 0);
-  const totalDoSec = dateTodos
-    .filter(td => td.doStart && td.doEnd)
-    .reduce((sum, td) => sum + todoDoDurationSeconds(td), 0) + activeTimerSec;
+  const totalDoSec = doTodos.reduce((sum, td) => sum + todoDoDurationSeconds(td), 0)
+    + dayArchivedBlocks.reduce((sum, x) => sum + (x.block.elapsedSec || 0), 0)
+    + activeTimerSec;
   const doneCount = dateTodos.filter(td => td.status === 'done').length;
   const achieveRate = dateTodos.length > 0 ? Math.round((doneCount / dateTodos.length) * 100) : 0;
 
@@ -838,7 +848,7 @@ export function Timeline({ days = 1, selectedDate, dateTodos, dateEvents, onShow
 
   // Render timeline block
   const planTodos = dateTodos.filter(td => td.planStart && td.planEnd);
-  const doTodos = dateTodos.filter(td => td.doStart && td.doEnd);
+  // doTodos / dayArchivedBlocks 는 위(요약 계산부)에서 계산됨 — 여기선 재사용.
 
   // Get tag color for a todo (first tag's color, or null)
   const getTodoTagColor = (todo: Todo): string | null => {
@@ -1056,6 +1066,47 @@ export function Timeline({ days = 1, selectedDate, dateTodos, dateEvents, onShow
               <div style={{ width: 24, height: 3, borderRadius: 2, backgroundColor: isPlan ? PLAN_BAR_BORDER : `${textColor}66` }} />
             </div>
           </>
+        )}
+      </div>
+    );
+  };
+
+  // ⑬ Stage 3 — 아카이브 DO 블록(과거 날 이월 이력) 렌더. 읽기 전용(드래그/편집 없음).
+  // 진행중(계속 이월) 할일의 지난 블록 = 연한 채움 + 대시, 완료된 할일의 블록 = 꽉참(기존 톤).
+  const renderArchivedDoBlock = (todo: Todo, block: TodoTimeBlock) => {
+    if (!block.start || !block.end) return null;
+    const laneBounds = getTimelineLaneBounds('do');
+    if (!laneBounds) return null;
+    const startMin = timeToMinutes(block.start);
+    const endMin = timeToMinutes(block.end);
+    const top = (startMin / 60 - tlStartHour) * HOUR_HEIGHT;
+    const height = Math.max((endMin - startMin) * PX_PER_MIN, 20);
+    const tagColor = getTodoTagColor(todo);
+    const bg = tagColor ? tagColor + '1A' : (defaultBlockBg ?? 'rgba(212,237,224,0.52)');
+    const textColor = tagColor || defaultBlockText || '#3D7A58';
+    const borderClr = tagColor || defaultBlockBorder || '#6BAA7A';
+    const isOngoing = todo.status !== 'done';   // 아직 이월 중이면 연한채움, 완료면 꽉참
+    const durationLabel = block.elapsedSec > 0 ? formatDuration(block.elapsedSec) : '';
+    return (
+      <div
+        key={`arch-${block.id}`}
+        className="absolute rounded-xl px-2 py-1.5 overflow-hidden"
+        style={{
+          top, height, left: laneBounds.left, right: laneBounds.right,
+          backgroundColor: isOngoing ? `color-mix(in srgb, ${bg} 55%, transparent)` : bg,
+          border: `1px solid ${borderClr}20`,
+          borderLeft: `3px ${isOngoing ? 'dashed' : 'solid'} ${borderClr}`,
+          boxShadow: `0 2px 8px ${borderClr}14, 0 1px 2px rgba(0,0,0,0.04)`,
+        }}
+        title={`${todo.text}\n${block.start}-${block.end}${durationLabel ? `\n${durationLabel}` : ''}`}
+      >
+        <div style={{ fontSize: 11, fontWeight: 600, color: textColor, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+          {todo.text}
+        </div>
+        {height >= 30 && (
+          <div style={{ fontSize: 10, color: textColor, opacity: 0.75, marginTop: 1 }}>
+            {block.start}-{block.end}{durationLabel ? ` · ${durationLabel}` : ''}
+          </div>
         )}
       </div>
     );
@@ -1678,6 +1729,7 @@ export function Timeline({ days = 1, selectedDate, dateTodos, dateEvents, onShow
             })()}
             {planTodos.map(todo => renderBlock(todo, 'plan'))}
             {doTodos.map(todo => renderBlock(todo, 'do'))}
+            {dayArchivedBlocks.map(({ todo, block }) => renderArchivedDoBlock(todo, block))}
             {renderTimerBlock()}
             {renderSleepBlocks()}
             {renderLogMarkers()}
