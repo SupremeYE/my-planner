@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { format, subDays, parseISO } from 'date-fns';
-import { Trash2, Plus, X } from 'lucide-react';
+import { Trash2, Plus, X, Pencil } from 'lucide-react';
 import {
   ComposedChart, Line, Area, Scatter, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine,
 } from 'recharts';
@@ -120,6 +120,9 @@ export function WeightTab() {
   const [pendingOverwrite, setPendingOverwrite] = useState<WeightRecord | null>(null);
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [showGoalModal, setShowGoalModal] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null); // null=새 기록, 값=편집 중
+
+  const isEditing = editingId != null;
 
   // 기간 네비게이터 — 롤링(7/30/1년) 대체. 기본 '월'/현재 기간.
   const [unit, setUnit] = useState<PeriodUnit>('월');
@@ -148,7 +151,29 @@ export function WeightTab() {
   const hasMuscleData = records.some(r => r.muscleMass != null);
 
   // ── 저장 ──
-  const resetForm = () => { setSlot(autoSlot()); setWeight(''); setBodyFat(''); setMuscle(''); setMemo(''); };
+  const resetForm = () => {
+    setEditingId(null); setSlot(autoSlot()); setWeight(''); setBodyFat(''); setMuscle(''); setMemo('');
+  };
+  const afterWrite = () => {
+    db.weightRecords.fetchAll().then(setRecords);
+    resetForm();
+    setInputOpen(false);
+  };
+
+  // 새 기록 폼 열기(오늘 날짜로 초기화)
+  const openNew = () => { resetForm(); setDate(getLogicalToday()); setInputOpen(true); };
+
+  // 기존 기록 편집 시작 — 값 로드 후 폼 열기
+  const startEdit = (r: WeightRecord) => {
+    setEditingId(r.id);
+    setDate(r.date);
+    setSlot(r.slot);
+    setWeight(String(r.weight));
+    setBodyFat(r.bodyFat != null ? String(r.bodyFat) : '');
+    setMuscle(r.muscleMass != null ? String(r.muscleMass) : '');
+    setMemo(r.memo ?? '');
+    setInputOpen(true);
+  };
 
   const buildRecord = (existingId?: string): WeightRecord => ({
     id: existingId ?? crypto.randomUUID(),
@@ -160,21 +185,32 @@ export function WeightTab() {
     memo: memo.trim() || null,
   });
 
-  const saveRecord = (rec: WeightRecord) => {
-    db.weightRecords.upsert(rec).then(() => db.weightRecords.fetchAll().then(setRecords));
-    resetForm();
-    setInputOpen(false);
-  };
-
   const handleSubmit = () => {
     if (numOrNull(weight) == null) return;
-    // 같은 날짜 + 같은 시간대(slot)일 때만 덮어쓰기 — 아침/저녁은 공존
-    const existing = records.find(r => r.date === date && r.slot === slot);
-    if (existing) {
-      setPendingOverwrite(existing);
+    if (isEditing) {
+      // 편집: 바꾼 날짜·시간대가 '다른' 기록과 겹치면 그 기록 교체 여부 확인
+      const conflict = records.find(r => r.date === date && r.slot === slot && r.id !== editingId);
+      if (conflict) { setPendingOverwrite(conflict); return; }
+      db.weightRecords.update(buildRecord(editingId!)).then(afterWrite);
       return;
     }
-    saveRecord(buildRecord());
+    // 신규: 같은 날짜+시간대가 이미 있으면 덮어쓰기 확인 (아침/저녁은 공존)
+    const existing = records.find(r => r.date === date && r.slot === slot);
+    if (existing) { setPendingOverwrite(existing); return; }
+    db.weightRecords.upsert(buildRecord()).then(afterWrite);
+  };
+
+  // 덮어쓰기/충돌 확정 처리 — 신규는 기존 값 교체(upsert), 편집은 겹친 기록 삭제 후 이동(update)
+  const confirmOverwrite = () => {
+    if (!pendingOverwrite) return;
+    if (isEditing) {
+      db.weightRecords.delete(pendingOverwrite.id)
+        .then(() => db.weightRecords.update(buildRecord(editingId!)))
+        .then(afterWrite);
+    } else {
+      db.weightRecords.upsert(buildRecord(pendingOverwrite.id)).then(afterWrite);
+    }
+    setPendingOverwrite(null);
   };
 
   const handleDelete = (id: string) => {
@@ -323,7 +359,7 @@ export function WeightTab() {
     <div className="space-y-5">
       {/* (A) 입력 영역 — 기본 접힘 */}
       {!inputOpen && (
-        <HaonButton variant="primary" onClick={() => setInputOpen(true)}
+        <HaonButton variant="primary" onClick={openNew}
           leftIcon={<Plus size={16} />} className="w-full text-sm">
           몸무게 기록하기
         </HaonButton>
@@ -331,7 +367,7 @@ export function WeightTab() {
       {inputOpen && (
       <div className="p-4 rounded-2xl" style={isHaon(t) ? solidCardStyle(t) : { backgroundColor: t.card, border: `1px solid ${t.border}` }}>
         <div className="flex items-center justify-between mb-3">
-          <span style={{ fontSize: 13, fontWeight: 700, color: t.text }}>몸무게 기록</span>
+          <span style={{ fontSize: 13, fontWeight: 700, color: t.text }}>{isEditing ? '몸무게 수정' : '몸무게 기록'}</span>
           <button onClick={() => { setInputOpen(false); resetForm(); }} className="p-1 rounded"
             style={{ color: t.textMuted, background: 'none', border: 'none', cursor: 'pointer' }} aria-label="닫기">
             <X size={15} />
@@ -394,7 +430,7 @@ export function WeightTab() {
             style={{ backgroundColor: t.bgSub, border: `1px solid ${t.border}`, color: t.text }} />
         </div>
         <HaonButton variant="primary" onClick={handleSubmit} disabled={!canSubmit}
-          className="w-full mt-3 text-sm">기록하기</HaonButton>
+          className="w-full mt-3 text-sm">{isEditing ? '수정하기' : '기록하기'}</HaonButton>
       </div>
       )}
 
@@ -562,7 +598,10 @@ export function WeightTab() {
           <div className="space-y-2">
             {visibleRecords.map(r => (
               <div key={r.id} className="flex items-center gap-3 px-3 py-2.5 rounded-xl"
-                style={isHaon(t) ? solidRowStyle(t) : { backgroundColor: t.card, border: `1px solid ${t.border}` }}>
+                style={{
+                  ...(isHaon(t) ? solidRowStyle(t) : { backgroundColor: t.card, border: `1px solid ${t.border}` }),
+                  ...(editingId === r.id ? { outline: `2px solid ${t.accent}`, outlineOffset: -2 } : null),
+                }}>
                 <span style={{ fontSize: 12, color: t.textSub, width: 60, flexShrink: 0 }}>{r.date.slice(5)}</span>
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 flex-wrap">
@@ -578,8 +617,12 @@ export function WeightTab() {
                   </div>
                   {r.memo && <p style={{ fontSize: 11, color: t.textMuted, marginTop: 2 }}>{r.memo}</p>}
                 </div>
+                <button onClick={() => startEdit(r)} className="p-1.5 rounded-lg flex-shrink-0"
+                  style={{ backgroundColor: t.bgSub }} aria-label="수정">
+                  <Pencil size={13} color={t.textSub} />
+                </button>
                 <button onClick={() => setDeleteId(r.id)} className="p-1.5 rounded-lg flex-shrink-0"
-                  style={{ backgroundColor: t.bgSub }}>
+                  style={{ backgroundColor: t.bgSub }} aria-label="삭제">
                   <Trash2 size={13} color={t.danger} />
                 </button>
               </div>
@@ -594,13 +637,18 @@ export function WeightTab() {
         )}
       </div>
 
-      {/* 덮어쓰기 확인 모달 */}
+      {/* 덮어쓰기/충돌 확인 모달 */}
       {pendingOverwrite && (
         <ConfirmModal
-          message={`${pendingOverwrite.slot} 기록이 이미 있어요. 덮어쓸까요?`}
-          description={`${pendingOverwrite.date} ${pendingOverwrite.slot}의 기존 기록(${pendingOverwrite.weight}kg)을 새 값으로 교체합니다.`}
-          confirmText="덮어쓰기"
-          onConfirm={() => { saveRecord(buildRecord(pendingOverwrite.id)); setPendingOverwrite(null); }}
+          message={isEditing
+            ? `${pendingOverwrite.slot} 자리에 다른 기록이 있어요. 옮길까요?`
+            : `${pendingOverwrite.slot} 기록이 이미 있어요. 덮어쓸까요?`}
+          description={isEditing
+            ? `${pendingOverwrite.date} ${pendingOverwrite.slot}의 기존 기록(${pendingOverwrite.weight}kg)을 지우고 이 기록을 그 날짜·시간대로 옮깁니다.`
+            : `${pendingOverwrite.date} ${pendingOverwrite.slot}의 기존 기록(${pendingOverwrite.weight}kg)을 새 값으로 교체합니다.`}
+          confirmText={isEditing ? '옮기기' : '덮어쓰기'}
+          confirmDanger={isEditing}
+          onConfirm={confirmOverwrite}
           onCancel={() => setPendingOverwrite(null)}
         />
       )}

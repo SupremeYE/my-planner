@@ -1717,6 +1717,18 @@ export const db = {
       }, { onConflict: 'date,slot' });
       if (error) console.error('[db] weight_records upsert:', error.message);
     },
+    // id 기준 수정 — 기존 기록의 날짜/시간대(slot) 변경까지 안전하게 반영(upsert는 PK 충돌로 불가).
+    update: async (record: WeightRecord) => {
+      const { error } = await supabase.from('weight_records').update({
+        date: record.date,
+        slot: record.slot,
+        weight: record.weight,
+        body_fat: record.bodyFat ?? null,
+        muscle_mass: record.muscleMass ?? null,
+        memo: record.memo ?? null,
+      }).eq('id', record.id);
+      if (error) console.error('[db] weight_records update:', error.message);
+    },
     delete: async (id: string) => {
       const { error } = await supabase.from('weight_records').delete().eq('id', id);
       if (error) console.error('[db] weight_records delete:', error.message);
