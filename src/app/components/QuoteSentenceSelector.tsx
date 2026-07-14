@@ -296,7 +296,7 @@ export function QuoteSentenceSelector({ isOpen, onClose, onConfirm, bookId }: Qu
               }}>
                 {hasSelection ? (
                   <>
-                    <p style={{ fontFamily: 'var(--font-reading)', fontSize: 14, color: t.text, lineHeight: 1.7,
+                    <p style={{ fontFamily: t.fontReading, fontSize: 14, color: t.text, lineHeight: 1.7,
                       display: '-webkit-box', WebkitBoxOrient: 'vertical', WebkitLineClamp: 3, overflow: 'hidden' }}>
                       {combinedText}
                     </p>
@@ -334,7 +334,7 @@ export function QuoteSentenceSelector({ isOpen, onClose, onConfirm, bookId }: Qu
                     }}>
                       {selected ? order : ''}
                     </span>
-                    <span style={{ fontFamily: 'var(--font-reading)', fontSize: 14.5, lineHeight: 1.75, color: t.text }}>
+                    <span style={{ fontFamily: t.fontReading, fontSize: 14.5, lineHeight: 1.75, color: t.text }}>
                       {s.text}
                     </span>
                   </button>
@@ -368,7 +368,7 @@ export function QuoteSentenceSelector({ isOpen, onClose, onConfirm, bookId }: Qu
               className="w-full rounded-xl resize-none focus:outline-none"
               style={{
                 backgroundColor: t.card, border: `0.5px solid ${t.border}`, padding: 16,
-                fontFamily: 'var(--font-reading)', fontSize: 15, lineHeight: 1.8, color: t.text,
+                fontFamily: t.fontReading, fontSize: 15, lineHeight: 1.8, color: t.text,
                 minHeight: 120, overflow: 'hidden',
               }} />
 

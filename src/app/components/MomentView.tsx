@@ -1309,7 +1309,7 @@ function StatCard({ label, value, t, valueColor }: { label: string; value: numbe
       <div style={{ fontSize: 11, color: t.textSub }}>{label}</div>
       <div style={{ fontFamily: t.fontStat, fontSize: 22, color: valueColor ?? t.text, lineHeight: 1.15, marginTop: 1 }}>
         {value}
-        <span style={{ fontSize: 12, color: t.textMuted, marginLeft: 2, fontFamily: 'var(--font-gowun)' }}>개</span>
+        <span style={{ fontSize: 12, color: t.textMuted, marginLeft: 2, fontFamily: t.fontLabel }}>개</span>
       </div>
     </div>
   );

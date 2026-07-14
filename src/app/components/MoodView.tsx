@@ -955,7 +955,7 @@ export function MoodView() {
   ] as const;
 
   return (
-    <div className="flex-1 overflow-y-auto pb-20" style={{ fontFamily: 'var(--font-noto-sans)' }}>
+    <div className="flex-1 overflow-y-auto pb-20" style={{ fontFamily: t.fontBody }}>
       {/* Header */}
       <div className="px-5 pt-6 pb-3">
         <h1 style={{ fontSize: 22, fontWeight: 700, color: t.text, fontFamily: t.fontPageTitle }}>감정 기록</h1>

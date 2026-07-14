@@ -156,7 +156,7 @@ export function MandalartView() {
               placeholder={creating ? '새 보드 이름' : '보드 이름'}
               className="flex-1 px-3 py-2 rounded-xl outline-none border"
               style={{
-                fontFamily: 'var(--font-gowun)',
+                fontFamily: t.fontBody,
                 fontSize: 16, fontWeight: 600,
                 backgroundColor: t.card, color: t.text, borderColor: t.accent,
               }}
@@ -175,7 +175,7 @@ export function MandalartView() {
               onClick={() => setShowBoardMenu(s => !s)}
               className="flex items-center gap-2 px-3 py-2 rounded-xl"
               style={{
-                fontFamily: 'var(--font-gowun)',
+                fontFamily: t.fontLabel,
                 fontSize: 16, fontWeight: 600, color: t.text,
                 backgroundColor: t.card, border: `1px solid ${t.borderLight}`,
                 maxWidth: '100%',
