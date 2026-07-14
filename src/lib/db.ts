@@ -49,6 +49,7 @@ type TodoRow = {
   recurrence_freq: string | null;
   recurrence_interval: number | null;
   recurrence_preset: string | null;
+  started_date: string | null;
 };
 
 type TodoTimeBlockRow = {
@@ -253,6 +254,7 @@ const toTodo = (r: TodoRow): Todo => ({
   recurrenceFreq: r.recurrence_freq as Todo['recurrenceFreq'] ?? undefined,
   recurrenceInterval: r.recurrence_interval ?? undefined,
   recurrencePreset: r.recurrence_preset as Todo['recurrencePreset'] ?? undefined,
+  startedDate: r.started_date ?? undefined,
 });
 
 const fromTodo = (t: Todo): TodoRow => ({
@@ -275,6 +277,7 @@ const fromTodo = (t: Todo): TodoRow => ({
   recurrence_freq: t.recurrenceFreq ?? null,
   recurrence_interval: t.recurrenceInterval ?? null,
   recurrence_preset: t.recurrencePreset ?? null,
+  started_date: t.startedDate ?? null,
 });
 
 const toTimeBlock = (r: TodoTimeBlockRow): TodoTimeBlock => ({
@@ -1267,6 +1270,11 @@ export const db = {
     insert: async (block: TodoTimeBlock) => {
       const { error } = await supabase.from('todo_time_blocks').insert(fromTimeBlock(block));
       if (error) console.error('[db] todo_time_blocks insert:', error.message);
+    },
+    update: async (block: TodoTimeBlock) => {
+      const { id, ...rest } = fromTimeBlock(block);
+      const { error } = await supabase.from('todo_time_blocks').update(rest).eq('id', id);
+      if (error) console.error('[db] todo_time_blocks update:', error.message);
     },
     delete: async (id: string) => {
       const { error } = await supabase.from('todo_time_blocks').delete().eq('id', id);

@@ -6,7 +6,7 @@ import {
   Settings, Edit3, Pause, Ban, CalendarDays, ArrowRight, Bell, ChevronRight as ChevronRightIcon,
   Square, Hourglass,
 } from 'lucide-react';
-import { format, addDays, subDays, addMonths, subMonths, startOfMonth, getDaysInMonth, getDay as getDayOfWeek, parseISO, addMinutes } from 'date-fns';
+import { format, addDays, subDays, addMonths, subMonths, startOfMonth, getDaysInMonth, getDay as getDayOfWeek, parseISO, addMinutes, differenceInCalendarDays } from 'date-fns';
 import { ko } from 'date-fns/locale';
 import { usePlanner, Todo, Event, getLogicalToday } from '../store';
 import { useTheme } from '../ThemeContext';
@@ -333,7 +333,11 @@ function ContextMenu({ todo, position, onClose, onFocus, onDelete, deleteMessage
                 } else if ((item as any).action === 'delete') {
                   setShowDeleteConfirm(true);
                 } else if ('status' in item) {
-                  updateTodo(todo.id, { status: (item as any).status });
+                  const st = (item as any).status;
+                  // 진행중 진입 시 started_date 최초 1회 기록 ("N일째"·이월 기준)
+                  updateTodo(todo.id, st === 'inProgress'
+                    ? { status: st, startedDate: todo.startedDate ?? getLogicalToday() }
+                    : { status: st });
                   onClose();
                 }
               }}>
@@ -550,7 +554,7 @@ function DailyDatePickerModal({ selectedDate, onClose, onConfirm }: {
 export function DailyView() {
   const {
     selectedDate, setSelectedDate, todos, events, updateTodo, addTodo, toggleEventCompleted, deleteEvent, deleteRecurringTodo, habits,
-    activeTimer, startTimer, stopTimer, finishActiveTimer, tags, projects, weeklyGoals, milestones,
+    activeTimer, startTimer, stopTimer, finishActiveTimer, deleteTimeBlock, tags, projects, weeklyGoals, milestones,
     dayStartHour: tlStartHour, dayEndHour: tlEndHour, setDayHours,
   } = usePlanner();
   const { t } = useTheme();
@@ -624,6 +628,16 @@ export function DailyView() {
     .filter(td => td.date === selectedDate && td.status !== 'backlog');
   const importantTodos = dateTodos.filter(td => td.isTop3);
   const regularTodos = dateTodos.filter(td => !td.isTop3);
+
+  // Stage 4(이월): 오늘 볼 때, 지난 날짜의 미완 '진행중' 할일을 "이어서 하기"로 주입.
+  // (밀린 게 아니라 이어달리는 것 — 별도 섹션, N일째 표시)
+  const isViewingToday = selectedDate === getLogicalToday();
+  const carryoverTodos = isViewingToday
+    ? todos
+        .filter(td => td.date && td.date < selectedDate && td.status === 'inProgress')
+        .sort((a, b) => (a.startedDate ?? a.date ?? '').localeCompare(b.startedDate ?? b.date ?? ''))
+    : [];
+  const [carryoverCollapsed, setCarryoverCollapsed] = useState(false);
 
   // 오늘 날짜인 경우에만 알림 스케줄 등록
   const todayStr2 = getLogicalToday();
@@ -788,6 +802,10 @@ export function DailyView() {
     const firstTag = (todo.tags && todo.tags.length > 0) ? tags.find(tg => tg.id === todo.tags![0]) : null;
     const accentColor = firstTag?.color || t.border;
     const isDone = todo.status === 'done';
+    // "N일째 진행중" — started_date 부터 오늘까지. 3일↑ 강조(Stage 4)
+    const inProgressDays = (todo.status === 'inProgress' && todo.startedDate)
+      ? differenceInCalendarDays(parseISO(todayStr2), parseISO(todo.startedDate)) + 1
+      : 0;
 
     const isHighlighted = highlightTodoId === todo.id;
 
@@ -936,6 +954,15 @@ export function DailyView() {
 
         {/* Right side: status + actions always visible */}
         <div className="flex items-center gap-1.5 flex-shrink-0 mt-0.5">
+          {inProgressDays >= 2 && (
+            <span className="px-1.5 py-0.5 rounded-full" style={{
+              fontSize: 9, fontWeight: 700, lineHeight: '14px',
+              color: inProgressDays >= 3 ? '#fff' : t.success,
+              backgroundColor: inProgressDays >= 3 ? t.success : `${t.success}18`,
+            }}>
+              {inProgressDays}일째
+            </span>
+          )}
           <StatusBadge status={todo.status} />
           {/* 미루기 → : 탭=내일로, 길게=날짜 지정(SnoozeModal) */}
           <button
@@ -1174,6 +1201,31 @@ export function DailyView() {
                 <div className="flex-1" />
                 <button onClick={() => navigate('/todos')} style={{ fontSize: 11, color: t.textMuted, fontWeight: 600 }}>전체 →</button>
               </div>
+              {/* 이어서 하기 (Stage 4 이월) — 지난 날짜의 미완 '진행중'을 오늘로 이어붙임 */}
+              {carryoverTodos.length > 0 && (
+                <div className="mb-3">
+                  <button
+                    onClick={() => setCarryoverCollapsed(v => !v)}
+                    className="flex items-center gap-1.5 mb-2 w-full"
+                  >
+                    <ChevronRightIcon size={12} color={t.success}
+                      style={{ transform: carryoverCollapsed ? 'none' : 'rotate(90deg)', transition: 'transform .15s' }} />
+                    <span style={{ fontSize: 10, color: t.success, fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase' }}>이어서 하기</span>
+                    <span style={{ fontSize: 10, color: t.textMuted }}>{carryoverTodos.length}</span>
+                  </button>
+                  {!carryoverCollapsed && (
+                    <div className="space-y-2">
+                      {carryoverTodos.map(todo => TodoRow({ todo }))}
+                    </div>
+                  )}
+                  <div className="flex items-center gap-2 mt-3 mb-1">
+                    <div className="flex-1 h-px" style={{ backgroundColor: t.borderLight }} />
+                    <span style={{ fontSize: 10, color: t.textMuted, fontWeight: 700 }}>오늘</span>
+                    <div className="flex-1 h-px" style={{ backgroundColor: t.borderLight }} />
+                  </div>
+                </div>
+              )}
+
               {/* 파스텔(H) + 핵심 있으면: 핵심 그룹(서브헤더) → 구분선 → 그 외 그룹. 그 외엔 기존 concat 유지. */}
               {isHaon(t) && importantTodos.length > 0 ? (
                 <>
@@ -1277,16 +1329,22 @@ export function DailyView() {
         const rawX = contextMenu.pos.x;
         const adjustedX = rawX + MENU_W > window.innerWidth ? rawX - MENU_W : rawX;
         const adjustedPos = { x: adjustedX, y: contextMenu.pos.y };
-        const isVirtual = isVirtualTodoId(contextMenu.todo.id);
+        // Stage 3b: DO 블록 막대는 합성 todo(_blk)라 원본 todo 로 편집/삭제를 매핑한다.
+        const doBlk = (contextMenu.todo as Todo & { _blk?: { id: string; todoId: string } })._blk;
+        const menuTodo = doBlk ? (todos.find(t => t.id === doBlk.todoId) ?? contextMenu.todo) : contextMenu.todo;
+        const isVirtual = isVirtualTodoId(menuTodo.id);
         return (
           <ContextMenu
-            todo={contextMenu.todo}
+            todo={menuTodo}
             position={adjustedPos}
             onClose={() => setContextMenu(null)}
             onFocus={setFocusingTodo}
             variant={contextMenu.source ? 'block' : 'list'}
             onDelete={contextMenu.source === 'do'
-              ? () => { updateTodo(contextMenu.todo.id, { doStart: undefined, doEnd: undefined, doElapsedSec: undefined }); }
+              ? () => {
+                  if (doBlk) deleteTimeBlock(doBlk.id);
+                  else updateTodo(menuTodo.id, { doStart: undefined, doEnd: undefined, doElapsedSec: undefined });
+                }
               : contextMenu.source === 'plan'
                 ? () => { updateTodo(contextMenu.todo.id, { planStart: undefined, planEnd: undefined }); }
                 : isVirtual

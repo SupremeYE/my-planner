@@ -48,6 +48,8 @@ export interface Todo {
   recurrenceFreq?: 'daily' | 'weekly' | 'monthly' | 'yearly';
   recurrenceInterval?: number;     // N — 매 N 주기마다 (기본 1)
   recurrencePreset?: 'weekday' | 'weekend';
+  // 이월(carryover) — 처음 '진행중'이 된 날짜(yyyy-MM-dd). "N일째"·이어달리기 기준. (Stage 4)
+  startedDate?: string;
 }
 
 /**
@@ -775,6 +777,7 @@ interface PlannerContextType {
   todos: Todo[];
   timeBlocks: TodoTimeBlock[];
   deleteTimeBlock: (id: string) => void;
+  updateTimeBlock: (id: string, changes: Partial<TodoTimeBlock>) => void;
   events: Event[];
   habits: Habit[];
   weeklyGoals: WeeklyGoal[];
@@ -1997,7 +2000,7 @@ export function PlannerProvider({ children }: { children: React.ReactNode }) {
     setTodos(prev => {
       const updated = prev.map(t =>
         t.id === realId
-          ? { ...t, status: 'inProgress' as TodoStatus, doStart: undefined, doEnd: undefined, doElapsedSec: undefined }
+          ? { ...t, status: 'inProgress' as TodoStatus, startedDate: t.startedDate ?? format(new Date(), 'yyyy-MM-dd'), doStart: undefined, doEnd: undefined, doElapsedSec: undefined }
           : t
       );
       const todo = updated.find(t => t.id === realId);
@@ -2060,6 +2063,16 @@ export function PlannerProvider({ children }: { children: React.ReactNode }) {
   const deleteTimeBlock = useCallback((id: string) => {
     setTimeBlocks(prev => prev.filter(b => b.id !== id));
     void db.todoTimeBlocks.delete(id);
+  }, []);
+
+  // 시간 블록 수정 (타임라인에서 막대 드래그/리사이즈).
+  const updateTimeBlock = useCallback((id: string, changes: Partial<TodoTimeBlock>) => {
+    setTimeBlocks(prev => {
+      const updated = prev.map(b => b.id === id ? { ...b, ...changes } : b);
+      const block = updated.find(b => b.id === id);
+      if (block) void db.todoTimeBlocks.update(block);
+      return updated;
+    });
   }, []);
 
   // 자정 자동 일시정지: 진행 중 타이머가 날짜를 넘기지 않도록 00:00 에 일시정지.
@@ -2181,7 +2194,7 @@ export function PlannerProvider({ children }: { children: React.ReactNode }) {
     <PlannerContext.Provider value={{
       isLoading,
       selectedDate, setSelectedDate,
-      todos, timeBlocks, deleteTimeBlock, events, habits, weeklyGoals, monthlyGoals, annualGoals, quarterlyGoals, brainstormItems, brainstormMemos, activeTimer,
+      todos, timeBlocks, deleteTimeBlock, updateTimeBlock, events, habits, weeklyGoals, monthlyGoals, annualGoals, quarterlyGoals, brainstormItems, brainstormMemos, activeTimer,
       projects, milestones, tags,
       routines, selfCareRecords, periodRecords, reviewRecords, weeklyReviews, monthlyReviews,
       happyMoments,

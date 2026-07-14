@@ -2,7 +2,7 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import React from 'react';
 import { format, parseISO } from 'date-fns';
 import { ko } from 'date-fns/locale';
-import { usePlanner, Todo, Event, TimelineLog, SelfCareRecord, getTimerElapsedSec } from '../../store';
+import { usePlanner, Todo, Event, TimelineLog, SelfCareRecord, TodoTimeBlock, getTimerElapsedSec } from '../../store';
 import { useTheme } from '../../ThemeContext';
 import { formatDuration, formatTotalDoKo } from '../../../lib/todoDoDuration';
 import { dateDoSeconds } from '../../../lib/timeBlocks';
@@ -16,6 +16,9 @@ import {
   PLAN_BAR_BORDER, OVERTIME_BAR_BG, OVERTIME_BAR_BORDER, CURRENT_TIME_COLOR, LOG_OFFSET_STORAGE_KEY,
   timeToMinutes, minutesToTime, getContrastTextColor,
 } from './timelineConstants';
+
+/** DO 막대용 합성 todo — 시간 블록(세션) 1개를 원본 todo 위에 얹어 렌더. _blk 있으면 블록 막대. */
+type DoBlockTodo = Todo & { _blk?: TodoTimeBlock };
 
 // ─── Timeline (타임테이블) ───
 // DailyView 에서 추출한 재사용 타임테이블. Stage 1 순수 리팩토링 — 화면·동작은 추출 전과 100% 동일.
@@ -55,7 +58,7 @@ const WEEK_TIME_COL = 44;
 export function Timeline({ days = 1, selectedDate, dateTodos, dateEvents, onShowContextMenu, className, weekDays, onSelectDate, onToday, nowLineColor = CURRENT_TIME_COLOR, defaultBlockBg, defaultBlockBorder, defaultBlockText, dayBoundLabel }: TimelineProps) {
   const isWeek = days > 1 && !!weekDays;
   const {
-    todos, timeBlocks, updateTodo, updateEvent, tags,
+    todos, timeBlocks, updateTodo, updateEvent, updateTimeBlock, tags,
     activeTimer,
     selfCareRecords, updateSelfCareRecord,
     dayStartHour: tlStartHour, dayEndHour: tlEndHour,
@@ -221,18 +224,27 @@ export function Timeline({ days = 1, selectedDate, dateTodos, dateEvents, onShow
     const d = pointerDragRef.current;
     if (!d || e.pointerId !== d.pointerId) return;
     cancelBlockLongPress(d);
+    const blk = (d.todo as DoBlockTodo)._blk;
     if (d.activated && d.moved && d.preview) {
-      // PLAN → planStart/End, DO → doStart/End 만 갱신(서로 안 섞임)
-      const startField = d.type === 'plan' ? 'planStart' : 'doStart';
-      const endField = d.type === 'plan' ? 'planEnd' : 'doEnd';
-      updateTodo(d.todo.id, {
-        [startField]: minutesToTime(d.preview.startMin),
-        [endField]: minutesToTime(d.preview.endMin),
-        ...(d.type === 'do' ? { doElapsedSec: undefined } : {}),
-      });
+      const startStr = minutesToTime(d.preview.startMin);
+      const endStr = minutesToTime(d.preview.endMin);
+      if (d.type === 'do' && blk) {
+        // 시간 블록 막대 → 블록 자체를 갱신(원본 todo do_* 는 건드리지 않음)
+        updateTimeBlock(blk.id, { start: startStr, end: endStr, elapsedSec: Math.max(0, (d.preview.endMin - d.preview.startMin) * 60) });
+      } else {
+        // PLAN → planStart/End, DO(레거시 행) → doStart/End 만 갱신(서로 안 섞임)
+        const startField = d.type === 'plan' ? 'planStart' : 'doStart';
+        const endField = d.type === 'plan' ? 'planEnd' : 'doEnd';
+        updateTodo(d.todo.id, {
+          [startField]: startStr,
+          [endField]: endStr,
+          ...(d.type === 'do' ? { doElapsedSec: undefined } : {}),
+        });
+      }
     } else if (!d.activated) {
-      // 탭(마우스 5px 미만 / 터치 짧게) → 편집 모달
-      window.dispatchEvent(new CustomEvent('editTodo', { detail: d.todo }));
+      // 탭(마우스 5px 미만 / 터치 짧게) → 편집 모달. 블록 막대는 원본 todo 로 편집.
+      const detail = blk ? (todoById.get(blk.todoId) ?? d.todo) : d.todo;
+      window.dispatchEvent(new CustomEvent('editTodo', { detail }));
     }
     clearBlockDrag(d);
   };
@@ -838,7 +850,26 @@ export function Timeline({ days = 1, selectedDate, dateTodos, dateEvents, onShow
 
   // Render timeline block
   const planTodos = dateTodos.filter(td => td.planStart && td.planEnd);
-  const doTodos = dateTodos.filter(td => td.doStart && td.doEnd);
+
+  // Stage 3b: DO 막대는 시간 블록(세션) 단위로 렌더한다.
+  //  - 그 날짜(date)의 각 블록 = 막대 1개(합성 todo, 고유 id로 드래그/키 분리, _blk 로 원본 블록 보관)
+  //  - 블록이 없는 (todo,date) 레거시 do_* 는 기존처럼 행 단위 막대로 폴백(드래그=updateTodo)
+  const todoById = useMemo(() => new Map(todos.map(t => [t.id, t])), [todos]);
+  const buildDoBars = (forDate: string, todosOnDate: Todo[]): DoBlockTodo[] => {
+    const dayBlocks = timeBlocks.filter(b => b.date === forDate);
+    const bars: DoBlockTodo[] = [];
+    for (const b of dayBlocks) {
+      const real = todoById.get(b.todoId);
+      if (!real || !b.start || !b.end) continue;
+      bars.push({ ...real, id: `${real.id}::doblk::${b.id}`, doStart: b.start, doEnd: b.end, doElapsedSec: b.elapsedSec, _blk: b });
+    }
+    const blockedTodoIds = new Set(dayBlocks.map(b => b.todoId));
+    for (const td of todosOnDate) {
+      if (td.doStart && td.doEnd && !blockedTodoIds.has(td.id)) bars.push(td as DoBlockTodo);
+    }
+    return bars;
+  };
+  const doTodos = buildDoBars(selectedDate, dateTodos);
 
   // Get tag color for a todo (first tag's color, or null)
   const getTodoTagColor = (todo: Todo): string | null => {
@@ -1440,7 +1471,7 @@ export function Timeline({ days = 1, selectedDate, dateTodos, dateEvents, onShow
             <div className="absolute" style={{ left: WEEK_TIME_COL, right: 0, top: 0, bottom: 0, display: 'grid', gridTemplateColumns: 'repeat(14, minmax(0, 1fr))' }}>
               {weekDays.map((wd, dayIdx) => {
                 const planTodos = wd.todos.filter(td => td.planStart && td.planEnd);
-                const doTodos = wd.todos.filter(td => td.doStart && td.doEnd);
+                const doTodos = buildDoBars(wd.date, wd.todos);
                 const sleepRects = sleepRectsForColumn(wd.date, selfCareRecords, tlStartHour, tlEndHour);
                 const isToday = wd.date === nowStr;
                 return (
