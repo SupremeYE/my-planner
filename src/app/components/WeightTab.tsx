@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { format, subDays, parseISO } from 'date-fns';
 import { Trash2, Plus, X } from 'lucide-react';
 import {
-  LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine,
+  ComposedChart, Line, Area, Scatter, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine,
 } from 'recharts';
 import { useTheme } from '../ThemeContext';
 import { db } from '../../lib/db';
@@ -13,8 +13,7 @@ import { PeriodNavigator } from './ui/PeriodNavigator';
 import { getPeriodRange, type PeriodUnit } from '../lib/periodNav';
 import ConfirmModal from './ConfirmModal';
 
-// 차트 라인 색상 (디자인 시스템: 골드/코랄/그린)
-const COLOR_WEIGHT = '#C4A882';   // 골드
+// 보조 지표 라인 색상 (체지방=코랄 / 골격근=그린). 아침/저녁 체중은 토큰(warning/info) 사용.
 const COLOR_FAT = '#D4735A';      // 코랄
 const COLOR_MUSCLE = '#6BAA7A';   // 그린
 
@@ -128,6 +127,8 @@ export function WeightTab() {
   // 기간 네비게이터 — 롤링(7/30/1년) 대체. 기본 '월'/현재 기간.
   const [unit, setUnit] = useState<PeriodUnit>('월');
   const [offset, setOffset] = useState(0);
+  // 겹쳐보기(기본) / 아침만 / 저녁만 — 아침·저녁 2시리즈 격리 보기
+  const [viewMode, setViewMode] = useState<'overlay' | 'morning' | 'evening'>('overlay');
   const [showFat, setShowFat] = useState(false);
   const [showMuscle, setShowMuscle] = useState(false);
   const [listLimit, setListLimit] = useState(10);
@@ -225,9 +226,10 @@ export function WeightTab() {
     return Math.max(0, Math.min(100, Math.round(raw)));
   }, [goal, latest]);
 
-  // ── 차트 데이터 (기간 창 안, 오름차순) ──
-  // 주/월=일별, 년=월별. 하루/한 달 안 여러 기록(아침·저녁·기타)은 평균해 단일 라인으로 표시.
-  // (아침/저녁 겹쳐보기 + 갭 밴드는 Stage 4에서 이 부분을 교체)
+  // ── 차트 데이터 (기간 창 안, 오름차순) — 아침/저녁 2시리즈 + 갭 밴드 ──
+  // x축: 주/월=일별, 년=월별. 각 x점에서 slot별 평균 → 아침(warning)/저녁(info) 라인,
+  // 기타=중립 점(라인·갭 제외), band=[min,max](아침·저녁 둘 다 있을 때만) → 두 선 사이 갭 밴드.
+  const round1 = (n: number) => Math.round(n * 10) / 10;
   const chartData = useMemo(() => {
     const inPeriod = records.filter(r => r.date >= period.start && r.date <= period.end);
     const groups = new Map<string, WeightRecord[]>();
@@ -236,21 +238,51 @@ export function WeightTab() {
       const g = groups.get(key);
       if (g) g.push(r); else groups.set(key, [r]);
     }
-    const mean = (ns: number[]) => ns.reduce((s, n) => s + n, 0) / ns.length;
-    const round1 = (n: number) => Math.round(n * 10) / 10;
+    const avgW = (recs: WeightRecord[], slot: WeightSlot): number | null => {
+      const ws = recs.filter(r => r.slot === slot).map(r => r.weight);
+      return ws.length ? round1(ws.reduce((s, n) => s + n, 0) / ws.length) : null;
+    };
+    const avgN = (ns: number[]): number | null =>
+      ns.length ? round1(ns.reduce((s, n) => s + n, 0) / ns.length) : null;
     return [...groups.entries()]
       .sort((a, b) => a[0].localeCompare(b[0]))
       .map(([key, recs]) => {
-        const fats = recs.map(r => r.bodyFat).filter((v): v is number => v != null);
-        const muscles = recs.map(r => r.muscleMass).filter((v): v is number => v != null);
+        const morning = avgW(recs, '아침');
+        const evening = avgW(recs, '저녁');
+        const other = avgW(recs, '기타');
         return {
           date: unit === '년' ? `${parseInt(key.slice(5), 10)}월` : key.slice(5),
-          weight: round1(mean(recs.map(r => r.weight))),
-          bodyFat: fats.length ? round1(mean(fats)) : null,
-          muscleMass: muscles.length ? round1(mean(muscles)) : null,
+          morning, evening, other,
+          band: morning != null && evening != null
+            ? ([Math.min(morning, evening), Math.max(morning, evening)] as [number, number])
+            : null,
+          bodyFat: avgN(recs.map(r => r.bodyFat).filter((v): v is number => v != null)),
+          muscleMass: avgN(recs.map(r => r.muscleMass).filter((v): v is number => v != null)),
         };
       });
   }, [records, period.start, period.end, unit]);
+
+  // ── 갭 통계 — 하루 갭 = 그날 아침 평균 − 저녁 평균 (둘 다 있는 날만) ──
+  const dayGap = useCallback((dateStr: string): number | null => {
+    const day = records.filter(r => r.date === dateStr);
+    const am = day.filter(r => r.slot === '아침').map(r => r.weight);
+    const pm = day.filter(r => r.slot === '저녁').map(r => r.weight);
+    if (!am.length || !pm.length) return null;
+    const mean = (ns: number[]) => ns.reduce((s, n) => s + n, 0) / ns.length;
+    return round1(mean(am) - mean(pm));
+  }, [records]);
+
+  // 오늘 갭 = 실제 오늘 날짜 기준. 기간 평균 갭 = 보이는 기간의 '하루 갭들의 평균'
+  // (년: 월평균아침−월평균저녁이 아니라 하루 갭들의 평균 — 규칙 준수).
+  const todayGap = dayGap(getLogicalToday());
+  const periodAvgGap = useMemo(() => {
+    const dates = new Set(
+      records.filter(r => r.date >= period.start && r.date <= period.end).map(r => r.date),
+    );
+    const gaps: number[] = [];
+    dates.forEach(d => { const g = dayGap(d); if (g != null) gaps.push(g); });
+    return gaps.length ? round1(gaps.reduce((s, n) => s + n, 0) / gaps.length) : null;
+  }, [records, period.start, period.end, dayGap]);
 
   const visibleRecords = sorted.slice(0, listLimit);
 
@@ -270,6 +302,26 @@ export function WeightTab() {
       <p style={{ fontSize: 18, fontWeight: 700, color: color ?? t.text }}>{value}</p>
     </div>
   );
+
+  // 갭 표기 — 절대값 kg (부호 없이 "N kg")
+  const fmtGap = (v: number | null) => (v == null ? '—' : `${Math.abs(v)}kg`);
+
+  // 차트 툴팁 — 갭 밴드(band, [low,high])는 숨기고 아침/저녁/기타/체지방/골격근만 표기.
+  const ChartTooltip = ({ active, payload, label }: any) => {
+    if (!active || !payload?.length) return null;
+    const rows = payload.filter((p: any) => p.dataKey !== 'band' && p.value != null);
+    if (!rows.length) return null;
+    return (
+      <div style={{ fontSize: 12, borderRadius: 12, border: `1px solid ${t.border}`, background: t.card, padding: '6px 10px' }}>
+        <div style={{ color: t.textSub, marginBottom: 2 }}>{label}</div>
+        {rows.map((p: any) => (
+          <div key={p.dataKey} style={{ color: p.color ?? t.text }}>
+            {p.name} {p.value}{p.dataKey === 'bodyFat' ? '%' : 'kg'}
+          </div>
+        ))}
+      </div>
+    );
+  };
 
   const canSubmit = numOrNull(weight) != null;
 
@@ -412,7 +464,35 @@ export function WeightTab() {
           className="mb-3"
         />
 
-        {/* 라인 토글 */}
+        {/* 보기 모드: 겹쳐보기(기본) / 아침만 / 저녁만 */}
+        <div className="flex gap-1.5 mb-2">
+          {([['overlay', '겹쳐보기'], ['morning', '아침만'], ['evening', '저녁만']] as const).map(([m, label]) => {
+            const on = viewMode === m;
+            return (
+              <button key={m} type="button" onClick={() => setViewMode(m)}
+                className="px-3 py-1 rounded-full transition-colors"
+                style={{
+                  fontSize: 12, fontWeight: on ? 700 : 500,
+                  backgroundColor: on ? t.accent : t.bgSub,
+                  color: on ? '#fff' : t.textSub,
+                }}>{label}</button>
+            );
+          })}
+        </div>
+
+        {/* 범례(아침=warning / 저녁=info) + 갭 요약 */}
+        <div className="flex items-center flex-wrap gap-x-3 gap-y-1 mb-3" style={{ fontSize: 11, color: t.textSub }}>
+          <span className="inline-flex items-center gap-1">
+            <span style={{ width: 8, height: 8, borderRadius: 8, background: t.warning }} /> 아침
+          </span>
+          <span className="inline-flex items-center gap-1">
+            <span style={{ width: 8, height: 8, borderRadius: 8, background: t.info }} /> 저녁
+          </span>
+          <span>오늘 갭 <b style={{ color: t.text }}>{fmtGap(todayGap)}</b></span>
+          <span>기간 평균 갭 <b style={{ color: t.text }}>{fmtGap(periodAvgGap)}</b></span>
+        </div>
+
+        {/* 라인 토글 (체지방/골격근 — 보조 우축) */}
         <div className="flex flex-wrap gap-2 mb-3">
           <button disabled={!hasFatData} onClick={() => setShowFat(v => !v)}
             className="px-2.5 py-1 rounded-full" style={{
@@ -434,7 +514,7 @@ export function WeightTab() {
 
         {chartData.length > 0 ? (
           <ResponsiveContainer width="100%" height={220}>
-            <LineChart data={chartData} margin={{ top: 5, right: 8, left: -16, bottom: 0 }}>
+            <ComposedChart data={chartData} margin={{ top: 5, right: 8, left: -16, bottom: 0 }}>
               <CartesianGrid strokeDasharray="3 3" stroke={t.borderLight} />
               <XAxis dataKey="date" tick={{ fontSize: 10, fill: t.textMuted }} tickLine={false} axisLine={false} />
               <YAxis yAxisId="left" tick={{ fontSize: 10, fill: t.textMuted }} tickLine={false} axisLine={false}
@@ -443,13 +523,29 @@ export function WeightTab() {
                 <YAxis yAxisId="right" orientation="right" tick={{ fontSize: 10, fill: t.textMuted }}
                   tickLine={false} axisLine={false} />
               )}
-              <Tooltip contentStyle={{ fontSize: 12, borderRadius: 12, border: `1px solid ${t.border}`, backgroundColor: t.card }} />
+              <Tooltip content={<ChartTooltip />} />
               {goal && (
                 <ReferenceLine yAxisId="left" y={goal.targetWeight} stroke={t.accent}
                   strokeDasharray="4 4" label={{ value: `목표 ${goal.targetWeight}`, fontSize: 10, fill: t.accent, position: 'insideTopRight' }} />
               )}
-              <Line yAxisId="left" type="monotone" dataKey="weight" name="체중"
-                stroke={COLOR_WEIGHT} strokeWidth={2} dot={{ r: 2 }} connectNulls />
+              {/* 갭 밴드 — 아침·저녁 둘 다 있는 지점 사이 옅은 채움. 겹쳐보기에서만 렌더(라인 뒤). */}
+              {viewMode === 'overlay' && (
+                <Area yAxisId="left" type="monotone" dataKey="band" name="갭"
+                  stroke="none" fill={t.accentSoft} fillOpacity={0.75}
+                  connectNulls={false} isAnimationActive={false} legendType="none" activeDot={false} />
+              )}
+              {/* 아침 라인(warning) */}
+              {viewMode !== 'evening' && (
+                <Line yAxisId="left" type="monotone" dataKey="morning" name="아침"
+                  stroke={t.warning} strokeWidth={2} dot={{ r: 2 }} connectNulls />
+              )}
+              {/* 저녁 라인(info) */}
+              {viewMode !== 'morning' && (
+                <Line yAxisId="left" type="monotone" dataKey="evening" name="저녁"
+                  stroke={t.info} strokeWidth={2} dot={{ r: 2 }} connectNulls />
+              )}
+              {/* 기타 — 중립 점만(라인·갭 제외) */}
+              <Scatter yAxisId="left" dataKey="other" name="기타" fill={t.textMuted} fillOpacity={0.5} />
               {showFat && hasFatData && (
                 <Line yAxisId="right" type="monotone" dataKey="bodyFat" name="체지방"
                   stroke={COLOR_FAT} strokeWidth={2} dot={{ r: 2 }} connectNulls />
@@ -458,7 +554,7 @@ export function WeightTab() {
                 <Line yAxisId="right" type="monotone" dataKey="muscleMass" name="골격근"
                   stroke={COLOR_MUSCLE} strokeWidth={2} dot={{ r: 2 }} connectNulls />
               )}
-            </LineChart>
+            </ComposedChart>
           </ResponsiveContainer>
         ) : (
           <div className="py-12 text-center" style={{ fontSize: 13, color: t.textMuted }}>
