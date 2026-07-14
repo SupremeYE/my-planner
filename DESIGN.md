@@ -238,6 +238,7 @@ Weight → role (use only these four; avoid 100–300 and 800–900):
   - **ghost / text** — tint only (`t.accentLight`, or `accent` at ~10–15% alpha), no border, `t.accent` text; inline / low-emphasis actions. Bare icon-only buttons with no fill use `t.textMuted`.
   - **danger** (soft — reversible-looking risk) — `t.danger` text on `t.dangerLight` fill.
   - **dangerSolid** (destructive confirm) — solid `t.danger` fill, white text.
+  - Modifiers (apply to any variant): **`leftIcon`** — a leading icon before the label (icon inherits the label color; keep the same gap for all sizes). **`loading`** — swaps `leftIcon` for a spinner in `currentColor`, disables the button, and sets `aria-busy` (label stays so width doesn't jump).
   - ⚠️ **Off-palette hardcoded button colors are prohibited** — recover them into the variants/tokens above: slate-blue (`#515f74` / `#5B8FE0` / `#d5e3fd` / `#eef4fa`), hardcoded reds (`#DC2626` / `#ef4444` / `#E53E3E` / `#CC0000`), tan-wood (`#C4A882` / `#F5F0E8`), greens (`#6BAA7A` / `#dcfce7`). `ConfirmModal` (uses none of the tokens today) is the first recovery target.
 - **Chip / tag** — pill; filled with a saturated pastel (`tags.chip-by-hue`) and a darker text sibling. Status pills (예정/완료) are small and soft.
 - **Icon button** — circle 44–48px, pastel tinted background, icon in `text-primary`.
