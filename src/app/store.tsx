@@ -38,12 +38,16 @@ export interface Todo {
   /** 만다라트에서 "보내기"로 생성된 경우 출처 셀 id */
   mandalartCellId?: string;
   tags?: string[];
-  // 반복 일정 필드
+  // 반복 일정 필드 (레거시 — dual-read 로 유지, 삭제 금지)
   recurrenceRule?: 'daily' | 'weekly' | 'weekdays' | 'custom';
-  recurrenceDays?: number[];       // 0=일 ~ 6=토 (custom 전용)
+  recurrenceDays?: number[];       // 0=일 ~ 6=토 (custom/weekly byday 겸용)
   recurrenceEndDate?: string;      // yyyy-MM-dd, null이면 무기한
   recurrenceParentId?: string;     // 원본 이벤트 ID (예외 인스턴스가 참조)
   isException?: boolean;           // 이 인스턴스만 수정·삭제된 예외
+  // 반복 통합 스펙 (RecurrenceSpec, src/lib/recurrence.ts). recurrenceFreq 있으면 우선.
+  recurrenceFreq?: 'daily' | 'weekly' | 'monthly' | 'yearly';
+  recurrenceInterval?: number;     // N — 매 N 주기마다 (기본 1)
+  recurrencePreset?: 'weekday' | 'weekend';
 }
 
 export interface Event {
@@ -59,8 +63,13 @@ export interface Event {
   location?: string;
   linkUrl?: string;
   memo?: string;
-  repeatType?: 'none' | 'daily' | 'weekly' | 'monthly';
+  repeatType?: 'none' | 'daily' | 'weekly' | 'monthly';  // 레거시 — dual-read 로 유지
   repeatEndDate?: string;
+  // 반복 통합 스펙 (RecurrenceSpec, src/lib/recurrence.ts). recurrenceFreq 있으면 우선.
+  recurrenceFreq?: 'daily' | 'weekly' | 'monthly' | 'yearly';
+  recurrenceInterval?: number;     // N — 매 N 주기마다 (기본 1)
+  recurrenceByday?: number[];      // 0=일 ~ 6=토 (weekly 전용)
+  recurrencePreset?: 'weekday' | 'weekend';
   alertMinutes?: 0 | 10 | 30 | 60;
   projectId?: string;
   color?: string;

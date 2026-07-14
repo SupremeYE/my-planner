@@ -1,5 +1,25 @@
-import { addDays, format, getDay, isAfter, isBefore, parseISO } from 'date-fns';
+import { parseISO } from 'date-fns';
 import type { Todo } from '../app/store';
+import { buildSpec, expandRecurrenceDates, legacyTodoToSpec, type RecurrenceSpec } from './recurrence';
+
+/** 할일이 반복인지(레거시 또는 신규 스펙) */
+function todoHasRecurrence(t: Todo): boolean {
+  return !!(t.recurrenceRule || t.recurrenceFreq);
+}
+
+/** 할일 → RecurrenceSpec (신규 recurrenceFreq 우선, 없으면 레거시 정규화) */
+function resolveTodoSpec(t: Todo, origin: Date): RecurrenceSpec | null {
+  if (t.recurrenceFreq) {
+    return buildSpec({
+      freq: t.recurrenceFreq,
+      interval: t.recurrenceInterval,
+      byday: t.recurrenceDays,
+      preset: t.recurrencePreset,
+      endDate: t.recurrenceEndDate,
+    });
+  }
+  return legacyTodoToSpec(t.recurrenceRule, t.recurrenceDays, t.recurrenceEndDate, origin);
+}
 
 /**
  * 반복 일정 가상 확장 (Virtual expansion)
@@ -27,7 +47,7 @@ export function expandRecurringTodos(
   for (const t of rawTodos) {
     if (t.recurrenceParentId || t.isException) {
       exceptions.push(t);
-    } else if (t.recurrenceRule) {
+    } else if (todoHasRecurrence(t)) {
       parents.push(t);
     } else {
       nonRecurring.push(t);
@@ -37,19 +57,11 @@ export function expandRecurringTodos(
   // ── 비반복 할일 ──────────────────────────────────────────────────────────
   const result: Todo[] = [...nonRecurring];
 
-  // ── 반복 부모 → 인스턴스 확장 ────────────────────────────────────────────
+  // ── 반복 부모 → 인스턴스 확장 (공용 엔진 위임) ───────────────────────────
   for (const parent of parents) {
     const parentOriginDate = parent.date ? parseISO(parent.date) : rangeStart;
-    // 반복 종료일: 없으면 rangeEnd 기준으로 최대 1년
-    const repeatEnd = parent.recurrenceEndDate
-      ? parseISO(parent.recurrenceEndDate)
-      : addDays(rangeEnd, 365);
-
-    // 이 부모의 유효 생성 범위
-    const effectiveStart = isAfter(rangeStart, parentOriginDate) ? rangeStart : parentOriginDate;
-    const effectiveEnd = isBefore(rangeEnd, repeatEnd) ? rangeEnd : repeatEnd;
-
-    if (isAfter(effectiveStart, effectiveEnd)) continue;
+    const spec = resolveTodoSpec(parent, parentOriginDate);
+    if (!spec) continue;
 
     // 이 부모의 예외 맵: date → Todo
     const exMap = new Map<string, Todo>();
@@ -59,54 +71,30 @@ export function expandRecurringTodos(
       }
     }
 
-    // 매일 순회하며 recurrenceRule에 맞는 날짜에 인스턴스 생성
-    const origDayOfWeek = getDay(parentOriginDate);
-    let cur = effectiveStart;
+    // 공용 엔진이 스펙(일/주/월/년 + interval + byday + preset)에 맞는 날짜를 생성
+    const dates = expandRecurrenceDates(spec, parentOriginDate, rangeStart, rangeEnd);
 
-    while (!isAfter(cur, effectiveEnd)) {
-      const dateStr = format(cur, 'yyyy-MM-dd');
-      const dow = getDay(cur);
-
-      let include = false;
-      switch (parent.recurrenceRule) {
-        case 'daily':
-          include = true;
-          break;
-        case 'weekly':
-          include = dow === origDayOfWeek;
-          break;
-        case 'weekdays':
-          include = dow >= 1 && dow <= 5;
-          break;
-        case 'custom':
-          include = (parent.recurrenceDays ?? []).includes(dow);
-          break;
-      }
-
-      if (include) {
-        if (exMap.has(dateStr)) {
-          const ex = exMap.get(dateStr)!;
-          // status='cancelled'는 삭제 예외 → 결과에 포함하지 않음
-          if (ex.status !== 'cancelled') {
-            result.push(ex);
-          }
-        } else {
-          // 가상 인스턴스: 원본 부모 데이터에 날짜만 교체
-          // id = `{parentId}::{date}` (가상 ID, DB에 없음)
-          const isOriginDate = dateStr === parent.date;
-          result.push({
-            ...parent,
-            id: `${parent.id}::${dateStr}`,
-            date: dateStr,
-            // 원본 날짜가 아닌 인스턴스는 do 기록 초기화 (각 날 독립)
-            doStart: isOriginDate ? parent.doStart : undefined,
-            doEnd: isOriginDate ? parent.doEnd : undefined,
-            doElapsedSec: isOriginDate ? parent.doElapsedSec : undefined,
-          });
+    for (const dateStr of dates) {
+      if (exMap.has(dateStr)) {
+        const ex = exMap.get(dateStr)!;
+        // status='cancelled'는 삭제 예외 → 결과에 포함하지 않음
+        if (ex.status !== 'cancelled') {
+          result.push(ex);
         }
+      } else {
+        // 가상 인스턴스: 원본 부모 데이터에 날짜만 교체
+        // id = `{parentId}::{date}` (가상 ID, DB에 없음)
+        const isOriginDate = dateStr === parent.date;
+        result.push({
+          ...parent,
+          id: `${parent.id}::${dateStr}`,
+          date: dateStr,
+          // 원본 날짜가 아닌 인스턴스는 do 기록 초기화 (각 날 독립)
+          doStart: isOriginDate ? parent.doStart : undefined,
+          doEnd: isOriginDate ? parent.doEnd : undefined,
+          doElapsedSec: isOriginDate ? parent.doElapsedSec : undefined,
+        });
       }
-
-      cur = addDays(cur, 1);
     }
   }
 
