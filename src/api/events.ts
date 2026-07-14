@@ -1,6 +1,14 @@
-import { addDays, addMonths, addWeeks, format, isAfter, isBefore, parseISO } from 'date-fns';
+import { format, isBefore, parseISO } from 'date-fns';
 import type { Event } from '../app/store';
 import { supabase } from '../lib/supabase';
+import {
+  buildSpec,
+  expandRecurrenceDates,
+  legacyEventToSpec,
+  type RecurrenceFreq,
+  type RecurrencePreset,
+  type RecurrenceSpec,
+} from '../lib/recurrence';
 
 export type EventRepeatType = 'none' | 'daily' | 'weekly' | 'monthly';
 export type EventAlertMinutes = 0 | 10 | 30 | 60;
@@ -17,6 +25,10 @@ export interface EventMutationInput {
   linkUrl?: string;
   repeatType?: EventRepeatType;
   repeatEndDate?: string;
+  recurrenceFreq?: RecurrenceFreq;
+  recurrenceInterval?: number;
+  recurrenceByday?: number[];
+  recurrencePreset?: RecurrencePreset;
   alertMinutes?: EventAlertMinutes;
   memo?: string;
   projectId?: string;
@@ -38,6 +50,10 @@ type EventRow = {
   link_url: string | null;
   repeat_type: EventRepeatType | null;
   repeat_end_date: string | null;
+  recurrence_freq: RecurrenceFreq | null;
+  recurrence_interval: number | null;
+  recurrence_byday: number[] | null;
+  recurrence_preset: RecurrencePreset | null;
   alert_minutes: EventAlertMinutes | null;
   memo: string | null;
   project_id: string | null;
@@ -56,6 +72,11 @@ function toDateTime(date: string, time: string) {
   return `${date}T${time}:00`;
 }
 
+/** 신규 스펙(recurrenceFreq) 또는 레거시(repeatType != none) 중 하나라도 있으면 반복 */
+function hasRecurrence(input: EventMutationInput): boolean {
+  return !!input.recurrenceFreq || (!!input.repeatType && input.repeatType !== 'none');
+}
+
 function toEventInput(event: Event | EventMutationInput): EventMutationInput {
   if ('startDate' in event) return event;
   return {
@@ -70,6 +91,10 @@ function toEventInput(event: Event | EventMutationInput): EventMutationInput {
     linkUrl: event.linkUrl,
     repeatType: event.repeatType || 'none',
     repeatEndDate: event.repeatEndDate,
+    recurrenceFreq: event.recurrenceFreq,
+    recurrenceInterval: event.recurrenceInterval,
+    recurrenceByday: event.recurrenceByday,
+    recurrencePreset: event.recurrencePreset,
     alertMinutes: event.alertMinutes,
     memo: event.memo,
     projectId: event.projectId,
@@ -98,7 +123,11 @@ function toRowPayload(event: Event | EventMutationInput) {
     location: input.location?.trim() || null,
     link_url: input.linkUrl?.trim() || null,
     repeat_type: input.repeatType || 'none',
-    repeat_end_date: input.repeatType && input.repeatType !== 'none' ? (input.repeatEndDate || null) : null,
+    repeat_end_date: hasRecurrence(input) ? (input.repeatEndDate || null) : null,
+    recurrence_freq: input.recurrenceFreq ?? null,
+    recurrence_interval: input.recurrenceFreq ? (input.recurrenceInterval ?? 1) : null,
+    recurrence_byday: input.recurrenceFreq === 'weekly' ? (input.recurrenceByday ?? null) : null,
+    recurrence_preset: input.recurrenceFreq === 'weekly' ? (input.recurrencePreset ?? null) : null,
     alert_minutes: input.alertMinutes ?? null,
     memo: input.memo?.trim() || null,
     project_id: input.projectId || null,
@@ -129,6 +158,10 @@ function toLegacyEvent(row: EventRow, occurrenceDate?: string): Event {
     isAllDay: row.is_all_day ?? false,
     repeatType: row.repeat_type ?? 'none',
     repeatEndDate: row.repeat_end_date ?? undefined,
+    recurrenceFreq: row.recurrence_freq ?? undefined,
+    recurrenceInterval: row.recurrence_interval ?? undefined,
+    recurrenceByday: row.recurrence_byday ?? undefined,
+    recurrencePreset: row.recurrence_preset ?? undefined,
     alertMinutes: row.alert_minutes ?? undefined,
     projectId: row.project_id ?? undefined,
     color: row.color ?? undefined,
@@ -175,6 +208,20 @@ function overlapsRange(date: string, startDate: string, endDate: string) {
   return date >= startDate && date <= endDate;
 }
 
+/** 이벤트 행 → RecurrenceSpec (신규 recurrence_freq 우선, 없으면 레거시 정규화) */
+function resolveEventSpec(row: EventRow, origin: Date): RecurrenceSpec | null {
+  if (row.recurrence_freq) {
+    return buildSpec({
+      freq: row.recurrence_freq,
+      interval: row.recurrence_interval ?? 1,
+      byday: row.recurrence_byday ?? undefined,
+      preset: row.recurrence_preset ?? undefined,
+      endDate: row.repeat_end_date,
+    });
+  }
+  return legacyEventToSpec(row.repeat_type, row.repeat_end_date, origin);
+}
+
 export function getRepeatedEvents(rows: EventRow[], startDate: string, endDate: string): Event[] {
   const rangeStart = parseISO(`${startDate}T00:00:00`);
   const rangeEnd = parseISO(`${endDate}T23:59:59`);
@@ -194,36 +241,21 @@ export function getRepeatedEvents(rows: EventRow[], startDate: string, endDate: 
   }
 
   return otherRows.flatMap((row) => {
-    const repeatType = row.repeat_type ?? 'none';
-    const firstDate = format(parseISO(row.start_at), 'yyyy-MM-dd');
-    const repeatUntil = row.repeat_end_date ?? endDate;
+    const origin = parseISO(row.start_at);
+    const firstDate = format(origin, 'yyyy-MM-dd');
+    const spec = resolveEventSpec(row, origin);
 
-    if (repeatType === 'none') {
+    if (!spec) {
       return overlapsRange(firstDate, startDate, endDate) ? [toLegacyEvent(row)] : [];
     }
 
-    const items: Event[] = [];
-    let cursor = parseISO(`${firstDate}T00:00:00`);
-    const limit = parseISO(`${repeatUntil}T23:59:59`);
-
-    while (!isAfter(cursor, rangeEnd) && !isAfter(cursor, limit)) {
-      if (!isBefore(cursor, rangeStart)) {
-        const dateStr = format(cursor, 'yyyy-MM-dd');
-        const ex = exMap.get(`${row.id}|${dateStr}`);
-        if (ex) {
-          // 그 회차에 예외 행이 있으면 가상 occurrence 대신 예외 행을 emit (실제 id)
-          items.push(toLegacyEvent(ex));
-        } else {
-          items.push(toLegacyEvent(row, dateStr));
-        }
-      }
-
-      if (repeatType === 'daily') cursor = addDays(cursor, 1);
-      else if (repeatType === 'weekly') cursor = addWeeks(cursor, 1);
-      else cursor = addMonths(cursor, 1);
-    }
-
-    return items;
+    // 공용 엔진이 스펙(일/주/월/년 + interval + byday + preset)에 맞는 날짜를 생성
+    const dates = expandRecurrenceDates(spec, origin, rangeStart, rangeEnd);
+    return dates.map((dateStr) => {
+      const ex = exMap.get(`${row.id}|${dateStr}`);
+      // 그 회차에 예외 행이 있으면 가상 occurrence 대신 예외 행을 emit (실제 id)
+      return ex ? toLegacyEvent(ex) : toLegacyEvent(row, dateStr);
+    });
   });
 }
 
