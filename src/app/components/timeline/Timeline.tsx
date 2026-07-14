@@ -865,6 +865,9 @@ export function Timeline({ days = 1, selectedDate, dateTodos, dateEvents, onShow
 
     const isPlan = type === 'plan';
     const isCheckOnlyDo = !isPlan && todo.doElapsedSec === 0;
+    // 타이머로 추적된 "진행중" DO 블록 — 완료(꽉참)와 달리 연한 채움 + 대시 좌측바로 구분(축1 규칙).
+    // (시간 없는 수동 진행중은 doStart/doEnd 가 없어 doTodos 에 애초에 안 들어온다.)
+    const isInProgressDo = !isPlan && todo.status === 'inProgress';
     const hasFocusedDuration = !isPlan && todo.doElapsedSec != null && todo.doElapsedSec > 0;
     const top = (startMin / 60 - tlStartHour) * HOUR_HEIGHT;
     const height = isCheckOnlyDo ? 30 : Math.max((endMin - startMin) * PX_PER_MIN, 20);
@@ -935,9 +938,9 @@ export function Timeline({ days = 1, selectedDate, dateTodos, dateEvents, onShow
           height,
           left: laneBounds.left,
           right: laneBounds.right,
-          backgroundColor: bg,
+          backgroundColor: isInProgressDo ? `color-mix(in srgb, ${bg} 55%, transparent)` : bg,
           border: `1px solid ${borderClr}20`,
-          borderLeft: `3px solid ${borderClr}`,
+          borderLeft: `3px ${isInProgressDo ? 'dashed' : 'solid'} ${borderClr}`,
           opacity: isDragging ? 0.85 : (todo.status === 'cancelled' ? 0.4 : 1),
           cursor: canDrag ? (isDragging ? 'grabbing' : 'grab') : 'pointer',
           userSelect: 'none',

@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { Check, Pause, Play, Timer } from 'lucide-react';
+import { Check, Pause, Play, Square, Timer } from 'lucide-react';
 import { getTimerElapsedSec, getTimerRemainingSec, usePlanner } from '../store';
 import { useTheme } from '../ThemeContext';
 
@@ -33,7 +33,7 @@ function playDoneSound() {
 }
 
 export function GlobalFloatingTimer() {
-  const { activeTimer, todos, pauseTimer, resumeTimer, stopTimer } = usePlanner();
+  const { activeTimer, todos, pauseTimer, resumeTimer, stopTimer, parkTimer } = usePlanner();
   const { t } = useTheme();
   const [nowMs, setNowMs] = useState(Date.now());
   const [pomoDone, setPomoDone] = useState<string | null>(null); // todoText 저장
@@ -149,18 +149,32 @@ export function GlobalFloatingTimer() {
             {formatElapsed(displaySec)}
           </div>
         </div>
-        <div className="ml-auto flex items-center gap-2 flex-shrink-0">
+        <div className="ml-auto flex items-center gap-1.5 flex-shrink-0">
+          {/* 일시정지/재개 — 세션 유지(진행중 유지). 공간 절약 위해 아이콘 전용. */}
           <button
             onClick={activeTimer.isPaused ? resumeTimer : pauseTimer}
-            className="flex items-center gap-1.5 rounded-xl px-3 py-2"
+            aria-label={activeTimer.isPaused ? '재개' : '일시정지'}
+            title={activeTimer.isPaused ? '재개' : '일시정지'}
+            className="flex items-center justify-center rounded-xl flex-shrink-0"
+            style={{ width: 36, height: 36, backgroundColor: '#F5F0E8', color: '#6B553D', border: `1px solid ${t.borderLight}` }}
+          >
+            {activeTimer.isPaused ? <Play size={14} /> : <Pause size={14} />}
+          </button>
+          {/* 정지 — DO 시간 블록은 남기되 진행중 유지(완료 아님). 다음 날 "이어서 하기"로 이월. */}
+          <button
+            onClick={parkTimer}
+            title="정지 (진행중 유지)"
+            className="flex items-center gap-1 rounded-xl px-2.5 py-2"
             style={{ backgroundColor: '#F5F0E8', color: '#6B553D', fontSize: 12, fontWeight: 700, border: `1px solid ${t.borderLight}` }}
           >
-            {activeTimer.isPaused ? <Play size={12} /> : <Pause size={12} />}
-            {activeTimer.isPaused ? '재개' : '일시정지'}
+            <Square size={11} />
+            정지
           </button>
+          {/* 완료 — DO 기록 + 완료. */}
           <button
             onClick={stopTimer}
-            className="flex items-center gap-1.5 rounded-xl px-3 py-2"
+            title="완료"
+            className="flex items-center gap-1 rounded-xl px-2.5 py-2"
             style={{ backgroundColor: '#C4A882', color: '#fff', fontSize: 12, fontWeight: 700 }}
           >
             <Check size={12} />

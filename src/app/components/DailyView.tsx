@@ -7,9 +7,9 @@ import {
 } from 'lucide-react';
 import { format, addDays, subDays, addMonths, subMonths, startOfMonth, getDaysInMonth, getDay as getDayOfWeek, parseISO, addMinutes } from 'date-fns';
 import { ko } from 'date-fns/locale';
-import { usePlanner, Todo, Event, getLogicalToday } from '../store';
+import { usePlanner, Todo, Event, TodoStatus, getLogicalToday } from '../store';
 import { useTheme } from '../ThemeContext';
-import { isHaon, canvasStyle, solidCardStyle, solidRowStyle, glassBarStyle, mixHex } from '../styles/haonStyles';
+import { isHaon, canvasStyle, solidCardStyle, solidRowStyle, glassBarStyle, mixHex, progressCheckboxStyle } from '../styles/haonStyles';
 import { useNotification } from '../hooks/useNotification';
 import { TimePicker } from './TimePicker';
 import ConfirmModal from './ConfirmModal';
@@ -23,6 +23,7 @@ import { useDailySummary } from '../hooks/useDailySummary';
 import { isEventPast } from '../../api/events';
 import { expandRecurringTodos, isVirtualTodoId, parseVirtualTodoId } from '../../lib/recurrenceExpansion';
 import { RecurrenceBranchModal } from './RecurrenceBranchModal';
+import StatusSheet from './StatusSheet';
 import { Timeline } from './timeline/Timeline';
 import { TimelineSettingsModal } from './timeline/TimelineSettingsModal';
 
@@ -548,7 +549,7 @@ function DailyDatePickerModal({ selectedDate, onClose, onConfirm }: {
 export function DailyView() {
   const {
     selectedDate, setSelectedDate, todos, events, updateTodo, addTodo, toggleEventCompleted, deleteEvent, deleteRecurringTodo, habits,
-    activeTimer, startTimer, stopTimer, tags, projects, weeklyGoals, milestones,
+    activeTimer, startTimer, stopTimer, parkTimer, tags, projects, weeklyGoals, milestones,
     dayStartHour: tlStartHour, dayEndHour: tlEndHour, setDayHours,
   } = usePlanner();
   const { t } = useTheme();
@@ -579,6 +580,9 @@ export function DailyView() {
   const [keyHint, setKeyHint] = useState<string | null>(null);
   // → 버튼 길게 누르기(롱프레스) 판별용 (행마다 hook 추가 금지 → 부모 ref 공유)
   const snoozeLongPressRef = useRef<{ timer: ReturnType<typeof setTimeout> | null; fired: boolean }>({ timer: null, fired: false });
+  // 체크박스 롱프레스 → 상태 시트(안시작/진행중/완료). 짧은 탭=완료는 그대로 유지.
+  const [statusSheetTodo, setStatusSheetTodo] = useState<Todo | null>(null);
+  const checkboxLongPressRef = useRef<{ timer: ReturnType<typeof setTimeout> | null; fired: boolean }>({ timer: null, fired: false });
   const [showTimelineSettings, setShowTimelineSettings] = useState(false);
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [mobileTab, setMobileTab] = useState<'todos' | 'timeline'>('todos');
@@ -659,15 +663,8 @@ export function DailyView() {
     return `D+${Math.abs(diff)}`;
   };
 
-  const handleTodoCheckboxAction = (todo: Todo) => {
-    if (activeTimer?.todoId === todo.id) {
-      stopTimer();
-      return;
-    }
-    if (todo.status === 'done') {
-      updateTodo(todo.id, { status: 'active' });
-      return;
-    }
+  // 완료 처리(DO 채움 규칙 공통) — 체크박스 짧은 탭·상태 시트 "완료"에서 재사용.
+  const markTodoDone = (todo: Todo) => {
     if (todo.doStart && todo.doEnd) {
       updateTodo(todo.id, { status: 'done' });
     } else if (todo.planStart && todo.planEnd) {
@@ -676,6 +673,59 @@ export function DailyView() {
       const s = format(new Date(), 'HH:mm');
       const e = format(addMinutes(new Date(), 30), 'HH:mm');
       updateTodo(todo.id, { status: 'done', doStart: s, doEnd: e });
+    }
+  };
+
+  const handleTodoCheckboxAction = (todo: Todo) => {
+    if (activeTimer?.todoId === todo.id) {
+      stopTimer();
+      return;
+    }
+    if (todo.status === 'done') {
+      // 완료 해제 → 타이머로 추적된 시간이 있으면 진행중, 없으면 안시작(축1 규칙).
+      const hasTrackedTime = todo.doElapsedSec != null && todo.doElapsedSec > 0;
+      updateTodo(todo.id, { status: hasTrackedTime ? 'inProgress' : 'active' });
+      return;
+    }
+    markTodoDone(todo);
+  };
+
+  // 체크박스 롱프레스 판별 — 500ms 유지 시 상태 시트 오픈, 이후 click 억제.
+  const startCheckboxLongPress = (todo: Todo) => {
+    checkboxLongPressRef.current.fired = false;
+    checkboxLongPressRef.current.timer = setTimeout(() => {
+      checkboxLongPressRef.current.fired = true;
+      setStatusSheetTodo(todo);
+    }, 500);
+  };
+  const cancelCheckboxLongPress = () => {
+    if (checkboxLongPressRef.current.timer) {
+      clearTimeout(checkboxLongPressRef.current.timer);
+      checkboxLongPressRef.current.timer = null;
+    }
+  };
+  const handleCheckboxClick = (todo: Todo) => {
+    if (checkboxLongPressRef.current.fired) {
+      checkboxLongPressRef.current.fired = false; // 롱프레스로 시트를 연 경우 완료 토글 억제
+      return;
+    }
+    handleTodoCheckboxAction(todo);
+  };
+
+  // 상태 시트 선택 반영 — 안시작/진행중/완료. 타이머 실행 중이면 먼저 세션 정리.
+  const applyStatusFromSheet = (todo: Todo, status: TodoStatus) => {
+    setStatusSheetTodo(null);
+    if (todo.status === status) return;
+    const timing = activeTimer?.todoId === todo.id;
+    if (status === 'done') {
+      if (timing) { stopTimer(); return; }  // 세션 경과를 DO 로 기록하며 완료
+      markTodoDone(todo);
+    } else if (status === 'inProgress') {
+      if (timing) return;                    // 이미 진행중(타이머 실행 중)
+      updateTodo(todo.id, { status: 'inProgress' }); // 수동 진행중: 시간 없이 뱃지만
+    } else {
+      if (timing) parkTimer();               // 세션 종료(진행중 기록) 후 아래서 안시작으로 덮음
+      updateTodo(todo.id, { status: 'active', doStart: undefined, doEnd: undefined, doElapsedSec: undefined });
     }
   };
 
@@ -842,13 +892,16 @@ export function DailyView() {
         {isKeyRow && (
           <span aria-hidden className="absolute left-0 top-0 bottom-0" style={{ width: 4, background: t.primaryGradient ?? t.accent }} />
         )}
-        {/* Status checkbox */}
-        <button onClick={() => handleTodoCheckboxAction(todo)}
+        {/* Status checkbox — 짧은 탭=완료 토글 / 롱프레스=상태 시트(안시작·진행중·완료) */}
+        <button
+          onClick={() => handleCheckboxClick(todo)}
+          onPointerDown={() => startCheckboxLongPress(todo)}
+          onPointerUp={cancelCheckboxLongPress}
+          onPointerLeave={cancelCheckboxLongPress}
+          onContextMenu={(e) => e.preventDefault()}
+          aria-label="상태 (길게 눌러 변경)"
           className="w-5 h-5 rounded-full flex items-center justify-center flex-shrink-0 transition-all mt-0.5"
-          style={{
-            border: isDone ? 'none' : `2px solid ${todo.status === 'inProgress' ? t.success : accentColor}60`,
-            backgroundColor: isDone ? t.checkDone : (todo.status === 'inProgress' ? `${t.success}12` : 'transparent'),
-          }}>
+          style={{ touchAction: 'none', ...progressCheckboxStyle(t, isDone ? 'done' : todo.status === 'inProgress' ? 'inProgress' : 'active', accentColor) }}>
           {isDone && <Check size={11} color="#fff" strokeWidth={3} />}
           {!isDone && todo.status === 'inProgress' && <Play size={9} color={t.success} fill={t.success} />}
         </button>
@@ -1330,6 +1383,13 @@ export function DailyView() {
             startTimer(focusingTodo.id, { mode, pomoDurationSec });
             setFocusingTodo(null);
           }}
+        />
+      )}
+      {statusSheetTodo && (
+        <StatusSheet
+          todo={statusSheetTodo}
+          onSelect={(status) => applyStatusFromSheet(statusSheetTodo, status)}
+          onClose={() => setStatusSheetTodo(null)}
         />
       )}
       {showTimelineSettings && (

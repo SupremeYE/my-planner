@@ -33,6 +33,16 @@ const STATUS_NEXT: Record<string, TodoStatus> = {
   cancelled:  'active',
 };
 
+// 다음 상태 계산 — 완료 해제 시 타이머로 추적된 시간(doElapsedSec>0)이 있으면 진행중, 없으면 안시작.
+// (축1 규칙: "완료 해제 → 진행중(시간 있으면)/안시작") 그 외 전이는 STATUS_NEXT 그대로.
+function nextTodoStatus(todo: Todo): TodoStatus {
+  if (todo.status === 'done') {
+    const hasTrackedTime = todo.doElapsedSec != null && todo.doElapsedSec > 0;
+    return hasTrackedTime ? 'inProgress' : 'active';
+  }
+  return STATUS_NEXT[todo.status] ?? 'done';
+}
+
 const DAYS = ['일', '월', '화', '수', '목', '금', '토'];
 
 function getDateLabel(dateStr: string): string {
@@ -83,7 +93,7 @@ function TodoRow({
 
   // 완료 경계를 넘어(할일↔완료함) 현재 목록에서 빠지는 토글일 때만 애니메이션, 그 외(예: 미루기→예정)는 즉시.
   const handleStatusToggle = () => {
-    const next = STATUS_NEXT[todo.status];
+    const next = nextTodoStatus(todo);
     const wasDone = todo.status === 'done' || todo.status === 'cancelled';
     const willBeDone = next === 'done' || next === 'cancelled';
     if (wasDone !== willBeDone && !leaving) {
@@ -423,7 +433,7 @@ function TodoListTab({ selectMode, selected, onSelectToggle }: TabSelectionProps
               <TodoRow
                 key={todo.id}
                 todo={todo}
-                onStatusToggle={() => updateTodo(todo.id, { status: STATUS_NEXT[todo.status] })}
+                onStatusToggle={() => updateTodo(todo.id, { status: nextTodoStatus(todo) })}
                 onEdit={() => setEditingTodo(todo)}
                 onDelete={() => deleteTodo(todo.id)}
                 onTop3Toggle={() => toggleTop3(todo.id)}
@@ -475,7 +485,7 @@ function TodoListTab({ selectMode, selected, onSelectToggle }: TabSelectionProps
                 <TodoRow
                   key={todo.id}
                   todo={todo}
-                  onStatusToggle={() => updateTodo(todo.id, { status: STATUS_NEXT[todo.status] })}
+                  onStatusToggle={() => updateTodo(todo.id, { status: nextTodoStatus(todo) })}
                   onEdit={() => setEditingTodo(todo)}
                   onDelete={() => deleteTodo(todo.id)}
                   onTop3Toggle={() => toggleTop3(todo.id)}
@@ -509,7 +519,7 @@ function TodoListTab({ selectMode, selected, onSelectToggle }: TabSelectionProps
               <TodoRow
                 key={todo.id}
                 todo={todo}
-                onStatusToggle={() => updateTodo(todo.id, { status: STATUS_NEXT[todo.status] })}
+                onStatusToggle={() => updateTodo(todo.id, { status: nextTodoStatus(todo) })}
                 onEdit={() => setEditingTodo(todo)}
                 onDelete={() => deleteTodo(todo.id)}
                 onTop3Toggle={() => toggleTop3(todo.id)}
@@ -539,7 +549,7 @@ function TodoListTab({ selectMode, selected, onSelectToggle }: TabSelectionProps
                   <TodoRow
                     key={todo.id}
                     todo={todo}
-                    onStatusToggle={() => updateTodo(todo.id, { status: STATUS_NEXT[todo.status] })}
+                    onStatusToggle={() => updateTodo(todo.id, { status: nextTodoStatus(todo) })}
                     onEdit={() => setEditingTodo(todo)}
                     onDelete={() => deleteTodo(todo.id)}
                     onTop3Toggle={() => toggleTop3(todo.id)}
@@ -624,7 +634,7 @@ function DoneTodosTab({ selectMode, selected, onSelectToggle }: TabSelectionProp
                   <TodoRow
                     key={todo.id}
                     todo={todo}
-                    onStatusToggle={() => updateTodo(todo.id, { status: 'active' })}
+                    onStatusToggle={() => updateTodo(todo.id, { status: nextTodoStatus(todo) })}
                     onEdit={() => setEditingTodo(todo)}
                     onDelete={() => deleteTodo(todo.id)}
                     onTop3Toggle={() => toggleTop3(todo.id)}
