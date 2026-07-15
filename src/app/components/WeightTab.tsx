@@ -1,6 +1,6 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { format, subDays, parseISO } from 'date-fns';
-import { Trash2, Plus, X, Pencil } from 'lucide-react';
+import { Trash2, Plus, X, Pencil, ImagePlus, Images } from 'lucide-react';
 import {
   ComposedChart, Line, Area, Scatter, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine,
 } from 'recharts';
@@ -13,6 +13,8 @@ import type { WeightRecord, WeightGoal, WeightSlot } from '../store';
 import { getLogicalToday, usePlanner } from '../store';
 import { PeriodNavigator } from './ui/PeriodNavigator';
 import { getPeriodRange, type PeriodUnit } from '../lib/periodNav';
+import { prepImage } from '../../lib/imagePrep';
+import { BodyGallery } from './body/BodyGallery';
 import ConfirmModal from './ConfirmModal';
 
 // 보조 지표 라인 색상 (체지방=코랄 / 골격근=그린). 아침/저녁 체중은 토큰(warning/info) 사용.
@@ -124,6 +126,12 @@ export function WeightTab() {
 
   const isEditing = editingId != null;
 
+  // 눈바디 — 폼 첨부 사진(저장 시 레코드에 연결) + 전체화면 갤러리
+  const [photoFile, setPhotoFile] = useState<File | null>(null);
+  const [photoPreview, setPhotoPreview] = useState<string | null>(null); // object URL (미리보기 전용)
+  const [galleryOpen, setGalleryOpen] = useState(false);
+  const photoInputRef = useRef<HTMLInputElement>(null);
+
   // 기간 네비게이터 — 롤링(7/30/1년) 대체. 기본 '월'/현재 기간.
   const [unit, setUnit] = useState<PeriodUnit>('월');
   const [offset, setOffset] = useState(0);
@@ -151,13 +159,35 @@ export function WeightTab() {
   const hasMuscleData = records.some(r => r.muscleMass != null);
 
   // ── 저장 ──
+  const clearPhoto = () => {
+    setPhotoFile(null);
+    setPhotoPreview(prev => { if (prev) URL.revokeObjectURL(prev); return null; });
+  };
   const resetForm = () => {
     setEditingId(null); setSlot(autoSlot()); setWeight(''); setBodyFat(''); setMuscle(''); setMemo('');
+    clearPhoto();
   };
-  const afterWrite = () => {
+  // 저장 후 정리 + 폼 첨부 사진이 있으면 저장된 레코드(id·date)에 연결해 업로드(best-effort).
+  const afterWrite = async (recId?: string, recDate?: string) => {
+    if (photoFile && recId && recDate) {
+      const pid = crypto.randomUUID();
+      const path = await db.bodyPhotos.uploadPhoto(photoFile, pid);
+      if (path) await db.bodyPhotos.insert({ id: pid, date: recDate, photoPath: path, weightRecordId: recId });
+    }
     db.weightRecords.fetchAll().then(setRecords);
     resetForm();
     setInputOpen(false);
+  };
+
+  // 폼 사진 선택 — prepImage(HEIC→JPEG) 후 미리보기. 업로드는 레코드 저장 성공 시(afterWrite).
+  const handlePickPhoto = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    if (!file) return;
+    const prepped = await prepImage(file);
+    clearPhoto();
+    setPhotoFile(prepped);
+    setPhotoPreview(URL.createObjectURL(prepped));
   };
 
   // 새 기록 폼 열기(오늘 날짜로 초기화)
@@ -191,24 +221,28 @@ export function WeightTab() {
       // 편집: 바꾼 날짜·시간대가 '다른' 기록과 겹치면 그 기록 교체 여부 확인
       const conflict = records.find(r => r.date === date && r.slot === slot && r.id !== editingId);
       if (conflict) { setPendingOverwrite(conflict); return; }
-      db.weightRecords.update(buildRecord(editingId!)).then(afterWrite);
+      const rec = buildRecord(editingId!);
+      db.weightRecords.update(rec).then(() => afterWrite(rec.id, rec.date));
       return;
     }
     // 신규: 같은 날짜+시간대가 이미 있으면 덮어쓰기 확인 (아침/저녁은 공존)
     const existing = records.find(r => r.date === date && r.slot === slot);
     if (existing) { setPendingOverwrite(existing); return; }
-    db.weightRecords.upsert(buildRecord()).then(afterWrite);
+    const rec = buildRecord();
+    db.weightRecords.upsert(rec).then(() => afterWrite(rec.id, rec.date));
   };
 
   // 덮어쓰기/충돌 확정 처리 — 신규는 기존 값 교체(upsert), 편집은 겹친 기록 삭제 후 이동(update)
   const confirmOverwrite = () => {
     if (!pendingOverwrite) return;
     if (isEditing) {
+      const rec = buildRecord(editingId!);
       db.weightRecords.delete(pendingOverwrite.id)
-        .then(() => db.weightRecords.update(buildRecord(editingId!)))
-        .then(afterWrite);
+        .then(() => db.weightRecords.update(rec))
+        .then(() => afterWrite(rec.id, rec.date));
     } else {
-      db.weightRecords.upsert(buildRecord(pendingOverwrite.id)).then(afterWrite);
+      const rec = buildRecord(pendingOverwrite.id);
+      db.weightRecords.upsert(rec).then(() => afterWrite(rec.id, rec.date));
     }
     setPendingOverwrite(null);
   };
@@ -429,6 +463,30 @@ export function WeightTab() {
             className="w-full mt-1 px-3 py-2 rounded-xl outline-none"
             style={{ backgroundColor: t.bgSub, border: `1px solid ${t.border}`, color: t.text }} />
         </div>
+
+        {/* 눈바디 사진 첨부(선택) — 저장 시 이 기록에 자동 연결 */}
+        <div className="mt-3">
+          <label style={{ fontSize: 12, color: t.textSub }}>눈바디 사진 (선택)</label>
+          <input ref={photoInputRef} type="file" accept="image/*" hidden onChange={handlePickPhoto} />
+          {photoPreview ? (
+            <div className="mt-1 flex items-center gap-2">
+              <img src={photoPreview} alt="" className="rounded-lg object-cover"
+                style={{ width: 48, height: 48, border: `1px solid ${t.border}` }} />
+              <span style={{ fontSize: 12, color: t.textSub, flex: 1 }}>저장 시 이 기록에 연결돼요</span>
+              <button type="button" onClick={clearPhoto} aria-label="사진 제거" className="p-1 rounded"
+                style={{ background: 'none', border: 'none', color: t.textMuted, cursor: 'pointer' }}>
+                <X size={15} />
+              </button>
+            </div>
+          ) : (
+            <button type="button" onClick={() => photoInputRef.current?.click()}
+              className="mt-1 w-full flex items-center justify-center gap-1.5 py-2 rounded-xl"
+              style={{ fontSize: 13, fontWeight: 600, color: t.accent, backgroundColor: t.accentLight, border: `1px solid ${t.border}` }}>
+              <ImagePlus size={15} /> 사진 추가
+            </button>
+          )}
+        </div>
+
         <HaonButton variant="primary" onClick={handleSubmit} disabled={!canSubmit}
           className="w-full mt-3 text-sm">{isEditing ? '수정하기' : '기록하기'}</HaonButton>
       </div>
@@ -636,6 +694,25 @@ export function WeightTab() {
           </button>
         )}
       </div>
+
+      {/* (F) 눈바디 — 몸 사진 갤러리 진입 (전체화면 그리드) */}
+      <div className="p-4 rounded-2xl flex items-center justify-between"
+        style={isHaon(t) ? solidCardStyle(t) : { backgroundColor: t.card, border: `1px solid ${t.border}` }}>
+        <div className="flex items-center gap-2.5 min-w-0">
+          <Images size={18} color={t.accent} />
+          <div className="min-w-0">
+            <p style={{ fontSize: 13, fontWeight: 700, color: t.text }}>눈바디</p>
+            <p style={{ fontSize: 12, color: t.textSub }}>몸 사진을 기록하고 변화를 비교해요</p>
+          </div>
+        </div>
+        <HaonButton variant="secondary" onClick={() => setGalleryOpen(true)} className="text-sm flex-shrink-0">
+          갤러리 열기
+        </HaonButton>
+      </div>
+
+      {galleryOpen && (
+        <BodyGallery weightRecords={records} onClose={() => setGalleryOpen(false)} />
+      )}
 
       {/* 덮어쓰기/충돌 확인 모달 */}
       {pendingOverwrite && (
