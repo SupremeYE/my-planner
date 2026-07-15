@@ -1,9 +1,8 @@
-// 사진 OCR 전처리 — 업로드 전에 canvas 로 재인코딩한다.
-//  · 목적: OpenAI 비전은 HEIC 를 지원하지 않고(JPEG/PNG/WEBP 만) 대용량 원본은 디코딩에 실패한다.
-//    iOS 카메라/갤러리 사진은 보통 HEIC 이거나 10MB+ 라서, 원본을 그대로 보내면 "텍스트 인식 실패" 가 난다.
+// 사진 전처리 — 업로드 전에 canvas 로 JPEG 재인코딩(HEIC→JPEG + 긴 변 다운스케일).
 //  · drawImage → JPEG 재인코딩으로 ① HEIC→JPEG 변환(iOS Safari 가 HEIC 디코드 가능) ② 긴 변 maxEdge 로 다운스케일.
-//  · EXIF 회전은 최신 브라우저가 <img> 디코드 시 자동 적용(image-orientation: from-image 기본) → OCR 방향 정상.
-//  · 어떤 단계든 실패하면 원본 File 을 그대로 반환(회귀 방지) — 최악의 경우라도 v2 기존 동작과 동일.
+//  · EXIF 회전은 최신 브라우저가 <img> 디코드 시 자동 적용(image-orientation: from-image 기본) → 방향 정상.
+//  · 어떤 단계든 실패하면 원본 File 을 그대로 반환(회귀 방지).
+//  · 소비처: OCR 업로드(prepImageForOcr 래퍼) · 눈바디 사진 업로드(prepImage 직접) 등 공용.
 
 function loadImage(src: string): Promise<HTMLImageElement> {
   return new Promise((resolve, reject) => {
@@ -14,14 +13,20 @@ function loadImage(src: string): Promise<HTMLImageElement> {
   });
 }
 
+export interface PrepImageOpts {
+  /** 긴 변 최대 px (기본 2000 — 정확도·용량 균형) */
+  maxEdge?: number;
+  /** JPEG 품질 0~1 (기본 0.85) */
+  quality?: number;
+}
+
 /**
- * 사진 File 을 OCR 친화 JPEG(긴 변 ≤ maxEdge)로 재인코딩한다.
- * @param file       사용자가 촬영/선택한 원본
- * @param maxEdge    긴 변 최대 px (기본 2000 — OCR 정확도·용량 균형, v1 크롭과 동일)
- * @param quality    JPEG 품질 0~1 (기본 0.85)
- * @returns          재인코딩한 JPEG File. 실패 시 원본 File.
+ * 사진 File 을 JPEG(긴 변 ≤ maxEdge)로 재인코딩한다. 실패 시 원본 File.
+ * 범용 전처리 — OCR·눈바디 등 업로드 경로가 공용으로 쓴다.
  */
-export async function prepImageForOcr(file: File, maxEdge = 2000, quality = 0.85): Promise<File> {
+export async function prepImage(file: File, opts: PrepImageOpts = {}): Promise<File> {
+  const maxEdge = opts.maxEdge ?? 2000;
+  const quality = opts.quality ?? 0.85;
   const url = URL.createObjectURL(file);
   try {
     const img = await loadImage(url);
@@ -51,4 +56,11 @@ export async function prepImageForOcr(file: File, maxEdge = 2000, quality = 0.85
   } finally {
     URL.revokeObjectURL(url);
   }
+}
+
+/**
+ * OCR 친화 JPEG 재인코딩 — 기존 소비처 무회귀용 래퍼. 동작·기본값 동일(2000 / 0.85), prepImage 로 위임.
+ */
+export async function prepImageForOcr(file: File, maxEdge = 2000, quality = 0.85): Promise<File> {
+  return prepImage(file, { maxEdge, quality });
 }

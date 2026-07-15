@@ -222,6 +222,15 @@ export interface WeightGoal {
   targetMuscleMass?: number | null;
 }
 
+// 눈바디(몸 사진) — 민감 정보. photoPath 는 비공개 스토리지 경로만(서명 URL 아님, 표시 시점 발급).
+export interface BodyPhoto {
+  id: string;
+  date: string;                     // yyyy-MM-dd
+  photoPath: string;                // 'body-photos' 버킷 내 경로
+  weightRecordId: string | null;    // 그날 체중 연결(nullable) — weight_records.id(text)
+  createdAt?: string;
+}
+
 export interface ConditionRecord {
   id: string;
   date: string;             // yyyy-MM-dd

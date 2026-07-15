@@ -6,7 +6,7 @@ import type {
   SelfCareRecord, ReviewRecord, WeeklyReview, MonthlyReview, HappyMoment, TimelineLog,
   FoodRecord, DiningType, TasteRating, Event, WeeklyGoal, MonthlyGoal, BrainstormItem, Tag, Routine,
   PeriodRecord, HabitMonthlyMemo, AnnualGoal, QuarterlyGoal,
-  WeightRecord, WeightGoal, ConditionRecord, UserSymptom, CultureRecord, MusicRecord,
+  WeightRecord, WeightGoal, BodyPhoto, ConditionRecord, UserSymptom, CultureRecord, MusicRecord,
   Recipe, RecipeIngredient, RecipeStep, RecipeCookLog,
   FridgeItem, ShoppingItem,
   BeautyProduct, BeautySpecialCare, HouseholdItem, ConsumableCycle, CleaningZone,
@@ -1742,6 +1742,58 @@ export const db = {
     delete: async (id: string) => {
       const { error } = await supabase.from('weight_records').delete().eq('id', id);
       if (error) console.error('[db] weight_records delete:', error.message);
+    },
+  },
+
+  // ── 눈바디(body_photos) — 민감 사진: PRIVATE 버킷 + 서명 URL 표시 전용 ──
+  // ⚠️ 규칙(CLAUDE.md): photo_path 만 저장(서명 URL 영속 저장 금지) · 외부 API 전송 금지 · 리포트 노출 금지.
+  bodyPhotos: {
+    fetchAll: async (): Promise<BodyPhoto[]> => {
+      const { data, error } = await supabase
+        .from('body_photos').select('*').order('date', { ascending: false });
+      if (error) console.error('[db] body_photos fetch:', error.message);
+      return (data ?? []).map((r: any): BodyPhoto => ({
+        id: r.id,
+        date: r.date,
+        photoPath: r.photo_path,
+        weightRecordId: r.weight_record_id ?? null,
+        createdAt: r.created_at,
+      }));
+    },
+    // 원본 → PRIVATE 버킷 업로드. path = <id>.<ext>, upsert. 스토리지 '경로'만 반환(공개 URL 아님).
+    uploadPhoto: async (file: File, id: string): Promise<string | null> => {
+      const ext = (file.name.split('.').pop() || 'jpg').toLowerCase();
+      const path = `${id}.${ext}`;
+      const { error } = await supabase.storage
+        .from('body-photos').upload(path, file, { upsert: true, contentType: file.type });
+      if (error) { console.error('[db] body photo upload:', error.message); return null; }
+      return path;
+    },
+    insert: async (row: { id: string; date: string; photoPath: string; weightRecordId: string | null }): Promise<void> => {
+      const { error } = await supabase.from('body_photos').insert({
+        id: row.id,
+        date: row.date,
+        photo_path: row.photoPath,
+        weight_record_id: row.weightRecordId,
+      });
+      if (error) console.error('[db] body_photos insert:', error.message);
+    },
+    // 서명 URL 배치 발급(TTL 기본 1h). { path → signedUrl } 반환. 표시 순간 전용 — 어디에도 영속 저장 금지.
+    signUrls: async (paths: string[], expiresIn = 3600): Promise<Record<string, string>> => {
+      if (!paths.length) return {};
+      const { data, error } = await supabase.storage.from('body-photos').createSignedUrls(paths, expiresIn);
+      if (error) { console.error('[db] body photo sign:', error.message); return {}; }
+      const map: Record<string, string> = {};
+      (data ?? []).forEach((d: any) => { if (d?.path && d?.signedUrl) map[d.path] = d.signedUrl; });
+      return map;
+    },
+    // 삭제 무결성: storage.remove(path) 성공 시에만 row 삭제(고아 방지). 성공 여부 반환.
+    delete: async (id: string, path: string): Promise<boolean> => {
+      const { error: sErr } = await supabase.storage.from('body-photos').remove([path]);
+      if (sErr) { console.error('[db] body photo storage remove:', sErr.message); return false; }
+      const { error } = await supabase.from('body_photos').delete().eq('id', id);
+      if (error) { console.error('[db] body_photos delete:', error.message); return false; }
+      return true;
     },
   },
 
