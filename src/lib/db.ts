@@ -63,7 +63,7 @@ type TodoTimeBlockRow = {
 
 type HabitRow = {
   id: string; name: string; checked_dates: string[]; icon: string | null;
-  repeat: string | null; repeat_days: number[] | null; goal_text: string | null;
+  repeat: string | null; repeat_days: number[] | null; weekly_target: number | null; goal_text: string | null;
   alarm_time: string | null; category: string | null; color: string | null;
   habit_type: string;
   target_value: number | null;
@@ -301,7 +301,8 @@ const fromTimeBlock = (b: TodoTimeBlock): Record<string, unknown> => ({
 const toHabit = (r: HabitRow): Habit => ({
   id: r.id, name: r.name, checkedDates: r.checked_dates ?? [],
   icon: r.icon ?? undefined, repeat: r.repeat as Habit['repeat'],
-  repeatDays: r.repeat_days ?? undefined, goalText: r.goal_text ?? undefined,
+  repeatDays: r.repeat_days ?? undefined, weeklyTarget: r.weekly_target ?? undefined,
+  goalText: r.goal_text ?? undefined,
   alarmTime: r.alarm_time ?? undefined, category: r.category ?? undefined,
   color: r.color ?? undefined,
   habitType: (r.habit_type ?? 'check') as Habit['habitType'],
@@ -315,7 +316,8 @@ const toHabit = (r: HabitRow): Habit => ({
 const fromHabit = (h: Habit): HabitRow => ({
   id: h.id, name: h.name, checked_dates: h.checkedDates ?? [],
   icon: h.icon ?? null, repeat: h.repeat ?? null,
-  repeat_days: h.repeatDays ?? null, goal_text: h.goalText ?? null,
+  repeat_days: h.repeatDays ?? null, weekly_target: h.weeklyTarget ?? null,
+  goal_text: h.goalText ?? null,
   alarm_time: h.alarmTime ?? null, category: h.category ?? null,
   color: h.color ?? null,
   habit_type: h.habitType ?? 'check',

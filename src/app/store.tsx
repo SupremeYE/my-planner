@@ -103,8 +103,9 @@ export interface Habit {
   name: string;
   checkedDates: string[];
   icon?: string;
-  repeat?: 'daily' | 'weekday' | 'weekend' | 'custom';
+  repeat?: 'daily' | 'weekday' | 'weekend' | 'custom' | 'weekly';
   repeatDays?: number[];
+  weeklyTarget?: number; // repeat === 'weekly'일 때 주간 목표 횟수(요일 무관)
   goalText?: string;
   alarmTime?: string;
   category?: string;

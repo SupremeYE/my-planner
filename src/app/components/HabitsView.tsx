@@ -16,6 +16,7 @@ const REPEAT_OPTIONS = [
   { value: 'daily', label: '매일' },
   { value: 'weekday', label: '평일' },
   { value: 'weekend', label: '주말' },
+  { value: 'weekly', label: '매주 N회' },
   { value: 'custom', label: '직접 선택' },
 ];
 const CATEGORY_COLOR_PRESETS = ['#515f74', '#D4735A', '#E8A87C', '#F4A261', '#4A82CC', '#45B899', '#006b62', '#8B7CF8', '#22C55E', '#6B7280'];
@@ -70,10 +71,27 @@ function isHabitApplicableOnDate(habit: Habit, date: Date): boolean {
       return dow === 0 || dow === 6;
     case 'custom':
       return habit.repeatDays?.includes(dow) ?? false;
+    case 'weekly':
+      // 요일 무관 — 아무 날이나 체크 가능
+      return true;
     case 'daily':
     default:
       return true;
   }
+}
+
+// 매주 N회 습관: 해당 날짜가 속한 주(월~일)의 달성 횟수/목표
+function getWeeklyProgress(habit: Habit, dateStr: string): { done: number; target: number } {
+  const target = habit.weeklyTarget && habit.weeklyTarget > 0 ? habit.weeklyTarget : 1;
+  const base = new Date(dateStr + 'T12:00:00');
+  const weekStart = startOfWeek(base, { weekStartsOn: 1 });
+  const weekEnd = addDays(weekStart, 6);
+  let done = 0;
+  (habit.checkedDates || []).forEach(cd => {
+    const d = new Date(cd + 'T12:00:00');
+    if (d >= weekStart && d <= weekEnd) done += 1;
+  });
+  return { done, target };
 }
 
 // ─── Habit Add/Edit Modal ──────────────────────────────────────────────────────
@@ -84,6 +102,7 @@ function HabitModal({ habit, onClose }: { habit?: Habit; onClose: () => void }) 
   const [icon, setIcon] = useState(habit?.icon || '🎯');
   const [repeat, setRepeat] = useState<Habit['repeat']>(habit?.repeat || 'daily');
   const [repeatDays, setRepeatDays] = useState<number[]>(habit?.repeatDays || [1, 2, 3, 4, 5]);
+  const [weeklyTarget, setWeeklyTarget] = useState<number>(habit?.weeklyTarget || 3);
   const [goalText, setGoalText] = useState(habit?.goalText || '');
   const [alarmTime, setAlarmTime] = useState(habit?.alarmTime || '');
   const [category, setCategory] = useState<string>(habit?.category || '');
@@ -167,6 +186,7 @@ function HabitModal({ habit, onClose }: { habit?: Habit; onClose: () => void }) 
     const normalizedCategory = category.trim();
     const data: Omit<Habit, 'id'> = {
       name: name.trim(), icon: normalizedIcon, repeat, repeatDays: repeat === 'custom' ? repeatDays : undefined,
+      weeklyTarget: repeat === 'weekly' ? Math.max(1, Math.min(7, weeklyTarget)) : undefined,
       goalText, alarmTime, category, color,
       checkedDates: habit?.checkedDates || [],
       habitType,
@@ -249,6 +269,36 @@ function HabitModal({ habit, onClose }: { habit?: Habit; onClose: () => void }) 
               {d}
             </button>
           ))}
+        </div>
+      )}
+      {repeat === 'weekly' && (
+        <div className="mt-2">
+          <div className="flex items-center gap-2">
+            <span style={{ fontSize: 12, color: t.textSub }}>매주</span>
+            <div className="flex items-center gap-1">
+              <button
+                onClick={() => setWeeklyTarget(prev => Math.max(1, prev - 1))}
+                className="w-7 h-7 rounded-full flex items-center justify-center"
+                style={{ backgroundColor: t.bgSub, color: t.textMuted, border: `1px solid ${t.border}` }}
+              >
+                <Minus size={12} />
+              </button>
+              <span style={{ fontSize: 15, fontWeight: 700, color: t.text, width: 28, textAlign: 'center', fontVariantNumeric: 'tabular-nums' }}>
+                {weeklyTarget}
+              </span>
+              <button
+                onClick={() => setWeeklyTarget(prev => Math.min(7, prev + 1))}
+                className="w-7 h-7 rounded-full flex items-center justify-center"
+                style={{ backgroundColor: t.accent, color: '#fff' }}
+              >
+                <Plus size={12} />
+              </button>
+            </div>
+            <span style={{ fontSize: 12, color: t.textSub }}>회</span>
+          </div>
+          <p style={{ fontSize: 11, color: t.textMuted, marginTop: 6 }}>
+            요일 상관없이 이번 주에 {weeklyTarget}번만 채우면 달성이에요.
+          </p>
         </div>
       )}
     </div>
@@ -753,6 +803,18 @@ function HabitTrackerView() {
   })();
 
   const getRangeCount = (habit: Habit, dates: Date[]) => {
+    // 매주 N회 습관: 목표는 주간 횟수 × (지난 주 수), 달성은 체크한 날 수
+    if (habit.repeat === 'weekly') {
+      const target = habit.weeklyTarget && habit.weeklyTarget > 0 ? habit.weeklyTarget : 1;
+      const weekKeys = new Set<string>();
+      let done = 0;
+      dates.forEach(date => {
+        if (date.getTime() > todayDate.getTime()) return;
+        weekKeys.add(toDateKey(startOfWeek(date, { weekStartsOn: 1 })));
+        if (habit.checkedDates.includes(toDateKey(date))) done += 1;
+      });
+      return { done, total: target * weekKeys.size };
+    }
     let done = 0;
     let total = 0;
     dates.forEach(date => {
@@ -781,6 +843,8 @@ function HabitTrackerView() {
     const checked = habit.checkedDates.includes(toDateKey(date));
     const applicable = isHabitApplicableOnDate(habit, date);
     const isFuture = date.getTime() > todayDate.getTime();
+    // 매주 N회 습관은 요일이 고정이 아니므로, 안 한 날을 '미달성'이 아니라 '중립'으로 표시
+    const weeklyNeutral = habit.repeat === 'weekly' && !checked && !isFuture;
     const isNA = isFuture || !applicable;
     const futureStyle = isFuture
       ? {
@@ -790,7 +854,7 @@ function HabitTrackerView() {
           borderStyle: 'dashed' as const,
         }
       : null;
-    const unavailableStyle = !applicable
+    const unavailableStyle = (!applicable || weeklyNeutral)
       ? {
           opacity: 0.68,
           borderColor: t.border,
@@ -1313,6 +1377,7 @@ export function HabitsView() {
           <div className="space-y-2">
             {habits.filter(h => isHabitApplicableOnDate(h, new Date())).map(h => {
               const streak = getStreak(h.checkedDates);
+              const weekly = h.repeat === 'weekly' ? getWeeklyProgress(h, executionDate) : null;
               const isChecked = h.checkedDates.includes(executionDate);
               const habitType = h.habitType ?? 'check';
               const memoVal = memoEditing[h.id] ?? h.dailyMemos?.[executionDate] ?? '';
@@ -1338,7 +1403,11 @@ export function HabitsView() {
                       )}
                       <div className="flex items-center gap-2 mt-0.5">
                         <span style={{ fontSize: 11, color: t.textMuted }}>
-                          {h.repeat === 'daily' ? '매일' : h.repeat === 'weekday' ? '평일' : h.repeat === 'weekend' ? '주말' : '커스텀'}
+                          {h.repeat === 'daily' ? '매일'
+                            : h.repeat === 'weekday' ? '평일'
+                            : h.repeat === 'weekend' ? '주말'
+                            : h.repeat === 'weekly' ? `매주 ${h.weeklyTarget ?? 1}회`
+                            : '커스텀'}
                         </span>
                         {habitType !== 'check' && (
                           <span className="px-1.5 py-0.5 rounded-full"
@@ -1352,7 +1421,17 @@ export function HabitsView() {
                       </div>
                     </div>
 
-                    {streak > 0 && (
+                    {weekly ? (
+                      <div className="flex items-center gap-1 px-2.5 py-1 rounded-full"
+                        style={{ backgroundColor: weekly.done >= weekly.target ? '#DCFCE7' : t.accentLight }}>
+                        {weekly.done >= weekly.target
+                          ? <Check size={12} color="#006b62" strokeWidth={3} />
+                          : <Flame size={12} color={t.accent} />}
+                        <span style={{ fontSize: 11, fontWeight: 600, color: weekly.done >= weekly.target ? '#006b62' : t.accent }}>
+                          이번 주 {weekly.done}/{weekly.target}
+                        </span>
+                      </div>
+                    ) : streak > 0 && (
                       <div className="flex items-center gap-1 px-2.5 py-1 rounded-full" style={{ backgroundColor: t.accentLight }}>
                         <Flame size={12} color={t.accent} />
                         <span style={{ fontSize: 11, fontWeight: 600, color: t.accent }}>{streak}일</span>
