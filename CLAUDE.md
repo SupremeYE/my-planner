@@ -98,6 +98,22 @@ Four design themes (A, B, C, D) defined in `src/styles/theme.css` as CSS custom 
      ```
   3. 전역 store(`store.tsx`)에 연동된 테이블은 store 내부 Realtime 구독에 추가한다.
 
+## 민감 사진(body_photos) 취급 규칙
+눈바디(몸 사진)는 **민감 정보**다. 아래 규칙을 예외 없이 지킨다.
+- **비공개 저장 전용**: `body-photos` 버킷은 `public=false`. 공개 read 정책을 만들지 않는다.
+  테이블 RLS·스토리지 정책 모두 owner uid 게이트(`auth.uid()` 기반). 다른(공개) 버킷 관용구를
+  복사해오지 않는다.
+- **서명 URL 영속 저장 금지**: 표시 시점에만 `createSignedUrl(s)`로 발급(TTL 1h). 발급된 서명 URL을
+  DB·localStorage·persist state 등 **세션을 넘기는 어떤 곳에도 저장하지 않는다**. 테이블에는
+  `photo_path`(스토리지 경로)만 저장한다. (오프라인 미지원 = v1 허용)
+- **외부 API 전송 금지**: body_photos 이미지·`photo_path`·서명 URL을 **어떤 외부 API로도 보내지
+  않는다**(vision-extract/OpenAI 포함). 캡처는 **단순 file input**만 쓰고, `capture/PhotoCaptureSheet`
+  (vision-extract로 이미지를 외부 전송하는 경로)는 **재사용 금지**.
+- **리포트/공개 노출 금지**: Discord·일일 리포트 등 **어떤 리포트/공개 쿼리에도 body_photos를 추가하지
+  않는다**.
+- **삭제 무결성**: `storage.remove(path)` **성공 시에만** row를 삭제한다(스토리지 삭제 실패 시 row 유지
+  → 고아 방지).
+
 ## 단축 명령어
 
 ### "깃허브 저장해줘"

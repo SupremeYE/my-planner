@@ -224,3 +224,35 @@ export function periodStepperStyle(t: ThemeTokens, disabled = false): CSSPropert
   }
   return { ...base, background: t.bgSub, color: t.textSub, borderRadius: 8 };
 }
+
+// ─── 눈바디 갤러리 (Photo gallery — DESIGN.md §5 "Photo gallery") ───
+// 몸 사진 타임라인 그리드. 민감 사진 = 비공개 저장·서명 URL 표시(취급 규칙은 CLAUDE.md).
+// 아래는 표면 recipe(정적 스타일)만. 선택 링은 selectedRowStyle, 비교 카드는 solidCardStyle 재사용.
+// ⚠️ 소비처는 아직 없다(정의만; 그리드/비교 뷰는 Stage 3~4).
+
+// 썸네일 타일 — 1:1 정사각, 라운드 + overflow hidden. 로딩/빈 상태의 중립 표면도 이 recipe.
+export function photoTileStyle(t: ThemeTokens): CSSProperties {
+  const base: CSSProperties = { position: 'relative', overflow: 'hidden' };
+  if (isHaon(t)) {
+    return {
+      ...base,
+      background: t.solidCardBg ?? '#FFFFFF',
+      border: t.solidCardBorder ?? '1px solid rgba(122,92,162,0.12)',
+      borderRadius: 14,
+      boxShadow: t.solidCardShadow ?? '0 8px 20px rgba(120,90,160,0.12)',
+    };
+  }
+  return { ...base, backgroundColor: t.bgSub, border: `1px solid ${t.border}`, borderRadius: 12 };
+}
+
+// 뱃지 pill(날짜·체중·slot) — 사진 위 가독을 위해 스크림 없이 '불투명 토큰 표면'. 하드코딩 색 없음.
+export function photoBadgeStyle(t: ThemeTokens): CSSProperties {
+  const base: CSSProperties = {
+    background: t.card,
+    color: t.text,
+    borderRadius: 8,
+  };
+  return isHaon(t)
+    ? { ...base, boxShadow: '0 2px 6px rgba(120,90,160,0.16)' }
+    : { ...base, border: `1px solid ${t.border}` };
+}

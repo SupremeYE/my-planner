@@ -374,6 +374,36 @@ segment visuals**:
 `periodStepperStyle(t, disabled)` (‹ › arrow button surface). Segment reuse = `<SegmentedControl>`;
 no new helper. Consumers wired Stage 3 (몸무게 롤링 → 교체, 수면 인라인 스테퍼 → 수렴).
 
+### Photo gallery (눈바디 — 몸 사진 기록 갤러리)
+
+건강 > 몸무게(WeightTab) 안의 "눈바디" 섹션 진입점 → **전체화면 타임라인 그리드**. 민감 사진이므로
+**비공개 저장·서명 URL 로만 표시**(취급 규칙은 CLAUDE.md "민감 사진 취급 규칙" 참조 — 영속 저장·외부
+API·리포트 노출 금지). 아래는 **시각 패턴만** 등록(데이터/서명 발급은 Stage 2, 소비처는 Stage 3~4).
+
+**1) 갤러리 그리드.** 최신순(날짜 desc) 정사각(1:1) 타일 그리드. 모바일 3열 / `lg:` 4–5열
+(`grid-cols-3 lg:grid-cols-5`, PC 레이아웃 보존). 타일 표면 = `photoTileStyle(t)`(H = solid-card
+계열 불투명 + 하이라인 + `overflow:hidden`, 非-H = `bgSub`/border 폴백). 사진은 `object-cover`로 타일
+채움. **로딩/빈 상태**: 서명 URL 발급 전·실패 시 타일은 중립 표면 + `text-muted` 안내("불러오는 중"
+/ "사진 없음") — 절대 broken-img 아이콘 노출 금지. 서명 URL 은 그리드 마운트 시 배치 발급(TTL 1h),
+어디에도 영속 저장하지 않음(세션 넘기면 재발급).
+
+**2) 썸네일 뱃지(날짜·체중·slot).** 타일 하단에 **불투명 pill**(`photoBadgeStyle(t)` — `t.card`
+배경 + `t.text`/`t.textSub`, 사진 위 가독을 위해 스크림 없이 불투명 토큰 표면). 내용 = `M.DD` + 체중
+`NN.N kg` + slot 라벨(아침/저녁/기타). **체중 해석 순서(결정적, 고정)**: `weight_record_id` →
+같은 `date` 의 **아침 → 저녁 → 기타** → 없으면 **체중·slot 부분 생략**(날짜만). "임의 1건" 등 비결정
+선택 금지.
+
+**3) 비교 뷰(Δ).** 사진 2장 선택 → 나란히(모바일 세로 2단 / `lg:` 가로 2열). 각 사진에 날짜·체중·slot
+표기. **Δ(변화량)**: **양쪽 사진의 체중 slot 이 같을 때만** 계산(예: 아침↔아침), `t.success`(감소)/
+`t.danger`(증가) 토큰 색. slot 이 다르면(아침↔저녁 등) 하루 안 갭이 섞이므로 **Δ = "—"** 로 표기하고
+색 강조 없음. 선택 타일 강조 = 기존 `selectedRowStyle(t)`(코랄 링) 재사용 — 신규 헬퍼 없음. 비교
+카드 표면은 `solidCardStyle(t)` 재사용.
+
+**Scope:** Theme H, tokens only(스크림·하드코딩 색 없음 — 뱃지는 불투명 토큰 pill); 非-H 는 폴백으로
+동일 구조, 렌더 변화 0. **haonStyles helpers (register before build; 소비처 없음):**
+`photoTileStyle(t)`(타일 표면), `photoBadgeStyle(t)`(불투명 뱃지 pill). 선택 링 = `selectedRowStyle`
+재사용, 비교 카드 = `solidCardStyle` 재사용(신규 헬퍼 없음). 소비처는 Stage 3~4.
+
 ---
 
 ## 6. 캘린더 페이지 (page-specific patterns)
