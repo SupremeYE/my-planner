@@ -15,7 +15,7 @@ import {
 import { ko } from 'date-fns/locale';
 import { AffirmationCard } from './AffirmationCard';
 import { useFabAction } from '../FabContext';
-import { formatTotalDoKo, formatDoElapsedKo } from '../../lib/todoDoDuration';
+import { formatTotalDoKo } from '../../lib/todoDoDuration';
 import { dateDoSeconds } from '../../lib/timeBlocks';
 
 function isHabitApplicableOnDate(habit: any, date: Date) {
@@ -474,12 +474,16 @@ export function DashboardView() {
     [timeBlocks, yesterdayTodos, yesterdayStr],
   );
   const focusDiffSec = focusSeconds - yesterdayFocusSeconds;
+  // 하루 비교는 초 단위 노이즈를 빼고 시간/분으로 표기(1분 미만만 초 표기)
+  const absDiff = Math.abs(focusDiffSec);
+  const focusDiffLabel =
+    absDiff < 60 ? `${absDiff}초` : formatTotalDoKo(Math.round(absDiff / 60) * 60);
   const focusSub =
     focusDiffSec === 0
       ? '어제와 동일'
       : focusDiffSec > 0
-        ? `↑ 어제보다 ${formatDoElapsedKo(focusDiffSec)} 더`
-        : `↓ 어제보다 ${formatDoElapsedKo(-focusDiffSec)} 적음`;
+        ? `↑ 어제보다 ${focusDiffLabel} 더`
+        : `↓ 어제보다 ${focusDiffLabel} 적음`;
 
   const habitsCheckedToday = habits.filter((h) => h.checkedDates.includes(today)).length;
 
