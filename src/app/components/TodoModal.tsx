@@ -69,6 +69,11 @@ export function TodoModal({ date, todo, initialPlanStart, initialPlanEnd, initia
   const [text, setText] = useState(todo?.text ?? initialText ?? '');
   const [planStart, setPlanStart] = useState(todo?.planStart ?? initialPlanStart ?? '');
   const [planEnd, setPlanEnd] = useState(todo?.planEnd ?? initialPlanEnd ?? '');
+  // 실적(DO) 시간 — 타임라인 DO 레인에 직접 적은 할일은 do_* 에 시간이 담긴다(plan 과 별개).
+  const [doStart, setDoStart] = useState(todo?.doStart ?? '');
+  const [doEnd, setDoEnd] = useState(todo?.doEnd ?? '');
+  // 이 할일이 DO(실적) 시간을 가진 항목인지 — DO 시간 편집 UI 노출 여부
+  const hasDoTime = !!(todo?.doStart || todo?.doEnd);
   const [isTop3, setIsTop3] = useState(todo?.isTop3 ?? initialIsTop3 ?? false);
   const [selectedTags, setSelectedTags] = useState<string[]>(todo?.tags ?? initialTags ?? []);
   const [projectId, setProjectId] = useState(todo?.projectId ?? initialProjectId ?? '');
@@ -252,6 +257,8 @@ export function TodoModal({ date, todo, initialPlanStart, initialPlanEnd, initia
     endDate: endDate || undefined,
     planStart: planStart || undefined,
     planEnd: planEnd || undefined,
+    // DO(실적) 시간을 가진 항목만 do_* 를 폼에서 갱신 — 계획전용/신규 할일엔 관여하지 않음
+    ...(hasDoTime ? { doStart: doStart || undefined, doEnd: doEnd || undefined } : {}),
     isTop3,
     tags: selectedTags,
     projectId: projectId || undefined,
@@ -423,21 +430,39 @@ export function TodoModal({ date, todo, initialPlanStart, initialPlanEnd, initia
             />
           </div>
 
-          {/* 시작/종료 시간 */}
+          {/* 시작/종료 시간 (계획) */}
           <div className="flex gap-3">
             <div className="flex-1">
-              <label style={{ fontSize: 11, color: t.textSub, fontWeight: 600 }}>시작</label>
+              <label style={{ fontSize: 11, color: t.textSub, fontWeight: 600 }}>{hasDoTime ? '계획 시작' : '시작'}</label>
               <div className="mt-1">
                 <TimePicker value={planStart} onChange={setPlanStart} placeholder="시작 시간" />
               </div>
             </div>
             <div className="flex-1">
-              <label style={{ fontSize: 11, color: t.textSub, fontWeight: 600 }}>종료</label>
+              <label style={{ fontSize: 11, color: t.textSub, fontWeight: 600 }}>{hasDoTime ? '계획 종료' : '종료'}</label>
               <div className="mt-1">
                 <TimePicker value={planEnd} onChange={setPlanEnd} placeholder="종료 시간" />
               </div>
             </div>
           </div>
+
+          {/* 실적(DO) 시간 — 타임라인 DO 레인에 적은 할일. 클릭 시 실제 적어둔 시간이 보이도록 노출. */}
+          {hasDoTime && (
+            <div className="flex gap-3">
+              <div className="flex-1">
+                <label style={{ fontSize: 11, color: t.success, fontWeight: 600 }}>실적 시작</label>
+                <div className="mt-1">
+                  <TimePicker value={doStart} onChange={setDoStart} placeholder="시작 시간" />
+                </div>
+              </div>
+              <div className="flex-1">
+                <label style={{ fontSize: 11, color: t.success, fontWeight: 600 }}>실적 종료</label>
+                <div className="mt-1">
+                  <TimePicker value={doEnd} onChange={setDoEnd} placeholder="종료 시간" />
+                </div>
+              </div>
+            </div>
+          )}
 
           {/* 누적 시간 (Stage 3) — 여러 날 타이머 세션이 쌓인 총합 */}
           {accumulated && (

@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Star, X } from 'lucide-react';
-import { usePlanner } from '../../store';
+import { usePlanner, getLogicalToday } from '../../store';
 import { useTheme } from '../../ThemeContext';
 import { TimePicker } from '../TimePicker';
 import { timeToMinutes } from './timelineConstants';
@@ -35,7 +35,12 @@ export function TimelineAddModal({ date, initialStart, initialEnd, initialLane, 
     } else if (lane === 'plan') {
       addTodo({ text, date, status: 'active', isTop3, planStart: start, planEnd: end, category: category.trim() || undefined, tags: selectedTags });
     } else {
-      addTodo({ text, date, status: 'active', isTop3, doStart: start, doEnd: end, category: category.trim() || undefined, tags: selectedTags });
+      // DO 직접 추가 = 이미 한(또는 할) 실적. 현재 시각(빨간 선) 이전이면 완료, 이후면 예정.
+      const todayStr = getLogicalToday();
+      const now = new Date();
+      const nowMin = now.getHours() * 60 + now.getMinutes();
+      const isPast = date < todayStr || (date === todayStr && timeToMinutes(end) <= nowMin);
+      addTodo({ text, date, status: isPast ? 'done' : 'active', isTop3, doStart: start, doEnd: end, category: category.trim() || undefined, tags: selectedTags });
     }
     onClose();
   };

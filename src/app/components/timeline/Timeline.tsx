@@ -858,14 +858,17 @@ export function Timeline({ days = 1, selectedDate, dateTodos, dateEvents, onShow
   const buildDoBars = (forDate: string, todosOnDate: Todo[]): DoBlockTodo[] => {
     const dayBlocks = timeBlocks.filter(b => b.date === forDate);
     const bars: DoBlockTodo[] = [];
+    // 실제로 막대를 그린 todo 만 dedup 대상에 넣는다. start/end 없는(불완전) 블록은 건너뛰되
+    // 그 todo 의 레거시 do_* 막대까지 숨기면 "적어둔 DO 가 사라지는" 버그가 되므로 제외한다.
+    const renderedBlockTodoIds = new Set<string>();
     for (const b of dayBlocks) {
       const real = todoById.get(b.todoId);
       if (!real || !b.start || !b.end) continue;
       bars.push({ ...real, id: `${real.id}::doblk::${b.id}`, doStart: b.start, doEnd: b.end, doElapsedSec: b.elapsedSec, _blk: b });
+      renderedBlockTodoIds.add(b.todoId);
     }
-    const blockedTodoIds = new Set(dayBlocks.map(b => b.todoId));
     for (const td of todosOnDate) {
-      if (td.doStart && td.doEnd && !blockedTodoIds.has(td.id)) bars.push(td as DoBlockTodo);
+      if (td.doStart && td.doEnd && !renderedBlockTodoIds.has(td.id)) bars.push(td as DoBlockTodo);
     }
     return bars;
   };
