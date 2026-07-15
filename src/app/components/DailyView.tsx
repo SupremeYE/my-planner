@@ -334,10 +334,16 @@ function ContextMenu({ todo, position, onClose, onFocus, onDelete, deleteMessage
                   setShowDeleteConfirm(true);
                 } else if ('status' in item) {
                   const st = (item as any).status;
-                  // 진행중 진입 시 started_date 최초 1회 기록 ("N일째"·이월 기준)
-                  updateTodo(todo.id, st === 'inProgress'
-                    ? { status: st, startedDate: todo.startedDate ?? getLogicalToday() }
-                    : { status: st });
+                  if (todo.status === st && st !== 'active') {
+                    // 이미 그 상태에서 같은 항목을 다시 누르면 → 해제(안시작으로 되돌림).
+                    // 진행중 해제 시 started_date 도 비워 다음 진입을 새로 시작한다.
+                    updateTodo(todo.id, { status: 'active', startedDate: undefined });
+                  } else {
+                    // 진행중 진입 시 started_date 최초 1회 기록 ("N일째"·이월 기준)
+                    updateTodo(todo.id, st === 'inProgress'
+                      ? { status: st, startedDate: todo.startedDate ?? getLogicalToday() }
+                      : { status: st });
+                  }
                   onClose();
                 }
               }}>
