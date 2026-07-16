@@ -153,7 +153,16 @@ export function WeightTab() {
 
   // records: 최신순 정렬되어 들어옴 (date desc)
   const sorted = useMemo(() => [...records].sort((a, b) => b.date.localeCompare(a.date)), [records]);
-  const latest = sorted[0] ?? null;
+
+  // 하루 대표 측정값 — 아침 → 저녁 → 기타 (뱃지/갭과 동일한 결정적 순서).
+  // 통계(현재 체중·대비·진행률)가 같은 날 여러 slot 을 비결정적으로 섞거나 아침↔저녁 갭에 오염되는 걸 방지.
+  const dayRep = useCallback((d: string): WeightRecord | null => {
+    const order: WeightSlot[] = ['아침', '저녁', '기타'];
+    for (const s of order) { const r = records.find(x => x.date === d && x.slot === s); if (r) return r; }
+    return records.find(x => x.date === d) ?? null;
+  }, [records]);
+  const latestDate = sorted[0]?.date ?? null;
+  const latest = useMemo(() => (latestDate ? dayRep(latestDate) : null), [latestDate, dayRep]);
 
   const hasFatData = records.some(r => r.bodyFat != null);
   const hasMuscleData = records.some(r => r.muscleMass != null);
@@ -260,8 +269,10 @@ export function WeightTab() {
   const changeFrom = (days: number): number | null => {
     if (!latest) return null;
     const targetDate = format(subDays(parseISO(latest.date), days), 'yyyy-MM-dd');
-    // 기준일 이전(<=)에서 가장 가까운 기록
-    const past = sorted.find(r => r.date <= targetDate);
+    // 기준일 이전(<=)에서 가장 가까운 '날짜' → 그 날의 대표값과 비교(아침 우선, like-for-like)
+    const pastRec = sorted.find(r => r.date <= targetDate);
+    if (!pastRec) return null;
+    const past = dayRep(pastRec.date);
     if (!past) return null;
     return +(latest.weight - past.weight).toFixed(1);
   };
