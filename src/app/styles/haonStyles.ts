@@ -57,6 +57,24 @@ export function mixHex(hex: string, target: number, amt: number): string {
   return `rgb(${m(rgb.r)}, ${m(rgb.g)}, ${m(rgb.b)})`;
 }
 
+// 색 토큰에 알파를 안전하게 입힌다. hex('#RRGGBB')는 8자리 hex 알파로, 그 외(rgb/rgba/named)는
+// rgba()로 변환한다. `${color}60` 처럼 hex 알파 접미사를 그냥 붙이면 토큰이 rgba()일 때
+// (예: 테마 H 의 t.border='rgba(46,42,91,0.10)') 'rgba(...)60' 같은 잘못된 CSS 가 되어
+// 테두리/배경이 통째로 사라진다. 이 헬퍼는 토큰 형태와 무관하게 항상 유효한 색을 반환한다.
+// alpha01: 0~1.
+export function withAlpha(color: string, alpha01: number): string {
+  const a = Math.max(0, Math.min(1, alpha01));
+  const rgb = hexToRgb(color);
+  if (rgb) return `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, ${a})`;
+  const m = color.trim().match(/^rgba?\(([^)]+)\)$/i);
+  if (m) {
+    const parts = m[1].split(',').map(s => s.trim());
+    const [r, g, b] = parts;
+    return `rgba(${r}, ${g}, ${b}, ${a})`;
+  }
+  return color; // named/unknown — 알파 미적용(원색 유지)
+}
+
 // 반투명 프로스티드 바(떠 있는 상단 날짜 바·탭바) — 오버레이 글래스 (DESIGN v1.1 허용)
 export function glassBarStyle(t: ThemeTokens): CSSProperties {
   if (isHaon(t)) {

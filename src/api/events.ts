@@ -125,7 +125,10 @@ function toRowPayload(event: Event | EventMutationInput) {
     repeat_type: input.repeatType || 'none',
     repeat_end_date: hasRecurrence(input) ? (input.repeatEndDate || null) : null,
     recurrence_freq: input.recurrenceFreq ?? null,
-    recurrence_interval: input.recurrenceFreq ? (input.recurrenceInterval ?? 1) : null,
+    // recurrence_interval 컬럼은 NOT NULL(DEFAULT 1) — 비반복 일정도 null 을 보내면 안 된다.
+    // (20260714 add_unified_recurrence_columns 이후 null 저장 시 23502 로 insert 전체가 실패했다.)
+    // recurrence_freq 가 null 이면 읽기 시 interval 은 무시되므로 1 로 채워도 동작에 영향 없음.
+    recurrence_interval: input.recurrenceFreq ? (input.recurrenceInterval ?? 1) : 1,
     recurrence_byday: input.recurrenceFreq === 'weekly' ? (input.recurrenceByday ?? null) : null,
     recurrence_preset: input.recurrenceFreq === 'weekly' ? (input.recurrencePreset ?? null) : null,
     alert_minutes: input.alertMinutes ?? null,
