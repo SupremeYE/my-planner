@@ -154,15 +154,16 @@ export function WeightTab() {
   // records: 최신순 정렬되어 들어옴 (date desc)
   const sorted = useMemo(() => [...records].sort((a, b) => b.date.localeCompare(a.date)), [records]);
 
-  // 하루 대표 측정값 — 아침 → 저녁 → 기타 (뱃지/갭과 동일한 결정적 순서).
-  // 통계(현재 체중·대비·진행률)가 같은 날 여러 slot 을 비결정적으로 섞거나 아침↔저녁 갭에 오염되는 걸 방지.
-  const dayRep = useCallback((d: string): WeightRecord | null => {
-    const order: WeightSlot[] = ['아침', '저녁', '기타'];
-    for (const s of order) { const r = records.find(x => x.date === d && x.slot === s); if (r) return r; }
-    return records.find(x => x.date === d) ?? null;
+  // ── 통계 기준 slot (like-for-like 비교; DESIGN.md §7.4) ──
+  // 폴백(가용성 해결)이 아니라 '동일 slot 쌍 비교'가 목적. 기준 = 아침 고정.
+  // 예외: 최근 30일 내 아침 기록이 0건일 때만 저녁으로 전환(기타는 기준 후보에서 제외).
+  const referenceSlot: WeightSlot = useMemo(() => {
+    const cutoff = format(subDays(new Date(), 30), 'yyyy-MM-dd');
+    return records.some(r => r.slot === '아침' && r.date >= cutoff) ? '아침' : '저녁';
   }, [records]);
-  const latestDate = sorted[0]?.date ?? null;
-  const latest = useMemo(() => (latestDate ? dayRep(latestDate) : null), [latestDate, dayRep]);
+  // 기준 slot 기록만 (date desc; UNIQUE(date,slot) → 날짜당 최대 1개)
+  const refRecords = useMemo(() => sorted.filter(r => r.slot === referenceSlot), [sorted, referenceSlot]);
+  const latest = refRecords[0] ?? null; // 현재 체중 = 최신 '기준 slot' 기록
 
   const hasFatData = records.some(r => r.bodyFat != null);
   const hasMuscleData = records.some(r => r.muscleMass != null);
@@ -266,13 +267,12 @@ export function WeightTab() {
   };
 
   // ── 통계 ──
+  // 기준 slot 기록이 '있는 날'끼리만 비교. 기준 slot 없는 날은 건너뛰고 더 과거로(같은 날 다른 slot
+  // 바꿔치기 없음). 비교 가능한 쌍이 없으면 null → UI 는 "—" + 사유(Stage 3).
   const changeFrom = (days: number): number | null => {
     if (!latest) return null;
     const targetDate = format(subDays(parseISO(latest.date), days), 'yyyy-MM-dd');
-    // 기준일 이전(<=)에서 가장 가까운 '날짜' → 그 날의 대표값과 비교(아침 우선, like-for-like)
-    const pastRec = sorted.find(r => r.date <= targetDate);
-    if (!pastRec) return null;
-    const past = dayRep(pastRec.date);
+    const past = refRecords.find(r => r.date <= targetDate); // refRecords 는 기준 slot 만 → 자동 스킵
     if (!past) return null;
     return +(latest.weight - past.weight).toFixed(1);
   };
