@@ -79,6 +79,11 @@
 ## 8. 페이지별 진행 체크리스트
 - [x] 일간 (DailyView) — 레퍼런스 완료
 - [x] 공용 헬퍼 추출 (`haonStyles.ts`)
+- [x] 공용 편집 모달 3종 (`TodoModal`·`EventModal`·`TimelineAddModal`) — **Stage 1 토큰 정합만**
+      (STAGE0 보고서 V1~V5): 입력 배경 §5 solid-card(흰색)·세그먼트 §5(흰 pill+코랄 언더라인, 풀필 제거)·
+      danger 계열 토큰 회수, 전부 `isHaon` 게이트(비-H 픽셀 보존). 신규 헬퍼 `inputBg`/`dangerText`/
+      `dangerFill`/`segmentTrackStyle`/`segmentItemStyle`(§5 근거). 구조·동작·`TimePicker`·실적칸·반복·
+      Top3·모달 컨테이너 글래스는 **범위 밖**(후속 Stage). 미해소: V2 `planBlock/doBlock`·`#7B9ED9`(사유는 아래 §9)
 - [ ] 대시보드 (DashboardView)
 - [ ] 캘린더 (CalendarView)
 - [x] 할일 (TodosView) — 순수 스타일 마이그레이션 (태그 칩·좌측 액센트 바 parity는 별도 태스크)
@@ -94,3 +99,12 @@
 - KEY n>3 시 헤더 "4/3"(소프트 캡, 의도됨).
 - 스토어 `toggleTop3`(하드 3) vs DailyView `toggleKeyTodo`(소프트 토스트) 캡 정책 불일치.
 - Dashboard '중요' 카운트는 `starred` 필드 사용(≠ `isTop3`).
+- **편집 모달 Stage 1 미해소분(의도된 보류):**
+  - **V2** `TimelineAddModal` `planClr`/`doClr`(`#C4A882`/`#6BAA7A`): H 세그먼트가 §5 무채움(코랄 언더라인)이라
+    `t.planBlock`/`t.doBlock` 소비처가 없고, 비-H 는 픽셀 보존을 위해 하드코딩 유지 필요 → 토큰 미채택. 두 리터럴은
+    `segmentItemStyle`의 비-H `legacyFill` 로만 참조됨.
+  - `#7B9ED9`(일정 색): 대응 색 토큰 부재 → 유지(임의 신규 토큰 생성 금지).
+  - `#5B8FD8`/`#EEF6FF`/`#C0D8F8`(TodoModal 분리-예외 배너): info 계열 **배경/보더 토큰 부재**(있는 건 `t.info` 텍스트뿐)
+    → 부분 매핑 시 불일치라 전체 보류.
+  - 모달 컨테이너 자체의 §5 글래스(`glassBarStyle`) 전환: 밀도 높은 폼 가독성 리스크로 이번엔 미적용(디자인 검토 후 후속).
+  - `'#fff'`(활성 칩/버튼 텍스트)·`rgba(0,0,0,0.4)`(오버레이 scrim): 과제에서 이번 범위 제외로 명시됨.
