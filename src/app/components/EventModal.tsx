@@ -5,6 +5,7 @@ import { usePlanner, Event, getLogicalToday } from '../store';
 import { useTheme } from '../ThemeContext';
 import ConfirmModal from './ConfirmModal';
 import { TimePicker } from './TimePicker';
+import { inputBg, dangerText, dangerFill } from '../styles/haonStyles';
 
 interface EventModalProps {
   date?: string;
@@ -145,7 +146,7 @@ export function EventModal({ date, event, initialTitle, initialStartTime, initia
               }}
               placeholder="일정 제목을 입력하세요"
               className="w-full mt-1 rounded-lg px-3 py-2 outline-none"
-              style={{ border: `1px solid ${t.border}`, backgroundColor: t.bgSub, color: t.text, fontSize: 13 }}
+              style={{ border: `1px solid ${t.border}`, backgroundColor: inputBg(t), color: t.text, fontSize: 13 }}
             />
           </div>
 
@@ -167,7 +168,7 @@ export function EventModal({ date, event, initialTitle, initialStartTime, initia
                 value={startDate}
                 onChange={e => setStartDate(e.target.value)}
                 className="w-full mt-1 rounded-lg px-3 py-2 outline-none"
-                style={{ border: `1px solid ${t.border}`, backgroundColor: t.bgSub, color: t.text, fontSize: 13 }}
+                style={{ border: `1px solid ${t.border}`, backgroundColor: inputBg(t), color: t.text, fontSize: 13 }}
               />
             </div>
             <div>
@@ -177,7 +178,7 @@ export function EventModal({ date, event, initialTitle, initialStartTime, initia
                 value={endDate}
                 onChange={e => setEndDate(e.target.value)}
                 className="w-full mt-1 rounded-lg px-3 py-2 outline-none"
-                style={{ border: `1px solid ${t.border}`, backgroundColor: t.bgSub, color: t.text, fontSize: 13 }}
+                style={{ border: `1px solid ${t.border}`, backgroundColor: inputBg(t), color: t.text, fontSize: 13 }}
               />
             </div>
           </div>
@@ -207,7 +208,7 @@ export function EventModal({ date, event, initialTitle, initialStartTime, initia
                 onChange={e => setLocation(e.target.value)}
                 placeholder="장소 입력"
                 className="flex-1 rounded-lg px-3 py-2 outline-none"
-                style={{ border: `1px solid ${t.border}`, backgroundColor: t.bgSub, color: t.text, fontSize: 13 }}
+                style={{ border: `1px solid ${t.border}`, backgroundColor: inputBg(t), color: t.text, fontSize: 13 }}
               />
               {mapsUrl && (
                 <button
@@ -230,7 +231,7 @@ export function EventModal({ date, event, initialTitle, initialStartTime, initia
                 onChange={e => setLinkUrl(e.target.value)}
                 placeholder="https://..."
                 className="flex-1 rounded-lg px-3 py-2 outline-none"
-                style={{ border: `1px solid ${t.border}`, backgroundColor: t.bgSub, color: t.text, fontSize: 13 }}
+                style={{ border: `1px solid ${t.border}`, backgroundColor: inputBg(t), color: t.text, fontSize: 13 }}
               />
               {normalizedLink && (
                 <button
@@ -252,7 +253,7 @@ export function EventModal({ date, event, initialTitle, initialStartTime, initia
                 value={repeatType}
                 onChange={e => setRepeatType(e.target.value as Event['repeatType'])}
                 className="w-full mt-1 rounded-lg px-3 py-2 outline-none"
-                style={{ border: `1px solid ${t.border}`, backgroundColor: t.bgSub, color: t.text, fontSize: 13 }}
+                style={{ border: `1px solid ${t.border}`, backgroundColor: inputBg(t), color: t.text, fontSize: 13 }}
               >
                 {REPEAT_OPTIONS.map(option => (
                   <option key={option.value} value={option.value}>{option.label}</option>
@@ -265,7 +266,7 @@ export function EventModal({ date, event, initialTitle, initialStartTime, initia
                 value={alertMinutes}
                 onChange={e => setAlertMinutes(e.target.value)}
                 className="w-full mt-1 rounded-lg px-3 py-2 outline-none"
-                style={{ border: `1px solid ${t.border}`, backgroundColor: t.bgSub, color: t.text, fontSize: 13 }}
+                style={{ border: `1px solid ${t.border}`, backgroundColor: inputBg(t), color: t.text, fontSize: 13 }}
               >
                 {ALERT_OPTIONS.map(option => (
                   <option key={option.value || 'none'} value={option.value}>{option.label}</option>
@@ -282,7 +283,7 @@ export function EventModal({ date, event, initialTitle, initialStartTime, initia
                 value={repeatEndDate}
                 onChange={e => setRepeatEndDate(e.target.value)}
                 className="w-full mt-1 rounded-lg px-3 py-2 outline-none"
-                style={{ border: `1px solid ${t.border}`, backgroundColor: t.bgSub, color: t.text, fontSize: 13 }}
+                style={{ border: `1px solid ${t.border}`, backgroundColor: inputBg(t), color: t.text, fontSize: 13 }}
               />
             </div>
           )}
@@ -293,7 +294,7 @@ export function EventModal({ date, event, initialTitle, initialStartTime, initia
               value={projectId}
               onChange={e => setProjectId(e.target.value)}
               className="w-full mt-1 rounded-lg px-3 py-2 outline-none"
-              style={{ border: `1px solid ${t.border}`, backgroundColor: t.bgSub, color: t.text, fontSize: 13 }}
+              style={{ border: `1px solid ${t.border}`, backgroundColor: inputBg(t), color: t.text, fontSize: 13 }}
             >
               <option value="">없음</option>
               {projects.map(project => (
@@ -324,12 +325,12 @@ export function EventModal({ date, event, initialTitle, initialStartTime, initia
               placeholder="메모를 남겨보세요"
               className="w-full mt-1 rounded-lg px-3 py-2 outline-none resize-none"
               rows={4}
-              style={{ border: `1px solid ${t.border}`, backgroundColor: t.bgSub, color: t.text, fontSize: 13 }}
+              style={{ border: `1px solid ${t.border}`, backgroundColor: inputBg(t), color: t.text, fontSize: 13 }}
             />
           </div>
 
           {error && (
-            <div className="flex items-center gap-2 rounded-xl px-3 py-2" style={{ backgroundColor: '#FEF2F2', color: '#DC2626', fontSize: 12 }}>
+            <div className="flex items-center gap-2 rounded-xl px-3 py-2" style={{ backgroundColor: dangerFill(t, '#FEF2F2'), color: dangerText(t), fontSize: 12 }}>
               <CalendarDays size={14} />
               {error}
             </div>
@@ -341,7 +342,7 @@ export function EventModal({ date, event, initialTitle, initialStartTime, initia
             <button
               onClick={() => setShowDeleteConfirm(true)}
               className="px-4 py-2 rounded-xl transition-colors"
-              style={{ fontSize: 12, color: '#DC2626', backgroundColor: '#FEE2E2' }}
+              style={{ fontSize: 12, color: dangerText(t), backgroundColor: dangerFill(t, '#FEE2E2') }}
             >
               삭제
             </button>

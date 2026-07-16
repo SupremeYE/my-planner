@@ -12,6 +12,7 @@ import { totalElapsedForTodo } from '../../lib/timeBlocks';
 import { formatTotalDoKo } from '../../lib/todoDoDuration';
 import { DEFAULT_TAG_COLORS, TAG_PALETTE_KEY, MAX_TAG_COLORS } from '../../lib/tagPalette';
 import { PROJECT_COLORS } from './ProjectView';
+import { inputBg, dangerText, dangerFill } from '../styles/haonStyles';
 
 interface TodoModalProps {
   /** date prop은 기본 날짜로 사용되며, 모달 안에서 변경/해제할 수 있다. */
@@ -365,7 +366,7 @@ export function TodoModal({ date, todo, initialPlanStart, initialPlanEnd, initia
                 className="flex-1 rounded-lg px-3 py-2 outline-none"
                 style={{
                   border: `1px solid ${t.border}`,
-                  backgroundColor: t.bgSub,
+                  backgroundColor: inputBg(t),
                   color: t.text,
                   fontSize: 13,
                 }}
@@ -401,7 +402,7 @@ export function TodoModal({ date, todo, initialPlanStart, initialPlanEnd, initia
                     if (e.target.value) setRecurrenceRule(undefined);
                   }}
                   className="flex-1 rounded-lg px-3 py-1.5 outline-none"
-                  style={{ border: `1px solid ${t.border}`, backgroundColor: t.bgSub, color: t.text, fontSize: 12 }}
+                  style={{ border: `1px solid ${t.border}`, backgroundColor: inputBg(t), color: t.text, fontSize: 12 }}
                 />
                 {endDate && (
                   <button type="button" onClick={() => setEndDate('')}
@@ -422,7 +423,7 @@ export function TodoModal({ date, todo, initialPlanStart, initialPlanEnd, initia
               className="w-full mt-1 rounded-lg px-3 py-2 outline-none"
               style={{
                 border: `1px solid ${t.border}`,
-                backgroundColor: t.bgSub,
+                backgroundColor: inputBg(t),
                 color: t.text,
                 fontSize: 13,
               }}
@@ -545,7 +546,7 @@ export function TodoModal({ date, todo, initialPlanStart, initialPlanEnd, initia
                     onChange={e => setRecurrenceEndDate(e.target.value)}
                     placeholder="없으면 무기한"
                     className="flex-1 rounded-lg px-3 py-1.5 outline-none"
-                    style={{ border: `1px solid ${t.border}`, backgroundColor: t.bgSub, color: t.text, fontSize: 12 }}
+                    style={{ border: `1px solid ${t.border}`, backgroundColor: inputBg(t), color: t.text, fontSize: 12 }}
                   />
                   {recurrenceEndDate && (
                     <button type="button" onClick={() => setRecurrenceEndDate('')}
@@ -596,7 +597,7 @@ export function TodoModal({ date, todo, initialPlanStart, initialPlanEnd, initia
               className="w-full mt-1 rounded-lg px-3 py-2 outline-none"
               style={{
                 border: `1px solid ${t.border}`,
-                backgroundColor: t.bgSub,
+                backgroundColor: inputBg(t),
                 color: t.text,
                 fontSize: 13,
               }}
@@ -621,7 +622,7 @@ export function TodoModal({ date, todo, initialPlanStart, initialPlanEnd, initia
                   placeholder="새 프로젝트 이름"
                   maxLength={60}
                   className="flex-1 min-w-0 rounded-lg px-3 py-2 outline-none"
-                  style={{ border: `1px solid ${t.border}`, backgroundColor: t.bgSub, color: t.text, fontSize: 13 }}
+                  style={{ border: `1px solid ${t.border}`, backgroundColor: inputBg(t), color: t.text, fontSize: 13 }}
                 />
                 <button
                   type="button"
@@ -657,7 +658,7 @@ export function TodoModal({ date, todo, initialPlanStart, initialPlanEnd, initia
                 className="w-full mt-1 rounded-lg px-3 py-2 outline-none"
                 style={{
                   border: `1px solid ${t.border}`,
-                  backgroundColor: t.bgSub,
+                  backgroundColor: inputBg(t),
                   color: t.text,
                   fontSize: 13,
                 }}
@@ -747,7 +748,7 @@ export function TodoModal({ date, todo, initialPlanStart, initialPlanEnd, initia
                     className="w-5 h-5 rounded-full border"
                     style={{
                       backgroundColor: newTagColorValid ? normalizedNewTagColor : 'transparent',
-                      borderColor: newTagColorValid ? normalizedNewTagColor : '#DC2626',
+                      borderColor: newTagColorValid ? normalizedNewTagColor : dangerText(t),
                     }}
                   />
                   <input
@@ -767,7 +768,7 @@ export function TodoModal({ date, todo, initialPlanStart, initialPlanEnd, initia
                     placeholder="#FF5733"
                     className="flex-1 rounded-lg px-2.5 py-1.5 outline-none"
                     style={{
-                      border: `1px solid ${newTagColorValid ? t.border : '#DC2626'}`,
+                      border: `1px solid ${newTagColorValid ? t.border : dangerText(t)}`,
                       fontSize: 12,
                       backgroundColor: t.card,
                       color: t.text,
@@ -779,9 +780,9 @@ export function TodoModal({ date, todo, initialPlanStart, initialPlanEnd, initia
                     disabled={!newTagPaletteColor}
                     className="flex h-8 w-8 items-center justify-center rounded-lg"
                     style={{
-                      border: `1px solid ${newTagPaletteColor ? '#FCA5A5' : t.border}`,
-                      backgroundColor: newTagPaletteColor ? '#FEF2F2' : t.card,
-                      color: newTagPaletteColor ? '#DC2626' : t.textMuted,
+                      border: `1px solid ${newTagPaletteColor ? dangerText(t, '#FCA5A5') : t.border}`,
+                      backgroundColor: newTagPaletteColor ? dangerFill(t, '#FEF2F2') : t.card,
+                      color: newTagPaletteColor ? dangerText(t) : t.textMuted,
                       opacity: newTagPaletteColor ? 1 : 0.5,
                       cursor: newTagPaletteColor ? 'pointer' : 'not-allowed',
                     }}
@@ -804,7 +805,7 @@ export function TodoModal({ date, todo, initialPlanStart, initialPlanEnd, initia
                 <div
                   style={{
                     fontSize: 11,
-                    color: newTagColorLimitExceeded ? '#DC2626' : t.textSub,
+                    color: newTagColorLimitExceeded ? dangerText(t) : t.textSub,
                   }}
                 >
                   팔레트는 최대 13개까지 저장됩니다. 새 색을 추가하려면 기존 색을 삭제하세요.
@@ -883,7 +884,7 @@ export function TodoModal({ date, todo, initialPlanStart, initialPlanEnd, initia
                     className="w-5 h-5 rounded-full border"
                     style={{
                       backgroundColor: editingTagColorValid ? normalizedEditingTagColor : 'transparent',
-                      borderColor: editingTagColorValid ? normalizedEditingTagColor : '#DC2626',
+                      borderColor: editingTagColorValid ? normalizedEditingTagColor : dangerText(t),
                     }}
                   />
                   <input
@@ -903,7 +904,7 @@ export function TodoModal({ date, todo, initialPlanStart, initialPlanEnd, initia
                     placeholder="#FF5733"
                     className="flex-1 rounded-lg px-2.5 py-1.5 outline-none"
                     style={{
-                      border: `1px solid ${editingTagColorValid ? t.border : '#DC2626'}`,
+                      border: `1px solid ${editingTagColorValid ? t.border : dangerText(t)}`,
                       fontSize: 12,
                       backgroundColor: t.card,
                       color: t.text,
@@ -915,9 +916,9 @@ export function TodoModal({ date, todo, initialPlanStart, initialPlanEnd, initia
                     disabled={!editingTagPaletteColor}
                     className="flex h-8 w-8 items-center justify-center rounded-lg"
                     style={{
-                      border: `1px solid ${editingTagPaletteColor ? '#FCA5A5' : t.border}`,
-                      backgroundColor: editingTagPaletteColor ? '#FEF2F2' : t.card,
-                      color: editingTagPaletteColor ? '#DC2626' : t.textMuted,
+                      border: `1px solid ${editingTagPaletteColor ? dangerText(t, '#FCA5A5') : t.border}`,
+                      backgroundColor: editingTagPaletteColor ? dangerFill(t, '#FEF2F2') : t.card,
+                      color: editingTagPaletteColor ? dangerText(t) : t.textMuted,
                       opacity: editingTagPaletteColor ? 1 : 0.5,
                       cursor: editingTagPaletteColor ? 'pointer' : 'not-allowed',
                     }}
@@ -940,7 +941,7 @@ export function TodoModal({ date, todo, initialPlanStart, initialPlanEnd, initia
                 <div
                   style={{
                     fontSize: 11,
-                    color: editingTagColorLimitExceeded ? '#DC2626' : t.textSub,
+                    color: editingTagColorLimitExceeded ? dangerText(t) : t.textSub,
                   }}
                 >
                   팔레트는 최대 13개까지 저장됩니다. 새 색을 추가하려면 기존 색을 삭제하세요.
@@ -988,7 +989,7 @@ export function TodoModal({ date, todo, initialPlanStart, initialPlanEnd, initia
             <button
               onClick={handleDelete}
               className="px-4 py-2 rounded-xl transition-colors"
-              style={{ fontSize: 12, color: '#DC2626', backgroundColor: '#FEE2E2' }}
+              style={{ fontSize: 12, color: dangerText(t), backgroundColor: dangerFill(t, '#FEE2E2') }}
             >
               삭제
             </button>

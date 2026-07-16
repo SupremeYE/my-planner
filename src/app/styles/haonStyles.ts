@@ -41,6 +41,54 @@ export function solidRowStyle(t: ThemeTokens): CSSProperties {
   return {};
 }
 
+// ─── 입력 필드 배경 (DESIGN.md §5 Input — solid-card fill + hairline) ───
+// §5 Input = solid-card(불투명 흰색) 채움 + hairline 테두리. H 에서 입력 배경을 흰색(solidCard)으로,
+// 비-H(A/B/C/D)는 기존 bgSub 를 그대로 반환 → 회귀 0. 새 규칙 창작이 아니라 §5 Input 의 코드화.
+// (테두리·color·fontSize 는 호출부가 유지 — 이 헬퍼는 배경만 게이팅한다.)
+export function inputBg(t: ThemeTokens): string {
+  return isHaon(t) ? (t.solidCardBg ?? '#FFFFFF') : t.bgSub;
+}
+
+// ─── danger 계열 회수 (DESIGN.md §5 — danger: t.danger 텍스트/아이콘 on t.dangerLight 채움) ───
+// off-palette 하드코딩(#DC2626/#FEE2E2/#FEF2F2/#FCA5A5)을 H 에서 토큰으로 회수한다.
+// 비-H 는 각 호출부의 원래 하드코딩 값을 fallback 으로 그대로 반환 → 픽셀 보존.
+export function dangerText(t: ThemeTokens, fallback = '#DC2626'): string {
+  return isHaon(t) ? t.danger : fallback;
+}
+export function dangerFill(t: ThemeTokens, fallback: string): string {
+  return isHaon(t) ? t.dangerLight : fallback;
+}
+
+// ─── 세그먼트 컨트롤 (DESIGN.md §5 — 인라인 게이트 스타일) ───
+// §5: 활성 = 불투명 흰 pill + 소프트 그림자 + deep-indigo 600 라벨 + 3px 코랄 언더라인,
+//     비활성 = 투명 + 뮤트 라벨, 트랙 = near-neutral 저채도(borderLight). **풀필 금지.**
+// 코랄 언더라인은 DOM 추가 없이 inset box-shadow 로 구현(SegmentedControl.tsx <span> 의 등가 표현).
+// H 전용. 비-H 는 legacyFill(기존 풀필 색)을 그대로 반환 → 픽셀 보존.
+export function segmentTrackStyle(t: ThemeTokens): CSSProperties {
+  if (isHaon(t)) return { background: t.borderLight, padding: 3, gap: 3 };
+  return { border: `1px solid ${t.border}` };
+}
+export function segmentItemStyle(t: ThemeTokens, active: boolean, legacyFill: string): CSSProperties {
+  if (isHaon(t)) {
+    return {
+      fontSize: 12,
+      fontWeight: active ? 600 : 500,
+      borderRadius: 8,
+      background: active ? t.card : 'transparent',
+      color: active ? t.text : t.textMuted,
+      boxShadow: active ? `0 2px 8px rgba(120,90,160,0.14), inset 0 -3px 0 ${t.accent}` : 'none',
+      transition: 'all 0.15s',
+    };
+  }
+  return {
+    fontSize: 12,
+    fontWeight: active ? 700 : 500,
+    backgroundColor: active ? legacyFill : 'transparent',
+    color: active ? '#fff' : t.textSub,
+    transition: 'all 0.15s',
+  };
+}
+
 // ─── hex 색 mix (태그 칩: 채도 있는 파스텔 채움 + 어두운 텍스트 시블링) ───
 export function hexToRgb(hex: string): { r: number; g: number; b: number } | null {
   const h = hex.trim().replace('#', '');

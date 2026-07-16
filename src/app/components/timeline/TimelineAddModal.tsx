@@ -4,6 +4,7 @@ import { usePlanner, getLogicalToday } from '../../store';
 import { useTheme } from '../../ThemeContext';
 import { TimePicker } from '../TimePicker';
 import { timeToMinutes } from './timelineConstants';
+import { isHaon, inputBg, segmentTrackStyle, segmentItemStyle } from '../../styles/haonStyles';
 
 // 빈 타임라인 슬롯 → 추가 모달. 레인(PLAN/DO)·종류(할일/일정) 토글 + 시간/태그/카테고리/KEY.
 export function TimelineAddModal({ date, initialStart, initialEnd, initialLane, onClose }: {
@@ -45,12 +46,9 @@ export function TimelineAddModal({ date, initialStart, initialEnd, initialLane, 
     onClose();
   };
 
-  const seg = (active: boolean, accent: string) => ({
-    fontSize: 12, fontWeight: active ? 700 : 500,
-    backgroundColor: active ? accent : 'transparent',
-    color: active ? '#fff' : t.textSub,
-    transition: 'all 0.15s',
-  });
+  // 세그먼트 색: 비-H 는 기존 풀필 색을 그대로(legacyFill), H 는 §5 세그먼트(흰 pill + 코랄 언더라인).
+  // planBlock/doBlock 토큰은 H 에서 세그먼트가 무채움이라 소비처가 없고, 비-H 는 픽셀 보존을 위해
+  // 아래 하드코딩 값을 유지한다(V2 는 Stage 범위 밖 — 보고서 참조).
   const planClr = '#C4A882', doClr = '#6BAA7A';
 
   return (
@@ -66,18 +64,18 @@ export function TimelineAddModal({ date, initialStart, initialEnd, initialLane, 
           {/* 종류 토글 */}
           <div>
             <label style={{ fontSize: 11, color: t.textSub, fontWeight: 600, marginBottom: 6, display: 'block' }}>종류</label>
-            <div className="flex rounded-lg overflow-hidden" style={{ border: `1px solid ${t.border}` }}>
-              <button onClick={() => setKind('todo')} className="flex-1 py-2" style={seg(kind === 'todo', t.accent)}>할일</button>
-              <button onClick={() => setKind('event')} className="flex-1 py-2" style={{ ...seg(kind === 'event', '#7B9ED9'), borderLeft: `1px solid ${t.border}` }}>일정</button>
+            <div className="flex rounded-lg overflow-hidden" style={segmentTrackStyle(t)}>
+              <button onClick={() => setKind('todo')} className="flex-1 py-2" style={segmentItemStyle(t, kind === 'todo', t.accent)}>할일</button>
+              <button onClick={() => setKind('event')} className="flex-1 py-2" style={{ ...segmentItemStyle(t, kind === 'event', '#7B9ED9'), ...(isHaon(t) ? null : { borderLeft: `1px solid ${t.border}` }) }}>일정</button>
             </div>
           </div>
           {/* 레인 토글 (할일만) */}
           {kind === 'todo' && (
             <div>
               <label style={{ fontSize: 11, color: t.textSub, fontWeight: 600, marginBottom: 6, display: 'block' }}>레인</label>
-              <div className="flex rounded-lg overflow-hidden" style={{ border: `1px solid ${t.border}` }}>
-                <button onClick={() => setLane('plan')} className="flex-1 py-2" style={seg(lane === 'plan', planClr)}>PLAN</button>
-                <button onClick={() => setLane('do')} className="flex-1 py-2" style={{ ...seg(lane === 'do', doClr), borderLeft: `1px solid ${t.border}` }}>DO</button>
+              <div className="flex rounded-lg overflow-hidden" style={segmentTrackStyle(t)}>
+                <button onClick={() => setLane('plan')} className="flex-1 py-2" style={segmentItemStyle(t, lane === 'plan', planClr)}>PLAN</button>
+                <button onClick={() => setLane('do')} className="flex-1 py-2" style={{ ...segmentItemStyle(t, lane === 'do', doClr), ...(isHaon(t) ? null : { borderLeft: `1px solid ${t.border}` }) }}>DO</button>
               </div>
             </div>
           )}
@@ -88,7 +86,7 @@ export function TimelineAddModal({ date, initialStart, initialEnd, initialLane, 
               onKeyDown={e => { if (e.key === 'Enter') handleSave(); }}
               placeholder={kind === 'event' ? '일정 제목' : '할일 제목'}
               className="w-full rounded-lg px-3 py-2 outline-none"
-              style={{ border: `1px solid ${t.border}`, backgroundColor: t.bgSub, color: t.text, fontSize: 14 }} />
+              style={{ border: `1px solid ${t.border}`, backgroundColor: inputBg(t), color: t.text, fontSize: 14 }} />
           </div>
           {/* 시간 */}
           <div className="flex gap-2">
@@ -131,7 +129,7 @@ export function TimelineAddModal({ date, initialStart, initialEnd, initialLane, 
             <div className="flex items-center gap-2">
               <input value={category} onChange={e => setCategory(e.target.value)} placeholder="카테고리 (선택)"
                 className="flex-1 rounded-lg px-3 py-2 outline-none"
-                style={{ border: `1px solid ${t.border}`, backgroundColor: t.bgSub, color: t.text, fontSize: 13 }} />
+                style={{ border: `1px solid ${t.border}`, backgroundColor: inputBg(t), color: t.text, fontSize: 13 }} />
               <button type="button" onClick={() => setIsTop3(v => !v)}
                 className="flex items-center gap-1 px-3 py-2 rounded-lg"
                 style={{
