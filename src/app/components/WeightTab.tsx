@@ -371,12 +371,23 @@ export function WeightTab() {
     return v > 0 ? t.danger : t.success; // 증가=빨강, 감소=초록
   };
 
-  const statCard = (label: string, value: string, color?: string) => (
+  const statCard = (label: string, value: string, color?: string, caption?: string) => (
     <div className="p-3 rounded-2xl" style={isHaon(t) ? solidCardStyle(t) : { backgroundColor: t.card, border: `1px solid ${t.border}` }}>
       <p style={{ fontSize: 11, color: t.textMuted, marginBottom: 4 }}>{label}</p>
       <p style={{ fontSize: 18, fontWeight: 700, color: color ?? t.text }}>{value}</p>
+      {caption && <p style={{ fontSize: 10, color: t.textMuted, marginTop: 2 }}>{caption}</p>}
     </div>
   );
+
+  // ── 통계 라벨(기준 명시; DESIGN.md §7.4) ──
+  // 현재 체중 = 값 + (날짜 slot). 대비 = 값 + (기준 slot 기준) / 없으면 사유.
+  const currentWeightCaption = latest
+    ? `${format(parseISO(latest.date), 'M.d')} ${latest.slot}`
+    : `${referenceSlot} 기록 없음`;
+  const changeCaption = (v: number | null, days: number): string =>
+    v != null ? `${referenceSlot} 기준`
+      : refRecords.length < 2 ? `${referenceSlot} 기록 2회 이상 필요`
+      : `${days}일 전 ${referenceSlot} 기록 없음`;
 
   // 갭 표기 — 절대값 kg (부호 없이 "N kg")
   const fmtGap = (v: number | null) => (v == null ? '—' : `${Math.abs(v)}kg`);
@@ -533,11 +544,11 @@ export function WeightTab() {
         </div>
       )}
 
-      {/* (C) 통계 카드 2×2 */}
+      {/* (C) 통계 카드 2×2 — 기준 slot 라벨 명시(§7.4) */}
       <div className="grid grid-cols-2 gap-3">
-        {statCard('현재 체중', latest ? `${latest.weight} kg` : '—')}
-        {statCard('7일 전 대비', fmtChange(change7), changeColor(change7))}
-        {statCard('30일 전 대비', fmtChange(change30), changeColor(change30))}
+        {statCard('현재 체중', latest ? `${latest.weight} kg` : '—', undefined, currentWeightCaption)}
+        {statCard('7일 전 대비', fmtChange(change7), changeColor(change7), changeCaption(change7, 7))}
+        {statCard('30일 전 대비', fmtChange(change30), changeColor(change30), changeCaption(change30, 30))}
         {statCard(
           `최저·최고 (${unit})`,
           minW != null && maxW != null ? `${minW} / ${maxW}` : '—',
