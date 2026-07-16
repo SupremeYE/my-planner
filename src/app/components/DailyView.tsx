@@ -10,7 +10,7 @@ import { format, addDays, subDays, addMonths, subMonths, startOfMonth, getDaysIn
 import { ko } from 'date-fns/locale';
 import { usePlanner, Todo, Event, getLogicalToday } from '../store';
 import { useTheme } from '../ThemeContext';
-import { isHaon, canvasStyle, solidCardStyle, solidRowStyle, glassBarStyle, mixHex } from '../styles/haonStyles';
+import { isHaon, canvasStyle, solidCardStyle, solidRowStyle, glassBarStyle, mixHex, withAlpha } from '../styles/haonStyles';
 import { useNotification } from '../hooks/useNotification';
 import { TimePicker } from './TimePicker';
 import ConfirmModal from './ConfirmModal';
@@ -873,8 +873,10 @@ export function DailyView() {
         <button onClick={() => handleTodoCheckboxAction(todo)}
           className="w-5 h-5 rounded-full flex items-center justify-center flex-shrink-0 transition-all mt-0.5"
           style={{
-            border: isDone ? 'none' : `2px solid ${todo.status === 'inProgress' ? t.success : accentColor}60`,
-            backgroundColor: isDone ? t.checkDone : (todo.status === 'inProgress' ? `${t.success}12` : 'transparent'),
+            // withAlpha: accentColor 가 태그색(hex)일 수도, 무태그 폴백 t.border(테마 H=rgba)일 수도 있다.
+            // `${color}60` 접미사는 rgba 토큰에서 깨져 원형 체크 UI 가 사라졌다(테마 H). 헬퍼로 안전 적용.
+            border: isDone ? 'none' : `2px solid ${withAlpha(todo.status === 'inProgress' ? t.success : accentColor, 0.38)}`,
+            backgroundColor: isDone ? t.checkDone : (todo.status === 'inProgress' ? withAlpha(t.success, 0.07) : 'transparent'),
           }}>
           {isDone && <Check size={11} color="#fff" strokeWidth={3} />}
           {!isDone && todo.status === 'inProgress' && <Play size={9} color={t.success} fill={t.success} />}
