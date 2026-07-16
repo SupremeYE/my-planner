@@ -711,7 +711,11 @@ export function WeightTab() {
       </div>
 
       {galleryOpen && (
-        <BodyGallery weightRecords={records} onClose={() => setGalleryOpen(false)} />
+        <BodyGallery
+          weightRecords={records}
+          onClose={() => setGalleryOpen(false)}
+          onAddWeight={(d) => { setGalleryOpen(false); openNew(); setDate(d); }}
+        />
       )}
 
       {/* 덮어쓰기/충돌 확인 모달 */}

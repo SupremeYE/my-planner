@@ -3,7 +3,7 @@ import { X, Plus, Trash2, GitCompareArrows } from 'lucide-react';
 import { useTheme } from '../../ThemeContext';
 import {
   canvasStyle, glassBarStyle, photoTileStyle, photoBadgeStyle,
-  solidCardStyle, selectedRowStyle, actionBarStyle,
+  solidCardStyle, selectedRowStyle, actionBarStyle, sheetBackdropStyle,
 } from '../../styles/haonStyles';
 import { HaonButton } from '../ui/HaonButton';
 import { db } from '../../../lib/db';
@@ -16,17 +16,26 @@ import ConfirmModal from '../ConfirmModal';
 interface Props {
   weightRecords: WeightRecord[];
   onClose: () => void;
+  // 체중 없는 사진에서 "그날 몸무게 기록하기" 유도 — WeightTab 폼을 해당 날짜로 연다.
+  onAddWeight?: (date: string) => void;
 }
 
-// 눈바디 전체화면 갤러리 — 최신순 그리드 + 직접 추가(체중 없이) + 삭제.
+// 눈바디 전체화면 갤러리 — 최신순 그리드 + 추가(날짜 선택) + 크게 보기 + 삭제 + 비교.
 // 민감 사진: 표시용 서명 URL 만 발급(TTL 1h), 어디에도 영속 저장하지 않음(CLAUDE.md 규칙).
-export function BodyGallery({ weightRecords, onClose }: Props) {
+export function BodyGallery({ weightRecords, onClose, onAddWeight }: Props) {
   const { t } = useTheme();
   const [photos, setPhotos] = useState<BodyPhoto[]>([]);
   const [urls, setUrls] = useState<Record<string, string>>({}); // path → signed url (표시 전용·비영속)
   const [deleteTarget, setDeleteTarget] = useState<BodyPhoto | null>(null);
   const [uploading, setUploading] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
+
+  // 추가 플로우 — 파일 선택 후 날짜를 고르고 저장(날짜 선택 업로드)
+  const [pendingFile, setPendingFile] = useState<File | null>(null);
+  const [addDate, setAddDate] = useState(getLogicalToday());
+
+  // 크게 보기(풀뷰)
+  const [viewPhoto, setViewPhoto] = useState<BodyPhoto | null>(null);
 
   // 비교 모드 — 사진 2장 선택 → 나란히 + Δ
   const [compareMode, setCompareMode] = useState(false);
@@ -46,22 +55,30 @@ export function BodyGallery({ weightRecords, onClose }: Props) {
     return () => { alive = false; };
   }, [photos]);
 
+  // 파일 선택 → prepImage 후 날짜 선택 시트로. 실제 업로드는 confirmAdd.
   const handleFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     e.target.value = ''; // 같은 파일 재선택 허용
     if (!file) return;
+    const prepped = await prepImage(file);         // HEIC→JPEG + 다운스케일
+    setAddDate(getLogicalToday());
+    setPendingFile(prepped);
+  };
+
+  // 선택한 날짜로 업로드 → insert(체중 없이, weight_record_id=null).
+  const confirmAdd = async () => {
+    if (!pendingFile) return;
     setUploading(true);
     try {
-      const prepped = await prepImage(file);         // HEIC→JPEG + 다운스케일
       const id = crypto.randomUUID();
-      const path = await db.bodyPhotos.uploadPhoto(prepped, id);
+      const path = await db.bodyPhotos.uploadPhoto(pendingFile, id);
       if (path) {
-        // 직접 추가 = 체중 없이. date=오늘, weight_record_id=null.
-        await db.bodyPhotos.insert({ id, date: getLogicalToday(), photoPath: path, weightRecordId: null });
+        await db.bodyPhotos.insert({ id, date: addDate, photoPath: path, weightRecordId: null });
         refresh();
       }
     } finally {
       setUploading(false);
+      setPendingFile(null);
     }
   };
 
@@ -134,11 +151,11 @@ export function BodyGallery({ weightRecords, onClose }: Props) {
               const isSelected = selectedIds.includes(p.id);
               return (
                 <div key={p.id} className="aspect-square"
-                  onClick={compareMode ? () => toggleSelect(p.id) : undefined}
+                  onClick={compareMode ? () => toggleSelect(p.id) : () => setViewPhoto(p)}
                   style={{
                     ...photoTileStyle(t),
                     ...(compareMode && isSelected ? selectedRowStyle(t) : null),
-                    cursor: compareMode ? 'pointer' : 'default',
+                    cursor: 'pointer',
                   }}>
                   {url ? (
                     <img src={url} alt="" className="w-full h-full object-cover" />
@@ -148,7 +165,7 @@ export function BodyGallery({ weightRecords, onClose }: Props) {
                   )}
                   {/* 삭제 — 비교 모드에서는 숨김(탭=선택) */}
                   {!compareMode && (
-                    <button onClick={() => setDeleteTarget(p)} aria-label="삭제"
+                    <button onClick={(e) => { e.stopPropagation(); setDeleteTarget(p); }} aria-label="삭제"
                       className="absolute top-1 right-1 p-1 rounded-lg"
                       style={{ background: t.card, border: `1px solid ${t.border}`, cursor: 'pointer' }}>
                       <Trash2 size={12} color={t.danger} />
@@ -164,6 +181,13 @@ export function BodyGallery({ weightRecords, onClose }: Props) {
               );
             })}
           </div>
+        )}
+
+        {/* 비교 안내 힌트 — 사진이 1장뿐이라 비교 버튼이 아직 안 보일 때 */}
+        {photos.length === 1 && !compareMode && (
+          <p className="mt-4 text-center" style={{ fontSize: 12, color: t.textMuted }}>
+            사진을 한 장 더 추가하면 두 사진을 나란히 비교할 수 있어요.
+          </p>
         )}
       </div>
 
@@ -228,13 +252,74 @@ export function BodyGallery({ weightRecords, onClose }: Props) {
         );
       })()}
 
+      {/* 크게 보기(풀뷰) — 딥인디고 토큰 배경 위 object-contain. 체중 없으면 기록 유도. */}
+      {viewPhoto && (() => {
+        const badge = resolveWeightBadge(viewPhoto, weightRecords);
+        const url = urls[viewPhoto.photoPath];
+        return (
+          <div className="fixed inset-0 z-[60] flex flex-col" style={{ background: t.text }}>
+            <div className="flex items-center justify-between px-4 py-3">
+              <button onClick={() => setViewPhoto(null)} aria-label="닫기" className="p-1.5 rounded-lg"
+                style={{ background: 'none', border: 'none', color: '#fff', cursor: 'pointer' }}>
+                <X size={22} />
+              </button>
+              <button onClick={() => setDeleteTarget(viewPhoto)} aria-label="삭제" className="p-1.5 rounded-lg"
+                style={{ background: 'none', border: 'none', color: t.danger, cursor: 'pointer' }}>
+                <Trash2 size={18} />
+              </button>
+            </div>
+            <div className="flex-1 flex items-center justify-center px-4 min-h-0">
+              {url
+                ? <img src={url} alt="" className="max-w-full max-h-full object-contain rounded-xl" />
+                : <span style={{ color: '#fff', fontSize: 13 }}>불러오는 중…</span>}
+            </div>
+            <div className="px-5 py-4">
+              <p style={{ color: '#fff', fontSize: 15, fontWeight: 700 }}>{viewPhoto.date}</p>
+              {badge ? (
+                <p style={{ color: '#fff', opacity: 0.8, fontSize: 13, marginTop: 2 }}>{badge.weight}kg · {badge.slot}</p>
+              ) : (
+                <div className="mt-2 flex items-center gap-2 flex-wrap">
+                  <span style={{ color: '#fff', opacity: 0.7, fontSize: 13 }}>이 날짜엔 몸무게 기록이 없어요.</span>
+                  {onAddWeight && (
+                    <button onClick={() => { const d = viewPhoto.date; setViewPhoto(null); onAddWeight(d); }}
+                      className="px-3 py-1.5 rounded-full"
+                      style={{ background: t.accent, color: '#fff', fontSize: 12, fontWeight: 600, border: 'none', cursor: 'pointer' }}>
+                      체중 기록하기
+                    </button>
+                  )}
+                </div>
+              )}
+            </div>
+          </div>
+        );
+      })()}
+
+      {/* 추가 — 날짜 선택 시트(기본 오늘, 미래 차단) */}
+      {pendingFile && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4"
+          style={sheetBackdropStyle()} onClick={() => !uploading && setPendingFile(null)}>
+          <div className="rounded-2xl w-[320px] max-w-full p-5" style={solidCardStyle(t)} onClick={e => e.stopPropagation()}>
+            <h3 style={{ fontSize: 15, fontWeight: 700, color: t.text, marginBottom: 12 }}>사진 날짜</h3>
+            <input type="date" value={addDate} max={getLogicalToday()} onChange={e => setAddDate(e.target.value)}
+              className="w-full px-3 py-2 rounded-xl outline-none"
+              style={{ backgroundColor: t.bgSub, border: `1px solid ${t.border}`, color: t.text }} />
+            <div className="flex gap-2 mt-4">
+              <HaonButton variant="secondary" onClick={() => setPendingFile(null)} disabled={uploading} className="flex-1 text-sm">취소</HaonButton>
+              <HaonButton variant="primary" onClick={confirmAdd} disabled={uploading} className="flex-1 text-sm">
+                {uploading ? '올리는 중…' : '추가'}
+              </HaonButton>
+            </div>
+          </div>
+        </div>
+      )}
+
       {deleteTarget && (
         <ConfirmModal
           message="이 눈바디 사진을 삭제할까요?"
           description="사진 파일과 기록이 함께 삭제됩니다. 되돌릴 수 없어요."
           confirmText="삭제"
           confirmDanger
-          onConfirm={() => handleDelete(deleteTarget)}
+          onConfirm={() => { const wasViewing = viewPhoto?.id === deleteTarget.id; handleDelete(deleteTarget); if (wasViewing) setViewPhoto(null); }}
           onCancel={() => setDeleteTarget(null)}
         />
       )}
