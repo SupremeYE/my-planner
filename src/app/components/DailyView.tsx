@@ -21,7 +21,7 @@ import { FocusModal } from './FocusModal';
 import { useFabAction } from '../FabContext';
 import { QuickAddInput } from './QuickAddInput';
 import { useDailySummary } from '../hooks/useDailySummary';
-import { isEventPast } from '../../api/events';
+import { isEventPast, isVirtualEventId } from '../../api/events';
 import { expandRecurringTodos, isVirtualTodoId, parseVirtualTodoId } from '../../lib/recurrenceExpansion';
 import { RecurrenceBranchModal } from './RecurrenceBranchModal';
 import { Timeline } from './timeline/Timeline';
@@ -219,6 +219,208 @@ function SnoozeModal({ todo, onClose }: { todo: Todo; onClose: () => void }) {
               <CalendarDays size={12} className="inline mr-1.5" style={{ verticalAlign: -2 }} />
               {format(new Date(selectedSnoozeDate + 'T12:00:00'), 'yyyy년 M월 d일 (EEEE)', { locale: ko })}
               {snoozeTime && ` ${snoozeTime}`}(으)로 미룹니다
+            </p>
+          </div>
+        )}
+
+        {/* Actions */}
+        <div className="flex gap-2 px-5 py-4" style={{ borderTop: `1px solid ${t.border}` }}>
+          <button onClick={onClose}
+            className="flex-1 py-2.5 rounded-xl transition-colors"
+            style={{ fontSize: 13, color: t.textSub, backgroundColor: t.bgSub, border: `1px solid ${t.border}` }}>
+            취소
+          </button>
+          <button onClick={handleConfirm}
+            disabled={!selectedSnoozeDate}
+            className="flex-1 py-2.5 rounded-xl transition-colors"
+            style={{
+              fontSize: 13, fontWeight: 600,
+              backgroundColor: selectedSnoozeDate ? '#D97706' : t.bgSub,
+              color: selectedSnoozeDate ? '#fff' : t.textMuted,
+              cursor: selectedSnoozeDate ? 'pointer' : 'not-allowed',
+            }}>
+            미루기
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── Event Snooze Date Picker Modal ───
+// 할일 SnoozeModal 과 동일 UX(빠른선택 + 달력 + 시간). 저장은 store.snoozeEvent('this' 스코프).
+// 반복 일정의 회차 분기(this/future/all)는 탭-미루기(handleQuickSnoozeEvent)에서 다루고,
+// 여기(롱프레스 날짜 지정)는 할일과 동일하게 그 회차만('this') 옮긴다.
+function EventSnoozeModal({ event, onClose }: { event: Event; onClose: () => void }) {
+  const { snoozeEvent } = usePlanner();
+  const { t } = useTheme();
+  const [viewMonth, setViewMonth] = useState(new Date());
+  const [selectedSnoozeDate, setSelectedSnoozeDate] = useState('');
+  const [snoozeTime, setSnoozeTime] = useState(event.startTime || '09:00');
+
+  const todayStr = getLogicalToday();
+  const year = viewMonth.getFullYear();
+  const month = viewMonth.getMonth();
+  const firstDay = startOfMonth(viewMonth);
+  const startDow = getDayOfWeek(firstDay);
+  const daysInMonth = getDaysInMonth(viewMonth);
+
+  const cells: (number | null)[] = [];
+  for (let i = 0; i < startDow; i++) cells.push(null);
+  for (let d = 1; d <= daysInMonth; d++) cells.push(d);
+
+  const dateStr = (day: number) =>
+    `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+
+  const quickOptions = [
+    { label: '내일', date: format(addDays(new Date(), 1), 'yyyy-MM-dd') },
+    { label: '모레', date: format(addDays(new Date(), 2), 'yyyy-MM-dd') },
+    { label: '이번 주 금요일', date: (() => {
+      const now = new Date();
+      const dayOfWeek = now.getDay();
+      const daysUntilFri = dayOfWeek <= 5 ? 5 - dayOfWeek : 5 + (7 - dayOfWeek);
+      return format(addDays(now, daysUntilFri || 7), 'yyyy-MM-dd');
+    })() },
+    { label: '다음 주 월요일', date: (() => {
+      const now = new Date();
+      const dayOfWeek = now.getDay();
+      const daysUntilMon = dayOfWeek === 0 ? 1 : 8 - dayOfWeek;
+      return format(addDays(now, daysUntilMon), 'yyyy-MM-dd');
+    })() },
+  ];
+
+  // 원래 소요시간(분)을 유지하며 종료 시간을 재계산 (시작·종료가 모두 있을 때만)
+  const toMin = (hhmm: string) => { const [h, m] = hhmm.split(':').map(Number); return h * 60 + m; };
+  const fromMin = (min: number) => `${String(Math.floor(min / 60) % 24).padStart(2, '0')}:${String(min % 60).padStart(2, '0')}`;
+
+  const handleConfirm = () => {
+    if (!selectedSnoozeDate) return;
+    let endTime: string | undefined;
+    if (snoozeTime && event.startTime && event.endTime) {
+      const dur = toMin(event.endTime) - toMin(event.startTime);
+      if (dur > 0) endTime = fromMin(toMin(snoozeTime) + dur);
+    }
+    snoozeEvent(event, selectedSnoozeDate, {
+      startTime: snoozeTime || undefined,
+      ...(endTime ? { endTime } : {}),
+      scope: 'this',
+    });
+    onClose();
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center" style={{ backgroundColor: 'rgba(0,0,0,0.4)' }}>
+      <div className="rounded-2xl overflow-hidden" style={{
+        backgroundColor: t.card, width: 380, border: `1px solid ${t.border}`,
+        boxShadow: '0 20px 25px -5px rgba(0,0,0,0.1), 0 8px 10px -6px rgba(0,0,0,0.1)',
+      }}>
+        {/* Header */}
+        <div className="flex items-center justify-between px-5 py-4" style={{ borderBottom: `1px solid ${t.border}` }}>
+          <div>
+            <h3 style={{ fontSize: 15, fontWeight: 700, color: t.text }}>일정 미루기</h3>
+            <p style={{ fontSize: 12, color: t.textSub, marginTop: 2 }}>
+              "{event.title}"을(를) 언제로 옮길까요?
+            </p>
+          </div>
+          <button onClick={onClose} className="p-1 rounded-lg transition-colors" style={{ color: t.textMuted }}>
+            <X size={18} />
+          </button>
+        </div>
+
+        {/* Quick options */}
+        <div className="px-5 pt-4 pb-2">
+          <p style={{ fontSize: 10, color: t.textMuted, fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase', marginBottom: 8 }}>
+            빠른 선택
+          </p>
+          <div className="flex flex-wrap gap-2">
+            {quickOptions.map(opt => (
+              <button key={opt.label}
+                onClick={() => setSelectedSnoozeDate(opt.date)}
+                className="px-3 py-1.5 rounded-lg transition-all"
+                style={{
+                  fontSize: 12,
+                  backgroundColor: selectedSnoozeDate === opt.date ? t.accent : t.bgSub,
+                  color: selectedSnoozeDate === opt.date ? '#fff' : t.text,
+                  border: `1px solid ${selectedSnoozeDate === opt.date ? t.accent : t.border}`,
+                  fontWeight: selectedSnoozeDate === opt.date ? 600 : 400,
+                }}>
+                {opt.label}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Calendar */}
+        <div className="px-5 py-3">
+          <p style={{ fontSize: 10, color: t.textMuted, fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase', marginBottom: 8 }}>
+            날짜 선택
+          </p>
+          <div className="rounded-xl p-3" style={{ backgroundColor: t.bgSub, border: `1px solid ${t.borderLight}` }}>
+            <div className="flex items-center justify-between mb-3">
+              <button onClick={() => setViewMonth(subMonths(viewMonth, 1))}
+                className="p-1 rounded-lg" style={{ color: t.textSub }}>
+                <ChevronLeft size={14} />
+              </button>
+              <span style={{ fontSize: 13, fontWeight: 600, color: t.text }}>
+                {year}년 {month + 1}월
+              </span>
+              <button onClick={() => setViewMonth(addMonths(viewMonth, 1))}
+                className="p-1 rounded-lg" style={{ color: t.textSub }}>
+                <ChevronRight size={14} />
+              </button>
+            </div>
+            <div className="grid grid-cols-7 gap-0.5 mb-1">
+              {['일', '월', '화', '수', '목', '금', '토'].map(d => (
+                <div key={d} className="text-center" style={{ fontSize: 10, color: t.textMuted }}>{d}</div>
+              ))}
+            </div>
+            <div className="grid grid-cols-7 gap-0.5">
+              {cells.map((day, i) => (
+                <div key={i} className="flex justify-center">
+                  {day !== null ? (
+                    <button
+                      onClick={() => {
+                        const ds = dateStr(day);
+                        if (ds >= todayStr) setSelectedSnoozeDate(ds);
+                      }}
+                      disabled={dateStr(day) < todayStr}
+                      className="w-7 h-7 rounded-full flex items-center justify-center transition-all"
+                      style={{
+                        fontSize: 11,
+                        backgroundColor: selectedSnoozeDate === dateStr(day) ? t.accent
+                          : dateStr(day) === todayStr ? t.accentLight : 'transparent',
+                        color: selectedSnoozeDate === dateStr(day) ? '#fff'
+                          : dateStr(day) < todayStr ? t.textMuted : t.text,
+                        fontWeight: selectedSnoozeDate === dateStr(day) ? 700 : 400,
+                        cursor: dateStr(day) < todayStr ? 'not-allowed' : 'pointer',
+                        opacity: dateStr(day) < todayStr ? 0.4 : 1,
+                      }}>
+                      {day}
+                    </button>
+                  ) : <div className="w-7 h-7" />}
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        {/* Time setting */}
+        <div className="px-5 pb-3">
+          <label style={{ fontSize: 10, color: t.textMuted, fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase' }}>
+            시간
+          </label>
+          <div className="mt-1">
+            <TimePicker value={snoozeTime} onChange={setSnoozeTime} placeholder="시간 선택 (선택)" />
+          </div>
+        </div>
+
+        {/* Selected date summary */}
+        {selectedSnoozeDate && (
+          <div className="mx-5 mb-3 px-3 py-2 rounded-lg" style={{ backgroundColor: '#FEF3C7', border: '1px solid #FDE68A' }}>
+            <p style={{ fontSize: 12, color: '#92400E' }}>
+              <CalendarDays size={12} className="inline mr-1.5" style={{ verticalAlign: -2 }} />
+              {format(new Date(selectedSnoozeDate + 'T12:00:00'), 'yyyy년 M월 d일 (EEEE)', { locale: ko })}
+              {snoozeTime && ` ${snoozeTime}`}(으)로 옮깁니다
             </p>
           </div>
         )}
@@ -559,7 +761,7 @@ function DailyDatePickerModal({ selectedDate, onClose, onConfirm }: {
 // ─── Main Daily View ───
 export function DailyView() {
   const {
-    selectedDate, setSelectedDate, todos, events, updateTodo, addTodo, toggleEventCompleted, deleteEvent, deleteRecurringTodo, habits,
+    selectedDate, setSelectedDate, todos, events, updateTodo, addTodo, toggleEventCompleted, deleteEvent, snoozeEvent, deleteRecurringTodo, habits,
     activeTimer, startTimer, stopTimer, finishActiveTimer, deleteTimeBlock, tags, projects, weeklyGoals, milestones,
     dayStartHour: tlStartHour, dayEndHour: tlEndHour, setDayHours,
   } = usePlanner();
@@ -581,6 +783,9 @@ export function DailyView() {
   const [editingTodo, setEditingTodo] = useState<Todo | null>(null);
   const [editingEvent, setEditingEvent] = useState<Event | null>(null);
   const [deletingEvent, setDeletingEvent] = useState<Event | null>(null);
+  const [snoozingEvent, setSnoozingEvent] = useState<Event | null>(null);
+  // 미루기 탭 → 반복 일정이면 this/future/all 분기 모달
+  const [recurringSnoozeEventTarget, setRecurringSnoozeEventTarget] = useState<Event | null>(null);
   const [focusingTodo, setFocusingTodo] = useState<Todo | null>(null);
   const [snoozingTodo, setSnoozingTodo] = useState<Todo | null>(null);
   const [contextMenu, setContextMenu] = useState<{ todo: Todo; pos: { x: number; y: number }; source?: 'do' | 'plan' } | null>(null);
@@ -591,6 +796,8 @@ export function DailyView() {
   const [keyHint, setKeyHint] = useState<string | null>(null);
   // → 버튼 길게 누르기(롱프레스) 판별용 (행마다 hook 추가 금지 → 부모 ref 공유)
   const snoozeLongPressRef = useRef<{ timer: ReturnType<typeof setTimeout> | null; fired: boolean }>({ timer: null, fired: false });
+  // 일정 미루기 → 버튼 롱프레스 판별 (할일과 동일 패턴, 행마다 hook 금지 → 부모 ref 공유)
+  const eventSnoozeLongPressRef = useRef<{ timer: ReturnType<typeof setTimeout> | null; fired: boolean }>({ timer: null, fired: false });
   const [showTimelineSettings, setShowTimelineSettings] = useState(false);
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [mobileTab, setMobileTab] = useState<'todos' | 'timeline'>('todos');
@@ -738,6 +945,21 @@ export function DailyView() {
   const handleQuickSnooze = (todo: Todo) => {
     if (isRecurringTodo(todo)) setRecurringSnoozeTarget(todo);
     else quickSnoozeTomorrow(todo);
+  };
+
+  // 일정 반복 여부: 가상 occurrence(masterId::date) 또는 반복 마스터
+  const isRecurringEvent = (event: Event) =>
+    isVirtualEventId(event.id) ||
+    ((!!event.recurrenceFreq || (!!event.repeatType && event.repeatType !== 'none')) && !event.parentEventId);
+
+  // 일정 미루기 다음 날 계산 — 할일과 동일(그 일정의 날짜 + 1)
+  const nextDayOf = (event: Event) =>
+    format(addDays(parseISO(event.date ?? selectedDate), 1), 'yyyy-MM-dd');
+
+  // 일정 → 단일 탭: 일반=즉시 내일로 / 반복=분기 모달(this/future/all)
+  const handleQuickSnoozeEvent = (event: Event) => {
+    if (isRecurringEvent(event)) setRecurringSnoozeEventTarget(event);
+    else snoozeEvent(event, nextDayOf(event));
   };
 
   // ★ KEY 빠른 토글 (4개 이상이면 막지 않고 안내만)
@@ -1175,6 +1397,38 @@ export function DailyView() {
                           </div>
                         </div>
                         <div className="flex items-center gap-1 flex-shrink-0">
+                          {/* 미루기 → : 탭=내일로, 길게=날짜/시간 지정 (할일과 동일 UX) */}
+                          <button
+                            aria-label="일정 미루기"
+                            title="내일로 미루기 (길게: 날짜 지정)"
+                            className="p-1.5 rounded-lg transition-colors"
+                            style={{ color: t.textSub, backgroundColor: t.bgSub }}
+                            onPointerDown={(e) => {
+                              e.stopPropagation();
+                              eventSnoozeLongPressRef.current.fired = false;
+                              if (eventSnoozeLongPressRef.current.timer) clearTimeout(eventSnoozeLongPressRef.current.timer);
+                              eventSnoozeLongPressRef.current.timer = setTimeout(() => {
+                                eventSnoozeLongPressRef.current.timer = null;
+                                eventSnoozeLongPressRef.current.fired = true;
+                                if (navigator.vibrate) { try { navigator.vibrate(10); } catch { /* noop */ } }
+                                setSnoozingEvent(evt);
+                              }, 500);
+                            }}
+                            onPointerUp={(e) => {
+                              e.stopPropagation();
+                              if (eventSnoozeLongPressRef.current.timer) { clearTimeout(eventSnoozeLongPressRef.current.timer); eventSnoozeLongPressRef.current.timer = null; }
+                            }}
+                            onPointerLeave={() => {
+                              if (eventSnoozeLongPressRef.current.timer) { clearTimeout(eventSnoozeLongPressRef.current.timer); eventSnoozeLongPressRef.current.timer = null; }
+                            }}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              if (eventSnoozeLongPressRef.current.fired) { eventSnoozeLongPressRef.current.fired = false; return; }
+                              handleQuickSnoozeEvent(evt);
+                            }}
+                          >
+                            <ArrowRight size={13} />
+                          </button>
                           <button
                             onClick={() => setEditingEvent(evt)}
                             aria-label="일정 편집"
@@ -1332,6 +1586,19 @@ export function DailyView() {
         />
       )}
       {snoozingTodo && <SnoozeModal todo={snoozingTodo} onClose={() => setSnoozingTodo(null)} />}
+      {/* 일정 롱프레스 → 날짜/시간 지정 미루기 */}
+      {snoozingEvent && <EventSnoozeModal event={snoozingEvent} onClose={() => setSnoozingEvent(null)} />}
+      {/* 일정 탭 미루기 → 반복이면 this/future/all 분기 후 그 스코프로 내일 이동 */}
+      {recurringSnoozeEventTarget && (
+        <RecurrenceBranchModal
+          mode="edit"
+          onConfirm={scope => {
+            snoozeEvent(recurringSnoozeEventTarget, nextDayOf(recurringSnoozeEventTarget), { scope });
+            setRecurringSnoozeEventTarget(null);
+          }}
+          onCancel={() => setRecurringSnoozeEventTarget(null)}
+        />
+      )}
       {contextMenu && (() => {
         const MENU_W = 160;
         const rawX = contextMenu.pos.x;

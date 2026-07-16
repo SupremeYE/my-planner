@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState, useCallback, useEffect, useRef } from 'react';
 import { supabase } from '../lib/supabase';
-import { format, getISOWeek, getYear, subDays, addDays, parseISO } from 'date-fns';
+import { format, getISOWeek, getYear, subDays, addDays, parseISO, differenceInCalendarDays } from 'date-fns';
 import { db } from '../lib/db';
 import { isVirtualTodoId, parseVirtualTodoId } from '../lib/recurrenceExpansion';
 import { isVirtualEventId, parseVirtualEventId } from '../api/events';
@@ -829,6 +829,8 @@ interface PlannerContextType {
   deleteEvent: (id: string) => void;
   /** 완료 토글 전용. 반복 가상 occurrence 면 그 회차만 예외 행으로 구체화 후 completed 저장. */
   toggleEventCompleted: (id: string, completed: boolean) => void;
+  /** 일정 미루기. 단일=이동, 반복=scope(this|future|all) 분기. opts 로 시간/스코프 지정. */
+  snoozeEvent: (event: Event, targetDate: string, opts?: { startTime?: string; endTime?: string; scope?: 'this' | 'future' | 'all' }) => void;
 
   // Habit actions
   addHabit: (name: string) => void;
@@ -1546,6 +1548,78 @@ export function PlannerProvider({ children }: { children: React.ReactNode }) {
     });
   }, []);
 
+  // 일정 미루기 — 단일 일정은 그대로 이동, 반복 일정은 scope(this|future|all)로 분기.
+  // 할일 미루기와 동일한 UX를 위해: 탭=다음 날(반복이면 분기 모달), 롱프레스=날짜/시간 지정.
+  //   this   = 이 회차만 예외로 구체화해 이동(시리즈 유지)
+  //   future = 마스터를 이 회차 전날에 종료 + 이동본(단일) 생성
+  //   all    = 시리즈 전체(마스터+예외) 삭제 + 이동본(단일) 생성
+  // 반복 가상 occurrence 의 startDate/endDate 는 '마스터'의 기간이므로(회차 날짜 아님) this 이동은
+  // ensureMaterializedEventId 가 만든 단일-일 예외행(date=회차일)을 targetDate 로 옮긴다.
+  const snoozeEvent = useCallback((
+    event: Event,
+    targetDate: string,
+    opts?: { startTime?: string; endTime?: string; scope?: 'this' | 'future' | 'all' },
+  ) => {
+    const baseDate = event.date;
+    if (!baseDate) return;
+    const delta = differenceInCalendarDays(parseISO(targetDate), parseISO(baseDate));
+    const shiftDate = (d?: string) => d ? format(addDays(parseISO(d), delta), 'yyyy-MM-dd') : targetDate;
+    const timeChanges = {
+      ...(opts?.startTime !== undefined ? { startTime: opts.startTime } : {}),
+      ...(opts?.endTime !== undefined ? { endTime: opts.endTime } : {}),
+    };
+    // future/all 스코프에서 생성할 단일 이동본 (반복 정보 제거)
+    const singleFrom = (e: Event): Omit<Event, 'id'> => ({
+      title: e.title,
+      date: targetDate, startDate: targetDate, endDate: targetDate,
+      startTime: opts?.startTime ?? e.startTime,
+      endTime: opts?.endTime ?? e.endTime,
+      isAllDay: e.isAllDay ?? false,
+      location: e.location, linkUrl: e.linkUrl, memo: e.memo,
+      color: e.color, projectId: e.projectId, tags: e.tags ?? [],
+      alertMinutes: e.alertMinutes,
+      repeatType: 'none',
+    });
+
+    if (!isVirtualEventId(event.id)) {
+      // 단일 일정 — 다일 일정도 기간을 유지하며 delta 만큼 이동
+      updateEvent(event.id, {
+        date: shiftDate(event.date),
+        startDate: shiftDate(event.startDate ?? event.date),
+        endDate: shiftDate(event.endDate ?? event.date),
+        ...timeChanges,
+      });
+      return;
+    }
+
+    const info = parseVirtualEventId(event.id);
+    if (!info) return;
+    const scope = opts?.scope ?? 'this';
+
+    // 주의: 펼쳐진 events 상태에는 '가상 occurrence'만 있고 '마스터 행'은 없다.
+    // 따라서 마스터 갱신/삭제는 state 조회가 아니라 DB 경로로 처리한다:
+    //  - deleteEvent(parentId): deleteEventApi 가 id 로 직접 삭제(상태에 없어도 DB 삭제됨)
+    //  - db.events.upsert(occurrence): sourceEventId=마스터로 라우팅되어 마스터 행을 갱신
+    if (scope === 'all') {
+      deleteEvent(info.parentId);
+      addEvent(singleFrom(event));
+    } else if (scope === 'future') {
+      // 마스터의 반복 종료일을 이 회차 전날로 설정(occurrence 경유 upsert → 마스터 행) + 이동본 단일 생성
+      const endDate = format(addDays(parseISO(info.instanceDate), -1), 'yyyy-MM-dd');
+      void db.events.upsert({ ...event, repeatEndDate: endDate }).then(() => {
+        void db.events.fetchAll().then(setEvents);
+      });
+      addEvent(singleFrom(event));
+    } else {
+      // this — 이 회차만 단일-일 예외로 구체화 후 targetDate 로 이동
+      const exId = ensureMaterializedEventId(event.id);
+      updateEvent(exId, {
+        date: targetDate, startDate: targetDate, endDate: targetDate,
+        ...timeChanges,
+      });
+    }
+  }, [updateEvent, addEvent, deleteEvent, ensureMaterializedEventId]);
+
   // ── Habit actions ──
   const addHabit = useCallback((name: string) => {
     const newHabit: Habit = { id: newId(), name, checkedDates: [], habitType: 'check', dailyProgress: {}, dailyMemos: {} };
@@ -2212,7 +2286,7 @@ export function PlannerProvider({ children }: { children: React.ReactNode }) {
       dailyAffirmations, setDailyAffirmation,
       appSettings, updateAppSettings,
       addTodo, updateTodo, deleteTodo, deleteTodos, toggleTop3, deleteRecurringTodo, updateRecurringTodo,
-      addEvent, updateEvent, deleteEvent, toggleEventCompleted,
+      addEvent, updateEvent, deleteEvent, toggleEventCompleted, snoozeEvent,
       addHabit, addHabitFull, updateHabit, deleteHabit, toggleHabit,
       updateHabitProgress, updateHabitMemo,
       habitMonthlyMemos, setHabitMonthlyMemo,
