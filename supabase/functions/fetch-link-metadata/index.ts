@@ -13,6 +13,7 @@
 // "자동 채움 실패 → 직접 입력해주세요" UI 로 폴백한다.
 
 import 'jsr:@supabase/functions-js/edge-runtime.d.ts';
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.4';
 
 type Source = 'youtube' | 'instagram' | 'threads' | 'web';
 
@@ -117,6 +118,85 @@ function absoluteUrl(maybeUrl: string | null, baseUrl: string): string | null {
   }
 }
 
+// ── 이미지 재호스팅 ──
+// 인스타 og:image(CDN 서명 URL)는 몇 시간 뒤 만료되어 썸네일이 깨진다.
+// 이미지 바이트를 서버측(CORS 무관)에서 내려받아 public 버킷 scrap-thumbs 에 올리고
+// 영구 public URL 을 돌려준다. 서비스 롤 키가 없거나 실패하면 null → 원본 URL 폴백.
+async function rehostThumb(imageUrl: string): Promise<string | null> {
+  try {
+    const supaUrl = Deno.env.get('SUPABASE_URL');
+    const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
+    if (!supaUrl || !serviceKey) return null;
+
+    const imgRes = await fetch(imageUrl, { headers: { 'User-Agent': 'Mozilla/5.0 ScrapBot' } });
+    if (!imgRes.ok) return null;
+    const contentType = imgRes.headers.get('content-type') ?? 'image/jpeg';
+    if (!contentType.startsWith('image/')) return null;
+    const bytes = new Uint8Array(await imgRes.arrayBuffer());
+    if (bytes.byteLength === 0 || bytes.byteLength > 10_000_000) return null; // 10MB 방어
+
+    const ext = contentType.includes('png') ? 'png' : contentType.includes('webp') ? 'webp' : 'jpg';
+    const path = `ig_${crypto.randomUUID()}.${ext}`;
+
+    const supa = createClient(supaUrl, serviceKey);
+    const { error } = await supa.storage
+      .from('scrap-thumbs')
+      .upload(path, bytes, { contentType, upsert: true });
+    if (error) return null;
+
+    const { data } = supa.storage.from('scrap-thumbs').getPublicUrl(path);
+    return data?.publicUrl ?? null;
+  } catch {
+    return null;
+  }
+}
+
+// ── Instagram OG 파싱 (best-effort) ──
+// 인스타는 로그인 벽 + 봇 차단이 있지만, 공개 게시물/릴스는 크롤러 UA(facebookexternalhit 등)로
+// 요청하면 <head> 에 og:title / og:image / og:description 를 내주는 경우가 많다.
+// 성공하면 자동 채움, 실패(로그인 벽·차단)하면 빈 객체 → 상위에서 needsManual 폴백.
+async function fetchInstagram(url: string): Promise<Partial<Result>> {
+  // 크롤러/봇 UA 를 우선 시도(OG 태그 응답률이 높음), 실패 시 일반 브라우저 UA 재시도
+  const uaCandidates = [
+    'facebookexternalhit/1.1 (+http://www.facebook.com/externalhit_uatext.php)',
+    'Mozilla/5.0 (Macintosh; Intel Mac OS X 13_0) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0 Safari/537.36',
+  ];
+  for (const ua of uaCandidates) {
+    try {
+      const res = await fetch(url, {
+        headers: {
+          'User-Agent': ua,
+          'Accept': 'text/html,application/xhtml+xml',
+          'Accept-Language': 'ko,en;q=0.9',
+        },
+        redirect: 'follow',
+      });
+      if (!res.ok) continue;
+      const html = await res.text();
+      const slice = html.length > 200_000 ? html.slice(0, 200_000) : html;
+
+      const title = pickMeta(slice, ['og:title', 'twitter:title']);
+      const rawImage = pickMeta(slice, ['og:image', 'og:image:secure_url', 'twitter:image']);
+      const description = pickMeta(slice, ['og:description', 'twitter:description']);
+
+      // og:image 라도 건졌으면 성공으로 간주하고 반환(로그인 벽이면 셋 다 비어 다음 UA 시도)
+      if (title || rawImage) {
+        const absImage = absoluteUrl(rawImage, res.url || url);
+        // 만료되는 CDN URL → scrap-thumbs 로 재호스팅(실패 시 원본 URL 임시 사용)
+        const persisted = absImage ? (await rehostThumb(absImage)) ?? absImage : null;
+        return {
+          title: title ?? null,
+          thumbnail_url: persisted,
+          description: description ?? null,
+        };
+      }
+    } catch {
+      /* 다음 UA 후보로 계속 */
+    }
+  }
+  return {};
+}
+
 async function fetchWeb(url: string): Promise<Partial<Result>> {
   try {
     const res = await fetch(url, {
@@ -179,8 +259,8 @@ Deno.serve(async (req: Request) => {
 
   const source = detectSource(url);
 
-  // 인스타 / 스레드 — 로그인 벽 때문에 안정적 자동 fetch 불가 → 항상 needsManual
-  if (source === 'instagram' || source === 'threads') {
+  // 스레드 — 로그인 벽 때문에 안정적 자동 fetch 불가 → 항상 needsManual
+  if (source === 'threads') {
     return jsonResponse({
       source,
       title: null,
@@ -190,7 +270,13 @@ Deno.serve(async (req: Request) => {
     } as Result);
   }
 
-  const fetched = source === 'youtube' ? await fetchYouTube(url) : await fetchWeb(url);
+  // 인스타는 best-effort 로 OG 파싱 시도(공개 게시물/릴스). 실패하면 아래 needsManual 폴백.
+  const fetched =
+    source === 'youtube'
+      ? await fetchYouTube(url)
+      : source === 'instagram'
+        ? await fetchInstagram(url)
+        : await fetchWeb(url);
 
   const result: Result = {
     source,
