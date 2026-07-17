@@ -6,6 +6,34 @@
 
 ---
 
+## 2026-07-17 — ⭐ BUGFIX-1c: 날짜 쓰기 경로 별 해제 누수 — 구조적 해소 (기본 차단 + 알림 중앙화)
+
+### 🐛 문제 (Part 2-fix 잔여의 근본 원인 — 질문이 틀렸다)
+Part 2-fix는 `isTop3` **쓰는** 경로를 열거해 미루기 6곳에 D2(항상 해제+알림)를 **호출부마다** 적용했다. 그러나 정책이 "별 = 그날 계획"인 이상 **`date`를 바꾸는 모든 경로 = 별을 쓰는 경로**다. 열거 밖 날짜이동 경로에서 별이 **조용히** 샜다. 전수 조사로 누수 **4곳** 확정(잔여가 지목한 3 + `WeeklyView.onAssign` 1 추가):
+- `TodosView.onMoveToToday`(`:447/:499/:535`), `BacklogView.handleAssignDate`(`:41`), `WeeklyView` 드래그(`:600`) + 배정버튼 `onAssign`(`:671`).
+→ "호출부가 규칙을 기억하는 구조"가 원인. 3곳 패치는 같은 실패를 한 층 위에서 재현할 뿐 → **구조로 해소.**
+
+### 🛠 수정 (기본 차단을 store 쓰기 함수에)
+- **`updateTodo(id, changes, opts?)` core에 D2 기본 차단.** 실제 `date` 변경을 **값 비교로 감지**(휴리스틱 금지 — 페이로드에 `isTop3` 있는지로 추론하지 않음)해, 바뀌면 별을 자리 유무와 무관하게 해제하고 중앙 notice(`snooze`)를 큐잉. **모든 `updateTodo({date})` 이동이 호출부 수정 0으로 자동 D2** → 누수 #7~#10 및 앞으로 생길 경로 자동 안전.
+- **예외(D3)는 명시 opt-in `{ keepStar: true }` — `TodoModal` 단 하나.** 옮긴 날 자리 있으면 유지, 꽉 차면 해제+`modalFull`. (모달 D3 폼 로직·`prevDateRef` 미변경.)
+- **알림 중앙화**: store에 `top3Notice`(nonce 큐, 데이터만 — 리듀서 내부 토스트 아님) 추가. **단일 호스트 `<Top3NoticeHost/>`**(App에 1회 마운트)가 nonce 가드로 소비 → `useKeyHint` **재사용**(새 패턴 아님). 호출부가 알림을 기억하지 않아도 뜬다. strict mode 이중 발화는 nonce로 방지.
+- **이중 알림 제거(필수)**: 미루기 `updateTodo` 경로(#2 `DailyView` SnoozeModal / #4 빠른미루기 / #6 `CalendarView`)에서 **`isTop3:false`와 호출부 `showKeyHint`를 둘 다 제거**. (`isTop3:false`를 남기면 core가 별 해제를 감지 못해 알림이 조용해짐.) 알림은 이제 core→중앙 호스트로만.
+- **반복 미루기 `addTodo` 경로(#1/#3/#5)는 현행 유지** — `addTodo`는 신규 id라 "이동"을 감지 못하는 **seam**. 호출부가 `isTop3:false`+`showKeyHint` 담당.
+
+### ✅ 검증
+- `npm run build`(vite 6) 통과 · `npm run lint:fonts` 0건.
+- core 로직 8케이스 단위검증(updateTodo 정확 복제): D2 자리있음→해제+snooze / D2 꽉참→해제+snooze / D3 자리있음→유지+무음 / D3 꽉참→해제+modalFull / 비-날짜 편집(상태토글)→유지+무음 / 비-별 이동→무음.
+- **§검증6(회귀) — 부분 통과, 정직 보고:**
+  - **`updateTodo` 이동 = 자동 D2 ✅** — "새 경로가 `updateTodo({date})`만 부르면 별 처리 코드 0으로 D2·알림 적용" 케이스 통과(임시 경로 복제로 확인 후 제거).
+  - **`addTodo` 이동 = seam ❌** — 삭제+신규 생성이라 store가 이동을 감지 못함(케이스7이 자리있을 때 별이 따라감을 명시적으로 보임). 현재 #1/#3/#5는 호출부가 메꿈. **완전 해소는 후속 `moveTodoToDate` 도입 시.**
+- 이중 알림 없음(경로별 단일 소비처: updateTodo 이동→중앙 호스트만 / addTodo 이동→로컬 host만 / 모달 꽉참→인라인만).
+
+### 📌 후속(범위 밖·기록만)
+- **`moveTodoToDate(id, newDate, opts)` 단일 이동 액션** — 단일/반복 이동을 한곳에 캡슐화(각 뷰 중복 delete+add 제거)해 `addTodo` seam까지 닫고 미루기 호출부의 `isTop3:false`도 제거. 이번 범위 밖(사용자 결정).
+- **반복 별 표시/카운트 불일치**: `HAON_MIGRATION.md §9` 기록 유지(미수정).
+
+---
+
 ## 2026-07-17 — ⭐ BUGFIX-1: Top 3 개수 제한 우회 차단 (단일 강제 지점)
 
 ### 🐛 문제
@@ -56,7 +84,9 @@
 ### 📌 기록만 (수정 안 함)
 - **반복 별 표시/카운트 불일치**: `recurrenceExpansion.ts:89`가 부모 `isTop3`를 모든 가상 인스턴스에 복사 → 반복에서만 별이 할일 속성처럼 동작. DB 반복 top3 = 0건. `docs/HAON_MIGRATION.md §9`에 불일치 + 해소안(①표시 마스킹 권장 / ②인스턴스별 예외 승격) 제안만 기록.
 
-### ⚠️ 잔여 (범위 밖·미결 — 열거되지 않은 날짜이동 경로, 공개 기록)
+### ⚠️ 잔여 (범위 밖·미결 — 열거되지 않은 날짜이동 경로, 공개 기록) → ✅ **BUGFIX-1c(2026-07-17)에서 구조적 해소**
+> 아래 누수 3곳(+ 조사에서 추가 발견한 `WeeklyView.onAssign` 4번째)은 BUGFIX-1c에서 `updateTodo` core 기본 차단(date 변경→별 자동 해제) + 알림 중앙화로 **호출부 수정 0으로 자동 D2** 적용됨. 단 `addTodo` 이동 seam은 후속 `moveTodoToDate`로 완전 해소 예정.
+
 프롬프트가 열거한 "미루기 3경로 + 모달 + TodosView 토글" 외에도 날짜를 옮기는 경로가 앱에 더 있다. 이들은 대상 날이 꽉 찬 경우 store 클램프로 별이 **조용히** 떨어질 수 있으나(발생 조건: 옮기는 할일이 별 보유 + 대상 날 이미 3개), 프롬프트 열거 밖이고 각기 UX 판단이 달라 **이번에 손대지 않고 공개만 한다**(임의 확장·애드혹 금지 준수). 별도 결정 필요:
 - `TodosView.onMoveToToday`(오늘로 이동, 3곳) — "오늘 계획에 넣는" 행위. 미루기처럼 "항상 해제"할지, 모달처럼 "자리 있으면 유지"할지.
 - `BacklogView.handleAssignDate`(백로그→날짜 배정, `snoozeDate`) — 백로그 항목은 생성 시 `isTop3:false`라 실사용 노출은 극히 드묾(Inbox에서 별 단 뒤 배정하는 경우만).

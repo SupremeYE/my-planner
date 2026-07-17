@@ -99,16 +99,16 @@ function SnoozeModal({ todo, onClose, notify }: { todo: Todo; onClose: () => voi
         return;
       }
     }
+    // 미루기(별 미노출 → 부작용) = 날짜 이동. 별 해제·알림은 store(updateTodo D2)가 중앙에서 처리한다
+    // → 호출부에서 isTop3:false·notify 를 넣지 않는다(넣으면 core 가 별 해제를 감지 못해 알림이 조용해짐).
     updateTodo(todo.id, {
       date: selectedSnoozeDate,
       status: 'active',
-      isTop3: false,
       planStart: snoozeTime || undefined,
       planEnd: undefined,
       doStart: undefined,
       doEnd: undefined,
     });
-    if (todo.isTop3) notify(TOP3_MSG.snooze);
     onClose();
   };
 
@@ -935,18 +935,20 @@ export function DailyView() {
         parentId = todo.id; instanceDate = todo.date;
       }
       deleteRecurringTodo(parentId, instanceDate, scope);
-      // 미루기 = 날짜 이동 → 별은 자리 유무와 무관하게 항상 떨어진다(D2). 별이 있었다면 알린다.
+      // 반복 미루기는 삭제+신규 addTodo 라 store 가 "이동"을 감지 못한다 → 여기서 별 해제(isTop3:false)
+      // 와 알림을 호출부가 담당한다(addTodo seam, 후속 moveTodoToDate 로 해소 예정).
       addTodo({
         text: todo.text, date: nextDay, status: 'active', isTop3: false,
         planStart: todo.planStart || undefined, tags: todo.tags, projectId: todo.projectId,
       });
+      if (todo.isTop3) showKeyHint(TOP3_MSG.snooze);
     } else {
+      // 일반 미루기 = 날짜 이동 → 별 해제·알림은 store(updateTodo D2)가 중앙 처리(isTop3·notify 넣지 않음).
       updateTodo(todo.id, {
-        date: nextDay, status: 'active', isTop3: false,
+        date: nextDay, status: 'active',
         planEnd: undefined, doStart: undefined, doEnd: undefined, doElapsedSec: undefined,
       });
     }
-    if (todo.isTop3) showKeyHint(TOP3_MSG.snooze);
   };
 
   // → 단일 탭: 일반=즉시 내일로 / 반복=RecurrenceBranchModal('edit') 분기

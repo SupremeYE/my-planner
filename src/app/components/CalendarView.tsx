@@ -548,11 +548,13 @@ export function CalendarView() {
   const handleSnoozeTodo = (todo: Todo) => {
     if (!todo.date) return;
     const next = format(addDays(parseISO(todo.date), 1), 'yyyy-MM-dd');
-    // 미루기 = 날짜 이동 → 별(is_top3)은 자리 유무와 무관하게 항상 떨어진다(D2). 별이 있었다면 알린다.
+    // 미루기 = 날짜 이동 → 별(is_top3)은 "그날 계획" 속성이라 자리 유무와 무관하게 항상 떨어진다(D2).
     if (isVirtualTodoId(todo.id)) {
       const info = parseVirtualTodoId(todo.id);
       if (info) {
         deleteRecurringTodo(info.parentId, info.instanceDate, 'this');
+        // 반복 미루기는 삭제+신규 addTodo → store 가 "이동"을 감지 못한다. 호출부가 별 해제·알림 담당
+        // (addTodo seam, 후속 moveTodoToDate 로 해소 예정).
         addTodo({
           text: todo.text,
           date: next,
@@ -566,15 +568,14 @@ export function CalendarView() {
         return;
       }
     }
+    // 일반 미루기 = 날짜 이동 → 별 해제·알림은 store(updateTodo D2)가 중앙 처리(isTop3·notify 넣지 않음).
     updateTodo(todo.id, {
       date: next,
       status: 'active',
-      isTop3: false,
       planEnd: undefined,
       doStart: undefined,
       doEnd: undefined,
     });
-    if (todo.isTop3) showKeyHint(TOP3_MSG.snooze);
   };
 
   // 삭제: 반복 인스턴스는 "이 항목만/이후/전체" 분기 모달, 일반 할일은 확인 팝업

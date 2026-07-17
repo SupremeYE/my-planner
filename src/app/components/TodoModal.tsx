@@ -299,14 +299,15 @@ export function TodoModal({ date, todo, initialPlanStart, initialPlanEnd, initia
     if (isVirtual && virtualInfo && scope) {
       updateRecurringTodo(virtualInfo.parentId, virtualInfo.instanceDate, changes, scope);
     } else if (todo?.recurrenceParentId) {
-      // 예외 레코드 - 직접 수정
-      updateTodo(todo.id, changes);
+      // 예외 레코드 - 직접 수정. 모달은 별·날짜를 함께 보며 계획하므로 D3(keepStar): 날짜를 옮겨도
+      // 자리 있으면 별 유지(폼이 D3 를 이미 반영). D2 자동 해제 대상이 아니다.
+      updateTodo(todo.id, changes, { keepStar: true });
     } else if (isRecurringInstance && todo && scope) {
       // 부모 반복 일정 수정
       const instanceDate = todo.date ?? getLogicalToday();
       updateRecurringTodo(todo.id, instanceDate, changes, scope);
     } else if (todo) {
-      updateTodo(todo.id, changes);
+      updateTodo(todo.id, changes, { keepStar: true });
     } else {
       addTodo({ ...changes, status: 'active' });
     }

@@ -816,7 +816,11 @@ interface PlannerContextType {
 
   // Todo actions
   addTodo: (todo: Omit<Todo, 'id'>) => void;
-  updateTodo: (id: string, changes: Partial<Todo>) => void;
+  /**
+   * 할일 수정. `date` 가 실제로 바뀌면 Top3 별을 자동 해제한다(D2, "별=그날 계획").
+   * 모달처럼 별·날짜를 함께 보며 계획하는 경우만 `opts.keepStar` 로 예외(D3, 자리 있으면 유지).
+   */
+  updateTodo: (id: string, changes: Partial<Todo>, opts?: { keepStar?: boolean }) => void;
   deleteTodo: (id: string) => void;
   deleteTodos: (ids: string[]) => void;
   /**
@@ -826,6 +830,8 @@ interface PlannerContextType {
   toggleTop3: (id: string) => Top3ToggleResult;
   /** 같은 날 Top3 개수(자기 제외). UI 가 3개 제한 도달을 사전 반영하는 데 쓴다. */
   top3CountForDate: (date?: string | null, excludeId?: string) => number;
+  /** 별이 쓰기 함수에서 해제됐음을 알리는 중앙 notice(단일 호스트가 nonce 로 소비). */
+  top3Notice: { msg: string; nonce: number } | null;
   deleteRecurringTodo: (parentId: string, instanceDate: string, scope: 'this' | 'future' | 'all') => void;
   updateRecurringTodo: (parentId: string, instanceDate: string, changes: Partial<Todo>, scope: 'this' | 'future' | 'all') => void;
 
@@ -1002,6 +1008,16 @@ export function PlannerProvider({ children }: { children: React.ReactNode }) {
   // 최신 todos 스냅샷 (반복 가상 인스턴스 → 실제 예외 레코드 동기 변환 시 참조)
   const todosRef = useRef<Todo[]>([]);
   useEffect(() => { todosRef.current = todos; }, [todos]);
+
+  // Top3(핵심) 별이 쓰기 함수에서 해제됐음을 알리는 중앙 notice 큐 — 호출부가 알림을 기억하지
+  // 않아도, 단일 호스트(App 의 <Top3NoticeHost/>)가 nonce 를 보고 useKeyHint 로 소비한다.
+  // 큐는 데이터(문자열)만 담는다(리듀서 내부 토스트 금지). nonce 는 단조 증가 카운터(랜덤/시간 없음).
+  const [top3Notice, setTop3Notice] = useState<{ msg: string; nonce: number } | null>(null);
+  const top3NonceRef = useRef(0);
+  const enqueueTop3Notice = useCallback((msg: string) => {
+    top3NonceRef.current += 1;
+    setTop3Notice({ msg, nonce: top3NonceRef.current });
+  }, []);
   const [habits, setHabits] = useState<Habit[]>([]);
   const [habitMonthlyMemos, setHabitMonthlyMemos] = useState<HabitMonthlyMemo[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
@@ -1370,24 +1386,41 @@ export function PlannerProvider({ children }: { children: React.ReactNode }) {
     return exId;
   }, []);
 
-  const updateTodo = useCallback((id: string, changes: Partial<Todo>) => {
+  // Top3(별) 규칙의 단일 강제 지점. 모든 `date` 변경 쓰기가 이 함수를 통과하므로, 호출부가
+  // 규칙을 기억하지 않아도 자동으로 안전하다(BUGFIX-1c 구조적 해소).
+  // - 기본(D2): `date` 가 실제로 바뀌면(휴리스틱 아님 — 값 비교) 별은 "그날 계획" 속성이므로
+  //   자리 유무와 무관하게 항상 해제한다. 별이 있었으면 중앙 notice 로 알린다.
+  // - 예외(D3): `opts.keepStar`(모달 단 하나) 면 날짜 이동에도 별을 유지하되 캡은 적용 —
+  //   옮긴 날이 꽉 찼으면 해제하고 modalFull 로 알린다.
+  // - 캡(비-이동): 같은 날 이미 3개(자기 제외)면 켜지 못하게 false 로 클램프하고 cap 으로 알린다.
+  // ⚠️ 페이로드에 `isTop3` 가 있는지로 의도를 추론하지 않는다(새 경로가 우연히 조건을 만족해도 안전).
+  const updateTodo = useCallback((id: string, changes: Partial<Todo>, opts?: { keepStar?: boolean }) => {
     const realId = ensureMaterializedTodoId(id);
-    setTodos(prev => {
-      const updated = prev.map(t => {
-        if (t.id !== realId) return t;
-        const merged = { ...t, ...changes };
-        // Top3 3개 제한 단일 강제 지점 — 편집으로 켜거나 날짜를 옮겨도 같은 날 3개 초과면 false 로 클램프.
-        // (자기 제외. 날짜 이동 시 조용히 별 해제 = 결정: 미루기/이동은 무피드백 클램프.)
-        if (merged.isTop3 && countTop3ForDateIn(prev, merged.date, realId) >= TOP3_LIMIT) {
-          merged.isTop3 = false;
+    // 판정은 setter 밖(최신 스냅샷 todosRef)에서 — 리듀서 순수성 유지, notice 는 이벤트 흐름에서 enqueue.
+    const prev = todosRef.current.find(t => t.id === realId);
+    const nextChanges: Partial<Todo> = { ...changes };
+    let notice: string | null = null;
+    if (prev) {
+      const merged = { ...prev, ...changes };
+      const dateChanged = changes.date !== undefined && (changes.date ?? null) !== (prev.date ?? null);
+      if (merged.isTop3) {
+        if (dateChanged && !opts?.keepStar) {
+          nextChanges.isTop3 = false;                 // D2
+          if (prev.isTop3) notice = TOP3_MSG.snooze;  // 별이 있었을 때만 알림
+        } else if (countTop3ForDateIn(todosRef.current, merged.date, realId) >= TOP3_LIMIT) {
+          nextChanges.isTop3 = false;                 // 캡
+          notice = (dateChanged && opts?.keepStar) ? TOP3_MSG.modalFull : TOP3_MSG.cap;
         }
-        return merged;
-      });
+      }
+    }
+    if (notice) enqueueTop3Notice(notice);
+    setTodos(prevList => {
+      const updated = prevList.map(t => t.id === realId ? { ...t, ...nextChanges } : t);
       const todo = updated.find(t => t.id === realId);
       if (todo) db.todos.upsert(todo);
       return updated;
     });
-  }, [ensureMaterializedTodoId]);
+  }, [ensureMaterializedTodoId, enqueueTop3Notice]);
 
   const deleteTodo = useCallback((id: string) => {
     setTodos(prev => {
@@ -2351,7 +2384,7 @@ export function PlannerProvider({ children }: { children: React.ReactNode }) {
       timelineLogs,
       dailyAffirmations, setDailyAffirmation,
       appSettings, updateAppSettings,
-      addTodo, updateTodo, deleteTodo, deleteTodos, toggleTop3, top3CountForDate, deleteRecurringTodo, updateRecurringTodo,
+      addTodo, updateTodo, deleteTodo, deleteTodos, toggleTop3, top3CountForDate, top3Notice, deleteRecurringTodo, updateRecurringTodo,
       addEvent, updateEvent, deleteEvent, toggleEventCompleted, snoozeEvent,
       addHabit, addHabitFull, updateHabit, deleteHabit, toggleHabit,
       updateHabitProgress, updateHabitMemo,

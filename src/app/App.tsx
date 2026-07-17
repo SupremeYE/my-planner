@@ -7,6 +7,7 @@ import { PlannerProvider } from './store';
 import { FabProvider } from './FabContext';
 import { TimerProvider } from './timers/TimerProvider';
 import { GlobalFloatingTimer } from './components/GlobalFloatingTimer';
+import { Top3NoticeHost } from './components/Top3NoticeHost';
 import { CookingTimers } from './components/CookingTimers';
 import { PWABanner, IOSInstallGuide } from './components/PWABanner';
 import { LoginView } from './components/LoginView';
@@ -56,6 +57,7 @@ function AppContent() {
           <RouterProvider router={router} />
         </FabProvider>
         <GlobalFloatingTimer />
+        <Top3NoticeHost />
         <CookingTimers />
         <PWABanner />
         <IOSInstallGuide />
