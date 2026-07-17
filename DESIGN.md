@@ -132,10 +132,19 @@ it can be glass.
 
 ## 2. Background canvas
 
-Near-white base `#FBF8FC` with two soft radial blobs (lilac top-left, coral
-bottom-right). Do NOT use a linear 3-stop purple→pink→peach sweep — that reads as an
-"AI-generated wallpaper." Keep the canvas quiet; the pastel identity lives in the
-blobs, the accents, and the charts, not in loud backgrounds.
+Page background is the flat near-white base `#FBF8FC` (`t.bg`) — the same on every
+page (일간·할일·캘린더·건강·습관&루틴·감정기록 …). Keep the canvas quiet; the pastel
+identity lives in the accents and the charts, not in the background.
+
+- **No per-page background override.** Layout(`Layout.tsx`/`LayoutC.tsx`)이 `t.bg`를 깔며,
+  각 뷰는 자기 루트에 배경을 다시 칠하지 않는다(= 페이지마다 배경이 달라지지 않게). 예전엔
+  일부 페이지만 `canvasStyle`(방사형 blob 캔버스)을 덧그려 건강 등에서 배경이 더 보라빛으로
+  보였다 → 2026-07 전 페이지 단색 `t.bg`로 통일(회귀 방지). `canvasStyle`은 더 이상 페이지
+  배경에 쓰지 않는다.
+- The radial-blob canvas token below is retained for reference only (currently unused as a
+  page background). If a subtle blob canvas is ever reintroduced, apply it once at the Layout
+  level for ALL pages — never on individual views. Do NOT use a linear 3-stop
+  purple→pink→peach sweep — that reads as an "AI-generated wallpaper."
 
 ---
 
@@ -475,7 +484,7 @@ see §3 (카테고리 색). Do not let the calendar and the chip drift; they are
 - Any component pattern not registered here (or elsewhere in DESIGN.md) → register first, then build.
 
 ### haonStyles (구현 Stage 메모)
-- **Reuse:** `canvasStyle` (page bg), `solidCardStyle` (grid container / summary / solid sheet),
+- **Reuse:** `solidCardStyle` (grid container / summary / solid sheet),
   `solidRowStyle` (sheet rows), `glassBarStyle` (top bar / tab bar / glass sheet), `mixHex`
   (muted dates, selected-day tint, category dot/fill derivation), `isHaon` (Theme H gating).
 - **New — register before build (not yet in code):** a day-cell layout helper (stacked entries +
