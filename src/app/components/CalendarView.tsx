@@ -26,7 +26,7 @@ import ConfirmModal from './ConfirmModal';
 import { RecurrenceBranchModal } from './RecurrenceBranchModal';
 import { useFabAction } from '../FabContext';
 import { Timeline } from './timeline/Timeline';
-import { isHaon, canvasStyle, glassBarStyle, solidCardStyle, mixHex } from '../styles/haonStyles';
+import { isHaon, glassBarStyle, solidCardStyle, mixHex } from '../styles/haonStyles';
 
 type TabType = 'month' | 'week';
 type FilterType = 'all' | 'todo' | 'event' | 'habit' | 'selfcare';
@@ -736,7 +736,7 @@ export function CalendarView() {
   };
 
   return (
-    <div className={`relative lg:h-full lg:flex lg:flex-col${tab === 'week' ? ' h-full flex flex-col' : ''}`} style={{ ...(isHaon(t) ? canvasStyle(t) : { backgroundColor: t.bg }) }}>
+    <div className={`relative lg:h-full lg:flex lg:flex-col${tab === 'week' ? ' h-full flex flex-col' : ''}`} style={{ backgroundColor: t.bg }}>
       <div className="px-3 py-3 lg:px-4 lg:py-4" style={{ flexShrink: 0, ...(isHaon(t) ? glassBarStyle(t) : { backgroundColor: t.sidebar, borderBottom: `1px solid ${t.border}` }) }}>
         <div className="flex items-center gap-2 mb-3">
           <button onClick={handlePrev} className="p-1.5 lg:p-2 rounded-xl hover:bg-[#eef4fa]">

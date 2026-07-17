@@ -10,7 +10,7 @@ import { format, addDays, subDays, addMonths, subMonths, startOfMonth, getDaysIn
 import { ko } from 'date-fns/locale';
 import { usePlanner, Todo, Event, getLogicalToday } from '../store';
 import { useTheme } from '../ThemeContext';
-import { isHaon, canvasStyle, solidCardStyle, solidRowStyle, glassBarStyle, mixHex, withAlpha } from '../styles/haonStyles';
+import { isHaon, solidCardStyle, solidRowStyle, glassBarStyle, mixHex, withAlpha } from '../styles/haonStyles';
 import { useNotification } from '../hooks/useNotification';
 import { TimePicker } from './TimePicker';
 import ConfirmModal from './ConfirmModal';
@@ -1252,7 +1252,7 @@ export function DailyView() {
   // Today's habits
 
   return (
-    <div className="relative flex-1 flex flex-col overflow-hidden h-full" style={canvasStyle(t)}>
+    <div className="relative flex-1 flex flex-col overflow-hidden h-full" style={{ backgroundColor: t.bg }}>
       {/* Header */}
       <div className="relative flex items-center justify-between px-3 py-3 lg:px-6 lg:py-4 flex-shrink-0" style={glassBarStyle(t)}>
         <div className="w-10 lg:w-28 flex-shrink-0" />

@@ -12,7 +12,7 @@ import { MandalartSourceBadge } from './mandalart/MandalartSourceBadge';
 import { TodoModal } from './TodoModal';
 import { QuickAddInput } from './QuickAddInput';
 import { isInboxCandidate } from '../../lib/inbox';
-import { isHaon, canvasStyle, solidCardStyle, solidRowStyle, glassBarStyle, mixHex, selectedRowStyle, actionBarStyle, buttonStyle } from '../styles/haonStyles';
+import { isHaon, solidCardStyle, solidRowStyle, glassBarStyle, mixHex, selectedRowStyle, actionBarStyle, buttonStyle } from '../styles/haonStyles';
 
 // ─── Constants ───────────────────────────────────────────────
 const STATUS_CONFIG: Record<string, { label: string; color: string; bgColor: string }> = {
@@ -752,7 +752,7 @@ export function TodosView() {
   );
 
   return (
-    <div className="relative flex flex-col h-full" style={isHaon(t) ? canvasStyle(t) : { backgroundColor: t.bg }}>
+    <div className="relative flex flex-col h-full" style={{ backgroundColor: t.bg }}>
       {/* Header — 스크롤 위에 떠 있는 오버레이라 파스텔(H)에서만 글래스(backdrop-filter는 여기에만) */}
       <div
         className="flex-shrink-0 sticky top-0 z-10"
