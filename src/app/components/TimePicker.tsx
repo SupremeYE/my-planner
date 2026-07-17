@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { useTheme } from '../ThemeContext';
 import { ChevronUp, ChevronDown, X } from 'lucide-react';
+import { inputBg } from '../styles/haonStyles';
 
 interface TimePickerProps {
   value: string;          // "HH:mm" 또는 ""
@@ -267,7 +268,7 @@ export function TimePicker({
         style={{
           border: `1px solid ${openPanel ? t.accent : t.border}`,
           borderRadius: isMd ? 12 : 8,
-          backgroundColor: t.bgSub,
+          backgroundColor: inputBg(t),
           padding: isMd ? '4px 12px' : '2px 8px',
           width: '100%', justifyContent: 'center', gap: 0,
           transition: 'border-color 0.15s',
