@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { X, Plus, Trash2, GitCompareArrows } from 'lucide-react';
 import { useTheme } from '../../ThemeContext';
 import {
-  canvasStyle, glassBarStyle, photoTileStyle, photoBadgeStyle,
+  glassBarStyle, photoTileStyle, photoBadgeStyle,
   solidCardStyle, selectedRowStyle, actionBarStyle, sheetBackdropStyle,
 } from '../../styles/haonStyles';
 import { HaonButton } from '../ui/HaonButton';
@@ -114,7 +114,7 @@ export function BodyGallery({ weightRecords, onClose, onAddWeight }: Props) {
   }, [selectedIds, photos, weightRecords]);
 
   return (
-    <div className="fixed inset-0 z-50 overflow-y-auto" style={{ backgroundColor: t.bg, ...canvasStyle(t) }}>
+    <div className="fixed inset-0 z-50 overflow-y-auto" style={{ backgroundColor: t.bg }}>
       {/* 헤더 (오버레이 글래스) */}
       <div className="sticky top-0 z-10 flex items-center justify-between px-4 py-3 lg:px-6" style={glassBarStyle(t)}>
         <div className="flex items-center gap-2">
@@ -224,7 +224,7 @@ export function BodyGallery({ weightRecords, onClose, onAddWeight }: Props) {
           </div>
         );
         return (
-          <div className="fixed inset-0 z-[60] overflow-y-auto" style={{ backgroundColor: t.bg, ...canvasStyle(t) }}>
+          <div className="fixed inset-0 z-[60] overflow-y-auto" style={{ backgroundColor: t.bg }}>
             <div className="sticky top-0 z-10 flex items-center gap-2 px-4 py-3 lg:px-6" style={glassBarStyle(t)}>
               <button onClick={() => setComparing(false)} aria-label="뒤로" className="p-1.5 rounded-lg"
                 style={{ background: 'none', border: 'none', color: t.textSub, cursor: 'pointer' }}>
