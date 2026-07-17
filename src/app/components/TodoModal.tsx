@@ -1,8 +1,8 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { format, getDay, parseISO } from 'date-fns';
 import { ko } from 'date-fns/locale';
 import { CalendarDays, RefreshCw, Star, Trash2, X } from 'lucide-react';
-import { usePlanner, Todo, getLogicalToday, TOP3_LIMIT } from '../store';
+import { usePlanner, Todo, getLogicalToday, TOP3_LIMIT, TOP3_MSG } from '../store';
 import { useTheme } from '../ThemeContext';
 import ConfirmModal from './ConfirmModal';
 import { TimePicker } from './TimePicker';
@@ -168,10 +168,22 @@ export function TodoModal({ date, todo, initialPlanStart, initialPlanEnd, initia
   const top3Used = top3CountForDate(effectiveDate || null, todo?.id);
   const top3AtCap = top3Used >= TOP3_LIMIT;
   const top3Disabled = top3AtCap && !isTop3;
-  // 날짜를 3개 찬 날로 바꾸면 켜둔 별을 조용히 해제(저장 시 store 클램프와 UI 일치).
+  // 모달에서 날짜를 바꾸는 것은 별·날짜를 동시에 보고 있으므로 "새 날 계획" 의도로 인정한다(D3).
+  // → 옮긴 날에 자리 있으면 별 유지, 꽉 찼으면 별만 해제 + 알림(무피드백 금지).
+  // 초기 마운트는 "날짜 변경" 이 아니므로 prevDateRef 로 건너뛴다(strict mode 이중 실행에도 안전).
+  const [top3DroppedByDate, setTop3DroppedByDate] = useState(false);
+  const prevDateRef = useRef(effectiveDate);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
-    if (isTop3 && top3CountForDate(effectiveDate || null, todo?.id) >= TOP3_LIMIT) setIsTop3(false);
+    const dateChanged = prevDateRef.current !== effectiveDate;
+    prevDateRef.current = effectiveDate;
+    if (!dateChanged) return;
+    if (isTop3 && top3CountForDate(effectiveDate || null, todo?.id) >= TOP3_LIMIT) {
+      setIsTop3(false);
+      setTop3DroppedByDate(true);
+    } else {
+      setTop3DroppedByDate(false);
+    }
   }, [effectiveDate]);
 
   const addColorToPalette = (color: string): boolean => {
@@ -578,7 +590,7 @@ export function TodoModal({ date, todo, initialPlanStart, initialPlanEnd, initia
           {/* Top3 */}
           <div className="flex items-center gap-2">
             <button
-              onClick={() => { if (!top3Disabled) setIsTop3(!isTop3); }}
+              onClick={() => { if (!top3Disabled) { setIsTop3(!isTop3); setTop3DroppedByDate(false); } }}
               disabled={top3Disabled}
               className="p-0.5"
               style={{ cursor: top3Disabled ? 'not-allowed' : 'pointer', opacity: top3Disabled ? 0.45 : 1 }}
@@ -590,9 +602,11 @@ export function TodoModal({ date, todo, initialPlanStart, initialPlanEnd, initia
               />
             </button>
             <span style={{ fontSize: 12, color: top3Disabled ? t.textMuted : t.text }}>Top 3 중요 할일</span>
-            {top3Disabled && (
-              <span style={{ fontSize: 11, color: t.textMuted }}>· 핵심 할일은 하루 {TOP3_LIMIT}개까지예요</span>
-            )}
+            {top3DroppedByDate ? (
+              <span style={{ fontSize: 11, color: t.accent }}>· {TOP3_MSG.modalFull}</span>
+            ) : top3Disabled ? (
+              <span style={{ fontSize: 11, color: t.textMuted }}>· {TOP3_MSG.cap}</span>
+            ) : null}
           </div>
 
           {/* 프로젝트 */}

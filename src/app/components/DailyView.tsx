@@ -8,8 +8,9 @@ import {
 } from 'lucide-react';
 import { format, addDays, subDays, addMonths, subMonths, startOfMonth, getDaysInMonth, getDay as getDayOfWeek, parseISO, addMinutes, differenceInCalendarDays } from 'date-fns';
 import { ko } from 'date-fns/locale';
-import { usePlanner, Todo, Event, getLogicalToday, TOP3_LIMIT } from '../store';
+import { usePlanner, Todo, Event, getLogicalToday, TOP3_LIMIT, TOP3_MSG } from '../store';
 import { useTheme } from '../ThemeContext';
+import { useKeyHint } from '../hooks/useKeyHint';
 import { isHaon, solidCardStyle, solidRowStyle, glassBarStyle, mixHex, withAlpha } from '../styles/haonStyles';
 import { useNotification } from '../hooks/useNotification';
 import { TimePicker } from './TimePicker';
@@ -37,7 +38,7 @@ const STATUS_CONFIG: Record<string, { label: string; color: string; bgColor: str
 };
 
 // ─── Snooze Date Picker Modal ───
-function SnoozeModal({ todo, onClose }: { todo: Todo; onClose: () => void }) {
+function SnoozeModal({ todo, onClose, notify }: { todo: Todo; onClose: () => void; notify: (msg: string) => void }) {
   const { updateTodo, addTodo, deleteRecurringTodo } = usePlanner();
   const { t } = useTheme();
   const [viewMonth, setViewMonth] = useState(new Date());
@@ -78,6 +79,8 @@ function SnoozeModal({ todo, onClose }: { todo: Todo; onClose: () => void }) {
   const handleConfirm = () => {
     if (!selectedSnoozeDate) return;
     // 반복 가상 인스턴스 미루기: 이 occurrence를 원래 날짜에서 취소하고 선택 날짜에 단일 할일로 옮긴다.
+    // 미루기 = 날짜 이동. 별(is_top3)은 "그날 계획" 속성이므로 자리 유무와 무관하게 항상 떨어진다(D2).
+    // 별이 사용자에게 보이지 않는 경로라 조용히 떨어지면 부작용이 은폐된다 → 반드시 알린다.
     if (isVirtualTodoId(todo.id)) {
       const info = parseVirtualTodoId(todo.id);
       if (info) {
@@ -86,11 +89,12 @@ function SnoozeModal({ todo, onClose }: { todo: Todo; onClose: () => void }) {
           text: todo.text,
           date: selectedSnoozeDate,
           status: 'active',
-          isTop3: todo.isTop3,
+          isTop3: false,
           planStart: snoozeTime || undefined,
           tags: todo.tags,
           projectId: todo.projectId,
         });
+        if (todo.isTop3) notify(TOP3_MSG.snooze);
         onClose();
         return;
       }
@@ -98,11 +102,13 @@ function SnoozeModal({ todo, onClose }: { todo: Todo; onClose: () => void }) {
     updateTodo(todo.id, {
       date: selectedSnoozeDate,
       status: 'active',
+      isTop3: false,
       planStart: snoozeTime || undefined,
       planEnd: undefined,
       doStart: undefined,
       doEnd: undefined,
     });
+    if (todo.isTop3) notify(TOP3_MSG.snooze);
     onClose();
   };
 
@@ -793,7 +799,7 @@ export function DailyView() {
   // 미루기 → 빠른 버튼이 반복 할일을 만나면 this/future/all 분기
   const [recurringSnoozeTarget, setRecurringSnoozeTarget] = useState<Todo | null>(null);
   // ★ KEY 권장 안내 (4개 이상일 때 가벼운 토스트)
-  const [keyHint, setKeyHint] = useState<string | null>(null);
+  const { showKeyHint, keyHintNode } = useKeyHint();
   // → 버튼 길게 누르기(롱프레스) 판별용 (행마다 hook 추가 금지 → 부모 ref 공유)
   const snoozeLongPressRef = useRef<{ timer: ReturnType<typeof setTimeout> | null; fired: boolean }>({ timer: null, fired: false });
   // 일정 미루기 → 버튼 롱프레스 판별 (할일과 동일 패턴, 행마다 hook 금지 → 부모 ref 공유)
@@ -929,16 +935,18 @@ export function DailyView() {
         parentId = todo.id; instanceDate = todo.date;
       }
       deleteRecurringTodo(parentId, instanceDate, scope);
+      // 미루기 = 날짜 이동 → 별은 자리 유무와 무관하게 항상 떨어진다(D2). 별이 있었다면 알린다.
       addTodo({
-        text: todo.text, date: nextDay, status: 'active', isTop3: todo.isTop3,
+        text: todo.text, date: nextDay, status: 'active', isTop3: false,
         planStart: todo.planStart || undefined, tags: todo.tags, projectId: todo.projectId,
       });
     } else {
       updateTodo(todo.id, {
-        date: nextDay, status: 'active',
+        date: nextDay, status: 'active', isTop3: false,
         planEnd: undefined, doStart: undefined, doEnd: undefined, doElapsedSec: undefined,
       });
     }
+    if (todo.isTop3) showKeyHint(TOP3_MSG.snooze);
   };
 
   // → 단일 탭: 일반=즉시 내일로 / 반복=RecurrenceBranchModal('edit') 분기
@@ -965,8 +973,7 @@ export function DailyView() {
   // ★ KEY 빠른 토글 — 3개 제한을 store(updateTodo 클램프)와 동일하게 강제. 초과 지정은 막고 사유 안내.
   const toggleKeyTodo = (todo: Todo) => {
     if (!todo.isTop3 && dateTodos.filter(td => td.isTop3 && td.id !== todo.id).length >= TOP3_LIMIT) {
-      setKeyHint(`핵심 할일은 하루 ${TOP3_LIMIT}개까지예요`);
-      setTimeout(() => setKeyHint(null), 2000);
+      showKeyHint(TOP3_MSG.cap);
       return;
     }
     updateTodo(todo.id, { isTop3: !todo.isTop3 });
@@ -1586,7 +1593,7 @@ export function DailyView() {
           onCancel={() => setDeletingEvent(null)}
         />
       )}
-      {snoozingTodo && <SnoozeModal todo={snoozingTodo} onClose={() => setSnoozingTodo(null)} />}
+      {snoozingTodo && <SnoozeModal todo={snoozingTodo} onClose={() => setSnoozingTodo(null)} notify={showKeyHint} />}
       {/* 일정 롱프레스 → 날짜/시간 지정 미루기 */}
       {snoozingEvent && <EventSnoozeModal event={snoozingEvent} onClose={() => setSnoozingEvent(null)} />}
       {/* 일정 탭 미루기 → 반복이면 this/future/all 분기 후 그 스코프로 내일 이동 */}
@@ -1687,16 +1694,7 @@ export function DailyView() {
           }}
         />
       )}
-      {keyHint && (
-        <div className="fixed left-1/2 -translate-x-1/2 z-50 px-4 py-2 rounded-full pointer-events-none"
-          style={{
-            bottom: 'calc(80px + env(safe-area-inset-bottom))',
-            backgroundColor: t.text, color: t.card, fontSize: 12, fontWeight: 600,
-            boxShadow: '0 8px 20px rgba(0,0,0,0.18)',
-          }}>
-          {keyHint}
-        </div>
-      )}
+      {keyHintNode}
     </div>
   );
 }

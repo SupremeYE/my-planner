@@ -13,7 +13,8 @@ import {
   subMonths,
 } from 'date-fns';
 import { ko } from 'date-fns/locale';
-import { usePlanner, Event, PeriodRecord, SelfCareRecord, Todo, getLogicalToday } from '../store';
+import { usePlanner, Event, PeriodRecord, SelfCareRecord, Todo, getLogicalToday, TOP3_MSG } from '../store';
+import { useKeyHint } from '../hooks/useKeyHint';
 import { isDoOvertimeVsPlan, doElapsedTitleSuffix } from '../../lib/todoDoDuration';
 import { expandRecurringTodos, isVirtualTodoId, parseVirtualTodoId } from '../../lib/recurrenceExpansion';
 import { buildTodoToggleUpdate } from '../../lib/todoToggle';
@@ -375,6 +376,7 @@ export function CalendarView() {
     updateEvent, deleteEvent, toggleEventCompleted,
   } = usePlanner();
   const { t } = useTheme();
+  const { showKeyHint, keyHintNode } = useKeyHint();
   const [tab, setTab] = useState<TabType>('month');
   const [filter, setFilter] = useState<FilterType>('all');
   const [viewDate, setViewDate] = useState(parseISO(selectedDate));
@@ -546,6 +548,7 @@ export function CalendarView() {
   const handleSnoozeTodo = (todo: Todo) => {
     if (!todo.date) return;
     const next = format(addDays(parseISO(todo.date), 1), 'yyyy-MM-dd');
+    // 미루기 = 날짜 이동 → 별(is_top3)은 자리 유무와 무관하게 항상 떨어진다(D2). 별이 있었다면 알린다.
     if (isVirtualTodoId(todo.id)) {
       const info = parseVirtualTodoId(todo.id);
       if (info) {
@@ -554,21 +557,24 @@ export function CalendarView() {
           text: todo.text,
           date: next,
           status: 'active',
-          isTop3: todo.isTop3,
+          isTop3: false,
           planStart: todo.planStart || undefined,
           tags: todo.tags,
           projectId: todo.projectId,
         });
+        if (todo.isTop3) showKeyHint(TOP3_MSG.snooze);
         return;
       }
     }
     updateTodo(todo.id, {
       date: next,
       status: 'active',
+      isTop3: false,
       planEnd: undefined,
       doStart: undefined,
       doEnd: undefined,
     });
+    if (todo.isTop3) showKeyHint(TOP3_MSG.snooze);
   };
 
   // 삭제: 반복 인스턴스는 "이 항목만/이후/전체" 분기 모달, 일반 할일은 확인 팝업
@@ -1097,6 +1103,7 @@ export function CalendarView() {
           onCancel={() => setConfirmDelete(null)}
         />
       )}
+      {keyHintNode}
     </div>
   );
 }

@@ -5,8 +5,9 @@ import {
   Check, Star, Pencil, ListTodo, Play,
   AlertTriangle, ArrowDownToLine, Inbox,
 } from 'lucide-react';
-import { usePlanner, Todo, TodoStatus, getLogicalToday } from '../store';
+import { usePlanner, Todo, TodoStatus, getLogicalToday, TOP3_MSG } from '../store';
 import { useTheme } from '../ThemeContext';
+import { useKeyHint } from '../hooks/useKeyHint';
 import ConfirmModal from './ConfirmModal';
 import { MandalartSourceBadge } from './mandalart/MandalartSourceBadge';
 import { TodoModal } from './TodoModal';
@@ -345,7 +346,12 @@ interface TabSelectionProps {
 function TodoListTab({ selectMode, selected, onSelectToggle }: TabSelectionProps) {
   const { todos, updateTodo, deleteTodo, toggleTop3 } = usePlanner();
   const { t } = useTheme();
+  const { showKeyHint, keyHintNode } = useKeyHint();
   const [editingTodo, setEditingTodo] = useState<Todo | null>(null);
+  // 별 토글이 3개 도달로 거부되면 사용자에게 사유를 알린다(무피드백 no-op 금지).
+  const handleTop3Toggle = (id: string) => {
+    if (toggleTop3(id).reason === 'at-cap') showKeyHint(TOP3_MSG.cap);
+  };
 
   const todayStr = getLogicalToday();
 
@@ -434,7 +440,7 @@ function TodoListTab({ selectMode, selected, onSelectToggle }: TabSelectionProps
                 onStatusToggle={() => updateTodo(todo.id, { status: STATUS_NEXT[todo.status] })}
                 onEdit={() => setEditingTodo(todo)}
                 onDelete={() => deleteTodo(todo.id)}
-                onTop3Toggle={() => toggleTop3(todo.id)}
+                onTop3Toggle={() => handleTop3Toggle(todo.id)}
                 selectMode={selectMode}
                 selected={selected.has(todo.id)}
                 onSelectToggle={() => onSelectToggle(todo.id)}
@@ -486,7 +492,7 @@ function TodoListTab({ selectMode, selected, onSelectToggle }: TabSelectionProps
                   onStatusToggle={() => updateTodo(todo.id, { status: STATUS_NEXT[todo.status] })}
                   onEdit={() => setEditingTodo(todo)}
                   onDelete={() => deleteTodo(todo.id)}
-                  onTop3Toggle={() => toggleTop3(todo.id)}
+                  onTop3Toggle={() => handleTop3Toggle(todo.id)}
                 selectMode={selectMode}
                 selected={selected.has(todo.id)}
                 onSelectToggle={() => onSelectToggle(todo.id)}
@@ -522,7 +528,7 @@ function TodoListTab({ selectMode, selected, onSelectToggle }: TabSelectionProps
                   onStatusToggle={() => updateTodo(todo.id, { status: STATUS_NEXT[todo.status] })}
                   onEdit={() => setEditingTodo(todo)}
                   onDelete={() => deleteTodo(todo.id)}
-                  onTop3Toggle={() => toggleTop3(todo.id)}
+                  onTop3Toggle={() => handleTop3Toggle(todo.id)}
                   selectMode={selectMode}
                   selected={selected.has(todo.id)}
                   onSelectToggle={() => onSelectToggle(todo.id)}
@@ -556,7 +562,7 @@ function TodoListTab({ selectMode, selected, onSelectToggle }: TabSelectionProps
                 onStatusToggle={() => updateTodo(todo.id, { status: STATUS_NEXT[todo.status] })}
                 onEdit={() => setEditingTodo(todo)}
                 onDelete={() => deleteTodo(todo.id)}
-                onTop3Toggle={() => toggleTop3(todo.id)}
+                onTop3Toggle={() => handleTop3Toggle(todo.id)}
                 selectMode={selectMode}
                 selected={selected.has(todo.id)}
                 onSelectToggle={() => onSelectToggle(todo.id)}
@@ -586,7 +592,7 @@ function TodoListTab({ selectMode, selected, onSelectToggle }: TabSelectionProps
                     onStatusToggle={() => updateTodo(todo.id, { status: STATUS_NEXT[todo.status] })}
                     onEdit={() => setEditingTodo(todo)}
                     onDelete={() => deleteTodo(todo.id)}
-                    onTop3Toggle={() => toggleTop3(todo.id)}
+                    onTop3Toggle={() => handleTop3Toggle(todo.id)}
                 selectMode={selectMode}
                 selected={selected.has(todo.id)}
                 onSelectToggle={() => onSelectToggle(todo.id)}
@@ -604,6 +610,7 @@ function TodoListTab({ selectMode, selected, onSelectToggle }: TabSelectionProps
           onClose={() => setEditingTodo(null)}
         />
       )}
+      {keyHintNode}
     </div>
   );
 }
@@ -612,8 +619,13 @@ function TodoListTab({ selectMode, selected, onSelectToggle }: TabSelectionProps
 function DoneTodosTab({ selectMode, selected, onSelectToggle }: TabSelectionProps) {
   const { todos, updateTodo, deleteTodo, toggleTop3 } = usePlanner();
   const { t } = useTheme();
+  const { showKeyHint, keyHintNode } = useKeyHint();
   const [editingTodo, setEditingTodo] = useState<Todo | null>(null);
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
+  // 별 토글이 3개 도달로 거부되면 사유를 알린다(무피드백 no-op 금지).
+  const handleTop3Toggle = (id: string) => {
+    if (toggleTop3(id).reason === 'at-cap') showKeyHint(TOP3_MSG.cap);
+  };
 
   // done + cancelled (미분류[date=null] 완료 항목도 포함 — 인박스 통합)
   const doneOrCancelled = useMemo(
@@ -671,7 +683,7 @@ function DoneTodosTab({ selectMode, selected, onSelectToggle }: TabSelectionProp
                     onStatusToggle={() => updateTodo(todo.id, { status: 'active' })}
                     onEdit={() => setEditingTodo(todo)}
                     onDelete={() => deleteTodo(todo.id)}
-                    onTop3Toggle={() => toggleTop3(todo.id)}
+                    onTop3Toggle={() => handleTop3Toggle(todo.id)}
                 selectMode={selectMode}
                 selected={selected.has(todo.id)}
                 onSelectToggle={() => onSelectToggle(todo.id)}
@@ -689,6 +701,7 @@ function DoneTodosTab({ selectMode, selected, onSelectToggle }: TabSelectionProp
           onClose={() => setEditingTodo(null)}
         />
       )}
+      {keyHintNode}
     </div>
   );
 }

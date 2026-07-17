@@ -819,7 +819,11 @@ interface PlannerContextType {
   updateTodo: (id: string, changes: Partial<Todo>) => void;
   deleteTodo: (id: string) => void;
   deleteTodos: (ids: string[]) => void;
-  toggleTop3: (id: string) => void;
+  /**
+   * Top3(핵심) 별을 토글한다. 켜는 방향에서 같은 날 이미 3개면 거부한다.
+   * 호출부가 "왜 거부됐는지"를 알 수 있도록 결과를 반환한다(조용한 no-op 금지).
+   */
+  toggleTop3: (id: string) => Top3ToggleResult;
   /** 같은 날 Top3 개수(자기 제외). UI 가 3개 제한 도달을 사전 반영하는 데 쓴다. */
   top3CountForDate: (date?: string | null, excludeId?: string) => number;
   deleteRecurringTodo: (parentId: string, instanceDate: string, scope: 'this' | 'future' | 'all') => void;
@@ -956,6 +960,24 @@ const PlannerContext: React.Context<PlannerContextType | null> =
 
 /** 하루(같은 date 버킷)에 지정 가능한 Top3(핵심) 할일 최대 개수. */
 export const TOP3_LIMIT = 3;
+
+/**
+ * `toggleTop3` 결과 — 조용한 no-op 을 없애기 위해 거부 사유를 호출부에 전달한다.
+ * - `ok: true`  : 토글 반영됨.
+ * - `at-cap`    : 같은 날 이미 3개라 켜지 못함(호출부가 사유를 알린다).
+ * - `not-found` : 대상 없음.
+ */
+export type Top3ToggleResult = { ok: boolean; reason?: 'at-cap' | 'not-found' };
+
+/** Top3(핵심) 관련 사용자 안내 문구 — 전 화면 동일 문구 사용을 위해 한곳에 모은다. */
+export const TOP3_MSG = {
+  /** 캡 도달: 별을 켜려는데 그날 이미 3개. */
+  cap: `핵심 할일은 하루 ${TOP3_LIMIT}개까지예요`,
+  /** 미루기(별 미노출 → 부작용): 날짜를 옮기면 별은 따라가지 않는다. */
+  snooze: '핵심 표시는 그날 계획에 남아요. 옮긴 날에 다시 지정해주세요',
+  /** 모달 날짜 변경(별 노출 → 의도): 옮긴 날이 꽉 차 별만 해제. */
+  modalFull: `옮긴 날은 이미 핵심 ${TOP3_LIMIT}개예요. 별은 해제했어요`,
+} as const;
 
 /**
  * 같은 날짜 버킷에서 Top3(is_top3) 할일 개수를 센다 — 3개 제한 강제의 단일 기준.
@@ -1475,17 +1497,23 @@ export function PlannerProvider({ children }: { children: React.ReactNode }) {
     }
   }, []);
 
-  const toggleTop3 = useCallback((id: string) => {
+  const toggleTop3 = useCallback((id: string): Top3ToggleResult => {
+    // 캡 판정은 setter 밖에서(최신 스냅샷 todosRef) 선행 → 호출부가 결과로 사유를 알림.
+    // (리듀서 안에서 조용히 return prev 하던 방식이 "무피드백 no-op" 의 원인이었다.)
+    const list = todosRef.current;
+    const todo = list.find(t => t.id === id);
+    if (!todo) return { ok: false, reason: 'not-found' };
+    // 켜는 방향일 때만 캡 검사(자기 제외); 끄는 건 항상 허용.
+    if (!todo.isTop3 && countTop3ForDateIn(list, todo.date, id) >= TOP3_LIMIT) {
+      return { ok: false, reason: 'at-cap' };
+    }
     setTodos(prev => {
-      const todo = prev.find(t => t.id === id);
-      if (!todo) return prev;
-      // 켜는 방향일 때만 캡 검사(자기 제외); 끄는 건 항상 허용. 초과면 no-op.
-      if (!todo.isTop3 && countTop3ForDateIn(prev, todo.date, id) >= TOP3_LIMIT) return prev;
       const updated = prev.map(t => t.id === id ? { ...t, isTop3: !t.isTop3 } : t);
       const updatedTodo = updated.find(t => t.id === id);
       if (updatedTodo) db.todos.upsert(updatedTodo);
       return updated;
     });
+    return { ok: true };
   }, []);
 
   // UI 사전 반영용 셀렉터 — 같은 날 Top3 개수(자기 제외). 모달/빠른입력이 캡 도달을 미리 알린다.
