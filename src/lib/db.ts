@@ -275,7 +275,10 @@ const fromTodo = (t: Todo): TodoRow => ({
   recurrence_parent_id: t.recurrenceParentId ?? null,
   is_exception: t.isException ?? null,
   recurrence_freq: t.recurrenceFreq ?? null,
-  recurrence_interval: t.recurrenceInterval ?? null,
+  // recurrence_interval 은 DB에서 NOT NULL DEFAULT 1 (20260714 통합 반복 마이그레이션).
+  // 명시적 null 을 보내면 NOT NULL 위반(23502)으로 insert 전체가 실패 → 신규 할일이 저장 안 됨.
+  // 비반복 할일은 의미상 interval 1(매 1 주기) 로 채워 제약을 만족시킨다.
+  recurrence_interval: t.recurrenceInterval ?? 1,
   recurrence_preset: t.recurrencePreset ?? null,
   started_date: t.startedDate ?? null,
 });
