@@ -624,7 +624,7 @@ export function WeightTab() {
                 domain={['dataMin - 1', 'dataMax + 1']} />
               {(showFat || showMuscle) && (
                 <YAxis yAxisId="right" orientation="right" tick={{ fontSize: 10, fill: t.textMuted }}
-                  tickLine={false} axisLine={false} />
+                  tickLine={false} axisLine={false} domain={['dataMin - 1', 'dataMax + 1']} />
               )}
               <Tooltip content={<ChartTooltip />} />
               {goal && (
@@ -684,15 +684,20 @@ export function WeightTab() {
                 }}>
                 <span style={{ fontSize: 12, color: t.textSub, width: 60, flexShrink: 0 }}>{r.date.slice(5)}</span>
                 <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 flex-wrap">
+                  <div className="flex items-center gap-x-2 gap-y-0.5 flex-wrap">
                     <span className="px-1.5 py-0.5 rounded-md flex-shrink-0"
                       style={{ fontSize: 10, fontWeight: 600, color: t.textSub, backgroundColor: t.bgSub }}>{r.slot}</span>
                     <span style={{ fontSize: 14, fontWeight: 700, color: t.text }}>{r.weight} kg</span>
-                    {r.bodyFat != null && (
-                      <span style={{ fontSize: 11, color: COLOR_FAT }}>체지방 {r.bodyFat}%</span>
-                    )}
-                    {r.muscleMass != null && (
-                      <span style={{ fontSize: 11, color: COLOR_MUSCLE }}>골격근 {r.muscleMass}kg</span>
+                    {/* 체지방·골격근 — 모바일은 몸무게 다음 줄바꿈해서 한 줄에(basis-full), PC는 인라인 유지 */}
+                    {(r.bodyFat != null || r.muscleMass != null) && (
+                      <div className="flex items-center gap-2 basis-full lg:basis-auto">
+                        {r.bodyFat != null && (
+                          <span style={{ fontSize: 11, color: COLOR_FAT }}>체지방 {r.bodyFat}%</span>
+                        )}
+                        {r.muscleMass != null && (
+                          <span style={{ fontSize: 11, color: COLOR_MUSCLE }}>골격근 {r.muscleMass}kg</span>
+                        )}
+                      </div>
                     )}
                   </div>
                   {r.memo && <p style={{ fontSize: 11, color: t.textMuted, marginTop: 2 }}>{r.memo}</p>}
