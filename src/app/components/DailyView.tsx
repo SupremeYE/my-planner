@@ -8,7 +8,7 @@ import {
 } from 'lucide-react';
 import { format, addDays, subDays, addMonths, subMonths, startOfMonth, getDaysInMonth, getDay as getDayOfWeek, parseISO, addMinutes, differenceInCalendarDays } from 'date-fns';
 import { ko } from 'date-fns/locale';
-import { usePlanner, Todo, Event, getLogicalToday } from '../store';
+import { usePlanner, Todo, Event, getLogicalToday, TOP3_LIMIT } from '../store';
 import { useTheme } from '../ThemeContext';
 import { isHaon, solidCardStyle, solidRowStyle, glassBarStyle, mixHex, withAlpha } from '../styles/haonStyles';
 import { useNotification } from '../hooks/useNotification';
@@ -962,11 +962,12 @@ export function DailyView() {
     else snoozeEvent(event, nextDayOf(event));
   };
 
-  // ★ KEY 빠른 토글 (4개 이상이면 막지 않고 안내만)
+  // ★ KEY 빠른 토글 — 3개 제한을 store(updateTodo 클램프)와 동일하게 강제. 초과 지정은 막고 사유 안내.
   const toggleKeyTodo = (todo: Todo) => {
-    if (!todo.isTop3 && dateTodos.filter(td => td.isTop3).length >= 3) {
-      setKeyHint('핵심은 3개를 권장해요');
+    if (!todo.isTop3 && dateTodos.filter(td => td.isTop3 && td.id !== todo.id).length >= TOP3_LIMIT) {
+      setKeyHint(`핵심 할일은 하루 ${TOP3_LIMIT}개까지예요`);
       setTimeout(() => setKeyHint(null), 2000);
+      return;
     }
     updateTodo(todo.id, { isTop3: !todo.isTop3 });
   };

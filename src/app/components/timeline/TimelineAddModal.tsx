@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Star, X } from 'lucide-react';
-import { usePlanner, getLogicalToday } from '../../store';
+import { usePlanner, getLogicalToday, TOP3_LIMIT } from '../../store';
 import { useTheme } from '../../ThemeContext';
 import { TimePicker } from '../TimePicker';
 import { timeToMinutes } from './timelineConstants';
@@ -14,7 +14,7 @@ export function TimelineAddModal({ date, initialStart, initialEnd, initialLane, 
   initialLane: 'plan' | 'do';
   onClose: () => void;
 }) {
-  const { addTodo, addEvent, tags } = usePlanner();
+  const { addTodo, addEvent, tags, top3CountForDate } = usePlanner();
   const { t } = useTheme();
   const [lane, setLane] = useState<'plan' | 'do'>(initialLane);
   const [kind, setKind] = useState<'todo' | 'event'>('todo');
@@ -27,6 +27,9 @@ export function TimelineAddModal({ date, initialStart, initialEnd, initialLane, 
 
   const invalidTime = !start || !end || timeToMinutes(end) <= timeToMinutes(start);
   const canSave = title.trim().length > 0 && !invalidTime;
+
+  // Top3 3개 제한 사전 반영 — 이 날 이미 3개면 KEY 토글 비활성(신규 추가라 자기 제외 불필요).
+  const top3Disabled = !isTop3 && top3CountForDate(date) >= TOP3_LIMIT;
 
   const handleSave = () => {
     if (!canSave) return;
@@ -126,20 +129,28 @@ export function TimelineAddModal({ date, initialStart, initialEnd, initialLane, 
           )}
           {/* 할일 전용: 카테고리 + KEY */}
           {kind === 'todo' && (
-            <div className="flex items-center gap-2">
-              <input value={category} onChange={e => setCategory(e.target.value)} placeholder="카테고리 (선택)"
-                className="flex-1 rounded-lg px-3 py-2 outline-none"
-                style={{ border: `1px solid ${t.border}`, backgroundColor: inputBg(t), color: t.text, fontSize: 13 }} />
-              <button type="button" onClick={() => setIsTop3(v => !v)}
-                className="flex items-center gap-1 px-3 py-2 rounded-lg"
-                style={{
-                  fontSize: 12, fontWeight: 600, whiteSpace: 'nowrap',
-                  backgroundColor: isTop3 ? t.accentLight : t.bgSub,
-                  color: isTop3 ? t.accent : t.textSub,
-                  border: `1px solid ${isTop3 ? t.accent : t.border}`,
-                }}>
-                <Star size={13} fill={isTop3 ? t.accent : 'none'} color={isTop3 ? t.accent : t.textMuted} /> KEY
-              </button>
+            <div>
+              <div className="flex items-center gap-2">
+                <input value={category} onChange={e => setCategory(e.target.value)} placeholder="카테고리 (선택)"
+                  className="flex-1 rounded-lg px-3 py-2 outline-none"
+                  style={{ border: `1px solid ${t.border}`, backgroundColor: inputBg(t), color: t.text, fontSize: 13 }} />
+                <button type="button" onClick={() => { if (!top3Disabled) setIsTop3(v => !v); }}
+                  disabled={top3Disabled}
+                  className="flex items-center gap-1 px-3 py-2 rounded-lg"
+                  style={{
+                    fontSize: 12, fontWeight: 600, whiteSpace: 'nowrap',
+                    backgroundColor: isTop3 ? t.accentLight : t.bgSub,
+                    color: isTop3 ? t.accent : t.textSub,
+                    border: `1px solid ${isTop3 ? t.accent : t.border}`,
+                    cursor: top3Disabled ? 'not-allowed' : 'pointer',
+                    opacity: top3Disabled ? 0.45 : 1,
+                  }}>
+                  <Star size={13} fill={isTop3 ? t.accent : 'none'} color={isTop3 ? t.accent : t.textMuted} /> KEY
+                </button>
+              </div>
+              {top3Disabled && (
+                <span style={{ fontSize: 11, color: t.textMuted, marginTop: 4, display: 'block' }}>핵심 할일은 하루 {TOP3_LIMIT}개까지예요</span>
+              )}
             </div>
           )}
         </div>

@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react';
 import { format, parseISO } from 'date-fns';
 import { ko } from 'date-fns/locale';
 import { CalendarClock, ChevronDown, Inbox, Plus, RefreshCw, Star } from 'lucide-react';
-import { usePlanner, Event, Todo, getLogicalToday } from '../store';
+import { usePlanner, Event, Todo, getLogicalToday, TOP3_LIMIT } from '../store';
 import { useTheme } from '../ThemeContext';
 import { parseQuickEntry } from '../../lib/quickParse';
 import { pickNewTagColor } from '../../lib/tagPalette';
@@ -47,7 +47,7 @@ function plusOneHour(time: string): string {
 }
 
 export function QuickAddInput({ defaultDate = null, onSubmitted, autoFocus, placeholder, solid }: QuickAddInputProps) {
-  const { addTodo, addEvent, addTag, tags: allTags, projects } = usePlanner();
+  const { addTodo, addEvent, addTag, top3CountForDate, tags: allTags, projects } = usePlanner();
   const { t } = useTheme();
 
   // 솔리드 표면: solid prop + 파스텔(H) 테마(cardFrosted 존재)에서만. 그 외에는 기존 모양 유지.
@@ -78,6 +78,9 @@ export function QuickAddInput({ defaultDate = null, onSubmitted, autoFocus, plac
 
   // 날짜 토큰이 없으면 호출 맥락의 기본 날짜로 폴백 (Inbox 면 null)
   const effectiveDate = parsed.date ?? defaultDate ?? null;
+
+  // Top3 3개 제한 — 이 날 이미 3개면 "중요"는 저장 시 store 에서 클램프된다(무음 아님: 칩으로 사전 안내).
+  const top3Full = top3CountForDate(effectiveDate) >= TOP3_LIMIT;
 
   // 프로젝트 이름 매칭 (성공 시 projectId, 실패 시 @토큰을 제목에 되돌림)
   const matchedProject = useMemo(() => {
@@ -278,8 +281,10 @@ export function QuickAddInput({ defaultDate = null, onSubmitted, autoFocus, plac
           {parsed.tags.map(name => chip(`tag-${name}`, `#${name}`, t.danger))}
           {/* 프로젝트 (매칭 성공 시에만) */}
           {matchedProject && chip('proj', `@${matchedProject.name}`, t.accent)}
-          {/* Top3 */}
-          {parsed.isTop3 && chip('top3', '중요', t.accent, <Star size={11} fill={t.accent} />)}
+          {/* Top3 — 이 날 3개가 차면 저장 시 제외되므로 뮤트 처리 + 사유 노출 */}
+          {parsed.isTop3 && (top3Full
+            ? chip('top3', `중요 (하루 ${TOP3_LIMIT}개 초과)`, t.textMuted, <Star size={11} fill={t.textMuted} />)
+            : chip('top3', '중요', t.accent, <Star size={11} fill={t.accent} />))}
 
           {/* 자세히 → 기존 모달 열기 */}
           <button

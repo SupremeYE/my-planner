@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { format, getDay, parseISO } from 'date-fns';
 import { ko } from 'date-fns/locale';
 import { CalendarDays, RefreshCw, Star, Trash2, X } from 'lucide-react';
-import { usePlanner, Todo, getLogicalToday } from '../store';
+import { usePlanner, Todo, getLogicalToday, TOP3_LIMIT } from '../store';
 import { useTheme } from '../ThemeContext';
 import ConfirmModal from './ConfirmModal';
 import { TimePicker } from './TimePicker';
@@ -39,7 +39,7 @@ interface TodoModalProps {
 }
 
 export function TodoModal({ date, todo, initialPlanStart, initialPlanEnd, initialWeeklyGoalId, initialProjectId, initialMilestoneId, initialText, initialTags, initialIsTop3, initialRecurrenceRule, initialRecurrenceDays, onClose }: TodoModalProps) {
-  const { addTodo, updateTodo, deleteTodo, deleteRecurringTodo, updateRecurringTodo, tags: allTags, projects, milestones, addTag, updateTag, deleteTag, addProject, timeBlocks } = usePlanner();
+  const { addTodo, updateTodo, deleteTodo, deleteRecurringTodo, updateRecurringTodo, top3CountForDate, tags: allTags, projects, milestones, addTag, updateTag, deleteTag, addProject, timeBlocks } = usePlanner();
   const { t } = useTheme();
 
   // ── 반복 관련 ───────────────────────────────────────────────────────────────
@@ -163,6 +163,16 @@ export function TodoModal({ date, todo, initialPlanStart, initialPlanEnd, initia
       // noop
     }
   }, [paletteColors]);
+
+  // Top3 3개 제한 사전 반영 — 같은 날 이미 3개면 별 토글 비활성(자기 제외).
+  const top3Used = top3CountForDate(effectiveDate || null, todo?.id);
+  const top3AtCap = top3Used >= TOP3_LIMIT;
+  const top3Disabled = top3AtCap && !isTop3;
+  // 날짜를 3개 찬 날로 바꾸면 켜둔 별을 조용히 해제(저장 시 store 클램프와 UI 일치).
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useEffect(() => {
+    if (isTop3 && top3CountForDate(effectiveDate || null, todo?.id) >= TOP3_LIMIT) setIsTop3(false);
+  }, [effectiveDate]);
 
   const addColorToPalette = (color: string): boolean => {
     const normalized = normalizeHex(color);
@@ -566,16 +576,24 @@ export function TodoModal({ date, todo, initialPlanStart, initialPlanEnd, initia
           )}
 
           {/* Top3 */}
-          <label className="flex items-center gap-2 cursor-pointer">
-            <button onClick={() => setIsTop3(!isTop3)} className="p-0.5">
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => { if (!top3Disabled) setIsTop3(!isTop3); }}
+              disabled={top3Disabled}
+              className="p-0.5"
+              style={{ cursor: top3Disabled ? 'not-allowed' : 'pointer', opacity: top3Disabled ? 0.45 : 1 }}
+            >
               <Star
                 size={16}
                 fill={isTop3 ? t.accent : 'none'}
                 color={isTop3 ? t.accent : t.textMuted}
               />
             </button>
-            <span style={{ fontSize: 12, color: t.text }}>Top 3 중요 할일</span>
-          </label>
+            <span style={{ fontSize: 12, color: top3Disabled ? t.textMuted : t.text }}>Top 3 중요 할일</span>
+            {top3Disabled && (
+              <span style={{ fontSize: 11, color: t.textMuted }}>· 핵심 할일은 하루 {TOP3_LIMIT}개까지예요</span>
+            )}
+          </div>
 
           {/* 프로젝트 */}
           <div>

@@ -820,6 +820,8 @@ interface PlannerContextType {
   deleteTodo: (id: string) => void;
   deleteTodos: (ids: string[]) => void;
   toggleTop3: (id: string) => void;
+  /** 같은 날 Top3 개수(자기 제외). UI 가 3개 제한 도달을 사전 반영하는 데 쓴다. */
+  top3CountForDate: (date?: string | null, excludeId?: string) => number;
   deleteRecurringTodo: (parentId: string, instanceDate: string, scope: 'this' | 'future' | 'all') => void;
   updateRecurringTodo: (parentId: string, instanceDate: string, changes: Partial<Todo>, scope: 'this' | 'future' | 'all') => void;
 
@@ -951,6 +953,20 @@ const CONTEXT_KEY = '__PLANNER_CONTEXT__';
 const PlannerContext: React.Context<PlannerContextType | null> =
   (globalThis as any)[CONTEXT_KEY] ??
   ((globalThis as any)[CONTEXT_KEY] = createContext<PlannerContextType | null>(null));
+
+/** 하루(같은 date 버킷)에 지정 가능한 Top3(핵심) 할일 최대 개수. */
+export const TOP3_LIMIT = 3;
+
+/**
+ * 같은 날짜 버킷에서 Top3(is_top3) 할일 개수를 센다 — 3개 제한 강제의 단일 기준.
+ * - 버킷 기준: `date` 일치(미지정 null/undefined 은 하나의 Inbox 버킷으로 묶음).
+ * - status 무관: 완료(done)/취소(cancelled) 도 카운트에 포함(결정: 현행 유지).
+ * - `excludeId`: 자기 자신은 제외(편집/토글 대상).
+ */
+function countTop3ForDateIn(list: Todo[], date: string | null | undefined, excludeId?: string): number {
+  const bucket = date ?? null;
+  return list.filter(t => t.isTop3 && (t.date ?? null) === bucket && t.id !== excludeId).length;
+}
 
 export function PlannerProvider({ children }: { children: React.ReactNode }) {
   const [isLoading, setIsLoading] = useState(true);
@@ -1289,8 +1305,15 @@ export function PlannerProvider({ children }: { children: React.ReactNode }) {
   // ── Todo actions ──
   const addTodo = useCallback((todo: Omit<Todo, 'id'>) => {
     const newTodo: Todo = { ...todo, id: newId(), tags: todo.tags ?? [] };
-    setTodos(prev => [...prev, newTodo]);
-    db.todos.upsert(newTodo);
+    setTodos(prev => {
+      // Top3 3개 제한 단일 강제 지점(모달·타임라인·빠른입력·미루기 등 모든 isTop3 쓰기가 여기를 통과).
+      // 같은 날 이미 3개면 조용히 false 로 클램프(우회 차단). UI 는 사전에 토글을 비활성화해 알린다.
+      const capped = newTodo.isTop3 && countTop3ForDateIn(prev, newTodo.date, newTodo.id) >= TOP3_LIMIT
+        ? { ...newTodo, isTop3: false }
+        : newTodo;
+      db.todos.upsert(capped);
+      return [...prev, capped];
+    });
   }, []);
 
   // 반복 가상 인스턴스(`parentId::date`)를 실제 예외 레코드로 구체화하고 실제 todo id를 반환한다.
@@ -1328,7 +1351,16 @@ export function PlannerProvider({ children }: { children: React.ReactNode }) {
   const updateTodo = useCallback((id: string, changes: Partial<Todo>) => {
     const realId = ensureMaterializedTodoId(id);
     setTodos(prev => {
-      const updated = prev.map(t => t.id === realId ? { ...t, ...changes } : t);
+      const updated = prev.map(t => {
+        if (t.id !== realId) return t;
+        const merged = { ...t, ...changes };
+        // Top3 3개 제한 단일 강제 지점 — 편집으로 켜거나 날짜를 옮겨도 같은 날 3개 초과면 false 로 클램프.
+        // (자기 제외. 날짜 이동 시 조용히 별 해제 = 결정: 미루기/이동은 무피드백 클램프.)
+        if (merged.isTop3 && countTop3ForDateIn(prev, merged.date, realId) >= TOP3_LIMIT) {
+          merged.isTop3 = false;
+        }
+        return merged;
+      });
       const todo = updated.find(t => t.id === realId);
       if (todo) db.todos.upsert(todo);
       return updated;
@@ -1447,14 +1479,20 @@ export function PlannerProvider({ children }: { children: React.ReactNode }) {
     setTodos(prev => {
       const todo = prev.find(t => t.id === id);
       if (!todo) return prev;
-      const top3Count = prev.filter(t => t.isTop3 && t.date === todo.date && t.id !== id).length;
-      if (!todo.isTop3 && top3Count >= 3) return prev;
+      // 켜는 방향일 때만 캡 검사(자기 제외); 끄는 건 항상 허용. 초과면 no-op.
+      if (!todo.isTop3 && countTop3ForDateIn(prev, todo.date, id) >= TOP3_LIMIT) return prev;
       const updated = prev.map(t => t.id === id ? { ...t, isTop3: !t.isTop3 } : t);
       const updatedTodo = updated.find(t => t.id === id);
       if (updatedTodo) db.todos.upsert(updatedTodo);
       return updated;
     });
   }, []);
+
+  // UI 사전 반영용 셀렉터 — 같은 날 Top3 개수(자기 제외). 모달/빠른입력이 캡 도달을 미리 알린다.
+  const top3CountForDate = useCallback(
+    (date?: string | null, excludeId?: string) => countTop3ForDateIn(todos, date, excludeId),
+    [todos],
+  );
 
   // ── Event actions ──
   const addEvent = useCallback((event: Omit<Event, 'id'>) => {
@@ -2285,7 +2323,7 @@ export function PlannerProvider({ children }: { children: React.ReactNode }) {
       timelineLogs,
       dailyAffirmations, setDailyAffirmation,
       appSettings, updateAppSettings,
-      addTodo, updateTodo, deleteTodo, deleteTodos, toggleTop3, deleteRecurringTodo, updateRecurringTodo,
+      addTodo, updateTodo, deleteTodo, deleteTodos, toggleTop3, top3CountForDate, deleteRecurringTodo, updateRecurringTodo,
       addEvent, updateEvent, deleteEvent, toggleEventCompleted, snoozeEvent,
       addHabit, addHabitFull, updateHabit, deleteHabit, toggleHabit,
       updateHabitProgress, updateHabitMemo,

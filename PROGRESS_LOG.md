@@ -6,6 +6,30 @@
 
 ---
 
+## 2026-07-17 — ⭐ BUGFIX-1: Top 3 개수 제한 우회 차단 (단일 강제 지점)
+
+### 🐛 문제
+`is_top3` "하루 3개" 제한이 `store.tsx` `toggleTop3` 1곳에서만 강제되어, 모달·빠른입력·미루기 경로가 이를 우회 → 4개 이상 지정 가능. (조사: `docs/STAGE0_TASK_EDITOR.md §1.7`, §4 재설계 위험 #4)
+
+### 🛠 수정 (choke point = store 쓰기 함수)
+- **단일 강제 지점 도입**: `store.tsx`에 `TOP3_LIMIT = 3` 상수 + `countTop3ForDateIn()`(같은 `date` 버킷·자기 제외·status 무관 카운트) 헬퍼 신설. `addTodo`·`updateTodo`·`toggleTop3` **모두 이 헬퍼를 경유**해, 같은 날 이미 3개면 `isTop3`를 조용히 `false`로 클램프. 모든 `isTop3` 쓰기(모달·타임라인·빠른입력·미루기/이동)가 이 지점을 통과한다. (DB constraint 없음 유지 — 앱 레이어 강제.)
+- **우회 경로 정리**: `TodoModal`(buildChanges→add/updateTodo), `TimelineAddModal`(addTodo), `QuickAddInput`(addTodo/자세히), `DailyView.toggleKeyTodo`(소프트 안내만 하던 것) 모두 store 클램프를 경유하도록 정리. `toggleKeyTodo`는 소프트→하드(초과 시 차단 + 사유)로 통일(舊 하드/소프트 정책 불일치 해소, `HAON_MIGRATION.md:100`).
+- **UI 사전 반영**: `top3CountForDate(date, excludeId)` 셀렉터 노출. 같은 날 3개 도달 시 **별 토글 비활성 + 사유** 표시 — `TodoModal`(날짜 변경 시 켜둔 별 자동 해제 포함), `TimelineAddModal`(KEY 버튼), `QuickAddInput`(중요 칩 뮤트+"하루 3개 초과"), `DailyView`(토스트).
+- **문구**(UX_WRITING_GUIDE 부재): "핵심 할일은 하루 3개까지예요".
+
+### 결정(승인) & 엣지 케이스
+- 미루기/날짜 변경으로 3개 찬 날로 이동 → **조용히 별 해제**(무피드백 클램프).
+- 완료/취소(done/cancelled) 할일도 **카운트 포함**(현행 유지).
+- Inbox(`date=null`) 한 버킷 · 반복=부모 date만 카운트 · 멀티데이=시작일만 카운트(현행 유지, 미변경).
+- 기존 데이터: 하루 4개 이상 top3인 날 **0건**(Supabase 카운트 확인). 마이그레이션 안 함.
+
+### ✅ 검증
+- `npm run build`(vite 6) 통과, `npm run lint:fonts` 0건.
+- 강제 로직 6케이스 단위검증 통과: 4번째 add 클램프 / 해제 후 재지정 / 기존 top3 편집 유지 / 날짜 이동 시 클램프 / Inbox null·undefined 한 버킷 / 레거시 4+ 해제 가능.
+- 스코프: 모달 레이아웃·TimePicker·실적/반복·색토큰 미변경.
+
+---
+
 ## 2026-07-16 — ⚖️ 몸무게 통계 like-for-like — 기준 slot 도입 (⑫ Stage 1~3)
 
 ### 🛠 구현 (WeightTab 통계 카드 — 폴백≠비교 결함 근본 수정)
