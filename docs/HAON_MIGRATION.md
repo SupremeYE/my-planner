@@ -152,3 +152,13 @@
   - **나머지 10파일**(`EventModal`·`TimelineAddModal`·`BrainstormView`·`CalendarView`·`SleepTimeEditModal`·
     `DailyView`·`RoutinesView`·`HabitsView`·`TimelineLogModal` = TimeField / `SettingsView`·
     `TimelineSettingsModal` = HourField) — 후속 Stage. `TimePicker`는 이들이 모두 이전될 때까지 삭제 금지.
+
+### 10.2 Stage 4a-1b — duration chip 선택 상태
+- **DESIGN.md §5 「시각 입력」에 duration chip 스펙 추가**(3단계 상태·단일 선택 토글·코랄 금지·라일락 선택).
+- **`DurationChips` 선택 상태 구현.** 현재 계획 길이(end−start)와 일치하는 칩만 활성:
+  기본=`t.card`(흰) + `t.textMuted` + hairline / 선택=`t.accentSoft`(라일락 `#F4E7FB`) + `t.text`(딥 인디고) + hairline.
+  코랄 제거(이전엔 `t.accentLight`(소프트 코랄) fill + `t.accent` 텍스트 = 붉은 위 붉은 + 선택 상태 없음).
+- **토큰 주의(SSOT):** 라일락 tint = **`t.accentSoft`**(`#F4E7FB`). `t.accentLight`(`#F6BCBA`)은 **소프트 코랄**이다 — 혼동 금지.
+- **선택 fill 강도:** 흰 카드 위 `accentSoft` 대비가 부족하면 `t.bgHover`(`#EFE3FA`)로 한 단계 상향 가능(옵션). 현재는 `accentSoft` 확정.
+- **후속 과제(기록):** `haonStyles.buttonStyle`에는 `selected` 변형이 없어 이번엔 인라인(토큰) 유지.
+  버튼 recipe에 selected 변형을 추가하면 이 칩을 recipe 경유로 회수(§5 "single recipe") — 후속 Stage.

@@ -259,26 +259,39 @@ export function TimeField({
   );
 }
 
-// ─── DurationChips — 모바일 종료 자동설정 칩(시작 + chip = 종료) ───
+// ─── DurationChips — 모바일 종료 빠른설정 칩(시작 + chip = 종료) ───
 // 좁은 종료 필드 칼럼이 아니라 폼 전체 폭에 한 줄로 배치한다(모바일). start가 있어야 렌더.
+// 단일 선택 토글: 현재 계획 길이(end−start)와 일치하는 칩만 선택 상태(라일락 fill + 딥 인디고 텍스트).
+// 색 규정은 DESIGN.md §5 「시각 입력」 duration chip 표 참조(코랄 금지 — accentSoft 라일락, accentLight은 소프트 코랄).
 // TimeField와 시간 헬퍼(toMin/toHHMM/fmtDur/DURATION_CHIPS)를 공유하려 같은 파일에 둔다.
-export function DurationChips({ start, onPick, className = '' }: {
+export function DurationChips({ start, end, onPick, className = '' }: {
   start: string;                 // "HH:mm"
+  end: string;                   // "HH:mm" — 현재 계획 종료(선택 상태 판정용)
   onPick: (end: string) => void; // 시작 + duration = 종료
   className?: string;
 }) {
   const { t } = useTheme();
   const startMin = toMin(start);
   if (startMin == null) return null;
+  const endMin = toMin(end);
+  const gap = endMin != null ? endMin - startMin : null; // 현재 계획 길이(분)
   return (
     <div className={className} style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: 8 }}>
-      {DURATION_CHIPS.map(d => (
-        <button key={d} type="button"
-          onClick={() => onPick(toHHMM(Math.min(startMin + d, DAY_MAX)))}
-          style={{ fontSize: 12, fontWeight: 500, padding: '4px 14px', borderRadius: 999, background: t.accentLight, color: t.accent, border: 'none', cursor: 'pointer', whiteSpace: 'nowrap' }}>
-          {fmtDur(d)}
-        </button>
-      ))}
+      {DURATION_CHIPS.map(d => {
+        const selected = gap === d; // 현재 길이와 일치하는 칩만 활성
+        return (
+          <button key={d} type="button"
+            onClick={() => onPick(toHHMM(Math.min(startMin + d, DAY_MAX)))}
+            style={{
+              fontSize: 12, fontWeight: 500, padding: '4px 14px', borderRadius: 999,
+              border: `1px solid ${t.border}`, cursor: 'pointer', whiteSpace: 'nowrap',
+              background: selected ? t.accentSoft : t.card, // 선택=라일락 tint / 기본=흰색
+              color: selected ? t.text : t.textMuted,        // 선택=딥 인디고 / 기본=muted
+            }}>
+            {fmtDur(d)}
+          </button>
+        );
+      })}
     </div>
   );
 }
