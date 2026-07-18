@@ -88,13 +88,14 @@ export function TimeField({
 
   const [open, setOpen] = useState(false);
   const [text, setText] = useState('');
+  const [dirty, setDirty] = useState(false); // 포커스 후 실제 타이핑했는지 — 안 했으면 목록 필터 안 함(현재값 전체선택 상태로 전체 목록 노출)
   const [hi, setHi] = useState(0);
   const listRef = useRef<HTMLDivElement>(null);
   const localInputRef = useRef<HTMLInputElement>(null);
   const comboRef = inputRef ?? localInputRef;
   const blurTimer = useRef<number | null>(null);
 
-  const q = text.replace(/\D/g, '');
+  const q = dirty ? text.replace(/\D/g, '') : ''; // 타이핑 전(전체선택 상태)엔 전체 목록
   const filtered = useMemo(() => list.filter(it => matchQuery(it.value, q)), [list, q]);
   const focusRing = `0 0 0 3px ${withAlpha(t.accent, 0.25)}`;
 
@@ -122,11 +123,13 @@ export function TimeField({
     onChange(v);
     setOpen(false);
     setText('');
+    setDirty(false);
     if (role === 'start') onCommitFocusNext?.();
   };
 
   const tryCommitTyped = () => {
-    const parsed = parseTyped(text);
+    const parsed = dirty ? parseTyped(text) : null; // 타이핑 안 했으면 하이라이트 항목 확정
+    if (!dirty && filtered[hi]) { commit(filtered[hi].value); return; }
     if (parsed) {
       const pmin = toMin(parsed)!;
       if (startMin != null && pmin <= startMin) return; // 시작 이전 배제
@@ -140,19 +143,20 @@ export function TimeField({
     if (e.key === 'ArrowDown') { e.preventDefault(); setOpen(true); setHi(h => Math.min(h + 1, filtered.length - 1)); }
     else if (e.key === 'ArrowUp') { e.preventDefault(); setHi(h => Math.max(h - 1, 0)); }
     else if (e.key === 'Enter') { e.preventDefault(); tryCommitTyped(); }
-    else if (e.key === 'Escape') { e.preventDefault(); setOpen(false); setText(''); comboRef.current?.blur(); }
+    else if (e.key === 'Escape') { e.preventDefault(); setOpen(false); setText(''); setDirty(false); comboRef.current?.blur(); }
   };
 
   const handleFocus = () => {
     if (blurTimer.current) { window.clearTimeout(blurTimer.current); blurTimer.current = null; }
     setOpen(true);
     setText(value ?? '');
+    setDirty(false);
     requestAnimationFrame(() => comboRef.current?.select());
   };
   const handleBlur = () => {
-    blurTimer.current = window.setTimeout(() => { setOpen(false); setText(''); }, 150);
+    blurTimer.current = window.setTimeout(() => { setOpen(false); setText(''); setDirty(false); }, 150);
   };
-  const clear = () => { onChange(''); setText(''); setOpen(false); };
+  const clear = () => { onChange(''); setText(''); setDirty(false); setOpen(false); };
 
   const isMd = size === 'md';
   const fieldStyle: CSSProperties = {
@@ -219,7 +223,7 @@ export function TimeField({
             inputMode="numeric"
             value={open ? text : (value || '')}
             placeholder={placeholder}
-            onChange={e => { setText(e.target.value); setOpen(true); }}
+            onChange={e => { setText(e.target.value); setDirty(true); setOpen(true); }}
             onFocus={handleFocus}
             onBlur={handleBlur}
             onKeyDown={onKeyDown}
