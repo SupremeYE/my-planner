@@ -73,10 +73,10 @@ export function TodoModal({ date, todo, initialPlanStart, initialPlanEnd, initia
   const [planEnd, setPlanEnd] = useState(todo?.planEnd ?? initialPlanEnd ?? '');
   // 계획 시작 확정 → 종료로 포커스 이동 (TimeField, PC 콤보박스). 非-H는 TimePicker라 미사용.
   const planEndRef = useRef<HTMLInputElement>(null);
-  // 실적(DO) 시간 — 타임라인 DO 레인에 직접 적은 할일은 do_* 에 시간이 담긴다(plan 과 별개).
-  const [doStart, setDoStart] = useState(todo?.doStart ?? '');
-  const [doEnd, setDoEnd] = useState(todo?.doEnd ?? '');
-  // 이 할일이 DO(실적) 시간을 가진 항목인지 — DO 시간 편집 UI 노출 여부
+  // 실제(DO) 시간 — 타임라인/타이머가 관리. 모달은 읽기전용 표시만(편집·생성 안 함). 소스 = todo.do_*.
+  const doStart = todo?.doStart ?? '';
+  const doEnd = todo?.doEnd ?? '';
+  // 이 할일이 DO(실제) 시간을 가진 항목인지 — 읽기전용 요약 노출 여부(값 없으면 영역 자체 없음)
   const hasDoTime = !!(todo?.doStart || todo?.doEnd);
   const [isTop3, setIsTop3] = useState(todo?.isTop3 ?? initialIsTop3 ?? false);
   const [selectedTags, setSelectedTags] = useState<string[]>(todo?.tags ?? initialTags ?? []);
@@ -118,6 +118,16 @@ export function TodoModal({ date, todo, initialPlanStart, initialPlanEnd, initia
     if (sec <= 0) return null;
     return { sec, sessions: timeBlocks.filter(b => b.todoId === todo.id).length };
   }, [todo, timeBlocks]);
+
+  // 실제(DO) 요약 소요 — 단일 소스 do_start~do_end 만 사용(do_elapsed_sec 안 섞음, DESIGN.md §5 읽기전용 요약).
+  const doDurationLabel = useMemo(() => {
+    if (!doStart || !doEnd) return null;
+    const [sh, sm] = doStart.split(':').map(Number);
+    const [eh, em] = doEnd.split(':').map(Number);
+    const mins = (eh * 60 + em) - (sh * 60 + sm);
+    if (mins <= 0) return null;
+    return formatTotalDoKo(mins * 60);
+  }, [doStart, doEnd]);
 
   const isValidHex = (value: string) => /^#[0-9A-Fa-f]{6}$/.test(value);
   const normalizeHexInput = (value: string) => `#${value.replace(/[^0-9A-Fa-f]/g, '').slice(0, 6).toUpperCase()}`;
@@ -261,8 +271,7 @@ export function TodoModal({ date, todo, initialPlanStart, initialPlanEnd, initia
     endDate: endDate || undefined,
     planStart: planStart || undefined,
     planEnd: planEnd || undefined,
-    // DO(실적) 시간을 가진 항목만 do_* 를 폼에서 갱신 — 계획전용/신규 할일엔 관여하지 않음
-    ...(hasDoTime ? { doStart: doStart || undefined, doEnd: doEnd || undefined } : {}),
+    // do_* 는 모달에서 쓰지 않는다(읽기전용 요약). 실제 시각 생성·조정은 타임라인/타이머 전담 → desync 유발 경로 차단.
     isTop3,
     tags: selectedTags,
     projectId: projectId || undefined,
@@ -386,7 +395,7 @@ export function TodoModal({ date, todo, initialPlanStart, initialPlanEnd, initia
                 type="button"
                 onClick={() => setModalDate('')}
                 className="px-3 py-2 rounded-lg"
-                style={{ fontSize: 11, fontWeight: 600, color: t.textSub, backgroundColor: t.bgSub }}
+                style={{ fontSize: 11, fontWeight: 600, color: t.textSub, backgroundColor: inputBg(t), ...(isHaon(t) ? { boxShadow: `inset 0 0 0 1px ${t.border}` } : null) }}
               >
                 미지정
               </button>
@@ -437,7 +446,7 @@ export function TodoModal({ date, todo, initialPlanStart, initialPlanEnd, initia
           {/* 시작/종료 시간 (계획) */}
           <div className="flex gap-3">
             <div className="flex-1">
-              <label style={{ fontSize: 11, color: t.textSub, fontWeight: 600 }}>{hasDoTime ? '계획 시작' : '시작'}</label>
+              <label style={{ fontSize: 11, color: t.textSub, fontWeight: 600 }}>계획 시작</label>
               <div className="mt-1">
                 {isHaon(t) ? (
                   <TimeField value={planStart} onChange={setPlanStart} role="start" placeholder="시작 시간"
@@ -448,7 +457,7 @@ export function TodoModal({ date, todo, initialPlanStart, initialPlanEnd, initia
               </div>
             </div>
             <div className="flex-1">
-              <label style={{ fontSize: 11, color: t.textSub, fontWeight: 600 }}>{hasDoTime ? '계획 종료' : '종료'}</label>
+              <label style={{ fontSize: 11, color: t.textSub, fontWeight: 600 }}>계획 종료</label>
               <div className="mt-1">
                 {isHaon(t) ? (
                   <TimeField value={planEnd} onChange={setPlanEnd} role="end" rangeStart={planStart}
@@ -464,28 +473,28 @@ export function TodoModal({ date, todo, initialPlanStart, initialPlanEnd, initia
               PC(lg)는 종료 콤보박스 목록의 duration 병기로 대체하므로 숨김(lg:hidden). */}
           {isHaon(t) && <DurationChips start={planStart} end={planEnd} onPick={setPlanEnd} className="lg:hidden" />}
 
-          {/* 실적(DO) 시간 — 타임라인 DO 레인에 적은 할일. 클릭 시 실제 적어둔 시간이 보이도록 노출. */}
+          {/* 실제(DO) 시간 — 읽기전용 요약 (DESIGN.md §5 「읽기전용 값 요약」).
+              생성·조정은 타임라인/타이머가 관리. 표시 소스 = do_start~do_end 단일(do_elapsed_sec 안 섞음).
+              값 없으면(hasDoTime false) 영역 자체를 렌더하지 않는다. */}
           {hasDoTime && (
-            <div className="flex gap-3">
-              <div className="flex-1">
-                <label style={{ fontSize: 11, color: t.success, fontWeight: 600 }}>실적 시작</label>
-                <div className="mt-1">
-                  <TimePicker value={doStart} onChange={setDoStart} placeholder="시작 시간" />
-                </div>
+            <div>
+              <div className="flex items-baseline gap-2" style={{ flexWrap: 'wrap' }}>
+                <span style={{ fontSize: 11, color: t.success, fontWeight: 600 }}>실제</span>
+                <span style={{ fontSize: 13, color: t.text, fontWeight: 600, fontVariantNumeric: 'tabular-nums' }}>
+                  {doStart || '--:--'} ~ {doEnd || '--:--'}
+                </span>
+                {doDurationLabel && (
+                  <span style={{ fontSize: 12, color: t.textMuted }}>· {doDurationLabel}</span>
+                )}
               </div>
-              <div className="flex-1">
-                <label style={{ fontSize: 11, color: t.success, fontWeight: 600 }}>실적 종료</label>
-                <div className="mt-1">
-                  <TimePicker value={doEnd} onChange={setDoEnd} placeholder="종료 시간" />
-                </div>
-              </div>
+              <p style={{ fontSize: 11, color: t.textMuted, marginTop: 4 }}>타임라인에서 조정</p>
             </div>
           )}
 
           {/* 누적 시간 (Stage 3) — 여러 날 타이머 세션이 쌓인 총합 */}
           {accumulated && (
             <div className="flex items-center gap-2 px-3 py-2 rounded-xl"
-              style={{ backgroundColor: t.bgSub, border: `1px solid ${t.border}` }}>
+              style={{ backgroundColor: inputBg(t), border: `1px solid ${t.border}` }}>
               <span style={{ fontSize: 11, fontWeight: 700, color: t.accent }}>누적 시간</span>
               <span style={{ fontSize: 12, fontWeight: 700, color: t.text }}>{formatTotalDoKo(accumulated.sec)}</span>
               {accumulated.sessions > 0 && (
@@ -521,9 +530,15 @@ export function TodoModal({ date, todo, initialPlanStart, initialPlanEnd, initia
                     className="px-3 py-1 rounded-full"
                     style={{
                       fontSize: 11, fontWeight: recurrenceRule === opt.value ? 700 : 500,
-                      backgroundColor: recurrenceRule === opt.value ? t.accent : t.bgSub,
-                      color: recurrenceRule === opt.value ? '#fff' : t.textSub,
-                      border: `1.5px solid ${recurrenceRule === opt.value ? t.accent : t.border}`,
+                      // 단일 선택 토글 → duration chip 3단계와 동일: H 는 선택만 라일락(accentSoft)+딥인디고,
+                      // 비선택 흰색+중립 hairline(§3 라일락 규칙·코랄 제거). 非-H 는 기존(코랄/bgSub) 유지 → 회귀 0.
+                      backgroundColor: isHaon(t)
+                        ? (recurrenceRule === opt.value ? t.accentSoft : t.card)
+                        : (recurrenceRule === opt.value ? t.accent : t.bgSub),
+                      color: isHaon(t)
+                        ? (recurrenceRule === opt.value ? t.text : t.textMuted)
+                        : (recurrenceRule === opt.value ? '#fff' : t.textSub),
+                      border: `1.5px solid ${isHaon(t) ? t.border : (recurrenceRule === opt.value ? t.accent : t.border)}`,
                     }}
                   >
                     {opt.label}
@@ -543,9 +558,14 @@ export function TodoModal({ date, todo, initialPlanStart, initialPlanEnd, initia
                       className="w-8 h-8 rounded-full"
                       style={{
                         fontSize: 11, fontWeight: 700,
-                        backgroundColor: recurrenceDays.includes(dow) ? t.accent : t.bgSub,
-                        color: recurrenceDays.includes(dow) ? '#fff' : t.textSub,
-                        border: `1.5px solid ${recurrenceDays.includes(dow) ? t.accent : t.border}`,
+                        // 요일 다중 선택 → 반복 칩과 동일 3단계(선택만 라일락, 비선택 흰색). 非-H 유지.
+                        backgroundColor: isHaon(t)
+                          ? (recurrenceDays.includes(dow) ? t.accentSoft : t.card)
+                          : (recurrenceDays.includes(dow) ? t.accent : t.bgSub),
+                        color: isHaon(t)
+                          ? (recurrenceDays.includes(dow) ? t.text : t.textMuted)
+                          : (recurrenceDays.includes(dow) ? '#fff' : t.textSub),
+                        border: `1.5px solid ${isHaon(t) ? t.border : (recurrenceDays.includes(dow) ? t.accent : t.border)}`,
                       }}
                     >
                       {label}
@@ -647,8 +667,11 @@ export function TodoModal({ date, todo, initialPlanStart, initialPlanEnd, initia
                   disabled={!newProjectName.trim()}
                   style={{
                     flexShrink: 0,
-                    backgroundColor: newProjectName.trim() ? t.accent : t.bgSub,
-                    color: newProjectName.trim() ? '#fff' : t.textMuted,
+                    // disabled 배경을 라일락(bgSub)으로 두지 않는다 — H 는 accent+opacity(§5 disabled, 태그 '추가' 버튼과 통일).
+                    // 非-H 는 기존(bgSub/textMuted) 유지 → 회귀 0.
+                    backgroundColor: newProjectName.trim() ? t.accent : (isHaon(t) ? t.accent : t.bgSub),
+                    color: newProjectName.trim() ? '#fff' : (isHaon(t) ? '#fff' : t.textMuted),
+                    ...(!newProjectName.trim() && isHaon(t) ? { opacity: 0.5 } : null),
                     fontSize: 13, fontWeight: 700, padding: '0 14px', borderRadius: 10, border: 'none',
                   }}
                 >
@@ -704,7 +727,8 @@ export function TodoModal({ date, todo, initialPlanStart, initialPlanEnd, initia
                       className="px-2.5 py-1 rounded-full transition-all"
                       style={{
                         fontSize: 11,
-                        backgroundColor: selected ? tag.color : t.bgSub,
+                        // 비선택 태그 칩 배경 = 흰색(§3 라일락 규칙). 선택 = 태그 hue(카테고리 hue 예외). 非-H 는 bgSub 유지.
+                        backgroundColor: selected ? tag.color : inputBg(t),
                         color: selected ? '#fff' : t.textSub,
                         border: `1px solid ${selected ? tag.color : t.border}`,
                       }}
@@ -726,7 +750,7 @@ export function TodoModal({ date, todo, initialPlanStart, initialPlanEnd, initia
             {showNewTag && (
               <div
                 className="mt-2 p-3 rounded-xl space-y-2"
-                style={{ backgroundColor: t.bgSub, border: `1px solid ${t.border}` }}
+                style={{ backgroundColor: inputBg(t), border: `1px solid ${t.border}` }}
               >
                 <input
                   value={newTagName}
@@ -814,7 +838,7 @@ export function TodoModal({ date, todo, initialPlanStart, initialPlanEnd, initia
                     fontSize: 11,
                     border: `1px solid ${newTagColorValid ? normalizedNewTagColor : t.border}`,
                     color: newTagColorValid ? normalizedNewTagColor : t.textSub,
-                    backgroundColor: newTagColorValid ? `${normalizedNewTagColor}22` : t.bgSub,
+                    backgroundColor: newTagColorValid ? `${normalizedNewTagColor}22` : inputBg(t),
                   }}
                 >
                   {newTagName.trim() || 'TAG'}
@@ -862,7 +886,7 @@ export function TodoModal({ date, todo, initialPlanStart, initialPlanEnd, initia
             {editingTagId && (
               <div
                 className="mt-2 p-3 rounded-xl space-y-2"
-                style={{ backgroundColor: t.bgSub, border: `1px solid ${t.border}` }}
+                style={{ backgroundColor: inputBg(t), border: `1px solid ${t.border}` }}
               >
                 <div style={{ fontSize: 11, color: t.textSub, fontWeight: 600 }}>태그 편집</div>
                 <input
@@ -950,7 +974,7 @@ export function TodoModal({ date, todo, initialPlanStart, initialPlanEnd, initia
                     fontSize: 11,
                     border: `1px solid ${editingTagColorValid ? normalizedEditingTagColor : t.border}`,
                     color: editingTagColorValid ? normalizedEditingTagColor : t.textSub,
-                    backgroundColor: editingTagColorValid ? `${normalizedEditingTagColor}22` : t.bgSub,
+                    backgroundColor: editingTagColorValid ? `${normalizedEditingTagColor}22` : inputBg(t),
                   }}
                 >
                   {editingTagName.trim() || 'TAG'}
@@ -1006,7 +1030,7 @@ export function TodoModal({ date, todo, initialPlanStart, initialPlanEnd, initia
             <button
               onClick={handleDelete}
               className="px-4 py-2 rounded-xl transition-colors"
-              style={{ fontSize: 12, color: dangerText(t), backgroundColor: dangerFill(t, '#FEE2E2') }}
+              style={{ fontSize: 12, color: dangerText(t), backgroundColor: isHaon(t) ? 'transparent' : dangerFill(t, '#FEE2E2') }}
             >
               삭제
             </button>
@@ -1015,7 +1039,7 @@ export function TodoModal({ date, todo, initialPlanStart, initialPlanEnd, initia
           <button
             onClick={onClose}
             className="px-4 py-2 rounded-xl"
-            style={{ fontSize: 13, color: t.textSub, backgroundColor: t.bgSub }}
+            style={{ fontSize: 13, color: t.textSub, backgroundColor: inputBg(t), ...(isHaon(t) ? { boxShadow: `inset 0 0 0 1px ${t.border}` } : null) }}
           >
             취소
           </button>
