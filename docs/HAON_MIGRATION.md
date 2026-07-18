@@ -93,8 +93,9 @@
 - [ ] 리뷰 & 기록
 - [ ] 자기관리(건강/식단/독서 등 라이프스타일)
 - [ ] 설정
-- [ ] 시각 입력 컴포넌트 이전 (`TimePicker` → `TimeField`/`HourField`) — 아래 §10 참조.
-      **DESIGN.md 등록 완료**(§5 「시각 입력」), 구현은 Stage 4a-1~ 대기.
+- [~] 시각 입력 컴포넌트 이전 (`TimePicker` → `TimeField`/`HourField`) — 아래 §10 참조.
+      **DESIGN.md 등록 완료**(§5 「시각 입력」). Stage 4a-1: `TimeField` 생성 + `TodoModal` plan 2곳 이전
+      완료. 잔여(do 2 + 10파일)는 후속 Stage(§10.1).
 - [ ] (전 페이지 완료 후) 기본 테마 파스텔 확정
 
 ## 9. 알려진 기존 이슈 (이번 리팩터 범위 아님, 참고용)
@@ -129,5 +130,25 @@
   (`parseInt(split(':')[0])`). `HourField`는 분 입력 UI 자체를 없애 받은 값 = 저장 값을 보장한다.
 - **실적 라벨 색 보존.** `TodoModal` 실적(DO) 쌍 라벨의 `t.success`(§7.2 증감 토큰과 별개, 계획/실적 구분용)는
   이전 시 호출부에 **그대로 둔다** — 컴포넌트 종류(둘 다 `TimeField`)와 무관하다.
-- **`haonStyles.ts` 미변경(이 문서 Stage).** 트리거 표면 = 기존 `inputBg`, 팝오버 = 기존 `glassBarStyle`
-  재사용. 콤보박스 목록 항목 상태(hover/active)용 신규 헬퍼는 **구현 Stage 4a-1**에서 판단.
+- **`haonStyles.ts` 신규 헬퍼 없음(Stage 4a-1 확정).** 트리거 표면 = 기존 `inputBg`, 팝오버 = 기존
+  **`addPopoverStyle`**(떠 있는 드롭다운 패널 recipe; 상단 바 전용 `glassBarStyle` 아님 — DESIGN.md §5
+  「시각 입력」도 이에 맞춰 정정됨). 목록 항목 상태(hover/active·정시/30분 강약)는 기존 토큰
+  (`t.bgSub`·`t.accentLight`·`t.accent`·`t.text`·`t.textMuted`) 인라인 조합으로 커버.
+
+### 10.1 Stage 4a-1 진행 현황 (2026-07-18)
+- **`TimeField` 신규 생성** (`src/app/components/TimeField.tsx`). 모바일 = `<input type="time">`(OS 위임),
+  PC(`lg:`) = 콤보박스(타이핑·5분 목록·정시/30분 강조·↑↓/Enter/Esc·종료 duration 병기·시작 이전 배제).
+  `minuteStep` 미수용(5분 고정). `role='end'` 모바일 duration chip(시작 + chip = 종료 자동설정).
+- **[x] `TodoModal` 계획(plan) 시작/종료 2곳 이전 완료.** `isHaon(t) ? <TimeField> : <TimePicker>`
+  조건 렌더 — **H만 TimeField, A/B/C/D는 `TimePicker` 그대로**(회귀 0). start 확정 → 종료 포커스 이동
+  (`planEndRef`). 저장 로직·plan 컬럼 매핑·모달 레이아웃 불변.
+- **非-H 폴백:** `TimeField` 내부에도 안전망 정의(콤보박스 없이 전 브레이크포인트 네이티브 + `inputBg`).
+  단 TodoModal이 게이트하므로 이번 소비처에선 미사용.
+- **라벨 제거 = Stage 2 조건부 보류.** do(실적) 필드가 화면에 남아 있어 plan/do 구분이 필요 → 이번엔
+  라벨 유지(현행 `hasDoTime ? '계획 시작' : '시작'` 로직 그대로). **do 정리(Stage 2) 후** plan 단독이 되면
+  "계획" 접두 라벨을 제거한다.
+- **잔여 이전 대상:**
+  - `TodoModal` **do(실적) 2곳** — 이번 범위 밖(Stage 2, 데이터 조사 후). 지금은 `TimePicker` 스피너 유지.
+  - **나머지 10파일**(`EventModal`·`TimelineAddModal`·`BrainstormView`·`CalendarView`·`SleepTimeEditModal`·
+    `DailyView`·`RoutinesView`·`HabitsView`·`TimelineLogModal` = TimeField / `SettingsView`·
+    `TimelineSettingsModal` = HourField) — 후속 Stage. `TimePicker`는 이들이 모두 이전될 때까지 삭제 금지.

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { format, getDay, parseISO } from 'date-fns';
 import { ko } from 'date-fns/locale';
 import { CalendarDays, RefreshCw, Star, Trash2, X } from 'lucide-react';
@@ -6,13 +6,14 @@ import { usePlanner, Todo, getLogicalToday } from '../store';
 import { useTheme } from '../ThemeContext';
 import ConfirmModal from './ConfirmModal';
 import { TimePicker } from './TimePicker';
+import { TimeField } from './TimeField';
 import { RecurrenceBranchModal } from './RecurrenceBranchModal';
 import { isVirtualTodoId, parseVirtualTodoId, DOW_LABELS } from '../../lib/recurrenceExpansion';
 import { totalElapsedForTodo } from '../../lib/timeBlocks';
 import { formatTotalDoKo } from '../../lib/todoDoDuration';
 import { DEFAULT_TAG_COLORS, TAG_PALETTE_KEY, MAX_TAG_COLORS } from '../../lib/tagPalette';
 import { PROJECT_COLORS } from './ProjectView';
-import { inputBg, dangerText, dangerFill } from '../styles/haonStyles';
+import { inputBg, dangerText, dangerFill, isHaon } from '../styles/haonStyles';
 
 interface TodoModalProps {
   /** date prop은 기본 날짜로 사용되며, 모달 안에서 변경/해제할 수 있다. */
@@ -70,6 +71,8 @@ export function TodoModal({ date, todo, initialPlanStart, initialPlanEnd, initia
   const [text, setText] = useState(todo?.text ?? initialText ?? '');
   const [planStart, setPlanStart] = useState(todo?.planStart ?? initialPlanStart ?? '');
   const [planEnd, setPlanEnd] = useState(todo?.planEnd ?? initialPlanEnd ?? '');
+  // 계획 시작 확정 → 종료로 포커스 이동 (TimeField, PC 콤보박스). 非-H는 TimePicker라 미사용.
+  const planEndRef = useRef<HTMLInputElement>(null);
   // 실적(DO) 시간 — 타임라인 DO 레인에 직접 적은 할일은 do_* 에 시간이 담긴다(plan 과 별개).
   const [doStart, setDoStart] = useState(todo?.doStart ?? '');
   const [doEnd, setDoEnd] = useState(todo?.doEnd ?? '');
@@ -436,13 +439,23 @@ export function TodoModal({ date, todo, initialPlanStart, initialPlanEnd, initia
             <div className="flex-1">
               <label style={{ fontSize: 11, color: t.textSub, fontWeight: 600 }}>{hasDoTime ? '계획 시작' : '시작'}</label>
               <div className="mt-1">
-                <TimePicker value={planStart} onChange={setPlanStart} placeholder="시작 시간" />
+                {isHaon(t) ? (
+                  <TimeField value={planStart} onChange={setPlanStart} role="start" placeholder="시작 시간"
+                    onCommitFocusNext={() => planEndRef.current?.focus()} />
+                ) : (
+                  <TimePicker value={planStart} onChange={setPlanStart} placeholder="시작 시간" />
+                )}
               </div>
             </div>
             <div className="flex-1">
               <label style={{ fontSize: 11, color: t.textSub, fontWeight: 600 }}>{hasDoTime ? '계획 종료' : '종료'}</label>
               <div className="mt-1">
-                <TimePicker value={planEnd} onChange={setPlanEnd} placeholder="종료 시간" />
+                {isHaon(t) ? (
+                  <TimeField value={planEnd} onChange={setPlanEnd} role="end" rangeStart={planStart}
+                    placeholder="종료 시간" inputRef={planEndRef} />
+                ) : (
+                  <TimePicker value={planEnd} onChange={setPlanEnd} placeholder="종료 시간" />
+                )}
               </div>
             </div>
           </div>
