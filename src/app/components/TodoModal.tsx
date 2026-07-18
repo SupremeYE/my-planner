@@ -6,7 +6,7 @@ import { usePlanner, Todo, getLogicalToday } from '../store';
 import { useTheme } from '../ThemeContext';
 import ConfirmModal from './ConfirmModal';
 import { TimePicker } from './TimePicker';
-import { TimeField } from './TimeField';
+import { TimeField, DurationChips } from './TimeField';
 import { RecurrenceBranchModal } from './RecurrenceBranchModal';
 import { isVirtualTodoId, parseVirtualTodoId, DOW_LABELS } from '../../lib/recurrenceExpansion';
 import { totalElapsedForTodo } from '../../lib/timeBlocks';
@@ -459,6 +459,10 @@ export function TodoModal({ date, todo, initialPlanStart, initialPlanEnd, initia
               </div>
             </div>
           </div>
+
+          {/* 모바일 duration chip — 계획 시작 기준 종료 자동설정, 폼 전체 폭 한 줄.
+              PC(lg)는 종료 콤보박스 목록의 duration 병기로 대체하므로 숨김(lg:hidden). */}
+          {isHaon(t) && <DurationChips start={planStart} onPick={setPlanEnd} className="lg:hidden" />}
 
           {/* 실적(DO) 시간 — 타임라인 DO 레인에 적은 할일. 클릭 시 실제 적어둔 시간이 보이도록 노출. */}
           {hasDoTime && (

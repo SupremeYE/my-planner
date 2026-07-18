@@ -172,36 +172,24 @@ export function TimeField({
   };
 
   // ── 네이티브 입력 (모바일 항상 / 非-H는 전 브레이크포인트) ──
+  // duration chip은 여기(좁은 종료 칼럼) 대신 폼 레벨(<DurationChips/>, 전체 폭)에서 렌더한다.
   const nativeBlock = (
-    <>
-      <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
-        <input
-          type="time"
-          value={value || ''}
-          onChange={e => onChange(e.target.value)}
-          onFocus={e => { e.currentTarget.style.borderColor = t.accent; e.currentTarget.style.boxShadow = focusRing; }}
-          onBlur={e => { e.currentTarget.style.borderColor = t.border; e.currentTarget.style.boxShadow = 'none'; }}
-          style={fieldStyle}
-        />
-        {clearable && value && (
-          <button type="button" onClick={clear} aria-label="시간 지우기"
-            style={{ position: 'absolute', right: 8, color: t.textMuted, background: 'transparent', border: 'none', cursor: 'pointer', padding: 2, display: 'flex' }}>
-            <X size={14} />
-          </button>
-        )}
-      </div>
-      {role === 'end' && startMin != null && (
-        <div className="flex flex-wrap gap-1.5" style={{ marginTop: 6 }}>
-          {DURATION_CHIPS.map(d => (
-            <button key={d} type="button"
-              onClick={() => onChange(toHHMM(Math.min(startMin + d, DAY_MAX)))}
-              style={{ fontSize: 11, fontWeight: 500, padding: '3px 9px', borderRadius: 999, background: t.accentLight, color: t.accent, border: 'none', cursor: 'pointer' }}>
-              {fmtDur(d)}
-            </button>
-          ))}
-        </div>
+    <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
+      <input
+        type="time"
+        value={value || ''}
+        onChange={e => onChange(e.target.value)}
+        onFocus={e => { e.currentTarget.style.borderColor = t.accent; e.currentTarget.style.boxShadow = focusRing; }}
+        onBlur={e => { e.currentTarget.style.borderColor = t.border; e.currentTarget.style.boxShadow = 'none'; }}
+        style={fieldStyle}
+      />
+      {clearable && value && (
+        <button type="button" onClick={clear} aria-label="시간 지우기"
+          style={{ position: 'absolute', right: 8, color: t.textMuted, background: 'transparent', border: 'none', cursor: 'pointer', padding: 2, display: 'flex' }}>
+          <X size={14} />
+        </button>
       )}
-    </>
+    </div>
   );
 
   // 非-H 안전망: 콤보박스 없이 네이티브만 (전 브레이크포인트). 현재 소비처에선 미사용.
@@ -267,6 +255,30 @@ export function TimeField({
           </div>
         )}
       </div>
+    </div>
+  );
+}
+
+// ─── DurationChips — 모바일 종료 자동설정 칩(시작 + chip = 종료) ───
+// 좁은 종료 필드 칼럼이 아니라 폼 전체 폭에 한 줄로 배치한다(모바일). start가 있어야 렌더.
+// TimeField와 시간 헬퍼(toMin/toHHMM/fmtDur/DURATION_CHIPS)를 공유하려 같은 파일에 둔다.
+export function DurationChips({ start, onPick, className = '' }: {
+  start: string;                 // "HH:mm"
+  onPick: (end: string) => void; // 시작 + duration = 종료
+  className?: string;
+}) {
+  const { t } = useTheme();
+  const startMin = toMin(start);
+  if (startMin == null) return null;
+  return (
+    <div className={className} style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: 8 }}>
+      {DURATION_CHIPS.map(d => (
+        <button key={d} type="button"
+          onClick={() => onPick(toHHMM(Math.min(startMin + d, DAY_MAX)))}
+          style={{ fontSize: 12, fontWeight: 500, padding: '4px 14px', borderRadius: 999, background: t.accentLight, color: t.accent, border: 'none', cursor: 'pointer', whiteSpace: 'nowrap' }}>
+          {fmtDur(d)}
+        </button>
+      ))}
     </div>
   );
 }
