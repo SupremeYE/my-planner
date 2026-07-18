@@ -1,11 +1,12 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { Bookmark, Plus, Youtube, Instagram, Globe, MessageCircle, Search, Shuffle, X, Sparkles } from 'lucide-react';
+import { Bookmark, Plus, Youtube, Instagram, Globe, MessageCircle, Search, Shuffle, X, Sparkles, Trash2, Check, CheckSquare } from 'lucide-react';
 import { useTheme } from '../ThemeContext';
 import { db } from '../../lib/db';
 import { useRealtimeSync } from '../hooks/useRealtimeSync';
 import type { Scrap, ScrapSource, ScrapStatus } from '../store';
 import AddScrapModal from './scrap/AddScrapModal';
 import ScrapDetailSheet from './scrap/ScrapDetailSheet';
+import ConfirmModal from './ConfirmModal';
 import { useFabAction } from '../FabContext';
 
 // 토큰 hex → rgba (다른 뷰들과 동일 패턴)
@@ -70,29 +71,106 @@ function FilterChip({ label, active, onClick }: { label: string; active: boolean
   );
 }
 
+// ── 상단 우측 오버레이 컨트롤 (선택 체크박스 / 삭제 버튼) ──────────
+// 선택 모드: 체크박스, 일반 모드: 삭제(휴지통) 버튼. 카드 탭과 분리(stopPropagation).
+function CardCornerControl({
+  selectionMode, selected, onDelete,
+}: {
+  selectionMode: boolean;
+  selected: boolean;
+  onDelete: () => void;
+}) {
+  const { t } = useTheme();
+  if (selectionMode) {
+    return (
+      <span
+        aria-hidden
+        style={{
+          width: 24,
+          height: 24,
+          borderRadius: '50%',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          backgroundColor: selected ? t.accent : withAlpha(t.card, 0.92),
+          border: `2px solid ${selected ? t.accent : withAlpha(t.textMuted, 0.5)}`,
+          boxShadow: '0 1px 4px rgba(0,0,0,0.18)',
+          backdropFilter: 'blur(4px)',
+        }}
+      >
+        {selected && <Check size={14} color="#fff" strokeWidth={3} />}
+      </span>
+    );
+  }
+  return (
+    <button
+      onClick={e => { e.stopPropagation(); onDelete(); }}
+      aria-label="스크랩 삭제"
+      className="scrap-del-btn"
+      style={{
+        width: 26,
+        height: 26,
+        borderRadius: '50%',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        backgroundColor: withAlpha(t.card, 0.9),
+        border: `1px solid ${t.borderLight}`,
+        boxShadow: '0 1px 4px rgba(0,0,0,0.18)',
+        backdropFilter: 'blur(4px)',
+        cursor: 'pointer',
+        padding: 0,
+      }}
+    >
+      <Trash2 size={13} color={t.danger} />
+    </button>
+  );
+}
+
 // ── 카드 (메이슨리 column-flow 안의 한 셀) ─────────────────────────
-function ScrapCard({ scrap, onClick }: { scrap: Scrap; onClick?: () => void }) {
+function ScrapCard({
+  scrap, onClick, selectionMode = false, selected = false, onToggleSelect, onDelete,
+}: {
+  scrap: Scrap;
+  onClick?: () => void;
+  selectionMode?: boolean;
+  selected?: boolean;
+  onToggleSelect?: () => void;
+  onDelete?: () => void;
+}) {
   const { t } = useTheme();
   const meta = scrap.source ? SOURCE_META[scrap.source] : SOURCE_META.web;
   const Icon = meta.Icon;
   const hasImage = !!scrap.thumbnailUrl;
 
+  // 선택 모드에선 탭 = 선택 토글, 아니면 상세 열기
+  const handleClick = selectionMode ? onToggleSelect : onClick;
+
   return (
     <div
-      onClick={onClick}
+      onClick={handleClick}
       style={{
+        position: 'relative',
         breakInside: 'avoid',
         marginBottom: 14,
         backgroundColor: t.card,
         borderRadius: 14,
         overflow: 'hidden',
-        border: `1px solid ${t.borderLight}`,
-        boxShadow: '0 2px 8px rgba(0,0,0,0.05)',
-        cursor: onClick ? 'pointer' : 'default',
-        transition: 'transform .18s ease, box-shadow .18s ease',
+        border: `1px solid ${selected ? t.accent : t.borderLight}`,
+        boxShadow: selected ? `0 0 0 2px ${withAlpha(t.accent, 0.9)}` : '0 2px 8px rgba(0,0,0,0.05)',
+        cursor: handleClick ? 'pointer' : 'default',
+        transition: 'transform .18s ease, box-shadow .18s ease, border-color .18s ease',
       }}
       className="scrap-card"
     >
+      {/* 상단 우측 컨트롤 — 선택 체크박스 / 삭제 버튼 */}
+      <div style={{ position: 'absolute', top: 8, right: 8, zIndex: 3 }}>
+        <CardCornerControl
+          selectionMode={selectionMode}
+          selected={selected}
+          onDelete={() => onDelete?.()}
+        />
+      </div>
       {/* 썸네일 영역 */}
       {hasImage ? (
         <div style={{ position: 'relative', backgroundColor: t.bgSub }}>
@@ -122,21 +200,17 @@ function ScrapCard({ scrap, onClick }: { scrap: Scrap; onClick?: () => void }) {
           >
             <Icon size={11} color={t.textSub} />
             {meta.label}
+            {/* 상태 점 (색만 — 표시 전용) — 우상단 컨트롤과 겹치지 않게 출처 칩 안으로 이동 */}
+            <span
+              aria-hidden
+              style={{
+                width: 6,
+                height: 6,
+                borderRadius: '50%',
+                backgroundColor: statusDotColor(scrap.status, t),
+              }}
+            />
           </div>
-          {/* 우상단 상태 점 (색만 — Stage 1 은 표시 전용, 전환은 Stage 2) */}
-          <span
-            aria-hidden
-            style={{
-              position: 'absolute',
-              top: 10,
-              right: 10,
-              width: 8,
-              height: 8,
-              borderRadius: '50%',
-              backgroundColor: statusDotColor(scrap.status, t),
-              boxShadow: '0 0 0 2px rgba(255,255,255,0.8)',
-            }}
-          />
         </div>
       ) : (
         // 썸네일 없음 — 출처별 그라데이션 + 큰 아이콘 placeholder (토큰만)
@@ -169,20 +243,17 @@ function ScrapCard({ scrap, onClick }: { scrap: Scrap; onClick?: () => void }) {
           >
             <Icon size={11} color={t.textSub} />
             {meta.label}
+            {/* 상태 점 — 우상단 컨트롤과 겹치지 않게 출처 칩 안으로 이동 */}
+            <span
+              aria-hidden
+              style={{
+                width: 6,
+                height: 6,
+                borderRadius: '50%',
+                backgroundColor: statusDotColor(scrap.status, t),
+              }}
+            />
           </div>
-          <span
-            aria-hidden
-            style={{
-              position: 'absolute',
-              top: 10,
-              right: 10,
-              width: 8,
-              height: 8,
-              borderRadius: '50%',
-              backgroundColor: statusDotColor(scrap.status, t),
-              boxShadow: '0 0 0 2px rgba(255,255,255,0.8)',
-            }}
-          />
         </div>
       )}
 
@@ -439,6 +510,13 @@ export function ScrapView() {
   const [dustyCandidates, setDustyCandidates] = useState<Scrap[]>([]);
   const [dustyIndex, setDustyIndex] = useState(0);
 
+  // ── 삭제 / 선택 모드 ──
+  const [selectionMode, setSelectionMode] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [pendingDelete, setPendingDelete] = useState<Scrap | null>(null); // 개별 삭제 확인 대상
+  const [confirmBulk, setConfirmBulk] = useState(false);                   // 일괄 삭제 확인
+  const [deleting, setDeleting] = useState(false);
+
   // 모든 supabase 호출은 db.ts 를 거쳐서만 (Stage 1 규칙)
   // 본 목록 + 먼지 후보를 함께 갱신해서 last_viewed_at 변경에 따라 먼지 후보도 자연 빠짐.
   const refresh = useCallback(async () => {
@@ -495,6 +573,72 @@ export function ScrapView() {
     });
   }, [dustyCandidates.length]);
 
+  // ── 선택 모드 핸들러 ──
+  const toggleSelect = useCallback((id: string) => {
+    setSelectedIds(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }, []);
+
+  const exitSelection = useCallback(() => {
+    setSelectionMode(false);
+    setSelectedIds(new Set());
+  }, []);
+
+  // 현재 보이는(필터 적용된) 스크랩 전체 선택/해제 토글
+  const filteredIds = useMemo(() => filtered.map(s => s.id), [filtered]);
+  const allVisibleSelected = filteredIds.length > 0 && filteredIds.every(id => selectedIds.has(id));
+  const handleSelectAllVisible = useCallback(() => {
+    setSelectedIds(prev => {
+      const next = new Set(prev);
+      if (filteredIds.every(id => next.has(id))) {
+        // 모두 선택돼 있으면 → 해제
+        filteredIds.forEach(id => next.delete(id));
+      } else {
+        filteredIds.forEach(id => next.add(id));
+      }
+      return next;
+    });
+  }, [filteredIds]);
+
+  // 개별 삭제 확정
+  const confirmSingleDelete = useCallback(async () => {
+    if (!pendingDelete || deleting) return;
+    setDeleting(true);
+    try {
+      await db.scraps.delete(pendingDelete.id);
+      setSelectedIds(prev => {
+        if (!prev.has(pendingDelete.id)) return prev;
+        const next = new Set(prev);
+        next.delete(pendingDelete.id);
+        return next;
+      });
+      if (openId === pendingDelete.id) setOpenId(null);
+      setPendingDelete(null);
+      await refresh();
+    } finally {
+      setDeleting(false);
+    }
+  }, [pendingDelete, deleting, openId, refresh]);
+
+  // 선택 항목 일괄 삭제 확정
+  const confirmBulkDelete = useCallback(async () => {
+    if (deleting || selectedIds.size === 0) return;
+    setDeleting(true);
+    try {
+      const ids = Array.from(selectedIds);
+      await Promise.all(ids.map(id => db.scraps.delete(id)));
+      setConfirmBulk(false);
+      exitSelection();
+      await refresh();
+    } finally {
+      setDeleting(false);
+    }
+  }, [deleting, selectedIds, exitSelection, refresh]);
+
   // 상세 시트 대상 — openId 가 가리키는 최신 스크랩. scraps 에 없으면 검색결과/먼지후보에서 보조 조회.
   const openScrap = useMemo(() => {
     if (!openId) return null;
@@ -521,6 +665,9 @@ export function ScrapView() {
         @media (min-width: 1024px) { .scrap-grid { column-count: 3; column-gap: 18px; padding: 20px 56px 0; } }
         @media (min-width: 1440px) { .scrap-grid { column-count: 4; } }
         .scrap-card:hover { transform: translateY(-2px); box-shadow: 0 8px 20px rgba(0,0,0,0.10) !important; }
+        .scrap-del-btn { opacity: 0.75; transition: opacity .15s ease, transform .15s ease; }
+        .scrap-card:hover .scrap-del-btn { opacity: 1; }
+        .scrap-del-btn:hover { transform: scale(1.08); }
       `}</style>
 
       {/* ── 헤더 ── */}
@@ -609,6 +756,29 @@ export function ScrapView() {
         >
           안 본 것만
         </button>
+        {/* 선택 모드 토글 — 다중 선택 삭제 진입/종료 */}
+        <button
+          onClick={() => (selectionMode ? exitSelection() : setSelectionMode(true))}
+          aria-pressed={selectionMode}
+          style={{
+            flex: '0 0 auto',
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: 4,
+            fontSize: 12,
+            fontWeight: 700,
+            padding: '8px 12px',
+            borderRadius: 999,
+            backgroundColor: selectionMode ? t.text : 'transparent',
+            color: selectionMode ? t.card : t.textSub,
+            border: `1px solid ${selectionMode ? t.text : withAlpha(t.textMuted, 0.35)}`,
+            whiteSpace: 'nowrap',
+            transition: 'background-color .15s ease, color .15s ease',
+          }}
+        >
+          <CheckSquare size={13} />
+          {selectionMode ? '완료' : '선택'}
+        </button>
       </div>
 
       {/* ── 먼지 쌓인 스크랩 카드 (Stage 3) — 검색 중엔 숨김, 후보 없으면 숨김 ── */}
@@ -681,7 +851,15 @@ export function ScrapView() {
           </div>
         ) : (
           filtered.map(scrap => (
-            <ScrapCard key={scrap.id} scrap={scrap} onClick={() => handleCardClick(scrap.id)} />
+            <ScrapCard
+              key={scrap.id}
+              scrap={scrap}
+              onClick={() => handleCardClick(scrap.id)}
+              selectionMode={selectionMode}
+              selected={selectedIds.has(scrap.id)}
+              onToggleSelect={() => toggleSelect(scrap.id)}
+              onDelete={() => setPendingDelete(scrap)}
+            />
           ))
         )}
       </div>
@@ -702,6 +880,93 @@ export function ScrapView() {
           onClose={() => setOpenId(null)}
           onChanged={refresh}
           onNavigateScrap={(id) => setOpenId(id)}
+        />
+      )}
+
+      {/* ── 선택 모드 하단 액션 바 — 모바일 하단 네비(56px) 위에 띄움 ── */}
+      {selectionMode && (
+        <div
+          className="fixed left-1/2 -translate-x-1/2 z-40 bottom-20 lg:bottom-6 w-[calc(100%-32px)] max-w-[440px]"
+        >
+          <div
+            className="flex items-center gap-2 px-3 py-2.5 rounded-full"
+            style={{
+              backgroundColor: t.card,
+              border: `1px solid ${t.borderLight}`,
+              boxShadow: '0 8px 28px rgba(0,0,0,0.18)',
+            }}
+          >
+            <span style={{ flex: '0 0 auto', fontSize: 13, fontWeight: 700, color: t.text, paddingLeft: 6 }}>
+              {selectedIds.size}개 선택
+            </span>
+            <button
+              onClick={handleSelectAllVisible}
+              disabled={filteredIds.length === 0}
+              style={{
+                flex: '0 0 auto',
+                fontSize: 12,
+                fontWeight: 700,
+                padding: '6px 12px',
+                borderRadius: 999,
+                backgroundColor: 'transparent',
+                color: t.textSub,
+                border: `1px solid ${withAlpha(t.textMuted, 0.35)}`,
+                whiteSpace: 'nowrap',
+                opacity: filteredIds.length === 0 ? 0.5 : 1,
+              }}
+            >
+              {allVisibleSelected ? '전체 해제' : '전체 선택'}
+            </button>
+            <div style={{ flex: 1 }} />
+            <button
+              onClick={() => setConfirmBulk(true)}
+              disabled={selectedIds.size === 0 || deleting}
+              style={{
+                flex: '0 0 auto',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 5,
+                fontSize: 13,
+                fontWeight: 700,
+                padding: '8px 16px',
+                borderRadius: 999,
+                backgroundColor: selectedIds.size === 0 ? t.bgSub : t.danger,
+                color: selectedIds.size === 0 ? t.textMuted : '#fff',
+                border: 'none',
+                whiteSpace: 'nowrap',
+                cursor: selectedIds.size === 0 ? 'not-allowed' : 'pointer',
+                opacity: deleting ? 0.6 : 1,
+                transition: 'background-color .15s ease, color .15s ease',
+              }}
+            >
+              <Trash2 size={14} />
+              삭제
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* 개별 삭제 확인 */}
+      {pendingDelete && (
+        <ConfirmModal
+          message="이 스크랩을 삭제할까요?"
+          description={pendingDelete.title || pendingDelete.url || '제목 없는 스크랩'}
+          confirmText="삭제"
+          confirmDanger
+          onConfirm={confirmSingleDelete}
+          onCancel={() => setPendingDelete(null)}
+        />
+      )}
+
+      {/* 일괄 삭제 확인 */}
+      {confirmBulk && (
+        <ConfirmModal
+          message={`선택한 ${selectedIds.size}개 스크랩을 삭제할까요?`}
+          description="삭제하면 되돌릴 수 없어요."
+          confirmText="삭제"
+          confirmDanger
+          onConfirm={confirmBulkDelete}
+          onCancel={() => setConfirmBulk(false)}
         />
       )}
     </div>
