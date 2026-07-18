@@ -93,6 +93,9 @@
 - [ ] 리뷰 & 기록
 - [ ] 자기관리(건강/식단/독서 등 라이프스타일)
 - [ ] 설정
+- [~] 시각 입력 컴포넌트 이전 (`TimePicker` → `TimeField`/`HourField`) — 아래 §10 참조.
+      **DESIGN.md 등록 완료**(§5 「시각 입력」). Stage 4a-1: `TimeField` 생성 + `TodoModal` plan 2곳 이전
+      완료. 잔여(do 2 + 10파일)는 후속 Stage(§10.1).
 - [ ] (전 페이지 완료 후) 기본 테마 파스텔 확정
 
 ## 9. 알려진 기존 이슈 (이번 리팩터 범위 아님, 참고용)
@@ -108,3 +111,54 @@
     → 부분 매핑 시 불일치라 전체 보류.
   - 모달 컨테이너 자체의 §5 글래스(`glassBarStyle`) 전환: 밀도 높은 폼 가독성 리스크로 이번엔 미적용(디자인 검토 후 후속).
   - `'#fff'`(활성 칩/버튼 텍스트)·`rgba(0,0,0,0.4)`(오버레이 scrim): 과제에서 이번 범위 제외로 명시됨.
+
+## 10. 시각 입력 컴포넌트 이전 (`TimePicker` → `TimeField` / `HourField`)
+> 디자인 계약은 `DESIGN.md` §5 「시각 입력」. 실측 소비처 조사는 `docs/STAGE4A0_TIMEPICKER_CALLSITES.md`
+> (12파일 / 23인스턴스 / 2종 분류). 이 절은 **이전 지침**만 담는다.
+
+- **전량 이전 후 삭제.** `TimePicker`(`src/app/components/TimePicker.tsx`)는 `TimeField`(19인스턴스 /
+  10파일) + `HourField`(4인스턴스 / 2파일)로 **전량 이전한 뒤 삭제**한다. 두 컴포넌트 공존은 이전 기간 한정.
+- **이전 순서(각 단계 STOP):** `TodoModal` → `EventModal` → `TimelineAddModal` → 나머지 7파일
+  (`BrainstormView`·`CalendarView`·`SleepTimeEditModal`·`DailyView`·`RoutinesView`·`HabitsView`·
+  `TimelineLogModal`) → `HourField` 2파일(`SettingsView`·`TimelineSettingsModal`).
+- **종류 B(`HourField`)는 종류 A 이전에 영향받지 않는다** — 파일이 겹치지 않는다(독립 이전 가능).
+- **조용히 망가지는 곳 우선 경계:**
+  - `SettingsView` / `TimelineSettingsModal`(하루 경계) — 이 값이 **전 기록의 날짜 버킷팅**을 좌우한다.
+    경계 오저장 시 자정 근방 기록이 엉뚱한 날짜로 새고 화면엔 즉시 안 보인다. `HourField` 이전 1순위.
+  - `HabitsView` 알림(`alarmTime`) — 알림 발화 실패는 화면에 드러나지 않음(무음 실패).
+- **무음 손실 제거가 이전의 핵심.** 현재 두 경계 호출부는 `minuteStep={1}`로 분을 받고 저장 시 버린다
+  (`parseInt(split(':')[0])`). `HourField`는 분 입력 UI 자체를 없애 받은 값 = 저장 값을 보장한다.
+- **실적 라벨 색 보존.** `TodoModal` 실적(DO) 쌍 라벨의 `t.success`(§7.2 증감 토큰과 별개, 계획/실적 구분용)는
+  이전 시 호출부에 **그대로 둔다** — 컴포넌트 종류(둘 다 `TimeField`)와 무관하다.
+- **`haonStyles.ts` 신규 헬퍼 없음(Stage 4a-1 확정).** 트리거 표면 = 기존 `inputBg`, 팝오버 = 기존
+  **`addPopoverStyle`**(떠 있는 드롭다운 패널 recipe; 상단 바 전용 `glassBarStyle` 아님 — DESIGN.md §5
+  「시각 입력」도 이에 맞춰 정정됨). 목록 항목 상태(hover/active·정시/30분 강약)는 기존 토큰
+  (`t.bgSub`·`t.accentLight`·`t.accent`·`t.text`·`t.textMuted`) 인라인 조합으로 커버.
+
+### 10.1 Stage 4a-1 진행 현황 (2026-07-18)
+- **`TimeField` 신규 생성** (`src/app/components/TimeField.tsx`). 모바일 = `<input type="time">`(OS 위임),
+  PC(`lg:`) = 콤보박스(타이핑·5분 목록·정시/30분 강조·↑↓/Enter/Esc·종료 duration 병기·시작 이전 배제).
+  `minuteStep` 미수용(5분 고정). `role='end'` 모바일 duration chip(시작 + chip = 종료 자동설정).
+- **[x] `TodoModal` 계획(plan) 시작/종료 2곳 이전 완료.** `isHaon(t) ? <TimeField> : <TimePicker>`
+  조건 렌더 — **H만 TimeField, A/B/C/D는 `TimePicker` 그대로**(회귀 0). start 확정 → 종료 포커스 이동
+  (`planEndRef`). 저장 로직·plan 컬럼 매핑·모달 레이아웃 불변.
+- **非-H 폴백:** `TimeField` 내부에도 안전망 정의(콤보박스 없이 전 브레이크포인트 네이티브 + `inputBg`).
+  단 TodoModal이 게이트하므로 이번 소비처에선 미사용.
+- **라벨 제거 = Stage 2 조건부 보류.** do(실적) 필드가 화면에 남아 있어 plan/do 구분이 필요 → 이번엔
+  라벨 유지(현행 `hasDoTime ? '계획 시작' : '시작'` 로직 그대로). **do 정리(Stage 2) 후** plan 단독이 되면
+  "계획" 접두 라벨을 제거한다.
+- **잔여 이전 대상:**
+  - `TodoModal` **do(실적) 2곳** — 이번 범위 밖(Stage 2, 데이터 조사 후). 지금은 `TimePicker` 스피너 유지.
+  - **나머지 10파일**(`EventModal`·`TimelineAddModal`·`BrainstormView`·`CalendarView`·`SleepTimeEditModal`·
+    `DailyView`·`RoutinesView`·`HabitsView`·`TimelineLogModal` = TimeField / `SettingsView`·
+    `TimelineSettingsModal` = HourField) — 후속 Stage. `TimePicker`는 이들이 모두 이전될 때까지 삭제 금지.
+
+### 10.2 Stage 4a-1b — duration chip 선택 상태
+- **DESIGN.md §5 「시각 입력」에 duration chip 스펙 추가**(3단계 상태·단일 선택 토글·코랄 금지·라일락 선택).
+- **`DurationChips` 선택 상태 구현.** 현재 계획 길이(end−start)와 일치하는 칩만 활성:
+  기본=`t.card`(흰) + `t.textMuted` + hairline / 선택=`t.accentSoft`(라일락 `#F4E7FB`) + `t.text`(딥 인디고) + hairline.
+  코랄 제거(이전엔 `t.accentLight`(소프트 코랄) fill + `t.accent` 텍스트 = 붉은 위 붉은 + 선택 상태 없음).
+- **토큰 주의(SSOT):** 라일락 tint = **`t.accentSoft`**(`#F4E7FB`). `t.accentLight`(`#F6BCBA`)은 **소프트 코랄**이다 — 혼동 금지.
+- **선택 fill 강도:** 흰 카드 위 `accentSoft` 대비가 부족하면 `t.bgHover`(`#EFE3FA`)로 한 단계 상향 가능(옵션). 현재는 `accentSoft` 확정.
+- **후속 과제(기록):** `haonStyles.buttonStyle`에는 `selected` 변형이 없어 이번엔 인라인(토큰) 유지.
+  버튼 recipe에 selected 변형을 추가하면 이 칩을 recipe 경유로 회수(§5 "single recipe") — 후속 Stage.
