@@ -93,6 +93,8 @@
 - [ ] 리뷰 & 기록
 - [ ] 자기관리(건강/식단/독서 등 라이프스타일)
 - [ ] 설정
+- [ ] 시각 입력 컴포넌트 이전 (`TimePicker` → `TimeField`/`HourField`) — 아래 §10 참조.
+      **DESIGN.md 등록 완료**(§5 「시각 입력」), 구현은 Stage 4a-1~ 대기.
 - [ ] (전 페이지 완료 후) 기본 테마 파스텔 확정
 
 ## 9. 알려진 기존 이슈 (이번 리팩터 범위 아님, 참고용)
@@ -108,3 +110,24 @@
     → 부분 매핑 시 불일치라 전체 보류.
   - 모달 컨테이너 자체의 §5 글래스(`glassBarStyle`) 전환: 밀도 높은 폼 가독성 리스크로 이번엔 미적용(디자인 검토 후 후속).
   - `'#fff'`(활성 칩/버튼 텍스트)·`rgba(0,0,0,0.4)`(오버레이 scrim): 과제에서 이번 범위 제외로 명시됨.
+
+## 10. 시각 입력 컴포넌트 이전 (`TimePicker` → `TimeField` / `HourField`)
+> 디자인 계약은 `DESIGN.md` §5 「시각 입력」. 실측 소비처 조사는 `docs/STAGE4A0_TIMEPICKER_CALLSITES.md`
+> (12파일 / 23인스턴스 / 2종 분류). 이 절은 **이전 지침**만 담는다.
+
+- **전량 이전 후 삭제.** `TimePicker`(`src/app/components/TimePicker.tsx`)는 `TimeField`(19인스턴스 /
+  10파일) + `HourField`(4인스턴스 / 2파일)로 **전량 이전한 뒤 삭제**한다. 두 컴포넌트 공존은 이전 기간 한정.
+- **이전 순서(각 단계 STOP):** `TodoModal` → `EventModal` → `TimelineAddModal` → 나머지 7파일
+  (`BrainstormView`·`CalendarView`·`SleepTimeEditModal`·`DailyView`·`RoutinesView`·`HabitsView`·
+  `TimelineLogModal`) → `HourField` 2파일(`SettingsView`·`TimelineSettingsModal`).
+- **종류 B(`HourField`)는 종류 A 이전에 영향받지 않는다** — 파일이 겹치지 않는다(독립 이전 가능).
+- **조용히 망가지는 곳 우선 경계:**
+  - `SettingsView` / `TimelineSettingsModal`(하루 경계) — 이 값이 **전 기록의 날짜 버킷팅**을 좌우한다.
+    경계 오저장 시 자정 근방 기록이 엉뚱한 날짜로 새고 화면엔 즉시 안 보인다. `HourField` 이전 1순위.
+  - `HabitsView` 알림(`alarmTime`) — 알림 발화 실패는 화면에 드러나지 않음(무음 실패).
+- **무음 손실 제거가 이전의 핵심.** 현재 두 경계 호출부는 `minuteStep={1}`로 분을 받고 저장 시 버린다
+  (`parseInt(split(':')[0])`). `HourField`는 분 입력 UI 자체를 없애 받은 값 = 저장 값을 보장한다.
+- **실적 라벨 색 보존.** `TodoModal` 실적(DO) 쌍 라벨의 `t.success`(§7.2 증감 토큰과 별개, 계획/실적 구분용)는
+  이전 시 호출부에 **그대로 둔다** — 컴포넌트 종류(둘 다 `TimeField`)와 무관하다.
+- **`haonStyles.ts` 미변경(이 문서 Stage).** 트리거 표면 = 기존 `inputBg`, 팝오버 = 기존 `glassBarStyle`
+  재사용. 콤보박스 목록 항목 상태(hover/active)용 신규 헬퍼는 **구현 Stage 4a-1**에서 판단.
