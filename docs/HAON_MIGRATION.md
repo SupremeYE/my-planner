@@ -95,7 +95,8 @@
 - [ ] 설정
 - [~] 시각 입력 컴포넌트 이전 (`TimePicker` → `TimeField`/`HourField`) — 아래 §10 참조.
       **DESIGN.md 등록 완료**(§5 「시각 입력」). Stage 4a-1: `TimeField` 생성 + `TodoModal` plan 2곳 이전
-      완료. 잔여(do 2 + 10파일)는 후속 Stage(§10.1).
+      완료. Stage 4a-2: **`EventModal` 시각 2곳(시작/종료) 이전 완료**(순수 like-for-like, 새 동작 없음).
+      잔여(9파일)는 후속 Stage(§10.1).
 - [ ] (전 페이지 완료 후) 기본 테마 파스텔 확정
 
 ## 9. 알려진 기존 이슈 (이번 리팩터 범위 아님, 참고용)

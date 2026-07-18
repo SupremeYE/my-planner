@@ -5,7 +5,8 @@ import { usePlanner, Event, getLogicalToday } from '../store';
 import { useTheme } from '../ThemeContext';
 import ConfirmModal from './ConfirmModal';
 import { TimePicker } from './TimePicker';
-import { inputBg, dangerText, dangerFill } from '../styles/haonStyles';
+import { TimeField } from './TimeField';
+import { inputBg, dangerText, dangerFill, isHaon } from '../styles/haonStyles';
 
 interface EventModalProps {
   date?: string;
@@ -188,13 +189,17 @@ export function EventModal({ date, event, initialTitle, initialStartTime, initia
               <div>
                 <label style={{ fontSize: 11, color: t.textSub, fontWeight: 600 }}>시작시간</label>
                 <div className="mt-1">
-                  <TimePicker value={startTime} onChange={setStartTime} placeholder="시작 시간" />
+                  {isHaon(t)
+                    ? <TimeField value={startTime} onChange={setStartTime} placeholder="시작 시간" />
+                    : <TimePicker value={startTime} onChange={setStartTime} placeholder="시작 시간" />}
                 </div>
               </div>
               <div>
                 <label style={{ fontSize: 11, color: t.textSub, fontWeight: 600 }}>종료시간</label>
                 <div className="mt-1">
-                  <TimePicker value={endTime} onChange={setEndTime} placeholder="종료 시간" />
+                  {isHaon(t)
+                    ? <TimeField value={endTime} onChange={setEndTime} placeholder="종료 시간" />
+                    : <TimePicker value={endTime} onChange={setEndTime} placeholder="종료 시간" />}
                 </div>
               </div>
             </div>
