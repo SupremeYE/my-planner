@@ -7,7 +7,8 @@
 //  - 출처 감지(youtube / instagram / threads / web)
 //  - youtube: oEmbed (https://www.youtube.com/oembed) — 키 불필요
 //  - web:     HTML 가져와 og:title / og:image / og:description 파싱
-//  - instagram / threads: 자동 fetch 금지 → needsManual:true 만 반환
+//  - instagram: best-effort OG 파싱 + 썸네일 재호스팅, 실패 시 needsManual
+//  - threads: 자동 fetch 금지 → needsManual:true 만 반환
 //
 // 실패는 graceful — 항상 200 JSON 응답. 클라이언트는 needsManual 또는 빈 필드만 보고
 // "자동 채움 실패 → 직접 입력해주세요" UI 로 폴백한다.
@@ -90,16 +91,17 @@ function decodeHtml(s: string): string {
 function pickMeta(html: string, names: string[]): string | null {
   // <meta property="og:title" content="..."> 또는 name="..." 양쪽 지원, content/property 순서 교환도 허용
   for (const n of names) {
+    const escaped = n.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
     // property/name = "n"  →  content = "..."
     const re1 = new RegExp(
-      `<meta[^>]+(?:property|name)=["']${n.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}["'][^>]*content=["']([^"']*)["']`,
+      `<meta[^>]+(?:property|name)=["']${escaped}["'][^>]*content=["']([^"']*)["']`,
       'i',
     );
     const m1 = html.match(re1);
     if (m1?.[1]) return decodeHtml(m1[1]);
     // content = "..." → property/name = "n"  (순서 반대 케이스)
     const re2 = new RegExp(
-      `<meta[^>]+content=["']([^"']*)["'][^>]*(?:property|name)=["']${n.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}["']`,
+      `<meta[^>]+content=["']([^"']*)["'][^>]*(?:property|name)=["']${escaped}["']`,
       'i',
     );
     const m2 = html.match(re2);
@@ -211,12 +213,13 @@ async function fetchWeb(url: string): Promise<Partial<Result>> {
     });
     if (!res.ok) return {};
     const html = await res.text();
-    // <head> 만 자르면 더 빠르지만 일부 사이트는 <body> 안에도 OG 메타 둠 → 8만자까지만 처리
+    // <head> 만 자르면 더 빠르지만 일부 사이트는 <body> 안에도 OG 메타 둠 → 20만자까지만 처리
     const slice = html.length > 200_000 ? html.slice(0, 200_000) : html;
 
+    const titleMatch = slice.match(/<title[^>]*>([^<]+)<\/title>/i);
     const title =
       pickMeta(slice, ['og:title', 'twitter:title']) ??
-      (slice.match(/<title[^>]*>([^<]+)<\/title>/i)?.[1] ? decodeHtml(slice.match(/<title[^>]*>([^<]+)<\/title>/i)![1]) : null);
+      (titleMatch?.[1] ? decodeHtml(titleMatch[1]) : null);
 
     const rawImage = pickMeta(slice, ['og:image', 'og:image:secure_url', 'twitter:image', 'twitter:image:src']);
     const description = pickMeta(slice, ['og:description', 'twitter:description', 'description']);
