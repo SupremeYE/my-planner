@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { BarChart2 } from 'lucide-react';
 import { useTheme } from '../ThemeContext';
 import { MonthlyView } from './MonthlyView';
 import { MandalartView } from './mandalart/MandalartView';
@@ -11,29 +12,22 @@ export function GoalsHubView() {
 
   return (
     <div className="flex-1 overflow-y-auto" style={{ minHeight: 0, backgroundColor: t.bg }}>
-      {/* eyebrow + 제목 + 모드 탭 */}
+      {/* 제목(아이콘 + 목표) + 모드 탭 */}
       <div className="px-4 lg:px-8 pt-6 lg:pt-9">
-        <div
-          style={{
-            fontFamily: t.fontDecoratePen, // 손글씨 장식 eyebrow
-            fontSize: 20,
-            color: t.accent,
-            lineHeight: 1,
-          }}
-        >
-          structure your dream
+        <div className="flex items-center gap-2">
+          <BarChart2 size={22} strokeWidth={2.2} color={t.accent} style={{ flexShrink: 0 }} />
+          <h1
+            style={{
+              fontFamily: t.fontPageTitle, // 페이지 최상위 제목 (건강 페이지와 동일 규격)
+              fontSize: 22,
+              fontWeight: 700,
+              lineHeight: 1,
+              color: t.text,
+            }}
+          >
+            목표
+          </h1>
         </div>
-        <h1
-          style={{
-            fontFamily: t.fontPageTitle, // 페이지 최상위 제목
-            fontSize: 34,
-            lineHeight: 1,
-            marginTop: 4,
-            color: t.text,
-          }}
-        >
-          목표
-        </h1>
 
         {/* 모드 탭 (만다라트 / 기간별) */}
         <div

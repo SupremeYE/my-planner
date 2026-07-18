@@ -44,7 +44,7 @@ export function IdentityCard({ year, appSettings, updateAppSettings }: Props) {
         onChange={e => { touched.current = true; setDraft(e.target.value); }}
         placeholder="한 문장으로..."
         className="w-full rounded-lg px-2 py-1.5 border outline-none resize-none"
-        style={{ fontSize: 12, lineHeight: 1.5, borderColor: t.borderLight, backgroundColor: t.bgSub, color: t.text }}
+        style={{ fontSize: 12, lineHeight: 1.5, borderColor: t.border, backgroundColor: t.card, color: t.text }}
       />
     </div>
   );
@@ -91,7 +91,7 @@ export function ValuesCard({ year, appSettings, updateAppSettings }: Props) {
               onKeyDown={e => e.key === 'Enter' && addValue()}
               placeholder="가치..."
               className="px-2 py-0.5 rounded-full border outline-none"
-              style={{ fontSize: 11, width: 70, borderColor: t.borderLight, backgroundColor: t.bgSub, color: t.text }}
+              style={{ fontSize: 11, width: 70, borderColor: t.border, backgroundColor: t.card, color: t.text }}
             />
             <button onClick={addValue} className="p-0.5 rounded-full" style={{ backgroundColor: t.accent, color: '#fff' }}>
               <Plus size={9} />
