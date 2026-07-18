@@ -178,6 +178,24 @@ do not hand-pick extra hexes.
 - **코랄은 카테고리 색으로 쓰지 않는다** — coral (`accent_gradient`) is reserved for
   emphasis / FAB / the selected-day tint only, never a category.
 
+### 라일락 fill 사용 규칙 (accentSoft / bgSub restraint)
+
+라일락 tint(`t.accentSoft` — 테마 H 에서 `#F4E7FB`, `t.bgSub` 과 동일 값)는 **"선택/활성
+상태"를 나타낼 때만 fill 로 쓴다.** 기본(비선택) 배경으로 쓰지 않는다.
+
+- **선택 상태 = 라일락 fill 허용:** 선택된 chip(예: duration chip §5), 태그 선택(단 태그는
+  카테고리 hue 우선), 그 밖에 "선택됨/활성"을 나타내는 상태. **세그먼트 컨트롤은 예외** — 흰 pill
+  + 3px 코랄 언더라인이 우선이라 라일락 fill 을 쓰지 않는다(§5).
+- **기본 배경 = 흰색:** 입력 필드·버튼·카드·정보 박스의 **기본(비선택)** 배경은 §5 Input/Card
+  recipe(불투명 흰색 + hairline)를 쓴다. "무난한 배경색"이 필요하다는 이유로 라일락
+  (`t.bgSub`/`t.accentSoft`)을 집지 않는다 — 중립이 필요하면 흰색 + hairline, 또는 캔버스(`t.bg`).
+- **경계:** hover/pressed 등 **상호작용 틴트**(`t.bgHover`, §5 Interaction states)는 이 규칙과
+  별개(순간 피드백이지 기본 배경이 아니다). 태그·카테고리 hue(§3), 방금 등록된 특정 패턴
+  (읽기전용 요약 등)의 명시 규정은 그 규정을 따른다.
+- **왜:** 테마 H 에서 `bgSub` 이 곧 라일락(`accentSoft` 와 같은 `#F4E7FB`)이라 "서브 배경"으로
+  `t.bgSub` 을 관성적으로 집으면 라일락이 의미 없이 새어 나온다. 코랄 restraint(위)와 같은 취지 —
+  강조/선택 색을 기본 표면에 흘리지 않는다. **새 토큰을 만들지 않는다(규칙만).**
+
 ---
 
 ## 4. Typography

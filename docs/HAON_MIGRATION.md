@@ -181,3 +181,21 @@
 - **테마:** do 읽기전용 요약은 토큰 텍스트라 **테마 무관**(isHaon 게이트 없음, 非-H 동일 구조). plan은
   기존대로 `isHaon ? TimeField : TimePicker`. `TimePicker`는 plan 非-H 폴백으로 남아 삭제 금지.
 - 검증: `npm run build`·`lint:fonts` 통과, 격리 하버스 스크린샷(PC/모바일 × do 유무) 4종 확인.
+
+### 10.4 라일락 청소 — accentSoft/bgSub restraint 규칙 + TodoModal 일괄 교체 (2026-07-18)
+- **근본 원인:** 테마 H 에서 `t.bgSub` === `t.accentSoft` === `#F4E7FB`(라일락). "무난한 서브 배경"으로
+  `t.bgSub` 를 관성적으로 집으면 라일락이 새 요소마다 새어 나온다(두더지 잡기). → 개별 패치가 아니라 규칙으로 차단.
+- **DESIGN.md §3 「라일락 fill 사용 규칙」 신규 등록:** 라일락 fill(`accentSoft`/`bgSub`)은 **선택/활성
+  상태에만**. 기본(비선택) 배경은 §5 Input/Card(흰색 + hairline). 세그먼트(흰 pill+코랄 언더라인)·태그 hue 는
+  예외. hover/pressed 상호작용 틴트는 별개. 새 토큰 없음.
+- **TodoModal 전수 교체(색만, 구조·순서 불변):** 미지정·취소·누적 시간 박스·태그 비선택 칩·태그 생성/편집
+  패널·미리보기 fallback → 흰색(`inputBg(t)` = H 흰/非-H bgSub). 반복 칩·요일 칩 → duration chip 3단계 통일
+  (H: 선택만 라일락 `accentSoft`+딥인디고, 비선택 흰색+중립 hairline / 코랄 제거). 새프로젝트 만들기 disabled →
+  accent+opacity(태그 '추가' 버튼과 통일). 삭제 버튼 → danger 텍스트만(붉은 wash 제거).
+- **非-H 회귀 0(구성상 보장):** 모든 변경이 `inputBg(t)`(非-H→bgSub 원본) 또는 `isHaon(t) ? 신규 : 원본`
+  삼항. 非-H 분기는 기존 값(coral/bgSub/dangerFill fallback) 그대로.
+- **남은 라일락:** H 기준 0(선택 상태 accentSoft 만 잔존 = 규칙 준수). 팔레트 색 삭제(휴지통) 아이콘 버튼의
+  `dangerFill` 소형 wash 는 이번 스코프 밖(메인 삭제 버튼만 대상).
+- 검증: `npm run build`·`lint:fonts` 통과, 하드코딩 라일락 hex 0, 격리 하버스 스크린샷(PC/모바일 + 태그 패널) 확인.
+- **후속:** EventModal·TimelineAddModal 등 다른 모달도 동일 규칙으로 청소(후속 Stage). `t.bgSub` 기본 배경
+  잔재 감사 대상.
