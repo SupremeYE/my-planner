@@ -97,7 +97,7 @@ export function GlobalFloatingTimer() {
     return (
       <div
         className="fixed bottom-[72px] left-3 right-3 z-50 rounded-[22px] px-4 py-3.5 lg:bottom-6 lg:left-auto lg:right-6 lg:w-[380px]"
-        style={{ backgroundColor: '#6BAA7A', boxShadow: '0 16px 36px rgba(38,52,61,0.18)' }}
+        style={{ backgroundColor: t.success, boxShadow: '0 16px 36px rgba(38,52,61,0.18)' }}
       >
         <div className="flex items-center gap-3">
           <div className="flex h-10 w-10 items-center justify-center rounded-full flex-shrink-0"
@@ -126,12 +126,12 @@ export function GlobalFloatingTimer() {
   return (
     <div
       className="fixed bottom-[72px] left-3 right-3 z-50 rounded-[22px] px-3 py-3 lg:bottom-6 lg:left-auto lg:right-6 lg:w-[380px] lg:px-4"
-      style={{ backgroundColor: '#FDFAF4', border: `1px solid ${t.border}`, boxShadow: '0 16px 36px rgba(38,52,61,0.18)' }}
+      style={{ backgroundColor: t.card, border: `1px solid ${t.border}`, boxShadow: '0 16px 36px rgba(38,52,61,0.18)' }}
     >
       <div className="flex items-center gap-3">
         <div
           className="flex h-10 w-10 items-center justify-center rounded-full flex-shrink-0"
-          style={{ backgroundColor: activeTimer.isPaused ? '#EDE4D8' : '#C4A882', color: activeTimer.isPaused ? '#6B553D' : '#fff' }}
+          style={{ backgroundColor: activeTimer.isPaused ? t.bgSub : t.accent, color: activeTimer.isPaused ? t.textMuted : '#fff' }}
         >
           <Timer size={17} className={activeTimer.isPaused ? '' : 'animate-pulse'} />
         </div>
@@ -142,10 +142,10 @@ export function GlobalFloatingTimer() {
           <div style={{ fontSize: 14, fontWeight: 700, color: t.text, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: 180 }}>
             {truncatedTitle}
           </div>
-          <div style={{ fontSize: 11, color: '#8D7152', marginTop: 2 }}>
+          <div style={{ fontSize: 11, color: t.textMuted, marginTop: 2 }}>
             {activeTimer.mode === 'pomodoro' ? '남은 시간' : '경과 시간'}
           </div>
-          <div style={{ fontSize: 20, fontWeight: 700, lineHeight: 1.1, color: '#6B553D', marginTop: 1 }}>
+          <div style={{ fontSize: 20, fontWeight: 700, lineHeight: 1.1, color: t.text, marginTop: 1 }}>
             {formatElapsed(displaySec)}
           </div>
         </div>
@@ -153,7 +153,7 @@ export function GlobalFloatingTimer() {
           <button
             onClick={activeTimer.isPaused ? resumeTimer : pauseTimer}
             className="flex items-center gap-1.5 rounded-xl px-3 py-2"
-            style={{ backgroundColor: '#F5F0E8', color: '#6B553D', fontSize: 12, fontWeight: 700, border: `1px solid ${t.borderLight}` }}
+            style={{ backgroundColor: t.bgSub, color: t.text, fontSize: 12, fontWeight: 700, border: `1px solid ${t.borderLight}` }}
           >
             {activeTimer.isPaused ? <Play size={12} /> : <Pause size={12} />}
             {activeTimer.isPaused ? '재개' : '일시정지'}
@@ -162,7 +162,7 @@ export function GlobalFloatingTimer() {
             onClick={stopTimer}
             title="타이머 정지 (할일은 진행중 유지)"
             className="flex items-center gap-1.5 rounded-xl px-3 py-2"
-            style={{ backgroundColor: '#C4A882', color: '#fff', fontSize: 12, fontWeight: 700 }}
+            style={{ backgroundColor: t.danger, color: '#fff', fontSize: 12, fontWeight: 700 }}
           >
             <Square size={12} fill="#fff" />
             정지
