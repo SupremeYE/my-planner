@@ -85,7 +85,20 @@ function decodeHtml(s: string): string {
     .replace(/&#39;/gi, "'")
     .replace(/&apos;/gi, "'")
     .replace(/&nbsp;/gi, ' ')
-    .replace(/&#(\d+);/g, (_, n) => String.fromCharCode(Number(n)));
+    // 16진수 엔티티(&#xC758; 등) — 인스타 og:title 이 한글/이모지를 이 형태로 인코딩함
+    .replace(/&#x([0-9a-f]+);/gi, (m, h) => codePointToStr(parseInt(h, 16), m))
+    // 10진수 엔티티(&#48124; 등). fromCodePoint 로 이모지(BMP 밖)까지 안전 처리
+    .replace(/&#(\d+);/g, (m, n) => codePointToStr(Number(n), m));
+}
+
+// 유효한 유니코드 코드포인트만 문자로 변환. 범위 밖이면 원본 엔티티 문자열 유지(fromCodePoint 예외 방지).
+function codePointToStr(cp: number, fallback: string): string {
+  if (!Number.isFinite(cp) || cp < 0 || cp > 0x10ffff) return fallback;
+  try {
+    return String.fromCodePoint(cp);
+  } catch {
+    return fallback;
+  }
 }
 
 function pickMeta(html: string, names: string[]): string | null {
