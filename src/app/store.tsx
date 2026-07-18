@@ -74,6 +74,8 @@ export interface Event {
   endDate?: string;
   startTime?: string;
   endTime?: string;
+  doStart?: string;  // 실제(actual) 시작 HH:mm — 계획(startTime)과 별개. 없으면 실적 없음.
+  doEnd?: string;    // 실제(actual) 종료 HH:mm — 계획(endTime)과 별개. 없으면 실적 없음.
   isAllDay?: boolean;
   location?: string;
   linkUrl?: string;

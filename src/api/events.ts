@@ -21,6 +21,8 @@ export interface EventMutationInput {
   endDate: string;
   startTime?: string;
   endTime?: string;
+  doStart?: string;
+  doEnd?: string;
   location?: string;
   linkUrl?: string;
   repeatType?: EventRepeatType;
@@ -46,6 +48,8 @@ type EventRow = {
   is_all_day: boolean | null;
   start_at: string;
   end_at: string;
+  do_start: string | null;
+  do_end: string | null;
   location: string | null;
   link_url: string | null;
   repeat_type: EventRepeatType | null;
@@ -87,6 +91,8 @@ function toEventInput(event: Event | EventMutationInput): EventMutationInput {
     endDate: event.endDate || event.date,
     startTime: event.startTime,
     endTime: event.endTime,
+    doStart: event.doStart,
+    doEnd: event.doEnd,
     location: event.location,
     linkUrl: event.linkUrl,
     repeatType: event.repeatType || 'none',
@@ -120,6 +126,9 @@ function toRowPayload(event: Event | EventMutationInput) {
     is_all_day: isAllDay,
     start_at: toDateTime(startDate, startTime),
     end_at: toDateTime(endDate, endTime),
+    // 실적(actual) 시각 — 계획(start_at/end_at)과 별개. 없으면 NULL 유지(실적 없음).
+    do_start: input.doStart || null,
+    do_end: input.doEnd || null,
     location: input.location?.trim() || null,
     link_url: input.linkUrl?.trim() || null,
     repeat_type: input.repeatType || 'none',
@@ -155,6 +164,8 @@ function toLegacyEvent(row: EventRow, occurrenceDate?: string): Event {
     endDate: format(endAt, 'yyyy-MM-dd'),
     startTime: row.is_all_day ? undefined : format(startAt, 'HH:mm'),
     endTime: row.is_all_day ? undefined : format(endAt, 'HH:mm'),
+    doStart: row.do_start ?? undefined,
+    doEnd: row.do_end ?? undefined,
     location: row.location ?? undefined,
     linkUrl: row.link_url ?? undefined,
     memo: row.memo ?? undefined,
