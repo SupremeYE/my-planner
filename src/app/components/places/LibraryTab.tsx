@@ -1,7 +1,7 @@
 // 보관함 탭 — 모바일(전체/폴더 서브탭) + PC(폴더 레일 + 3열 그리드)
 // Stage 1 의 db hooks + 상수만 사용. Realtime 4테이블 구독으로 PC↔모바일 즉시 반영.
 import React, { useCallback, useMemo, useState } from 'react';
-import { Plus, ChevronLeft, ArrowUpRight, Pencil, Trash2, CheckSquare, X } from 'lucide-react';
+import { Plus, ChevronLeft, ArrowUpRight, Pencil, Trash2, CheckSquare, X, Link2 } from 'lucide-react';
 import { useTheme } from '../../ThemeContext';
 import { db } from '../../../lib/db';
 import type { Place, PlaceFolder } from '../../../lib/db';
@@ -9,6 +9,7 @@ import { REGION_LABELS } from '../../../constants/places';
 import { placeEmoji, sourceLabel, colorFromKey, withAlpha } from './placeHelpers';
 import { usePlacesData } from './usePlacesData';
 import { PlaceFormSheet } from './PlaceFormSheet';
+import { PlaceFromLinkSheet } from './PlaceFromLinkSheet';
 import { useFabAction } from '../../FabContext';
 import { FolderFormSheet } from './FolderFormSheet';
 import { FolderPickerSheet } from './FolderPickerSheet';
@@ -51,6 +52,7 @@ export function LibraryTab() {
 
   // 시트
   const [addPlaceFor, setAddPlaceFor] = useState<string | null | undefined>(undefined); // undefined=닫힘, null=폴더없음, id=기본폴더
+  const [linkSheetFor, setLinkSheetFor] = useState<string | null | undefined>(undefined); // 링크·SNS로 담기 (undefined=닫힘)
   const [editPlace, setEditPlace] = useState<Place | null>(null);
 
   // 전역 FAB — 장소 추가 (폴더는 폼에서 선택)
@@ -165,6 +167,17 @@ export function LibraryTab() {
     </button>
   );
 
+  // 링크·SNS로 담기 버튼 (툴바용 컴팩트)
+  const LinkAddBtn = ({ folderId }: { folderId?: string | null }) => (
+    <button
+      onClick={() => setLinkSheetFor(folderId ?? null)}
+      className="flex items-center justify-center gap-1"
+      style={{ flexShrink: 0, padding: '8px 12px', borderRadius: 10, border: `1px solid ${withAlpha(t.accent, 0.5)}`, background: withAlpha(t.accent, 0.08), color: t.accent, fontSize: 12.5, fontWeight: 700, cursor: 'pointer', marginBottom: 4 }}
+    >
+      <Link2 size={14} /> 링크로
+    </button>
+  );
+
   // 빈 상태
   const EmptyPlaces = () => (
     <div style={{ textAlign: 'center', padding: '40px 20px' }}>
@@ -172,13 +185,22 @@ export function LibraryTab() {
         아직 모아둔 곳이 없어요
       </div>
       <div style={{ fontSize: 12.5, color: t.textMuted, marginTop: 4 }}>마음에 드는 장소를 하나씩 담아볼까요?</div>
-      <button
-        onClick={() => setAddPlaceFor(null)}
-        className="inline-flex items-center gap-1.5 mt-4"
-        style={{ padding: '10px 18px', borderRadius: 12, border: 'none', backgroundColor: t.accent, color: '#fff', fontSize: 14, fontWeight: 700, cursor: 'pointer' }}
-      >
-        <Plus size={16} /> 첫 장소 담기
-      </button>
+      <div className="flex items-center justify-center gap-2 mt-4 flex-wrap">
+        <button
+          onClick={() => setAddPlaceFor(null)}
+          className="inline-flex items-center gap-1.5"
+          style={{ padding: '10px 18px', borderRadius: 12, border: 'none', backgroundColor: t.accent, color: '#fff', fontSize: 14, fontWeight: 700, cursor: 'pointer' }}
+        >
+          <Plus size={16} /> 첫 장소 담기
+        </button>
+        <button
+          onClick={() => setLinkSheetFor(null)}
+          className="inline-flex items-center gap-1.5"
+          style={{ padding: '10px 18px', borderRadius: 12, border: `1.5px solid ${withAlpha(t.accent, 0.5)}`, backgroundColor: withAlpha(t.accent, 0.08), color: t.accent, fontSize: 14, fontWeight: 700, cursor: 'pointer' }}
+        >
+          <Link2 size={16} /> 링크·SNS로
+        </button>
+      </div>
     </div>
   );
 
@@ -243,6 +265,7 @@ export function LibraryTab() {
             {!selectMode ? (
               <div className="flex items-center gap-2">
                 <div style={{ flex: 1 }}><AddPlaceRow folderId={mobileFolder.id} /></div>
+                <LinkAddBtn folderId={mobileFolder.id} />
                 {placesInFolder(mobileFolder.id).length > 0 && (
                   <button onClick={enterSelectMode} style={{ flexShrink: 0, padding: '8px 12px', borderRadius: 10, border: `1px solid ${t.border}`, background: 'transparent', color: t.textSub, fontSize: 12.5, fontWeight: 600, cursor: 'pointer', marginBottom: 4 }}>
                     <CheckSquare size={14} style={{ display: 'inline', verticalAlign: -2, marginRight: 3 }} />선택
@@ -280,6 +303,7 @@ export function LibraryTab() {
                   {!selectMode ? (
                     <div className="flex items-center gap-2">
                       <div style={{ flex: 1 }}><AddPlaceRow /></div>
+                      <LinkAddBtn />
                       <button onClick={enterSelectMode} style={{ flexShrink: 0, padding: '8px 12px', borderRadius: 10, border: `1px solid ${t.border}`, background: 'transparent', color: t.textSub, fontSize: 12.5, fontWeight: 600, cursor: 'pointer', marginBottom: 4 }}>
                         <CheckSquare size={14} style={{ display: 'inline', verticalAlign: -2, marginRight: 3 }} />선택
                       </button>
@@ -381,6 +405,9 @@ export function LibraryTab() {
                 {!selectMode ? (
                   <div className="flex items-center gap-2 mb-3">
                     <div style={{ flex: 1 }} />
+                    <button onClick={() => setLinkSheetFor(pcFolder === 'all' ? null : pcFolder)} className="flex items-center gap-1" style={{ padding: '7px 14px', borderRadius: 9, border: `1px solid ${withAlpha(t.accent, 0.5)}`, background: withAlpha(t.accent, 0.08), color: t.accent, fontSize: 12.5, fontWeight: 700, cursor: 'pointer' }}>
+                      <Link2 size={14} /> 링크·SNS로 담기
+                    </button>
                     <button onClick={enterSelectMode} style={{ padding: '7px 14px', borderRadius: 9, border: `1px solid ${t.border}`, background: 'transparent', color: t.textSub, fontSize: 12.5, fontWeight: 600, cursor: 'pointer' }}>
                       <CheckSquare size={14} style={{ display: 'inline', verticalAlign: -2, marginRight: 4 }} />선택 삭제
                     </button>
@@ -430,6 +457,14 @@ export function LibraryTab() {
           folders={folders}
           currentFolderIds={linkMap.get(editPlace.id) ?? []}
           onClose={() => setEditPlace(null)}
+          onSaved={refresh}
+        />
+      )}
+      {linkSheetFor !== undefined && (
+        <PlaceFromLinkSheet
+          folders={folders}
+          defaultFolderId={linkSheetFor}
+          onClose={() => setLinkSheetFor(undefined)}
           onSaved={refresh}
         />
       )}

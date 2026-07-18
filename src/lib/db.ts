@@ -3537,6 +3537,33 @@ export const db = {
         return false;
       }
     },
+    // ── SNS/유튜브 링크·스크린샷 → 장소 후보 추출 (extract-places Edge Function) ──
+    //   caption/title(텍스트) + image_url(커버/캡처) 중 있는 것만 넘긴다. "등록 시점 1회"만 호출.
+    //   반환된 후보(name/addressHint)는 부정확할 수 있어 클라가 카카오 keywordSearch 로 확인 후 저장한다.
+    extractFromLink: async (payload: {
+      caption?: string | null; title?: string | null; image_url?: string | null; source?: string | null;
+    }): Promise<Array<{ name: string; category?: string; addressHint?: string; note?: string; confidence: number }> | null> => {
+      try {
+        const { data, error } = await supabase.functions.invoke('extract-places', { body: payload });
+        if (error) { console.error('[db] extract-places invoke:', error.message); return null; }
+        if (!data?.ok || !Array.isArray(data.places)) return null;
+        return data.places;
+      } catch (e) {
+        console.error('[db] extract-places exception:', e);
+        return null;
+      }
+    },
+    // 스크린샷 업로드 → public URL (vision 입력 겸 장소 썸네일). 링크 커버와 동일하게 scrap-thumbs 공개 버킷 재사용.
+    uploadThumb: async (file: File, itemKey: string): Promise<string | null> => {
+      const ext = (file.name.split('.').pop() ?? 'jpg').toLowerCase();
+      const path = `place_${itemKey}.${ext}`;
+      const { error } = await supabase.storage
+        .from('scrap-thumbs')
+        .upload(path, file, { upsert: true, contentType: file.type });
+      if (error) { console.error('[db] places uploadThumb:', error.message); return null; }
+      const { data } = supabase.storage.from('scrap-thumbs').getPublicUrl(path);
+      return data.publicUrl;
+    },
   },
 
   // ── 가고싶은 곳: 장소 ↔ 폴더 다대다 (place_folder_items) ──────────────────────
