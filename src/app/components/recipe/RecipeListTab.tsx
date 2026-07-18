@@ -324,6 +324,14 @@ export function RecipeListTab() {
   return (
     <>
       <div className="px-4 lg:px-8 py-4 lg:py-6">
+        {/* PC 전용 추가 버튼 — 모바일은 하단 FAB 사용 */}
+        <div className="hidden lg:flex justify-end mb-3">
+          <button onClick={openAdd}
+            className="flex items-center gap-1.5 rounded-xl active:scale-95 transition-transform"
+            style={{ fontSize: 14, fontWeight: 700, color: '#fff', backgroundColor: t.accent, padding: '9px 16px' }}>
+            <Plus size={16} /> 레시피 추가
+          </button>
+        </div>
         {/* 검색 */}
         <div className="relative mb-3">
           <Search size={16} color={t.textMuted}

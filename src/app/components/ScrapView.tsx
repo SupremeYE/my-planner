@@ -671,39 +671,49 @@ export function ScrapView() {
       `}</style>
 
       {/* ── 헤더 ── */}
-      <header className="px-6 lg:px-14 pt-12 lg:pt-12 pb-2">
-        <div className="flex items-center gap-2" style={{ color: t.accent }}>
-          <Bookmark size={16} strokeWidth={2.2} />
-          <span
+      <header className="px-6 lg:px-14 pt-12 lg:pt-12 pb-2 flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <div className="flex items-center gap-2" style={{ color: t.accent }}>
+            <Bookmark size={16} strokeWidth={2.2} />
+            <span
+              style={{
+                fontFamily: t.fontDecoratePen,
+                fontSize: 22,
+                letterSpacing: 0.5,
+                lineHeight: 1,
+              }}
+              className="lg:text-[26px]"
+            >
+              inspiration
+            </span>
+          </div>
+          <h1
             style={{
-              fontFamily: t.fontDecoratePen,
-              fontSize: 22,
-              letterSpacing: 0.5,
+              fontFamily: t.fontPageTitle, // 페이지 최상위 제목
+              fontSize: 40,
               lineHeight: 1,
+              marginTop: 6,
+              color: t.text,
             }}
-            className="lg:text-[26px]"
+            className="lg:text-[54px]"
           >
-            inspiration
-          </span>
+            스크랩
+          </h1>
+          <p
+            style={{ fontSize: 13, color: t.textSub, lineHeight: 1.5, marginTop: 8 }}
+            className="lg:text-[14px]"
+          >
+            영감 보관함
+          </p>
         </div>
-        <h1
-          style={{
-            fontFamily: t.fontPageTitle, // 페이지 최상위 제목
-            fontSize: 40,
-            lineHeight: 1,
-            marginTop: 6,
-            color: t.text,
-          }}
-          className="lg:text-[54px]"
+        {/* PC 전용 추가 버튼 — 모바일은 하단 FAB 사용 */}
+        <button
+          onClick={handleAddClick}
+          className="hidden lg:flex items-center gap-1.5 rounded-full flex-shrink-0"
+          style={{ fontSize: 14, fontWeight: 700, color: '#fff', backgroundColor: t.accent, padding: '10px 18px', marginTop: 8 }}
         >
-          스크랩
-        </h1>
-        <p
-          style={{ fontSize: 13, color: t.textSub, lineHeight: 1.5, marginTop: 8 }}
-          className="lg:text-[14px]"
-        >
-          영감 보관함
-        </p>
+          <Plus size={17} /> 스크랩 추가
+        </button>
       </header>
 
       {/* ── 검색창 + 안 본 것만 토글 (Stage 3) ── */}

@@ -12,7 +12,7 @@ export function BeautyCareView() {
       <div className="lg:hidden">
         <BeautyCareMobile />
       </div>
-      <div className="hidden lg:block">
+      <div className="hidden lg:block lg:h-full lg:overflow-y-auto">
         <BeautyCareDesktop />
       </div>
     </>
