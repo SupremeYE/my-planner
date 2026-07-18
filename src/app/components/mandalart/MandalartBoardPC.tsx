@@ -158,8 +158,8 @@ export function MandalartBoardPC({ boardId, boardTitle, cells, onMutate, onNotif
                 style={{
                   padding: 5,
                   borderRadius: 12,
-                  backgroundColor: 'transparent',
-                  border: `1.5px dashed ${t.border}`,
+                  backgroundColor: t.bgSub,
+                  border: `1.5px dashed ${t.accentLight}`,
                   minWidth: 0,
                   aspectRatio: '1',
                   display: 'flex',
@@ -168,7 +168,7 @@ export function MandalartBoardPC({ boardId, boardTitle, cells, onMutate, onNotif
                   justifyContent: 'center',
                   gap: 4,
                   color: t.accent,
-                  opacity: subCell ? 0.9 : 0.45,
+                  opacity: subCell ? 1 : 0.85,
                 }}
               >
                 <span style={{ fontSize: 22, fontWeight: 300 }}>+</span>
@@ -188,8 +188,8 @@ export function MandalartBoardPC({ boardId, boardTitle, cells, onMutate, onNotif
                 gap: 4,
                 padding: 5,
                 borderRadius: 12,
-                backgroundColor: isCenterBlock ? t.accentLight : t.bgSub,
-                boxShadow: isCenterBlock ? `0 0 0 1.5px ${t.accent}33` : 'none',
+                backgroundColor: t.bgSub,
+                boxShadow: isCenterBlock ? `0 0 0 2px ${t.accent}55` : `inset 0 0 0 1px ${t.border}`,
                 minWidth: 0,
               }}
             >
@@ -336,7 +336,13 @@ function CorePCCell({ title, pct, t, onClick }: {
   return (
     <button
       onClick={onClick}
-      style={{ ...cellBase, backgroundColor: t.accent, color: '#fff', border: `1px solid ${t.accent}` }}
+      style={{
+        ...cellBase,
+        background: t.primaryGradient ?? t.accent,
+        color: '#fff',
+        border: 'none',
+        boxShadow: t.shadowButton,
+      }}
     >
       <span style={{ fontFamily: t.fontDecorative, fontWeight: 700, fontSize: 12, lineHeight: 1.15, ...clamp2 }}>
         {title}
@@ -357,13 +363,13 @@ function SubPCCell({ cell, sent, pct, hasActions, t, onClick, onEdit }: {
         title="세부 목표 추가"
         style={{
           ...cellBase,
-          backgroundColor: 'transparent',
-          border: `1.5px dashed ${t.border}`,
+          backgroundColor: t.card,
+          border: `1.5px dashed ${t.accentLight}`,
           color: t.accent,
         }}
       >
         <span style={{ fontSize: 16, fontWeight: 300, lineHeight: 1 }}>+</span>
-        <span style={{ fontSize: 8.5, color: t.textMuted }}>세부</span>
+        <span style={{ fontSize: 8.5, color: t.accent }}>세부</span>
       </button>
     );
   }
@@ -374,9 +380,9 @@ function SubPCCell({ cell, sent, pct, hasActions, t, onClick, onEdit }: {
       onContextMenu={e => { e.preventDefault(); onEdit(); }}
       style={{
         ...cellBase,
-        backgroundColor: done ? t.success + '22' : t.accentSoft,
+        backgroundColor: done ? t.success + '22' : t.card,
         color: done ? t.textMuted : t.text,
-        border: `1px solid ${done ? t.success + '66' : 'transparent'}`,
+        border: `1px solid ${done ? t.success + '66' : t.border}`,
         position: 'relative',
       }}
     >
@@ -394,7 +400,7 @@ function SubPCCell({ cell, sent, pct, hasActions, t, onClick, onEdit }: {
         {cell.content}
       </span>
       {hasActions ? (
-        <span style={{ width: '74%', height: 4, borderRadius: 999, backgroundColor: '#ffffff80', overflow: 'hidden', display: 'block' }}>
+        <span style={{ width: '74%', height: 4, borderRadius: 999, backgroundColor: t.bgSub, overflow: 'hidden', display: 'block' }}>
           <b style={{ display: 'block', height: '100%', width: `${pct}%`, backgroundColor: t.success }} />
         </span>
       ) : (
@@ -421,9 +427,9 @@ function SubCenterPCCell({ name, pct, t, onClick }: {
       onClick={onClick}
       style={{
         ...cellBase,
-        backgroundColor: t.accentLight,
+        backgroundColor: t.accentSoft,
         color: t.text,
-        border: '1px solid transparent',
+        border: `1px solid ${t.border}`,
       }}
     >
       <span style={{ fontFamily: t.fontDecorative, fontWeight: 700, fontSize: 12, lineHeight: 1.15, ...clamp2 }}>
@@ -449,13 +455,13 @@ function ActionPCCell({ cell, sent, t, onTap, onEdit }: {
         title="행동 추가"
         style={{
           ...cellBase,
-          backgroundColor: 'transparent',
-          border: `1.5px dashed ${t.border}`,
+          backgroundColor: t.card,
+          border: `1.5px dashed ${t.accentLight}`,
           color: t.accent,
         }}
       >
         <span style={{ fontSize: 16, fontWeight: 300, lineHeight: 1 }}>+</span>
-        <span style={{ fontSize: 8.5, color: t.textMuted }}>행동</span>
+        <span style={{ fontSize: 8.5, color: t.accent }}>행동</span>
       </button>
     );
   }
@@ -467,7 +473,7 @@ function ActionPCCell({ cell, sent, t, onTap, onEdit }: {
       style={{
         ...cellBase,
         backgroundColor: done ? t.success + '22' : t.card,
-        border: `1px solid ${done ? t.success + '66' : t.borderLight}`,
+        border: `1px solid ${done ? t.success + '66' : t.border}`,
         color: done ? t.textMuted : t.text,
         cursor: 'pointer',
         position: 'relative',

@@ -319,7 +319,7 @@ function CoreCell({ title, pct, t, onClick }: {
     <button
       onClick={onClick}
       className="aspect-square rounded-2xl flex flex-col items-center justify-center gap-1 px-2 text-center"
-      style={{ backgroundColor: t.accent, color: '#fff', minWidth: 0 }}
+      style={{ background: t.primaryGradient ?? t.accent, color: '#fff', minWidth: 0, boxShadow: t.shadowButton }}
     >
       <span style={{
         fontFamily: t.fontDecorative, fontWeight: 700, fontSize: 14,
@@ -348,13 +348,13 @@ function SubCell({
         onClick={onTap}
         className="aspect-square rounded-2xl flex flex-col items-center justify-center gap-0.5"
         style={{
-          backgroundColor: 'transparent',
-          border: `1.5px dashed ${t.border}`,
+          backgroundColor: t.card,
+          border: `1.5px dashed ${t.accentLight}`,
           color: t.accent, minWidth: 0,
         }}
       >
         <span style={{ fontSize: 22, fontWeight: 300, lineHeight: 1 }}>+</span>
-        <span style={{ fontSize: 10, color: t.textMuted }}>세부 추가</span>
+        <span style={{ fontSize: 10, color: t.accent }}>세부 추가</span>
       </button>
     );
   }
@@ -370,7 +370,7 @@ function SubCell({
       className="aspect-square rounded-2xl flex flex-col items-center justify-center gap-1.5 px-2 relative text-center cursor-pointer"
       style={{
         backgroundColor: done ? t.success + '22' : t.bgSub,
-        border: `1px solid ${done ? t.success + '66' : t.borderLight}`,
+        border: `1px solid ${done ? t.success + '66' : t.border}`,
         color: t.text, minWidth: 0,
       }}
     >
@@ -434,7 +434,7 @@ function SubCenterCell({ name, pct, onClick }: { name: string; pct: number; onCl
     <button
       onClick={onClick}
       className="aspect-square rounded-2xl flex flex-col items-center justify-center gap-1 px-2 text-center"
-      style={{ backgroundColor: t.accentLight, color: t.text, minWidth: 0 }}
+      style={{ backgroundColor: t.accentSoft, color: t.text, minWidth: 0, border: `1px solid ${t.border}` }}
     >
       <span style={{
         fontFamily: t.fontDecorative, fontWeight: 700, fontSize: 14, lineHeight: 1.15,
@@ -463,10 +463,10 @@ function ActionCell({
       <button
         onClick={onTap}
         className="aspect-square rounded-2xl flex flex-col items-center justify-center gap-0.5"
-        style={{ backgroundColor: 'transparent', border: `1.5px dashed ${t.border}`, color: t.accent, minWidth: 0 }}
+        style={{ backgroundColor: t.card, border: `1.5px dashed ${t.accentLight}`, color: t.accent, minWidth: 0 }}
       >
         <span style={{ fontSize: 22, fontWeight: 300, lineHeight: 1 }}>+</span>
-        <span style={{ fontSize: 10, color: t.textMuted }}>행동 추가</span>
+        <span style={{ fontSize: 10, color: t.accent }}>행동 추가</span>
       </button>
     );
   }
@@ -481,7 +481,7 @@ function ActionCell({
       className="aspect-square rounded-2xl flex flex-col items-center justify-center gap-1 px-2 text-center relative"
       style={{
         backgroundColor: done ? t.success + '22' : t.card,
-        border: `1px solid ${done ? t.success + '66' : t.borderLight}`,
+        border: `1px solid ${done ? t.success + '66' : t.border}`,
         color: t.text, minWidth: 0,
       }}
     >
