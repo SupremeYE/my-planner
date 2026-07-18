@@ -348,6 +348,18 @@ export function LibraryTab() {
 
         {/* 그리드 */}
         <div style={{ flex: 1, padding: '16px 24px', overflowY: 'auto' }}>
+          {/* PC 전용 추가 버튼 — 항상 노출(그리드 내 dashed 카드와 별개로 상단 고정) */}
+          {!selectMode && (
+            <div className="flex items-center justify-end mb-3">
+              <button
+                onClick={() => setAddPlaceFor(pcFolder === 'all' ? null : pcFolder)}
+                className="flex items-center gap-1.5 rounded-xl active:scale-95 transition-transform"
+                style={{ fontSize: 13.5, fontWeight: 700, color: '#fff', backgroundColor: t.accent, padding: '8px 15px' }}
+              >
+                <Plus size={15} /> 장소 추가
+              </button>
+            </div>
+          )}
           {(() => {
             const list = pcFolder === 'all' ? places : placesInFolder(pcFolder);
             if (loading) return null;

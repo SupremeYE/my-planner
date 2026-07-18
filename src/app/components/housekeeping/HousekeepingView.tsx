@@ -12,7 +12,7 @@ export function HousekeepingView() {
       <div className="lg:hidden">
         <HousekeepingMobile />
       </div>
-      <div className="hidden lg:block">
+      <div className="hidden lg:block lg:h-full lg:overflow-y-auto">
         <HousekeepingDesktop />
       </div>
     </>
