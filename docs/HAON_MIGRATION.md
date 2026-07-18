@@ -144,11 +144,12 @@
   (`planEndRef`). 저장 로직·plan 컬럼 매핑·모달 레이아웃 불변.
 - **非-H 폴백:** `TimeField` 내부에도 안전망 정의(콤보박스 없이 전 브레이크포인트 네이티브 + `inputBg`).
   단 TodoModal이 게이트하므로 이번 소비처에선 미사용.
-- **라벨 제거 = Stage 2 조건부 보류.** do(실적) 필드가 화면에 남아 있어 plan/do 구분이 필요 → 이번엔
-  라벨 유지(현행 `hasDoTime ? '계획 시작' : '시작'` 로직 그대로). **do 정리(Stage 2) 후** plan 단독이 되면
-  "계획" 접두 라벨을 제거한다.
+- **라벨 = Stage 2에서 계획/실제 대칭으로 확정**(§10.3). 초기엔 "계획 라벨 제거"로 계획했으나, do를
+  읽기전용 요약으로 남기기로 하면서 `[계획]/[실제]` 위아래 대칭 라벨로 변경. `hasDoTime ? '계획 시작' : '시작'`
+  조건 로직은 제거하고 plan은 항상 "계획 시작/계획 종료".
 - **잔여 이전 대상:**
-  - `TodoModal` **do(실적) 2곳** — 이번 범위 밖(Stage 2, 데이터 조사 후). 지금은 `TimePicker` 스피너 유지.
+  - ~~`TodoModal` do(실적) 2곳~~ — **Stage 2 완료.** do는 `TimeField`로 이전하지 않고 **읽기전용 요약으로
+    강등**(§10.3). 모달에서 `TimePicker` 소비 종료(단 plan 非-H 폴백으로 `TimePicker` 여전히 사용).
   - **나머지 10파일**(`EventModal`·`TimelineAddModal`·`BrainstormView`·`CalendarView`·`SleepTimeEditModal`·
     `DailyView`·`RoutinesView`·`HabitsView`·`TimelineLogModal` = TimeField / `SettingsView`·
     `TimelineSettingsModal` = HourField) — 후속 Stage. `TimePicker`는 이들이 모두 이전될 때까지 삭제 금지.
@@ -162,3 +163,21 @@
 - **선택 fill 강도:** 흰 카드 위 `accentSoft` 대비가 부족하면 `t.bgHover`(`#EFE3FA`)로 한 단계 상향 가능(옵션). 현재는 `accentSoft` 확정.
 - **후속 과제(기록):** `haonStyles.buttonStyle`에는 `selected` 변형이 없어 이번엔 인라인(토큰) 유지.
   버튼 recipe에 selected 변형을 추가하면 이 칩을 recipe 경유로 회수(§5 "single recipe") — 후속 Stage.
+
+### 10.3 Stage 2 — 실적(do) 입력칸 → 읽기전용 요약 강등 + 계획/실제 라벨 대칭 (2026-07-18)
+- **근거:** `docs/STAGE2_0_DO_USAGE.md` 조사. do는 73% 채워지나 모달로 **생성 불가**(편집 전용), 비교는
+  타임라인 compare 탭이 이미 제공, 모달 do 편집은 타이머 4행에서 desync. → 읽기전용 요약으로 강등.
+- **DESIGN.md §5 「읽기전용 값 요약」 신규 등록** — 값은 보여주되 편집·생성 권한은 다른 표면이 갖는
+  필드 패턴(입력기 아님 / 단일 소스 표시 / 편집 경로 유도 / 빈 상태=영역 없음 / 라벨 대칭·SSOT).
+- **`TodoModal` 변경:**
+  - do "실적 시작/종료" `TimePicker` 2개 → **읽기전용 요약** `실제 HH:mm ~ HH:mm · N시간`
+    (라벨 `실제`=`t.success`, 값=`t.text`, 소요=`t.textMuted`) + "타임라인에서 조정" 저강조 힌트.
+  - **표시 소스 = `do_start~do_end` 단일**(`do_elapsed_sec` 안 섞음 — 표기 시각과 소요 어긋남 방지).
+  - `hasDoTime` false → **영역 자체 미렌더**(게이트 유지).
+  - `buildChanges`에서 **do 쓰기 제거** → 모달발 desync 경로 차단. do 컬럼·타임라인·타이머·누적 시간은 불변.
+  - **계획/실제 라벨 대칭:** plan은 항상 `계획 시작/계획 종료`(조건 로직 제거), do 요약은 `실제`.
+- **SSOT(계획↔실제):** 타임라인 요약이 이미 화면에 "계획 시간/실제 시간"을 렌더 → do 화면명을 "실제"로
+  통일(모달의 기존 "실적" 폐기). "실행"은 루틴/습관 도메인과 충돌해 불채택.
+- **테마:** do 읽기전용 요약은 토큰 텍스트라 **테마 무관**(isHaon 게이트 없음, 非-H 동일 구조). plan은
+  기존대로 `isHaon ? TimeField : TimePicker`. `TimePicker`는 plan 非-H 폴백으로 남아 삭제 금지.
+- 검증: `npm run build`·`lint:fonts` 통과, 격리 하버스 스크린샷(PC/모바일 × do 유무) 4종 확인.

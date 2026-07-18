@@ -73,10 +73,10 @@ export function TodoModal({ date, todo, initialPlanStart, initialPlanEnd, initia
   const [planEnd, setPlanEnd] = useState(todo?.planEnd ?? initialPlanEnd ?? '');
   // 계획 시작 확정 → 종료로 포커스 이동 (TimeField, PC 콤보박스). 非-H는 TimePicker라 미사용.
   const planEndRef = useRef<HTMLInputElement>(null);
-  // 실적(DO) 시간 — 타임라인 DO 레인에 직접 적은 할일은 do_* 에 시간이 담긴다(plan 과 별개).
-  const [doStart, setDoStart] = useState(todo?.doStart ?? '');
-  const [doEnd, setDoEnd] = useState(todo?.doEnd ?? '');
-  // 이 할일이 DO(실적) 시간을 가진 항목인지 — DO 시간 편집 UI 노출 여부
+  // 실제(DO) 시간 — 타임라인/타이머가 관리. 모달은 읽기전용 표시만(편집·생성 안 함). 소스 = todo.do_*.
+  const doStart = todo?.doStart ?? '';
+  const doEnd = todo?.doEnd ?? '';
+  // 이 할일이 DO(실제) 시간을 가진 항목인지 — 읽기전용 요약 노출 여부(값 없으면 영역 자체 없음)
   const hasDoTime = !!(todo?.doStart || todo?.doEnd);
   const [isTop3, setIsTop3] = useState(todo?.isTop3 ?? initialIsTop3 ?? false);
   const [selectedTags, setSelectedTags] = useState<string[]>(todo?.tags ?? initialTags ?? []);
@@ -118,6 +118,16 @@ export function TodoModal({ date, todo, initialPlanStart, initialPlanEnd, initia
     if (sec <= 0) return null;
     return { sec, sessions: timeBlocks.filter(b => b.todoId === todo.id).length };
   }, [todo, timeBlocks]);
+
+  // 실제(DO) 요약 소요 — 단일 소스 do_start~do_end 만 사용(do_elapsed_sec 안 섞음, DESIGN.md §5 읽기전용 요약).
+  const doDurationLabel = useMemo(() => {
+    if (!doStart || !doEnd) return null;
+    const [sh, sm] = doStart.split(':').map(Number);
+    const [eh, em] = doEnd.split(':').map(Number);
+    const mins = (eh * 60 + em) - (sh * 60 + sm);
+    if (mins <= 0) return null;
+    return formatTotalDoKo(mins * 60);
+  }, [doStart, doEnd]);
 
   const isValidHex = (value: string) => /^#[0-9A-Fa-f]{6}$/.test(value);
   const normalizeHexInput = (value: string) => `#${value.replace(/[^0-9A-Fa-f]/g, '').slice(0, 6).toUpperCase()}`;
@@ -261,8 +271,7 @@ export function TodoModal({ date, todo, initialPlanStart, initialPlanEnd, initia
     endDate: endDate || undefined,
     planStart: planStart || undefined,
     planEnd: planEnd || undefined,
-    // DO(실적) 시간을 가진 항목만 do_* 를 폼에서 갱신 — 계획전용/신규 할일엔 관여하지 않음
-    ...(hasDoTime ? { doStart: doStart || undefined, doEnd: doEnd || undefined } : {}),
+    // do_* 는 모달에서 쓰지 않는다(읽기전용 요약). 실제 시각 생성·조정은 타임라인/타이머 전담 → desync 유발 경로 차단.
     isTop3,
     tags: selectedTags,
     projectId: projectId || undefined,
@@ -437,7 +446,7 @@ export function TodoModal({ date, todo, initialPlanStart, initialPlanEnd, initia
           {/* 시작/종료 시간 (계획) */}
           <div className="flex gap-3">
             <div className="flex-1">
-              <label style={{ fontSize: 11, color: t.textSub, fontWeight: 600 }}>{hasDoTime ? '계획 시작' : '시작'}</label>
+              <label style={{ fontSize: 11, color: t.textSub, fontWeight: 600 }}>계획 시작</label>
               <div className="mt-1">
                 {isHaon(t) ? (
                   <TimeField value={planStart} onChange={setPlanStart} role="start" placeholder="시작 시간"
@@ -448,7 +457,7 @@ export function TodoModal({ date, todo, initialPlanStart, initialPlanEnd, initia
               </div>
             </div>
             <div className="flex-1">
-              <label style={{ fontSize: 11, color: t.textSub, fontWeight: 600 }}>{hasDoTime ? '계획 종료' : '종료'}</label>
+              <label style={{ fontSize: 11, color: t.textSub, fontWeight: 600 }}>계획 종료</label>
               <div className="mt-1">
                 {isHaon(t) ? (
                   <TimeField value={planEnd} onChange={setPlanEnd} role="end" rangeStart={planStart}
@@ -464,21 +473,21 @@ export function TodoModal({ date, todo, initialPlanStart, initialPlanEnd, initia
               PC(lg)는 종료 콤보박스 목록의 duration 병기로 대체하므로 숨김(lg:hidden). */}
           {isHaon(t) && <DurationChips start={planStart} end={planEnd} onPick={setPlanEnd} className="lg:hidden" />}
 
-          {/* 실적(DO) 시간 — 타임라인 DO 레인에 적은 할일. 클릭 시 실제 적어둔 시간이 보이도록 노출. */}
+          {/* 실제(DO) 시간 — 읽기전용 요약 (DESIGN.md §5 「읽기전용 값 요약」).
+              생성·조정은 타임라인/타이머가 관리. 표시 소스 = do_start~do_end 단일(do_elapsed_sec 안 섞음).
+              값 없으면(hasDoTime false) 영역 자체를 렌더하지 않는다. */}
           {hasDoTime && (
-            <div className="flex gap-3">
-              <div className="flex-1">
-                <label style={{ fontSize: 11, color: t.success, fontWeight: 600 }}>실적 시작</label>
-                <div className="mt-1">
-                  <TimePicker value={doStart} onChange={setDoStart} placeholder="시작 시간" />
-                </div>
+            <div>
+              <div className="flex items-baseline gap-2" style={{ flexWrap: 'wrap' }}>
+                <span style={{ fontSize: 11, color: t.success, fontWeight: 600 }}>실제</span>
+                <span style={{ fontSize: 13, color: t.text, fontWeight: 600, fontVariantNumeric: 'tabular-nums' }}>
+                  {doStart || '--:--'} ~ {doEnd || '--:--'}
+                </span>
+                {doDurationLabel && (
+                  <span style={{ fontSize: 12, color: t.textMuted }}>· {doDurationLabel}</span>
+                )}
               </div>
-              <div className="flex-1">
-                <label style={{ fontSize: 11, color: t.success, fontWeight: 600 }}>실적 종료</label>
-                <div className="mt-1">
-                  <TimePicker value={doEnd} onChange={setDoEnd} placeholder="종료 시간" />
-                </div>
-              </div>
+              <p style={{ fontSize: 11, color: t.textMuted, marginTop: 4 }}>타임라인에서 조정</p>
             </div>
           )}
 
