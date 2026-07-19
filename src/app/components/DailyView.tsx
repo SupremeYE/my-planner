@@ -573,14 +573,14 @@ function ContextMenu({ todo, position, onClose, onFocus, onDelete, deleteMessage
   );
 }
 
-// 일정 전용 컨텍스트 메뉴 — 우클릭/모바일 ⋯ 진입. 편집 + "이대로 실행"(계획→실적 복사).
+// 일정 전용 컨텍스트 메뉴 — 우클릭/모바일 ⋯ 진입. 편집 + "이대로 실행"(계획→실적 복사) + 완료 토글.
 // ContextMenu(Todo 전용) 시각 패턴을 재사용하되 토큰만 사용(하드코딩 색 없음).
 function EventContextMenu({ event, position, onClose }: {
   event: Event;
   position: { x: number; y: number };
   onClose: () => void;
 }) {
-  const { runEventAsPlanned } = usePlanner();
+  const { runEventAsPlanned, toggleEventCompleted } = usePlanner();
   const { t } = useTheme();
   const ref = useRef<HTMLDivElement>(null);
 
@@ -594,6 +594,7 @@ function EventContextMenu({ event, position, onClose }: {
 
   // "이대로 실행"은 계획 시각이 있어야 의미가 있다 — 종일/다중일(시각 없음) 일정은 항목 숨김(no-op 조건과 일치).
   const canRun = !event.isAllDay && !!event.startTime && !!event.endTime;
+  const isDone = !!event.completed;
 
   const itemStyle = { fontSize: 12, color: t.text } as const;
 
@@ -627,6 +628,16 @@ function EventContextMenu({ event, position, onClose }: {
           </button>
         </>
       )}
+      <div className="my-1" style={{ borderBottom: `1px solid ${t.border}` }} />
+      {/* 완료 토글 — 위치(actual)와 분리. 완료해도 DO 블록은 실제 자리에 그대로. */}
+      <button className="w-full flex items-center gap-2 px-3 py-1.5 transition-colors text-left"
+        style={itemStyle}
+        onMouseEnter={e => (e.currentTarget.style.backgroundColor = t.bgHover)}
+        onMouseLeave={e => (e.currentTarget.style.backgroundColor = 'transparent')}
+        onClick={() => { toggleEventCompleted(event.id, !isDone); onClose(); }}>
+        <Check size={13} />
+        <span>{isDone ? '완료 취소' : '완료'}</span>
+      </button>
     </div>
   );
 }

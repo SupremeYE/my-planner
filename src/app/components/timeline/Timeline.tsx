@@ -1201,10 +1201,11 @@ export function Timeline({ days = 1, selectedDate, dateTodos, dateEvents, onShow
     );
   };
 
-  // 경량 이벤트 블록 — 데일리 드래그 좌표 로직과 분리(탭 → 편집). 주어진 레인 좌표(bounds) 안에 렌더.
-  //  · 주간(days=7): 각 날짜 PLAN/DO 슬롯 내부(left/right 2px)
-  //  · 데일리 DO 레인: 완료 일정 미러용 (getTimelineLaneBounds('do'))
-  // lane='do' 면 "완료 표시"이므로 done 스타일(취소선·감쇠) 강제.
+  // 경량 이벤트 블록 — 주어진 레인 좌표(bounds) 안에 렌더.
+  //  · 주간(days=7): 각 날짜 PLAN/DO 슬롯 내부(left/right 2px), 탭=편집
+  //  · 데일리 DO 레인: 실적(actual) 블록 (getTimelineLaneBounds('do')), draggable=true 면 드래그/리사이즈
+  // 완료 분리(Stage 4): 취소선·감쇠는 completed(isDone) 로만 결정한다. DO 레인이라는 이유로 강제하지 않는다
+  //   (DO=실적 위치, completed=완료 상태 — 별개. 밤에 완료 체크해도 블록은 실제 자리에 그대로).
   const renderLiteEventBlock = (
     evt: Event,
     bounds: { left: number | string; right: number | string },
@@ -1254,13 +1255,13 @@ export function Timeline({ days = 1, selectedDate, dateTodos, dateEvents, onShow
           borderRadius: 8, padding: '2px 4px', zIndex: isDragging ? 30 : 2,
           cursor: canDrag ? (isDragging ? 'grabbing' : 'grab') : 'pointer',
           textAlign: 'left', overflow: 'hidden',
-          opacity: isDragging ? 0.85 : ((isDone || isDoLane) ? 0.5 : (isPast ? 0.7 : 1)),
+          opacity: isDragging ? 0.85 : (isDone ? 0.5 : (isPast ? 0.7 : 1)),
           userSelect: canDrag ? 'none' : undefined,
           touchAction: canDrag ? 'none' : undefined,
         }}
         title={`${evt.title}\n${timeLabel}`}
       >
-        <div style={{ fontSize: 10, fontWeight: 700, color: eventColor, lineHeight: 1.3, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', textDecoration: (isDone || isDoLane) ? 'line-through' : 'none' }}>
+        <div style={{ fontSize: 10, fontWeight: 700, color: eventColor, lineHeight: 1.3, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', textDecoration: isDone ? 'line-through' : 'none' }}>
           📅 {evt.title}
         </div>
         {height >= 28 && (
