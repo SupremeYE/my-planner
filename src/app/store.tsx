@@ -833,6 +833,8 @@ interface PlannerContextType {
   toggleEventCompleted: (id: string, completed: boolean) => void;
   /** "이대로 실행" — 계획(startTime/endTime)을 실적(doStart/doEnd)으로 복사. completed 무관. 계획 시각 없으면 no-op. */
   runEventAsPlanned: (id: string) => void;
+  /** 실적(actual) 시각 직접 갱신(타임라인 DO 드래그/리사이즈). 반복 회차는 그 회차만 구체화 후 저장. */
+  updateEventActual: (id: string, doStart: string, doEnd: string) => void;
   /** 일정 미루기. 단일=이동, 반복=scope(this|future|all) 분기. opts 로 시간/스코프 지정. */
   snoozeEvent: (event: Event, targetDate: string, opts?: { startTime?: string; endTime?: string; scope?: 'this' | 'future' | 'all' }) => void;
 
@@ -1545,15 +1547,21 @@ export function PlannerProvider({ children }: { children: React.ReactNode }) {
     });
   }, [ensureMaterializedEventId]);
 
+  // 실적(actual) 시각 직접 갱신 — 타임라인 DO 블록 드래그/리사이즈용.
+  // 반복 가상 회차는 그 회차만 예외 행으로 구체화 후 그 행에 저장(마스터 오염 방지).
+  const updateEventActual = useCallback((id: string, doStart: string, doEnd: string) => {
+    const realId = ensureMaterializedEventId(id);
+    updateEvent(realId, { doStart, doEnd });
+  }, [ensureMaterializedEventId, updateEvent]);
+
   // "이대로 실행" — 계획(startTime/endTime)을 실적(doStart/doEnd)으로 복사한다.
   // 완료(completed)와 분리: 위치(actual)만 채우고 completed 는 건드리지 않는다.
   // 계획 시각이 없는 일정(종일·다중일 등)은 no-op. 반복 가상 회차는 그 회차만 예외 행으로 구체화 후 저장.
   const runEventAsPlanned = useCallback((id: string) => {
     const src = eventsRef.current.find(e => e.id === id);
     if (!src || !src.startTime || !src.endTime) return;
-    const realId = ensureMaterializedEventId(id);
-    updateEvent(realId, { doStart: src.startTime, doEnd: src.endTime });
-  }, [ensureMaterializedEventId, updateEvent]);
+    updateEventActual(id, src.startTime, src.endTime);
+  }, [updateEventActual]);
 
   const deleteEvent = useCallback((id: string) => {
     setEvents(prev => prev.filter(e => e.id !== id));
@@ -2300,7 +2308,7 @@ export function PlannerProvider({ children }: { children: React.ReactNode }) {
       dailyAffirmations, setDailyAffirmation,
       appSettings, updateAppSettings,
       addTodo, updateTodo, deleteTodo, deleteTodos, toggleTop3, deleteRecurringTodo, updateRecurringTodo,
-      addEvent, updateEvent, deleteEvent, toggleEventCompleted, runEventAsPlanned, snoozeEvent,
+      addEvent, updateEvent, deleteEvent, toggleEventCompleted, runEventAsPlanned, updateEventActual, snoozeEvent,
       addHabit, addHabitFull, updateHabit, deleteHabit, toggleHabit,
       updateHabitProgress, updateHabitMemo,
       habitMonthlyMemos, setHabitMonthlyMemo,
