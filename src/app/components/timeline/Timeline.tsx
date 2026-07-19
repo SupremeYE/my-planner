@@ -1135,14 +1135,14 @@ export function Timeline({ days = 1, selectedDate, dateTodos, dateEvents, onShow
         onPointerCancel={handleEventPointerCancel}
         onContextMenu={(e) => {
           e.preventDefault();
-          window.dispatchEvent(new CustomEvent('editEvent', { detail: evt }));
+          window.dispatchEvent(new CustomEvent('eventContextMenu', { detail: { event: evt, x: e.clientX, y: e.clientY } }));
         }}
         title={`${evt.title}\n${timeLabel}`}
       >
-        {/* 모바일 편집 버튼 — 본체 롱프레스는 '이동'이라 탭 편집 접근용 */}
+        {/* 모바일 메뉴 버튼 — 본체 롱프레스는 '이동'이라 탭 메뉴 접근용(편집·이대로 실행) */}
         <button
           type="button"
-          aria-label="일정 편집"
+          aria-label="일정 메뉴"
           className="absolute lg:hidden flex items-center justify-center"
           style={{
             top: 1, right: 1, width: 22, height: 22, borderRadius: 6,
@@ -1152,7 +1152,8 @@ export function Timeline({ days = 1, selectedDate, dateTodos, dateEvents, onShow
           onPointerDown={(e) => e.stopPropagation()}
           onClick={(e) => {
             e.stopPropagation();
-            window.dispatchEvent(new CustomEvent('editEvent', { detail: evt }));
+            const r = (e.currentTarget as HTMLElement).getBoundingClientRect();
+            window.dispatchEvent(new CustomEvent('eventContextMenu', { detail: { event: evt, x: r.left, y: r.bottom } }));
           }}
         >⋯</button>
         <div style={{
@@ -1203,13 +1204,16 @@ export function Timeline({ days = 1, selectedDate, dateTodos, dateEvents, onShow
     bounds: { left: number | string; right: number | string },
     lane: 'plan' | 'do',
   ) => {
-    if (!evt.startTime || !evt.endTime) return null;
-    const startMin = timeToMinutes(evt.startTime);
-    const endMin = timeToMinutes(evt.endTime);
+    const isDoLane = lane === 'do';
+    // DO 레인(미러) = 실적(actual) 시각으로 그린다. PLAN 레인 = 계획 시각. (할일 renderBlock(type) 패턴과 동일)
+    const blockStart = isDoLane ? evt.doStart : evt.startTime;
+    const blockEnd = isDoLane ? evt.doEnd : evt.endTime;
+    if (!blockStart || !blockEnd) return null;
+    const startMin = timeToMinutes(blockStart);
+    const endMin = timeToMinutes(blockEnd);
     const top = (startMin / 60 - tlStartHour) * HOUR_HEIGHT;
     const height = Math.max((endMin - startMin) * PX_PER_MIN, 16);
     const eventColor = evt.color || '#7B9ED9';
-    const isDoLane = lane === 'do';
     const isDone = !!evt.completed;
     const isPast = !isDone && isEventPast(evt);
     return (
@@ -1227,14 +1231,14 @@ export function Timeline({ days = 1, selectedDate, dateTodos, dateEvents, onShow
           cursor: 'pointer', textAlign: 'left', overflow: 'hidden',
           opacity: (isDone || isDoLane) ? 0.5 : (isPast ? 0.7 : 1),
         }}
-        title={`${evt.title}\n${evt.startTime} - ${evt.endTime}`}
+        title={`${evt.title}\n${blockStart} - ${blockEnd}`}
       >
         <div style={{ fontSize: 10, fontWeight: 700, color: eventColor, lineHeight: 1.3, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', textDecoration: (isDone || isDoLane) ? 'line-through' : 'none' }}>
           📅 {evt.title}
         </div>
         {height >= 28 && (
           <div style={{ fontSize: 9, fontWeight: 600, color: eventColor, opacity: 0.8, lineHeight: 1.3, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-            {evt.startTime} - {evt.endTime}
+            {blockStart} - {blockEnd}
           </div>
         )}
       </button>
@@ -1510,7 +1514,7 @@ export function Timeline({ days = 1, selectedDate, dateTodos, dateEvents, onShow
                           );
                         })}
                         {doTodos.map(td => renderBlock(td, 'do', SLOT_PAD))}
-                        {(wd.events ?? []).filter(ev => ev.completed).map(evt => renderLiteEventBlock(evt, SLOT_PAD, 'do'))}
+                        {(wd.events ?? []).filter(ev => ev.doStart && ev.doEnd).map(evt => renderLiteEventBlock(evt, SLOT_PAD, 'do'))}
                       </div>
                     </div>
                     {/* 현재 시각선 (오늘 컬럼) */}
@@ -1700,11 +1704,12 @@ export function Timeline({ days = 1, selectedDate, dateTodos, dateEvents, onShow
           {/* Blocks container */}
           <div className="absolute" style={{ left: TIMELINE_CONTENT_LEFT, right: 0, top: 0, bottom: 0 }}>
             {dateEvents.map(evt => renderEventBlock(evt))}
-            {/* 완료 일정 미러 — 할일과 동일하게 PLAN(위 renderEventBlock, 흐림) 은 유지하고 DO 레인에도 렌더 */}
+            {/* 실적(actual) 있는 일정 미러 — PLAN(위 renderEventBlock) 은 유지하고 DO 레인에 실제 시각으로 렌더.
+                completed 가 아니라 do_start/do_end 존재 여부로 미러한다(완료↔위치 분리). */}
             {(() => {
               const doBounds = getTimelineLaneBounds('do');
               return doBounds
-                ? dateEvents.filter(ev => ev.completed).map(evt => renderLiteEventBlock(evt, doBounds, 'do'))
+                ? dateEvents.filter(ev => ev.doStart && ev.doEnd).map(evt => renderLiteEventBlock(evt, doBounds, 'do'))
                 : null;
             })()}
             {planTodos.map(todo => renderBlock(todo, 'plan'))}
