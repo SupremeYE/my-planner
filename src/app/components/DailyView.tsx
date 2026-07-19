@@ -573,6 +573,75 @@ function ContextMenu({ todo, position, onClose, onFocus, onDelete, deleteMessage
   );
 }
 
+// 일정 전용 컨텍스트 메뉴 — 우클릭/모바일 ⋯ 진입. 편집 + "이대로 실행"(계획→실적 복사) + 완료 토글.
+// ContextMenu(Todo 전용) 시각 패턴을 재사용하되 토큰만 사용(하드코딩 색 없음).
+function EventContextMenu({ event, position, onClose }: {
+  event: Event;
+  position: { x: number; y: number };
+  onClose: () => void;
+}) {
+  const { runEventAsPlanned, toggleEventCompleted } = usePlanner();
+  const { t } = useTheme();
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) onClose();
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [onClose]);
+
+  // "이대로 실행"은 계획 시각이 있어야 의미가 있다 — 종일/다중일(시각 없음) 일정은 항목 숨김(no-op 조건과 일치).
+  const canRun = !event.isAllDay && !!event.startTime && !!event.endTime;
+  const isDone = !!event.completed;
+
+  const itemStyle = { fontSize: 12, color: t.text } as const;
+
+  return (
+    <div ref={ref} className="fixed z-50 rounded-xl py-1.5 min-w-[140px]"
+      style={{
+        top: position.y,
+        left: position.x,
+        backgroundColor: t.card,
+        border: `1px solid ${t.border}`,
+        boxShadow: '0 10px 15px -3px rgba(0,0,0,0.1), 0 4px 6px -4px rgba(0,0,0,0.1)',
+      }}>
+      <button className="w-full flex items-center gap-2 px-3 py-1.5 transition-colors text-left"
+        style={itemStyle}
+        onMouseEnter={e => (e.currentTarget.style.backgroundColor = t.bgHover)}
+        onMouseLeave={e => (e.currentTarget.style.backgroundColor = 'transparent')}
+        onClick={() => { onClose(); window.dispatchEvent(new CustomEvent('editEvent', { detail: event })); }}>
+        <Edit3 size={13} />
+        <span>편집</span>
+      </button>
+      {canRun && (
+        <>
+          <div className="my-1" style={{ borderBottom: `1px solid ${t.border}` }} />
+          <button className="w-full flex items-center gap-2 px-3 py-1.5 transition-colors text-left"
+            style={itemStyle}
+            onMouseEnter={e => (e.currentTarget.style.backgroundColor = t.bgHover)}
+            onMouseLeave={e => (e.currentTarget.style.backgroundColor = 'transparent')}
+            onClick={() => { runEventAsPlanned(event.id); onClose(); }}>
+            <Play size={13} />
+            <span>이대로 실행</span>
+          </button>
+        </>
+      )}
+      <div className="my-1" style={{ borderBottom: `1px solid ${t.border}` }} />
+      {/* 완료 토글 — 위치(actual)와 분리. 완료해도 DO 블록은 실제 자리에 그대로. */}
+      <button className="w-full flex items-center gap-2 px-3 py-1.5 transition-colors text-left"
+        style={itemStyle}
+        onMouseEnter={e => (e.currentTarget.style.backgroundColor = t.bgHover)}
+        onMouseLeave={e => (e.currentTarget.style.backgroundColor = 'transparent')}
+        onClick={() => { toggleEventCompleted(event.id, !isDone); onClose(); }}>
+        <Check size={13} />
+        <span>{isDone ? '완료 취소' : '완료'}</span>
+      </button>
+    </div>
+  );
+}
+
 // ─── 오늘 기록 칩 (조회 전용 — Stage 3) ───
 // 코어 4(컨디션·식사·운동·수면)는 항상 노출(없으면 흐리게 "아직 없음"), 조건부(독서·미디어·음악·
 // 간곳)는 그날 데이터 있을 때만. 칩 탭 = 해당 페이지 이동(입력 없음 — 입력은 홈 QuickCaptureHome).
@@ -789,6 +858,7 @@ export function DailyView() {
   const [focusingTodo, setFocusingTodo] = useState<Todo | null>(null);
   const [snoozingTodo, setSnoozingTodo] = useState<Todo | null>(null);
   const [contextMenu, setContextMenu] = useState<{ todo: Todo; pos: { x: number; y: number }; source?: 'do' | 'plan' } | null>(null);
+  const [eventMenu, setEventMenu] = useState<{ event: Event; pos: { x: number; y: number } } | null>(null);
   const [recurringDeleteTarget, setRecurringDeleteTarget] = useState<Todo | null>(null);
   // 미루기 → 빠른 버튼이 반복 할일을 만나면 this/future/all 분기
   const [recurringSnoozeTarget, setRecurringSnoozeTarget] = useState<Todo | null>(null);
@@ -830,11 +900,18 @@ export function DailyView() {
     return () => window.removeEventListener('snoozeTodo', handler);
   }, []);
 
-  // Listen for editEvent events from timeline (일정 블록 탭/우클릭 → 편집)
+  // Listen for editEvent events from timeline (일정 블록 탭 → 편집)
   useEffect(() => {
     const handler = (e: any) => setEditingEvent(e.detail);
     window.addEventListener('editEvent', handler);
     return () => window.removeEventListener('editEvent', handler);
+  }, []);
+
+  // Listen for eventContextMenu (일정 블록 우클릭/모바일 ⋯ → 편집·이대로 실행 메뉴)
+  useEffect(() => {
+    const handler = (e: any) => setEventMenu({ event: e.detail.event, pos: { x: e.detail.x, y: e.detail.y } });
+    window.addEventListener('eventContextMenu', handler);
+    return () => window.removeEventListener('eventContextMenu', handler);
   }, []);
 
   const dateTodos = expandRecurringTodos(todos, selectedDate, selectedDate)
@@ -1631,6 +1708,18 @@ export function DailyView() {
               : contextMenu.source === 'plan'
                 ? 'PLAN 블록을 삭제할까요? (DO는 유지됩니다)'
                 : undefined}
+          />
+        );
+      })()}
+      {eventMenu && (() => {
+        const MENU_W = 160;
+        const rawX = eventMenu.pos.x;
+        const adjustedX = rawX + MENU_W > window.innerWidth ? rawX - MENU_W : rawX;
+        return (
+          <EventContextMenu
+            event={eventMenu.event}
+            position={{ x: adjustedX, y: eventMenu.pos.y }}
+            onClose={() => setEventMenu(null)}
           />
         );
       })()}

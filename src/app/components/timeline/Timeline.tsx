@@ -58,7 +58,7 @@ const WEEK_TIME_COL = 44;
 export function Timeline({ days = 1, selectedDate, dateTodos, dateEvents, onShowContextMenu, className, weekDays, onSelectDate, onToday, nowLineColor = CURRENT_TIME_COLOR, defaultBlockBg, defaultBlockBorder, defaultBlockText, dayBoundLabel }: TimelineProps) {
   const isWeek = days > 1 && !!weekDays;
   const {
-    todos, timeBlocks, updateTodo, updateEvent, updateTimeBlock, tags,
+    todos, timeBlocks, updateTodo, updateEvent, updateEventActual, updateTimeBlock, tags,
     activeTimer,
     selfCareRecords, updateSelfCareRecord,
     dayStartHour: tlStartHour, dayEndHour: tlEndHour,
@@ -309,6 +309,7 @@ export function Timeline({ days = 1, selectedDate, dateTodos, dateEvents, onShow
     pointerId: number;
     el: HTMLElement;
     event: Event;
+    lane: 'plan' | 'do';   // plan = 계획(startTime/endTime) 이동, do = 실적(doStart/doEnd) 이동
     mode: 'move' | 'resize';
     pointerType: string;
     startX: number;
@@ -321,7 +322,7 @@ export function Timeline({ days = 1, selectedDate, dateTodos, dateEvents, onShow
     preview: { startMin: number; endMin: number } | null;
   };
   const eventDragRef = useRef<EventDrag | null>(null);
-  const [eventDragState, setEventDragState] = useState<{ eventId: string } | null>(null);
+  const [eventDragState, setEventDragState] = useState<{ eventId: string; lane: 'plan' | 'do' } | null>(null);
   const [eventDragPreview, setEventDragPreview] = useState<{ startMin: number; endMin: number } | null>(null);
 
   const activateEventDrag = (d: EventDrag) => {
@@ -332,7 +333,7 @@ export function Timeline({ days = 1, selectedDate, dateTodos, dateEvents, onShow
       d.el.style.boxShadow = '0 6px 16px rgba(0,0,0,0.18)';
       if (navigator.vibrate) { try { navigator.vibrate(10); } catch { /* noop */ } }
     }
-    setEventDragState({ eventId: d.event.id });
+    setEventDragState({ eventId: d.event.id, lane: d.lane });
   };
 
   const clearEventDrag = (d: EventDrag) => {
@@ -381,10 +382,15 @@ export function Timeline({ days = 1, selectedDate, dateTodos, dateEvents, onShow
     const d = eventDragRef.current;
     if (!d || e.pointerId !== d.pointerId) return;
     if (d.activated && d.moved && d.preview) {
-      updateEvent(d.event.id, {
-        startTime: minutesToTime(d.preview.startMin),
-        endTime: minutesToTime(d.preview.endMin),
-      });
+      if (d.lane === 'do') {
+        // 실적(actual) 이동 — 반복 회차는 store 에서 예외 행 구체화 후 저장.
+        updateEventActual(d.event.id, minutesToTime(d.preview.startMin), minutesToTime(d.preview.endMin));
+      } else {
+        updateEvent(d.event.id, {
+          startTime: minutesToTime(d.preview.startMin),
+          endTime: minutesToTime(d.preview.endMin),
+        });
+      }
     } else if (!d.activated) {
       window.dispatchEvent(new CustomEvent('editEvent', { detail: d.event }));
     }
@@ -398,12 +404,12 @@ export function Timeline({ days = 1, selectedDate, dateTodos, dateEvents, onShow
   };
 
   const handleEventPointerDown = (
-    e: React.PointerEvent, evt: Event, origStartMin: number, origEndMin: number,
+    e: React.PointerEvent, evt: Event, origStartMin: number, origEndMin: number, lane: 'plan' | 'do' = 'plan',
   ) => {
     if (e.button === 2) return; // 우클릭은 onContextMenu 가 처리
     const el = e.currentTarget as HTMLElement;
     const d: EventDrag = {
-      pointerId: e.pointerId, el, event: evt, mode: 'move',
+      pointerId: e.pointerId, el, event: evt, lane, mode: 'move',
       pointerType: e.pointerType, startX: e.clientX, startY: e.clientY,
       origStartMin, origEndMin, activated: false, moved: false,
       longPressTimer: null, preview: null,
@@ -422,14 +428,14 @@ export function Timeline({ days = 1, selectedDate, dateTodos, dateEvents, onShow
   };
 
   const handleEventResizePointerDown = (
-    e: React.PointerEvent, evt: Event, origStartMin: number, origEndMin: number,
+    e: React.PointerEvent, evt: Event, origStartMin: number, origEndMin: number, lane: 'plan' | 'do' = 'plan',
   ) => {
     if (e.button === 2) return;
     e.stopPropagation();
     e.preventDefault();
     const el = e.currentTarget as HTMLElement;
     const d: EventDrag = {
-      pointerId: e.pointerId, el, event: evt, mode: 'resize',
+      pointerId: e.pointerId, el, event: evt, lane, mode: 'resize',
       pointerType: e.pointerType, startX: e.clientX, startY: e.clientY,
       origStartMin, origEndMin, activated: true, moved: false,
       longPressTimer: null, preview: null,
@@ -437,7 +443,7 @@ export function Timeline({ days = 1, selectedDate, dateTodos, dateEvents, onShow
     eventDragRef.current = d;
     try { el.setPointerCapture(d.pointerId); } catch { /* noop */ }
     el.style.touchAction = 'none';
-    setEventDragState({ eventId: evt.id });
+    setEventDragState({ eventId: evt.id, lane });
   };
 
   // Sleep block drag (mouse)
@@ -1100,7 +1106,7 @@ export function Timeline({ days = 1, selectedDate, dateTodos, dateEvents, onShow
     if (!laneBounds) return null;
     let startMin = timeToMinutes(evt.startTime);
     let endMin = timeToMinutes(evt.endTime);
-    const isDragging = eventDragState?.eventId === evt.id;
+    const isDragging = eventDragState?.eventId === evt.id && eventDragState.lane === 'plan';
     if (isDragging && eventDragPreview) {
       startMin = eventDragPreview.startMin;
       endMin = eventDragPreview.endMin;
@@ -1135,14 +1141,14 @@ export function Timeline({ days = 1, selectedDate, dateTodos, dateEvents, onShow
         onPointerCancel={handleEventPointerCancel}
         onContextMenu={(e) => {
           e.preventDefault();
-          window.dispatchEvent(new CustomEvent('editEvent', { detail: evt }));
+          window.dispatchEvent(new CustomEvent('eventContextMenu', { detail: { event: evt, x: e.clientX, y: e.clientY } }));
         }}
         title={`${evt.title}\n${timeLabel}`}
       >
-        {/* 모바일 편집 버튼 — 본체 롱프레스는 '이동'이라 탭 편집 접근용 */}
+        {/* 모바일 메뉴 버튼 — 본체 롱프레스는 '이동'이라 탭 메뉴 접근용(편집·이대로 실행) */}
         <button
           type="button"
-          aria-label="일정 편집"
+          aria-label="일정 메뉴"
           className="absolute lg:hidden flex items-center justify-center"
           style={{
             top: 1, right: 1, width: 22, height: 22, borderRadius: 6,
@@ -1152,7 +1158,8 @@ export function Timeline({ days = 1, selectedDate, dateTodos, dateEvents, onShow
           onPointerDown={(e) => e.stopPropagation()}
           onClick={(e) => {
             e.stopPropagation();
-            window.dispatchEvent(new CustomEvent('editEvent', { detail: evt }));
+            const r = (e.currentTarget as HTMLElement).getBoundingClientRect();
+            window.dispatchEvent(new CustomEvent('eventContextMenu', { detail: { event: evt, x: r.left, y: r.bottom } }));
           }}
         >⋯</button>
         <div style={{
@@ -1194,47 +1201,84 @@ export function Timeline({ days = 1, selectedDate, dateTodos, dateEvents, onShow
     );
   };
 
-  // 경량 이벤트 블록 — 데일리 드래그 좌표 로직과 분리(탭 → 편집). 주어진 레인 좌표(bounds) 안에 렌더.
-  //  · 주간(days=7): 각 날짜 PLAN/DO 슬롯 내부(left/right 2px)
-  //  · 데일리 DO 레인: 완료 일정 미러용 (getTimelineLaneBounds('do'))
-  // lane='do' 면 "완료 표시"이므로 done 스타일(취소선·감쇠) 강제.
+  // 경량 이벤트 블록 — 주어진 레인 좌표(bounds) 안에 렌더.
+  //  · 주간(days=7): 각 날짜 PLAN/DO 슬롯 내부(left/right 2px), 탭=편집
+  //  · 데일리 DO 레인: 실적(actual) 블록 (getTimelineLaneBounds('do')), draggable=true 면 드래그/리사이즈
+  // 완료 분리(Stage 4): 취소선·감쇠는 completed(isDone) 로만 결정한다. DO 레인이라는 이유로 강제하지 않는다
+  //   (DO=실적 위치, completed=완료 상태 — 별개. 밤에 완료 체크해도 블록은 실제 자리에 그대로).
   const renderLiteEventBlock = (
     evt: Event,
     bounds: { left: number | string; right: number | string },
     lane: 'plan' | 'do',
+    opts?: { draggable?: boolean },
   ) => {
-    if (!evt.startTime || !evt.endTime) return null;
-    const startMin = timeToMinutes(evt.startTime);
-    const endMin = timeToMinutes(evt.endTime);
+    const isDoLane = lane === 'do';
+    // DO 레인(미러) = 실적(actual) 시각으로 그린다. PLAN 레인 = 계획 시각. (할일 renderBlock(type) 패턴과 동일)
+    const blockStart = isDoLane ? evt.doStart : evt.startTime;
+    const blockEnd = isDoLane ? evt.doEnd : evt.endTime;
+    if (!blockStart || !blockEnd) return null;
+    // 데일리 DO 레인만 드래그 가능(주간 DO 는 v1 렌더 전용). PLAN lite(주간)는 항상 탭=편집.
+    const canDrag = !!opts?.draggable && isDoLane;
+    const isDragging = canDrag && eventDragState?.eventId === evt.id && eventDragState.lane === 'do';
+    let startMin = timeToMinutes(blockStart);
+    let endMin = timeToMinutes(blockEnd);
+    if (isDragging && eventDragPreview) {
+      startMin = eventDragPreview.startMin;
+      endMin = eventDragPreview.endMin;
+    }
     const top = (startMin / 60 - tlStartHour) * HOUR_HEIGHT;
     const height = Math.max((endMin - startMin) * PX_PER_MIN, 16);
     const eventColor = evt.color || '#7B9ED9';
-    const isDoLane = lane === 'do';
     const isDone = !!evt.completed;
     const isPast = !isDone && isEventPast(evt);
+    const timeLabel = isDragging ? `${minutesToTime(startMin)} - ${minutesToTime(endMin)}` : `${blockStart} - ${blockEnd}`;
     return (
       <button
         key={`lite-ev-${lane}-${evt.id}`}
         type="button"
         className="timeline-block"
-        onPointerDown={(e) => e.stopPropagation()}
-        onClick={() => window.dispatchEvent(new CustomEvent('editEvent', { detail: evt }))}
+        onPointerDown={canDrag
+          ? (e) => handleEventPointerDown(e, evt, timeToMinutes(blockStart), timeToMinutes(blockEnd), 'do')
+          : (e) => e.stopPropagation()}
+        onPointerMove={canDrag ? handleEventPointerMove : undefined}
+        onPointerUp={canDrag ? handleEventPointerUp : undefined}
+        onPointerCancel={canDrag ? handleEventPointerCancel : undefined}
+        onClick={canDrag ? undefined : () => window.dispatchEvent(new CustomEvent('editEvent', { detail: evt }))}
+        onContextMenu={canDrag ? (e) => {
+          e.preventDefault();
+          window.dispatchEvent(new CustomEvent('eventContextMenu', { detail: { event: evt, x: e.clientX, y: e.clientY } }));
+        } : undefined}
         style={{
           position: 'absolute', top, height, left: bounds.left, right: bounds.right,
           backgroundColor: `${eventColor}24`,
           border: `1.5px solid ${eventColor}`,
-          borderRadius: 8, padding: '2px 4px', zIndex: 2,
-          cursor: 'pointer', textAlign: 'left', overflow: 'hidden',
-          opacity: (isDone || isDoLane) ? 0.5 : (isPast ? 0.7 : 1),
+          borderRadius: 8, padding: '2px 4px', zIndex: isDragging ? 30 : 2,
+          cursor: canDrag ? (isDragging ? 'grabbing' : 'grab') : 'pointer',
+          textAlign: 'left', overflow: 'hidden',
+          opacity: isDragging ? 0.85 : (isDone ? 0.5 : (isPast ? 0.7 : 1)),
+          userSelect: canDrag ? 'none' : undefined,
+          touchAction: canDrag ? 'none' : undefined,
         }}
-        title={`${evt.title}\n${evt.startTime} - ${evt.endTime}`}
+        title={`${evt.title}\n${timeLabel}`}
       >
-        <div style={{ fontSize: 10, fontWeight: 700, color: eventColor, lineHeight: 1.3, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', textDecoration: (isDone || isDoLane) ? 'line-through' : 'none' }}>
+        <div style={{ fontSize: 10, fontWeight: 700, color: eventColor, lineHeight: 1.3, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', textDecoration: isDone ? 'line-through' : 'none' }}>
           📅 {evt.title}
         </div>
         {height >= 28 && (
           <div style={{ fontSize: 9, fontWeight: 600, color: eventColor, opacity: 0.8, lineHeight: 1.3, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-            {evt.startTime} - {evt.endTime}
+            {timeLabel}
+          </div>
+        )}
+        {canDrag && (
+          <div
+            className="absolute left-0 right-0 bottom-0 flex justify-center items-end"
+            style={{ height: 14, cursor: 'ns-resize', touchAction: 'none', paddingBottom: 2 }}
+            onPointerDown={(e) => handleEventResizePointerDown(e, evt, timeToMinutes(blockStart), timeToMinutes(blockEnd), 'do')}
+            onPointerMove={handleEventPointerMove}
+            onPointerUp={handleEventPointerUp}
+            onPointerCancel={handleEventPointerCancel}
+          >
+            <div style={{ width: 20, height: 2, borderRadius: 1, backgroundColor: eventColor }} />
           </div>
         )}
       </button>
@@ -1510,7 +1554,7 @@ export function Timeline({ days = 1, selectedDate, dateTodos, dateEvents, onShow
                           );
                         })}
                         {doTodos.map(td => renderBlock(td, 'do', SLOT_PAD))}
-                        {(wd.events ?? []).filter(ev => ev.completed).map(evt => renderLiteEventBlock(evt, SLOT_PAD, 'do'))}
+                        {(wd.events ?? []).filter(ev => ev.doStart && ev.doEnd).map(evt => renderLiteEventBlock(evt, SLOT_PAD, 'do'))}
                       </div>
                     </div>
                     {/* 현재 시각선 (오늘 컬럼) */}
@@ -1700,11 +1744,12 @@ export function Timeline({ days = 1, selectedDate, dateTodos, dateEvents, onShow
           {/* Blocks container */}
           <div className="absolute" style={{ left: TIMELINE_CONTENT_LEFT, right: 0, top: 0, bottom: 0 }}>
             {dateEvents.map(evt => renderEventBlock(evt))}
-            {/* 완료 일정 미러 — 할일과 동일하게 PLAN(위 renderEventBlock, 흐림) 은 유지하고 DO 레인에도 렌더 */}
+            {/* 실적(actual) 있는 일정 미러 — PLAN(위 renderEventBlock) 은 유지하고 DO 레인에 실제 시각으로 렌더.
+                completed 가 아니라 do_start/do_end 존재 여부로 미러한다(완료↔위치 분리). */}
             {(() => {
               const doBounds = getTimelineLaneBounds('do');
               return doBounds
-                ? dateEvents.filter(ev => ev.completed).map(evt => renderLiteEventBlock(evt, doBounds, 'do'))
+                ? dateEvents.filter(ev => ev.doStart && ev.doEnd).map(evt => renderLiteEventBlock(evt, doBounds, 'do', { draggable: true }))
                 : null;
             })()}
             {planTodos.map(todo => renderBlock(todo, 'plan'))}
