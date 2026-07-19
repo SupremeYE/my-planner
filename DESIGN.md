@@ -781,3 +781,63 @@ only layout and navigation adapt.
 - Pastel-glass is theme `H` (`tokenH`), layered onto the existing `ThemeContext`. The warm theme (`B`) stays the default and fully preserved; pastel is opt-in during migration.
 - **CLAUDE.md relationship:** CLAUDE.md governs agent behavior; this file governs visual decisions. During redesign, defer to this DESIGN.md over any "preserve existing colors/layout" rule. Keep "no hardcoded colors, tokens only."
 - **Migration order:** Daily (일간) is the reference page. Bring other pages into alignment one at a time behind STOP gates. Switch the default theme to pastel only after all pages are migrated.
+
+---
+
+## 11. 만다라트 (Mandalart — page-specific patterns)
+
+만다라트(`/goals` → 만다라트 모드, `MandalartView` + `MandalartBoardMobile`/`MandalartBoardPC`)의
+셀 렌더·색 규칙. 리디자인 축은 **고스트 빈칸 + 위계 + 칸별 지정색**이다. 표면은 §1(솔리드
+인-플로우 카드 / 오버레이만 글래스)을 따르고, 색은 §3(팔레트·코랄 restraint)을 SSOT로 참조한다.
+아래는 만다라트 전용 규칙만 — 공통 규칙은 교차 참조하고 반복하지 않는다.
+
+> 등록 범위 메모: 이 §11 은 **패턴·팔레트 계약**만 정의한다(Stage 1). 실제 셀 렌더 교체·스키마
+> `color` 컬럼·편집기 스와치 배선은 후속 Stage(2~5)에서 이 계약을 소비한다. 편집 진입은 기존
+> 롱프레스(모바일)/우클릭(PC) + 중앙 편집 모달을 유지한다(신규 제스처·시트/팝오버 전환은 이번 범위 밖).
+
+### 11.1 고스트 빈/비활성 셀
+
+- **빈 칸(내용 없음) = 고스트.** 투명 배경 + 옅은 **중립 점선**(`1.5px dashed`, `t.border` 저알파 —
+  `withAlpha(t.border, …)` 또는 저알파 hairline). 텍스트·"+"·라벨 아이콘은 `t.textMuted`.
+- **색 지정 대상 아님** — 빈 칸에는 색 스와치를 노출하지 않는다. 탭/롱프레스는 **추가 진입만** 한다.
+- **코랄 점선 → 중립 점선.** 현재 빈 칸이 쓰는 `t.accentLight`(소프트 코랄 tint) 점선은 §3 코랄
+  restraint에 어긋난다 → 중립(`t.border` 저알파) 점선으로 낮춘다. (코랄은 §3에서 강조·FAB·선택 전용.)
+- **비활성도 고스트 계열.** 아직 못 채운 leaf(미완료) 등 "비활성" 상태에는 색 액센트를 부여하지
+  않는다 — 활성(내용 있고 색 지정된) 칸만 색을 갖는다.
+
+### 11.2 활성-색 사용규칙 (위계)
+
+- **활성 칸(내용 있음) = §1 solidCard 흰 카드** + **지정색 좌측 액센트 바(3~4px)** + 진행바.
+- **색 = 칸별 지정, 미지정 = 기본 `lilac`**(§11.3, `DEFAULT_MANDALA_COLOR`). 저장은 **팔레트 키**로
+  하고(raw hex 아님, §3 places 패턴), 렌더 시 `MANDALA_PALETTE[key]`로 `{dot, light}`를 해석한다.
+  - **좌측 액센트 바 = `dot`**(진한 주색).
+  - **진행바: fill = `dot`, 트랙 = `light`**(옅은 tint).
+- **중심 핵심목표 = 코랄 앵커**(`t.primaryGradient ?? t.accent`). **색 지정 대상 아님**(스와치 미노출),
+  위계 최상단.
+- **§3 교차 규칙(명시).** 코랄은 **핵심 앵커·선택·FAB 전용** — 세부/행동 칸의 지정색으로 **코랄을 쓰지
+  않는다**(팔레트에서 코랄 제외, §11.3).
+- **위계:** 코랄 핵심(최상단) > solid 활성 카드(지정색 액센트) > 고스트 빈/비활성(색 없음).
+
+### 11.3 만다라트 색 팔레트 (큐레이팅 6색)
+
+셀 지정색은 아래 **6색 고정**이다. 코랄 제외(§3 강조 전용). 저장은 **키만**(hex 아님), 미지정 = `lilac`.
+값의 SSOT 는 `MANDALA_PALETTE`(`src/app/styles/haonStyles.ts`) — 아래 표는 그 미러다.
+
+| 키 | dot(주색) | light(tint) | §3 대조 |
+|---|---|---|---|
+| `lilac` (기본) | `#9E6FD6` | `#C8A8E9` | §3 할일(lilac) hue 재사용 (SSOT §3) |
+| `blue` | `#7B82E3` | `#C3C7F4` | §3 일정(blue) hue 재사용 (SSOT §3) |
+| `sage` | `#6BAA7A` | `#CFE3CE` | §3 자기관리(sage) hue 재사용 (SSOT §3) |
+| `magenta` | `#C56FB8` | `#E3AADD` | §3 습관(magenta) hue 재사용 (SSOT §3) |
+| `purple` | `#8E86E0` | `mixHex('#8E86E0',255,0.55)` (≈`rgb(204,201,241)`) | 신규 |
+| `teal` | `#66B7C4` | `mixHex('#66B7C4',255,0.55)` (≈`rgb(186,223,228)`) | 신규 |
+
+- **lilac/blue/sage/magenta 는 §3 카테고리 hue 와 동일 hex** → §3 를 SSOT 로 참조한다(값 중복 정의
+  금지; §3 dot/fill = 여기 dot/light).
+- **purple/teal 의 light 는 하드코딩하지 않는다** — `mixHex(dot, 255, ~0.55)` 로 파생한다(§7/tag 파생과
+  동일 규칙). `mixHex` 는 `rgb(...)` 문자열을 반환한다.
+- 편집기 스와치는 이 6색 **한 줄**로 노출한다(핵심 앵커·빈 칸에는 미노출). 시트(모바일)/팝오버(PC)
+  전환은 §5 헬퍼(`bottomSheetStyle`/`addPopoverStyle`)로 후속 Stage 에서 배선한다(이번 범위 밖).
+
+**Scope:** Theme H, 토큰·팔레트 상수만. 렌더·스키마·편집기 소비는 Stage 2~5. 교차 참조 §1(solidCard)·
+§3(팔레트·코랄 restraint)·§5(시트/팝오버, 향후).

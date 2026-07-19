@@ -105,6 +105,22 @@ export function mixHex(hex: string, target: number, amt: number): string {
   return `rgb(${m(rgb.r)}, ${m(rgb.g)}, ${m(rgb.b)})`;
 }
 
+// ─── 만다라트 칸 색 팔레트 (DESIGN.md §11.3) ───
+// 셀 지정색 = 아래 6색 고정. 저장은 키만(raw hex 아님, §3 places 패턴). 미지정 = lilac.
+// lilac/blue/sage/magenta = §3 카테고리 hue 재사용(SSOT §3), purple/teal = 신규.
+// light 미지정(purple/teal)은 mixHex(dot, 255, 0.55)로 파생 — 하드코딩 금지.
+// 코랄 제외(§3 강조·FAB·선택 전용). 정의만 — 소비처는 Stage 2~5.
+export const MANDALA_PALETTE = {
+  lilac:   { dot: '#9E6FD6', light: '#C8A8E9' },
+  blue:    { dot: '#7B82E3', light: '#C3C7F4' },
+  sage:    { dot: '#6BAA7A', light: '#CFE3CE' },
+  magenta: { dot: '#C56FB8', light: '#E3AADD' },
+  purple:  { dot: '#8E86E0', light: mixHex('#8E86E0', 255, 0.55) },
+  teal:    { dot: '#66B7C4', light: mixHex('#66B7C4', 255, 0.55) },
+} as const;
+export type MandalaColorKey = keyof typeof MANDALA_PALETTE;
+export const DEFAULT_MANDALA_COLOR: MandalaColorKey = 'lilac';
+
 // 색 토큰에 알파를 안전하게 입힌다. hex('#RRGGBB')는 8자리 hex 알파로, 그 외(rgb/rgba/named)는
 // rgba()로 변환한다. `${color}60` 처럼 hex 알파 접미사를 그냥 붙이면 토큰이 rgba()일 때
 // (예: 테마 H 의 t.border='rgba(46,42,91,0.10)') 'rgba(...)60' 같은 잘못된 CSS 가 되어
