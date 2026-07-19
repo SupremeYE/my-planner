@@ -1012,6 +1012,51 @@ const fromWalkSession = (w: WalkSessionInput): Record<string, unknown> => {
   return row;
 };
 
+// ── 번쩍노트 '언젠가' (someday_seeds) ──────────────────────────────────────────
+// "문득 든 삶의 방향·바람"을 정제 전 raw 한 줄(씨앗)로 던져두고, 일부를 목표/버킷으로 키운다(승격).
+// kind(결) = §3 카테고리와 다른 '새 축'. status seed→grown. grownTo 'goal'(annual_goals)|'bucket'(후속).
+// user_id 는 DB DEFAULT auth.uid() 가 자동 충전 → 클라이언트는 보내지 않는다(walk 패턴).
+export type SeedKind = 'none' | 'do' | 'be' | 'build';
+export type SeedStatus = 'seed' | 'grown';
+export type SeedGrownTo = 'goal' | 'bucket';
+
+export type SomedaySeed = {
+  id: string;
+  text: string;
+  kind: SeedKind;
+  status: SeedStatus;
+  grownTo: SeedGrownTo | null;
+  grownRefId: string | null;   // 승격 대상 id(annual_goals.id=text). 'bucket'은 마킹만 → null.
+  createdAt: string;
+};
+
+type SomedaySeedRow = {
+  id: string; text: string; kind: SeedKind; status: SeedStatus;
+  grown_to: SeedGrownTo | null; grown_ref_id: string | null; created_at: string;
+};
+
+const toSomedaySeed = (r: SomedaySeedRow): SomedaySeed => ({
+  id: r.id,
+  text: r.text,
+  kind: r.kind ?? 'none',
+  status: r.status ?? 'seed',
+  grownTo: r.grown_to ?? null,
+  grownRefId: r.grown_ref_id ?? null,
+  createdAt: r.created_at,
+});
+
+// insert/update 시 카멜→스네이크 변환. undefined 키는 제외(부분 업데이트 지원).
+type SomedaySeedInput = Partial<Omit<SomedaySeed, 'id' | 'createdAt'>>;
+const fromSomedaySeed = (s: SomedaySeedInput): Record<string, unknown> => {
+  const row: Record<string, unknown> = {};
+  if (s.text !== undefined)      row.text = s.text;
+  if (s.kind !== undefined)      row.kind = s.kind;
+  if (s.status !== undefined)    row.status = s.status;
+  if (s.grownTo !== undefined)   row.grown_to = s.grownTo;
+  if (s.grownRefId !== undefined) row.grown_ref_id = s.grownRefId;
+  return row;
+};
+
 // ── DB 객체 ──────────────────────────────────────────────────────────────────
 
 export const db = {
@@ -3788,6 +3833,41 @@ export const db = {
       if (error) { console.error('[db] walk photo upload:', error.message); return null; }
       const { data } = supabase.storage.from('walk-photos').getPublicUrl(path);
       return data.publicUrl;
+    },
+  },
+
+  // ── 번쩍노트 '언젠가' (someday_seeds) ─────────────────────────────────────────
+  // 씨앗 던지기(insert) / 결·상태 수정(update) / 삭제. user_id 는 DB DEFAULT auth.uid().
+  somedaySeeds: {
+    // 전체 씨앗 목록(최신순).
+    fetchAll: async (): Promise<SomedaySeed[]> => {
+      const { data, error } = await supabase
+        .from('someday_seeds')
+        .select('*')
+        .order('created_at', { ascending: false });
+      if (error) console.error('[db] someday_seeds fetchAll:', error.message);
+      return (data ?? []).map(toSomedaySeed);
+    },
+    // 씨앗 던지기 — text + kind(기본 none). 생성 행 반환.
+    create: async (input: SomedaySeedInput): Promise<SomedaySeed | null> => {
+      const { data, error } = await supabase
+        .from('someday_seeds')
+        .insert(fromSomedaySeed(input))
+        .select('*')
+        .single();
+      if (error) { console.error('[db] someday_seeds create:', error.message); return null; }
+      return data ? toSomedaySeed(data) : null;
+    },
+    // 부분 수정 — 결 변경, 승격 마킹(status/grownTo/grownRefId) 등 전달된 키만.
+    update: async (id: string, patch: SomedaySeedInput): Promise<void> => {
+      const row = fromSomedaySeed(patch);
+      if (Object.keys(row).length === 0) return;
+      const { error } = await supabase.from('someday_seeds').update(row).eq('id', id);
+      if (error) console.error('[db] someday_seeds update:', error.message);
+    },
+    delete: async (id: string): Promise<void> => {
+      const { error } = await supabase.from('someday_seeds').delete().eq('id', id);
+      if (error) console.error('[db] someday_seeds delete:', error.message);
     },
   },
 
