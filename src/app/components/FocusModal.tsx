@@ -70,16 +70,16 @@ export function FocusModal({
     <div className="fixed inset-0 z-50 flex items-center justify-center px-4" style={{ backgroundColor: 'rgba(38,52,61,0.28)' }}>
       <div
         className="w-full max-w-[380px] overflow-hidden rounded-[28px]"
-        style={{ backgroundColor: '#F5F0E8', border: `1px solid ${t.border}`, boxShadow: '0 24px 48px rgba(38,52,61,0.14)' }}
+        style={{ backgroundColor: t.bg, border: `1px solid ${t.border}`, boxShadow: '0 24px 48px rgba(38,52,61,0.14)' }}
       >
         <div className="flex items-start justify-between px-5 py-4 lg:px-6 lg:py-5" style={{ borderBottom: `1px solid ${t.borderLight}` }}>
           <div className="min-w-0">
-            <p style={{ fontSize: 11, fontWeight: 700, color: '#C4A882', letterSpacing: '0.08em', textTransform: 'uppercase' }}>Focus</p>
+            <p style={{ fontSize: 11, fontWeight: 700, color: t.accent, letterSpacing: '0.08em', textTransform: 'uppercase' }}>Focus</p>
             <h3 style={{ fontSize: 18, fontWeight: 700, color: t.text, marginTop: 6, lineHeight: 1.35 }}>
               {todo.text}
             </h3>
           </div>
-          <button onClick={onClose} className="rounded-xl p-2" style={{ color: t.textMuted, backgroundColor: '#FDFAF4' }}>
+          <button onClick={onClose} className="rounded-xl p-2" style={{ color: t.textMuted, backgroundColor: t.card }}>
             <X size={18} />
           </button>
         </div>
@@ -87,7 +87,7 @@ export function FocusModal({
         <div className="px-5 py-5 lg:px-6">
           <div
             className="grid grid-cols-2 gap-1 rounded-full p-1"
-            style={{ backgroundColor: '#EDE4D8', border: `1px solid ${t.borderLight}` }}
+            style={{ backgroundColor: t.bgSub, border: `1px solid ${t.borderLight}` }}
           >
             {[
               { key: 'pomodoro' as const, label: '포모도로', icon: Clock3 },
@@ -101,11 +101,11 @@ export function FocusModal({
                   onClick={() => setMode(option.key)}
                   className="flex items-center justify-center gap-2 rounded-full px-3 py-2.5 transition-all"
                   style={{
-                    backgroundColor: active ? '#FDFAF4' : 'transparent',
-                    color: active ? '#6B553D' : t.textSub,
+                    backgroundColor: active ? t.card : 'transparent',
+                    color: active ? t.text : t.textSub,
                     fontSize: 13,
                     fontWeight: active ? 700 : 500,
-                    boxShadow: active ? '0 4px 12px rgba(196,168,130,0.16)' : 'none',
+                    boxShadow: active ? '0 4px 12px rgba(120,90,160,0.16)' : 'none',
                   }}
                 >
                   <Icon size={14} />
@@ -117,10 +117,10 @@ export function FocusModal({
 
           {mode === 'pomodoro' ? (
             <div className="mt-5">
-              <div className="relative rounded-[24px] px-4 py-5" style={{ backgroundColor: '#FDFAF4', border: `1px solid ${t.borderLight}` }}>
+              <div className="relative rounded-[24px] px-4 py-5" style={{ backgroundColor: t.card, border: `1px solid ${t.borderLight}` }}>
                 <div className="mb-4 text-center">
                   <p style={{ fontSize: 12, color: t.textSub }}>남은 시간</p>
-                  <div style={{ fontSize: 42, fontWeight: 700, color: '#6B553D', letterSpacing: '-0.04em', lineHeight: 1.05 }}>
+                  <div style={{ fontSize: 42, fontWeight: 700, color: t.text, letterSpacing: '-0.04em', lineHeight: 1.05 }}>
                     {formatClock(previewSeconds)}
                   </div>
                 </div>
@@ -128,7 +128,7 @@ export function FocusModal({
                 <div className="relative mx-auto w-[140px]">
                   <div
                     className="pointer-events-none absolute left-0 right-0 top-1/2 -translate-y-1/2 rounded-2xl"
-                    style={{ height: DRUM_ITEM_HEIGHT, backgroundColor: '#F5F0E8', border: `1px solid ${t.borderLight}` }}
+                    style={{ height: DRUM_ITEM_HEIGHT, backgroundColor: t.bgSub, border: `1px solid ${t.borderLight}` }}
                   />
                   <div
                     ref={drumRef}
@@ -150,7 +150,7 @@ export function FocusModal({
                             style={{
                               fontSize: active ? 28 : 18,
                               fontWeight: active ? 700 : 500,
-                              color: active ? '#6B553D' : t.textMuted,
+                              color: active ? t.text : t.textMuted,
                               lineHeight: 1,
                             }}
                           >
@@ -164,9 +164,9 @@ export function FocusModal({
               </div>
             </div>
           ) : (
-            <div className="mt-5 rounded-[24px] px-4 py-8 text-center" style={{ backgroundColor: '#FDFAF4', border: `1px solid ${t.borderLight}` }}>
+            <div className="mt-5 rounded-[24px] px-4 py-8 text-center" style={{ backgroundColor: t.card, border: `1px solid ${t.borderLight}` }}>
               <p style={{ fontSize: 12, color: t.textSub }}>경과 시간</p>
-              <div style={{ fontSize: 46, fontWeight: 700, color: '#6B553D', letterSpacing: '-0.04em', lineHeight: 1.05, marginTop: 8 }}>
+              <div style={{ fontSize: 46, fontWeight: 700, color: t.text, letterSpacing: '-0.04em', lineHeight: 1.05, marginTop: 8 }}>
                 00:00
               </div>
             </div>
@@ -175,7 +175,7 @@ export function FocusModal({
           <button
             onClick={() => onStart(mode, mode === 'pomodoro' ? selectedMinutes * 60 : undefined)}
             className="mt-5 flex w-full items-center justify-center gap-2 rounded-[20px] py-3.5"
-            style={{ backgroundColor: '#C4A882', color: '#fff', fontSize: 15, fontWeight: 700 }}
+            style={{ backgroundColor: t.accent, color: '#fff', fontSize: 15, fontWeight: 700 }}
           >
             <Play size={16} fill="currentColor" />
             시작
