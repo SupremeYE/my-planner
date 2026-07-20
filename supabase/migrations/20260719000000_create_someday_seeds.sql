@@ -21,7 +21,8 @@
 create table if not exists public.someday_seeds (
   id uuid primary key default gen_random_uuid(),
   user_id uuid not null default auth.uid() references auth.users(id) on delete cascade,
-  text text not null,
+  -- 씨앗은 한 줄. 공백만/빈 문자열 방지 + 상한 280자(트윗 길이 — "한 줄" 정제 전 raw 아이디어에 충분).
+  text text not null check (char_length(btrim(text)) between 1 and 280),
   kind text not null default 'none' check (kind in ('none','do','be','build')),
   status text not null default 'seed' check (status in ('seed','grown')),
   grown_to text check (grown_to in ('goal','bucket')),   -- NULL = 아직 씨앗
