@@ -21,6 +21,7 @@ import { RecipeView } from './components/RecipeView';
 import { ProfileView } from './components/ProfileView';
 import { VisionBoardView } from './components/VisionBoardView';
 import { ScrapView } from './components/ScrapView';
+import { SomedayView } from './components/SomedayView';
 import { PlacesView } from './components/PlacesView';
 import { WalkView } from './components/WalkView';
 import { BeautyCareView } from './components/beauty/BeautyCareView';
@@ -58,6 +59,7 @@ export const router = createBrowserRouter([
       { path: 'recipes',          Component: RecipeView },
       { path: 'vision',           Component: VisionBoardView },
       { path: 'scraps',           Component: ScrapView },
+      { path: 'someday',          Component: SomedayView },
       { path: 'places',           Component: PlacesView },
       { path: 'walk',             Component: WalkView },
       { path: 'beauty-care',      Component: BeautyCareView },
