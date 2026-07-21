@@ -44,5 +44,38 @@ export function useSomedaySeeds() {
     await db.somedaySeeds.delete(id);
   }, []);
 
-  return { seeds, loading, refresh, addSeed, setSeedKind, deleteSeed };
+  // ── 승격(키우기) ──────────────────────────────────────────────────────────
+  // 결정(A안): '목표로' = annual_goals 에 시드에서 직접 insert(goal id 는 client 생성 —
+  // annual_goals.id 는 text PK), year 는 올해 자동(연도 선택 UI 없음), grownTo='goal'.
+  // 만다라트 등 목표 세부 종류 확장은 후속에 grown_ref_kind 로(이번 범위 밖).
+  const growToGoal = useCallback(async (seed: SomedaySeed) => {
+    if (seed.status === 'grown') return null;
+    const goalId = crypto.randomUUID();
+    const year = new Date().getFullYear();
+    // 승격 대상 목표 먼저 생성(annual_goals). 실패해도 시드는 건드리지 않는다.
+    await db.annualGoals.upsert({ id: goalId, year, text: seed.text, done: false });
+    setSeeds(prev => prev.map(s => (s.id === seed.id
+      ? { ...s, status: 'grown', grownTo: 'goal', grownRefId: goalId } : s)));
+    await db.somedaySeeds.update(seed.id, { status: 'grown', grownTo: 'goal', grownRefId: goalId });
+    return goalId;
+  }, []);
+
+  // '버킷으로' = 전용 뷰가 아직 없으므로 마킹만(grownTo='bucket', ref 없음). 데이터는 안 깨지게.
+  const growToBucket = useCallback(async (seed: SomedaySeed) => {
+    if (seed.status === 'grown') return;
+    setSeeds(prev => prev.map(s => (s.id === seed.id
+      ? { ...s, status: 'grown', grownTo: 'bucket', grownRefId: null } : s)));
+    await db.somedaySeeds.update(seed.id, { status: 'grown', grownTo: 'bucket', grownRefId: null });
+  }, []);
+
+  // 되돌리기 — 시드만 씨앗으로 복귀. ⚠️ 이미 만든 annual_goal 은 삭제하지 않는다(목표 페이지에서
+  // 수정됐을 수 있음 → 시드만 seed 로 복귀, 목표는 목표 페이지에 그대로 남는다).
+  const revertSeed = useCallback(async (seed: SomedaySeed) => {
+    if (seed.status !== 'grown') return;
+    setSeeds(prev => prev.map(s => (s.id === seed.id
+      ? { ...s, status: 'seed', grownTo: null, grownRefId: null } : s)));
+    await db.somedaySeeds.update(seed.id, { status: 'seed', grownTo: null, grownRefId: null });
+  }, []);
+
+  return { seeds, loading, refresh, addSeed, setSeedKind, deleteSeed, growToGoal, growToBucket, revertSeed };
 }

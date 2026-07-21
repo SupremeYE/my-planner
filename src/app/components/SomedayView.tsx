@@ -1,13 +1,15 @@
-import { useCallback, useMemo, useRef, useState } from 'react';
-import { Sprout, Plus, ChevronDown, Sparkles } from 'lucide-react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useNavigate } from 'react-router';
+import { Sprout, Plus, ChevronDown, Sparkles, Target, RotateCcw, ArrowUpRight } from 'lucide-react';
 import { format, parseISO } from 'date-fns';
 import { useTheme } from '../ThemeContext';
 import { useFabAction } from '../FabContext';
 import { useSomedaySeeds } from '../hooks/useSomedaySeeds';
+import ConfirmModal from './ConfirmModal';
 import { type SeedKind, type SomedaySeed } from '../../lib/db';
 import {
   isHaon, solidCardStyle, solidRowStyle, glassBarStyle, addPopoverStyle,
-  buttonStyle, withAlpha,
+  bottomSheetStyle, sheetBackdropStyle, buttonStyle, withAlpha,
 } from '../styles/haonStyles';
 import {
   seedKindColor, SEED_KIND_LABELS, SEED_KIND_ORDER,
@@ -21,8 +23,9 @@ const TEXT_MAX = 280; // DB CHECK 와 동일 상한
 
 export function SomedayView() {
   const { t } = useTheme();
+  const navigate = useNavigate();
   const haon = isHaon(t);
-  const { seeds, loading, addSeed } = useSomedaySeeds();
+  const { seeds, loading, addSeed, growToGoal, growToBucket, revertSeed } = useSomedaySeeds();
 
   // ── 던지기 입력 ──
   const [text, setText] = useState('');
@@ -32,6 +35,19 @@ export function SomedayView() {
 
   // ── 결 필터 ──
   const [filter, setFilter] = useState<SeedKindFilter>('all');
+
+  // ── 승격/자람 상태 ──
+  const [growTarget, setGrowTarget] = useState<SomedaySeed | null>(null);   // 키우기 시트 대상
+  const [menuTarget, setMenuTarget] = useState<SomedaySeed | null>(null);   // 자람 뱃지 메뉴 대상
+  const [revertTarget, setRevertTarget] = useState<SomedaySeed | null>(null); // 되돌리기 확인 대상
+  const [toast, setToast] = useState<{ text: string; goalLink?: boolean } | null>(null);
+
+  // 토스트 자동 dismiss
+  useEffect(() => {
+    if (!toast) return;
+    const id = setTimeout(() => setToast(null), 3200);
+    return () => clearTimeout(id);
+  }, [toast]);
 
   const hasInput = text.trim().length > 0;
 
@@ -49,6 +65,35 @@ export function SomedayView() {
     inputRef.current?.focus();
   }, []);
   useFabAction({ kind: 'action', label: '씨앗 던지기', icon: Plus, onPress: focusInput });
+
+  // ── 승격/자람 핸들러 ──
+  // 키우기 시트는 씨앗(seed)일 때만 연다(중복 승격 가드).
+  const openGrow = useCallback((seed: SomedaySeed) => {
+    if (seed.status === 'seed') setGrowTarget(seed);
+  }, []);
+
+  const handleGrowToGoal = useCallback(async () => {
+    const seed = growTarget;
+    setGrowTarget(null);
+    if (!seed) return;
+    await growToGoal(seed);
+    setToast({ text: '🌿 올해 목표로 키웠어요', goalLink: true });
+  }, [growTarget, growToGoal]);
+
+  const handleGrowToBucket = useCallback(async () => {
+    const seed = growTarget;
+    setGrowTarget(null);
+    if (!seed) return;
+    await growToBucket(seed);
+    setToast({ text: '🪣 버킷에 담아뒀어요' });
+  }, [growTarget, growToBucket]);
+
+  const confirmRevert = useCallback(async () => {
+    const seed = revertTarget;
+    setRevertTarget(null);
+    if (!seed) return;
+    await revertSeed(seed);
+  }, [revertTarget, revertSeed]);
 
   const visible = useMemo(
     () => (filter === 'all' ? seeds : seeds.filter(s => s.kind === filter)),
@@ -200,16 +245,161 @@ export function SomedayView() {
           {loading ? null : visible.length === 0 ? (
             <EmptyState filtered={filter !== 'all'} />
           ) : (
-            visible.map(seed => <SeedRow key={seed.id} seed={seed} haon={haon} />)
+            visible.map(seed => (
+              <SeedRow
+                key={seed.id}
+                seed={seed}
+                haon={haon}
+                onGrow={() => openGrow(seed)}
+                onOpenMenu={() => setMenuTarget(seed)}
+              />
+            ))
           )}
+        </div>
+      </div>
+
+      {/* ── 승격(키우기) 시트 — 모바일 바텀시트 / lg 중앙 팝오버(오버레이 글래스) ── */}
+      {growTarget && (
+        <GrowSheet
+          seed={growTarget}
+          onGoal={handleGrowToGoal}
+          onBucket={handleGrowToBucket}
+          onClose={() => setGrowTarget(null)}
+        />
+      )}
+
+      {/* ── 자람 뱃지 메뉴 — 목표에서 보기 / 되돌리기 ── */}
+      {menuTarget && (
+        <GrownMenu
+          seed={menuTarget}
+          onViewGoal={() => { setMenuTarget(null); navigate('/goals'); }}
+          onRevert={() => { const s = menuTarget; setMenuTarget(null); setRevertTarget(s); }}
+          onClose={() => setMenuTarget(null)}
+        />
+      )}
+
+      {/* ── 되돌리기 확인 (목표는 보존) ── */}
+      {revertTarget && (
+        <ConfirmModal
+          message="이 씨앗을 되돌릴까요?"
+          description="만들어둔 목표는 목표 페이지에 그대로 남아요. 씨앗만 다시 씨앗 상태로 돌아갑니다."
+          confirmText="되돌리기"
+          onConfirm={confirmRevert}
+          onCancel={() => setRevertTarget(null)}
+        />
+      )}
+
+      {/* ── 승격 피드백 토스트 (로컬 pill, 토큰만) ── */}
+      {toast && (
+        <div
+          className="fixed left-1/2 z-[60] flex items-center gap-3 rounded-full px-4 py-2.5"
+          style={{
+            bottom: 'calc(84px + env(safe-area-inset-bottom))',
+            transform: 'translateX(-50%)',
+            backgroundColor: t.text, color: t.bg,
+            fontSize: 13, fontWeight: 600, whiteSpace: 'nowrap',
+            boxShadow: '0 8px 24px rgba(120,90,160,0.28)',
+          }}
+        >
+          {toast.text}
+          {toast.goalLink && (
+            <button
+              onClick={() => { setToast(null); navigate('/goals'); }}
+              className="inline-flex items-center gap-1 rounded-full px-2 py-0.5"
+              style={{ backgroundColor: withAlpha(t.bg, 0.18), color: t.bg, fontSize: 12, fontWeight: 700 }}
+            >
+              목표 보기 <ArrowUpRight size={12} />
+            </button>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── 승격 시트 (모바일 바텀시트 / lg 중앙 팝오버) ──
+function GrowSheet({ seed, onGoal, onBucket, onClose }: {
+  seed: SomedaySeed; onGoal: () => void; onBucket: () => void; onClose: () => void;
+}) {
+  const { t } = useTheme();
+  return (
+    <div className="fixed inset-0 z-50 flex items-end lg:items-center justify-center">
+      <div className="absolute inset-0" style={sheetBackdropStyle()} onClick={onClose} />
+      <div
+        className="relative w-full lg:w-auto lg:min-w-[360px] lg:max-w-md px-5 pt-3 pb-6 lg:rounded-3xl"
+        style={bottomSheetStyle(t)}
+      >
+        {/* 모바일 드래그 핸들 */}
+        <div className="lg:hidden mx-auto mb-3" style={{ width: 40, height: 4, borderRadius: 999, backgroundColor: withAlpha(t.textMuted, 0.4) }} />
+        <p style={{ fontFamily: t.fontSection, fontWeight: 700, fontSize: 16, color: t.text }}>씨앗 키우기</p>
+        <p className="truncate" style={{ fontSize: 13, color: t.textSub, marginTop: 2 }}>“{seed.text}”</p>
+
+        <div className="mt-4 space-y-2.5">
+          <button
+            onClick={onGoal}
+            className="w-full flex items-center gap-3 rounded-2xl px-4 py-3.5 text-left"
+            style={{ backgroundColor: t.card, border: `1px solid ${t.border}` }}
+          >
+            <span className="flex items-center justify-center rounded-full" style={{ width: 38, height: 38, background: t.primaryGradient ?? t.accent, color: '#fff', flexShrink: 0 }}>
+              <Target size={18} />
+            </span>
+            <span className="min-w-0">
+              <span className="block" style={{ fontSize: 14.5, fontWeight: 700, color: t.text }}>목표로</span>
+              <span className="block" style={{ fontSize: 12, color: t.textSub }}>올해 연간 목표로 추가돼요</span>
+            </span>
+          </button>
+
+          <button
+            onClick={onBucket}
+            className="w-full flex items-center gap-3 rounded-2xl px-4 py-3.5 text-left"
+            style={{ backgroundColor: t.card, border: `1px solid ${t.border}` }}
+          >
+            <span className="flex items-center justify-center rounded-full" style={{ width: 38, height: 38, backgroundColor: t.accentSoft, color: t.textSub, flexShrink: 0 }}>
+              <Sprout size={18} />
+            </span>
+            <span className="min-w-0">
+              <span className="block" style={{ fontSize: 14.5, fontWeight: 700, color: t.text }}>버킷으로</span>
+              <span className="block" style={{ fontSize: 12, color: t.textMuted }}>버킷리스트 전용 뷰는 곧 — 지금은 담아만 둬요</span>
+            </span>
+          </button>
         </div>
       </div>
     </div>
   );
 }
 
+// ── 자람 뱃지 메뉴 (목표에서 보기 / 되돌리기) ──
+function GrownMenu({ seed, onViewGoal, onRevert, onClose }: {
+  seed: SomedaySeed; onViewGoal: () => void; onRevert: () => void; onClose: () => void;
+}) {
+  const { t } = useTheme();
+  return (
+    <div className="fixed inset-0 z-50 flex items-end lg:items-center justify-center">
+      <div className="absolute inset-0" style={sheetBackdropStyle()} onClick={onClose} />
+      <div
+        className="relative w-full lg:w-auto lg:min-w-[280px] lg:max-w-xs px-3 pt-3 pb-5 lg:py-2 lg:rounded-2xl"
+        style={bottomSheetStyle(t)}
+      >
+        <div className="lg:hidden mx-auto mb-2" style={{ width: 40, height: 4, borderRadius: 999, backgroundColor: withAlpha(t.textMuted, 0.4) }} />
+        {seed.grownTo === 'goal' && (
+          <button onClick={onViewGoal} className="w-full flex items-center gap-2.5 rounded-xl px-3 py-3 text-left" style={{ color: t.text }}>
+            <ArrowUpRight size={16} color={t.accent} />
+            <span style={{ fontSize: 14, fontWeight: 600 }}>목표에서 보기</span>
+          </button>
+        )}
+        <button onClick={onRevert} className="w-full flex items-center gap-2.5 rounded-xl px-3 py-3 text-left" style={{ color: t.text }}>
+          <RotateCcw size={16} color={t.textSub} />
+          <span style={{ fontSize: 14, fontWeight: 600 }}>되돌리기</span>
+        </button>
+      </div>
+    </div>
+  );
+}
+
 // ── 씨앗 행 (solidRowStyle + 3px 결 accent + dot + 결 태그 + 날짜 + 키우기/자람) ──
-function SeedRow({ seed, haon }: { seed: SomedaySeed; haon: boolean }) {
+function SeedRow({ seed, haon, onGrow, onOpenMenu }: {
+  seed: SomedaySeed; haon: boolean; onGrow: () => void; onOpenMenu: () => void;
+}) {
   const { t } = useTheme();
   const c = seedKindColor(t, seed.kind);
   const grown = seed.status === 'grown';
@@ -236,15 +426,22 @@ function SeedRow({ seed, haon }: { seed: SomedaySeed; haon: boolean }) {
           </span>
         </div>
       </div>
-      {/* 우측: 자람 뱃지(grown) / 키우기 액션(seed) — 키우기 동작은 Stage 4에서 연결 */}
+      {/* 우측: 자람 뱃지(grown, 클릭→메뉴) / 키우기 액션(seed) */}
       {grown ? (
-        <span className="inline-flex items-center gap-1 rounded-full px-2.5 py-1 flex-shrink-0"
-          style={{ fontSize: 11, fontWeight: 700, color: t.accent, backgroundColor: withAlpha(t.accent, 0.12) }}>
+        <button
+          type="button"
+          onClick={onOpenMenu}
+          className="inline-flex items-center gap-1 rounded-full px-2.5 py-1 flex-shrink-0"
+          style={{ fontSize: 11, fontWeight: 700, color: t.accent, backgroundColor: withAlpha(t.accent, 0.12) }}
+          aria-label="자람 메뉴 열기"
+        >
           <Sparkles size={12} /> 자람
-        </span>
+          <ChevronDown size={12} />
+        </button>
       ) : (
         <button
           type="button"
+          onClick={onGrow}
           className="inline-flex items-center gap-1 rounded-full px-3 py-1.5 flex-shrink-0"
           style={{ ...buttonStyle(t, 'secondary'), fontSize: 12 }}
         >

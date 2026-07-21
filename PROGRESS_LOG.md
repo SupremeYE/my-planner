@@ -6,6 +6,25 @@
 
 ---
 
+## 2026-07-21 — 🌱 번쩍노트 '언젠가' (씨앗밭) 신규 페이지 (Stage 0~4)
+
+### 🛠 구현 ("문득 든 삶의 방향·바람"을 한 줄 씨앗으로 던져두고 목표/버킷으로 키우기)
+
+정제 전 raw 아이디어(씨앗)를 결(kind)로 느슨히 분류해 모으고, 일부를 연간 목표/버킷으로 승격(키우기)하는 Theme H 전용 페이지. isHaon 게이팅·토큰만.
+
+- **Stage 1 (DESIGN.md 등록)**: §3에 **결(seed-kind) 색**을 카테고리와 다른 '새 축'으로 등록 — none(미분류·textMuted 파생)/do #D98AC9/be #A87BD9/build #6E74E0(카테고리 일정 #7B82E3과 드리프트 방지 위해 별도 스와치), 각 fill·text 시블링 포함. §5에 컴포넌트 6종 등록: 던지기 입력 / 씨앗 행 / 결 필터 칩 / 승격 시트 / 자람 뱃지 메뉴·되돌리기 / 승격 토스트. **신규 haonStyles 헬퍼 0개**(전부 기존 recipe 재사용).
+- **Stage 2 (데이터)**: `someday_seeds` 테이블(walk_sessions 컨벤션) — `user_id default auth.uid()`, 개별 4-RLS(본인만), kind/status/grown_to CHECK, `text` 길이 1~280 CHECK, grown_ref_id(폴리모픽이라 FK 없음), 인덱스 3종 + Realtime publication. `db.somedaySeeds{fetchAll,create,update,delete}` + `useSomedaySeeds` 훅(로컬 state + useRealtimeSync). **원격 적용·검증 완료**(RLS 4정책·Realtime·컬럼 8개).
+- **Stage 3 (페이지 UI)**: `SomedayView` — glassBarStyle 헤더 + 던지기 입력(결 칩 ▾ 팝오버 + 코랄 그라디언트 버튼) + 결 필터 칩 + 씨앗 리스트(결 dot·3px accent·결 태그·날짜 Sora) + 빈 상태. 라우트 `/someday` + 사이드바·오버플로 네비 등록(Sprout '언젠가'). add-action = 모바일 FAB / lg 헤더 "+ 추가"(둘 다 입력 포커스).
+- **Stage 4 (승격 흐름)**: 씨앗 "키우기" → 시트(모바일 바텀시트/lg 중앙 팝오버) [목표로]/[버킷으로]. **목표로** = annual_goals에 시드에서 직접 insert(client goal id, year=올해 자동) → `someday_seeds` grown 마킹(grown_to='goal', grown_ref_id) → 자람 뱃지. **버킷으로** = 마킹만(전용 뷰는 후속, '곧' 힌트). **중복 승격 가드**(seed일 때만). **자람 뱃지 클릭 메뉴** = [목표에서 보기](goal, 목표 페이지 이동)/[되돌리기]. **되돌리기** = 시드만 씨앗 복귀(⚠️ 이미 만든 annual_goal은 삭제 안 함 — ConfirmModal로 "목표는 그대로 남아요" 안내). **토스트** = "🌿 올해 목표로 키웠어요"(+목표 보기 링크)/"🪣 버킷에 담아뒀어요", 자동 이동 금지(맥락 유지).
+
+### ✅ 검증
+- `npm run build`(vite 6) 각 Stage 통과, 폰트가드 0건. `someday_seeds` 원격 스키마 검증(RLS 4·Realtime·컬럼).
+- 승격 대상 annual_goals는 전역 store realtime 구독(store.tsx) 대상이라 목표 페이지에 즉시 반영. someday_seeds는 useRealtimeSync 구독(PC↔모바일 동기).
+- 스코프 Theme H·토큰만(결 색 SEED_KIND_COLORS 단일 소스, 하드코딩 색/폰트 0), 비-H는 haonStyles 폴백으로 무회귀. PC 레이아웃 보존·모바일 변경 lg: 스코프.
+- ⚠️ 인터랙티브 실기기 왕복(던지기→키우기→자람→되돌리기)은 Supabase 로그인이 필요해 본 환경(무자격증)에선 미실행 — 빌드·DB·코드 리뷰로 검증, 실기기 확인은 사용자 세션에서.
+
+---
+
 ## 2026-07-16 — ⚖️ 몸무게 통계 like-for-like — 기준 slot 도입 (⑫ Stage 1~3)
 
 ### 🛠 구현 (WeightTab 통계 카드 — 폴백≠비교 결함 근본 수정)
