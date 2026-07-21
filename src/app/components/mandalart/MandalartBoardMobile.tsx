@@ -9,7 +9,9 @@ import type { Notify } from '../culture/CultureToast';
 
 export type Cell = {
   id: string; board_id: string; parent_id: string | null;
-  position: number; content: string; is_done: boolean; created_at: string;
+  position: number; content: string; is_done: boolean;
+  color: string | null;   // 팔레트 키('lilac'|…) | null(미지정=lilac). 소비는 Stage 3~5.
+  created_at: string;
 };
 
 interface Props {

@@ -2783,11 +2783,11 @@ export const db = {
   mandalartCells: {
     fetchByBoard: async (boardId: string): Promise<{
       id: string; board_id: string; parent_id: string | null;
-      position: number; content: string; is_done: boolean; created_at: string;
+      position: number; content: string; is_done: boolean; color: string | null; created_at: string;
     }[]> => {
       const { data, error } = await supabase
         .from('mandalart_cells')
-        .select('id, board_id, parent_id, position, content, is_done, created_at')
+        .select('id, board_id, parent_id, position, content, is_done, color, created_at')
         .eq('board_id', boardId)
         .order('position', { ascending: true });
       if (error) { console.error('[db] mandalart_cells fetch:', error.message); return []; }
@@ -2799,9 +2799,10 @@ export const db = {
       position: number;
       content?: string;
       isDone?: boolean;
+      color?: string | null;   // 팔레트 키('lilac'|…) | null(미지정). Stage 5 편집기에서 전달.
     }): Promise<{
       id: string; board_id: string; parent_id: string | null;
-      position: number; content: string; is_done: boolean; created_at: string;
+      position: number; content: string; is_done: boolean; color: string | null; created_at: string;
     } | null> => {
       // 같은 (board, parent, position) 의 셀이 있으면 update, 없으면 insert.
       const baseQuery = supabase
@@ -2816,12 +2817,13 @@ export const db = {
       const patch: Record<string, unknown> = {};
       if (params.content !== undefined) patch.content = params.content;
       if (params.isDone !== undefined) patch.is_done = params.isDone;
+      if (params.color !== undefined) patch.color = params.color;
       if (existing) {
         const { data, error } = await supabase
           .from('mandalart_cells')
           .update(patch)
           .eq('id', existing.id)
-          .select('id, board_id, parent_id, position, content, is_done, created_at')
+          .select('id, board_id, parent_id, position, content, is_done, color, created_at')
           .single();
         if (error) { console.error('[db] mandalart_cells update:', error.message); return null; }
         return data;
@@ -2834,16 +2836,18 @@ export const db = {
           position: params.position,
           content: params.content ?? '',
           is_done: params.isDone ?? false,
+          color: params.color ?? null,
         })
-        .select('id, board_id, parent_id, position, content, is_done, created_at')
+        .select('id, board_id, parent_id, position, content, is_done, color, created_at')
         .single();
       if (error) { console.error('[db] mandalart_cells insert:', error.message); return null; }
       return data;
     },
-    update: async (id: string, patch: { content?: string; isDone?: boolean }) => {
+    update: async (id: string, patch: { content?: string; isDone?: boolean; color?: string | null }) => {
       const row: Record<string, unknown> = {};
       if (patch.content !== undefined) row.content = patch.content;
       if (patch.isDone !== undefined) row.is_done = patch.isDone;
+      if (patch.color !== undefined) row.color = patch.color;
       const { error } = await supabase.from('mandalart_cells').update(row).eq('id', id);
       if (error) console.error('[db] mandalart_cells update:', error.message);
     },
