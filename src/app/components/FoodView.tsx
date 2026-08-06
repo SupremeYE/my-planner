@@ -160,7 +160,7 @@ function FoodCard({
   if (record.isFasting) {
     return (
       <div className="flex items-center gap-3 py-2.5 px-3 rounded-xl"
-        style={{ backgroundColor: t.bgSub, border: `1px dashed ${t.border}` }}>
+        style={{ backgroundColor: t.surfaceMuted, border: `1px dashed ${t.border}` }}>
         <div className="w-12 h-12 rounded-full flex items-center justify-center flex-shrink-0 text-xl"
           style={{ backgroundColor: t.card }}>
           {FASTING_ICON}
@@ -193,7 +193,7 @@ function FoodCard({
           className="w-12 h-12 rounded-full object-cover flex-shrink-0" />
       ) : (
         <div className="w-12 h-12 rounded-full flex items-center justify-center flex-shrink-0 text-xl"
-          style={{ backgroundColor: t.bgSub }}>
+          style={{ backgroundColor: t.surfaceMuted }}>
           {meal?.emoji ?? '🍽️'}
         </div>
       )}
@@ -226,11 +226,11 @@ function FoodCard({
 
       <div className="flex gap-1 flex-shrink-0">
         <button onClick={onEdit} className="p-1.5 rounded-lg"
-          style={{ backgroundColor: t.bgSub }}>
+          style={{ backgroundColor: t.surfaceMuted }}>
           <Pencil size={13} color={t.textSub} />
         </button>
         <button onClick={onDelete} className="p-1.5 rounded-lg"
-          style={{ backgroundColor: t.bgSub }}>
+          style={{ backgroundColor: t.surfaceMuted }}>
           <Trash2 size={13} color="#D4735A" />
         </button>
       </div>
@@ -278,7 +278,7 @@ function MealSection({
 
       {records.length === 0 ? (
         <div className="py-3 text-center rounded-xl"
-          style={{ backgroundColor: t.bgSub, fontSize: 12, color: t.textMuted }}>
+          style={{ backgroundColor: t.surfaceMuted, fontSize: 12, color: t.textMuted }}>
           기록 없음
         </div>
       ) : (
@@ -599,7 +599,7 @@ function CalendarTab({
         className="flex items-center justify-center w-full pt-2 pb-3"
         style={{ color: t.textMuted }}>
         <div className="flex items-center gap-1 px-3 py-1 rounded-full"
-          style={{ backgroundColor: t.bgSub }}>
+          style={{ backgroundColor: t.surfaceMuted }}>
           <span style={{ fontSize: 11, color: t.textMuted }}>
             {expanded ? '접기' : '펼치기'}
           </span>
@@ -629,7 +629,7 @@ function CalendarTab({
           </div>
           {dayRecords.length === 0 ? (
             <div className="py-6 text-center rounded-xl"
-              style={{ backgroundColor: t.bgSub, fontSize: 13, color: t.textMuted }}>
+              style={{ backgroundColor: t.surfaceMuted, fontSize: 13, color: t.textMuted }}>
               이날 기록이 없어요
             </div>
           ) : (
@@ -777,7 +777,7 @@ function StatsTab({ allRecords }: { allRecords: FoodRecord[] }) {
             onClick={() => setFilterMode(chip.key)}
             className="flex-shrink-0 px-3 py-1.5 rounded-full transition-colors"
             style={{
-              backgroundColor: filterMode === chip.key ? t.accent : t.bgSub,
+              backgroundColor: filterMode === chip.key ? t.accent : t.surfaceMuted,
               color: filterMode === chip.key ? '#fff' : t.textSub,
               fontSize: 12, fontWeight: 600,
             }}>
@@ -790,7 +790,7 @@ function StatsTab({ allRecords }: { allRecords: FoodRecord[] }) {
       {filterMode === 'custom' && (
         <div className="flex items-center justify-between px-2">
           <button onClick={() => setCustomMonth(m => format(subMonths(new Date(m + '-01'), 1), 'yyyy-MM'))}
-            className="p-1.5 rounded-full" style={{ backgroundColor: t.bgSub }}>
+            className="p-1.5 rounded-full" style={{ backgroundColor: t.surfaceMuted }}>
             <ChevronLeft size={16} color={t.textSub} />
           </button>
           <span style={{ fontSize: 14, fontWeight: 700, color: t.text }}>
@@ -800,7 +800,7 @@ function StatsTab({ allRecords }: { allRecords: FoodRecord[] }) {
             })()}
           </span>
           <button onClick={() => setCustomMonth(m => format(addMonths(new Date(m + '-01'), 1), 'yyyy-MM'))}
-            className="p-1.5 rounded-full" style={{ backgroundColor: t.bgSub }}>
+            className="p-1.5 rounded-full" style={{ backgroundColor: t.surfaceMuted }}>
             <ChevronRight size={16} color={t.textSub} />
           </button>
         </div>
@@ -828,7 +828,7 @@ function StatsTab({ allRecords }: { allRecords: FoodRecord[] }) {
             {fastingByMeal.map(({ meal, count }) => (
               <div key={meal.key} className="flex items-center gap-2">
                 <span style={{ fontSize: 12, width: 52, color: t.textSub }}>{meal.emoji} {meal.label}</span>
-                <div className="flex-1 h-2 rounded-full overflow-hidden" style={{ backgroundColor: t.bgSub }}>
+                <div className="flex-1 h-2 rounded-full overflow-hidden" style={{ backgroundColor: t.surfaceMuted }}>
                   <div className="h-full rounded-full" style={{
                     width: `${fastingMax > 0 ? (count / fastingMax) * 100 : 0}%`,
                     backgroundColor: t.accent,
@@ -852,7 +852,7 @@ function StatsTab({ allRecords }: { allRecords: FoodRecord[] }) {
               { label: '집밥', emoji: '🏠', cnt: homeCnt, goal: undefined, color: DINING_DOT_COLOR.home },
             ].map(({ label, emoji, cnt, goal, color }) => (
               <div key={label} className="flex flex-col items-center p-2.5 rounded-xl"
-                style={{ backgroundColor: t.bgSub }}>
+                style={{ backgroundColor: t.surfaceMuted }}>
                 <span style={{ fontSize: 16, marginBottom: 2 }}>{emoji}</span>
                 <span style={{ fontSize: 11, color: t.textMuted, marginBottom: 2 }}>{label}</span>
                 <span style={{ fontSize: 18, fontWeight: 700, color }}>
@@ -876,7 +876,7 @@ function StatsTab({ allRecords }: { allRecords: FoodRecord[] }) {
                     <span style={{ fontSize: 11, color: t.textMuted }}>🛵 배달 목표 달성률</span>
                     <span style={{ fontSize: 11, color: t.textSub }}>{deliveryCnt} / {appSettings.foodGoalDelivery}회</span>
                   </div>
-                  <div className="h-1.5 rounded-full" style={{ backgroundColor: t.bgSub }}>
+                  <div className="h-1.5 rounded-full" style={{ backgroundColor: t.surfaceMuted }}>
                     <div className="h-full rounded-full transition-all"
                       style={{
                         width: `${Math.min((deliveryCnt / appSettings.foodGoalDelivery) * 100, 100)}%`,
@@ -891,7 +891,7 @@ function StatsTab({ allRecords }: { allRecords: FoodRecord[] }) {
                     <span style={{ fontSize: 11, color: t.textMuted }}>🍽️ 외식 목표 달성률</span>
                     <span style={{ fontSize: 11, color: t.textSub }}>{restaurantCnt} / {appSettings.foodGoalRestaurant}회</span>
                   </div>
-                  <div className="h-1.5 rounded-full" style={{ backgroundColor: t.bgSub }}>
+                  <div className="h-1.5 rounded-full" style={{ backgroundColor: t.surfaceMuted }}>
                     <div className="h-full rounded-full transition-all"
                       style={{
                         width: `${Math.min((restaurantCnt / appSettings.foodGoalRestaurant) * 100, 100)}%`,
@@ -936,7 +936,7 @@ function StatsTab({ allRecords }: { allRecords: FoodRecord[] }) {
                     <span style={{ fontSize: 13, color: t.text }}>{name}</span>
                     <span style={{ fontSize: 11, color: t.textSub }}>{cnt}회</span>
                   </div>
-                  <div className="h-1.5 rounded-full" style={{ backgroundColor: t.bgSub }}>
+                  <div className="h-1.5 rounded-full" style={{ backgroundColor: t.surfaceMuted }}>
                     <div className="h-full rounded-full"
                       style={{ width: `${(cnt / (top5[0][1] || 1)) * 100}%`, backgroundColor: t.accent }} />
                   </div>
@@ -954,7 +954,7 @@ function StatsTab({ allRecords }: { allRecords: FoodRecord[] }) {
           <div className="flex flex-wrap gap-2">
             {delicious.map(r => (
               <div key={r.id} className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl"
-                style={{ backgroundColor: t.bgSub }}>
+                style={{ backgroundColor: t.surfaceMuted }}>
                 {r.photoUrl
                   ? <img src={r.photoUrl} alt="" className="w-6 h-6 rounded object-cover" />
                   : <span style={{ fontSize: 14 }}>😋</span>}
@@ -1157,7 +1157,7 @@ function AddFoodSheet({
           </div>
           {/* 진행 바 */}
           {!editRecord && (
-            <div className="mt-3 h-1 rounded-full" style={{ backgroundColor: t.bgSub }}>
+            <div className="mt-3 h-1 rounded-full" style={{ backgroundColor: t.surfaceMuted }}>
               <div className="h-full rounded-full transition-all"
                 style={{ width: `${(step / TOTAL_STEPS) * 100}%`, backgroundColor: t.accent }} />
             </div>
@@ -1205,7 +1205,7 @@ function AddFoodSheet({
                       <button key={m.key}
                         onClick={() => saveFasting(m.key)}
                         className="flex flex-col items-center gap-1 py-2.5 rounded-xl transition-all"
-                        style={{ backgroundColor: t.bgSub, border: `1px dashed ${t.border}` }}>
+                        style={{ backgroundColor: t.surfaceMuted, border: `1px dashed ${t.border}` }}>
                         <span style={{ fontSize: 14 }}>{m.emoji}</span>
                         <span style={{ fontSize: 11, color: t.textSub }}>{m.label} 단식</span>
                       </button>
@@ -1243,7 +1243,7 @@ function AddFoodSheet({
               </button>
               <button onClick={nextStep}
                 className="w-full p-4 rounded-2xl"
-                style={{ backgroundColor: t.bgSub }}>
+                style={{ backgroundColor: t.surfaceMuted }}>
                 <span style={{ fontSize: 14, color: t.textSub }}>건너뛰기</span>
               </button>
               <input ref={cameraRef} type="file" accept="image/*" capture="environment"
@@ -1323,7 +1323,7 @@ function AddFoodSheet({
                   disabled={!form.foodName.trim()}
                   className="w-full py-3.5 rounded-2xl"
                   style={{
-                    backgroundColor: form.foodName.trim() ? t.accent : t.bgSub,
+                    backgroundColor: form.foodName.trim() ? t.accent : t.surfaceMuted,
                     color: form.foodName.trim() ? '#fff' : t.textMuted,
                     fontSize: 15, fontWeight: 600,
                   }}>
@@ -1358,7 +1358,7 @@ function AddFoodSheet({
               </div>
               {!editRecord && (
                 <button onClick={nextStep} className="w-full py-3 rounded-2xl mt-3"
-                  style={{ backgroundColor: t.bgSub, color: t.textSub, fontSize: 14 }}>
+                  style={{ backgroundColor: t.surfaceMuted, color: t.textSub, fontSize: 14 }}>
                   건너뛰기
                 </button>
               )}
@@ -1389,14 +1389,14 @@ function AddFoodSheet({
                     disabled={!form.amount}
                     className="flex-1 py-3.5 rounded-2xl"
                     style={{
-                      backgroundColor: form.amount ? t.accent : t.bgSub,
+                      backgroundColor: form.amount ? t.accent : t.surfaceMuted,
                       color: form.amount ? '#fff' : t.textMuted,
                       fontSize: 15, fontWeight: 600,
                     }}>
                     다음
                   </button>
                   <button onClick={nextStep} className="py-3.5 px-5 rounded-2xl"
-                    style={{ backgroundColor: t.bgSub, color: t.textSub, fontSize: 14 }}>
+                    style={{ backgroundColor: t.surfaceMuted, color: t.textSub, fontSize: 14 }}>
                     건너뛰기
                   </button>
                 </div>
@@ -1412,7 +1412,7 @@ function AddFoodSheet({
               {/* AI 추정 로딩 */}
               {calLoading && (
                 <div className="flex items-center gap-2 mb-3 px-3 py-2.5 rounded-xl"
-                  style={{ backgroundColor: t.bgSub }}>
+                  style={{ backgroundColor: t.surfaceMuted }}>
                   <div className="w-3 h-3 rounded-full border-2 animate-spin"
                     style={{ borderColor: t.accent, borderTopColor: 'transparent' }} />
                   <span style={{ fontSize: 12, color: t.textMuted }}>AI가 칼로리를 추정하고 있어요...</span>
@@ -1454,14 +1454,14 @@ function AddFoodSheet({
                     disabled={!form.calories && estimated === null}
                     className="flex-1 py-3.5 rounded-2xl"
                     style={{
-                      backgroundColor: (form.calories || estimated !== null) ? t.accent : t.bgSub,
+                      backgroundColor: (form.calories || estimated !== null) ? t.accent : t.surfaceMuted,
                       color: (form.calories || estimated !== null) ? '#fff' : t.textMuted,
                       fontSize: 15, fontWeight: 600,
                     }}>
                     다음
                   </button>
                   <button onClick={() => { resetEstimate(); nextStep(); }} className="py-3.5 px-5 rounded-2xl"
-                    style={{ backgroundColor: t.bgSub, color: t.textSub, fontSize: 14 }}>
+                    style={{ backgroundColor: t.surfaceMuted, color: t.textSub, fontSize: 14 }}>
                     건너뛰기
                   </button>
                 </div>
@@ -1615,7 +1615,7 @@ export function FoodView() {
         </div>
 
         {/* 탭 */}
-        <div className="flex gap-1 p-1 rounded-xl" style={{ backgroundColor: t.bgSub }}>
+        <div className="flex gap-1 p-1 rounded-xl" style={{ backgroundColor: t.surfaceMuted }}>
           {TABS.map(tab => (
             <button key={tab.key} onClick={() => setActiveTab(tab.key)}
               className="flex-1 py-1.5 rounded-lg transition-all"
