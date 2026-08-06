@@ -48,7 +48,7 @@ export function ConsumableCycleCard({ cycle, onReplace, onSetCycle, onDelete }: 
         {/* 도넛 링 */}
         <div className="relative flex-shrink-0" style={{ width: 52, height: 52 }}>
           <svg width={52} height={52} viewBox="0 0 52 52">
-            <circle cx={26} cy={26} r={R} fill="none" stroke={t.bgSub} strokeWidth={STROKE} />
+            <circle cx={26} cy={26} r={R} fill="none" stroke={t.surfaceMuted} strokeWidth={STROKE} />
             <circle cx={26} cy={26} r={R} fill="none" stroke={ringColor} strokeWidth={STROKE}
               strokeLinecap="round" strokeDasharray={`${dash} ${C}`} transform="rotate(-90 26 26)" />
           </svg>
@@ -75,7 +75,7 @@ export function ConsumableCycleCard({ cycle, onReplace, onSetCycle, onDelete }: 
           </button>
           <button onClick={() => { setDaysInput(String(cycle.cycleDays || '')); setEditing(v => !v); }}
             className="rounded-lg flex items-center justify-center"
-            style={{ width: 32, height: 32, color: t.textSub, backgroundColor: t.bgSub, border: `1px solid ${t.border}` }}
+            style={{ width: 32, height: 32, color: t.textSub, backgroundColor: t.surfaceMuted, border: `1px solid ${t.border}` }}
             aria-label="주기 설정">
             <Settings2 size={15} />
           </button>
