@@ -281,6 +281,21 @@ Weight → role (use only these four; avoid 100–300 and 800–900):
 
 ## 5. Components
 
+### Surface fills — `surfaceMuted` vs `accentSoft` (라일락 두 역할 분리)
+테마 H의 `bgSub`(`#F4E7FB` lavender-mist)가 두 역할을 겸해 화면 전체가 연보라로 씻겨 보이던
+문제를 토큰으로 분리한다. 매 표면마다 **"이 색이 무언가를 의미하는가?"**를 묻는다.
+
+| 토큰 | 의미 | 용도 | H 값 | 비-H(A/B/C/D) |
+|---|---|---|---|---|
+| `t.surfaceMuted` | **없음** — 면 구분일 뿐 | 진행바 트랙, 세그먼트 트랙, 스켈레톤, 2차 버튼, 중립 컨테이너 배경 | 저채도 중립 그레이(`#F3F0F6`) | = 기존 `bgSub` 값 (렌더 동일) |
+| `t.accentSoft` | **있음** — "선택됨 / 활성 / 강조" | 선택된 칩, 활성 상태 배경, 의도적 라벤더 액센트 | `#F4E7FB` lavender-mist | 각 테마 accentSoft |
+| `inputBg(t)` | 입력 표면 | `<input>` / `<textarea>` / `<select>` 배경 (아래 **Input** 항목) | 흰색(solid-card) | `t.bgSub` |
+
+- **판별 기준(문장):** 이 라일락이 **선택·활성·강조를 의미하면 `accentSoft`**, 단지 카드보다
+  한 단 낮은 **면 구분일 뿐이면 `surfaceMuted`**. 애매하면 임의 판단하지 말고 질의한다.
+- `t.bgSub` 값 자체는 변경하지 않는다(미이행 페이지 호환). 페이지 단위로 점진 이행한다.
+- 비-H는 `surfaceMuted === bgSub` 이므로 `isHaon` 게이팅 없이 치환해도 회귀가 0이다.
+
 - **Card** — `solid-card` recipe. Radius 20–24px. Record cards use the same recipe (keep the border/shadow identical whether or not a record exists; only the inner text is muted in the empty state).
 - **List row** — `solid-row` recipe. Leading star/icon, title (+ optional tag chip), trailing status pill + action. Tagged rows get a 3px left accent bar in the tag hue.
 - **Quick-capture box** — `solid-card` recipe, opaque white. The "+" is a coral-gradient circle. (No heavy purple fill.)
@@ -295,7 +310,11 @@ Weight → role (use only these four; avoid 100–300 and 800–900):
 - **Chip / tag** — pill; filled with a saturated pastel (`tags.chip-by-hue`) and a darker text sibling. Status pills (예정/완료) are small and soft.
 - **Icon button** — circle 44–48px, pastel tinted background, icon in `text-primary`.
 - **FAB** — circle **46px**, **solid coral (`t.accent`)**, white icon, soft shadow (matches the global add-FAB). Module-local FABs may be 56px but keep the coral fill. The primary **gradient emphasis-fill** option applies here (`t.primaryGradient ?? t.accent`).
-- **Input** — `solid-card` fill, radius 12–14px, hairline border, placeholder `text-muted`.
+- **Input** — `<input>`/`<textarea>`/`<select>` 배경은 항상 **`inputBg(t)`**(H=solid-card 흰색,
+  비-H=`t.bgSub`)를 쓴다. radius 12–14px, hairline border(`t.border`). **입력칸 배경은 채우지 않는다**
+  — 라일락(`t.bgSub`/`t.accentSoft`)으로 채우면 "이미 값이 들어있는 칸"처럼 무겁게 읽힌다.
+  placeholder = `t.textMuted`(보라 계열 금지). 포커스는 §5 Interaction states의 코랄 링(테두리에만
+  액센트, 배경은 흰색 유지).
 - **Toggle** — pill track, coral (on), white knob.
 - **Bottom nav (mobile)** — solid or glass floating bar; active item tinted/gradient.
 - **Sidebar (desktop)** — left rail; active item = coral-gradient pill.

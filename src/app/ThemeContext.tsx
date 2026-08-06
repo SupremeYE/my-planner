@@ -6,6 +6,10 @@ export interface ThemeTokens {
   bg: string;
   bgSub: string;
   bgHover: string;
+  // surfaceMuted: 의미 없는 "기능적 2차 표면" (진행바 트랙·세그먼트 트랙·스켈레톤·2차 버튼·
+  // 컨테이너 배경). bgSub 와 달리 라벤더 액센트 의미가 없다. DESIGN.md §5 Surface 참조.
+  // ⚠️ 비-H(A/B/C/D)는 기존 bgSub 값을 그대로 복사 → 렌더 동일(회귀 0). H 만 저채도 중립 톤.
+  surfaceMuted: string;
   card: string;
   sidebar: string;
   text: string;
@@ -102,6 +106,7 @@ export const tokenA: ThemeTokens = {
   bg: '#f6fafe',
   bgSub: '#eef4fa',
   bgHover: '#e5eff7',
+  surfaceMuted: '#eef4fa', // = bgSub 그대로 (회귀 0)
   card: '#ffffff',
   sidebar: '#eef4fa',
   text: '#26343d',
@@ -147,6 +152,7 @@ export const tokenB: ThemeTokens = {
   bg: '#FFFFFF',
   bgSub: '#FBF6F1',
   bgHover: '#FFF1E8',
+  surfaceMuted: '#FBF6F1', // = bgSub 그대로 (회귀 0)
   card: '#FFFFFF',
   sidebar: '#FBF7F3',
   text: '#2D2A3A',
@@ -192,6 +198,7 @@ export const tokenC: ThemeTokens = {
   bg: '#f6fafe',
   bgSub: '#eef4fa',
   bgHover: '#e5eff7',
+  surfaceMuted: '#eef4fa', // = bgSub 그대로 (회귀 0)
   card: '#ffffff',
   sidebar: '#ffffff',
   text: '#26343d',
@@ -237,6 +244,7 @@ export const tokenD: ThemeTokens = {
   bg: '#f6fafe',
   bgSub: '#eef4fa',
   bgHover: '#e5eff7',
+  surfaceMuted: '#eef4fa', // = bgSub 그대로 (회귀 0)
   card: '#ffffff',
   sidebar: '#eef4fa',
   text: '#26343d',
@@ -284,6 +292,10 @@ export const tokenH: ThemeTokens = {
   bg: '#FBF8FC',            // near-white 캔버스 (canvasStyle appGradient 베이스와 동일) — 미마이그레이션 페이지 배경 통일
   bgSub: '#F4E7FB',        // lavender-mist
   bgHover: '#EFE3FA',
+  // surfaceMuted: canvas(#FBF8FC)와 card(#FFFFFF) 사이 저채도 중립 그레이 — 기능적 2차 표면 전용.
+  // bgSub(#F4E7FB lavender-mist)의 라벤더 세척을 걷어내되, 선택·활성의 라일락(accentSoft)은 보존.
+  surfaceMuted: '#F3F0F6',
+
   card: '#FFFFFF',         // card-solid (밀도 높은 콘텐츠)
   sidebar: 'rgba(255,255,255,0.55)',
   text: '#2E2A5B',         // text-primary (deep indigo-navy)
