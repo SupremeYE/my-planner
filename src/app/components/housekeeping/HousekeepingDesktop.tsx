@@ -52,7 +52,7 @@ function StockCardPC({ item, onQty, onOpen }: { item: HouseholdItem; onQty: (d: 
   const barColor = empty ? t.textMuted : low ? t.danger : t.success;
   return (
     <div className="group flex items-center gap-2.5 rounded-2xl px-2.5 py-2.5"
-      style={{ backgroundColor: low ? t.dangerLight : t.bgSub, border: `1px solid ${low ? `${t.danger}55` : t.borderLight}`, opacity: empty ? 0.65 : 1 }}>
+      style={{ backgroundColor: low ? t.dangerLight : t.surfaceMuted, border: `1px solid ${low ? `${t.danger}55` : t.borderLight}`, opacity: empty ? 0.65 : 1 }}>
       <button onClick={onOpen} className="flex-shrink-0 rounded-xl flex items-center justify-center overflow-hidden active:scale-95 transition-transform"
         style={{ width: 44, height: 44, backgroundColor: t.card, border: `1px solid ${t.borderLight}`, fontSize: 22 }} aria-label={`${item.name} 수정`}>
         {item.photoUrl ? <img src={item.photoUrl} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <span aria-hidden>📦</span>}
@@ -82,7 +82,7 @@ function ZoneCardPC({ zone, onClean, onDelete }: { zone: { id: string; name: str
   const { t } = useTheme();
   const ds = zone.daysSince;
   const { emoji, tier } = zoneDust(ds);
-  const bg = tier === 'fresh' ? t.bgSub : tier === 'mid' ? `${t.danger}14` : `${t.danger}26`;
+  const bg = tier === 'fresh' ? t.surfaceMuted : tier === 'mid' ? `${t.danger}14` : `${t.danger}26`;
   const border = tier === 'fresh' ? t.borderLight : tier === 'mid' ? `${t.danger}33` : `${t.danger}55`;
   const label = ds == null ? '아직 안 했어요' : ds === 0 ? '오늘 했어요' : `${ds}일 전`;
   return (
@@ -174,7 +174,7 @@ export function HousekeepingDesktop() {
       <DCard>
         <DCardHeader title="오늘의 살림" />
         {hk.loading ? (
-          <div className="grid gap-2" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(280px,1fr))' }}>{Array.from({ length: 3 }).map((_, i) => <div key={i} className="rounded-xl" style={{ height: 44, backgroundColor: t.bgSub }} />)}</div>
+          <div className="grid gap-2" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(280px,1fr))' }}>{Array.from({ length: 3 }).map((_, i) => <div key={i} className="rounded-xl" style={{ height: 44, backgroundColor: t.surfaceMuted }} />)}</div>
         ) : nudges.length === 0 ? (
           <div className="flex items-center gap-2 py-1.5"><span aria-hidden style={{ fontSize: 20 }}>☺️</span><span style={{ fontSize: 14, fontWeight: 600, color: t.text }}>오늘은 다 괜찮아요</span></div>
         ) : (
@@ -182,7 +182,7 @@ export function HousekeepingDesktop() {
             {nudges.map(n => {
               const c = chip(n.severity);
               return (
-                <div key={n.key} className="flex items-center gap-2 rounded-xl px-2.5 py-2" style={{ backgroundColor: t.bgSub, border: `1px solid ${t.borderLight}` }}>
+                <div key={n.key} className="flex items-center gap-2 rounded-xl px-2.5 py-2" style={{ backgroundColor: t.surfaceMuted, border: `1px solid ${t.borderLight}` }}>
                   <span aria-hidden style={{ fontSize: 17 }}>{n.icon}</span>
                   <span className="flex-1 truncate" style={{ fontSize: 13.5, color: t.text }}>{n.text}</span>
                   <button onClick={n.onAction} className="flex-shrink-0 flex items-center gap-1 px-2.5 py-1 rounded-full active:scale-95 transition-transform" style={{ fontSize: 12, fontWeight: 700, color: c.fg, backgroundColor: c.bg }}>
