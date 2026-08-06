@@ -24,3 +24,6 @@ npm-debug.log*
 
 # Vite cache
 .vite/
+
+# 라일락 클린업 검증 하네스 출력물
+scan-out/
