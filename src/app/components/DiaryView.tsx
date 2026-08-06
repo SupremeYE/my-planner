@@ -342,7 +342,7 @@ function TodayDiaryTab() {
         {/* ── PC 좌측: 최근 일기 타임라인 ── */}
         <aside
           className="hidden lg:block"
-          style={{ borderRight: `1px solid ${t.border}`, background: t.bgSub, padding: '24px 22px 30px' }}
+          style={{ borderRight: `1px solid ${t.border}`, background: t.surfaceMuted, padding: '24px 22px 30px' }}
         >
           <RecentTimeline recent={recent} selectedDate={selectedDate} onPick={onPickDate} />
         </aside>
@@ -785,7 +785,7 @@ function VoiceSheet({
               type="button"
               onClick={onCancel}
               className="inline-flex items-center gap-2 rounded-full px-6 py-3 text-sm font-semibold"
-              style={{ background: t.bgSub, color: t.textSub, border: `1px solid ${t.border}` }}
+              style={{ background: t.surfaceMuted, color: t.textSub, border: `1px solid ${t.border}` }}
             >
               닫기
             </button>
@@ -970,7 +970,7 @@ function RecentTimeline({
               >
                 <span
                   className="absolute rounded-full"
-                  style={{ left: -15, top: 4, width: 8, height: 8, background: sel ? t.danger : t.accent, border: `2px solid ${t.bgSub}` }}
+                  style={{ left: -15, top: 4, width: 8, height: 8, background: sel ? t.danger : t.accent, border: `2px solid ${t.surfaceMuted}` }}
                 />
                 <div style={{ fontSize: 11, color: t.textMuted }}>{day} · {weekday}</div>
                 {entry.title && (
@@ -1243,7 +1243,7 @@ function QuestionDiaryTab() {
             type="button"
             onClick={shuffle}
             className="flex items-center gap-1.5 mt-3 rounded-lg px-3 py-1.5"
-            style={{ fontSize: 13, fontWeight: 600, color: t.textSub, backgroundColor: t.bgSub }}
+            style={{ fontSize: 13, fontWeight: 600, color: t.textSub, backgroundColor: t.surfaceMuted }}
           >
             <Shuffle size={14} /> 다른 질문
           </button>
@@ -1433,7 +1433,7 @@ function ExploreSheet({
                     fontWeight: 600,
                     whiteSpace: 'nowrap',
                     color: active ? '#fff' : t.textSub,
-                    backgroundColor: active ? t.accent : t.bgSub,
+                    backgroundColor: active ? t.accent : t.surfaceMuted,
                     border: `1px solid ${active ? t.accent : t.border}`,
                   }}
                 >
@@ -1662,7 +1662,7 @@ function MemoryCard({ entry, onOpen }: { entry: DiaryEntry; onOpen: (e: DiaryEnt
           fontSize: 11,
           fontWeight: 700,
           color: isQuestion ? t.danger : t.success,
-          backgroundColor: isQuestion ? t.dangerLight : t.bgSub,
+          backgroundColor: isQuestion ? t.dangerLight : t.surfaceMuted,
         }}
       >
         {isQuestion ? '질문일기' : '자유일기'}
@@ -1726,7 +1726,7 @@ function MemoryDetailSheet({ entry, onClose, onDeleted }: { entry: DiaryEntry; o
                   fontSize: 11,
                   fontWeight: 700,
                   color: isQuestion ? t.danger : t.success,
-                  backgroundColor: isQuestion ? t.dangerLight : t.bgSub,
+                  backgroundColor: isQuestion ? t.dangerLight : t.surfaceMuted,
                 }}
               >
                 {isQuestion ? '질문일기' : '자유일기'}
