@@ -289,10 +289,19 @@ Weight → role (use only these four; avoid 100–300 and 800–900):
 |---|---|---|---|---|
 | `t.surfaceMuted` | **없음** — 면 구분일 뿐 | 진행바 트랙, 세그먼트 트랙, 스켈레톤, 2차 버튼, 중립 컨테이너 배경 | 저채도 중립 그레이(`#F3F0F6`) | = 기존 `bgSub` 값 (렌더 동일) |
 | `t.accentSoft` | **있음** — "선택됨 / 활성 / 강조" | 선택된 칩, 활성 상태 배경, 의도적 라벤더 액센트 | `#F4E7FB` lavender-mist | 각 테마 accentSoft |
-| `inputBg(t)` | 입력 표면 | `<input>` / `<textarea>` / `<select>` 배경 (아래 **Input** 항목) | 흰색(solid-card) | `t.bgSub` |
+| `inputBg(t)` | 작성 표면 | `<input type="text">` / `<textarea>` 배경 (아래 **Input** 항목) | 흰색(solid-card) | `t.bgSub` |
 
 - **판별 기준(문장):** 이 라일락이 **선택·활성·강조를 의미하면 `accentSoft`**, 단지 카드보다
   한 단 낮은 **면 구분일 뿐이면 `surfaceMuted`**. 애매하면 임의 판단하지 말고 질의한다.
+
+- **작성 표면 vs 선택 컨트롤 (`<select>`·피커의 갈림):** 입력칸 배경을 비우는 원칙(§5 Input)은
+  "채워진 배경이 값이 든 것처럼 보여 빈 칸을 무겁게 만든다"에서 나온다. **`<select>`·피커는 항상
+  값이 있으므로 이 논거가 적용되지 않는다** — "빈 상태"가 존재하지 않는다. 따라서 select/피커는
+  `inputBg`로 못박지 않고 **주변 맥락을 따른다.**
+  - **필터 행에 있으면 `t.surfaceMuted`** — 글을 쓰는 자리가 아니라 필터칩과 같은 무리의 선택
+    컨트롤이다(예: `ReviewsView` 아카이브 필터의 연도 select). 이웃한 필터칩(surfaceMuted)과 톤을 맞춘다.
+  - **폼 안에서 텍스트 입력과 나란히 있으면 `inputBg(t)`** — 입력 필드들과 한 줄로 읽히므로 작성 표면에 편입한다.
+  - 이 규칙은 **맥락 의존**이라 근거("select는 빈 상태가 존재하지 않는다")를 지우면 다시 드리프트한다.
 - `t.bgSub` 값 자체는 변경하지 않는다(미이행 페이지 호환). 페이지 단위로 점진 이행한다.
 - 비-H는 `surfaceMuted === bgSub` 이므로 `isHaon` 게이팅 없이 치환해도 회귀가 0이다.
 
@@ -310,9 +319,10 @@ Weight → role (use only these four; avoid 100–300 and 800–900):
 - **Chip / tag** — pill; filled with a saturated pastel (`tags.chip-by-hue`) and a darker text sibling. Status pills (예정/완료) are small and soft.
 - **Icon button** — circle 44–48px, pastel tinted background, icon in `text-primary`.
 - **FAB** — circle **46px**, **solid coral (`t.accent`)**, white icon, soft shadow (matches the global add-FAB). Module-local FABs may be 56px but keep the coral fill. The primary **gradient emphasis-fill** option applies here (`t.primaryGradient ?? t.accent`).
-- **Input** — `<input>`/`<textarea>`/`<select>` 배경은 항상 **`inputBg(t)`**(H=solid-card 흰색,
-  비-H=`t.bgSub`)를 쓴다. radius 12–14px, hairline border(`t.border`). **입력칸 배경은 채우지 않는다**
+- **Input** — `<input type="text">`/`<textarea>`(작성 표면) 배경은 항상 **`inputBg(t)`**(H=solid-card
+  흰색, 비-H=`t.bgSub`)를 쓴다. radius 12–14px, hairline border(`t.border`). **입력칸 배경은 채우지 않는다**
   — 라일락(`t.bgSub`/`t.accentSoft`)으로 채우면 "이미 값이 들어있는 칸"처럼 무겁게 읽힌다.
+  `<select>`·피커는 위 **"작성 표면 vs 선택 컨트롤"** 규칙을 따른다(필터 행=`surfaceMuted`, 폼=`inputBg`).
   placeholder = `t.textMuted`(보라 계열 금지). 포커스는 §5 Interaction states의 코랄 링(테두리에만
   액센트, 배경은 흰색 유지).
 - **Toggle** — pill track, coral (on), white knob.
