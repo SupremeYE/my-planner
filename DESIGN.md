@@ -289,7 +289,7 @@ Weight → role (use only these four; avoid 100–300 and 800–900):
 |---|---|---|---|---|
 | `t.surfaceMuted` | **없음** — 면 구분일 뿐 | 진행바 트랙, 세그먼트 트랙, 스켈레톤, 2차 버튼, 중립 컨테이너 배경 | 저채도 중립 그레이(`#F3F0F6`) | = 기존 `bgSub` 값 (렌더 동일) |
 | `t.accentSoft` | **있음** — "선택됨 / 활성 / 강조" | 선택된 칩, 활성 상태 배경, 의도적 라벤더 액센트 | `#F4E7FB` lavender-mist | 각 테마 accentSoft |
-| `inputBg(t)` | 입력 표면 | `<input>` / `<textarea>` / `<select>` 배경 (아래 **Input** 항목) | 흰색(solid-card) | `t.bgSub` |
+| `inputBg(t)` | 입력 표면 | `<input type="text">` / `<textarea>` 배경 (아래 **Input** 항목). `<select>`·피커는 **맥락 의존** — 아래 **Select / 선택 컨트롤** 참조 | 흰색(solid-card) | `t.bgSub` |
 
 - **판별 기준(문장):** 이 라일락이 **선택·활성·강조를 의미하면 `accentSoft`**, 단지 카드보다
   한 단 낮은 **면 구분일 뿐이면 `surfaceMuted`**. 애매하면 임의 판단하지 말고 질의한다.
@@ -310,11 +310,20 @@ Weight → role (use only these four; avoid 100–300 and 800–900):
 - **Chip / tag** — pill; filled with a saturated pastel (`tags.chip-by-hue`) and a darker text sibling. Status pills (예정/완료) are small and soft.
 - **Icon button** — circle 44–48px, pastel tinted background, icon in `text-primary`.
 - **FAB** — circle **46px**, **solid coral (`t.accent`)**, white icon, soft shadow (matches the global add-FAB). Module-local FABs may be 56px but keep the coral fill. The primary **gradient emphasis-fill** option applies here (`t.primaryGradient ?? t.accent`).
-- **Input** — `<input>`/`<textarea>`/`<select>` 배경은 항상 **`inputBg(t)`**(H=solid-card 흰색,
-  비-H=`t.bgSub`)를 쓴다. radius 12–14px, hairline border(`t.border`). **입력칸 배경은 채우지 않는다**
-  — 라일락(`t.bgSub`/`t.accentSoft`)으로 채우면 "이미 값이 들어있는 칸"처럼 무겁게 읽힌다.
+- **Input (작성 표면)** — `<input type="text">`/`<textarea>` 배경은 항상 **`inputBg(t)`**(H=solid-card
+  흰색, 비-H=`t.bgSub`)를 쓴다. radius 12–14px, hairline border(`t.border`). **입력칸 배경은 채우지
+  않는다** — 라일락(`t.bgSub`/`t.accentSoft`)으로 채우면 "이미 값이 들어있는 칸"처럼 무겁게 읽힌다.
   placeholder = `t.textMuted`(보라 계열 금지). 포커스는 §5 Interaction states의 코랄 링(테두리에만
   액센트, 배경은 흰색 유지).
+- **Select / 선택 컨트롤 (`<select>`·피커) — 맥락 의존.** 위 "입력칸 배경을 비운다" 논거는
+  **"채워진 배경이 값이 든 것처럼 보여 빈 칸을 무겁게 만든다"**에서 나온다. **`<select>`는 항상 값이
+  있으므로(빈 상태가 존재하지 않는다) 이 논거가 적용되지 않는다.** 따라서 select 배경은 **주변 맥락을
+  따른다:**
+  - **필터 행**에 있으면(필터칩과 같은 무리의 선택 컨트롤) → **`t.surfaceMuted`** (미선택 필터칩과 동일 톤).
+  - **폼 안에서 텍스트 입력과 나란히** 있으면(작성 흐름의 일부) → **`inputBg(t)`** (형제 입력과 톤 통일).
+  - 근거를 남기는 이유: 이는 **맥락 의존 규칙**이라 근거("select엔 빈 상태가 없다")가 없으면 다시
+    "select=inputBg 아니면 select=surfaceMuted" 한쪽으로 드리프트한다. 판별은 *어디에 놓였는가*로 한다.
+  - 적용 예: `ReviewsView.tsx` 아카이브 필터 행의 연도 select = `surfaceMuted`(필터칩 형제).
 - **Toggle** — pill track, coral (on), white knob.
 - **Bottom nav (mobile)** — solid or glass floating bar; active item tinted/gradient.
 - **Sidebar (desktop)** — left rail; active item = coral-gradient pill.

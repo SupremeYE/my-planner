@@ -1591,7 +1591,7 @@ function ArchiveOverlay({ onClose, onJump }: {
           })}
           {years.length > 0 && (
             <select value={yearFilter} onChange={e => setYearFilter(e.target.value)} className="rounded-full flex-shrink-0 outline-none"
-              style={{ fontSize: 12, padding: '5px 11px', backgroundColor: inputBg(t), color: t.textSub, border: `1px solid ${t.borderLight}` }}>
+              style={{ fontSize: 12, padding: '5px 11px', backgroundColor: t.surfaceMuted, color: t.textSub, border: `1px solid ${t.borderLight}` }}>
               <option value="all">전체 연도</option>
               {years.map(y => <option key={y} value={y}>{y}년</option>)}
             </select>
