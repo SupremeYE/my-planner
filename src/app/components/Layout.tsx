@@ -190,7 +190,7 @@ function SidebarNewProjectForm({ onClose }: { onClose: () => void }) {
 
   return (
     <form onSubmit={handleSubmit} className="mx-3 mt-1 mb-2 p-3 rounded-xl space-y-2"
-      style={{ backgroundColor: t.bgSub, border: `1px solid ${t.border}` }}>
+      style={{ backgroundColor: t.surfaceMuted, border: `1px solid ${t.border}` }}>
       <div className="flex gap-1.5 flex-wrap">
         {PROJECT_COLORS.slice(0, 6).map(c => (
           <button key={c} type="button" onClick={() => setColor(c)}
@@ -325,7 +325,7 @@ function RightPanel() {
             <span style={{ fontSize: 10, color: t.textSub }}>{weekDone}/{weekTotal} 완료</span>
             <span style={{ fontSize: 11, color: t.accent, fontWeight: 700 }}>{weekPct}%</span>
           </div>
-          <div className="h-1.5 rounded-full overflow-hidden" style={{ backgroundColor: t.bgSub }}>
+          <div className="h-1.5 rounded-full overflow-hidden" style={{ backgroundColor: t.surfaceMuted }}>
             <div className="h-full rounded-full transition-all" style={{ width: `${weekPct}%`, backgroundColor: t.accent }} />
           </div>
         </div>
@@ -361,7 +361,7 @@ function RightPanel() {
                   <span style={{ fontSize: 12, color: t.text }}>{goal.text}</span>
                   <span style={{ fontSize: 10, color: t.accent }}>{pct}%</span>
                 </div>
-                <div className="h-1.5 rounded-full overflow-hidden" style={{ backgroundColor: t.bgSub }}>
+                <div className="h-1.5 rounded-full overflow-hidden" style={{ backgroundColor: t.surfaceMuted }}>
                   <div className="h-full rounded-full transition-all" style={{ width: `${pct}%`, backgroundColor: t.accent }} />
                 </div>
               </div>
@@ -505,7 +505,7 @@ function MobileMenuOverlay({ onClose }: { onClose: () => void }) {
                     backgroundColor: isActive
                       ? t.accentLight
                       : isPressed
-                        ? t.bgSub
+                        ? t.surfaceMuted
                         : withAlpha(t.bg, 0.75),
                     border: isActive
                       ? `1.5px solid ${t.accent}`
@@ -633,7 +633,7 @@ export function Layout() {
                   <button
                     onClick={() => setLeftSidebarOpen(false)}
                     className="p-2 rounded-lg transition-colors hover:bg-opacity-80"
-                    style={{ backgroundColor: t.bgSub, color: t.textSub }}
+                    style={{ backgroundColor: t.surfaceMuted, color: t.textSub }}
                     title="사이드바 접기"
                   >
                     <Menu size={16} />
@@ -646,7 +646,7 @@ export function Layout() {
                 <button
                   onClick={() => setLeftSidebarOpen(true)}
                   className="p-2 rounded-lg transition-colors hover:bg-opacity-80"
-                  style={{ backgroundColor: t.bgSub, color: t.textSub }}
+                  style={{ backgroundColor: t.surfaceMuted, color: t.textSub }}
                   title="사이드바 펼치기"
                 >
                   <Menu size={16} />
@@ -871,7 +871,7 @@ export function Layout() {
               <button
                 onClick={() => setRightPanelOpen(!rightPanelOpen)}
                 className="p-2 rounded-lg transition-colors hover:bg-opacity-80 flex-shrink-0"
-                style={{ backgroundColor: t.bgSub, color: t.textSub }}
+                style={{ backgroundColor: t.surfaceMuted, color: t.textSub }}
                 title={rightPanelOpen ? '대시보드 접기' : '대시보드 펼치기'}
               >
                 <Menu size={16} />
@@ -907,7 +907,7 @@ export function Layout() {
             <button
               onClick={() => setMobileMenuOpen(true)}
               className="p-2 rounded-xl transition-colors"
-              style={{ backgroundColor: t.bgSub, color: t.textSub }}
+              style={{ backgroundColor: t.surfaceMuted, color: t.textSub }}
             >
               <Menu size={16} />
             </button>
