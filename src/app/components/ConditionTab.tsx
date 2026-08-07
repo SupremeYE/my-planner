@@ -5,7 +5,7 @@ import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
 } from 'recharts';
 import { useTheme } from '../ThemeContext';
-import { isHaon, solidCardStyle, solidRowStyle } from '../styles/haonStyles';
+import { isHaon, solidCardStyle, solidRowStyle, inputBg } from '../styles/haonStyles';
 import { HaonButton } from './ui/HaonButton';
 import { db } from '../../lib/db';
 import { useRealtimeSync } from '../hooks/useRealtimeSync';
@@ -283,7 +283,7 @@ export function ConditionTab() {
           <label style={{ fontSize: 12, color: t.textSub }}>날짜</label>
           <input type="date" value={date} onChange={e => setDate(e.target.value)}
             className="w-full mt-1 px-3 py-2 rounded-xl outline-none"
-            style={{ backgroundColor: t.bgSub, border: `1px solid ${t.border}`, color: t.text }} />
+            style={{ backgroundColor: inputBg(t), border: `1px solid ${t.border}`, color: t.text }} />
         </div>
 
         {/* 스트레스 5단계 */}
@@ -296,7 +296,7 @@ export function ConditionTab() {
                 className="py-2 rounded-xl transition-all"
                 style={{
                   fontSize: 11, fontWeight: active ? 700 : 500,
-                  backgroundColor: active ? t.accent : t.bgSub,
+                  backgroundColor: active ? t.accent : t.surfaceMuted,
                   color: active ? '#fff' : t.textSub,
                   border: `1px solid ${active ? t.accent : t.border}`,
                 }}>
@@ -318,7 +318,7 @@ export function ConditionTab() {
                 className="px-3 py-1.5 rounded-full transition-all"
                 style={{
                   fontSize: 12, fontWeight: active ? 600 : 500,
-                  backgroundColor: active ? STRESS_COLOR : t.bgSub,
+                  backgroundColor: active ? STRESS_COLOR : t.surfaceMuted,
                   color: active ? '#fff' : custom ? t.accent : t.textSub,
                   border: active
                     ? `1px solid ${STRESS_COLOR}`
@@ -335,14 +335,14 @@ export function ConditionTab() {
               className="px-3 py-1.5 rounded-full transition-all inline-flex items-center gap-1"
               style={{
                 fontSize: 12, fontWeight: 500,
-                backgroundColor: t.bgSub, color: t.accent,
+                backgroundColor: inputBg(t), color: t.accent,
                 border: `1px dashed ${t.accent}`,
               }}>
               <Plus size={12} /> 증상 추가
             </button>
           ) : (
             <div className="inline-flex items-center gap-1 px-2 py-1 rounded-full"
-              style={{ backgroundColor: t.bgSub, border: `1px dashed ${t.accent}` }}>
+              style={{ backgroundColor: inputBg(t), border: `1px dashed ${t.accent}` }}>
               <input autoFocus value={symptomDraft}
                 onChange={e => setSymptomDraft(e.target.value)}
                 onKeyDown={e => {
@@ -374,7 +374,7 @@ export function ConditionTab() {
         <label style={{ fontSize: 12, color: t.textSub, display: 'block', marginTop: 14 }}>메모 (선택)</label>
         <textarea value={memo} onChange={e => setMemo(e.target.value)} rows={2} placeholder="오늘 컨디션은 어땠나요?"
           className="w-full mt-1 px-3 py-2 rounded-xl outline-none resize-none"
-          style={{ backgroundColor: t.bgSub, border: `1px solid ${t.border}`, color: t.text, fontSize: 14 }} />
+          style={{ backgroundColor: inputBg(t), border: `1px solid ${t.border}`, color: t.text, fontSize: 14 }} />
 
         <HaonButton variant="primary" onClick={handleSubmit} disabled={stress == null}
           className="w-full mt-3 text-sm">기록하기</HaonButton>
@@ -387,7 +387,7 @@ export function ConditionTab() {
         <div className="flex items-center justify-between mb-3">
           <button onClick={() => setWeekOffset(o => o - 1)}
             className="p-1.5 rounded-lg" aria-label="이전 주"
-            style={{ backgroundColor: t.bgSub, color: t.textSub, border: 'none', cursor: 'pointer' }}>
+            style={{ backgroundColor: t.surfaceMuted, color: t.textSub, border: 'none', cursor: 'pointer' }}>
             <ChevronLeft size={16} />
           </button>
           <div className="text-center">
@@ -397,7 +397,7 @@ export function ConditionTab() {
           <button onClick={() => setWeekOffset(o => Math.min(0, o + 1))} disabled={weekOffset >= 0}
             className="p-1.5 rounded-lg" aria-label="다음 주"
             style={{
-              backgroundColor: t.bgSub, color: t.textSub, border: 'none',
+              backgroundColor: t.surfaceMuted, color: t.textSub, border: 'none',
               cursor: weekOffset >= 0 ? 'default' : 'pointer', opacity: weekOffset >= 0 ? 0.4 : 1,
             }}>
             <ChevronRight size={16} />
@@ -422,7 +422,7 @@ export function ConditionTab() {
                 <button onClick={() => toggleDate(d)} aria-pressed={isSelected}
                   className="w-full flex items-center justify-center rounded-lg aspect-square lg:aspect-auto lg:h-14"
                   style={{
-                    backgroundColor: s != null ? stressShade(s) : t.bgSub,
+                    backgroundColor: s != null ? stressShade(s) : t.surfaceMuted,
                     border: `1px solid ${isSelected ? t.danger : isToday ? t.accent : t.border}`,
                     boxShadow: isSelected ? `0 0 0 2px ${t.danger}` : 'none',
                     cursor: 'pointer',
@@ -479,7 +479,7 @@ export function ConditionTab() {
                   className="flex items-center justify-center rounded-lg"
                   style={{
                     aspectRatio: '1',
-                    backgroundColor: cell.stress != null ? stressShade(cell.stress) : t.bgSub,
+                    backgroundColor: cell.stress != null ? stressShade(cell.stress) : t.surfaceMuted,
                     border: `1px solid ${selectedDate === cell.dateStr ? t.danger : t.border}`,
                     boxShadow: selectedDate === cell.dateStr ? `0 0 0 2px ${t.danger}` : 'none',
                     cursor: 'pointer',
@@ -524,7 +524,7 @@ export function ConditionTab() {
           <button onClick={toggleSearch} aria-label="검색" aria-pressed={searchOpen}
             className="p-1.5 rounded-lg"
             style={{
-              backgroundColor: searchOpen ? t.dangerLight : t.bgSub,
+              backgroundColor: searchOpen ? t.dangerLight : t.surfaceMuted,
               color: searchOpen ? t.danger : t.textSub, border: 'none', cursor: 'pointer',
             }}>
             <Search size={15} />
@@ -534,7 +534,7 @@ export function ConditionTab() {
         {searchOpen ? (
           /* 검색바 */
           <div className="flex items-center gap-2 mb-3 px-3 py-2 rounded-xl"
-            style={{ backgroundColor: t.bgSub, border: `1px solid ${t.border}` }}>
+            style={{ backgroundColor: inputBg(t), border: `1px solid ${t.border}` }}>
             <Search size={14} color={t.textMuted} />
             <input autoFocus value={searchQuery} onChange={e => setSearchQuery(e.target.value)}
               placeholder="본문·증상·레벨 검색"
@@ -565,7 +565,7 @@ export function ConditionTab() {
         {displayedRecords.length === 0 ? (
           searchQuery.trim() ? (
             <div className="py-8 text-center rounded-2xl"
-              style={{ backgroundColor: t.bgSub, fontSize: 13, color: t.textMuted }}>
+              style={{ backgroundColor: t.surfaceMuted, fontSize: 13, color: t.textMuted }}>
               검색 결과가 없어요
             </div>
           ) : selectedDate ? (
@@ -583,7 +583,7 @@ export function ConditionTab() {
             </div>
           ) : (
             <div className="py-8 text-center rounded-2xl"
-              style={{ backgroundColor: t.bgSub, fontSize: 13, color: t.textMuted }}>
+              style={{ backgroundColor: t.surfaceMuted, fontSize: 13, color: t.textMuted }}>
               아직 컨디션 기록이 없습니다
             </div>
           )
@@ -608,7 +608,7 @@ export function ConditionTab() {
                   {r.memo && <p style={{ fontSize: 12, color: t.textMuted, marginTop: 4 }}>{r.memo}</p>}
                 </div>
                 <button onClick={() => setDeleteId(r.id)} className="p-1.5 rounded-lg flex-shrink-0"
-                  style={{ backgroundColor: t.bgSub }}>
+                  style={{ backgroundColor: t.surfaceMuted }}>
                   <Trash2 size={13} color={t.danger} />
                 </button>
               </div>
@@ -617,7 +617,7 @@ export function ConditionTab() {
         )}
         {isDefaultView && sorted.length > listLimit && (
           <button onClick={() => setListLimit(n => n + 10)}
-            className="w-full mt-3 py-2 rounded-xl" style={{ backgroundColor: t.bgSub, color: t.textSub, fontSize: 13 }}>
+            className="w-full mt-3 py-2 rounded-xl" style={{ backgroundColor: t.surfaceMuted, color: t.textSub, fontSize: 13 }}>
             더보기
           </button>
         )}

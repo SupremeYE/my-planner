@@ -10,6 +10,7 @@ import { weekFocusReport, monthFocusReport } from '../hooks/useTimeReport';
 import { HappyCaptureModal } from './HappyCaptureModal';
 import { supabase } from '../../lib/supabase';
 import { getCategoryEmoji, getMoodCategoryLabel, ENERGY_LABELS } from './MoodView';
+import { inputBg } from '../styles/haonStyles';
 import {
   format, addDays, subDays, subYears, parseISO,
   startOfWeek, endOfWeek, addWeeks, subWeeks, startOfMonth, endOfMonth,
@@ -54,7 +55,7 @@ function VoiceInputButton({
       style={{
         width: 30,
         height: 30,
-        backgroundColor: isRec ? '#fee2e2' : t.bgSub,
+        backgroundColor: isRec ? '#fee2e2' : t.surfaceMuted,
         border: `1px solid ${isRec ? '#fca5a5' : t.borderLight}`,
         color: isRec ? '#ef4444' : t.textMuted,
       }}
@@ -192,10 +193,10 @@ function PastCard({ record, onSelect, anniversary }: {
         </span>
         <div className="flex gap-1">
           {gCount > 0 && (
-            <span className="px-2 py-0.5 rounded-full" style={{ fontSize: 9, backgroundColor: t.bgSub, color: t.textSub }}>감사 {gCount}</span>
+            <span className="px-2 py-0.5 rounded-full" style={{ fontSize: 9, backgroundColor: t.surfaceMuted, color: t.textSub }}>감사 {gCount}</span>
           )}
           {hasKpt && (
-            <span className="px-2 py-0.5 rounded-full" style={{ fontSize: 9, backgroundColor: t.bgSub, color: t.textSub }}>KPT</span>
+            <span className="px-2 py-0.5 rounded-full" style={{ fontSize: 9, backgroundColor: t.surfaceMuted, color: t.textSub }}>KPT</span>
           )}
         </div>
       </div>
@@ -297,7 +298,7 @@ function DayTab({ jump }: { jump?: JumpReq }) {
   };
 
   const inputStyle = {
-    borderColor: t.border, backgroundColor: t.bgSub, color: t.text, fontSize: 13,
+    borderColor: t.border, backgroundColor: inputBg(t), color: t.text, fontSize: 13,
     fontFamily: t.fontBody,
   };
 
@@ -318,7 +319,7 @@ function DayTab({ jump }: { jump?: JumpReq }) {
               <VoiceInputButton onResult={text => appendGratitudeVoice(i, text)} />
               <button type="button" onClick={() => removeGratitudeLine(i)} title="이 줄 삭제"
                 className="flex items-center justify-center rounded-lg flex-shrink-0"
-                style={{ width: 30, height: 30, backgroundColor: t.bgSub, border: `1px solid ${t.borderLight}`, color: t.textMuted }}>
+                style={{ width: 30, height: 30, backgroundColor: t.surfaceMuted, border: `1px solid ${t.borderLight}`, color: t.textMuted }}>
                 <X size={13} />
               </button>
             </div>
@@ -363,7 +364,7 @@ function DayTab({ jump }: { jump?: JumpReq }) {
 
   const dateNav = (
     <div className="flex items-center justify-center gap-3 mb-4">
-      <button onClick={goPrev} className="p-2 rounded-lg" style={{ color: t.textSub, backgroundColor: t.bgSub, border: `1px solid ${t.borderLight}` }}>
+      <button onClick={goPrev} className="p-2 rounded-lg" style={{ color: t.textSub, backgroundColor: t.surfaceMuted, border: `1px solid ${t.borderLight}` }}>
         <ChevronLeft size={18} />
       </button>
       <button onClick={() => setDayDate(todayStr)}
@@ -371,7 +372,7 @@ function DayTab({ jump }: { jump?: JumpReq }) {
         {format(parseISO(dayDate), 'M월 d일 EEEE', { locale: ko })}
         {dayDate !== todayStr && <span style={{ fontSize: 11, color: t.accent, marginLeft: 6 }}>오늘로</span>}
       </button>
-      <button onClick={goNext} className="p-2 rounded-lg" style={{ color: t.textSub, backgroundColor: t.bgSub, border: `1px solid ${t.borderLight}` }}>
+      <button onClick={goNext} className="p-2 rounded-lg" style={{ color: t.textSub, backgroundColor: t.surfaceMuted, border: `1px solid ${t.borderLight}` }}>
         <ChevronRight size={18} />
       </button>
     </div>
@@ -434,7 +435,7 @@ function StatCard({ value, unit, label, sub, pct, barColor }: {
         {value}{unit && <span style={{ fontSize: 12, color: t.textMuted, fontWeight: 400, marginLeft: 1 }}>{unit}</span>}
       </span>
       <div style={{ fontSize: 11, color: t.textMuted, marginTop: 5 }}>{label}{sub ? ` · ${sub}` : ''}</div>
-      <div className="rounded-full overflow-hidden" style={{ height: 5, backgroundColor: t.bgSub, marginTop: 8 }}>
+      <div className="rounded-full overflow-hidden" style={{ height: 5, backgroundColor: t.surfaceMuted, marginTop: 8 }}>
         <div className="rounded-full" style={{ height: '100%', width: `${Math.max(0, Math.min(100, pct))}%`, backgroundColor: barColor, transition: 'width .3s' }} />
       </div>
     </div>
@@ -510,7 +511,7 @@ function FocusBlock({
         {tagRows.map(r => (
           <div key={r.tagId} className="flex items-center gap-2">
             <span style={{ fontSize: 12, color: t.text, fontWeight: 500, width: 52, flexShrink: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.tagName}</span>
-            <div className="flex-1 rounded-full overflow-hidden" style={{ height: 9, backgroundColor: t.bgSub }}>
+            <div className="flex-1 rounded-full overflow-hidden" style={{ height: 9, backgroundColor: t.surfaceMuted }}>
               <div className="rounded-full" style={{ height: '100%', width: `${(r.totalMinutes / maxTag) * 100}%`, backgroundColor: r.tagColor, transition: 'width .3s' }} />
             </div>
             <span style={{ fontSize: 11, color: t.textMuted, width: 42, flexShrink: 0, textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>{fmtHours(r.totalMinutes)}h</span>
@@ -687,7 +688,7 @@ function WeekTab({ jump }: { jump?: JumpReq }) {
     setExpanded(prev => ({ ...prev, [mk]: !(prev[mk] ?? idx === 0) }));
 
   const inputStyle = {
-    borderColor: t.border, backgroundColor: t.bgSub, color: t.text, fontSize: 13,
+    borderColor: t.border, backgroundColor: inputBg(t), color: t.text, fontSize: 13,
     fontFamily: t.fontBody,
   };
 
@@ -711,7 +712,7 @@ function WeekTab({ jump }: { jump?: JumpReq }) {
           <span style={{ fontSize: 12, fontWeight: 700, color: t.text }}>{format(row.start, 'M')}월 {womN}주차</span>
           <span style={{ fontSize: 11, color: t.textMuted }}>{format(row.start, 'M.d')}–{format(row.end, 'M.d')}</span>
           {comp != null && (
-            <span className="px-2 py-0.5 rounded-full" style={{ fontSize: 9, backgroundColor: t.bgSub, color: t.textSub }}>완료 {comp}%</span>
+            <span className="px-2 py-0.5 rounded-full" style={{ fontSize: 9, backgroundColor: t.surfaceMuted, color: t.textSub }}>완료 {comp}%</span>
           )}
         </div>
         {preview && (
@@ -726,7 +727,7 @@ function WeekTab({ jump }: { jump?: JumpReq }) {
 
   const weekNav = (
     <div className="flex items-center justify-center gap-3 mb-4">
-      <button onClick={() => setAnchor(a => subWeeks(a, 1))} className="p-2 rounded-lg" style={{ color: t.textSub, backgroundColor: t.bgSub, border: `1px solid ${t.borderLight}` }}>
+      <button onClick={() => setAnchor(a => subWeeks(a, 1))} className="p-2 rounded-lg" style={{ color: t.textSub, backgroundColor: t.surfaceMuted, border: `1px solid ${t.borderLight}` }}>
         <ChevronLeft size={18} />
       </button>
       <button onClick={() => setAnchor(parseISO(getLogicalToday()))}
@@ -734,7 +735,7 @@ function WeekTab({ jump }: { jump?: JumpReq }) {
         {navLabel}
         {!isCurrentWeek && <span style={{ fontSize: 11, color: t.accent, marginLeft: 6 }}>이번 주로</span>}
       </button>
-      <button onClick={() => setAnchor(a => addWeeks(a, 1))} className="p-2 rounded-lg" style={{ color: t.textSub, backgroundColor: t.bgSub, border: `1px solid ${t.borderLight}` }}>
+      <button onClick={() => setAnchor(a => addWeeks(a, 1))} className="p-2 rounded-lg" style={{ color: t.textSub, backgroundColor: t.surfaceMuted, border: `1px solid ${t.borderLight}` }}>
         <ChevronRight size={18} />
       </button>
     </div>
@@ -889,7 +890,7 @@ function BestCategory({ emoji, label, candidates, value, onChange }: {
   const chipStyle = (sel: boolean) => ({
     fontSize: 11, padding: '5px 10px', maxWidth: 200,
     overflow: 'hidden' as const, textOverflow: 'ellipsis' as const, whiteSpace: 'nowrap' as const,
-    backgroundColor: sel ? t.accent : t.bgSub, color: sel ? '#fff' : t.textSub,
+    backgroundColor: sel ? t.accent : t.surfaceMuted, color: sel ? '#fff' : t.textSub,
     border: `1px solid ${sel ? t.accent : t.borderLight}`, fontWeight: sel ? 600 : 400,
   });
 
@@ -915,7 +916,7 @@ function BestCategory({ emoji, label, candidates, value, onChange }: {
           <button onClick={() => onChange('')} className="rounded-full" style={chipStyle(true)}>⭐ {value}</button>
         )}
         <button onClick={() => setCustomOpen(o => !o)} className="rounded-full"
-          style={{ fontSize: 11, padding: '5px 10px', backgroundColor: t.bgSub, color: t.textMuted, border: `1px dashed ${t.border}` }}>
+          style={{ fontSize: 11, padding: '5px 10px', backgroundColor: t.surfaceMuted, color: t.textMuted, border: `1px dashed ${t.border}` }}>
           ＋ 직접 입력
         </button>
       </div>
@@ -923,7 +924,7 @@ function BestCategory({ emoji, label, candidates, value, onChange }: {
         <div className="flex items-center gap-2 mt-2.5">
           <input value={customText} onChange={e => setCustomText(e.target.value)}
             placeholder={`${label} 직접 입력`} className="flex-1 rounded-lg px-3 py-1.5 border outline-none min-w-0"
-            style={{ borderColor: t.border, backgroundColor: t.bgSub, color: t.text, fontSize: 12 }} />
+            style={{ borderColor: t.border, backgroundColor: inputBg(t), color: t.text, fontSize: 12 }} />
           <button onClick={() => { const v = customText.trim(); if (v) { onChange(v); setCustomText(''); setCustomOpen(false); } }}
             className="rounded-lg flex-shrink-0" style={{ fontSize: 12, fontWeight: 600, padding: '6px 12px', backgroundColor: t.accent, color: '#fff' }}>
             선택
@@ -1074,7 +1075,7 @@ function MonthTab({ jump }: { jump?: JumpReq }) {
     setExpanded(prev => ({ ...prev, [yr]: !(prev[yr] ?? idx === 0) }));
 
   const inputStyle = {
-    borderColor: t.border, backgroundColor: t.bgSub, color: t.text, fontSize: 13, fontFamily: t.fontBody,
+    borderColor: t.border, backgroundColor: inputBg(t), color: t.text, fontSize: 13, fontFamily: t.fontBody,
   };
 
   const renderMonthCard = (r: MonthlyReview, anniversary = false) => {
@@ -1101,7 +1102,7 @@ function MonthTab({ jump }: { jump?: JumpReq }) {
         {badges.length > 0 && (
           <div className="flex gap-1 mt-1.5 flex-wrap">
             {badges.map((b, i) => (
-              <span key={i} className="px-2 py-0.5 rounded-full" style={{ fontSize: 9, backgroundColor: t.bgSub, color: t.textSub, maxWidth: 130, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{b}</span>
+              <span key={i} className="px-2 py-0.5 rounded-full" style={{ fontSize: 9, backgroundColor: t.surfaceMuted, color: t.textSub, maxWidth: 130, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{b}</span>
             ))}
           </div>
         )}
@@ -1111,7 +1112,7 @@ function MonthTab({ jump }: { jump?: JumpReq }) {
 
   const monthNav = (
     <div className="flex items-center justify-center gap-3 mb-4">
-      <button onClick={() => setAnchor(a => subMonths(a, 1))} className="p-2 rounded-lg" style={{ color: t.textSub, backgroundColor: t.bgSub, border: `1px solid ${t.borderLight}` }}>
+      <button onClick={() => setAnchor(a => subMonths(a, 1))} className="p-2 rounded-lg" style={{ color: t.textSub, backgroundColor: t.surfaceMuted, border: `1px solid ${t.borderLight}` }}>
         <ChevronLeft size={18} />
       </button>
       <button onClick={() => setAnchor(startOfMonth(parseISO(getLogicalToday())))}
@@ -1119,7 +1120,7 @@ function MonthTab({ jump }: { jump?: JumpReq }) {
         {format(anchor, 'yyyy년 M월', { locale: ko })}
         {!isCurrentMonth && <span style={{ fontSize: 11, color: t.accent, marginLeft: 6 }}>이번 달로</span>}
       </button>
-      <button onClick={() => setAnchor(a => addMonths(a, 1))} className="p-2 rounded-lg" style={{ color: t.textSub, backgroundColor: t.bgSub, border: `1px solid ${t.borderLight}` }}>
+      <button onClick={() => setAnchor(a => addMonths(a, 1))} className="p-2 rounded-lg" style={{ color: t.textSub, backgroundColor: t.surfaceMuted, border: `1px solid ${t.borderLight}` }}>
         <ChevronRight size={18} />
       </button>
     </div>
@@ -1583,14 +1584,14 @@ function ArchiveOverlay({ onClose, onJump }: {
             return (
               <button key={f.key} onClick={() => setTypeFilter(f.key)} className="rounded-full flex-shrink-0"
                 style={{ fontSize: 12, fontWeight: on ? 600 : 400, padding: '5px 11px', whiteSpace: 'nowrap',
-                  backgroundColor: on ? t.accent : t.bgSub, color: on ? '#fff' : t.textSub, border: `1px solid ${on ? t.accent : t.borderLight}` }}>
+                  backgroundColor: on ? t.accent : t.surfaceMuted, color: on ? '#fff' : t.textSub, border: `1px solid ${on ? t.accent : t.borderLight}` }}>
                 {f.emoji && `${f.emoji} `}{f.label}
               </button>
             );
           })}
           {years.length > 0 && (
             <select value={yearFilter} onChange={e => setYearFilter(e.target.value)} className="rounded-full flex-shrink-0 outline-none"
-              style={{ fontSize: 12, padding: '5px 11px', backgroundColor: t.bgSub, color: t.textSub, border: `1px solid ${t.borderLight}` }}>
+              style={{ fontSize: 12, padding: '5px 11px', backgroundColor: t.surfaceMuted, color: t.textSub, border: `1px solid ${t.borderLight}` }}>
               <option value="all">전체 연도</option>
               {years.map(y => <option key={y} value={y}>{y}년</option>)}
             </select>
@@ -1670,7 +1671,7 @@ export function ReviewsView() {
           className="flex items-center justify-center gap-1.5 transition-colors"
           style={isDesktop
             ? { height: 40, padding: '0 16px', borderRadius: 999, backgroundColor: t.card, border: `1px solid ${t.border}`, color: t.textSub, fontSize: 13, fontWeight: 600 }
-            : { width: 38, height: 38, borderRadius: 12, backgroundColor: t.bgSub, border: `1px solid ${t.borderLight}`, color: t.textSub }}>
+            : { width: 38, height: 38, borderRadius: 12, backgroundColor: t.surfaceMuted, border: `1px solid ${t.borderLight}`, color: t.textSub }}>
           <Search size={isDesktop ? 16 : 17} />
           {isDesktop && <span>돌아보기</span>}
         </button>
@@ -1683,7 +1684,7 @@ export function ReviewsView() {
             className="px-4 py-2 rounded-xl transition-all"
             style={{
               fontSize: 13, fontWeight: tab === tb.key ? 600 : 400,
-              backgroundColor: tab === tb.key ? t.accent : t.bgSub,
+              backgroundColor: tab === tb.key ? t.accent : t.surfaceMuted,
               color: tab === tb.key ? '#fff' : t.textSub,
             }}>{tb.label}</button>
         ))}

@@ -61,7 +61,7 @@ function StockCard({ item, onQty, onOpen }: {
       }}>
       {/* 아이콘/사진 */}
       <button onClick={onOpen} className="flex-shrink-0 rounded-xl flex items-center justify-center active:scale-95 transition-transform overflow-hidden"
-        style={{ width: 44, height: 44, backgroundColor: t.bgSub, border: `1px solid ${t.borderLight}`, fontSize: 22, lineHeight: 1 }}
+        style={{ width: 44, height: 44, backgroundColor: t.surfaceMuted, border: `1px solid ${t.borderLight}`, fontSize: 22, lineHeight: 1 }}
         aria-label={`${item.name} 수정`}>
         {item.photoUrl ? <img src={item.photoUrl} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <span aria-hidden>📦</span>}
       </button>
@@ -73,13 +73,13 @@ function StockCard({ item, onQty, onOpen }: {
             {item.name}
           </span>
           {empty ? (
-            <span className="flex-shrink-0 px-1.5 py-0.5 rounded-full" style={{ fontSize: 11, fontWeight: 700, backgroundColor: t.bgSub, color: t.textMuted }}>다 썼어요</span>
+            <span className="flex-shrink-0 px-1.5 py-0.5 rounded-full" style={{ fontSize: 11, fontWeight: 700, backgroundColor: t.surfaceMuted, color: t.textMuted }}>다 썼어요</span>
           ) : low ? (
             <span className="flex-shrink-0 px-1.5 py-0.5 rounded-full" style={{ fontSize: 11, fontWeight: 700, backgroundColor: t.dangerLight, color: t.danger, border: `1px solid ${t.danger}55` }}>곧 떨어져요</span>
           ) : null}
         </div>
         {/* 수량 바 */}
-        <div className="mt-1.5 rounded-full overflow-hidden" style={{ height: 6, backgroundColor: t.bgSub }}>
+        <div className="mt-1.5 rounded-full overflow-hidden" style={{ height: 6, backgroundColor: t.surfaceMuted }}>
           <div style={{ width: `${fill * 100}%`, height: '100%', backgroundColor: barColor, borderRadius: 999 }} />
         </div>
         <span style={{ fontSize: 11.5, color: t.textMuted, marginTop: 3, display: 'block' }}>
@@ -179,7 +179,7 @@ export function HousekeepingMobile() {
         <div className="mt-4 rounded-2xl p-3" style={{ backgroundColor: t.card, border: `1px solid ${t.border}`, boxShadow: t.shadow }}>
           <p className="mb-2" style={{ fontSize: 12, fontWeight: 700, color: t.textSub }}>오늘의 살림</p>
           {hk.loading ? (
-            <div className="space-y-2">{Array.from({ length: 2 }).map((_, i) => <div key={i} className="rounded-lg" style={{ height: 36, backgroundColor: t.bgSub }} />)}</div>
+            <div className="space-y-2">{Array.from({ length: 2 }).map((_, i) => <div key={i} className="rounded-lg" style={{ height: 36, backgroundColor: t.surfaceMuted }} />)}</div>
           ) : nudges.length === 0 ? (
             <div className="flex items-center gap-2 py-1.5">
               <span aria-hidden style={{ fontSize: 20 }}>☺️</span>
@@ -190,7 +190,7 @@ export function HousekeepingMobile() {
               {nudges.map(n => {
                 const c = ActionChipColor(n.severity);
                 return (
-                  <div key={n.key} className="flex items-center gap-2 rounded-xl px-2.5 py-2" style={{ backgroundColor: t.bgSub }}>
+                  <div key={n.key} className="flex items-center gap-2 rounded-xl px-2.5 py-2" style={{ backgroundColor: t.surfaceMuted }}>
                     <span aria-hidden style={{ fontSize: 17 }}>{n.icon}</span>
                     <span className="flex-1 truncate" style={{ fontSize: 13.5, color: t.text }}>{n.text}</span>
                     <button onClick={n.onAction} className="flex-shrink-0 flex items-center gap-1 px-2.5 py-1 rounded-full active:scale-95 transition-transform"
@@ -208,7 +208,7 @@ export function HousekeepingMobile() {
         {/* ② 생필품 재고 */}
         <SectionTitle count={hk.items.length}>생필품 재고</SectionTitle>
         {hk.loading ? (
-          <div className="space-y-2">{Array.from({ length: 3 }).map((_, i) => <div key={i} className="rounded-xl" style={{ height: 64, backgroundColor: t.bgSub }} />)}</div>
+          <div className="space-y-2">{Array.from({ length: 3 }).map((_, i) => <div key={i} className="rounded-xl" style={{ height: 64, backgroundColor: t.surfaceMuted }} />)}</div>
         ) : hk.items.length === 0 ? (
           <EmptyCard icon={<Package size={22} style={{ color: t.accent }} />} title="아직 등록된 생필품이 없어요" desc="휴지·세제처럼 떨어지면 곤란한 것을 추가해 보세요"
             onAdd={() => setStockSheet({ item: null })} />
@@ -225,7 +225,7 @@ export function HousekeepingMobile() {
         {/* ③ 소모품 교체주기 */}
         <SectionTitle count={hk.cycles.length}>소모품 교체주기</SectionTitle>
         {hk.loading ? (
-          <div className="rounded-xl" style={{ height: 76, backgroundColor: t.bgSub }} />
+          <div className="rounded-xl" style={{ height: 76, backgroundColor: t.surfaceMuted }} />
         ) : hk.cycles.length === 0 ? (
           <EmptyCard icon={<RefreshCw size={22} style={{ color: t.accent }} />} title="교체주기를 추가해 보세요" desc="수세미·칫솔처럼 주기로 바꾸는 것을 챙겨드려요"
             onAdd={() => setAddOpen(true)} />
@@ -243,7 +243,7 @@ export function HousekeepingMobile() {
         {/* ④ 청소구역 */}
         <SectionTitle count={hk.zones.length}>청소구역</SectionTitle>
         {hk.loading ? (
-          <div className="grid grid-cols-2 gap-2.5">{Array.from({ length: 2 }).map((_, i) => <div key={i} className="rounded-2xl" style={{ height: 92, backgroundColor: t.bgSub }} />)}</div>
+          <div className="grid grid-cols-2 gap-2.5">{Array.from({ length: 2 }).map((_, i) => <div key={i} className="rounded-2xl" style={{ height: 92, backgroundColor: t.surfaceMuted }} />)}</div>
         ) : (
           <CleaningHeatmap zones={hk.zones}
             onClean={(id) => { hk.markCleaned(id); notify('청소 완료!'); }}
