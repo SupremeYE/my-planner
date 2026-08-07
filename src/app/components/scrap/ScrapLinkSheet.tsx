@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { X, Search, Check, Youtube, Instagram, MessageCircle, Globe } from 'lucide-react';
 import { useTheme } from '../../ThemeContext';
+import { inputBg } from '../../styles/haonStyles';
 import { db } from '../../../lib/db';
 import type { Scrap, ScrapSource } from '../../store';
 
@@ -109,7 +110,7 @@ export default function ScrapLinkSheet({
           <div
             className="flex items-center gap-2"
             style={{
-              backgroundColor: t.bgSub,
+              backgroundColor: inputBg(t),
               border: `1px solid ${t.borderLight}`,
               borderRadius: 10,
               padding: '8px 12px',
@@ -161,7 +162,7 @@ export default function ScrapLinkSheet({
                   <div
                     style={{
                       width: 44, height: 44, borderRadius: 8, overflow: 'hidden', flex: '0 0 auto',
-                      backgroundColor: t.bgSub, display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      backgroundColor: t.surfaceMuted, display: 'flex', alignItems: 'center', justifyContent: 'center',
                     }}
                   >
                     {s.thumbnailUrl ? (

@@ -4,6 +4,7 @@ import {
   Trash2, Plus, Sparkles, CheckSquare, BookOpen, Maximize2, Minimize2,
 } from 'lucide-react';
 import { useTheme } from '../../ThemeContext';
+import { inputBg } from '../../styles/haonStyles';
 import { db } from '../../../lib/db';
 import { useRealtimeSync } from '../../hooks/useRealtimeSync';
 import type { Scrap, ScrapNote, ScrapSource, ScrapStatus } from '../../store';
@@ -242,7 +243,7 @@ export default function ScrapDetailSheet({ scrap: initialScrap, onClose, onChang
         <div className="flex-1 overflow-y-auto">
           {/* 썸네일 */}
           {scrap.thumbnailUrl ? (
-            <div style={{ backgroundColor: t.bgSub }}>
+            <div style={{ backgroundColor: t.surfaceMuted }}>
               <img
                 src={scrap.thumbnailUrl}
                 alt={scrap.title ?? ''}
@@ -329,7 +330,7 @@ export default function ScrapDetailSheet({ scrap: initialScrap, onClose, onChang
                       padding: '10px 12px',
                       borderRadius: 10,
                       border: `1px solid ${t.border}`,
-                      backgroundColor: t.bgSub,
+                      backgroundColor: inputBg(t),
                       color: t.text,
                       fontSize: 16,
                       fontFamily: t.fontDecoratePen,
@@ -391,7 +392,7 @@ export default function ScrapDetailSheet({ scrap: initialScrap, onClose, onChang
                     style={{
                       fontSize: 11,
                       color: t.textSub,
-                      backgroundColor: t.bgSub,
+                      backgroundColor: t.surfaceMuted,
                       padding: '4px 8px 4px 10px',
                       borderRadius: 999,
                       border: `1px solid ${t.borderLight}`,
@@ -445,7 +446,7 @@ export default function ScrapDetailSheet({ scrap: initialScrap, onClose, onChang
               <div
                 className="flex mt-2"
                 style={{
-                  backgroundColor: t.bgSub,
+                  backgroundColor: t.surfaceMuted,
                   border: `1px solid ${t.borderLight}`,
                   borderRadius: 12,
                   padding: 3,
@@ -481,7 +482,7 @@ export default function ScrapDetailSheet({ scrap: initialScrap, onClose, onChang
             <div
               className="flex"
               style={{
-                backgroundColor: t.bgSub,
+                backgroundColor: t.surfaceMuted,
                 border: `1px solid ${t.borderLight}`,
                 borderRadius: 12,
                 padding: 3,
@@ -542,7 +543,7 @@ export default function ScrapDetailSheet({ scrap: initialScrap, onClose, onChang
                     padding: '10px 12px',
                     borderRadius: 10,
                     border: `1px solid ${t.border}`,
-                    backgroundColor: t.bgSub,
+                    backgroundColor: inputBg(t),
                     color: t.text,
                     fontSize: 16,
                     fontFamily: t.fontDecoratePen,
@@ -555,7 +556,7 @@ export default function ScrapDetailSheet({ scrap: initialScrap, onClose, onChang
                   onClick={handleAddNote}
                   disabled={!noteInput.trim() || adding}
                   style={{
-                    backgroundColor: noteInput.trim() && !adding ? t.success : t.bgSub,
+                    backgroundColor: noteInput.trim() && !adding ? t.success : t.surfaceMuted,
                     color: noteInput.trim() && !adding ? '#fff' : t.textMuted,
                     fontWeight: 700,
                     fontSize: 13,
@@ -616,7 +617,7 @@ export default function ScrapDetailSheet({ scrap: initialScrap, onClose, onChang
                             style={{
                               padding: '10px 12px',
                               borderRadius: 10,
-                              backgroundColor: t.bgSub,
+                              backgroundColor: t.surfaceMuted,
                               border: `1px solid ${t.borderLight}`,
                               display: 'flex',
                               gap: 10,
@@ -685,7 +686,7 @@ export default function ScrapDetailSheet({ scrap: initialScrap, onClose, onChang
                       gap: 4,
                       padding: '12px 6px',
                       borderRadius: 12,
-                      backgroundColor: t.bgSub,
+                      backgroundColor: t.surfaceMuted,
                       border: `1px dashed ${t.borderLight}`,
                       color: t.textMuted,
                       fontSize: 11,

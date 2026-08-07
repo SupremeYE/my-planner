@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { ArrowLeft, X, Link2, Loader2, Camera, ImagePlus, AlertCircle } from 'lucide-react';
 import { useTheme } from '../../ThemeContext';
+import { inputBg } from '../../styles/haonStyles';
 import { db } from '../../../lib/db';
 import type { ScrapSource } from '../../store';
 
@@ -257,7 +258,7 @@ export default function AddScrapModal({ onClose, onSaved }: Props) {
             <label style={{ fontSize: 12, color: t.textSub, fontWeight: 600 }}>링크</label>
             <div className="flex gap-2 mt-2">
               <div className="flex-1 min-w-0 flex items-center gap-2 px-3 py-2 rounded-lg"
-                style={{ backgroundColor: t.bgSub, border: `1px solid ${t.border}` }}>
+                style={{ backgroundColor: inputBg(t), border: `1px solid ${t.border}` }}>
                 <Link2 size={14} color={t.textMuted} />
                 <input
                   type="url"
@@ -289,7 +290,7 @@ export default function AddScrapModal({ onClose, onSaved }: Props) {
                 onClick={handleFetchMetadata}
                 disabled={!url.trim() || fetching}
                 style={{
-                  backgroundColor: url.trim() && !fetching ? t.accent : t.bgSub,
+                  backgroundColor: url.trim() && !fetching ? t.accent : t.surfaceMuted,
                   color: url.trim() && !fetching ? '#fff' : t.textMuted,
                   fontWeight: 700,
                   fontSize: 13,
@@ -346,7 +347,7 @@ export default function AddScrapModal({ onClose, onSaved }: Props) {
               썸네일
             </label>
             {previewSrc ? (
-              <div style={{ position: 'relative', borderRadius: 12, overflow: 'hidden', backgroundColor: t.bgSub, marginTop: 6 }}>
+              <div style={{ position: 'relative', borderRadius: 12, overflow: 'hidden', backgroundColor: t.surfaceMuted, marginTop: 6 }}>
                 <img src={previewSrc} alt="" style={{ width: '100%', display: 'block', maxHeight: 280, objectFit: 'cover' }} />
                 <button
                   type="button"
@@ -414,7 +415,7 @@ export default function AddScrapModal({ onClose, onSaved }: Props) {
                 padding: '10px 12px',
                 borderRadius: 10,
                 border: `1px solid ${t.border}`,
-                backgroundColor: t.bgSub,
+                backgroundColor: inputBg(t),
                 color: t.text,
                 fontSize: 14,
                 outline: 'none',
@@ -437,7 +438,7 @@ export default function AddScrapModal({ onClose, onSaved }: Props) {
                 padding: '10px 12px',
                 borderRadius: 10,
                 border: `1px solid ${t.border}`,
-                backgroundColor: t.bgSub,
+                backgroundColor: inputBg(t),
                 color: t.text,
                 fontSize: 16,
                 resize: 'none',
@@ -462,7 +463,7 @@ export default function AddScrapModal({ onClose, onSaved }: Props) {
                 padding: '10px 12px',
                 borderRadius: 10,
                 border: `1px solid ${t.border}`,
-                backgroundColor: t.bgSub,
+                backgroundColor: inputBg(t),
                 color: t.text,
                 fontSize: 14,
                 outline: 'none',
