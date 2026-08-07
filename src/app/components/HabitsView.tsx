@@ -6,6 +6,7 @@ import {
 import { TimePicker } from './TimePicker';
 import { usePlanner, Habit, Routine, getLogicalToday } from '../store';
 import { useTheme } from '../ThemeContext';
+import { inputBg } from '../styles/haonStyles';
 import { format, subDays, startOfMonth, getDaysInMonth, getDay, addDays, startOfWeek, addMonths, subMonths } from 'date-fns';
 import { RoutineModal, ExecutionPanel, RoutineCard, today as routineToday } from './RoutinesView';
 import { useNotification } from '../hooks/useNotification';
@@ -243,7 +244,7 @@ function HabitModal({ habit, onClose }: { habit?: Habit; onClose: () => void }) 
             className="px-3 py-1.5 rounded-full"
             style={{
               fontSize: 12,
-              backgroundColor: repeat === opt.value ? t.accent : t.bgSub,
+              backgroundColor: repeat === opt.value ? t.accent : t.surfaceMuted,
               color: repeat === opt.value ? '#fff' : t.text,
               border: `1px solid ${repeat === opt.value ? t.accent : t.border}`,
             }}
@@ -261,7 +262,7 @@ function HabitModal({ habit, onClose }: { habit?: Habit; onClose: () => void }) 
               className="w-8 h-8 rounded-full flex items-center justify-center"
               style={{
                 fontSize: 11,
-                backgroundColor: repeatDays.includes(i) ? t.accent : t.bgSub,
+                backgroundColor: repeatDays.includes(i) ? t.accent : t.surfaceMuted,
                 color: repeatDays.includes(i) ? '#fff' : t.text,
                 border: `1px solid ${repeatDays.includes(i) ? t.accent : t.border}`,
               }}
@@ -279,7 +280,7 @@ function HabitModal({ habit, onClose }: { habit?: Habit; onClose: () => void }) 
               <button
                 onClick={() => setWeeklyTarget(prev => Math.max(1, prev - 1))}
                 className="w-7 h-7 rounded-full flex items-center justify-center"
-                style={{ backgroundColor: t.bgSub, color: t.textMuted, border: `1px solid ${t.border}` }}
+                style={{ backgroundColor: t.surfaceMuted, color: t.textMuted, border: `1px solid ${t.border}` }}
               >
                 <Minus size={12} />
               </button>
@@ -321,7 +322,7 @@ function HabitModal({ habit, onClose }: { habit?: Habit; onClose: () => void }) 
                 onChange={e => setIcon(Array.from(e.target.value).slice(0, 1).join(''))}
                 placeholder="🎯"
                 className="w-[62px] rounded-lg px-2 py-2 border outline-none text-center"
-                style={{ borderColor: t.border, backgroundColor: t.bgSub, color: t.text, fontSize: 22 }}
+                style={{ borderColor: t.border, backgroundColor: inputBg(t), color: t.text, fontSize: 22 }}
               />
               <input
                 autoFocus
@@ -329,7 +330,7 @@ function HabitModal({ habit, onClose }: { habit?: Habit; onClose: () => void }) 
                 onChange={e => setName(e.target.value)}
                 placeholder="예: 물 마시기"
                 className="flex-1 rounded-lg px-3 py-2 border outline-none"
-                style={{ borderColor: t.border, backgroundColor: t.bgSub, color: t.text, fontSize: 13 }}
+                style={{ borderColor: t.border, backgroundColor: inputBg(t), color: t.text, fontSize: 13 }}
               />
             </div>
             <p style={{ fontSize: 10, color: t.textMuted, marginTop: 4 }}>아이콘 칸에서 `Win + .` 로 이모지를 입력할 수 있어요.</p>
@@ -343,7 +344,7 @@ function HabitModal({ habit, onClose }: { habit?: Habit; onClose: () => void }) 
                   className="flex flex-col items-center gap-1 py-2 px-1 rounded-xl transition-all"
                   style={{
                     fontSize: 10, fontWeight: habitType === ht.value ? 700 : 400,
-                    backgroundColor: habitType === ht.value ? t.accent : t.bgSub,
+                    backgroundColor: habitType === ht.value ? t.accent : t.surfaceMuted,
                     color: habitType === ht.value ? '#fff' : t.textSub,
                     border: `1px solid ${habitType === ht.value ? t.accent : t.border}`,
                   }}>
@@ -370,7 +371,7 @@ function HabitModal({ habit, onClose }: { habit?: Habit; onClose: () => void }) 
                     value={targetValue}
                     onChange={e => setTargetValue(e.target.value)}
                     className="w-20 rounded-lg px-2.5 py-2 border outline-none"
-                    style={{ borderColor: t.border, backgroundColor: t.bgSub, color: t.text, fontSize: 13 }}
+                    style={{ borderColor: t.border, backgroundColor: inputBg(t), color: t.text, fontSize: 13 }}
                   />
                   <span style={{ fontSize: 12, color: t.textSub }}>{habitType === 'count' ? '회' : '분'}</span>
                 </div>
@@ -386,11 +387,11 @@ function HabitModal({ habit, onClose }: { habit?: Habit; onClose: () => void }) 
                     <input type="number" min={0} value={targetValue} onChange={e => setTargetValue(e.target.value)}
                       placeholder="예: 10000"
                       className="w-28 rounded-lg px-3 py-2 border outline-none"
-                      style={{ borderColor: t.border, backgroundColor: t.bgSub, color: t.text, fontSize: 13 }} />
+                      style={{ borderColor: t.border, backgroundColor: inputBg(t), color: t.text, fontSize: 13 }} />
                     <input value={valueUnit} onChange={e => setValueUnit(e.target.value)}
                       placeholder="단위 (km, L…)"
                       className="flex-1 rounded-lg px-3 py-2 border outline-none"
-                      style={{ borderColor: t.border, backgroundColor: t.bgSub, color: t.text, fontSize: 13 }} />
+                      style={{ borderColor: t.border, backgroundColor: inputBg(t), color: t.text, fontSize: 13 }} />
                   </div>
                 </div>
               )}
@@ -399,7 +400,7 @@ function HabitModal({ habit, onClose }: { habit?: Habit; onClose: () => void }) 
                   <label style={{ fontSize: 11, color: t.textSub, fontWeight: 600 }}>목표 메모 (선택)</label>
                   <input value={goalText} onChange={e => setGoalText(e.target.value)} placeholder="예: 30분, 2L"
                     className="w-full mt-1 rounded-lg px-3 py-2 border outline-none"
-                    style={{ borderColor: t.border, backgroundColor: t.bgSub, color: t.text, fontSize: 13 }} />
+                    style={{ borderColor: t.border, backgroundColor: inputBg(t), color: t.text, fontSize: 13 }} />
                 </div>
               )}
               {repeatUI}
@@ -424,7 +425,7 @@ function HabitModal({ habit, onClose }: { habit?: Habit; onClose: () => void }) 
                     className="px-2.5 py-1 rounded-full flex items-center gap-1.5"
                     style={{
                       fontSize: 11,
-                      backgroundColor: category === option.name ? option.color : t.bgSub,
+                      backgroundColor: category === option.name ? option.color : t.surfaceMuted,
                       color: category === option.name ? '#fff' : t.textSub,
                       border: `1px solid ${category === option.name ? option.color : t.border}`,
                     }}
@@ -451,7 +452,7 @@ function HabitModal({ habit, onClose }: { habit?: Habit; onClose: () => void }) 
                 </button>
               </div>
               {showAddCategory && (
-                <div className="mt-2 p-3 rounded-xl space-y-2" style={{ backgroundColor: t.bgSub, border: `1px solid ${t.border}` }}>
+                <div className="mt-2 p-3 rounded-xl space-y-2" style={{ backgroundColor: t.surfaceMuted, border: `1px solid ${t.border}` }}>
                   <input
                     value={newCategoryName}
                     onChange={e => setNewCategoryName(e.target.value)}
@@ -530,7 +531,7 @@ function HabitModal({ habit, onClose }: { habit?: Habit; onClose: () => void }) 
             </label>
             <input value={reason} onChange={e => setReason(e.target.value)} placeholder="예: 물을 꾸준히 마셔서 컨디션 유지"
               className="w-full mt-1 rounded-lg px-3 py-2 border outline-none"
-              style={{ borderColor: t.border, backgroundColor: t.bgSub, color: t.text, fontSize: 13 }} />
+              style={{ borderColor: t.border, backgroundColor: inputBg(t), color: t.text, fontSize: 13 }} />
           </div>
 
           {habit && (
@@ -541,7 +542,7 @@ function HabitModal({ habit, onClose }: { habit?: Habit; onClose: () => void }) 
               </label>
               <input value={monthlyMemo} onChange={e => setMonthlyMemo(e.target.value)} placeholder="이번달 달성 목표나 특이사항"
                 className="w-full mt-1 rounded-lg px-3 py-2 border outline-none"
-                style={{ borderColor: t.border, backgroundColor: t.bgSub, color: t.text, fontSize: 13 }} />
+                style={{ borderColor: t.border, backgroundColor: inputBg(t), color: t.text, fontSize: 13 }} />
             </div>
           )}
         </div>
@@ -552,7 +553,7 @@ function HabitModal({ habit, onClose }: { habit?: Habit; onClose: () => void }) 
               style={{ fontSize: 12, color: '#DC2626', backgroundColor: '#FEE2E2' }}>삭제</button>
           )}
           <div className="flex-1" />
-          <button onClick={onClose} className="px-4 py-2 rounded-xl" style={{ fontSize: 13, color: t.textSub, backgroundColor: t.bgSub }}>취소</button>
+          <button onClick={onClose} className="px-4 py-2 rounded-xl" style={{ fontSize: 13, color: t.textSub, backgroundColor: t.surfaceMuted }}>취소</button>
           <button onClick={handleSubmit} className="px-5 py-2 rounded-xl" style={{ fontSize: 13, fontWeight: 600, backgroundColor: t.accent, color: '#fff' }}>저장</button>
         </div>
       </div>
@@ -655,7 +656,7 @@ export function HabitChip({ habit, date }: { habit: Habit; date: string }) {
     return (
       <button onClick={() => toggleHabit(habit.id, date)}
         className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 transition-all"
-        style={{ backgroundColor: isChecked ? accentColor : t.bgSub, border: isChecked ? 'none' : `2px solid ${t.border}` }}>
+        style={{ backgroundColor: isChecked ? accentColor : t.surfaceMuted, border: isChecked ? 'none' : `2px solid ${t.border}` }}>
         {isChecked && <Check size={14} color="#fff" strokeWidth={3} />}
       </button>
     );
@@ -669,12 +670,12 @@ export function HabitChip({ habit, date }: { habit: Habit; date: string }) {
       <div className="flex items-center gap-1 flex-shrink-0">
         <button onClick={() => handleCountTap(-1)}
           className="w-6 h-6 rounded-full flex items-center justify-center"
-          style={{ backgroundColor: t.bgSub, color: t.textMuted }}>
+          style={{ backgroundColor: t.surfaceMuted, color: t.textMuted }}>
           <Minus size={10} />
         </button>
         <button onClick={() => handleCountTap(1)}
           className="flex items-center gap-1 px-2.5 py-1.5 rounded-xl min-w-[56px] justify-center"
-          style={{ backgroundColor: done ? accentColor : t.bgSub, border: `1px solid ${done ? accentColor : t.border}` }}>
+          style={{ backgroundColor: done ? accentColor : t.surfaceMuted, border: `1px solid ${done ? accentColor : t.border}` }}>
           <Hash size={11} color={done ? '#fff' : t.textMuted} />
           <span style={{ fontSize: 12, fontWeight: 700, color: done ? '#fff' : t.text, fontVariantNumeric: 'tabular-nums' }}>
             {progress}/{target || '?'}
@@ -692,7 +693,7 @@ export function HabitChip({ habit, date }: { habit: Habit; date: string }) {
       <button onClick={handleTimerToggle}
         className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl flex-shrink-0"
         style={{
-          backgroundColor: timerRunning ? '#FEF3C7' : done ? accentColor : t.bgSub,
+          backgroundColor: timerRunning ? '#FEF3C7' : done ? accentColor : t.surfaceMuted,
           border: `1px solid ${timerRunning ? '#F59E0B' : done ? accentColor : t.border}`,
         }}>
         <Timer size={12} color={timerRunning ? '#D97706' : done ? '#fff' : t.textMuted}
@@ -724,7 +725,7 @@ export function HabitChip({ habit, date }: { habit: Habit; date: string }) {
             onBlur={handleValueSave}
             onKeyDown={e => { if (e.key === 'Enter') handleValueSave(); if (e.key === 'Escape') setEditingValue(false); }}
             className="w-20 rounded-lg px-2 py-1 border outline-none text-center"
-            style={{ fontSize: 12, borderColor: t.accent, backgroundColor: t.bgSub, color: t.text }}
+            style={{ fontSize: 12, borderColor: t.accent, backgroundColor: inputBg(t), color: t.text }}
           />
           <span style={{ fontSize: 11, color: t.textMuted }}>{unit}</span>
         </div>
@@ -733,7 +734,7 @@ export function HabitChip({ habit, date }: { habit: Habit; date: string }) {
     return (
       <button onClick={() => setEditingValue(true)}
         className="flex items-center gap-1 px-2.5 py-1.5 rounded-xl flex-shrink-0"
-        style={{ backgroundColor: done ? accentColor : t.bgSub, border: `1px solid ${done ? accentColor : t.border}` }}>
+        style={{ backgroundColor: done ? accentColor : t.surfaceMuted, border: `1px solid ${done ? accentColor : t.border}` }}>
         <TrendingUp size={11} color={done ? '#fff' : t.textMuted} />
         <span style={{ fontSize: 12, fontWeight: 700, color: done ? '#fff' : t.text }}>
           {progress > 0 ? `${progress}` : '—'}{unit ? `/${target}${unit}` : ''}
@@ -751,7 +752,7 @@ export function HabitChip({ habit, date }: { habit: Habit; date: string }) {
           if (!isChecked) setEditingMemo(true);
         }}
           className="w-8 h-8 rounded-full flex items-center justify-center transition-all"
-          style={{ backgroundColor: isChecked ? accentColor : t.bgSub, border: isChecked ? 'none' : `2px solid ${t.border}` }}>
+          style={{ backgroundColor: isChecked ? accentColor : t.surfaceMuted, border: isChecked ? 'none' : `2px solid ${t.border}` }}>
           {isChecked ? <Check size={14} color="#fff" strokeWidth={3} /> : <MessageSquare size={13} color={t.textMuted} />}
         </button>
       </div>
@@ -850,7 +851,7 @@ function HabitTrackerView() {
       ? {
           opacity: opts.futureOpacity ?? 0.24,
           borderColor: opts.futureBorder || t.borderLight,
-          backgroundColor: opts.futureBg || t.bgSub,
+          backgroundColor: opts.futureBg || t.surfaceMuted,
           borderStyle: 'dashed' as const,
         }
       : null;
@@ -858,7 +859,7 @@ function HabitTrackerView() {
       ? {
           opacity: 0.68,
           borderColor: t.border,
-          backgroundColor: opts.baseBg || t.bgSub,
+          backgroundColor: opts.baseBg || t.surfaceMuted,
           borderStyle: 'solid' as const,
         }
       : null;
@@ -894,11 +895,11 @@ function HabitTrackerView() {
   return (
     <div className="rounded-xl p-3 lg:p-5" style={{ backgroundColor: t.card, border: `1px solid ${t.borderLight}` }}>
       <div className="flex items-center justify-between gap-2 mb-3">
-        <button onClick={movePrev} className="p-1.5 rounded-lg" style={{ color: t.textSub, backgroundColor: t.bgSub }}>
+        <button onClick={movePrev} className="p-1.5 rounded-lg" style={{ color: t.textSub, backgroundColor: t.surfaceMuted }}>
           <ChevronLeft size={14} />
         </button>
         <span style={{ fontSize: 16, fontWeight: 700, color: t.text, fontFamily: t.fontLabel }}>{rangeLabel}</span>
-        <button onClick={moveNext} className="p-1.5 rounded-lg" style={{ color: t.textSub, backgroundColor: t.bgSub }}>
+        <button onClick={moveNext} className="p-1.5 rounded-lg" style={{ color: t.textSub, backgroundColor: t.surfaceMuted }}>
           <ChevronRight size={14} />
         </button>
       </div>
@@ -912,7 +913,7 @@ function HabitTrackerView() {
             style={{
               fontSize: 12,
               fontWeight: mode === tab.key ? 700 : 500,
-              backgroundColor: mode === tab.key ? t.accent : t.bgSub,
+              backgroundColor: mode === tab.key ? t.accent : t.surfaceMuted,
               color: mode === tab.key ? '#fff' : t.textSub,
             }}
           >
@@ -966,7 +967,7 @@ function HabitTrackerView() {
                       const rate = total > 0 ? Math.round((done / total) * 100) : 0;
                       const isFutureMonth = viewYear > currentYear || (viewYear === currentYear && monthIdx > currentMonth);
                       const bg = isFutureMonth
-                        ? t.bgSub
+                        ? t.surfaceMuted
                         : rate >= 70
                           ? t.accent
                           : rate >= 40
@@ -1006,7 +1007,7 @@ function HabitTrackerView() {
               <div
                 key={`${habit.id}-year-mobile`}
                 className="rounded-lg p-2.5"
-                style={{ border: `1px solid ${t.borderLight}`, backgroundColor: t.bgSub }}
+                style={{ border: `1px solid ${t.borderLight}`, backgroundColor: t.surfaceMuted }}
               >
                 <div className="truncate mb-2" style={{ fontSize: 12, color: t.text, display: 'flex', alignItems: 'center', gap: 6 }}>
                   <span>{habit.icon || '🎯'}</span>
@@ -1242,7 +1243,7 @@ function HabitTrackerView() {
                   <div
                     key={`${habit.id}-month-mobile`}
                     className="rounded-lg p-2.5"
-                    style={{ border: `1px solid ${t.borderLight}`, backgroundColor: t.bgSub }}
+                    style={{ border: `1px solid ${t.borderLight}`, backgroundColor: t.surfaceMuted }}
                   >
                     <div className="flex items-center justify-between mb-2">
                       <div className="truncate" style={{ fontSize: 12, color: t.text, display: 'flex', alignItems: 'center', gap: 6 }}>
@@ -1297,7 +1298,7 @@ function HabitTrackerView() {
           미달성
         </div>
         <div className="flex items-center gap-1.5">
-          <span className="inline-block w-3.5 h-3.5 rounded" style={{ backgroundColor: t.bgSub, border: `1px solid ${t.borderLight}`, opacity: 0.55 }} />
+          <span className="inline-block w-3.5 h-3.5 rounded" style={{ backgroundColor: t.surfaceMuted, border: `1px solid ${t.borderLight}`, opacity: 0.55 }} />
           해당없음
         </div>
       </div>
@@ -1365,7 +1366,7 @@ export function HabitsView() {
             className="px-4 py-2 rounded-xl transition-all"
             style={{
               fontSize: 13, fontWeight: tab === tb.key ? 600 : 400,
-              backgroundColor: tab === tb.key ? t.accent : t.bgSub,
+              backgroundColor: tab === tb.key ? t.accent : t.surfaceMuted,
               color: tab === tb.key ? '#fff' : t.textSub,
             }}>{tb.label}</button>
         ))}
@@ -1411,7 +1412,7 @@ export function HabitsView() {
                         </span>
                         {habitType !== 'check' && (
                           <span className="px-1.5 py-0.5 rounded-full"
-                            style={{ fontSize: 10, backgroundColor: t.bgSub, color: t.textMuted }}>
+                            style={{ fontSize: 10, backgroundColor: t.surfaceMuted, color: t.textMuted }}>
                             {HABIT_TYPES.find(ht => ht.value === habitType)?.label}
                           </span>
                         )}
@@ -1460,7 +1461,7 @@ export function HabitsView() {
                         }}
                         placeholder="오늘 메모를 남겨보세요…"
                         className="flex-1 rounded-lg px-3 py-1.5 border outline-none mt-2"
-                        style={{ fontSize: 12, borderColor: t.border, backgroundColor: t.bgSub, color: t.text }}
+                        style={{ fontSize: 12, borderColor: t.border, backgroundColor: inputBg(t), color: t.text }}
                       />
                     </div>
                   )}
@@ -1501,7 +1502,7 @@ export function HabitsView() {
                     {completedToday}/{todayRoutines.length} · {Math.round((completedToday / todayRoutines.length) * 100)}%
                   </span>
                 </div>
-                <div className="h-2 rounded-full overflow-hidden" style={{ backgroundColor: t.bgSub }}>
+                <div className="h-2 rounded-full overflow-hidden" style={{ backgroundColor: t.surfaceMuted }}>
                   <div className="h-full rounded-full transition-all duration-500"
                     style={{
                       width: `${(completedToday / todayRoutines.length) * 100}%`,

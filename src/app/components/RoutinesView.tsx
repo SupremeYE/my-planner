@@ -5,6 +5,7 @@ import {
 } from 'lucide-react';
 import { usePlanner, Routine, RoutineStep, getRoutineTotalMinutes, getRoutineSteps, getLogicalToday } from '../store';
 import { useTheme } from '../ThemeContext';
+import { inputBg } from '../styles/haonStyles';
 import { TimePicker } from './TimePicker';
 import { format } from 'date-fns';
 
@@ -145,7 +146,7 @@ export function RoutineModal({ routine, onClose }: { routine?: Routine; onClose:
                   <button key={e} onClick={() => setIcon(e)}
                     className="w-8 h-8 rounded-lg flex items-center justify-center text-base transition-all"
                     style={{
-                      backgroundColor: icon === e ? t.accent + '22' : t.bgSub,
+                      backgroundColor: icon === e ? t.accent + '22' : t.surfaceMuted,
                       outline: icon === e ? `2px solid ${t.accent}` : 'none',
                     }}>
                     {e}
@@ -159,7 +160,7 @@ export function RoutineModal({ routine, onClose }: { routine?: Routine; onClose:
                 autoFocus value={name} onChange={e => setName(e.target.value)}
                 placeholder="예: 아침 루틴"
                 className="w-full rounded-xl px-3 py-2.5 border outline-none"
-                style={{ borderColor: t.border, fontSize: 14, backgroundColor: t.bgSub, color: t.text }}
+                style={{ borderColor: t.border, fontSize: 14, backgroundColor: inputBg(t), color: t.text }}
               />
               <div className="mt-3">
                 <label style={{ fontSize: 12, color: t.textSub, display: 'block', marginBottom: 4 }}>시작 시간</label>
@@ -179,7 +180,7 @@ export function RoutineModal({ routine, onClose }: { routine?: Routine; onClose:
                       className="px-3 py-1 rounded-full"
                       style={{
                         fontSize: 12,
-                        backgroundColor: repeat === opt.value ? t.accent : t.bgSub,
+                        backgroundColor: repeat === opt.value ? t.accent : t.surfaceMuted,
                         color: repeat === opt.value ? '#fff' : t.text,
                         border: `1px solid ${repeat === opt.value ? t.accent : t.border}`,
                       }}>
@@ -197,7 +198,7 @@ export function RoutineModal({ routine, onClose }: { routine?: Routine; onClose:
                         className="w-8 h-8 rounded-full flex items-center justify-center"
                         style={{
                           fontSize: 12,
-                          backgroundColor: repeatDays.includes(i) ? t.accent : t.bgSub,
+                          backgroundColor: repeatDays.includes(i) ? t.accent : t.surfaceMuted,
                           color: repeatDays.includes(i) ? '#fff' : t.text,
                           border: `1px solid ${repeatDays.includes(i) ? t.accent : t.border}`,
                         }}>
@@ -229,7 +230,7 @@ export function RoutineModal({ routine, onClose }: { routine?: Routine; onClose:
                 const urlInvalid = (step.youtubeUrl ?? '').trim() !== '' && !isValidYoutubeUrl(step.youtubeUrl ?? '');
                 return (
                   <div key={i} className="rounded-xl p-3 space-y-2"
-                    style={{ backgroundColor: t.bgSub, border: `1px solid ${t.border}` }}>
+                    style={{ backgroundColor: t.surfaceMuted, border: `1px solid ${t.border}` }}>
                     {/* Step header */}
                     <div className="flex items-center gap-2">
                       <span style={{ fontSize: 11, color: t.textMuted, minWidth: 20, textAlign: 'right', fontWeight: 600 }}>
@@ -305,7 +306,7 @@ export function RoutineModal({ routine, onClose }: { routine?: Routine; onClose:
           )}
           <div className="flex gap-2 ml-auto">
             <button onClick={onClose} className="px-4 py-2 rounded-xl"
-              style={{ fontSize: 13, color: t.textSub, backgroundColor: t.bgSub, border: `1px solid ${t.border}` }}>
+              style={{ fontSize: 13, color: t.textSub, backgroundColor: t.surfaceMuted, border: `1px solid ${t.border}` }}>
               취소
             </button>
             <button onClick={handleSave} className="px-5 py-2 rounded-xl"
@@ -481,7 +482,7 @@ export function ExecutionPanel({ routine, onClose }: { routine: Routine; onClose
                   const stepName = routineSteps[i]?.title ?? `단계 ${i + 1}`;
                   return (
                     <div key={i} className="flex items-center gap-3 px-4 py-3 rounded-xl"
-                      style={{ backgroundColor: t.bgSub, border: `1px solid ${t.border}` }}>
+                      style={{ backgroundColor: t.surfaceMuted, border: `1px solid ${t.border}` }}>
                       <div className="w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0"
                         style={{ backgroundColor: over > 0 ? '#fee2e2' : t.accent + '20' }}>
                         {over > 0
@@ -527,7 +528,7 @@ export function ExecutionPanel({ routine, onClose }: { routine: Routine; onClose
                 disabled={isCompletedToday}
                 className="w-full py-3.5 rounded-xl flex items-center justify-center gap-2"
                 style={{
-                  backgroundColor: isCompletedToday ? t.bgSub : '#006b62',
+                  backgroundColor: isCompletedToday ? t.surfaceMuted : '#006b62',
                   color: isCompletedToday ? t.textMuted : '#fff',
                   fontWeight: 600, fontSize: 14,
                   opacity: isCompletedToday ? 0.6 : 1,
@@ -538,7 +539,7 @@ export function ExecutionPanel({ routine, onClose }: { routine: Routine; onClose
 
               <button onClick={handleReset}
                 className="w-full py-2.5 rounded-xl flex items-center justify-center gap-2"
-                style={{ backgroundColor: t.bgSub, color: t.textSub, fontSize: 13 }}>
+                style={{ backgroundColor: t.surfaceMuted, color: t.textSub, fontSize: 13 }}>
                 <RotateCcw size={14} /> 처음부터 다시하기
               </button>
             </div>
@@ -548,7 +549,7 @@ export function ExecutionPanel({ routine, onClose }: { routine: Routine; onClose
 
               {/* 전체 진행 상태 바 */}
               <div className="rounded-xl px-4 py-3"
-                style={{ backgroundColor: t.bgSub, border: `1px solid ${t.border}` }}>
+                style={{ backgroundColor: t.surfaceMuted, border: `1px solid ${t.border}` }}>
                 <div className="flex justify-between items-center mb-2">
                   <span style={{ fontSize: 12, fontWeight: 600, color: t.textSub }}>
                     전체 진행 {currentIdx + 1}/{routineSteps.length}
@@ -635,7 +636,7 @@ export function ExecutionPanel({ routine, onClose }: { routine: Routine; onClose
                       </p>
 
                       {/* 진행 바 */}
-                      <div className="w-full h-2 rounded-full overflow-hidden" style={{ backgroundColor: t.bgSub }}>
+                      <div className="w-full h-2 rounded-full overflow-hidden" style={{ backgroundColor: t.surfaceMuted }}>
                         {stepRemaining >= 0 ? (
                           <div className="h-full rounded-full transition-all duration-1000"
                             style={{
@@ -670,7 +671,7 @@ export function ExecutionPanel({ routine, onClose }: { routine: Routine; onClose
                           className="flex items-center justify-center gap-2 py-3 rounded-xl"
                           style={{
                             flex: 1,
-                            backgroundColor: running ? t.bgSub : t.bgSub,
+                            backgroundColor: running ? t.surfaceMuted : t.surfaceMuted,
                             color: running ? t.textSub : t.accent,
                             border: `1px solid ${t.border}`,
                             fontSize: 13, fontWeight: 600,
@@ -707,7 +708,7 @@ export function ExecutionPanel({ routine, onClose }: { routine: Routine; onClose
                       <div key={i}
                         className="flex items-center gap-3 px-3 py-2.5 rounded-xl"
                         style={{
-                          backgroundColor: isCurrent ? t.accent + '12' : isDone ? t.bgSub : t.bgSub,
+                          backgroundColor: isCurrent ? t.accent + '12' : isDone ? t.surfaceMuted : t.surfaceMuted,
                           border: `1px solid ${isCurrent ? t.accent + '40' : t.border}`,
                           opacity: !isDone && !isCurrent && started ? 0.5 : 1,
                         }}>
@@ -774,7 +775,7 @@ export function RoutineCard({ routine, onEdit, onRun }: {
       {/* Icon + Done indicator */}
       <div className="relative flex-shrink-0">
         <div className="w-12 h-12 rounded-xl flex items-center justify-center text-2xl"
-          style={{ backgroundColor: isCompletedToday ? t.accent + '20' : t.bgSub }}>
+          style={{ backgroundColor: isCompletedToday ? t.accent + '20' : t.surfaceMuted }}>
           {routine.icon}
         </div>
         {isCompletedToday && (
@@ -811,14 +812,14 @@ export function RoutineCard({ routine, onEdit, onRun }: {
 
       {/* Actions */}
       <div className="flex items-center gap-2 flex-shrink-0">
-        <button onClick={onEdit} className="p-2 rounded-lg" style={{ color: t.textMuted, backgroundColor: t.bgSub }}>
+        <button onClick={onEdit} className="p-2 rounded-lg" style={{ color: t.textMuted, backgroundColor: t.surfaceMuted }}>
           <Edit3 size={14} />
         </button>
         <button onClick={onRun}
           className="flex items-center gap-1.5 px-3 py-2 rounded-xl"
           style={{
             fontSize: 12, fontWeight: 600,
-            backgroundColor: isCompletedToday ? t.bgSub : t.accent,
+            backgroundColor: isCompletedToday ? t.surfaceMuted : t.accent,
             color: isCompletedToday ? t.textMuted : '#fff',
           }}>
           {isCompletedToday ? <Check size={13} /> : <Play size={13} />}
@@ -867,7 +868,7 @@ export function RoutinesView() {
                 {Math.round((completedToday / routines.length) * 100)}%
               </span>
             </div>
-            <div className="h-2 rounded-full overflow-hidden" style={{ backgroundColor: t.bgSub }}>
+            <div className="h-2 rounded-full overflow-hidden" style={{ backgroundColor: t.surfaceMuted }}>
               <div className="h-full rounded-full transition-all duration-500"
                 style={{
                   width: `${(completedToday / routines.length) * 100}%`,
