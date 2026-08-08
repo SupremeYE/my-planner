@@ -3,13 +3,12 @@ import { type ThemeTokens } from '../ThemeContext';
 import { type RetroStatus } from '../store';
 
 // ─── Haon Soft Pastel — Solid Elevation helpers (DESIGN.md v1.1) ───
-// 확장 토큰(solidCard* 등)이 있는 테마(H)에서만 파스텔 솔리드 표면으로 렌더하고,
-// 없는 기존 테마(A/B/C/D)에서는 원래의 모양(bgSub 카드)을 그대로 유지한다.
+// 앱은 테마 H 단일이다. 헬퍼는 파스텔 솔리드 표면 recipe 를 반환한다.
 // v1.1 핵심: 본문 표면은 글래스가 아니라 불투명 흰색 + 하이라인 + 소프트 그림자.
 //   글래스(반투명+blur)는 오버레이(떠 있는 상단 날짜 바·모달·팝오버)에만 사용한다.
 //
-// 페이지 마이그레이션 공용 모듈: 각 페이지는 이 헬퍼를 import 해서 동일 recipe를 재사용한다.
-export const isHaon = (t: ThemeTokens) => !!t.cardFrosted;
+// 공용 모듈: 각 페이지는 이 헬퍼를 import 해서 동일 recipe를 재사용한다.
+// (테마 H 단일화로 구 `isHaon(t)` 게이팅 헬퍼는 제거됨 — 모든 헬퍼가 H recipe 를 반환한다.)
 
 // 페이지 캔버스: 파스텔 방사형 blob (없으면 배경 미지정 → 기존 레이아웃 배경 유지)
 export function canvasStyle(t: ThemeTokens): CSSProperties {
@@ -18,28 +17,22 @@ export function canvasStyle(t: ThemeTokens): CSSProperties {
 
 // 솔리드 카드 (본문 표면) — 불투명 흰색 + 1px 하이라인 + 소프트 그림자, backdrop-filter 없음.
 export function solidCardStyle(t: ThemeTokens): CSSProperties {
-  if (isHaon(t)) {
-    return {
-      background: t.solidCardBg ?? '#FFFFFF',
-      border: t.solidCardBorder ?? '1px solid rgba(122,92,162,0.12)',
-      borderRadius: t.solidCardRadius ?? 20,
-      boxShadow: t.solidCardShadow ?? '0 8px 20px rgba(120,90,160,0.12)',
-    };
-  }
-  return { backgroundColor: t.bgSub, border: `1px solid ${t.border}` };
+  return {
+    background: t.solidCardBg ?? '#FFFFFF',
+    border: t.solidCardBorder ?? '1px solid rgba(122,92,162,0.12)',
+    borderRadius: t.solidCardRadius ?? 20,
+    boxShadow: t.solidCardShadow ?? '0 8px 20px rgba(120,90,160,0.12)',
+  };
 }
 
 // 솔리드 항목 행(할일·일정 카드) — 진한 하이라인 + 이중 그림자로 배경과 분리, 입체감.
 export function solidRowStyle(t: ThemeTokens): CSSProperties {
-  if (isHaon(t)) {
-    return {
-      background: t.solidRowBg ?? '#FFFFFF',
-      border: t.solidRowBorder ?? '1px solid rgba(122,92,162,0.20)',
-      borderRadius: t.solidRowRadius ?? 14,
-      boxShadow: t.solidRowShadow ?? '0 2px 4px rgba(120,90,160,0.12), 0 10px 22px rgba(120,90,160,0.16)',
-    };
-  }
-  return {};
+  return {
+    background: t.solidRowBg ?? '#FFFFFF',
+    border: t.solidRowBorder ?? '1px solid rgba(122,92,162,0.20)',
+    borderRadius: t.solidRowRadius ?? 14,
+    boxShadow: t.solidRowShadow ?? '0 2px 4px rgba(120,90,160,0.12), 0 10px 22px rgba(120,90,160,0.16)',
+  };
 }
 
 // ─── 입력 필드 배경 (DESIGN.md §5 Input — solid-card fill + hairline) ───
@@ -47,17 +40,17 @@ export function solidRowStyle(t: ThemeTokens): CSSProperties {
 // 비-H(A/B/C/D)는 기존 bgSub 를 그대로 반환 → 회귀 0. 새 규칙 창작이 아니라 §5 Input 의 코드화.
 // (테두리·color·fontSize 는 호출부가 유지 — 이 헬퍼는 배경만 게이팅한다.)
 export function inputBg(t: ThemeTokens): string {
-  return isHaon(t) ? (t.solidCardBg ?? '#FFFFFF') : t.bgSub;
+  return t.solidCardBg ?? '#FFFFFF';
 }
 
 // ─── danger 계열 회수 (DESIGN.md §5 — danger: t.danger 텍스트/아이콘 on t.dangerLight 채움) ───
 // off-palette 하드코딩(#DC2626/#FEE2E2/#FEF2F2/#FCA5A5)을 H 에서 토큰으로 회수한다.
 // 비-H 는 각 호출부의 원래 하드코딩 값을 fallback 으로 그대로 반환 → 픽셀 보존.
-export function dangerText(t: ThemeTokens, fallback = '#DC2626'): string {
-  return isHaon(t) ? t.danger : fallback;
+export function dangerText(t: ThemeTokens, _fallback = '#DC2626'): string {
+  return t.danger;
 }
-export function dangerFill(t: ThemeTokens, fallback: string): string {
-  return isHaon(t) ? t.dangerLight : fallback;
+export function dangerFill(t: ThemeTokens, _fallback?: string): string {
+  return t.dangerLight;
 }
 
 // ─── 세그먼트 컨트롤 (DESIGN.md §5 — 인라인 게이트 스타일) ───
@@ -66,26 +59,16 @@ export function dangerFill(t: ThemeTokens, fallback: string): string {
 // 코랄 언더라인은 DOM 추가 없이 inset box-shadow 로 구현(SegmentedControl.tsx <span> 의 등가 표현).
 // H 전용. 비-H 는 legacyFill(기존 풀필 색)을 그대로 반환 → 픽셀 보존.
 export function segmentTrackStyle(t: ThemeTokens): CSSProperties {
-  if (isHaon(t)) return { background: t.borderLight, padding: 3, gap: 3 };
-  return { border: `1px solid ${t.border}` };
+  return { background: t.borderLight, padding: 3, gap: 3 };
 }
-export function segmentItemStyle(t: ThemeTokens, active: boolean, legacyFill: string): CSSProperties {
-  if (isHaon(t)) {
-    return {
-      fontSize: 12,
-      fontWeight: active ? 600 : 500,
-      borderRadius: 8,
-      background: active ? t.card : 'transparent',
-      color: active ? t.text : t.textMuted,
-      boxShadow: active ? `0 2px 8px rgba(120,90,160,0.14), inset 0 -3px 0 ${t.accent}` : 'none',
-      transition: 'all 0.15s',
-    };
-  }
+export function segmentItemStyle(t: ThemeTokens, active: boolean, _legacyFill?: string): CSSProperties {
   return {
     fontSize: 12,
-    fontWeight: active ? 700 : 500,
-    backgroundColor: active ? legacyFill : 'transparent',
-    color: active ? '#fff' : t.textSub,
+    fontWeight: active ? 600 : 500,
+    borderRadius: 8,
+    background: active ? t.card : 'transparent',
+    color: active ? t.text : t.textMuted,
+    boxShadow: active ? `0 2px 8px rgba(120,90,160,0.14), inset 0 -3px 0 ${t.accent}` : 'none',
     transition: 'all 0.15s',
   };
 }
@@ -126,15 +109,12 @@ export function withAlpha(color: string, alpha01: number): string {
 
 // 반투명 프로스티드 바(떠 있는 상단 날짜 바·탭바) — 오버레이 글래스 (DESIGN v1.1 허용)
 export function glassBarStyle(t: ThemeTokens): CSSProperties {
-  if (isHaon(t)) {
-    return {
-      background: 'rgba(255,255,255,0.45)',
-      backdropFilter: t.glassBlur,
-      WebkitBackdropFilter: t.glassBlur,
-      borderBottom: `1px solid rgba(255,255,255,0.55)`,
-    };
-  }
-  return { borderBottom: `1px solid ${t.border}` };
+  return {
+    background: 'rgba(255,255,255,0.45)',
+    backdropFilter: t.glassBlur,
+    WebkitBackdropFilter: t.glassBlur,
+    borderBottom: `1px solid rgba(255,255,255,0.55)`,
+  };
 }
 
 // ─── 다중 선택 패턴 (DESIGN.md §5 — Selection mode & bulk-action bar) ───
@@ -146,21 +126,13 @@ export function selectedRowStyle(t: ThemeTokens): CSSProperties {
 
 // 일괄 액션 바(리스트 하단 floating) — 오버레이라 H 에서 글래스 허용(§1), 그 외 테마는 솔리드 카드.
 export function actionBarStyle(t: ThemeTokens): CSSProperties {
-  if (isHaon(t)) {
-    return {
-      background: 'rgba(255,255,255,0.75)',
-      backdropFilter: t.glassBlur,
-      WebkitBackdropFilter: t.glassBlur,
-      border: '1px solid rgba(255,255,255,0.6)',
-      borderRadius: 16,
-      boxShadow: '0 8px 24px rgba(120,90,160,0.18)',
-    };
-  }
   return {
-    backgroundColor: t.card,
-    border: `1px solid ${t.border}`,
+    background: 'rgba(255,255,255,0.75)',
+    backdropFilter: t.glassBlur,
+    WebkitBackdropFilter: t.glassBlur,
+    border: '1px solid rgba(255,255,255,0.6)',
     borderRadius: 16,
-    boxShadow: '0 4px 16px rgba(0,0,0,0.12)',
+    boxShadow: '0 8px 24px rgba(120,90,160,0.18)',
   };
 }
 
@@ -223,42 +195,26 @@ export function sheetBackdropStyle(): CSSProperties {
 
 // 모바일 바텀시트 컨테이너 — 상단만 라운드 + 드래그 핸들 영역, 하단 고정. 오버레이 글래스(§1).
 export function bottomSheetStyle(t: ThemeTokens): CSSProperties {
-  if (isHaon(t)) {
-    return {
-      background: t.cardFrosted ?? 'rgba(255,255,255,0.92)',
-      backdropFilter: t.glassBlur,
-      WebkitBackdropFilter: t.glassBlur,
-      borderTop: '1px solid rgba(255,255,255,0.6)',
-      borderTopLeftRadius: 24,
-      borderTopRightRadius: 24,
-      boxShadow: '0 -8px 24px rgba(120,90,160,0.16)',
-    };
-  }
   return {
-    backgroundColor: t.bgSub,
-    borderTop: `1px solid ${t.border}`,
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
+    background: t.cardFrosted ?? 'rgba(255,255,255,0.92)',
+    backdropFilter: t.glassBlur,
+    WebkitBackdropFilter: t.glassBlur,
+    borderTop: '1px solid rgba(255,255,255,0.6)',
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    boxShadow: '0 -8px 24px rgba(120,90,160,0.16)',
   };
 }
 
 // PC "+ 추가" 팝오버(다종 항목 chooser) — 헤더 버튼 아래 앵커, 오버레이 글래스(§1).
 export function addPopoverStyle(t: ThemeTokens): CSSProperties {
-  if (isHaon(t)) {
-    return {
-      background: t.cardFrosted ?? 'rgba(255,255,255,0.92)',
-      backdropFilter: t.glassBlur,
-      WebkitBackdropFilter: t.glassBlur,
-      border: '1px solid rgba(255,255,255,0.6)',
-      borderRadius: 16,
-      boxShadow: '0 8px 24px rgba(120,90,160,0.14)',
-    };
-  }
   return {
-    backgroundColor: t.bgSub,
-    border: `1px solid ${t.border}`,
-    borderRadius: 14,
-    boxShadow: '0 8px 24px rgba(0,0,0,0.10)',
+    background: t.cardFrosted ?? 'rgba(255,255,255,0.92)',
+    backdropFilter: t.glassBlur,
+    WebkitBackdropFilter: t.glassBlur,
+    border: '1px solid rgba(255,255,255,0.6)',
+    borderRadius: 16,
+    boxShadow: '0 8px 24px rgba(120,90,160,0.14)',
   };
 }
 
@@ -288,10 +244,7 @@ export function periodStepperStyle(t: ThemeTokens, disabled = false): CSSPropert
     cursor: disabled ? 'default' : 'pointer',
     ...(disabled ? { opacity: 0.4 } : null),
   };
-  if (isHaon(t)) {
-    return { ...base, background: t.surfaceMuted, color: t.textSub, borderRadius: 999 };
-  }
-  return { ...base, background: t.bgSub, color: t.textSub, borderRadius: 8 };
+  return { ...base, background: t.surfaceMuted, color: t.textSub, borderRadius: 999 };
 }
 
 // ─── 눈바디 갤러리 (Photo gallery — DESIGN.md §5 "Photo gallery") ───
@@ -302,16 +255,13 @@ export function periodStepperStyle(t: ThemeTokens, disabled = false): CSSPropert
 // 썸네일 타일 — 1:1 정사각, 라운드 + overflow hidden. 로딩/빈 상태의 중립 표면도 이 recipe.
 export function photoTileStyle(t: ThemeTokens): CSSProperties {
   const base: CSSProperties = { position: 'relative', overflow: 'hidden' };
-  if (isHaon(t)) {
-    return {
-      ...base,
-      background: t.solidCardBg ?? '#FFFFFF',
-      border: t.solidCardBorder ?? '1px solid rgba(122,92,162,0.12)',
-      borderRadius: 14,
-      boxShadow: t.solidCardShadow ?? '0 8px 20px rgba(120,90,160,0.12)',
-    };
-  }
-  return { ...base, backgroundColor: t.bgSub, border: `1px solid ${t.border}`, borderRadius: 12 };
+  return {
+    ...base,
+    background: t.solidCardBg ?? '#FFFFFF',
+    border: t.solidCardBorder ?? '1px solid rgba(122,92,162,0.12)',
+    borderRadius: 14,
+    boxShadow: t.solidCardShadow ?? '0 8px 20px rgba(120,90,160,0.12)',
+  };
 }
 
 // ─── 월말 회고 슬롯 상태 칩 (DESIGN.md §5 "월말 회고 슬롯") ───
@@ -350,7 +300,5 @@ export function photoBadgeStyle(t: ThemeTokens): CSSProperties {
     color: t.text,
     borderRadius: 8,
   };
-  return isHaon(t)
-    ? { ...base, boxShadow: '0 2px 6px rgba(120,90,160,0.16)' }
-    : { ...base, border: `1px solid ${t.border}` };
+  return { ...base, boxShadow: '0 2px 6px rgba(120,90,160,0.16)' };
 }

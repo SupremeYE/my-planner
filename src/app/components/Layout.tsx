@@ -584,13 +584,11 @@ export function Layout() {
   const navActiveStyle = { backgroundColor: t.accentLight, color: t.text, fontWeight: 600 };
   const navInactiveStyle = { backgroundColor: 'transparent', color: t.textSub, fontWeight: 400 };
 
-  // 파스텔(H) 테마에서만 hover 피드백 적용 (DailyView isHaon과 동일 기준: cardFrosted 존재)
-  const isPastel = !!t.cardFrosted;
   // 비활성 항목 hover: 옅은 라벤더 tint + 글자 진해짐 + 살짝 슬라이드(펼침) / 확대(접힘).
   // active 항목은 hover에도 그대로. transition-all(className)이 부드럽게 애니메이션.
   const navItemStyle = (isActive: boolean, key: string, collapsed = false): React.CSSProperties => {
     if (isActive) return { ...navActiveStyle };
-    const hovered = isPastel && hoveredNav === key;
+    const hovered = hoveredNav === key;
     return {
       ...navInactiveStyle,
       backgroundColor: hovered ? t.bgHover : 'transparent',
@@ -599,12 +597,10 @@ export function Layout() {
     };
   };
   const navHover = (key: string) => (
-    isPastel
-      ? { onMouseEnter: () => setHoveredNav(key), onMouseLeave: () => setHoveredNav(prev => (prev === key ? null : prev)) }
-      : {}
+    { onMouseEnter: () => setHoveredNav(key), onMouseLeave: () => setHoveredNav(prev => (prev === key ? null : prev)) }
   );
   const navIconColor = (isActive: boolean, key: string) =>
-    isActive || (isPastel && hoveredNav === key) ? t.text : t.textMuted;
+    isActive || hoveredNav === key ? t.text : t.textMuted;
 
   return (
     <div className="min-h-screen" style={{ backgroundColor: t.bg, fontFamily: t.font, transition: 'background-color 0.3s, color 0.3s' }}>

@@ -50,8 +50,8 @@ export function QuickAddInput({ defaultDate = null, onSubmitted, autoFocus, plac
   const { addTodo, addEvent, addTag, tags: allTags, projects } = usePlanner();
   const { t } = useTheme();
 
-  // 솔리드 표면: solid prop + 파스텔(H) 테마(cardFrosted 존재)에서만. 그 외에는 기존 모양 유지.
-  const solidBox = !!solid && !!t.cardFrosted;
+  // 솔리드 표면: solid prop 이 있을 때(테마는 H 단일).
+  const solidBox = !!solid;
 
   const [text, setText] = useState('');
   // 사용자가 타입 칩을 직접 탭해 명시한 타입(수동 선택). null = 미선택.
