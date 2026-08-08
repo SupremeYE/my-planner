@@ -11,13 +11,15 @@ import { useToasts, ToastHost } from '../culture/CultureToast';
 type Board = { id: string; title: string; sort_order: number; created_at: string };
 type Cell = {
   id: string; board_id: string; parent_id: string | null;
-  position: number; content: string; is_done: boolean; created_at: string;
+  position: number; content: string; is_done: boolean; color: string | null; created_at: string;
 };
 
 export interface MandalartProgress {
   overall: number;
   subPct: (subId: string) => number;
   subHasActions: (subId: string) => boolean;
+  /** 세부의 (완료 수, 전체 수) — 점 인디케이터용. 자식 없는 leaf 는 (is_done?1:0, 0). */
+  subCounts: (subId: string) => { done: number; total: number };
 }
 
 export function computeProgress(cells: Cell[]): MandalartProgress {
@@ -25,17 +27,17 @@ export function computeProgress(cells: Cell[]): MandalartProgress {
   let total = 0;
   let done = 0;
   // 자식 있는 세부 = 자식 행동의 (done,total). 자식 없는 leaf 세부 = (is_done?1:0, 1).
-  const perSub = new Map<string, { done: number; total: number; hasActions: boolean }>();
+  const perSub = new Map<string, { done: number; total: number; hasActions: boolean; actionDone: number; actionTotal: number }>();
   for (const sub of subs) {
     const actions = cells.filter(c => c.parent_id === sub.id);
     if (actions.length > 0) {
       const t = actions.length;
       const d = actions.filter(a => a.is_done).length;
-      perSub.set(sub.id, { done: d, total: t, hasActions: true });
+      perSub.set(sub.id, { done: d, total: t, hasActions: true, actionDone: d, actionTotal: t });
       total += t; done += d;
     } else {
       const d = sub.is_done ? 1 : 0;
-      perSub.set(sub.id, { done: d, total: 1, hasActions: false });
+      perSub.set(sub.id, { done: d, total: 1, hasActions: false, actionDone: d, actionTotal: 0 });
       total += 1; done += d;
     }
   }
@@ -47,6 +49,11 @@ export function computeProgress(cells: Cell[]): MandalartProgress {
       return Math.round((e.done / e.total) * 100);
     },
     subHasActions: (subId) => perSub.get(subId)?.hasActions ?? false,
+    subCounts: (subId) => {
+      const e = perSub.get(subId);
+      if (!e) return { done: 0, total: 0 };
+      return { done: e.actionDone, total: e.actionTotal };
+    },
   };
 }
 

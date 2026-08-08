@@ -245,3 +245,13 @@
     box-shadow: 0 0 0 3px var(--haon-type-pulse-ring, transparent);
   }
 }
+
+/* 만다라트 빈 셀(ghost) — 평소 투명하게 배경으로 물러나고, hover 시에만 살짝 드러난다.
+   중립(딥 인디고 저알파) 틴트 — 라일락 아님(명암 역전 유지). 상호작용 피드백(§5). */
+.mandalart-ghost {
+  transition: background-color 0.15s ease, border-color 0.15s ease;
+}
+.mandalart-ghost:hover {
+  background-color: rgba(46, 42, 91, 0.04) !important;
+  border-color: rgba(46, 42, 91, 0.22) !important;
+}

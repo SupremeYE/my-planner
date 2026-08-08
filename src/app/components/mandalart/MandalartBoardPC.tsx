@@ -5,8 +5,29 @@ import { db } from '../../../lib/db';
 import { usePlanner } from '../../store';
 import { computeProgress } from './MandalartView';
 import { SendCellModal } from './SendCellModal';
+import { inputBg, withAlpha } from '../../styles/haonStyles';
+import { mandalartColor } from '../../styles/mandalartColors';
 import type { Cell } from './MandalartBoardMobile';
 import type { Notify } from '../culture/CultureToast';
+
+// 채워진 셀이 캔버스 위로 떠오르는 소프트 리프트 그림자(빈 셀은 투명 → 명암 역전).
+const CELL_LIFT = '0 2px 8px rgba(120,90,160,0.10)';
+// 8칸 점 인디케이터 (세부 완료 수). done 개가 채워짐.
+function ActionDots({ done, t }: { done: number; t: ReturnType<typeof useTheme>['t'] }) {
+  return (
+    <span style={{ display: 'flex', gap: 2.5, alignItems: 'center' }}>
+      {Array.from({ length: 8 }).map((_, i) => (
+        <span
+          key={i}
+          style={{
+            width: 4, height: 4, borderRadius: 999,
+            backgroundColor: i < done ? t.success : withAlpha(t.textMuted, 0.35),
+          }}
+        />
+      ))}
+    </span>
+  );
+}
 
 interface Props {
   boardId: string;
@@ -117,7 +138,7 @@ export function MandalartBoardPC({ boardId, boardTitle, cells, onMutate, onNotif
       <div className="flex items-center justify-end mb-4">
         <div className="flex items-center gap-3" style={{ minWidth: 260 }}>
           <span style={{ fontSize: 12, color: t.textMuted }}>전체 진행률</span>
-          <div className="flex-1 h-2 rounded-full overflow-hidden" style={{ backgroundColor: t.lavenderTint, minWidth: 140 }}>
+          <div className="flex-1 h-2 rounded-full overflow-hidden" style={{ backgroundColor: t.surfaceMuted, minWidth: 140 }}>
             <div className="h-full" style={{ width: `${progress.overall}%`, backgroundColor: t.success }} />
           </div>
           <span style={{ fontFamily: t.fontSection, fontSize: 22, color: t.text }}> {/* 툴바 진행률 수치, 섹션 헤더급 */}
@@ -131,7 +152,7 @@ export function MandalartBoardPC({ boardId, boardTitle, cells, onMutate, onNotif
         className="grid"
         style={{
           gridTemplateColumns: 'repeat(3, 1fr)',
-          gap: 12,
+          gap: 16, // 블록 간 간격 > 셀 간격(4) — 3×3 블록 계층이 드러나게
           maxWidth: 780,
           margin: '0 auto',
         }}
@@ -148,9 +169,11 @@ export function MandalartBoardPC({ boardId, boardTitle, cells, onMutate, onNotif
 
           // 둘레 블록 자유도: 세부 없음 → 전체 +, 세부 leaf → "펼치기" 큰 버튼.
           if (!isCenterBlock && subIdx !== null && !isExpanded) {
+            const ghostColor = subCell ? mandalartColor(t, subCell.color) : null;
             return (
               <button
                 key={blockIdx}
+                className="mandalart-ghost"
                 onClick={() => {
                   if (!subCell) openEdit({ kind: 'sub', position: subIdx, cell: null });
                   else openEdit({ kind: 'action', parentId: subCell.id, position: 0, cell: null });
@@ -158,8 +181,8 @@ export function MandalartBoardPC({ boardId, boardTitle, cells, onMutate, onNotif
                 style={{
                   padding: 5,
                   borderRadius: 12,
-                  backgroundColor: t.lavenderTint,
-                  border: `1.5px dashed ${t.accentLight}`,
+                  backgroundColor: 'transparent',
+                  border: `1.5px dashed ${t.border}`,
                   minWidth: 0,
                   aspectRatio: '1',
                   display: 'flex',
@@ -167,12 +190,13 @@ export function MandalartBoardPC({ boardId, boardTitle, cells, onMutate, onNotif
                   alignItems: 'center',
                   justifyContent: 'center',
                   gap: 4,
-                  color: t.accent,
-                  opacity: subCell ? 1 : 0.85,
+                  color: t.textMuted,
+                  // 채워진 leaf 세부는 자기 색을 좌측 바로 살짝 드러내 정체성 유지(빈 셀은 완전 중립)
+                  ...(ghostColor ? { boxShadow: `inset 3px 0 0 ${ghostColor.bar}` } : null),
                 }}
               >
                 <span style={{ fontSize: 22, fontWeight: 300 }}>+</span>
-                <span style={{ fontFamily: t.fontDecorative, fontWeight: 700, fontSize: 11, color: t.accent }}>
+                <span style={{ fontFamily: t.fontDecorative, fontWeight: 700, fontSize: 11, color: t.textMuted }}>
                   {subCell ? `${subCell.content || '세부'} 펼치기` : '세부 추가'}
                 </span>
               </button>
@@ -188,8 +212,9 @@ export function MandalartBoardPC({ boardId, boardTitle, cells, onMutate, onNotif
                 gap: 4,
                 padding: 5,
                 borderRadius: 12,
-                backgroundColor: t.lavenderTint,
-                boxShadow: isCenterBlock ? `0 0 0 2px ${t.accent}55` : `inset 0 0 0 1px ${t.border}`,
+                // 블록 배경은 투명 — 라벤더 wash 제거(명암 역전의 핵심). 중심 블록만 은은한 코랄 링.
+                backgroundColor: 'transparent',
+                boxShadow: isCenterBlock ? `0 0 0 2px ${withAlpha(t.accent, 0.33)}` : 'none',
                 minWidth: 0,
               }}
             >
@@ -215,7 +240,7 @@ export function MandalartBoardPC({ boardId, boardTitle, cells, onMutate, onNotif
                       key={gridIdx}
                       cell={sub}
                       sent={sub ? sentCellIds.has(sub.id) : false}
-                      pct={sub ? progress.subPct(sub.id) : 0}
+                      doneCount={sub ? progress.subCounts(sub.id).done : 0}
                       hasActions={subHasActions}
                       t={t}
                       onClick={() => {
@@ -238,6 +263,7 @@ export function MandalartBoardPC({ boardId, boardTitle, cells, onMutate, onNotif
                       key={gridIdx}
                       name={subCell?.content ?? '미정'}
                       pct={subCell ? progress.subPct(subCell.id) : 0}
+                      colorKey={subCell?.color ?? null}
                       t={t}
                       onClick={() => {
                         if (subIdx !== null) {
@@ -352,44 +378,49 @@ function CorePCCell({ title, pct, t, onClick }: {
   );
 }
 
-function SubPCCell({ cell, sent, pct, hasActions, t, onClick, onEdit }: {
-  cell: Cell | null; sent: boolean; pct: number; hasActions: boolean;
+function SubPCCell({ cell, sent, doneCount, hasActions, t, onClick, onEdit }: {
+  cell: Cell | null; sent: boolean; doneCount: number; hasActions: boolean;
   t: ReturnType<typeof useTheme>['t']; onClick: () => void; onEdit: () => void;
 }) {
   if (!cell) {
+    // 빈 셀(ghost) — 투명 + 중립 점선 + 뮤트 +. 배경으로 물러남(hover 시에만 살짝 드러남).
     return (
       <button
         onClick={onClick}
         title="세부 목표 추가"
+        className="mandalart-ghost"
         style={{
           ...cellBase,
-          backgroundColor: t.card,
-          border: `1.5px dashed ${t.accentLight}`,
-          color: t.accent,
+          backgroundColor: 'transparent',
+          border: `1.5px dashed ${t.border}`,
+          color: t.textMuted,
         }}
       >
         <span style={{ fontSize: 16, fontWeight: 300, lineHeight: 1 }}>+</span>
-        <span style={{ fontSize: 8.5, color: t.accent }}>세부</span>
+        <span style={{ fontSize: 8.5, color: t.textMuted }}>세부</span>
       </button>
     );
   }
   const done = !hasActions && cell.is_done;
+  const c = mandalartColor(t, cell.color);
   return (
     <button
       onClick={onClick}
       onContextMenu={e => { e.preventDefault(); onEdit(); }}
       style={{
         ...cellBase,
-        backgroundColor: done ? t.success + '22' : t.card,
+        // 채운 셀 = 흰 솔리드 카드 + 좌측 3px 컬러 액센트 바(inset) + 리프트 그림자. 완료라도 배경 불변.
+        backgroundColor: t.card,
         color: done ? t.textMuted : t.text,
-        border: `1px solid ${done ? t.success + '66' : t.border}`,
+        border: `1px solid ${t.border}`,
+        boxShadow: `inset 3px 0 0 ${c.bar}, ${CELL_LIFT}`,
         position: 'relative',
       }}
     >
       {sent && (
         <span
           title="이 칸에서 보낸 항목이 있어요"
-          style={{ position: 'absolute', top: 2, left: 4, fontSize: 10, fontWeight: 700, color: t.accent, lineHeight: 1 }}
+          style={{ position: 'absolute', top: 2, left: 6, fontSize: 10, fontWeight: 700, color: t.accent, lineHeight: 1 }}
         >✦</span>
       )}
       <span style={{
@@ -400,15 +431,13 @@ function SubPCCell({ cell, sent, pct, hasActions, t, onClick, onEdit }: {
         {cell.content}
       </span>
       {hasActions ? (
-        <span style={{ width: '74%', height: 4, borderRadius: 999, backgroundColor: t.lavenderTint, overflow: 'hidden', display: 'block' }}>
-          <b style={{ display: 'block', height: '100%', width: `${pct}%`, backgroundColor: t.success }} />
-        </span>
+        <ActionDots done={doneCount} t={t} />
       ) : (
         <span
           aria-hidden
           style={{
             width: 14, height: 14, borderRadius: 999,
-            border: `1.5px solid ${done ? t.success : t.accent}`,
+            border: `1.5px solid ${done ? t.success : t.border}`,
             backgroundColor: done ? t.success : 'transparent',
             color: '#fff', fontSize: 9, fontWeight: 700,
             display: 'flex', alignItems: 'center', justifyContent: 'center',
@@ -419,23 +448,26 @@ function SubPCCell({ cell, sent, pct, hasActions, t, onClick, onEdit }: {
   );
 }
 
-function SubCenterPCCell({ name, pct, t, onClick }: {
-  name: string; pct: number; t: ReturnType<typeof useTheme>['t']; onClick: () => void;
+function SubCenterPCCell({ name, pct, colorKey, t, onClick }: {
+  name: string; pct: number; colorKey: string | null; t: ReturnType<typeof useTheme>['t']; onClick: () => void;
 }) {
+  const c = mandalartColor(t, colorKey);
   return (
     <button
       onClick={onClick}
       style={{
         ...cellBase,
-        backgroundColor: t.lavenderTint,
+        // 미러 셀 = 이 세부의 색으로 채움(중앙 블록의 세부가 외곽 블록에서 반복되는 자리임을 표현).
+        backgroundColor: c.mid,
         color: t.text,
-        border: `1px solid ${t.border}`,
+        border: `1px solid ${withAlpha(c.bar, 0.35)}`,
+        boxShadow: CELL_LIFT,
       }}
     >
       <span style={{ fontFamily: t.fontDecorative, fontWeight: 700, fontSize: 12, lineHeight: 1.15, ...clamp2 }}>
         {name}
       </span>
-      <b style={{ fontFamily: t.fontNumeric, fontSize: 13, fontWeight: 400, color: t.accent }}>
+      <b style={{ fontFamily: t.fontNumeric, fontSize: 13, fontWeight: 400, color: t.text }}>
         {pct}%
       </b>
     </button>
@@ -449,19 +481,21 @@ function ActionPCCell({ cell, sent, t, onTap, onEdit }: {
   onEdit: () => void;
 }) {
   if (!cell) {
+    // 빈 셀(ghost) — 투명 + 중립 점선 + 뮤트.
     return (
       <button
         onClick={onTap}
         title="행동 추가"
+        className="mandalart-ghost"
         style={{
           ...cellBase,
-          backgroundColor: t.card,
-          border: `1.5px dashed ${t.accentLight}`,
-          color: t.accent,
+          backgroundColor: 'transparent',
+          border: `1.5px dashed ${t.border}`,
+          color: t.textMuted,
         }}
       >
         <span style={{ fontSize: 16, fontWeight: 300, lineHeight: 1 }}>+</span>
-        <span style={{ fontSize: 8.5, color: t.accent }}>행동</span>
+        <span style={{ fontSize: 8.5, color: t.textMuted }}>행동</span>
       </button>
     );
   }
@@ -472,8 +506,10 @@ function ActionPCCell({ cell, sent, t, onTap, onEdit }: {
       onContextMenu={e => { e.preventDefault(); onEdit(); }}
       style={{
         ...cellBase,
-        backgroundColor: done ? t.success + '22' : t.card,
-        border: `1px solid ${done ? t.success + '66' : t.border}`,
+        // 세부 셀 = 흰 솔리드 카드. 완료라도 배경 불변(리스트 행 규칙) — 체크+취소선+뮤트로만 표현.
+        backgroundColor: t.card,
+        border: `1px solid ${t.border}`,
+        boxShadow: CELL_LIFT,
         color: done ? t.textMuted : t.text,
         cursor: 'pointer',
         position: 'relative',
@@ -484,6 +520,12 @@ function ActionPCCell({ cell, sent, t, onTap, onEdit }: {
           title="이 칸에서 보낸 항목이 있어요"
           style={{ position: 'absolute', top: 2, left: 4, fontSize: 10, fontWeight: 700, color: t.accent, lineHeight: 1 }}
         >✦</span>
+      )}
+      {done && (
+        <span
+          aria-hidden
+          style={{ position: 'absolute', top: 2, right: 4, fontSize: 9, fontWeight: 700, color: t.success, lineHeight: 1 }}
+        >✓</span>
       )}
       <span style={{
         fontSize: 11, lineHeight: 1.15,
@@ -532,7 +574,7 @@ function EditModalPC({
           placeholder={placeholder}
           rows={3}
           className="w-full rounded-xl px-3 py-2.5 border outline-none resize-none"
-          style={{ fontSize: 14, borderColor: t.border, backgroundColor: t.lavenderTint, color: t.text }}
+          style={{ fontSize: 14, borderColor: t.border, backgroundColor: inputBg(t), color: t.text }}
         />
         <div className="flex justify-between items-center gap-2 mt-3">
           {onSend ? (
@@ -549,7 +591,7 @@ function EditModalPC({
             <button
               onClick={onClose}
               className="px-3 py-1.5 rounded-xl"
-              style={{ fontSize: 13, color: t.textMuted, backgroundColor: t.lavenderTint }}
+              style={{ fontSize: 13, color: t.textSub, backgroundColor: t.surfaceMuted }}
             >취소</button>
             <button
               onClick={onSubmit}

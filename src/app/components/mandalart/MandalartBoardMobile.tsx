@@ -9,7 +9,7 @@ import type { Notify } from '../culture/CultureToast';
 
 export type Cell = {
   id: string; board_id: string; parent_id: string | null;
-  position: number; content: string; is_done: boolean; created_at: string;
+  position: number; content: string; is_done: boolean; color: string | null; created_at: string;
 };
 
 interface Props {
