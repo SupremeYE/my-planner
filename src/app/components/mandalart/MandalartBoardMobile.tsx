@@ -6,7 +6,8 @@ import { usePlanner } from '../../store';
 import { computeProgress } from './MandalartView';
 import { SendCellModal } from './SendCellModal';
 import { inputBg, solidCardStyle, withAlpha } from '../../styles/haonStyles';
-import { mandalartColor } from '../../styles/mandalartColors';
+import { mandalartColor, type MandalartColorKey } from '../../styles/mandalartColors';
+import { MandalartColorPicker } from './MandalartColorPicker';
 import type { Notify } from '../culture/CultureToast';
 
 export type Cell = {
@@ -51,6 +52,7 @@ export function MandalartBoardMobile({ boardId, boardTitle, cells, onMutate, onN
   const [drillSubId, setDrillSubId] = useState<string | null>(null);
   const [editing, setEditing] = useState<EditTarget | null>(null);
   const [editDraft, setEditDraft] = useState('');
+  const [editColor, setEditColor] = useState<string | null>(null);
   const [sending, setSending] = useState<{ cell: Cell; isAction: boolean } | null>(null);
   const longPressTimer = useRef<number | null>(null);
   const longPressed = useRef(false);
@@ -98,9 +100,10 @@ export function MandalartBoardMobile({ boardId, boardTitle, cells, onMutate, onN
     setEditing(target);
     if (target.kind === 'core') setEditDraft(boardTitle);
     else setEditDraft(target.cell?.content ?? '');
+    setEditColor(target.kind === 'sub' ? (target.cell?.color ?? null) : null);
   };
 
-  const closeEdit = () => { setEditing(null); setEditDraft(''); };
+  const closeEdit = () => { setEditing(null); setEditDraft(''); setEditColor(null); };
 
   const submitEdit = async () => {
     if (!editing) return;
@@ -111,17 +114,20 @@ export function MandalartBoardMobile({ boardId, boardTitle, cells, onMutate, onN
       return;
     }
     const parentId = editing.kind === 'sub' ? null : editing.parentId;
+    const isSub = editing.kind === 'sub';
     if (editing.cell) {
       if (!next) {
         // 내용 비우면 셀 삭제 (자식 행동도 CASCADE)
         await db.mandalartCells.delete(editing.cell.id);
         onNotify('삭제되었습니다', 'success');
-      } else if (next !== editing.cell.content) {
-        await db.mandalartCells.update(editing.cell.id, { content: next });
-        onNotify('저장되었습니다', 'success');
+      } else {
+        const patch: { content?: string; color?: string | null } = {};
+        if (next !== editing.cell.content) patch.content = next;
+        if (isSub && editColor !== (editing.cell.color ?? null)) patch.color = editColor;
+        if (Object.keys(patch).length) { await db.mandalartCells.update(editing.cell.id, patch); onNotify('저장되었습니다', 'success'); }
       }
     } else if (next) {
-      await db.mandalartCells.upsert({ boardId, parentId, position: editing.position, content: next });
+      await db.mandalartCells.upsert({ boardId, parentId, position: editing.position, content: next, color: isSub ? editColor : null });
       onNotify('추가되었습니다', 'success');
     }
     onMutate();
@@ -195,6 +201,8 @@ export function MandalartBoardMobile({ boardId, boardTitle, cells, onMutate, onN
             onChange={setEditDraft}
             onSubmit={submitEdit}
             onClose={closeEdit}
+            color={editing.kind === 'sub' ? editColor : undefined}
+            onColorChange={editing.kind === 'sub' ? setEditColor : undefined}
             allowEmpty={(editing.kind === 'sub' || editing.kind === 'action') && !!editing.cell}
             placeholder={editing.kind === 'action' ? '행동을 적어보세요' : '세부 목표'}
             onSend={
@@ -296,6 +304,8 @@ export function MandalartBoardMobile({ boardId, boardTitle, cells, onMutate, onN
           onChange={setEditDraft}
           onSubmit={submitEdit}
           onClose={closeEdit}
+          color={editing.kind === 'sub' ? editColor : undefined}
+          onColorChange={editing.kind === 'sub' ? setEditColor : undefined}
           allowEmpty={editing.kind === 'sub' && !!editing.cell}
           placeholder={editing.kind === 'core' ? '핵심 목표 (예: 2026 최고의 나)' : '세부 목표'}
           onSend={
@@ -499,7 +509,7 @@ function ActionCell({
 
 // ─── 편집 모달 ────────────────────────────────────────────────
 function EditModal({
-  t, title, draft, onChange, onSubmit, onClose, allowEmpty, placeholder, onSend,
+  t, title, draft, onChange, onSubmit, onClose, allowEmpty, placeholder, onSend, color, onColorChange,
 }: {
   t: ReturnType<typeof useTheme>['t'];
   title: string;
@@ -510,6 +520,8 @@ function EditModal({
   allowEmpty: boolean;
   placeholder: string;
   onSend?: () => void;
+  color?: string | null;
+  onColorChange?: (key: MandalartColorKey | null) => void;
 }) {
   return (
     <div
@@ -532,6 +544,11 @@ function EditModal({
           className="w-full rounded-xl px-3 py-2.5 border outline-none resize-none"
           style={{ fontSize: 14, borderColor: t.border, backgroundColor: inputBg(t), color: t.text }}
         />
+        {onColorChange && (
+          <div className="mt-3">
+            <MandalartColorPicker value={color ?? null} onChange={onColorChange} />
+          </div>
+        )}
         <div className="flex justify-between items-center gap-2 mt-3">
           {onSend ? (
             <button

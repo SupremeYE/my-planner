@@ -6,7 +6,8 @@ import { usePlanner } from '../../store';
 import { computeProgress } from './MandalartView';
 import { SendCellModal } from './SendCellModal';
 import { inputBg, withAlpha } from '../../styles/haonStyles';
-import { mandalartColor } from '../../styles/mandalartColors';
+import { mandalartColor, type MandalartColorKey } from '../../styles/mandalartColors';
+import { MandalartColorPicker } from './MandalartColorPicker';
 import type { Cell } from './MandalartBoardMobile';
 import type { Notify } from '../culture/CultureToast';
 
@@ -99,14 +100,16 @@ export function MandalartBoardPC({ boardId, boardTitle, cells, onMutate, onNotif
 
   const [editing, setEditing] = useState<EditTarget | null>(null);
   const [editDraft, setEditDraft] = useState('');
+  const [editColor, setEditColor] = useState<string | null>(null);
   const [sending, setSending] = useState<{ cell: Cell; isAction: boolean } | null>(null);
 
   const openEdit = (target: EditTarget) => {
     setEditing(target);
     if (target.kind === 'core') setEditDraft(boardTitle);
     else setEditDraft(target.cell?.content ?? '');
+    setEditColor(target.kind === 'sub' ? (target.cell?.color ?? null) : null);
   };
-  const closeEdit = () => { setEditing(null); setEditDraft(''); };
+  const closeEdit = () => { setEditing(null); setEditDraft(''); setEditColor(null); };
 
   const submitEdit = async () => {
     if (!editing) return;
@@ -116,11 +119,17 @@ export function MandalartBoardPC({ boardId, boardTitle, cells, onMutate, onNotif
       closeEdit(); return;
     }
     const parentId = editing.kind === 'sub' ? null : editing.parentId;
+    const isSub = editing.kind === 'sub';
     if (editing.cell) {
       if (!next) { await db.mandalartCells.delete(editing.cell.id); onNotify('삭제되었습니다', 'success'); }
-      else if (next !== editing.cell.content) { await db.mandalartCells.update(editing.cell.id, { content: next }); onNotify('저장되었습니다', 'success'); }
+      else {
+        const patch: { content?: string; color?: string | null } = {};
+        if (next !== editing.cell.content) patch.content = next;
+        if (isSub && editColor !== (editing.cell.color ?? null)) patch.color = editColor;
+        if (Object.keys(patch).length) { await db.mandalartCells.update(editing.cell.id, patch); onNotify('저장되었습니다', 'success'); }
+      }
     } else if (next) {
-      await db.mandalartCells.upsert({ boardId, parentId, position: editing.position, content: next });
+      await db.mandalartCells.upsert({ boardId, parentId, position: editing.position, content: next, color: isSub ? editColor : null });
       onNotify('추가되었습니다', 'success');
     }
     onMutate();
@@ -309,6 +318,8 @@ export function MandalartBoardPC({ boardId, boardTitle, cells, onMutate, onNotif
           onClose={closeEdit}
           allowEmpty={(editing.kind === 'sub' || editing.kind === 'action') && !!editing.cell}
           placeholder={editing.kind === 'core' ? '핵심 목표' : editing.kind === 'sub' ? '세부 목표' : '행동'}
+          color={editing.kind === 'sub' ? editColor : undefined}
+          onColorChange={editing.kind === 'sub' ? setEditColor : undefined}
           onSend={
             editing.kind !== 'core' && editing.cell && (editDraft.trim() || editing.cell.content)
               ? () => {
@@ -540,7 +551,7 @@ function ActionPCCell({ cell, sent, t, onTap, onEdit }: {
 
 // ─── PC 편집 모달 ─────────────────────────────────────────────
 function EditModalPC({
-  t, title, draft, onChange, onSubmit, onClose, allowEmpty, placeholder, onSend,
+  t, title, draft, onChange, onSubmit, onClose, allowEmpty, placeholder, onSend, color, onColorChange,
 }: {
   t: ReturnType<typeof useTheme>['t'];
   title: string;
@@ -551,6 +562,8 @@ function EditModalPC({
   allowEmpty: boolean;
   placeholder: string;
   onSend?: () => void;
+  color?: string | null;
+  onColorChange?: (key: MandalartColorKey | null) => void;
 }) {
   return (
     <div
@@ -576,6 +589,11 @@ function EditModalPC({
           className="w-full rounded-xl px-3 py-2.5 border outline-none resize-none"
           style={{ fontSize: 14, borderColor: t.border, backgroundColor: inputBg(t), color: t.text }}
         />
+        {onColorChange && (
+          <div className="mt-3">
+            <MandalartColorPicker value={color ?? null} onChange={onColorChange} />
+          </div>
+        )}
         <div className="flex justify-between items-center gap-2 mt-3">
           {onSend ? (
             <button
