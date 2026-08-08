@@ -1,6 +1,6 @@
 import { Flame, Plus, ChevronRight, History as HistoryIcon, Pencil, TrendingUp } from 'lucide-react';
 import { useTheme } from '../../ThemeContext';
-import { isHaon, solidCardStyle, solidRowStyle } from '../../styles/haonStyles';
+import { solidCardStyle, solidRowStyle } from '../../styles/haonStyles';
 import { HaonButton } from '../ui/HaonButton';
 import { exerciseLabel } from '../../../lib/db';
 import { ExerciseThumb } from './ExerciseThumb';
@@ -145,7 +145,7 @@ export function WorkoutTabMobile({ w }: { w: UseWorkout }) {
                   key={log.id}
                   onClick={() => w.setRecord({ exercise: log.exercise!, performedOn: log.performedOn, editingLog: log })}
                   className="w-full flex items-center gap-3 text-left"
-                  style={{ ...(isHaon(t) ? solidRowStyle(t) : { backgroundColor: t.bgSub, border: `1px solid ${t.borderLight}` }), borderRadius: 12, padding: 9 }}
+                  style={{ ...solidRowStyle(t), borderRadius: 12, padding: 9 }}
                 >
                   <ExerciseThumb exercise={log.exercise} size={42} radius={9} />
                   <div className="flex-1 min-w-0">
@@ -177,7 +177,7 @@ export function WorkoutTabMobile({ w }: { w: UseWorkout }) {
 function Card({ children }: { children: React.ReactNode }) {
   const { t } = useTheme();
   return (
-    <div style={{ ...(isHaon(t) ? solidCardStyle(t) : { backgroundColor: t.card, border: `1px solid ${t.borderLight}` }), borderRadius: 16, padding: 14 }}>
+    <div style={{ ...solidCardStyle(t), borderRadius: 16, padding: 14 }}>
       {children}
     </div>
   );

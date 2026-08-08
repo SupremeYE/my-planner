@@ -5,7 +5,7 @@ import {
   ComposedChart, Line, Area, Scatter, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine,
 } from 'recharts';
 import { useTheme } from '../ThemeContext';
-import { isHaon, solidCardStyle, solidRowStyle } from '../styles/haonStyles';
+import { solidCardStyle, solidRowStyle } from '../styles/haonStyles';
 import { HaonButton } from './ui/HaonButton';
 import { db } from '../../lib/db';
 import { useRealtimeSync } from '../hooks/useRealtimeSync';
@@ -54,7 +54,7 @@ function GoalModal({ initial, onClose, onSave }: {
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4"
       style={{ backgroundColor: 'rgba(0,0,0,0.35)' }} onClick={onClose}>
       <div className="rounded-2xl w-[360px] max-w-full p-5"
-        style={isHaon(t) ? solidCardStyle(t) : { backgroundColor: t.bg, border: `1px solid ${t.border}` }}
+        style={solidCardStyle(t)}
         onClick={e => e.stopPropagation()}>
         <h3 style={{ fontSize: 16, fontWeight: 700, color: t.text, marginBottom: 16 }}>목표 체중 설정</h3>
 
@@ -372,7 +372,7 @@ export function WeightTab() {
   };
 
   const statCard = (label: string, value: string, color?: string, caption?: string) => (
-    <div className="p-3 rounded-2xl" style={isHaon(t) ? solidCardStyle(t) : { backgroundColor: t.card, border: `1px solid ${t.border}` }}>
+    <div className="p-3 rounded-2xl" style={solidCardStyle(t)}>
       <p style={{ fontSize: 11, color: t.textMuted, marginBottom: 4 }}>{label}</p>
       <p style={{ fontSize: 18, fontWeight: 700, color: color ?? t.text }}>{value}</p>
       {caption && <p style={{ fontSize: 10, color: t.textMuted, marginTop: 2 }}>{caption}</p>}
@@ -421,7 +421,7 @@ export function WeightTab() {
         </HaonButton>
       )}
       {inputOpen && (
-      <div className="p-4 rounded-2xl" style={isHaon(t) ? solidCardStyle(t) : { backgroundColor: t.card, border: `1px solid ${t.border}` }}>
+      <div className="p-4 rounded-2xl" style={solidCardStyle(t)}>
         <div className="flex items-center justify-between mb-3">
           <span style={{ fontSize: 13, fontWeight: 700, color: t.text }}>{isEditing ? '몸무게 수정' : '몸무게 기록'}</span>
           <button onClick={() => { setInputOpen(false); resetForm(); }} className="p-1 rounded"
@@ -516,7 +516,7 @@ export function WeightTab() {
 
       {/* (B) 목표 영역 */}
       {goal ? (
-        <div className="p-4 rounded-2xl" style={isHaon(t) ? solidCardStyle(t) : { backgroundColor: t.card, border: `1px solid ${t.border}` }}>
+        <div className="p-4 rounded-2xl" style={solidCardStyle(t)}>
           <div className="flex items-center justify-between mb-3">
             <span style={{ fontSize: 13, fontWeight: 700, color: t.text }}>
               목표 {goal.targetWeight}kg
@@ -536,7 +536,7 @@ export function WeightTab() {
         </div>
       ) : (
         <div className="p-4 rounded-2xl flex items-center justify-between"
-          style={isHaon(t) ? solidCardStyle(t) : { backgroundColor: t.card, border: `1px solid ${t.border}` }}>
+          style={solidCardStyle(t)}>
           <span style={{ fontSize: 13, color: t.textSub }}>목표 체중을 설정해보세요</span>
           <HaonButton variant="primary" onClick={() => setShowGoalModal(true)} className="text-sm">
             목표 설정
@@ -556,7 +556,7 @@ export function WeightTab() {
       </div>
 
       {/* (D) 추이 차트 */}
-      <div className="p-4 rounded-2xl" style={isHaon(t) ? solidCardStyle(t) : { backgroundColor: t.card, border: `1px solid ${t.border}` }}>
+      <div className="p-4 rounded-2xl" style={solidCardStyle(t)}>
         {/* 기간 네비게이터 (주/월/년 세그먼트 + ‹ › 스테퍼) — 롤링 7/30/1년 대체 */}
         <PeriodNavigator
           unit={unit}
@@ -679,7 +679,7 @@ export function WeightTab() {
             {visibleRecords.map(r => (
               <div key={r.id} className="flex items-center gap-3 px-3 py-2.5 rounded-xl"
                 style={{
-                  ...(isHaon(t) ? solidRowStyle(t) : { backgroundColor: t.card, border: `1px solid ${t.border}` }),
+                  ...solidRowStyle(t),
                   ...(editingId === r.id ? { outline: `2px solid ${t.accent}`, outlineOffset: -2 } : null),
                 }}>
                 <span style={{ fontSize: 12, color: t.textSub, width: 60, flexShrink: 0 }}>{r.date.slice(5)}</span>
@@ -724,7 +724,7 @@ export function WeightTab() {
 
       {/* (F) 눈바디 — 몸 사진 갤러리 진입 (전체화면 그리드) */}
       <div className="p-4 rounded-2xl flex items-center justify-between"
-        style={isHaon(t) ? solidCardStyle(t) : { backgroundColor: t.card, border: `1px solid ${t.border}` }}>
+        style={solidCardStyle(t)}>
         <div className="flex items-center gap-2.5 min-w-0">
           <Images size={18} color={t.accent} />
           <div className="min-w-0">

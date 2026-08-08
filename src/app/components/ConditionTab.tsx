@@ -5,7 +5,7 @@ import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
 } from 'recharts';
 import { useTheme } from '../ThemeContext';
-import { isHaon, solidCardStyle, solidRowStyle, inputBg } from '../styles/haonStyles';
+import { solidCardStyle, solidRowStyle, inputBg } from '../styles/haonStyles';
 import { HaonButton } from './ui/HaonButton';
 import { db } from '../../lib/db';
 import { useRealtimeSync } from '../hooks/useRealtimeSync';
@@ -271,7 +271,7 @@ export function ConditionTab() {
         </HaonButton>
       )}
       {inputOpen && (
-      <div ref={formRef} className="p-4 rounded-2xl" style={isHaon(t) ? solidCardStyle(t) : { backgroundColor: t.card, border: `1px solid ${t.border}` }}>
+      <div ref={formRef} className="p-4 rounded-2xl" style={solidCardStyle(t)}>
         <div className="flex items-center justify-between mb-3">
           <span style={{ fontSize: 13, fontWeight: 700, color: t.text }}>컨디션 기록</span>
           <button onClick={() => { setInputOpen(false); resetForm(); }} className="p-1 rounded"
@@ -382,7 +382,7 @@ export function ConditionTab() {
       )}
 
       {/* (B) 통계 — 주별 컨디션 (과거 주로 이동 가능) */}
-      <div className="p-4 rounded-2xl" style={isHaon(t) ? solidCardStyle(t) : { backgroundColor: t.card, border: `1px solid ${t.border}` }}>
+      <div className="p-4 rounded-2xl" style={solidCardStyle(t)}>
         {/* 헤더: 주 이동 */}
         <div className="flex items-center justify-between mb-3">
           <button onClick={() => setWeekOffset(o => o - 1)}
@@ -440,7 +440,7 @@ export function ConditionTab() {
 
       {/* 자주 나타난 증상 Top 3 */}
       {topSymptoms.length > 0 && (
-        <div className="p-4 rounded-2xl" style={isHaon(t) ? solidCardStyle(t) : { backgroundColor: t.card, border: `1px solid ${t.border}` }}>
+        <div className="p-4 rounded-2xl" style={solidCardStyle(t)}>
           <p style={{ fontSize: 13, fontWeight: 700, color: t.text, marginBottom: 10 }}>이번달 자주 나타난 증상</p>
           <div className="flex flex-wrap gap-2">
             {topSymptoms.map(([name, count]) => (
@@ -456,7 +456,7 @@ export function ConditionTab() {
       {/* 히트맵(좌) · 추이 선그래프(우) — PC 2단, 모바일 세로 */}
       <div className="grid gap-3 lg:grid-cols-2">
         {/* 스트레스 히트맵 (이번달) + 이번달 평균 */}
-        <div className="p-4 rounded-2xl" style={isHaon(t) ? solidCardStyle(t) : { backgroundColor: t.card, border: `1px solid ${t.border}` }}>
+        <div className="p-4 rounded-2xl" style={solidCardStyle(t)}>
           <div className="flex items-baseline justify-between mb-3">
             <p style={{ fontSize: 13, fontWeight: 700, color: t.text }}>
               {format(today, 'M월')} 스트레스 히트맵
@@ -495,7 +495,7 @@ export function ConditionTab() {
         </div>
 
         {/* 스트레스 추이 선그래프 */}
-        <div className="p-4 rounded-2xl flex flex-col" style={isHaon(t) ? solidCardStyle(t) : { backgroundColor: t.card, border: `1px solid ${t.border}` }}>
+        <div className="p-4 rounded-2xl flex flex-col" style={solidCardStyle(t)}>
           <p style={{ fontSize: 13, fontWeight: 700, color: t.text, marginBottom: 10 }}>최근 30일 스트레스 추이</p>
           {trend.length > 0 ? (
             <div className="flex-1 min-h-[200px]">
@@ -571,7 +571,7 @@ export function ConditionTab() {
           ) : selectedDate ? (
             /* 빈 날 넛지 — 선택한 날짜에 기록이 없을 때 */
             <div className="py-6 px-4 text-center rounded-2xl"
-              style={isHaon(t) ? solidCardStyle(t) : { backgroundColor: t.card, border: `1px solid ${t.border}` }}>
+              style={solidCardStyle(t)}>
               <p style={{ fontSize: 13, fontWeight: 600, color: t.text }}>
                 {selectedDate === todayStr ? '오늘은' : `${format(parseISO(selectedDate), 'M월 d일')}은`} 아직 기록이 없어요.
               </p>
@@ -591,7 +591,7 @@ export function ConditionTab() {
           <div className="space-y-2">
             {displayedRecords.map(r => (
               <div key={r.id} className="flex items-start gap-3 px-3 py-2.5 rounded-xl"
-                style={isHaon(t) ? solidRowStyle(t) : { backgroundColor: t.card, border: `1px solid ${t.border}` }}>
+                style={solidRowStyle(t)}>
                 <span style={{ fontSize: 12, color: t.textSub, width: 50, flexShrink: 0, paddingTop: 2 }}>{r.date.slice(5)}</span>
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 flex-wrap">

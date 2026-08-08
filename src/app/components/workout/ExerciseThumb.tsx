@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useTheme } from '../../ThemeContext';
-import { isHaon, solidRowStyle } from '../../styles/haonStyles';
+import { solidRowStyle } from '../../styles/haonStyles';
 import { BODY_PART_EMOJI } from './workoutUtils';
 import type { Exercise } from '../../../lib/db';
 
@@ -15,7 +15,7 @@ export function ExerciseThumb({ exercise, size = 56, radius = 12 }: { exercise: 
     <div
       style={{
         width: size, height: size,
-        ...(isHaon(t) ? solidRowStyle(t) : { backgroundColor: t.bgSub, border: `1px solid ${t.borderLight}` }),
+        ...solidRowStyle(t),
         borderRadius: radius, overflow: 'hidden', flexShrink: 0,
         display: 'flex', alignItems: 'center', justifyContent: 'center',
       }}

@@ -4,7 +4,7 @@ import { usePlanner, getLogicalToday } from '../../store';
 import { useTheme } from '../../ThemeContext';
 import { TimePicker } from '../TimePicker';
 import { timeToMinutes } from './timelineConstants';
-import { isHaon, inputBg, segmentTrackStyle, segmentItemStyle } from '../../styles/haonStyles';
+import { inputBg, segmentTrackStyle, segmentItemStyle } from '../../styles/haonStyles';
 
 // 빈 타임라인 슬롯 → 추가 모달. 레인(PLAN/DO)·종류(할일/일정) 토글 + 시간/태그/카테고리/KEY.
 export function TimelineAddModal({ date, initialStart, initialEnd, initialLane, onClose }: {
@@ -66,7 +66,7 @@ export function TimelineAddModal({ date, initialStart, initialEnd, initialLane, 
             <label style={{ fontSize: 11, color: t.textSub, fontWeight: 600, marginBottom: 6, display: 'block' }}>종류</label>
             <div className="flex rounded-lg overflow-hidden" style={segmentTrackStyle(t)}>
               <button onClick={() => setKind('todo')} className="flex-1 py-2" style={segmentItemStyle(t, kind === 'todo', t.accent)}>할일</button>
-              <button onClick={() => setKind('event')} className="flex-1 py-2" style={{ ...segmentItemStyle(t, kind === 'event', '#7B9ED9'), ...(isHaon(t) ? null : { borderLeft: `1px solid ${t.border}` }) }}>일정</button>
+              <button onClick={() => setKind('event')} className="flex-1 py-2" style={{ ...segmentItemStyle(t, kind === 'event', '#7B9ED9') }}>일정</button>
             </div>
           </div>
           {/* 레인 토글 (할일만) */}
@@ -75,7 +75,7 @@ export function TimelineAddModal({ date, initialStart, initialEnd, initialLane, 
               <label style={{ fontSize: 11, color: t.textSub, fontWeight: 600, marginBottom: 6, display: 'block' }}>레인</label>
               <div className="flex rounded-lg overflow-hidden" style={segmentTrackStyle(t)}>
                 <button onClick={() => setLane('plan')} className="flex-1 py-2" style={segmentItemStyle(t, lane === 'plan', planClr)}>PLAN</button>
-                <button onClick={() => setLane('do')} className="flex-1 py-2" style={{ ...segmentItemStyle(t, lane === 'do', doClr), ...(isHaon(t) ? null : { borderLeft: `1px solid ${t.border}` }) }}>DO</button>
+                <button onClick={() => setLane('do')} className="flex-1 py-2" style={{ ...segmentItemStyle(t, lane === 'do', doClr) }}>DO</button>
               </div>
             </div>
           )}
