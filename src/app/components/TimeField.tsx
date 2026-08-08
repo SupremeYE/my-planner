@@ -2,15 +2,14 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import type { CSSProperties, KeyboardEvent as ReactKeyboardEvent, RefObject } from 'react';
 import { X } from 'lucide-react';
 import { useTheme } from '../ThemeContext';
-import { inputBg, addPopoverStyle, withAlpha, isHaon } from '../styles/haonStyles';
+import { inputBg, addPopoverStyle, withAlpha } from '../styles/haonStyles';
 
 // ─── TimeField (DESIGN.md §5 「시각 입력」) ───────────────────────────────────
 // 시각 입력기를 직접 만들지 않는다: 모바일 = <input type="time">(OS 위임), PC(lg:) = 콤보박스.
 // · 5분 고정 목록 — `minuteStep` 같은 "반영 안 되는 prop"은 받지 않는다(§5 금지). 타이핑은 임의 분 허용.
 // · role='end' → 종료 전용: 시작 이전 시각 배제 + 목록에 duration 병기 + 모바일 duration chip(시작+chip=종료).
 // · 표면 = inputBg(§5 Input), 팝오버 = addPopoverStyle(§1 오버레이 글래스). 새 색 토큰 없음(기존 accent/그레이 토큰 인라인 조합).
-// · 非-H 폴백(안전망, 이번 소비처에선 미사용): 콤보박스를 띄우지 않고 전 브레이크포인트 네이티브 <input type="time">
-//   + §5 Input(bgSub) 표면만 렌더한다. 현재 TodoModal은 isHaon 게이트로 H에서만 TimeField, A/B/C/D는 TimePicker 유지.
+// · 모바일 = 네이티브 <input type="time">(OS 위임), PC(lg) = 콤보박스. (테마 H 단일)
 
 const STEP = 5; // 목록 간격 5분 고정 (DESIGN §5)
 const DAY_MAX = 1435; // 23:55 (same-day clamp)
@@ -75,7 +74,6 @@ export function TimeField({
   size = 'sm',
 }: TimeFieldProps) {
   const { t } = useTheme();
-  const haon = isHaon(t);
   const startMin = role === 'end' && rangeStart ? toMin(rangeStart) : null;
 
   // 5분 목록 (end면 시작 다음 슬롯부터)
@@ -191,11 +189,6 @@ export function TimeField({
       )}
     </div>
   );
-
-  // 非-H 안전망: 콤보박스 없이 네이티브만 (전 브레이크포인트). 현재 소비처에선 미사용.
-  if (!haon) {
-    return <div style={{ position: 'relative', width: '100%' }}>{nativeBlock}</div>;
-  }
 
   return (
     <div style={{ position: 'relative', width: '100%' }}>

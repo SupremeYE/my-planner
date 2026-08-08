@@ -10,7 +10,7 @@ import { format, addDays, subDays, addMonths, subMonths, startOfMonth, getDaysIn
 import { ko } from 'date-fns/locale';
 import { usePlanner, Todo, Event, getLogicalToday } from '../store';
 import { useTheme } from '../ThemeContext';
-import { isHaon, solidCardStyle, solidRowStyle, glassBarStyle, mixHex, withAlpha } from '../styles/haonStyles';
+import { solidCardStyle, solidRowStyle, glassBarStyle, mixHex, withAlpha } from '../styles/haonStyles';
 import { useNotification } from '../hooks/useNotification';
 import { TimePicker } from './TimePicker';
 import ConfirmModal from './ConfirmModal';
@@ -1074,12 +1074,11 @@ export function DailyView() {
   const TagChip = ({ tagId }: { tagId: string }) => {
     const tag = tags.find(tg => tg.id === tagId);
     if (!tag) return null;
-    const filled = isHaon(t);
     return (
       <span className="inline-flex items-center px-1.5 py-px rounded-full" style={{
         fontSize: 9,
-        backgroundColor: filled ? mixHex(tag.color, 255, 0.78) : tag.color + '18',
-        color: filled ? mixHex(tag.color, 0, 0.32) : tag.color,
+        backgroundColor: mixHex(tag.color, 255, 0.78),
+        color: mixHex(tag.color, 0, 0.32),
         lineHeight: '14px',
       }}>
         {tag.name}
@@ -1117,7 +1116,7 @@ export function DailyView() {
     // Haon(H): 솔리드 행 recipe(불투명 흰색 + 하이라인 + 소프트 그림자). 태그 있는 행만 좌측 3px 액센트 바.
     // 핵심(KEY, isTop3) 행은 코랄 톤으로 뚜렷하게 강조(배경 틴트·코랄 테두리·핑크 글로우 + 좌측 그라데이션 바).
     // 그 외 테마: 기존 동작(카드색 + 태그색 좌측 바) 유지.
-    const isKeyRow = isHaon(t) && todo.isTop3;
+    const isKeyRow = todo.isTop3;
     let rowStyle: CSSProperties;
     if (isHighlighted) {
       rowStyle = {
@@ -1139,7 +1138,7 @@ export function DailyView() {
         position: 'relative',
         overflow: 'hidden',
       };
-    } else if (isHaon(t)) {
+    } else {
       rowStyle = {
         cursor: 'pointer',
         backgroundColor: isDone ? '#F7F4FB' : (t.solidRowBg ?? '#FFFFFF'),
@@ -1148,13 +1147,6 @@ export function DailyView() {
         borderRadius: t.solidRowRadius ?? 14,
       };
       if (firstTag) rowStyle.borderLeft = `3px solid ${firstTag.color}`;
-    } else {
-      rowStyle = {
-        cursor: 'pointer',
-        backgroundColor: isDone ? t.bgSub + '80' : t.card,
-        border: `1px solid ${accentColor}20`,
-        borderLeft: `3px solid ${accentColor}${isDone ? '40' : ''}`,
-      };
     }
 
     return (
@@ -1360,7 +1352,6 @@ export function DailyView() {
         </div>
         <div className="flex items-center gap-1.5 lg:gap-2">
           {selectedDate !== nowStr && (
-            isHaon(t) ? (
               // 파스텔(H): 붉은 코랄 배경+코랄 글자(레드온레드) → 차분한 라벤더 솔리드 pill +
               // 딥인디고 글자 + 작은 코랄 '오늘' 도트로 페이지 톤에 맞춤.
               <button
@@ -1377,15 +1368,6 @@ export function DailyView() {
                 <span aria-hidden style={{ width: 5, height: 5, borderRadius: 9999, background: t.accent, flexShrink: 0 }} />
                 Today
               </button>
-            ) : (
-              <button
-                onClick={goToday}
-                className="px-2 py-1 rounded-lg"
-                style={{ fontSize: 11, fontWeight: 600, backgroundColor: t.accentLight, color: t.accent, whiteSpace: 'nowrap' }}
-              >
-                Today
-              </button>
-            )
           )}
           {/* 데스크탑: 기존 모달 */}
           <button onClick={() => setShowTimelineSettings(true)} className="hidden lg:flex px-3 py-1.5 rounded-lg items-center gap-1.5"
@@ -1456,7 +1438,7 @@ export function DailyView() {
                     const accentColor = evt.color || t.info;
                     return (
                       <div key={evt.id}
-                        className={`group flex items-center gap-2.5 ${isHaon(t) ? 'px-3 py-2.5' : 'py-1.5'}`}
+                        className="group flex items-center gap-2.5 px-3 py-2.5"
                         style={{ opacity: isDone ? 0.55 : (isPast ? 0.75 : 1), ...solidRowStyle(t) }}>
                         <button
                           onClick={() => toggleEventCompleted(evt.id, !isDone)}
@@ -1565,8 +1547,8 @@ export function DailyView() {
                 </div>
               )}
 
-              {/* 파스텔(H) + 핵심 있으면: 핵심 그룹(서브헤더) → 구분선 → 그 외 그룹. 그 외엔 기존 concat 유지. */}
-              {isHaon(t) && importantTodos.length > 0 ? (
+              {/* 핵심 있으면: 핵심 그룹(서브헤더) → 구분선 → 그 외 그룹. 핵심 0개면 flat concat + 빈 상태. */}
+              {importantTodos.length > 0 ? (
                 <>
                   <div className="flex items-center gap-1.5 mb-2">
                     <Star size={12} fill={t.accent} color={t.accent} />
@@ -1608,7 +1590,7 @@ export function DailyView() {
               <button
                 onClick={() => navigate('/habits')}
                 className="w-full flex items-center gap-3 rounded-2xl px-4 py-3 text-left transition-all"
-                style={isHaon(t) ? solidCardStyle(t) : { backgroundColor: t.card, border: `1px solid ${t.danger}33` }}
+                style={solidCardStyle(t)}
               >
                 <span className="flex items-center justify-center rounded-xl flex-shrink-0" style={{ width: 38, height: 38, backgroundColor: `${t.danger}14` }}>
                   <Bell size={17} color={t.danger} />
