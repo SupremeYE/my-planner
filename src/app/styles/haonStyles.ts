@@ -276,7 +276,9 @@ export function addPopoverStyle(t: ThemeTokens): CSSProperties {
 // 수면·몸무게 공용(수면 인라인 스테퍼를 이 패턴으로 수렴 — Stage 3, 결정2).
 // ⚠️ 소비처는 아직 없다(정의만; 컴포넌트/치환은 Stage 3).
 //
-// 스테퍼 ‹ › 아이콘 버튼 표면 — H는 옅은 라벤더 tint 원형, 비-H는 bgSub 폴백(ConditionTab 관례).
+// 스테퍼 ‹ › 아이콘 버튼 표면 — 네비 버튼은 "면 구분"일 뿐(선택/활성 아님)이라 중립 surfaceMuted 를 쓴다.
+// (라일락 accentSoft 를 passive nav 표면에 쓰면 라일락이 화면에 번진다 — §5 List row/§3 accentSoft restraint.)
+// 비-H는 bgSub 폴백(ConditionTab 관례; 비-H bgSub 은 중립).
 export function periodStepperStyle(t: ThemeTokens, disabled = false): CSSProperties {
   const base: CSSProperties = {
     display: 'inline-flex',
@@ -287,7 +289,7 @@ export function periodStepperStyle(t: ThemeTokens, disabled = false): CSSPropert
     ...(disabled ? { opacity: 0.4 } : null),
   };
   if (isHaon(t)) {
-    return { ...base, background: t.accentSoft, color: t.textSub, borderRadius: 999 };
+    return { ...base, background: t.surfaceMuted, color: t.textSub, borderRadius: 999 };
   }
   return { ...base, background: t.bgSub, color: t.textSub, borderRadius: 8 };
 }

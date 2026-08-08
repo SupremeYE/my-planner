@@ -230,7 +230,8 @@ function AnnualBanner({ year, appSettings, updateAppSettings, t }: {
       <div className="flex flex-wrap items-center gap-1.5 mt-2">
         {profile.values.map(v => (
           <span key={v} className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full"
-            style={{ fontSize: 11.5, backgroundColor: t.accentSoft, color: t.text, border: `1px solid ${t.border}` }}>
+            // 핵심 가치 = 정보성 칩(선택/활성 아님) → 중립 surfaceMuted. 라일락(accentSoft) 금지 (§3 restraint)
+            style={{ fontSize: 11.5, backgroundColor: t.surfaceMuted, color: t.textSub, border: `1px solid ${t.border}` }}>
             {v}
             {(editing || !profile.identity) && (
               <button onClick={() => removeValue(v)} style={{ color: t.textMuted, lineHeight: 1 }}>×</button>

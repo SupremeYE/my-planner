@@ -441,8 +441,9 @@ segment visuals**:
    opaque white pill + soft shadow + deep-indigo 600 label + 3px coral underline; track = neutral
    low-sat. Composition only — do **not** register a new segment style.
 2. **Period stepper `‹ [기간 라벨] ›`** — reuses the 수면 화면 stepper shape and §6.2 month-header
-   idiom. The ‹ › arrow icon buttons use `periodStepperStyle` (H = pale lavender tint circle;
-   非-H = `bgSub` fallback). Centered label in Pretendard 600–700 (§4).
+   idiom. The ‹ › arrow icon buttons use `periodStepperStyle` (H = **neutral `surfaceMuted` tint
+   circle** — passive nav 표면이라 라일락이 아닌 중립 그레이; 非-H = `bgSub` fallback). Centered
+   label in Pretendard 600–700 (§4).
 
 **Behavior contract** (shared component, built Stage 3). Props: `unit('주'|'월'|'년')`, `offset`
 (0 = current period), `onOffsetChange`, `weekStartsOn(0|1)`.
