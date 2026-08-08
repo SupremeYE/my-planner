@@ -1,6 +1,4 @@
-import React, { createContext, useContext, useState } from 'react';
-
-export type DesignTheme = 'A' | 'B' | 'C' | 'D' | 'H';
+import React, { createContext, useContext } from 'react';
 
 export interface ThemeTokens {
   bg: string;
@@ -101,193 +99,8 @@ export interface ThemeTokens {
   keyRowShadow?: string;
 }
 
-// ── Design A: Curator — slate / cool surface (HTML 참고 팔레트) ──
-export const tokenA: ThemeTokens = {
-  bg: '#f6fafe',
-  bgSub: '#eef4fa',
-  bgHover: '#e5eff7',
-  surfaceMuted: '#eef4fa', // = bgSub 그대로 (회귀 0)
-  card: '#ffffff',
-  sidebar: '#eef4fa',
-  text: '#26343d',
-  textSub: '#52616a',
-  textMuted: '#6e7d86',
-  accent: '#515f74',
-  accentLight: '#d5e3fd',
-  accentSoft: '#eef4fa',
-  border: '#a4b4be',
-  borderLight: '#ddeaf3',
-  planBlock: '#d5e3fd',
-  planBorder: '#c7d5ee',
-  planText: '#455367',
-  doBlock: '#515f74',
-  doText: '#f6f7ff',
-  danger: '#9f403d',
-  dangerLight: '#fdecea',
-  warning: '#C7902E',
-  warningLight: '#F7EEDA',
-  success: '#006b62',
-  info: '#506076',
-  font: "'Pretendard', -apple-system, BlinkMacSystemFont, sans-serif",
-  shadow: '0 1px 3px rgba(38,52,61,0.06)',
-  checkDone: '#006b62',
-
-  // 폰트 역할(기존 렌더 보존): 제목 DM Serif · 본문/라벨 Pretendard · 숫자 Gmarket · 일기 Ownglyph · 장식 Gaegu
-  fontPageTitle: "'DM Serif Display', serif",
-  fontSection: "'DM Serif Display', serif",
-  fontBody: "'Pretendard', -apple-system, BlinkMacSystemFont, sans-serif",
-  fontLabel: "'Pretendard', -apple-system, BlinkMacSystemFont, sans-serif",
-  fontNumeric: "'GmarketSansBold', 'GmarketSans', 'Pretendard', sans-serif",
-  fontDiary: "'Ownglyph-Positive', 'Gaegu', 'Pretendard', sans-serif",
-  fontDecorative: "'Gaegu', cursive",
-  fontReading: "'Georgia', 'Noto Serif KR', serif",
-  fontBrand: "'Gowun Batang', serif",
-  fontQuote: "'Gowun Dodum', 'Pretendard', sans-serif",
-  fontDecoratePen: "'Nanum Pen Script', cursive",
-  fontStat: "'DM Serif Display', serif",
-};
-
-// ── Design B: Haon Sunrise — 선라이즈 코랄/피치 라이트 테마 ──
-export const tokenB: ThemeTokens = {
-  bg: '#FFFFFF',
-  bgSub: '#FBF6F1',
-  bgHover: '#FFF1E8',
-  surfaceMuted: '#FBF6F1', // = bgSub 그대로 (회귀 0)
-  card: '#FFFFFF',
-  sidebar: '#FBF7F3',
-  text: '#2D2A3A',
-  textSub: '#6F6A80',
-  textMuted: '#ADA8BC',
-  accent: '#F4A582',      // 선라이즈 코랄
-  accentLight: '#FFE6D6', // 부드러운 피치
-  accentSoft: '#FFF5EE',
-  border: '#F0E8DE',
-  borderLight: '#F7F1E8',
-  planBlock: '#E6EEF9',   // 새벽 하늘
-  planBorder: '#C9DCF1',
-  planText: '#4A6B96',
-  doBlock: '#F4A582',
-  doText: '#FFFFFF',
-  danger: '#E07A6B',
-  dangerLight: '#FCE9E4',
-  warning: '#D9962E',
-  warningLight: '#F8EEDA',
-  success: '#7FB89A',
-  info: '#8FB7DA',
-  font: "'Gowun Dodum', 'Pretendard Variable', 'Pretendard', sans-serif",
-  shadow: '0 4px 20px rgba(244,165,130,0.08), 0 1px 3px rgba(45,42,58,0.04)',
-  checkDone: '#7FB89A',
-
-  // 폰트 역할(선라이즈 정체성 보존): 제목 DM Serif · 본문/라벨 Gowun Dodum · 숫자 Gmarket · 일기 Ownglyph · 장식 Gaegu
-  fontPageTitle: "'DM Serif Display', serif",
-  fontSection: "'DM Serif Display', serif",
-  fontBody: "'Gowun Dodum', 'Pretendard Variable', 'Pretendard', sans-serif",
-  fontLabel: "'Gowun Dodum', 'Pretendard Variable', 'Pretendard', sans-serif",
-  fontNumeric: "'GmarketSansBold', 'GmarketSans', 'Pretendard', sans-serif",
-  fontDiary: "'Ownglyph-Positive', 'Gaegu', 'Pretendard', sans-serif",
-  fontDecorative: "'Gaegu', cursive",
-  fontReading: "'Georgia', 'Noto Serif KR', serif",
-  fontBrand: "'Gowun Batang', serif",
-  fontQuote: "'Gowun Dodum', 'Pretendard', sans-serif",
-  fontDecoratePen: "'Nanum Pen Script', cursive",
-  fontStat: "'DM Serif Display', serif",
-};
-
-// ── Design C: Top-Nav — Curator 팔레트 (A와 동일 톤) ──
-export const tokenC: ThemeTokens = {
-  bg: '#f6fafe',
-  bgSub: '#eef4fa',
-  bgHover: '#e5eff7',
-  surfaceMuted: '#eef4fa', // = bgSub 그대로 (회귀 0)
-  card: '#ffffff',
-  sidebar: '#ffffff',
-  text: '#26343d',
-  textSub: '#52616a',
-  textMuted: '#6e7d86',
-  accent: '#515f74',
-  accentLight: '#d5e3fd',
-  accentSoft: '#eef4fa',
-  border: '#a4b4be',
-  borderLight: '#ddeaf3',
-  planBlock: '#d5e3fd',
-  planBorder: '#c7d5ee',
-  planText: '#455367',
-  doBlock: '#515f74',
-  doText: '#f6f7ff',
-  danger: '#9f403d',
-  dangerLight: '#fdecea',
-  warning: '#C7902E',
-  warningLight: '#F7EEDA',
-  success: '#006b62',
-  info: '#506076',
-  font: "'Pretendard', -apple-system, BlinkMacSystemFont, sans-serif",
-  shadow: '0 2px 8px rgba(38,52,61,0.07)',
-  checkDone: '#006b62',
-
-  // 폰트 역할(기존 렌더 보존): 제목 DM Serif · 본문/라벨 Pretendard · 숫자 Gmarket · 일기 Ownglyph · 장식 Gaegu
-  fontPageTitle: "'DM Serif Display', serif",
-  fontSection: "'DM Serif Display', serif",
-  fontBody: "'Pretendard', -apple-system, BlinkMacSystemFont, sans-serif",
-  fontLabel: "'Pretendard', -apple-system, BlinkMacSystemFont, sans-serif",
-  fontNumeric: "'GmarketSansBold', 'GmarketSans', 'Pretendard', sans-serif",
-  fontDiary: "'Ownglyph-Positive', 'Gaegu', 'Pretendard', sans-serif",
-  fontDecorative: "'Gaegu', cursive",
-  fontReading: "'Georgia', 'Noto Serif KR', serif",
-  fontBrand: "'Gowun Batang', serif",
-  fontQuote: "'Gowun Dodum', 'Pretendard', sans-serif",
-  fontDecoratePen: "'Nanum Pen Script', cursive",
-  fontStat: "'DM Serif Display', serif",
-};
-
-// ── Design D: Enhanced Dashboard (Curator 팔레트, A와 동일) ──
-export const tokenD: ThemeTokens = {
-  bg: '#f6fafe',
-  bgSub: '#eef4fa',
-  bgHover: '#e5eff7',
-  surfaceMuted: '#eef4fa', // = bgSub 그대로 (회귀 0)
-  card: '#ffffff',
-  sidebar: '#eef4fa',
-  text: '#26343d',
-  textSub: '#52616a',
-  textMuted: '#6e7d86',
-  accent: '#515f74',
-  accentLight: '#d5e3fd',
-  accentSoft: '#eef4fa',
-  border: '#a4b4be',
-  borderLight: '#ddeaf3',
-  planBlock: '#d5e3fd',
-  planBorder: '#c7d5ee',
-  planText: '#455367',
-  doBlock: '#515f74',
-  doText: '#f6f7ff',
-  danger: '#9f403d',
-  dangerLight: '#fdecea',
-  warning: '#C7902E',
-  warningLight: '#F7EEDA',
-  success: '#006b62',
-  info: '#506076',
-  font: "'Pretendard', -apple-system, BlinkMacSystemFont, sans-serif",
-  shadow: '0 1px 3px rgba(38,52,61,0.06)',
-  checkDone: '#006b62',
-
-  // 폰트 역할(기존 렌더 보존): 제목 DM Serif · 본문/라벨 Pretendard · 숫자 Gmarket · 일기 Ownglyph · 장식 Gaegu
-  fontPageTitle: "'DM Serif Display', serif",
-  fontSection: "'DM Serif Display', serif",
-  fontBody: "'Pretendard', -apple-system, BlinkMacSystemFont, sans-serif",
-  fontLabel: "'Pretendard', -apple-system, BlinkMacSystemFont, sans-serif",
-  fontNumeric: "'GmarketSansBold', 'GmarketSans', 'Pretendard', sans-serif",
-  fontDiary: "'Ownglyph-Positive', 'Gaegu', 'Pretendard', sans-serif",
-  fontDecorative: "'Gaegu', cursive",
-  fontReading: "'Georgia', 'Noto Serif KR', serif",
-  fontBrand: "'Gowun Batang', serif",
-  fontQuote: "'Gowun Dodum', 'Pretendard', sans-serif",
-  fontDecoratePen: "'Nanum Pen Script', cursive",
-  fontStat: "'DM Serif Display', serif",
-};
-
-// ── Design H: Haon — Soft Pastel Glassmorphism (DESIGN.md 단일 기준) ──
+// ── Haon — Soft Pastel Glassmorphism (DESIGN.md 단일 기준, 앱의 유일 테마) ──
 // 파스텔 그라디언트 캔버스 + 프로스티드 글래스 카드 + 코랄→핑크 강조.
-// 기존 웜(B)은 그대로 보존하고, 이 테마는 새 옵션으로만 추가한다.
 export const tokenH: ThemeTokens = {
   bg: '#FBF8FC',            // near-white 캔버스 (canvasStyle appGradient 베이스와 동일) — 미마이그레이션 페이지 배경 통일
   bgSub: '#F4E7FB',        // lavender-mist
@@ -382,17 +195,8 @@ export const tokenH: ThemeTokens = {
   keyRowShadow: '0 2px 4px rgba(120,90,160,0.10), 0 10px 24px rgba(255,111,145,0.22)',
 };
 
-export type LayoutMode = 'sidebar' | 'topnav';
-
-export function getLayoutMode(theme: DesignTheme): LayoutMode {
-  return theme === 'C' ? 'topnav' : 'sidebar';
-}
-
 interface ThemeContextType {
-  theme: DesignTheme;
-  setTheme: (t: DesignTheme) => void;
   t: ThemeTokens;
-  layoutMode: LayoutMode;
 }
 
 // Persist context across HMR reloads
@@ -401,62 +205,11 @@ const ThemeContext: React.Context<ThemeContextType | null> =
   (globalThis as any)[THEME_CTX_KEY] ??
   ((globalThis as any)[THEME_CTX_KEY] = createContext<ThemeContextType | null>(null));
 
-function resolveTokens(theme: DesignTheme): ThemeTokens {
-  if (theme === 'A') return tokenA;
-  if (theme === 'B') return tokenB;
-  if (theme === 'C') return tokenC;
-  if (theme === 'H') return tokenH;
-  return tokenD;
-}
-
-const THEME_STORE_KEY = 'haon.theme';
-const VALID_THEMES: DesignTheme[] = ['A', 'B', 'C', 'D', 'H'];
-
-// 테마 H 단일화 — Stage 1(강제, 삭제 없음).
-// 앱은 항상 H 로 렌더한다. 테마 정의(tokenA~D/resolveTokens)는 보존해 되돌리기 쉬움.
-const FORCED_THEME: DesignTheme = 'H';
-
-// 저장값이 무엇이든 H 로 초기화한다. 과거에 비-H(예: 'B')가 저장돼 있어도 H 로 치유(heal)한다
-// → Stage 2 에서 비-H 토큰을 삭제해도 저장값 때문에 깨지지 않도록 하는 안전판.
-function readInitialTheme(): DesignTheme {
-  try {
-    const saved = localStorage.getItem(THEME_STORE_KEY);
-    if (saved !== FORCED_THEME) localStorage.setItem(THEME_STORE_KEY, FORCED_THEME);
-  } catch {
-    /* SSR/프라이빗 모드 등에서 localStorage 접근 불가 시 무시 */
-  }
-  return FORCED_THEME;
-}
-
+// 테마 H 단일화 — 앱은 항상 tokenH(단일 토큰 세트)로 렌더한다.
+// 테마 선택 UI·영속화(localStorage)·전환 로직 없음. tokenH 가 유일한 테마다.
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
-  const [theme, setThemeState] = useState<DesignTheme>(readInitialTheme);
-
-  // Stage 1: 어떤 전환 요청이 와도 H 로 고정(테마 선택을 사실상 비활성화 — UI 없음).
-  // 인자는 의도적으로 무시한다. (되돌릴 때는 이 함수만 원복하면 됨)
-  const setTheme = React.useCallback((_next: DesignTheme) => {
-    void _next;
-    setThemeState(FORCED_THEME);
-    try {
-      localStorage.setItem(THEME_STORE_KEY, FORCED_THEME);
-    } catch {
-      /* 저장 실패는 무시 */
-    }
-  }, []);
-
-  const t = resolveTokens(theme);
-  const layoutMode = getLayoutMode(theme);
-
-  // 콘솔 스위치 — Stage 1(H 단일화)로 테마는 H 에 고정됐다. 정의는 보존하지만 전환은 비활성.
-  React.useEffect(() => {
-    (window as any).setHaonTheme = (_next?: DesignTheme) => {
-      console.log(`[Haon] 테마는 H 로 고정되어 있습니다(단일화). 사용 가능: ${VALID_THEMES.join(', ')}`);
-      setTheme(FORCED_THEME);
-    };
-    return () => { delete (window as any).setHaonTheme; };
-  }, [setTheme]);
-
   return (
-    <ThemeContext.Provider value={{ theme, setTheme, t, layoutMode }}>
+    <ThemeContext.Provider value={{ t: tokenH }}>
       {children}
     </ThemeContext.Provider>
   );
