@@ -409,49 +409,48 @@ function resolveTokens(theme: DesignTheme): ThemeTokens {
   return tokenD;
 }
 
-// 기본값은 웜(B) 유지. 파스텔(H)은 옵션으로만 추가.
-// 확인용 스위치: localStorage 에 저장된 값이 있으면 그것을 우선 사용한다.
 const THEME_STORE_KEY = 'haon.theme';
 const VALID_THEMES: DesignTheme[] = ['A', 'B', 'C', 'D', 'H'];
 
-// ⚠️ 임시(확인용): 파스텔-글래스(H) 육안 확인을 위해 기본값을 잠시 H로 둔다.
-// 확인이 끝나면 이 값을 다시 'B'(웜)로 되돌린다. (localStorage 저장값이 있으면 그게 우선)
-const DEFAULT_THEME: DesignTheme = 'H';
+// 테마 H 단일화 — Stage 1(강제, 삭제 없음).
+// 앱은 항상 H 로 렌더한다. 테마 정의(tokenA~D/resolveTokens)는 보존해 되돌리기 쉬움.
+const FORCED_THEME: DesignTheme = 'H';
 
+// 저장값이 무엇이든 H 로 초기화한다. 과거에 비-H(예: 'B')가 저장돼 있어도 H 로 치유(heal)한다
+// → Stage 2 에서 비-H 토큰을 삭제해도 저장값 때문에 깨지지 않도록 하는 안전판.
 function readInitialTheme(): DesignTheme {
   try {
-    const saved = localStorage.getItem(THEME_STORE_KEY) as DesignTheme | null;
-    if (saved && VALID_THEMES.includes(saved)) return saved;
+    const saved = localStorage.getItem(THEME_STORE_KEY);
+    if (saved !== FORCED_THEME) localStorage.setItem(THEME_STORE_KEY, FORCED_THEME);
   } catch {
     /* SSR/프라이빗 모드 등에서 localStorage 접근 불가 시 무시 */
   }
-  return DEFAULT_THEME;
+  return FORCED_THEME;
 }
 
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
   const [theme, setThemeState] = useState<DesignTheme>(readInitialTheme);
 
-  const setTheme = React.useCallback((next: DesignTheme) => {
-    setThemeState(next);
+  // Stage 1: 어떤 전환 요청이 와도 H 로 고정(테마 선택을 사실상 비활성화 — UI 없음).
+  // 인자는 의도적으로 무시한다. (되돌릴 때는 이 함수만 원복하면 됨)
+  const setTheme = React.useCallback((_next: DesignTheme) => {
+    void _next;
+    setThemeState(FORCED_THEME);
     try {
-      localStorage.setItem(THEME_STORE_KEY, next);
+      localStorage.setItem(THEME_STORE_KEY, FORCED_THEME);
     } catch {
-      /* 저장 실패는 무시 (테마 전환 자체는 동작) */
+      /* 저장 실패는 무시 */
     }
   }, []);
 
   const t = resolveTokens(theme);
   const layoutMode = getLayoutMode(theme);
 
-  // 확인용 콘솔 스위치: window.setHaonTheme('H') / ('B') 로 즉시 전환 + 저장.
+  // 콘솔 스위치 — Stage 1(H 단일화)로 테마는 H 에 고정됐다. 정의는 보존하지만 전환은 비활성.
   React.useEffect(() => {
-    (window as any).setHaonTheme = (next: DesignTheme) => {
-      if (!VALID_THEMES.includes(next)) {
-        console.warn(`[Haon] 알 수 없는 테마: ${next}. 사용 가능: ${VALID_THEMES.join(', ')}`);
-        return;
-      }
-      setTheme(next);
-      console.log(`[Haon] 테마 → ${next}`);
+    (window as any).setHaonTheme = (_next?: DesignTheme) => {
+      console.log(`[Haon] 테마는 H 로 고정되어 있습니다(단일화). 사용 가능: ${VALID_THEMES.join(', ')}`);
+      setTheme(FORCED_THEME);
     };
     return () => { delete (window as any).setHaonTheme; };
   }, [setTheme]);
