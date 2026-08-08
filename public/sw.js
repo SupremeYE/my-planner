@@ -1,6 +1,7 @@
 // My Planner - Service Worker
-// v3: 모바일 viewport 줌-팬 수정 배포 — 옛 precache(`/` 셸 등) 강제 폐기용 버전 범프
-const CACHE_NAME = 'my-planner-v3';
+// v4: /api 요청을 SW가 가로채지 않도록 수정 — 네트워크 실패 시 앱 셸(`/`)을 API 응답으로
+//     반환하던 버그(책 검색 등 조용한 실패)를 제거. 옛 캐시 강제 폐기용 버전 범프.
+const CACHE_NAME = 'my-planner-v4';
 const STATIC_ASSETS = [
   '/',
   '/daily',
@@ -48,6 +49,13 @@ self.addEventListener('fetch', (event) => {
     event.request.method !== 'GET' ||
     !event.request.url.startsWith(self.location.origin)
   ) {
+    return;
+  }
+
+  // API 요청은 SW가 건드리지 않는다 — 네트워크 직결.
+  // (네트워크 실패 시 앱 셸/캐시를 JSON 응답으로 반환하면 res.json()이 깨져
+  //  책 검색·칼로리 추정 등이 조용히 실패한다.)
+  if (new URL(event.request.url).pathname.startsWith('/api/')) {
     return;
   }
 

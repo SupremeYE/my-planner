@@ -7,7 +7,7 @@ interface BeforeInstallPromptEvent extends Event {
 
 // Service Worker 코드를 Blob으로 생성 (MIME 타입 문제 우회)
 const SW_CODE = `
-const CACHE_NAME = 'my-planner-v1';
+const CACHE_NAME = 'my-planner-v4';
 const STATIC_ASSETS = ['/', '/daily', '/weekly', '/monthly', '/calendar', '/backlog'];
 
 self.addEventListener('install', (event) => {
@@ -30,6 +30,8 @@ self.addEventListener('activate', (event) => {
 
 self.addEventListener('fetch', (event) => {
   if (event.request.method !== 'GET' || !event.request.url.startsWith(self.location.origin)) return;
+  // API 요청은 SW가 건드리지 않는다 — 네트워크 직결. (실패 시 앱 셸을 JSON으로 반환하던 버그 제거)
+  if (new URL(event.request.url).pathname.startsWith('/api/')) return;
   event.respondWith(
     fetch(event.request)
       .then((response) => {
