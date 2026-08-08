@@ -4,7 +4,7 @@ import {
   ChevronLeft, ChevronRight, Star, Play,
   Check, Clock, Trash2, X, MoreHorizontal,
   Settings, Edit3, Pause, Ban, CalendarDays, ArrowRight, Bell, ChevronRight as ChevronRightIcon,
-  Square, Hourglass,
+  Square,
 } from 'lucide-react';
 import { format, addDays, subDays, addMonths, subMonths, startOfMonth, getDaysInMonth, getDay as getDayOfWeek, parseISO, addMinutes, differenceInCalendarDays } from 'date-fns';
 import { ko } from 'date-fns/locale';
@@ -23,7 +23,7 @@ import { QuickAddInput } from './QuickAddInput';
 import { useDailySummary } from '../hooks/useDailySummary';
 import { isEventPast, isVirtualEventId } from '../../api/events';
 import { expandRecurringTodos, isVirtualTodoId, parseVirtualTodoId } from '../../lib/recurrenceExpansion';
-import { periodCoversDate, todoEndDate, isTodoIncomplete, deriveTodoPhase, todoRunningDays } from '../../lib/todoPeriod';
+import { periodCoversDate, todoEndDate, isTodoIncomplete, deriveTodoPhase, todoRunningDays, type DerivedTodoPhase } from '../../lib/todoPeriod';
 import { RecurrenceBranchModal } from './RecurrenceBranchModal';
 import { Timeline } from './timeline/Timeline';
 import { TimelineSettingsModal } from './timeline/TimelineSettingsModal';
@@ -488,7 +488,7 @@ function ContextMenu({ todo, position, onClose, onFocus, onDelete, deleteMessage
         { label: '편집', icon: Edit3, action: 'edit' },
         { divider: true },
         { label: '예정', icon: Clock, action: 'active', status: 'active' },
-        { label: '진행중', icon: Hourglass, action: 'inProgress', status: 'inProgress' },
+        // '진행중'은 기간에서 파생된다(수동 토글 제거) — 시작하려면 '포커스 시작'(타이머).
         { label: '포커스 시작', icon: Play, action: 'focus' },
         { label: '미루기', icon: Pause, action: 'snoozed', status: 'snoozed' },
         { label: '취소', icon: Ban, action: 'cancelled', status: 'cancelled' },
@@ -537,16 +537,8 @@ function ContextMenu({ todo, position, onClose, onFocus, onDelete, deleteMessage
                   setShowDeleteConfirm(true);
                 } else if ('status' in item) {
                   const st = (item as any).status;
-                  if (todo.status === st && st !== 'active') {
-                    // 이미 그 상태에서 같은 항목을 다시 누르면 → 해제(안시작으로 되돌림).
-                    // 진행중 해제 시 started_date 도 비워 다음 진입을 새로 시작한다.
-                    updateTodo(todo.id, { status: 'active', startedDate: undefined });
-                  } else {
-                    // 진행중 진입 시 started_date 최초 1회 기록 ("N일째"·이월 기준)
-                    updateTodo(todo.id, st === 'inProgress'
-                      ? { status: st, startedDate: todo.startedDate ?? getLogicalToday() }
-                      : { status: st });
-                  }
+                  // 같은 상태를 다시 누르면 해제(→ 예정). 진행중은 파생이라 여기서 다루지 않는다.
+                  updateTodo(todo.id, { status: todo.status === st && st !== 'active' ? 'active' : st });
                   onClose();
                 }
               }}>
@@ -1071,14 +1063,26 @@ export function DailyView() {
   };
 
   // Status badge
-  const StatusBadge = ({ status }: { status: string }) => {
-    const cfg = STATUS_CONFIG[status] || STATUS_CONFIG.active;
+  // 완료/미루기/취소는 저장 상태 그대로, 그 외(미완료)는 기간 파생(진행중/늦음/예정)으로 표시.
+  const StatusBadge = ({ phase, status }: { phase: DerivedTodoPhase; status: string }) => {
+    let label: string, color: string, bg: string;
+    if (status === 'done' || status === 'snoozed' || status === 'cancelled') {
+      const cfg = STATUS_CONFIG[status];
+      label = cfg.label; color = cfg.color; bg = cfg.bgColor;
+    } else if (phase === 'inProgress') {
+      label = '진행중'; color = t.success; bg = `${t.success}18`;
+    } else if (phase === 'late') {
+      label = '늦음'; color = t.warning; bg = t.warningLight;
+    } else {
+      const cfg = STATUS_CONFIG.active; // upcoming/기타 = 예정
+      label = cfg.label; color = cfg.color; bg = cfg.bgColor;
+    }
     return (
       <span className="px-2 py-0.5 rounded-full" style={{
         fontSize: 10, fontWeight: 600,
-        backgroundColor: cfg.bgColor, color: cfg.color,
+        backgroundColor: bg, color,
       }}>
-        {cfg.label}
+        {label}
       </span>
     );
   };
@@ -1119,10 +1123,12 @@ export function DailyView() {
     const firstTag = (todo.tags && todo.tags.length > 0) ? tags.find(tg => tg.id === todo.tags![0]) : null;
     const accentColor = firstTag?.color || t.border;
     const isDone = todo.status === 'done';
-    // "N일째 진행중" — started_date 부터 오늘까지. 3일↑ 강조(Stage 4)
-    const inProgressDays = (todo.status === 'inProgress' && todo.startedDate)
-      ? differenceInCalendarDays(parseISO(todayStr2), parseISO(todo.startedDate)) + 1
-      : 0;
+    // 진행중/늦음은 기간에서 파생(status 아님). 기준 = 오늘(todayStr2).
+    const phase = deriveTodoPhase(todo, todayStr2);
+    const isInProgress = phase === 'inProgress';
+    const isLate = phase === 'late';
+    // "N일째" — 기간 시작일부터 오늘까지. 진행중일 때만, 2일↑ 표시. (date=시작일 파생)
+    const inProgressDays = isInProgress ? todoRunningDays(todo, todayStr2) : 0;
 
     const isHighlighted = highlightTodoId === todo.id;
 
@@ -1179,11 +1185,11 @@ export function DailyView() {
           style={{
             // withAlpha: accentColor 가 태그색(hex)일 수도, 무태그 폴백 t.border(테마 H=rgba)일 수도 있다.
             // `${color}60` 접미사는 rgba 토큰에서 깨져 원형 체크 UI 가 사라졌다(테마 H). 헬퍼로 안전 적용.
-            border: isDone ? 'none' : `2px solid ${withAlpha(todo.status === 'inProgress' ? t.success : accentColor, 0.38)}`,
-            backgroundColor: isDone ? t.checkDone : (todo.status === 'inProgress' ? withAlpha(t.success, 0.07) : 'transparent'),
+            border: isDone ? 'none' : `2px solid ${withAlpha(isInProgress ? t.success : accentColor, 0.38)}`,
+            backgroundColor: isDone ? t.checkDone : (isInProgress ? withAlpha(t.success, 0.07) : 'transparent'),
           }}>
           {isDone && <Check size={11} color="#fff" strokeWidth={3} />}
-          {!isDone && todo.status === 'inProgress' && <Play size={9} color={t.success} fill={t.success} />}
+          {!isDone && isInProgress && <Play size={9} color={t.success} fill={t.success} />}
         </button>
 
         {/* Content */}
@@ -1275,7 +1281,7 @@ export function DailyView() {
               {inProgressDays}일째
             </span>
           )}
-          <StatusBadge status={todo.status} />
+          <StatusBadge phase={phase} status={todo.status} />
           {/* 미루기 → : 탭=내일로, 길게=날짜 지정(SnoozeModal) */}
           <button
             aria-label="미루기"
@@ -1535,16 +1541,16 @@ export function DailyView() {
                 <div className="flex-1" />
                 <button onClick={() => navigate('/todos')} style={{ fontSize: 11, color: t.textMuted, fontWeight: 600 }}>전체 →</button>
               </div>
-              {/* 이어서 하기 (Stage 4 이월) — 지난 날짜의 미완 '진행중'을 오늘로 이어붙임 */}
+              {/* 늦음 이월 — 종료일이 지난 미완료를 오늘 계속 노출(기간 파생). 완료해도 세션 내 유지. */}
               {carryoverTodos.length > 0 && (
                 <div className="mb-3">
                   <button
                     onClick={() => setCarryoverCollapsed(v => !v)}
                     className="flex items-center gap-1.5 mb-2 w-full"
                   >
-                    <ChevronRightIcon size={12} color={t.success}
+                    <ChevronRightIcon size={12} color={t.warning}
                       style={{ transform: carryoverCollapsed ? 'none' : 'rotate(90deg)', transition: 'transform .15s' }} />
-                    <span style={{ fontSize: 10, color: t.success, fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase' }}>이어서 하기</span>
+                    <span style={{ fontSize: 10, color: t.warning, fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase' }}>늦음</span>
                     <span style={{ fontSize: 10, color: t.textMuted }}>{carryoverTodos.length}</span>
                   </button>
                   {!carryoverCollapsed && (

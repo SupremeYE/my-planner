@@ -14,6 +14,7 @@ import {
 } from 'date-fns';
 import { ko } from 'date-fns/locale';
 import { usePlanner, Event, PeriodRecord, SelfCareRecord, Todo, getLogicalToday } from '../store';
+import { deriveTodoPhase } from '../../lib/todoPeriod';
 import { isDoOvertimeVsPlan, doElapsedTitleSuffix } from '../../lib/todoDoDuration';
 import { expandRecurringTodos, isVirtualTodoId, parseVirtualTodoId } from '../../lib/recurrenceExpansion';
 import { buildTodoToggleUpdate } from '../../lib/todoToggle';
@@ -566,6 +567,7 @@ export function CalendarView() {
     const firstTag = todo.tags?.length ? tags.find(tg => tg.id === todo.tags![0]) : null;
     const accentColor = firstTag?.color || t.border;
     const isDone = todo.status === 'done';
+    const isInProgress = deriveTodoPhase(todo, todayStr) === 'inProgress'; // 진행중은 기간 파생
     const project = todo.projectId ? projects.find(p => p.id === todo.projectId) : null;
     return (
       <div
@@ -581,8 +583,8 @@ export function CalendarView() {
           onClick={() => handleToggleTodo(todo)}
           className="w-5 h-5 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5 transition-all"
           style={{
-            border: isDone ? 'none' : `2px solid ${(todo.status === 'inProgress' ? t.success : accentColor)}60`,
-            backgroundColor: isDone ? t.checkDone : (todo.status === 'inProgress' ? `${t.success}12` : 'transparent'),
+            border: isDone ? 'none' : `2px solid ${(isInProgress ? t.success : accentColor)}60`,
+            backgroundColor: isDone ? t.checkDone : (isInProgress ? `${t.success}12` : 'transparent'),
           }}
           aria-label="완료 토글"
         >

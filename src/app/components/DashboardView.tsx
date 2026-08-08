@@ -2,6 +2,7 @@ import React, { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router';
 import { useTheme } from '../ThemeContext';
 import { usePlanner, DEFAULT_AFFIRMATIONS, today, getWeekKey, Todo, Event } from '../store';
+import { isTodoIncomplete } from '../../lib/todoPeriod';
 import { isEventPast } from '../../api/events';
 import {
   CheckCircle2, Target, TrendingUp, ChevronDown, ChevronRight,
@@ -543,7 +544,7 @@ export function DashboardView() {
     const timedTodos: TodayItem[] = todos
       .filter(td =>
         td.date === today &&
-        (td.status === 'active' || td.status === 'inProgress') &&
+        isTodoIncomplete(td.status) &&
         td.planStart
       )
       .map(td => ({ kind: 'todo' as const, id: td.id, time: td.planStart!, todo: td, tone: 'normal' as const }));
@@ -572,7 +573,7 @@ export function DashboardView() {
     todos
       .filter(td =>
         td.date === today &&
-        (td.status === 'active' || td.status === 'inProgress') &&
+        isTodoIncomplete(td.status) &&
         !td.planStart
       )
       .map(td => ({ kind: 'todo' as const, id: td.id, time: null, todo: td, tone: 'normal' as const })),
@@ -583,7 +584,7 @@ export function DashboardView() {
   const tomorrowTodos = useMemo(() =>
     todos.filter(td =>
       td.date === tomorrow &&
-      (td.status === 'active' || td.status === 'inProgress')
+      isTodoIncomplete(td.status)
     ),
     [todos, tomorrow]
   );

@@ -12,7 +12,7 @@ import { MandalartSourceBadge } from './mandalart/MandalartSourceBadge';
 import { TodoModal } from './TodoModal';
 import { QuickAddInput } from './QuickAddInput';
 import { isInboxCandidate } from '../../lib/inbox';
-import { periodCoversDate, todoEndDate } from '../../lib/todoPeriod';
+import { periodCoversDate, todoEndDate, deriveTodoPhase } from '../../lib/todoPeriod';
 import { solidCardStyle, solidRowStyle, glassBarStyle, mixHex, selectedRowStyle, actionBarStyle, buttonStyle } from '../styles/haonStyles';
 
 // ─── Constants ───────────────────────────────────────────────
@@ -98,6 +98,7 @@ function TodoRow({
   const isDone = todo.status === 'done';
   const isCancelled = todo.status === 'cancelled';
   const cfg = STATUS_CONFIG[todo.status] ?? STATUS_CONFIG.active;
+  const isInProgress = deriveTodoPhase(todo, getLogicalToday()) === 'inProgress'; // 진행중은 기간 파생
   const duePast = todo.dueDate && todo.dueDate < getLogicalToday();
   const project = todo.projectId ? projects.find(p => p.id === todo.projectId) : null;
 
@@ -182,12 +183,12 @@ function TodoRow({
               onClick={handleStatusToggle}
               className="flex-shrink-0 mt-0.5 w-5 h-5 rounded-full border-2 flex items-center justify-center transition-all"
               style={{
-                borderColor: isDone ? t.accent : cfg.color,
+                borderColor: isDone ? t.accent : (isInProgress ? t.success : cfg.color),
                 backgroundColor: isDone ? t.accent : 'transparent',
               }}
             >
               {isDone && <Check size={10} color="#fff" strokeWidth={3} />}
-              {todo.status === 'inProgress' && <Play size={8} color={cfg.color} fill={cfg.color} />}
+              {!isDone && isInProgress && <Play size={8} color={t.success} fill={t.success} />}
             </button>
           )}
 
@@ -445,18 +446,18 @@ function TodoListTab({ selectMode, selected, onSelectToggle }: TabSelectionProps
               className="absolute left-0 top-0 bottom-0"
               style={{
                 width: 4,
-                background: t.primaryGradient ?? t.accent,
+                background: t.warning,
                 borderTopLeftRadius: t.solidCardRadius ?? 20,
                 borderBottomLeftRadius: t.solidCardRadius ?? 20,
               }}
             />
             <div className="flex items-center gap-2 mb-2.5">
-              <AlertTriangle size={14} color={t.danger} />
-              <span style={{ fontSize: 11, fontWeight: 700, color: t.danger, letterSpacing: '0.04em' }}>
-                밀림 {overdue.length}개
+              <AlertTriangle size={14} color={t.warning} />
+              <span style={{ fontSize: 11, fontWeight: 700, color: t.warning, letterSpacing: '0.04em' }}>
+                늦음 {overdue.length}개
               </span>
-              <span style={{ fontSize: 10, color: t.danger, opacity: 0.8 }}>
-                지난 날짜의 미완료 할일이에요. '오늘로' 로 끌어오세요.
+              <span style={{ fontSize: 10, color: t.warning, opacity: 0.85 }}>
+                종료일이 지난 미완료예요. 계속 여기 떠 있어요 — '오늘로' 로 끌어오세요.
               </span>
             </div>
             <div className="space-y-2">
