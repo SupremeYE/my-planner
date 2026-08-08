@@ -114,19 +114,24 @@ function VoiceInputButton({ onResult }: { onResult: (text: string) => void }) {
 function useCalorieEstimate() {
   const [loading, setLoading] = useState(false);
   const [estimated, setEstimated] = useState<number | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
   const estimate = useCallback(async (input: string) => {
     if (!input.trim()) return;
     setLoading(true);
     setEstimated(null);
+    setError(null);
     try {
       const res = await fetch(`/api/food-calorie?input=${encodeURIComponent(input)}`);
-      if (res.ok) {
-        const data = await res.json();
-        if (typeof data.calories === 'number') setEstimated(data.calories);
+      const data = await res.json().catch(() => null);
+      if (res.ok && typeof data?.calories === 'number') {
+        setEstimated(data.calories);
+      } else {
+        // 실패 사유를 노출 (조용히 삼키지 않음) — 예: OpenAI 크레딧 소진 시 502
+        setError(data?.error ?? 'AI 추정을 불러오지 못했어요');
       }
     } catch {
-      // 실패 시 조용히 처리
+      setError('네트워크 오류로 추정하지 못했어요');
     } finally {
       setLoading(false);
     }
@@ -134,10 +139,11 @@ function useCalorieEstimate() {
 
   const reset = useCallback(() => {
     setEstimated(null);
+    setError(null);
     setLoading(false);
   }, []);
 
-  return { estimate, loading, estimated, setEstimated, reset };
+  return { estimate, loading, estimated, setEstimated, error, reset };
 }
 
 // ─── 기록 카드 ──────────────────────────────────────────────────────
@@ -1039,7 +1045,7 @@ function AddFoodSheet({
   const galleryRef = useRef<HTMLInputElement>(null);
 
   // AI 칼로리 추정
-  const { estimate, loading: calLoading, estimated, setEstimated, reset: resetEstimate } = useCalorieEstimate();
+  const { estimate, loading: calLoading, estimated, setEstimated, error: calError, reset: resetEstimate } = useCalorieEstimate();
 
   const set = (patch: Partial<FormState>) => setForm(prev => ({ ...prev, ...patch }));
 
@@ -1429,6 +1435,18 @@ function AddFoodSheet({
                   <span style={{ fontSize: 16, fontWeight: 700, color: t.accent }}>
                     {estimated} kcal 적용하기
                   </span>
+                </button>
+              )}
+
+              {/* AI 추정 실패 — 조용히 사라지지 않고 사유 + 다시 시도 노출 */}
+              {calError && !calLoading && estimated === null && (
+                <button
+                  onClick={() => estimate(form.foodName)}
+                  disabled={!form.foodName.trim()}
+                  className="w-full flex items-center justify-between px-4 py-3 rounded-xl mb-3"
+                  style={{ backgroundColor: t.surfaceMuted, border: `1px solid ${t.border}` }}>
+                  <span style={{ fontSize: 12, color: t.textSub }}>✨ AI 추정을 못했어요 · 직접 입력해도 돼요</span>
+                  <span style={{ fontSize: 13, fontWeight: 700, color: t.accent }}>다시 시도 ↻</span>
                 </button>
               )}
 
