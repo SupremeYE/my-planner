@@ -21,6 +21,10 @@
 99파일** (`lavenderTint` 471 + `lavenderHover` 7). 전량 파일별 집계는 기계가독 baseline
 `scripts/color-baseline.json`(SSOT). 청소로 줄면 `npm run lint:colors -- --update`로 조인다.
 
+**진척.** 만다라트 재설계(Stage B, 2026-08-08)로 baseline **478 → 466**(97파일) — 만다라트 보드
+PC/모바일이 명암 역전 재설계로 라벤더 **12라인 전량 회수**(surfaceMuted/inputBg/투명 ghost로 이행,
+`MandalartBoardPC`·`MandalartBoardMobile` = 0). SendCellModal(10)은 범위 밖으로 잔존.
+
 **성격 분류(샘플 기반 대략 비율) = 정리 방향.**
 
 | 분류 | 대략 | 옮길 곳 |
@@ -46,6 +50,7 @@
 | `CalendarView.tsx` | 12 | ☐ 미착수 |
 | `Layout.tsx` | 11 | ☐ 미착수 |
 | `mandalart/SendCellModal.tsx` · `recipe/FridgeTab.tsx` · `money/MoneyShared.tsx` | 10 | ☐ 미착수 |
+| `mandalart/MandalartBoardPC.tsx` · `MandalartBoardMobile.tsx` | 7·5→**0** | ✅ Stage B 정리 완료 |
 | `BacklogView` · `CultureRecordView` · `MoodView` · `recipe/RecipeFormSheet` · `scrap/ScrapDetailSheet` | 9 | ☐ 미착수 |
 | `ProfileView.tsx` | 8 | ☐ 미착수 |
 | …나머지 (7↓) | 7↓ | ☐ 미착수 — `scripts/color-baseline.json` 참조 |

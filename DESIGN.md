@@ -746,6 +746,36 @@ placeholder, 차단 문구 없음). 연간 데이터는 `user_settings.annual_pr
 `selectedRowStyle`, `periodStepperStyle`, `inputBg`, `buttonStyle`, `mixHex`, `isHaon`. **신규 haonStyles 헬퍼:**
 `retroStatusStyle`/`retroStatusColor`(회고 3버튼)뿐.
 
+### 목표 페이지 — 만다라트 탭 (Stage B, 위 계약 상속)
+
+같은 목표 페이지의 만다라트 탭. **명암 역전이 핵심**: 예전엔 빈 셀이 라벤더로 꽉 차 "안 채운 곳"이
+먼저 보였다. **빈 셀은 배경으로 물러나고, 채운 셀만 떠오르게** 한다. 위 「기간별」 계약(카드/진행/색)을 상속.
+
+**셀 상태별 표면.**
+| 상태 | 표면 |
+|---|---|
+| 빈 셀(ghost) | **투명 배경 + 중립 점선(`t.border`)** + 뮤트 `+`(`t.textMuted`). hover 시에만 살짝 드러남(`.mandalart-ghost`, 중립 틴트) |
+| 채운 서브목표 | 흰 솔리드 카드 + **좌측 3px 컬러 액센트 바**(inset) + 리프트 그림자. **셀 전체를 색으로 칠하지 않는다**(81칸 색면 회피) |
+| 중심 코어목표 | 코랄 그라데이션(`t.primaryGradient`) 고정 — **팔레트에서 코랄을 제외하는 이유** |
+| 외곽 미러 셀 | 해당 서브목표의 색(`mid` 톤)으로 채움 — 중앙 세부가 외곽에서 반복되는 자리 표현 |
+| 세부 셀 | 흰 솔리드 카드 |
+| 완료 세부 셀 | **배경 불변**(리스트 행 규칙) — 체크 + 취소선 + `t.textMuted`. 완료가 미완료보다 강하면 안 됨 |
+
+**색 팔레트(6색, 단일 소스 `mandalartColors.ts`).** `lilac`/`blue`/`sage`/`magenta`/`purple`/`teal`. **코랄 제외**
+(선택·중심 전용). DB 에는 팔레트 **키**만 저장(`mandalart_cells.color`, hex 아님 — 토큰 바뀌어도 DB 무변경).
+각 색은 채도 `bar`(좌측 바·미러 앵커) 1개 고정 + `fill`/`mid`는 `mixHex` 파생. 색 선택 = 편집 모달 내
+6스와치(선택=코랄 링). NULL=미지정(중립 `surfaceMuted`/`textMuted`).
+
+**진행 표시.** 중앙 블록 서브목표 = **8칸 점 인디케이터**(세부 완료 수), 상단 = 전체 진행률(트랙 `surfaceMuted`,
+채움 `success`). 라일락 진행 트랙 금지.
+
+**레이아웃.** PC = 3×3 블록 그리드(블록 간격 > 셀 간격으로 계층 표현, 블록 배경 투명 — 라벤더 wash 제거).
+모바일 = **2단**: ① 오버뷰(중심 카드 + 서브목표 8개 카드 리스트, 각 카드에 미니 3×3 진행 그리드 + 완료 수)
+② 드릴다운(카드 탭 → 세부 3×3). **고정 높이·flex 잠금 금지.**
+
+**Scope:** Theme H, 토큰만. **재사용 헬퍼:** `solidCardStyle`, `inputBg`, `withAlpha`, `mixHex`. **신규:**
+`mandalartColors.ts`(팔레트 단일 소스), `MandalartColorPicker`(공용 6스와치). 라벤더 토큰 소비 0(`lint:colors` 통과).
+
 ---
 
 ## 6. 캘린더 페이지 (page-specific patterns)
