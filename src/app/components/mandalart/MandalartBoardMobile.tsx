@@ -1,10 +1,12 @@
 import { useMemo, useRef, useState } from 'react';
-import { ChevronRight, Send } from 'lucide-react';
+import { ChevronRight, Send, Plus } from 'lucide-react';
 import { useTheme } from '../../ThemeContext';
 import { db } from '../../../lib/db';
 import { usePlanner } from '../../store';
 import { computeProgress } from './MandalartView';
 import { SendCellModal } from './SendCellModal';
+import { inputBg, solidCardStyle, withAlpha } from '../../styles/haonStyles';
+import { mandalartColor } from '../../styles/mandalartColors';
 import type { Notify } from '../culture/CultureToast';
 
 export type Cell = {
@@ -57,6 +59,16 @@ export function MandalartBoardMobile({ boardId, boardTitle, cells, onMutate, onN
     () => cells.filter(c => c.parent_id === null).sort((a, b) => a.position - b.position),
     [cells],
   );
+
+  const actionsBySub = useMemo(() => {
+    const m = new Map<string, Cell[]>();
+    cells.filter(c => c.parent_id !== null).forEach(c => {
+      const list = m.get(c.parent_id!) ?? [];
+      list.push(c);
+      m.set(c.parent_id!, list);
+    });
+    return m;
+  }, [cells]);
 
   const progress = useMemo(() => computeProgress(cells), [cells]);
 
@@ -144,6 +156,7 @@ export function MandalartBoardMobile({ boardId, boardTitle, cells, onMutate, onN
                   key="center"
                   name={drillSub.content || '세부'}
                   pct={subPct}
+                  colorKey={drillSub.color}
                   onClick={() => openEditFor({ kind: 'sub', position: drillSub.position, cell: drillSub })}
                 />
               );
@@ -209,62 +222,61 @@ export function MandalartBoardMobile({ boardId, boardTitle, cells, onMutate, onN
     );
   }
 
-  // ─── center view ────────────────────────────────────────
+  // ─── 오버뷰 (2단 구조 상단) — 중심 목표 카드 + 서브목표 8개 카드 리스트 ──────────
   return (
     <>
       {/* core header */}
       <div
-        className="rounded-2xl p-4 mb-3"
-        style={{ backgroundColor: t.card, border: `1px solid ${t.borderLight}` }}
+        className="p-4 mb-3"
+        style={{ ...solidCardStyle(t) }}
         onClick={() => openEditFor({ kind: 'core' })}
       >
         <div style={{ fontSize: 11, color: t.textMuted }}>핵심 목표</div>
         <div style={{ fontFamily: t.fontDecorative, fontWeight: 700, fontSize: 20, marginTop: 2, color: t.text }}>
           {boardTitle || '제목을 적어주세요'}
         </div>
-        <div className="h-2 rounded-full overflow-hidden mt-3" style={{ backgroundColor: t.lavenderTint }}>
+        <div className="h-2 rounded-full overflow-hidden mt-3" style={{ backgroundColor: t.surfaceMuted }}>
           <div className="h-full" style={{ width: `${progress.overall}%`, backgroundColor: t.success }} />
         </div>
         <div className="flex justify-between mt-1.5" style={{ fontSize: 11, color: t.textMuted }}>
           <span>전체 진행률</span>
-          <span>{progress.overall}%</span>
+          <span style={{ fontFamily: t.fontNumeric, color: t.textSub }}>{progress.overall}%</span>
         </div>
       </div>
 
-      <div className="grid grid-cols-3 gap-2">
-        {Array.from({ length: 9 }).map((_, gridIdx) => {
-          if (gridIdx === 4) {
+      {/* 서브목표 8개 카드 리스트 (position 0..7) */}
+      <div className="flex flex-col gap-2">
+        {Array.from({ length: 8 }).map((_, pos) => {
+          const sub = subs.find(s => s.position === pos) ?? null;
+          if (!sub) {
             return (
-              <CoreCell
-                key="center"
-                title={boardTitle || '핵심 목표'}
-                pct={progress.overall}
-                t={t}
-                onClick={() => openEditFor({ kind: 'core' })}
-              />
+              <button
+                key={pos}
+                onClick={() => openEditFor({ kind: 'sub', position: pos, cell: null })}
+                className="mandalart-ghost w-full flex items-center justify-center gap-1.5 py-3 rounded-2xl"
+                style={{ backgroundColor: 'transparent', border: `1.5px dashed ${t.border}`, color: t.textMuted }}
+              >
+                <Plus size={14} />
+                <span style={{ fontSize: 13 }}>세부 목표 추가</span>
+              </button>
             );
           }
-          const pos = positionForGridIdx(gridIdx)!;
-          const sub = subs.find(s => s.position === pos) ?? null;
+          const counts = progress.subCounts(sub.id);
+          const hasActions = progress.subHasActions(sub.id);
           return (
-            <SubCell
-              key={gridIdx}
+            <SubOverviewCard
+              key={pos}
               cell={sub}
-              sent={sub ? sentCellIds.has(sub.id) : false}
-              pct={sub ? progress.subPct(sub.id) : 0}
-              hasActions={sub ? progress.subHasActions(sub.id) : false}
+              sent={sentCellIds.has(sub.id)}
+              counts={counts}
+              hasActions={hasActions}
+              actions={actionsBySub.get(sub.id) ?? []}
               onTap={() => {
                 if (longPressed.current) return;
-                if (!sub) {
-                  openEditFor({ kind: 'sub', position: pos, cell: null });
-                } else if (progress.subHasActions(sub.id)) {
-                  setDrillSubId(sub.id);
-                } else {
-                  // leaf — 자체 체크 토글
-                  db.mandalartCells.update(sub.id, { isDone: !sub.is_done }).then(onMutate);
-                }
+                if (hasActions) setDrillSubId(sub.id);
+                else db.mandalartCells.update(sub.id, { isDone: !sub.is_done }).then(onMutate);
               }}
-              onExpand={sub && !progress.subHasActions(sub.id) ? () => setDrillSubId(sub.id) : undefined}
+              onDrill={() => setDrillSubId(sub.id)}
               onLongPress={() => openEditFor({ kind: 'sub', position: pos, cell: sub })}
               startLongPress={startLongPress}
               cancelLongPress={cancelLongPress}
@@ -273,7 +285,7 @@ export function MandalartBoardMobile({ boardId, boardTitle, cells, onMutate, onN
         })}
       </div>
       <p className="text-center mt-4" style={{ fontSize: 11, color: t.textMuted, lineHeight: 1.5 }}>
-        세부 칸을 탭하면 체크 / 행동이 있으면 펼쳐져요 · 길게 눌러 편집
+        카드를 탭하면 세부 3×3 으로 들어가요 · 길게 눌러 편집
       </p>
 
       {editing && (
@@ -312,52 +324,39 @@ export function MandalartBoardMobile({ boardId, boardTitle, cells, onMutate, onN
 }
 
 // ─── 셀 컴포넌트들 ────────────────────────────────────────────
-function CoreCell({ title, pct, t, onClick }: {
-  title: string; pct: number; t: ReturnType<typeof useTheme>['t']; onClick: () => void;
+
+// 미니 3×3 진행 그리드 — 중앙=세부 색, 둘레 8칸=행동 상태(완료=success, 미완료=중립, 없음=희미).
+function MiniGrid({ cell, actions, t }: {
+  cell: Cell; actions: Cell[]; t: ReturnType<typeof useTheme>['t'];
 }) {
+  const c = mandalartColor(t, cell.color);
+  const byPos = new Map<number, Cell>();
+  actions.forEach(a => byPos.set(a.position, a));
   return (
-    <button
-      onClick={onClick}
-      className="aspect-square rounded-2xl flex flex-col items-center justify-center gap-1 px-2 text-center"
-      style={{ background: t.primaryGradient ?? t.accent, color: '#fff', minWidth: 0, boxShadow: t.shadowButton }}
-    >
-      <span style={{
-        fontFamily: t.fontDecorative, fontWeight: 700, fontSize: 14,
-        lineHeight: 1.15,
-        display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical',
-        overflow: 'hidden', wordBreak: 'break-word',
-      }}>
-        {title}
-      </span>
-      <span style={{ fontFamily: t.fontStat, fontSize: 20 }}>{pct}%</span>
-    </button>
+    <span style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 2, width: 34, height: 34, flexShrink: 0 }}>
+      {Array.from({ length: 9 }).map((_, gridIdx) => {
+        if (gridIdx === 4) {
+          return <span key={gridIdx} style={{ borderRadius: 2, backgroundColor: c.bar }} />;
+        }
+        const pos = positionForGridIdx(gridIdx)!;
+        const a = byPos.get(pos);
+        const bg = !a ? withAlpha(t.textMuted, 0.15) : a.is_done ? t.success : withAlpha(t.textMuted, 0.4);
+        return <span key={gridIdx} style={{ borderRadius: 2, backgroundColor: bg }} />;
+      })}
+    </span>
   );
 }
 
-function SubCell({
-  cell, sent, pct, hasActions, onTap, onExpand, onLongPress, startLongPress, cancelLongPress,
+// 오버뷰 서브목표 카드 — 흰 솔리드 카드 + 좌측 3px 컬러 바 + 제목/완료수 + 미니 3×3(행동) 또는 체크(leaf).
+function SubOverviewCard({
+  cell, sent, counts, hasActions, actions, onTap, onDrill, onLongPress, startLongPress, cancelLongPress,
 }: {
-  cell: Cell | null; sent: boolean; pct: number; hasActions: boolean;
-  onTap: () => void; onExpand?: () => void; onLongPress: () => void;
+  cell: Cell; sent: boolean; counts: { done: number; total: number }; hasActions: boolean;
+  actions: Cell[]; onTap: () => void; onDrill: () => void; onLongPress: () => void;
   startLongPress: (run: () => void) => void; cancelLongPress: () => void;
 }) {
   const { t } = useTheme();
-  if (!cell) {
-    return (
-      <button
-        onClick={onTap}
-        className="aspect-square rounded-2xl flex flex-col items-center justify-center gap-0.5"
-        style={{
-          backgroundColor: t.card,
-          border: `1.5px dashed ${t.accentLight}`,
-          color: t.accent, minWidth: 0,
-        }}
-      >
-        <span style={{ fontSize: 22, fontWeight: 300, lineHeight: 1 }}>+</span>
-        <span style={{ fontSize: 10, color: t.accent }}>세부 추가</span>
-      </button>
-    );
-  }
+  const c = mandalartColor(t, cell.color);
   const done = !hasActions && cell.is_done;
   return (
     <div
@@ -367,74 +366,54 @@ function SubCell({
       onTouchEnd={cancelLongPress}
       onTouchMove={cancelLongPress}
       onContextMenu={e => { e.preventDefault(); onLongPress(); }}
-      className="aspect-square rounded-2xl flex flex-col items-center justify-center gap-1.5 px-2 relative text-center cursor-pointer"
-      style={{
-        backgroundColor: done ? t.success + '22' : t.lavenderTint,
-        border: `1px solid ${done ? t.success + '66' : t.border}`,
-        color: t.text, minWidth: 0,
-      }}
+      className="w-full flex items-center gap-3 px-3.5 py-3 relative cursor-pointer"
+      style={{ ...solidCardStyle(t), boxShadow: `inset 3px 0 0 ${c.bar}, ${solidCardStyle(t).boxShadow}` }}
     >
       {sent && (
-        <span
-          title="이 칸에서 보낸 항목이 있어요"
-          style={{
-            position: 'absolute', top: 4, left: 6,
-            fontSize: 11, color: t.accent, fontWeight: 700, lineHeight: 1,
-          }}
-        >✦</span>
+        <span title="이 칸에서 보낸 항목이 있어요"
+          style={{ position: 'absolute', top: 6, right: 8, fontSize: 11, color: t.accent, fontWeight: 700, lineHeight: 1 }}>✦</span>
       )}
-      {!hasActions && (
+      <div className="flex-1 min-w-0">
+        <div style={{
+          fontSize: 14, fontWeight: 600, lineHeight: 1.25,
+          color: done ? t.textMuted : t.text,
+          textDecoration: done ? 'line-through' : 'none',
+          display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden', wordBreak: 'break-word',
+        }}>
+          {cell.content || '세부 목표'}
+        </div>
+        <div className="mt-1" style={{ fontSize: 11, color: t.textMuted, fontFamily: t.fontNumeric }}>
+          {hasActions ? `${counts.done}/${counts.total} 완료` : done ? '완료됨' : '행동 없음 · 탭하여 체크'}
+        </div>
+      </div>
+      {hasActions ? (
+        <>
+          <MiniGrid cell={cell} actions={actions} t={t} />
+          <ChevronRight size={16} style={{ color: t.textMuted, flexShrink: 0 }} onClick={e => { e.stopPropagation(); onDrill(); }} />
+        </>
+      ) : (
         <span
           className="rounded-full flex items-center justify-center"
           style={{
-            width: 18, height: 18,
-            border: `1.5px solid ${done ? t.success : t.accent}`,
+            width: 22, height: 22, flexShrink: 0,
+            border: `1.5px solid ${done ? t.success : t.border}`,
             backgroundColor: done ? t.success : 'transparent',
-            color: done ? '#fff' : 'transparent',
-            fontSize: 10, fontWeight: 700,
+            color: done ? '#fff' : 'transparent', fontSize: 12, fontWeight: 700,
           }}
         >✓</span>
-      )}
-      <span style={{
-        fontSize: 12.5, fontWeight: 500, lineHeight: 1.2,
-        color: done ? t.textMuted : t.text,
-        textDecoration: done ? 'line-through' : 'none',
-        display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical',
-        overflow: 'hidden', wordBreak: 'break-word',
-      }}>
-        {cell.content}
-      </span>
-      {hasActions && (
-        <>
-          <div className="h-1 rounded-full overflow-hidden" style={{ width: '70%', backgroundColor: t.border + '55' }}>
-            <div className="h-full" style={{ width: `${pct}%`, backgroundColor: t.success }} />
-          </div>
-          <ChevronRight size={10} style={{ position: 'absolute', bottom: 6, right: 6, color: t.accent }} />
-        </>
-      )}
-      {!hasActions && onExpand && (
-        <span
-          role="button"
-          onClick={e => { e.stopPropagation(); onExpand(); }}
-          style={{
-            position: 'absolute', bottom: 4, right: 6,
-            fontSize: 9, fontWeight: 700, color: t.accent,
-            padding: '2px 5px', borderRadius: 8,
-            backgroundColor: t.accentLight,
-          }}
-        >+ 펼치기</span>
       )}
     </div>
   );
 }
 
-function SubCenterCell({ name, pct, onClick }: { name: string; pct: number; onClick: () => void }) {
+function SubCenterCell({ name, pct, colorKey, onClick }: { name: string; pct: number; colorKey: string | null; onClick: () => void }) {
   const { t } = useTheme();
+  const c = mandalartColor(t, colorKey);
   return (
     <button
       onClick={onClick}
       className="aspect-square rounded-2xl flex flex-col items-center justify-center gap-1 px-2 text-center"
-      style={{ backgroundColor: t.lavenderTint, color: t.text, minWidth: 0, border: `1px solid ${t.border}` }}
+      style={{ backgroundColor: c.mid, color: t.text, minWidth: 0, border: `1px solid ${withAlpha(c.bar, 0.35)}` }}
     >
       <span style={{
         fontFamily: t.fontDecorative, fontWeight: 700, fontSize: 14, lineHeight: 1.15,
@@ -443,7 +422,7 @@ function SubCenterCell({ name, pct, onClick }: { name: string; pct: number; onCl
       }}>
         {name}
       </span>
-      <span style={{ fontFamily: t.fontNumeric, fontSize: 18, color: t.accent }}>
+      <span style={{ fontFamily: t.fontNumeric, fontSize: 18, color: t.text }}>
         {pct}%
       </span>
     </button>
@@ -459,14 +438,15 @@ function ActionCell({
 }) {
   const { t } = useTheme();
   if (!cell) {
+    // 빈 셀(ghost) — 투명 + 중립 점선 + 뮤트.
     return (
       <button
         onClick={onTap}
-        className="aspect-square rounded-2xl flex flex-col items-center justify-center gap-0.5"
-        style={{ backgroundColor: t.card, border: `1.5px dashed ${t.accentLight}`, color: t.accent, minWidth: 0 }}
+        className="mandalart-ghost aspect-square rounded-2xl flex flex-col items-center justify-center gap-0.5"
+        style={{ backgroundColor: 'transparent', border: `1.5px dashed ${t.border}`, color: t.textMuted, minWidth: 0 }}
       >
         <span style={{ fontSize: 22, fontWeight: 300, lineHeight: 1 }}>+</span>
-        <span style={{ fontSize: 10, color: t.accent }}>행동 추가</span>
+        <span style={{ fontSize: 10, color: t.textMuted }}>행동 추가</span>
       </button>
     );
   }
@@ -480,8 +460,10 @@ function ActionCell({
       onContextMenu={e => { e.preventDefault(); onLongPress(); }}
       className="aspect-square rounded-2xl flex flex-col items-center justify-center gap-1 px-2 text-center relative"
       style={{
-        backgroundColor: done ? t.success + '22' : t.card,
-        border: `1px solid ${done ? t.success + '66' : t.border}`,
+        // 완료라도 배경 불변(리스트 행 규칙) — 흰 카드 유지, 체크+취소선+뮤트로만 표현.
+        backgroundColor: t.card,
+        border: `1px solid ${t.border}`,
+        boxShadow: '0 2px 8px rgba(120,90,160,0.10)',
         color: t.text, minWidth: 0,
       }}
     >
@@ -498,7 +480,7 @@ function ActionCell({
         className="rounded-full flex items-center justify-center"
         style={{
           width: 22, height: 22,
-          border: `1.5px solid ${done ? t.success : t.accent}`,
+          border: `1.5px solid ${done ? t.success : t.border}`,
           backgroundColor: done ? t.success : 'transparent',
           color: done ? '#fff' : 'transparent',
           fontSize: 12, fontWeight: 700,
@@ -548,7 +530,7 @@ function EditModal({
           placeholder={placeholder}
           rows={2}
           className="w-full rounded-xl px-3 py-2.5 border outline-none resize-none"
-          style={{ fontSize: 14, borderColor: t.border, backgroundColor: t.lavenderTint, color: t.text }}
+          style={{ fontSize: 14, borderColor: t.border, backgroundColor: inputBg(t), color: t.text }}
         />
         <div className="flex justify-between items-center gap-2 mt-3">
           {onSend ? (
@@ -565,7 +547,7 @@ function EditModal({
             <button
               onClick={onClose}
               className="px-3 py-1.5 rounded-xl"
-              style={{ fontSize: 13, color: t.textMuted, backgroundColor: t.lavenderTint }}
+              style={{ fontSize: 13, color: t.textSub, backgroundColor: t.surfaceMuted }}
             >취소</button>
             <button
               onClick={onSubmit}
