@@ -12,6 +12,7 @@ import { MandalartSourceBadge } from './mandalart/MandalartSourceBadge';
 import { TodoModal } from './TodoModal';
 import { QuickAddInput } from './QuickAddInput';
 import { isInboxCandidate } from '../../lib/inbox';
+import { periodCoversDate, todoEndDate } from '../../lib/todoPeriod';
 import { solidCardStyle, solidRowStyle, glassBarStyle, mixHex, selectedRowStyle, actionBarStyle, buttonStyle } from '../styles/haonStyles';
 
 // ─── Constants ───────────────────────────────────────────────
@@ -361,29 +362,21 @@ function TodoListTab({ selectMode, selected, onSelectToggle }: TabSelectionProps
     [todos]
   );
 
-  // 밀림: date < 오늘 AND status === active (진행중은 '밀림'이 아니라 이어가는 중 — 아래 별도)
+  // 늦음: 기간 종료일(endDate ?? date)이 오늘보다 이전인 미완료. (기간 기반 — 옛 '밀림'+'진행중 이월' 통합)
   const overdue = useMemo(
     () => incompleteAssigned
-      .filter(td => td.date! < todayStr && td.status === 'active')
+      .filter(td => todoEndDate(td)! < todayStr)
       .sort((a, b) => a.date!.localeCompare(b.date!)),
     [incompleteAssigned, todayStr]
   );
 
-  // Stage 4(이월): 지난 날짜의 '진행중' — 밀림과 분리, 진행중 톤으로 이어가는 중 표시
-  const inProgressCarryover = useMemo(
-    () => incompleteAssigned
-      .filter(td => td.date! < todayStr && td.status === 'inProgress')
-      .sort((a, b) => (a.startedDate ?? a.date!).localeCompare(b.startedDate ?? b.date!)),
-    [incompleteAssigned, todayStr]
-  );
-
-  // 오늘
+  // 오늘: 기간이 오늘을 포함(시작 <= 오늘 <= 종료)
   const todayTodos = useMemo(
-    () => incompleteAssigned.filter(td => td.date === todayStr),
+    () => incompleteAssigned.filter(td => periodCoversDate(td, todayStr)),
     [incompleteAssigned, todayStr]
   );
 
-  // 예정: 날짜별 그룹 오름차순
+  // 예정: 시작일이 오늘 이후. 시작일별 그룹 오름차순
   const upcomingGrouped = useMemo(() => {
     const groups: Record<string, Todo[]> = {};
     incompleteAssigned
@@ -392,7 +385,7 @@ function TodoListTab({ selectMode, selected, onSelectToggle }: TabSelectionProps
     return Object.entries(groups).sort(([a], [b]) => a.localeCompare(b));
   }, [incompleteAssigned, todayStr]);
 
-  const total = unassigned.length + overdue.length + inProgressCarryover.length + todayTodos.length + upcomingGrouped.reduce((s, [, list]) => s + list.length, 0);
+  const total = unassigned.length + overdue.length + todayTodos.length + upcomingGrouped.reduce((s, [, list]) => s + list.length, 0);
 
   return (
     <div className="space-y-5">
@@ -478,42 +471,6 @@ function TodoListTab({ selectMode, selected, onSelectToggle }: TabSelectionProps
                 selectMode={selectMode}
                 selected={selected.has(todo.id)}
                 onSelectToggle={() => onSelectToggle(todo.id)}
-                  onMoveToToday={() => updateTodo(todo.id, { date: todayStr })}
-                />
-              ))}
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* ── 진행중 (이어가는 중, Stage 4 이월) — 밀림과 분리, 초록 톤 ── */}
-      {inProgressCarryover.length > 0 && (
-        <div className="px-4">
-          <div
-            className="rounded-2xl p-3"
-            style={solidCardStyle(t)}
-          >
-            <div className="flex items-center gap-2 mb-2.5">
-              <Play size={13} color={t.success} fill={t.success} />
-              <span style={{ fontSize: 11, fontWeight: 700, color: t.success, letterSpacing: '0.04em' }}>
-                진행중 {inProgressCarryover.length}개
-              </span>
-              <span style={{ fontSize: 10, color: t.success, opacity: 0.8 }}>
-                지난 날 시작해 이어가는 중이에요 (밀림 아님)
-              </span>
-            </div>
-            <div className="space-y-2">
-              {inProgressCarryover.map(todo => (
-                <TodoRow
-                  key={todo.id}
-                  todo={todo}
-                  onStatusToggle={() => updateTodo(todo.id, { status: STATUS_NEXT[todo.status] })}
-                  onEdit={() => setEditingTodo(todo)}
-                  onDelete={() => deleteTodo(todo.id)}
-                  onTop3Toggle={() => toggleTop3(todo.id)}
-                  selectMode={selectMode}
-                  selected={selected.has(todo.id)}
-                  onSelectToggle={() => onSelectToggle(todo.id)}
                   onMoveToToday={() => updateTodo(todo.id, { date: todayStr })}
                 />
               ))}

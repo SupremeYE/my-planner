@@ -23,6 +23,7 @@ import { QuickAddInput } from './QuickAddInput';
 import { useDailySummary } from '../hooks/useDailySummary';
 import { isEventPast, isVirtualEventId } from '../../api/events';
 import { expandRecurringTodos, isVirtualTodoId, parseVirtualTodoId } from '../../lib/recurrenceExpansion';
+import { periodCoversDate, todoEndDate, isTodoIncomplete, deriveTodoPhase, todoRunningDays } from '../../lib/todoPeriod';
 import { RecurrenceBranchModal } from './RecurrenceBranchModal';
 import { Timeline } from './timeline/Timeline';
 import { TimelineSettingsModal } from './timeline/TimelineSettingsModal';
@@ -914,18 +915,27 @@ export function DailyView() {
     return () => window.removeEventListener('eventContextMenu', handler);
   }, []);
 
+  // 완료 직후 세션 내 유지(규칙 3 완화) — 이번에 체크한 할일 id.
+  // 조회 조건과 분리: 완료돼도 즉시 사라지지 않고 취소선으로 남는다.
+  // 날짜 이동/리마운트 시 비워져 원래 날짜 기준으로만 표시된다.
+  const [justCompletedIds, setJustCompletedIds] = useState<Set<string>>(new Set());
+  useEffect(() => { setJustCompletedIds(new Set()); }, [selectedDate]);
+
+  // 기간 기반: 선택 날짜가 기간(date~endDate)에 포함되는 할일(단일 날짜면 그날). backlog 제외.
   const dateTodos = expandRecurringTodos(todos, selectedDate, selectedDate)
-    .filter(td => td.date === selectedDate && td.status !== 'backlog');
+    .filter(td => periodCoversDate(td, selectedDate) && td.status !== 'backlog');
   const importantTodos = dateTodos.filter(td => td.isTop3);
   const regularTodos = dateTodos.filter(td => !td.isTop3);
 
-  // Stage 4(이월): 오늘 볼 때, 지난 날짜의 미완 '진행중' 할일을 "이어서 하기"로 주입.
-  // (밀린 게 아니라 이어달리는 것 — 별도 섹션, N일째 표시)
+  // 늦음 이월: 오늘 볼 때, 종료일이 지난 미완료 할일을 "늦음"으로 계속 노출한다.
+  // (status 가 아니라 기간에서 파생 — 완료/해제로 사라지던 근원 제거)
+  // 완화 장치: 방금 완료한 항목(justCompletedIds)은 미완료가 아니어도 이번 세션엔 남긴다.
   const isViewingToday = selectedDate === getLogicalToday();
   const carryoverTodos = isViewingToday
     ? todos
-        .filter(td => td.date && td.date < selectedDate && td.status === 'inProgress')
-        .sort((a, b) => (a.startedDate ?? a.date ?? '').localeCompare(b.startedDate ?? b.date ?? ''))
+        .filter(td => !!td.date && todoEndDate(td)! < selectedDate
+          && (isTodoIncomplete(td.status) || justCompletedIds.has(td.id)))
+        .sort((a, b) => (a.date ?? '').localeCompare(b.date ?? ''))
     : [];
   const [carryoverCollapsed, setCarryoverCollapsed] = useState(false);
 
@@ -973,6 +983,7 @@ export function DailyView() {
     }
     if (todo.status === 'done') {
       updateTodo(todo.id, { status: 'active' });
+      setJustCompletedIds(prev => { const n = new Set(prev); n.delete(todo.id); return n; });
       return;
     }
     if (todo.doStart && todo.doEnd) {
@@ -984,6 +995,8 @@ export function DailyView() {
       const e = format(addMinutes(new Date(), 30), 'HH:mm');
       updateTodo(todo.id, { status: 'done', doStart: s, doEnd: e });
     }
+    // 완료 직후 세션 내 유지(규칙 3 완화) — 지난 날짜 항목이 즉시 사라지지 않게.
+    setJustCompletedIds(prev => new Set(prev).add(todo.id));
   };
 
   // 반복 여부: 가상 인스턴스(parentId::date) 또는 반복 원본(예외 레코드 제외)
