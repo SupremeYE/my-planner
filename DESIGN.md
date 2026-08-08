@@ -306,7 +306,12 @@ Weight → role (use only these four; avoid 100–300 and 800–900):
 - 비-H는 `surfaceMuted === bgSub` 이므로 `isHaon` 게이팅 없이 치환해도 회귀가 0이다.
 
 - **Card** — `solid-card` recipe. Radius 20–24px. Record cards use the same recipe (keep the border/shadow identical whether or not a record exists; only the inner text is muted in the empty state).
-- **List row** — `solid-row` recipe. Leading star/icon, title (+ optional tag chip), trailing status pill + action. Tagged rows get a 3px left accent bar in the tag hue.
+- **List row (행 표면 상태)** — `solid-row` recipe. Leading star/icon, title (+ optional tag chip), trailing status pill + action. Tagged rows get a 3px left accent bar in the tag hue. 행 배경은 **상태가 아니라 컨테이너 관계**로 정한다:
+  - **기본 행** — 캔버스 위 독립 행 = 흰색(`solidRowStyle`); **흰 카드 안에 중첩된 행** = `t.surfaceMuted`(중립 그레이, 면 구분일 뿐). `t.bgSub`/`t.accentSoft`(라일락)를 행 기본 배경으로 집지 않는다(§3 accentSoft restraint — 라일락은 선택·활성 전용).
+  - **완료된 행** — 기본과 **동일. 배경을 바꾸지 않는다.** 완료는 체크 아이콘 + 취소선 + 텍스트 뮤트(`t.textMuted`)로만 표현한다.
+  - **선택된 행** — 코랄 링(`selectedRowStyle`) 또는 코랄 3px 좌측 바. **배경 채움이 아니라 테두리/액센트로.** 선택을 의미하는 색은 코랄이어야 한다 — 라일락이 선택을 의미하면 그 자체가 드리프트.
+  - **hover / pressed** — 상호작용 전용 토큰(`t.bgHover`, §5 Interaction states). 정지 표면 토큰(`surfaceMuted`)을 순간 피드백에 쓰지 않는다.
+  - > ⚠️ **상태 변화를 배경색으로 표현하지 않는다.** 완료·진행중 같은 상태는 아이콘·텍스트 스타일·테두리로 표현한다. 배경을 상태 표현에 쓰기 시작하면 색이 화면 전체로 번진다(라일락 누수의 근원). 특히 완료 행에 배경을 채우면 완료가 미완료보다 시각적으로 **더 강해지는 역전**이 일어난다. `solidRowStyle`/`selectedRowStyle` 은 `done` 인자를 받지 않는다 — 완료 여부로 표면이 갈리지 않게 한 계약이므로 유지한다.
 - **Quick-capture box** — `solid-card` recipe, opaque white. The "+" is a coral-gradient circle. (No heavy purple fill.)
 - **Buttons** — one shared, **token-driven** recipe (never hardcoded hex). Common to all variants: radius 12–16px (pill for compact actions), label Pretendard 600 (§4), `opacity 0.45–0.5` when disabled. Variants:
   - **primary** (default filled action) — **solid `t.accent`** fill, white text, soft coral shadow. Solid is the baseline: a full coral→pink **gradient fill reads as "loud"** (same call already made for tabs/banners). The gradient is an **emphasis-only option** for select accents (e.g. FAB, a hero CTA), implemented as `t.primaryGradient ?? t.accent`.
@@ -697,6 +702,8 @@ placeholder, 차단 문구 없음). 연간 데이터는 `user_settings.annual_pr
 **주간 목표(중첩 자식).** 월간 카드 안에서 바로 추가·표시. 각 주간 목표에 **연결된 할일 수**(`todos.weekly_goal_id`)
 를 `done/total`(예: `3/5`)로 표기. 할일 목록 펼침·연결은 기존 `WeeklyTodosInline` 재사용. **주차 라벨** =
 `M월 N주차`(그 달이 걸치는 ISO 주 순번). 이번 Stage 는 **표시**가 주목적(할일↔주간 연결 UI 는 할일 페이지 별도 Stage).
+중첩된 할일 행은 **§5 List row(행 표면 상태) 규칙**을 따른다 — 흰 카드 안 중첩이므로 `t.surfaceMuted`,
+완료 행이어도 배경 불변(라일락 `t.bgSub` 금지).
 
 **월말 회고 슬롯(목표 카드 안).** 별도 회고 화면을 만들지 않는다 — 회고 대상(목표)을 보면서 쓴다. **버튼이
 백지보다 먼저**: 3버튼(달성/부분/미달, `retroStatusStyle`) + 한 줄 회고 입력(`inputBg`). `retro_status`/
