@@ -1,1 +1,2 @@
 npm run lint:fonts
+npm run lint:colors

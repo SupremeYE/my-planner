@@ -222,6 +222,23 @@ accent·결 dot)를 가지며, 중간 톤은 `mixHex` 로 파생한다(추가 he
   집으면 라일락이 의미 없이 새어 나왔다. 개명(`lavenderTint`)으로 이름이 값을 드러내 이 누수를 막는다. 코랄 restraint(위)와 같은 취지 —
   강조/선택 색을 기본 표면에 흘리지 않는다. **새 토큰을 만들지 않는다(규칙만).**
 
+#### 정적 가드 — `lint:colors` (라일락 누수 자동 차단)
+
+이 규칙은 **사람 주의력에 의존하면 반드시 샌다**(실증: 목표 A-2 화면이 육안 "정상" 보고 뒤에도 라벤더
+투성이였음). 그래서 `scripts/check-colors.mjs`(`npm run lint:colors`, pre-commit 연결 — `lint:fonts`와
+동일 방식)로 정적 차단한다. **전면 금지가 아니라 "늘어남"을 막는 baseline 가드**다(라일락은 하온 정체성).
+
+판별 규칙 (src 하위 `.ts`/`.tsx`, `ThemeContext.tsx` 제외):
+- **R1 토큰 소비** — `t.lavenderTint`/`t.lavenderHover` 소비를 **파일별 baseline**(`scripts/color-baseline.json`,
+  현재 총 478라인/99파일)과 대조해 **초과분만** 실패. baseline에 없는 파일에서 소비가 생기면 = 신규 소비처로 전부 잡힌다.
+- **R2 라벤더 hex 하드코딩** — `#F4E7FB`·`#EFE3FA`·`#EDE4F7`·`#E8E0F6`(토큰 우회) 항상 실패.
+- **R3 `purple-*`/`violet-*`/`fuchsia-*` Tailwind** — 토큰 체계 우회, 항상 실패.
+- **정당한 라일락은 대상 아님** — 카테고리 색(`--cat-todo #9E6FD6` 등)은 `.css`에만 있어 스캔 밖이며 R2 밴 목록에도 없다.
+
+조치 경로(에러 메시지가 곧 안내): 기능면 → `t.surfaceMuted`, 입력칸 → `inputBg(t)`, **정말 선택·활성·강조**면
+해당 라인에 `// lint-colors-ok: <사유>` 주석(사유 필수 — 무심코 예외 처리 방지). 페이지 청소로 소비가 줄면
+`npm run lint:colors -- --update`로 baseline을 조인다. 페이지별 정리 현황은 `docs/HAON_MIGRATION.md`.
+
 ---
 
 ## 4. Typography

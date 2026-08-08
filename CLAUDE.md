@@ -78,6 +78,7 @@ Four design themes (A, B, C, D) defined in `src/styles/theme.css` as CSS custom 
 - 컴포넌트 단위로 작업
 - 기존 컬러/디자인 시스템 유지
 - 폰트는 `t.font*` 역할 필드 또는 brand.ts만 사용. 컴포넌트에서 폰트명 하드코딩 및 `var(--font-*)` 직접 소비 금지(일기 본문 `--font-diary`는 DiaryView 내 예외). pre-commit(lint:fonts)에서 차단됨. 신규 폰트 역할은 ThemeContext+DESIGN.md에 선등록 후 사용.
+- **라일락(라벤더) 색은 `lint:colors` 가드로 관리됨** — pre-commit(`lint:colors`)에서 차단. 전면 금지가 아니라 **"늘어남"을 막는다**(라일락은 하온 정체성). 규칙: ① `t.lavenderTint`/`t.lavenderHover` 소비는 파일별 baseline(`scripts/color-baseline.json`) 초과 시 실패 — 기능면은 `t.surfaceMuted`, 입력칸은 `inputBg(t)`로(DESIGN.md §5), 정말 선택·활성·강조면 라인에 `// lint-colors-ok: 사유` 주석(사유 필수). ② 라벤더 hex(`#F4E7FB` 등)·`purple/violet/fuchsia` Tailwind 하드코딩 금지(토큰 우회). 카테고리색(`--cat-*`)은 정당한 라일락이라 대상 아님. 페이지 청소로 소비가 줄면 `npm run lint:colors -- --update`로 baseline을 조인다.
 - **PC 레이아웃은 절대 건드리지 말 것** — 모바일 전용 수정은 Tailwind `lg:` prefix 사용 (e.g. `hidden lg:flex`, `px-3 lg:px-6`)
 - 모바일 기준: 375px (iPhone), 하단 네비바 56px(`pb-16` 이미 적용됨)
 

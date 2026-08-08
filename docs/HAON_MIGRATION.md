@@ -4,7 +4,55 @@
 > 다른 페이지를 마이그레이션할 때 이 문서의 표면 모델·토큰·헬퍼·규칙을 그대로 따른다.
 > UI 단일 기준은 루트 `DESIGN.md`. 이 문서는 그 구현 현황과 페이지 이전 지침을 정리한다.
 
-최종 업데이트: 2026-07-11
+최종 업데이트: 2026-08-08
+
+---
+
+## 0. 라일락(라벤더) 정리 진행 현황 — `lint:colors` 가드
+
+> **문서 성격 갱신:** 이 문서는 이제 **라일락 정리 진행 현황**도 추적한다. 가드의 판별 규칙은
+> `DESIGN.md` §3 「라일락 fill 사용 규칙」의 「정적 가드 — `lint:colors`」. 여기는 **페이지별 정리 로드맵**.
+
+**배경.** 테마 단일화(Stage 3, PR #20)로 구 `bgSub`≡`accentSoft`(#F4E7FB)가 `t.lavenderTint`로,
+`bgHover`가 `t.lavenderHover`로 개명됐다 — 이름이 값을 드러낸다. 그 위에 `lint:colors` 가드를 세워
+**새 화면이 라일락을 새로 심는 것**(실제 발생 경로)을 baseline으로 차단한다.
+
+**Stage 0 baseline (2026-08-08 스냅샷).** `t.lavenderTint`/`t.lavenderHover` 소비 = **총 478라인 /
+99파일** (`lavenderTint` 471 + `lavenderHover` 7). 전량 파일별 집계는 기계가독 baseline
+`scripts/color-baseline.json`(SSOT). 청소로 줄면 `npm run lint:colors -- --update`로 조인다.
+
+**성격 분류(샘플 기반 대략 비율) = 정리 방향.**
+
+| 분류 | 대략 | 옮길 곳 |
+|---|---|---|
+| 기능면(트랙·컨테이너·미선택 칩·2차 버튼·빈 상태) | ~55% | `t.surfaceMuted` |
+| 작성 표면(`<input>`/`<textarea>`) | ~35% | `inputBg(t)` |
+| 의도적 액센트(선택·활성·강조) | ~5% | 유지 + `// lint-colors-ok: 사유` |
+| 판단보류 | ~5% | 개별 질의 |
+
+**페이지별 정리 로드맵** (baseline 카운트 = 남은 라일락 소비, 내림차순 상위. 전체 99파일은 baseline JSON).
+페이지를 청소해 카운트가 0으로 수렴하면 완료 표시. **이번 작업은 가드 신설만 — 실제 청소는 페이지별 후속.**
+
+| 파일 | baseline | 상태 |
+|---|---|---|
+| `HabitsView.tsx` | 37 | ☐ 미착수 |
+| `DailyView.tsx` | 22 | ☐ 미착수 |
+| `SelfCareView.tsx` | 20 | ☐ 미착수 |
+| `BooksView.tsx` | 18 | ☐ 미착수 |
+| `RoutinesView.tsx` | 17 | ☐ 미착수 |
+| `MomentView.tsx` | 16 | ☐ 미착수 |
+| `WeightTab.tsx` | 14 | ☐ 미착수 |
+| `ProjectView.tsx` | 13 | ☐ 미착수 |
+| `CalendarView.tsx` | 12 | ☐ 미착수 |
+| `Layout.tsx` | 11 | ☐ 미착수 |
+| `mandalart/SendCellModal.tsx` · `recipe/FridgeTab.tsx` · `money/MoneyShared.tsx` | 10 | ☐ 미착수 |
+| `BacklogView` · `CultureRecordView` · `MoodView` · `recipe/RecipeFormSheet` · `scrap/ScrapDetailSheet` | 9 | ☐ 미착수 |
+| `ProfileView.tsx` | 8 | ☐ 미착수 |
+| …나머지 (7↓) | 7↓ | ☐ 미착수 — `scripts/color-baseline.json` 참조 |
+
+> **주의:** 카운트가 곧 "정리량"은 아니다 — 이 중 ~5%는 정당한 선택·활성 라일락이라 `// lint-colors-ok`로
+> 남는다. 완료 기준은 "카운트 0"이 아니라 "**기능면/입력이 전부 회수되고, 남은 것은 전부 예외 주석으로 의도가
+> 증명된 상태**"다.
 
 ---
 
