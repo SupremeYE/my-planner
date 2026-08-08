@@ -203,22 +203,23 @@ accent·결 dot)를 가지며, 중간 톤은 `mixHex` 로 파생한다(추가 he
   `SEED_KIND_COLORS`(결→{dot, fill, text}) **한 맵**에서만 읽는다(코드 배치는 Stage 2~3, 하드코딩
   hex 를 컴포넌트에 흩지 않는다). `isHaon` 게이팅 — 비-H 는 이 페이지 자체가 H 전용이라 대상 아님.
 
-### 라일락 fill 사용 규칙 (accentSoft / bgSub restraint)
+### 라일락 fill 사용 규칙 (`lavenderTint` restraint)
 
-라일락 tint(`t.accentSoft` — 테마 H 에서 `#F4E7FB`, `t.bgSub` 과 동일 값)는 **"선택/활성
-상태"를 나타낼 때만 fill 로 쓴다.** 기본(비선택) 배경으로 쓰지 않는다.
+라일락 tint(`t.lavenderTint` — `#F4E7FB`)는 **"선택/활성 상태"를 나타낼 때만 fill 로 쓴다.**
+기본(비선택) 배경으로 쓰지 않는다. (토큰 단일화로 구 `bgSub`·`accentSoft`는 값이 같아 이 `lavenderTint`
+하나로 병합됨 — 이제 이름이 라벤더임을 드러낸다. 중립 2차 표면은 `surfaceMuted`.)
 
 - **선택 상태 = 라일락 fill 허용:** 선택된 chip(예: duration chip §5), 태그 선택(단 태그는
   카테고리 hue 우선), 그 밖에 "선택됨/활성"을 나타내는 상태. **세그먼트 컨트롤은 예외** — 흰 pill
   + 3px 코랄 언더라인이 우선이라 라일락 fill 을 쓰지 않는다(§5).
 - **기본 배경 = 흰색:** 입력 필드·버튼·카드·정보 박스의 **기본(비선택)** 배경은 §5 Input/Card
   recipe(불투명 흰색 + hairline)를 쓴다. "무난한 배경색"이 필요하다는 이유로 라일락
-  (`t.bgSub`/`t.accentSoft`)을 집지 않는다 — 중립이 필요하면 흰색 + hairline, 또는 캔버스(`t.bg`).
-- **경계:** hover/pressed 등 **상호작용 틴트**(`t.bgHover`, §5 Interaction states)는 이 규칙과
+  (`t.lavenderTint`)을 집지 않는다 — 중립이 필요하면 `t.surfaceMuted`, 흰색 + hairline, 또는 캔버스(`t.bg`).
+- **경계:** hover/pressed 등 **상호작용 틴트**(`t.lavenderHover`, §5 Interaction states)는 이 규칙과
   별개(순간 피드백이지 기본 배경이 아니다). 태그·카테고리 hue(§3), 방금 등록된 특정 패턴
   (읽기전용 요약 등)의 명시 규정은 그 규정을 따른다.
-- **왜:** 테마 H 에서 `bgSub` 이 곧 라일락(`accentSoft` 와 같은 `#F4E7FB`)이라 "서브 배경"으로
-  `t.bgSub` 을 관성적으로 집으면 라일락이 의미 없이 새어 나온다. 코랄 restraint(위)와 같은 취지 —
+- **왜:** 과거 `bgSub`(라일락 `#F4E7FB`)라는 **중립처럼 들리는 이름** 때문에 "서브 배경"으로 관성적으로
+  집으면 라일락이 의미 없이 새어 나왔다. 개명(`lavenderTint`)으로 이름이 값을 드러내 이 누수를 막는다. 코랄 restraint(위)와 같은 취지 —
   강조/선택 색을 기본 표면에 흘리지 않는다. **새 토큰을 만들지 않는다(규칙만).**
 
 ---
@@ -281,17 +282,19 @@ Weight → role (use only these four; avoid 100–300 and 800–900):
 
 ## 5. Components
 
-### Surface fills — `surfaceMuted` vs `accentSoft` (라일락 두 역할 분리)
-테마 H의 `bgSub`(`#F4E7FB` lavender-mist)가 두 역할을 겸해 화면 전체가 연보라로 씻겨 보이던
-문제를 토큰으로 분리한다. 매 표면마다 **"이 색이 무언가를 의미하는가?"**를 묻는다.
+### Surface fills — `surfaceMuted` vs `lavenderTint` (이름이 값을 드러낸다)
+과거 `bgSub`(`#F4E7FB` lavender-mist)가 **중립처럼 들리는 이름으로 라일락 값**을 감춰 화면 전체가 연보라로
+씻겨 보이던 문제를, **토큰 개명**으로 정리했다. 이제 이름만 보고 라벤더(`lavenderTint`)인지 중립
+(`surfaceMuted`)인지 알 수 있다. 매 표면마다 **"이 색이 무언가를 의미하는가?"**를 묻는다.
 
-| 토큰 | 의미 | 용도 | H 값 | 비-H(A/B/C/D) |
-|---|---|---|---|---|
-| `t.surfaceMuted` | **없음** — 면 구분일 뿐 | 진행바 트랙, 세그먼트 트랙, 스켈레톤, 2차 버튼, 중립 컨테이너 배경 | 저채도 중립 그레이(`#F3F0F6`) | = 기존 `bgSub` 값 (렌더 동일) |
-| `t.accentSoft` | **있음** — "선택됨 / 활성 / 강조" | 선택된 칩, 활성 상태 배경, 의도적 라벤더 액센트 | `#F4E7FB` lavender-mist | 각 테마 accentSoft |
-| `inputBg(t)` | 작성 표면 | `<input type="text">` / `<textarea>` 배경 (아래 **Input** 항목) | 흰색(solid-card) | `t.bgSub` |
+| 토큰 | 의미 | 용도 | 값 |
+|---|---|---|---|
+| `t.surfaceMuted` | **없음** — 면 구분일 뿐 | 진행바 트랙, 세그먼트 트랙, 스켈레톤, 2차 버튼, 중립 컨테이너 배경 | 저채도 중립 그레이 `#F3F0F6` |
+| `t.lavenderTint` | **있음** — "선택됨 / 활성 / 강조" | 선택된 칩, 활성 상태 배경, 의도적 라벤더 액센트 (구 `bgSub`≡`accentSoft` 병합) | `#F4E7FB` lavender-mist |
+| `t.lavenderHover` | 상호작용 틴트 | hover/pressed 순간 피드백(§5 Interaction states) — 기본 배경 아님 | `#EFE3FA` |
+| `inputBg(t)` | 작성 표면 | `<input type="text">` / `<textarea>` 배경 (아래 **Input** 항목) | 흰색(solid-card) |
 
-- **판별 기준(문장):** 이 라일락이 **선택·활성·강조를 의미하면 `accentSoft`**, 단지 카드보다
+- **판별 기준(문장):** 이 라일락이 **선택·활성·강조를 의미하면 `lavenderTint`**, 단지 카드보다
   한 단 낮은 **면 구분일 뿐이면 `surfaceMuted`**. 애매하면 임의 판단하지 말고 질의한다.
 
 - **작성 표면 vs 선택 컨트롤 (`<select>`·피커의 갈림):** 입력칸 배경을 비우는 원칙(§5 Input)은
@@ -302,15 +305,15 @@ Weight → role (use only these four; avoid 100–300 and 800–900):
     컨트롤이다(예: `ReviewsView` 아카이브 필터의 연도 select). 이웃한 필터칩(surfaceMuted)과 톤을 맞춘다.
   - **폼 안에서 텍스트 입력과 나란히 있으면 `inputBg(t)`** — 입력 필드들과 한 줄로 읽히므로 작성 표면에 편입한다.
   - 이 규칙은 **맥락 의존**이라 근거("select는 빈 상태가 존재하지 않는다")를 지우면 다시 드리프트한다.
-- `t.bgSub` 값 자체는 변경하지 않는다(미이행 페이지 호환). 페이지 단위로 점진 이행한다.
-- 비-H는 `surfaceMuted === bgSub` 이므로 `isHaon` 게이팅 없이 치환해도 회귀가 0이다.
+- 개명은 **순수 rename(값 불변)**이라 렌더는 픽셀 동일하다. "중립을 원하는데 라일락이 칠해진" 페이지의
+  실제 중립화(→`surfaceMuted`)는 픽셀이 바뀌므로 페이지 단위로 점진 이행한다(개명과 별개 작업).
 
 - **Card** — `solid-card` recipe. Radius 20–24px. Record cards use the same recipe (keep the border/shadow identical whether or not a record exists; only the inner text is muted in the empty state).
 - **List row (행 표면 상태)** — `solid-row` recipe. Leading star/icon, title (+ optional tag chip), trailing status pill + action. Tagged rows get a 3px left accent bar in the tag hue. 행 배경은 **상태가 아니라 컨테이너 관계**로 정한다:
-  - **기본 행** — 캔버스 위 독립 행 = 흰색(`solidRowStyle`); **흰 카드 안에 중첩된 행** = `t.surfaceMuted`(중립 그레이, 면 구분일 뿐). `t.bgSub`/`t.accentSoft`(라일락)를 행 기본 배경으로 집지 않는다(§3 accentSoft restraint — 라일락은 선택·활성 전용).
+  - **기본 행** — 캔버스 위 독립 행 = 흰색(`solidRowStyle`); **흰 카드 안에 중첩된 행** = `t.surfaceMuted`(중립 그레이, 면 구분일 뿐). `t.lavenderTint`(라일락)를 행 기본 배경으로 집지 않는다(§3 lavenderTint restraint — 라일락은 선택·활성 전용).
   - **완료된 행** — 기본과 **동일. 배경을 바꾸지 않는다.** 완료는 체크 아이콘 + 취소선 + 텍스트 뮤트(`t.textMuted`)로만 표현한다.
   - **선택된 행** — 코랄 링(`selectedRowStyle`) 또는 코랄 3px 좌측 바. **배경 채움이 아니라 테두리/액센트로.** 선택을 의미하는 색은 코랄이어야 한다 — 라일락이 선택을 의미하면 그 자체가 드리프트.
-  - **hover / pressed** — 상호작용 전용 토큰(`t.bgHover`, §5 Interaction states). 정지 표면 토큰(`surfaceMuted`)을 순간 피드백에 쓰지 않는다.
+  - **hover / pressed** — 상호작용 전용 토큰(`t.lavenderHover`, §5 Interaction states). 정지 표면 토큰(`surfaceMuted`)을 순간 피드백에 쓰지 않는다.
   - > ⚠️ **상태 변화를 배경색으로 표현하지 않는다.** 완료·진행중 같은 상태는 아이콘·텍스트 스타일·테두리로 표현한다. 배경을 상태 표현에 쓰기 시작하면 색이 화면 전체로 번진다(라일락 누수의 근원). 특히 완료 행에 배경을 채우면 완료가 미완료보다 시각적으로 **더 강해지는 역전**이 일어난다. `solidRowStyle`/`selectedRowStyle` 은 `done` 인자를 받지 않는다 — 완료 여부로 표면이 갈리지 않게 한 계약이므로 유지한다.
 - **Quick-capture box** — `solid-card` recipe, opaque white. The "+" is a coral-gradient circle. (No heavy purple fill.)
 - **Buttons** — one shared, **token-driven** recipe (never hardcoded hex). Common to all variants: radius 12–16px (pill for compact actions), label Pretendard 600 (§4), `opacity 0.45–0.5` when disabled. Variants:
@@ -325,8 +328,8 @@ Weight → role (use only these four; avoid 100–300 and 800–900):
 - **Icon button** — circle 44–48px, pastel tinted background, icon in `text-primary`.
 - **FAB** — circle **46px**, **solid coral (`t.accent`)**, white icon, soft shadow (matches the global add-FAB). Module-local FABs may be 56px but keep the coral fill. The primary **gradient emphasis-fill** option applies here (`t.primaryGradient ?? t.accent`).
 - **Input** — `<input type="text">`/`<textarea>`(작성 표면) 배경은 항상 **`inputBg(t)`**(H=solid-card
-  흰색, 비-H=`t.bgSub`)를 쓴다. radius 12–14px, hairline border(`t.border`). **입력칸 배경은 채우지 않는다**
-  — 라일락(`t.bgSub`/`t.accentSoft`)으로 채우면 "이미 값이 들어있는 칸"처럼 무겁게 읽힌다.
+  흰색, 비-H=`t.lavenderTint`)를 쓴다. radius 12–14px, hairline border(`t.border`). **입력칸 배경은 채우지 않는다**
+  — 라일락(`t.lavenderTint`/`t.lavenderTint`)으로 채우면 "이미 값이 들어있는 칸"처럼 무겁게 읽힌다.
   `<select>`·피커는 위 **"작성 표면 vs 선택 컨트롤"** 규칙을 따른다(필터 행=`surfaceMuted`, 폼=`inputBg`).
   placeholder = `t.textMuted`(보라 계열 금지). 포커스는 §5 Interaction states의 코랄 링(테두리에만
   액센트, 배경은 흰색 유지).
@@ -404,9 +407,9 @@ dim** behind; the FAB "+" **rotates to "×"** while open (tap-out or × dismisse
 (glass allowed, §1) with a top drag handle and top-rounded corners. Options are "기록" actions only.
 
 **Collapsed-rail icons.** With the desktop FAB moved into the header, the 대시보드 collapsed-rail
-placeholder icons use **muted tokens** (`t.textMuted` on `t.accentSoft`), not `t.accent`/coral —
+placeholder icons use **muted tokens** (`t.textMuted` on `t.lavenderTint`), not `t.accent`/coral —
 they are passive nav hints, not actions (⑨b; coral stays reserved for accent / FAB / selected-day,
-§3). The interactive rail toggle button keeps a subtle neutral fill (`t.bgSub` / `t.textSub`).
+§3). The interactive rail toggle button keeps a subtle neutral fill (`t.lavenderTint` / `t.textSub`).
 
 **haonStyles helpers (register before build; definitions only — no consumers yet).**
 `bottomSheetStyle` (mobile sheet surface), `sheetBackdropStyle` (dim backdrop), `addPopoverStyle`
@@ -442,7 +445,7 @@ segment visuals**:
    low-sat. Composition only — do **not** register a new segment style.
 2. **Period stepper `‹ [기간 라벨] ›`** — reuses the 수면 화면 stepper shape and §6.2 month-header
    idiom. The ‹ › arrow icon buttons use `periodStepperStyle` (H = **neutral `surfaceMuted` tint
-   circle** — passive nav 표면이라 라일락이 아닌 중립 그레이; 非-H = `bgSub` fallback). Centered
+   circle** — passive nav 표면이라 라일락이 아닌 중립 그레이). Centered
    label in Pretendard 600–700 (§4).
 
 **Behavior contract** (shared component, built Stage 3). Props: `unit('주'|'월'|'년')`, `offset`
@@ -469,7 +472,7 @@ API·리포트 노출 금지). 아래는 **시각 패턴만** 등록(데이터/�
 
 **1) 갤러리 그리드.** 최신순(날짜 desc) 정사각(1:1) 타일 그리드. 모바일 3열 / `lg:` 4–5열
 (`grid-cols-3 lg:grid-cols-5`, PC 레이아웃 보존). 타일 표면 = `photoTileStyle(t)`(H = solid-card
-계열 불투명 + 하이라인 + `overflow:hidden`, 非-H = `bgSub`/border 폴백). 사진은 `object-cover`로 타일
+계열 불투명 + 하이라인 + `overflow:hidden`). 사진은 `object-cover`로 타일
 채움. **로딩/빈 상태**: 서명 URL 발급 전·실패 시 타일은 중립 표면 + `text-muted` 안내("불러오는 중"
 / "사진 없음") — 절대 broken-img 아이콘 노출 금지. 서명 URL 은 그리드 마운트 시 배치 발급(TTL 1h),
 어디에도 영속 저장하지 않음(세션 넘기면 재발급).
@@ -559,11 +562,11 @@ API·리포트 노출 금지). 아래는 **시각 패턴만** 등록(데이터/�
 | 상태 | 배경 | 텍스트 | 테두리 |
 |---|---|---|---|
 | 기본(비선택) | `t.card`(흰색) | `t.textMuted` | hairline `1px solid t.border` |
-| 선택됨 | `t.accentSoft`(라벤더-미스트 = 라일락 tint) | `t.text`(딥 인디고) | hairline `1px solid t.border` |
+| 선택됨 | `t.lavenderTint`(라벤더-미스트 = 라일락 tint) | `t.text`(딥 인디고) | hairline `1px solid t.border` |
 
 - **코랄 금지.** 코랄 fill/텍스트를 쓰지 않는다 — 코랄(`t.accent`/`t.accentLight`)은 §3에서 액센트·FAB·
-  선택된 날짜 전용이다. duration 선택은 카테고리성 선택이라 **라일락(`t.accentSoft`)** 을 쓴다.
-  ⚠️ `t.accentLight`은 **소프트 코랄**(`#F6BCBA`)이므로 이 용도에 쓰지 않는다 — 라일락 tint는 `t.accentSoft`(`#F4E7FB`).
+  선택된 날짜 전용이다. duration 선택은 카테고리성 선택이라 **라일락(`t.lavenderTint`)** 을 쓴다.
+  ⚠️ `t.accentLight`은 **소프트 코랄**(`#F6BCBA`)이므로 이 용도에 쓰지 않는다 — 라일락 tint는 `t.lavenderTint`(`#F4E7FB`).
 - **대비(붉은 위 붉은 회피).** 라일락 배경(밝음) + `t.text` 딥 인디고 텍스트 → §3 "순수 검정 금지·딥
   인디고" 준수하며 대비 확보.
 - **선택 신호 = fill + 텍스트.** 라일락 fill + 딥 인디고 텍스트(vs 흰색 + muted)가 선택을 나타낸다.
@@ -596,7 +599,7 @@ API·리포트 노출 금지). 아래는 **시각 패턴만** 등록(데이터/�
 전용). **haonStyles helper (기존 재사용, 신규 없음):** 트리거 표면 = `inputBg`, 팝오버 =
 `addPopoverStyle`(둘 다 §1 오버레이 글래스 계약 충족 — 떠 있는 드롭다운은 상단 바 전용 `glassBarStyle`이
 아니라 팝오버 recipe). 콤보박스 목록 항목 상태(hover/active·정시/30분 강약)는 기존 토큰
-(`t.bgSub`·`t.accentLight`·`t.accent`·`t.text`·`t.textMuted`) 인라인 조합으로 커버 — 신규 헬퍼 없음.
+(`t.lavenderTint`·`t.accentLight`·`t.accent`·`t.text`·`t.textMuted`) 인라인 조합으로 커버 — 신규 헬퍼 없음.
 
 ### 읽기전용 값 요약 (Read-only value summary — 값이 다른 곳에서 관리되는 필드)
 
@@ -688,7 +691,7 @@ BeautyCare 등과 동일 관용구 — 신규 컴포넌트 없음, 토큰만) �
   회고 슬롯). **고정 높이·flex 잠금 금지**(캘린더 모바일 상세패널 높이예산 붕괴 회피).
 
 **연간 배너(얇게, 상단).** `solidCardStyle` 한 줄 배너 — "YYYY년에 되고 싶은 나" 한 줄(인라인 편집) +
-핵심 가치 칩 최대 3개(태그 chip idiom, `accentSoft` 선택 tint). **비어 있어도 화면을 막지 않는다**(저강조
+핵심 가치 칩 최대 3개(정보성 칩 = 중립 `surfaceMuted`, 선택/활성 아님). **비어 있어도 화면을 막지 않는다**(저강조
 placeholder, 차단 문구 없음). 연간 데이터는 `user_settings.annual_profiles`(연도별) 재사용.
 
 **기간 네비.** `‹ YYYY년 M월 ›` — **Period navigator(§5)** idiom 재사용: 스테퍼 = `periodStepperStyle`,
@@ -704,7 +707,7 @@ placeholder, 차단 문구 없음). 연간 데이터는 `user_settings.annual_pr
 를 `done/total`(예: `3/5`)로 표기. 할일 목록 펼침·연결은 기존 `WeeklyTodosInline` 재사용. **주차 라벨** =
 `M월 N주차`(그 달이 걸치는 ISO 주 순번). 이번 Stage 는 **표시**가 주목적(할일↔주간 연결 UI 는 할일 페이지 별도 Stage).
 중첩된 할일 행은 **§5 List row(행 표면 상태) 규칙**을 따른다 — 흰 카드 안 중첩이므로 `t.surfaceMuted`,
-완료 행이어도 배경 불변(라일락 `t.bgSub` 금지).
+완료 행이어도 배경 불변(라일락 `t.lavenderTint` 금지).
 
 **월말 회고 슬롯(목표 카드 안).** 별도 회고 화면을 만들지 않는다 — 회고 대상(목표)을 보면서 쓴다. **버튼이
 백지보다 먼저**: 3버튼(달성/부분/미달, `retroStatusStyle`) + 한 줄 회고 입력(`inputBg`). `retro_status`/
@@ -863,7 +866,7 @@ hue 계열은 맞추되 **차트 전용 톤**임을 명시(§3 카테고리 토�
 - **Two spline lines, one chart.** 아침 = warm token (`warning` #F6C177, 앰버=아침 해); 저녁 = cool
   token (`info` #9BB4F4, periwinkle=저녁). Tokens only — never hardcode hex at the call site.
 - **Gap band** — a faint fill **between the two lines** for each day both readings exist (아침↔저녁
-  차이). Low-opacity neutral tint (`accentSoft` / lilac derived), well under the line strokes so it
+  차이). Low-opacity neutral tint (`lavenderTint` / lilac derived), well under the line strokes so it
   reads as context, not a third series. Rendered only where both points exist (no band across gaps).
 - **Gap stats** (text, not a series): "오늘 갭 N kg" (그날 아침−저녁) + "기간 평균 갭" = the mean of
   **per-day gaps** (average of daily 아침−저녁, NOT 평균아침 − 평균저녁). Sign/units follow the reading.

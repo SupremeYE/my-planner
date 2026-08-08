@@ -152,12 +152,12 @@ export function CourseWalkSession({ start, dest, onFinish, onCancel }: {
       )}
 
       {/* 지도 / 글리프 */}
-      <div style={{ flex: 1, minHeight: 0, position: 'relative', margin: '0 16px', borderRadius: 18, overflow: 'hidden', backgroundColor: t.bgSub }}>
+      <div style={{ flex: 1, minHeight: 0, position: 'relative', margin: '0 16px', borderRadius: 18, overflow: 'hidden', backgroundColor: t.lavenderTint }}>
         {useMap ? (
           <div ref={mapElRef} style={{ position: 'absolute', inset: 0 }} />
         ) : (
           <div className="flex flex-col items-center justify-center h-full">
-            <RouteGlyph path={tr.path} size={220} stroke={t.accent} bg={t.bgSub} />
+            <RouteGlyph path={tr.path} size={220} stroke={t.accent} bg={t.lavenderTint} />
             <p style={{ fontSize: 12, color: t.textMuted, marginTop: 10 }}>지도 키가 없어 경로 모양만 표시해요</p>
           </div>
         )}

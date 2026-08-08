@@ -441,7 +441,7 @@ export function WeightTab() {
                   className="py-2 rounded-xl transition-all"
                   style={{
                     fontSize: 13, fontWeight: active ? 700 : 500,
-                    backgroundColor: active ? t.accent : t.bgSub,
+                    backgroundColor: active ? t.accent : t.lavenderTint,
                     color: active ? '#fff' : t.textSub,
                     border: `1px solid ${active ? t.accent : t.border}`,
                   }}>{s}</button>
@@ -455,35 +455,35 @@ export function WeightTab() {
             <label style={{ fontSize: 12, color: t.textSub }}>날짜</label>
             <input type="date" value={date} onChange={e => setDate(e.target.value)}
               className="w-full mt-1 px-3 py-2 rounded-xl outline-none"
-              style={{ backgroundColor: t.bgSub, border: `1px solid ${t.border}`, color: t.text, WebkitAppearance: 'none', appearance: 'none', boxSizing: 'border-box', minWidth: 0 }} />
+              style={{ backgroundColor: t.lavenderTint, border: `1px solid ${t.border}`, color: t.text, WebkitAppearance: 'none', appearance: 'none', boxSizing: 'border-box', minWidth: 0 }} />
           </div>
           <div>
             <label style={{ fontSize: 12, color: t.textSub }}>체중 (kg) *</label>
             <input type="number" inputMode="decimal" step="0.1" value={weight}
               onChange={e => setWeight(e.target.value)} placeholder="예: 62.5"
               className="w-full mt-1 px-3 py-2 rounded-xl outline-none"
-              style={{ backgroundColor: t.bgSub, border: `1px solid ${t.border}`, color: t.text }} />
+              style={{ backgroundColor: t.lavenderTint, border: `1px solid ${t.border}`, color: t.text }} />
           </div>
           <div>
             <label style={{ fontSize: 12, color: t.textSub }}>체지방률 (%)</label>
             <input type="number" inputMode="decimal" step="0.1" value={bodyFat}
               onChange={e => setBodyFat(e.target.value)} placeholder="선택"
               className="w-full mt-1 px-3 py-2 rounded-xl outline-none"
-              style={{ backgroundColor: t.bgSub, border: `1px solid ${t.border}`, color: t.text }} />
+              style={{ backgroundColor: t.lavenderTint, border: `1px solid ${t.border}`, color: t.text }} />
           </div>
           <div>
             <label style={{ fontSize: 12, color: t.textSub }}>골격근량 (kg)</label>
             <input type="number" inputMode="decimal" step="0.1" value={muscle}
               onChange={e => setMuscle(e.target.value)} placeholder="선택"
               className="w-full mt-1 px-3 py-2 rounded-xl outline-none"
-              style={{ backgroundColor: t.bgSub, border: `1px solid ${t.border}`, color: t.text }} />
+              style={{ backgroundColor: t.lavenderTint, border: `1px solid ${t.border}`, color: t.text }} />
           </div>
         </div>
         <div className="mt-3">
           <label style={{ fontSize: 12, color: t.textSub }}>메모</label>
           <input type="text" value={memo} onChange={e => setMemo(e.target.value)} placeholder="선택"
             className="w-full mt-1 px-3 py-2 rounded-xl outline-none"
-            style={{ backgroundColor: t.bgSub, border: `1px solid ${t.border}`, color: t.text }} />
+            style={{ backgroundColor: t.lavenderTint, border: `1px solid ${t.border}`, color: t.text }} />
         </div>
 
         {/* 눈바디 사진 첨부(선택) — 저장 시 이 기록에 자동 연결 */}
@@ -527,7 +527,7 @@ export function WeightTab() {
           </div>
           {progress != null && (
             <>
-              <div className="h-2.5 rounded-full overflow-hidden" style={{ backgroundColor: t.bgSub }}>
+              <div className="h-2.5 rounded-full overflow-hidden" style={{ backgroundColor: t.lavenderTint }}>
                 <div className="h-full rounded-full" style={{ width: `${progress}%`, backgroundColor: t.accent }} />
               </div>
               <p style={{ fontSize: 12, color: t.textSub, marginTop: 6 }}>진행률 {progress}%</p>
@@ -576,7 +576,7 @@ export function WeightTab() {
                 className="px-3 py-1 rounded-full transition-colors"
                 style={{
                   fontSize: 12, fontWeight: on ? 700 : 500,
-                  backgroundColor: on ? t.accent : t.bgSub,
+                  backgroundColor: on ? t.accent : t.lavenderTint,
                   color: on ? '#fff' : t.textSub,
                 }}>{label}</button>
             );
@@ -634,7 +634,7 @@ export function WeightTab() {
               {/* 갭 밴드 — 아침·저녁 둘 다 있는 지점 사이 옅은 채움. 겹쳐보기에서만 렌더(라인 뒤). */}
               {viewMode === 'overlay' && (
                 <Area yAxisId="left" type="monotone" dataKey="band" name="갭"
-                  stroke="none" fill={t.accentSoft} fillOpacity={0.75}
+                  stroke="none" fill={t.lavenderTint} fillOpacity={0.75}
                   connectNulls={false} isAnimationActive={false} legendType="none" activeDot={false} />
               )}
               {/* 아침 라인(warning) */}
@@ -671,7 +671,7 @@ export function WeightTab() {
         <p style={{ fontSize: 13, fontWeight: 700, color: t.text, marginBottom: 10 }}>기록</p>
         {visibleRecords.length === 0 ? (
           <div className="py-8 text-center rounded-2xl"
-            style={{ backgroundColor: t.bgSub, fontSize: 13, color: t.textMuted }}>
+            style={{ backgroundColor: t.lavenderTint, fontSize: 13, color: t.textMuted }}>
             아직 체중 기록이 없습니다
           </div>
         ) : (
@@ -686,7 +686,7 @@ export function WeightTab() {
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-x-2 gap-y-0.5 flex-wrap">
                     <span className="px-1.5 py-0.5 rounded-md flex-shrink-0"
-                      style={{ fontSize: 10, fontWeight: 600, color: t.textSub, backgroundColor: t.bgSub }}>{r.slot}</span>
+                      style={{ fontSize: 10, fontWeight: 600, color: t.textSub, backgroundColor: t.lavenderTint }}>{r.slot}</span>
                     <span style={{ fontSize: 14, fontWeight: 700, color: t.text }}>{r.weight} kg</span>
                     {/* 체지방·골격근 — 모바일은 몸무게 다음 줄바꿈해서 한 줄에(basis-full), PC는 인라인 유지 */}
                     {(r.bodyFat != null || r.muscleMass != null) && (
@@ -703,11 +703,11 @@ export function WeightTab() {
                   {r.memo && <p style={{ fontSize: 11, color: t.textMuted, marginTop: 2 }}>{r.memo}</p>}
                 </div>
                 <button onClick={() => startEdit(r)} className="p-1.5 rounded-lg flex-shrink-0"
-                  style={{ backgroundColor: t.bgSub }} aria-label="수정">
+                  style={{ backgroundColor: t.lavenderTint }} aria-label="수정">
                   <Pencil size={13} color={t.textSub} />
                 </button>
                 <button onClick={() => setDeleteId(r.id)} className="p-1.5 rounded-lg flex-shrink-0"
-                  style={{ backgroundColor: t.bgSub }} aria-label="삭제">
+                  style={{ backgroundColor: t.lavenderTint }} aria-label="삭제">
                   <Trash2 size={13} color={t.danger} />
                 </button>
               </div>
@@ -716,7 +716,7 @@ export function WeightTab() {
         )}
         {sorted.length > listLimit && (
           <button onClick={() => setListLimit(n => n + 10)}
-            className="w-full mt-3 py-2 rounded-xl" style={{ backgroundColor: t.bgSub, color: t.textSub, fontSize: 13 }}>
+            className="w-full mt-3 py-2 rounded-xl" style={{ backgroundColor: t.lavenderTint, color: t.textSub, fontSize: 13 }}>
             더보기
           </button>
         )}

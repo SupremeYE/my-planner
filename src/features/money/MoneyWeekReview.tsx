@@ -57,7 +57,7 @@ export function WeekBanner({ m, onOpen }: { m: UseMoney; onOpen: () => void }) {
         </span>
         <span style={{ fontSize: 11.5, fontWeight: 600, color: t.textSub }}>이번 주 보기 ›</span>
       </div>
-      <div style={{ height: 7, borderRadius: 4, background: t.bgSub, overflow: 'hidden' }}>
+      <div style={{ height: 7, borderRadius: 4, background: t.lavenderTint, overflow: 'hidden' }}>
         <div style={{ width: `${ratio * 100}%`, height: '100%', background: color, borderRadius: 4, transition: 'width .3s' }} />
       </div>
       <div className="flex items-center justify-between" style={{ marginTop: 6 }}>
@@ -107,7 +107,7 @@ export function WeekReviewSheet({ m, onClose }: { m: UseMoney; onClose: () => vo
     onClose();
   };
 
-  const card = { background: t.bgSub, borderRadius: 14, padding: 14 };
+  const card = { background: t.lavenderTint, borderRadius: 14, padding: 14 };
 
   return (
     <div className="fixed inset-0 z-[60] flex items-end lg:items-center justify-center" style={{ background: 'rgba(58,53,46,0.5)' }} onClick={onClose}>

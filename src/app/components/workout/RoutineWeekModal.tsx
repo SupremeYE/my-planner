@@ -143,7 +143,7 @@ function DayColumn({
     <div
       className="flex flex-col"
       style={{
-        backgroundColor: isToday ? t.accentLight : t.bgSub,
+        backgroundColor: isToday ? t.accentLight : t.lavenderTint,
         border: `1.5px solid ${isToday ? t.accent : t.borderLight}`,
         borderRadius: 14, padding: 10, minHeight: 240,
       }}

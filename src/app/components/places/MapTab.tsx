@@ -255,7 +255,7 @@ export function MapTab() {
         </div>
 
         {/* 블로그 후기 + (선택) AI 요약 — 인리치먼트 결과 */}
-        <div style={{ padding: '11px 16px', borderTop: `1px solid ${t.borderLight}`, backgroundColor: t.bgSub }}>
+        <div style={{ padding: '11px 16px', borderTop: `1px solid ${t.borderLight}`, backgroundColor: t.lavenderTint }}>
           {p.aiSummary && (
             <div style={{ marginBottom: 10 }}>
               <div className="flex items-center gap-1" style={{ fontSize: 10.5, color: t.accent, fontWeight: 700, marginBottom: 3 }}>✨ AI 요약</div>
@@ -331,7 +331,7 @@ export function MapTab() {
               const went = visitedIds.has(p.id);
               const on = selected?.id === p.id;
               return (
-                <div key={p.id} onClick={() => focusPlace(p)} className="flex items-center gap-2.5" style={{ padding: '9px 10px', borderRadius: 11, cursor: 'pointer', backgroundColor: on ? t.bgSub : 'transparent' }}>
+                <div key={p.id} onClick={() => focusPlace(p)} className="flex items-center gap-2.5" style={{ padding: '9px 10px', borderRadius: 11, cursor: 'pointer', backgroundColor: on ? t.lavenderTint : 'transparent' }}>
                   <span className="flex items-center justify-center" style={{ width: 38, height: 38, borderRadius: 9, fontSize: 18, flexShrink: 0, backgroundColor: withAlpha(t.accent, 0.12) }}>{placeEmoji({ concept: p.concept, category: p.category })}</span>
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{ fontSize: 13, fontWeight: 700, color: t.text, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.name}</div>
@@ -353,7 +353,7 @@ export function MapTab() {
               <div style={{ fontSize: 12.5, color: t.textMuted, marginTop: 6 }}>{mapError}</div>
             </div>
           ) : (
-            <div ref={mapElRef} style={{ position: 'absolute', inset: 0, backgroundColor: t.bgSub }} />
+            <div ref={mapElRef} style={{ position: 'absolute', inset: 0, backgroundColor: t.lavenderTint }} />
           )}
 
           {!mapError && noCoordCount > 0 && !selectedPlace && (
@@ -468,7 +468,7 @@ export function MapTab() {
                         lineHeight: 1.5,
                         padding: '10px 12px',
                         borderRadius: 10,
-                        backgroundColor: t.bgSub,
+                        backgroundColor: t.lavenderTint,
                       }}
                     >
                       {p.memo}

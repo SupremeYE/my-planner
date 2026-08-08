@@ -418,7 +418,7 @@ export function TimePicker({
                     letterSpacing: '0.03em',
                   }}
                   onMouseEnter={e => {
-                    if (!isSelected) (e.currentTarget as HTMLElement).style.backgroundColor = t.bgSub;
+                    if (!isSelected) (e.currentTarget as HTMLElement).style.backgroundColor = t.lavenderTint;
                   }}
                   onMouseLeave={e => {
                     if (!isSelected) {

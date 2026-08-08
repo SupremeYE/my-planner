@@ -121,7 +121,7 @@ export default function CategoryManagerModal({ categories, onClose, onChanged }:
                 <li
                   key={c.id}
                   className="flex items-center gap-2 px-3 py-2.5 rounded-xl"
-                  style={{ backgroundColor: t.bgSub, border: `1px solid ${t.borderLight}` }}
+                  style={{ backgroundColor: t.lavenderTint, border: `1px solid ${t.borderLight}` }}
                 >
                   {/* 순서 변경 */}
                   <div className="flex flex-col">

@@ -347,7 +347,7 @@ export function QuoteSentenceSelector({ isOpen, onClose, onConfirm, bookId }: Qu
               style={{ paddingBottom: 'calc(16px + env(safe-area-inset-bottom))', borderTop: `0.5px solid ${t.border}`, backgroundColor: t.bg }}>
               <button onClick={() => openPicker('gal', true)}
                 className="flex items-center justify-center gap-1.5 py-3 rounded-xl"
-                style={{ flex: '0 0 auto', paddingInline: 14, fontSize: 13.5, fontWeight: 700, color: t.text, backgroundColor: t.bgSub, border: `1px solid ${t.border}` }}>
+                style={{ flex: '0 0 auto', paddingInline: 14, fontSize: 13.5, fontWeight: 700, color: t.text, backgroundColor: t.lavenderTint, border: `1px solid ${t.border}` }}>
                 <Plus size={15} /> 이어서 추가
               </button>
               <button onClick={goEdit} disabled={!hasSelection}
@@ -379,14 +379,14 @@ export function QuoteSentenceSelector({ isOpen, onClose, onConfirm, bookId }: Qu
                 <input type="number" inputMode="numeric" value={pageInput}
                   onChange={(e) => setPageInput(e.target.value)} placeholder="0000"
                   className="text-center rounded-lg focus:outline-none"
-                  style={{ width: 96, padding: '8px 10px', fontSize: 16, fontWeight: 700, color: t.text, backgroundColor: t.bgSub, border: `1px solid ${t.border}` }} />
+                  style={{ width: 96, padding: '8px 10px', fontSize: 16, fontWeight: 700, color: t.text, backgroundColor: t.lavenderTint, border: `1px solid ${t.border}` }} />
               </div>
             </div>
 
             <div className="flex items-center gap-2" style={{ paddingTop: 4 }}>
               <button onClick={() => setScreen('select')}
                 className="flex items-center justify-center gap-1.5 py-3 rounded-xl"
-                style={{ flex: '0 0 auto', paddingInline: 16, fontSize: 14, fontWeight: 700, color: t.text, backgroundColor: t.bgSub, border: `1px solid ${t.border}` }}>
+                style={{ flex: '0 0 auto', paddingInline: 16, fontSize: 14, fontWeight: 700, color: t.text, backgroundColor: t.lavenderTint, border: `1px solid ${t.border}` }}>
                 <ChevronLeft size={16} /> 다시 선택
               </button>
               <button onClick={handleConfirm} disabled={!editedText.trim()}

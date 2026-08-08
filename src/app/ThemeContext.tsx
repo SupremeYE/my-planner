@@ -2,11 +2,13 @@ import React, { createContext, useContext } from 'react';
 
 export interface ThemeTokens {
   bg: string;
-  bgSub: string;
-  bgHover: string;
+  // lavenderTint: 라벤더 tint (#F4E7FB). 선택·활성 강조 및 라벤더 톤 표면 전용.
+  // ⚠️ "중립 2차 표면"이 필요하면 이 토큰이 아니라 surfaceMuted 를 쓴다(이름이 값을 드러냄).
+  // (구 bgSub / accentSoft 는 값이 동일해 이 토큰으로 병합됨.)
+  lavenderTint: string;
+  lavenderHover: string;   // 라벤더 hover tint (#EFE3FA)
   // surfaceMuted: 의미 없는 "기능적 2차 표면" (진행바 트랙·세그먼트 트랙·스켈레톤·2차 버튼·
-  // 컨테이너 배경). bgSub 와 달리 라벤더 액센트 의미가 없다. DESIGN.md §5 Surface 참조.
-  // ⚠️ 비-H(A/B/C/D)는 기존 bgSub 값을 그대로 복사 → 렌더 동일(회귀 0). H 만 저채도 중립 톤.
+  // 컨테이너 배경) — 중립 저채도 그레이. lavenderTint 와 달리 라벤더 의미가 없다. DESIGN.md §5 Surface.
   surfaceMuted: string;
   card: string;
   sidebar: string;
@@ -15,10 +17,8 @@ export interface ThemeTokens {
   textMuted: string;
   accent: string;
   accentLight: string;
-  accentSoft: string;
   border: string;
   borderLight: string;
-  planBlock: string;
   planBorder: string;
   planText: string;
   doBlock: string;
@@ -102,11 +102,10 @@ export interface ThemeTokens {
 // ── Haon — Soft Pastel Glassmorphism (DESIGN.md 단일 기준, 앱의 유일 테마) ──
 // 파스텔 그라디언트 캔버스 + 프로스티드 글래스 카드 + 코랄→핑크 강조.
 export const tokenH: ThemeTokens = {
-  bg: '#FBF8FC',            // near-white 캔버스 (canvasStyle appGradient 베이스와 동일) — 미마이그레이션 페이지 배경 통일
-  bgSub: '#F4E7FB',        // lavender-mist
-  bgHover: '#EFE3FA',
-  // surfaceMuted: canvas(#FBF8FC)와 card(#FFFFFF) 사이 저채도 중립 그레이 — 기능적 2차 표면 전용.
-  // bgSub(#F4E7FB lavender-mist)의 라벤더 세척을 걷어내되, 선택·활성의 라일락(accentSoft)은 보존.
+  bg: '#FBF8FC',            // near-white 캔버스 (canvasStyle appGradient 베이스와 동일)
+  lavenderTint: '#F4E7FB',  // lavender-mist — 선택·활성 강조 및 라벤더 표면 (구 bgSub ≡ accentSoft 병합)
+  lavenderHover: '#EFE3FA', // 라벤더 hover tint
+  // surfaceMuted: canvas(#FBF8FC)와 card(#FFFFFF) 사이 저채도 중립 그레이 — 기능적 2차 표면 전용(라벤더 아님).
   surfaceMuted: '#F3F0F6',
 
   card: '#FFFFFF',         // card-solid (밀도 높은 콘텐츠)
@@ -116,10 +115,8 @@ export const tokenH: ThemeTokens = {
   textMuted: '#A5A2BE',    // text-muted
   accent: '#FF6F91',       // pink-vivid
   accentLight: '#F6BCBA',  // soft-coral
-  accentSoft: '#F4E7FB',   // lavender-mist
   border: 'rgba(46,42,91,0.10)',
   borderLight: 'rgba(46,42,91,0.06)',
-  planBlock: '#EAE4FB',    // 쿨 라일락 톤 (PLAN)
   planBorder: 'rgba(200,168,233,0.5)',
   planText: '#5B4FA0',
   doBlock: '#FF6F91',      // 코랄→핑크 강조 (DO)

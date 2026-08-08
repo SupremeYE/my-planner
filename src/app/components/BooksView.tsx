@@ -90,7 +90,7 @@ function MarathonTrack({ currentPage, totalPages, t }: { currentPage: number; to
         <div style={{
           position: 'absolute', top: '50%', left: 0, right: 0,
           height: 5, borderRadius: 3,
-          backgroundColor: t.bgSub,
+          backgroundColor: t.lavenderTint,
           transform: 'translateY(-50%)',
         }} />
         {/* 진행 그라데이션 */}
@@ -109,7 +109,7 @@ function MarathonTrack({ currentPage, totalPages, t }: { currentPage: number; to
             left: `${m}%`,
             transform: 'translate(-50%, -50%)',
             width: 6, height: 6, borderRadius: '50%',
-            backgroundColor: pct >= m ? '#F4A582' : t.bgSub,
+            backgroundColor: pct >= m ? '#F4A582' : t.lavenderTint,
             border: `1.5px solid ${pct >= m ? 'rgba(255,255,255,0.9)' : t.border}`,
             zIndex: 1,
           }} />
@@ -392,7 +392,7 @@ function ReadingPulse({ books, t }: { books: Book[]; t: any }) {
                     title={day.date + tooltipExtra}
                     style={{
                       width: CELL, height: CELL, borderRadius: 2, flexShrink: 0,
-                      backgroundColor: day.date > todayStr ? t.bgSub : pulseColor(day.count, t.bgSub, isCompletion),
+                      backgroundColor: day.date > todayStr ? t.lavenderTint : pulseColor(day.count, t.lavenderTint, isCompletion),
                       opacity: day.date > todayStr ? 0.15 : day.count === 0 ? 0.38 : 1,
                       cursor: day.count > 0 ? 'pointer' : 'default',
                       outline: isCompletion && day.date <= todayStr ? `1.5px solid #D4603A` : 'none',
@@ -412,7 +412,7 @@ function ReadingPulse({ books, t }: { books: Book[]; t: any }) {
         {[0, 1, 2, 3, 4].map(v => (
           <div key={v} style={{
             width: 9, height: 9, borderRadius: 2,
-            backgroundColor: pulseColor(v, t.bgSub),
+            backgroundColor: pulseColor(v, t.lavenderTint),
             opacity: v === 0 ? 0.38 : 1,
           }} />
         ))}
@@ -558,7 +558,7 @@ function BookSearchModal({
                       className="w-10 h-14 object-cover rounded-lg flex-shrink-0" />
                   ) : (
                     <div className="w-10 h-14 rounded-lg flex items-center justify-center flex-shrink-0"
-                      style={{ backgroundColor: t.bgSub }}>
+                      style={{ backgroundColor: t.lavenderTint }}>
                       <BookOpen size={16} color={t.textMuted} />
                     </div>
                   )}
@@ -628,7 +628,7 @@ function BookSearchModal({
                   className="w-12 h-16 object-cover rounded-lg flex-shrink-0" />
               ) : (
                 <div className="w-12 h-16 rounded-lg flex items-center justify-center flex-shrink-0"
-                  style={{ backgroundColor: t.bgSub }}>
+                  style={{ backgroundColor: t.lavenderTint }}>
                   <BookOpen size={18} color={t.textMuted} />
                 </div>
               )}
@@ -1009,7 +1009,7 @@ function BookDetailModal({
                 className="w-12 h-16 object-cover rounded-lg flex-shrink-0" />
             ) : (
               <div className="w-12 h-16 rounded-lg flex items-center justify-center flex-shrink-0"
-                style={{ backgroundColor: t.bgSub }}>
+                style={{ backgroundColor: t.lavenderTint }}>
                 <BookOpen size={20} color={t.textMuted} />
               </div>
             )}
@@ -1126,7 +1126,7 @@ function BookDetailModal({
                       <span style={{ fontSize: 12, color: t.textSub }}>진도율</span>
                       <span style={{ fontSize: 13, color: t.accent, fontWeight: 700 }}>{pct}%</span>
                     </div>
-                    <div className="h-2 rounded-full overflow-hidden" style={{ backgroundColor: t.bgSub }}>
+                    <div className="h-2 rounded-full overflow-hidden" style={{ backgroundColor: t.lavenderTint }}>
                       <div
                         className="h-full rounded-full transition-all"
                         style={{ width: `${pct}%`, backgroundColor: isAutoComplete ? '#6BAA7A' : t.accent }}
@@ -1236,7 +1236,7 @@ function BookDetailModal({
                     style={{
                       width: '40%',
                       borderRight: `1px solid ${t.border}`,
-                      backgroundColor: t.bgSub,
+                      backgroundColor: t.lavenderTint,
                     }}
                   >
                     {/* 좌측 헤더: + 구절 추가 */}
@@ -1381,26 +1381,26 @@ function BookDetailModal({
                               onChange={e => setQuotePage(e.target.value)}
                               placeholder="페이지"
                               className="rounded-lg px-3 py-2 outline-none text-sm flex-shrink-0"
-                              style={{ width: 96, backgroundColor: t.bgSub, border: `1px solid ${t.border}`, color: t.text }}
+                              style={{ width: 96, backgroundColor: t.lavenderTint, border: `1px solid ${t.border}`, color: t.text }}
                             />
                             <input
                               value={quoteTags}
                               onChange={e => setQuoteTags(e.target.value)}
                               placeholder="태그 (쉼표 구분)"
                               className="flex-1 min-w-0 rounded-lg px-3 py-2 outline-none text-sm"
-                              style={{ backgroundColor: t.bgSub, border: `1px solid ${t.border}`, color: t.text }}
+                              style={{ backgroundColor: t.lavenderTint, border: `1px solid ${t.border}`, color: t.text }}
                             />
                           </div>
                           {/* 사진으로 구절 담기 */}
                           <button
                             onClick={() => setCaptureOpen(true)}
                             className="w-full flex items-center justify-center gap-1.5 py-2 rounded-lg transition-all"
-                            style={{ backgroundColor: t.bgSub, border: `1px solid ${t.border}`, color: t.textSub, fontSize: 13, fontWeight: 600 }}
+                            style={{ backgroundColor: t.lavenderTint, border: `1px solid ${t.border}`, color: t.textSub, fontSize: 13, fontWeight: 600 }}
                           >
                             <Camera size={14} /> 사진으로 구절 담기
                           </button>
                           {quoteImageUrl && (
-                            <div className="flex items-center gap-2 rounded-lg px-2 py-1.5" style={{ backgroundColor: t.bgSub, border: `1px solid ${t.border}` }}>
+                            <div className="flex items-center gap-2 rounded-lg px-2 py-1.5" style={{ backgroundColor: t.lavenderTint, border: `1px solid ${t.border}` }}>
                               <img src={quoteImageUrl} alt="" style={{ width: 36, height: 36, objectFit: 'cover', borderRadius: 6 }} />
                               <span className="flex-1" style={{ fontSize: 12, color: t.textSub }}>사진이 이 구절에 첨부돼요</span>
                               <button onClick={() => setQuoteImageUrl(null)} aria-label="사진 제거" style={{ color: t.textMuted }}><X size={14} /></button>
@@ -1413,7 +1413,7 @@ function BookDetailModal({
                               disabled={isTranscribing}
                               className="flex items-center justify-center gap-1.5 flex-1 py-2 rounded-lg transition-all"
                               style={{
-                                backgroundColor: isRecording ? '#D4735A' : t.bgSub,
+                                backgroundColor: isRecording ? '#D4735A' : t.lavenderTint,
                                 border: `1px solid ${isRecording ? '#D4735A' : t.border}`,
                                 color: isRecording ? '#fff' : t.textMuted,
                                 fontSize: 13,
@@ -1430,7 +1430,7 @@ function BookDetailModal({
                               disabled={!quoteText.trim()}
                               className="flex-1 py-2 rounded-lg"
                               style={{
-                                backgroundColor: quoteText.trim() ? t.accent : t.bgSub,
+                                backgroundColor: quoteText.trim() ? t.accent : t.lavenderTint,
                                 color: quoteText.trim() ? '#fff' : t.textMuted,
                                 fontSize: 13,
                                 fontWeight: 700,
@@ -1571,7 +1571,7 @@ function BookDetailModal({
                     disabled={!noteDirty || noteSaving}
                     className="flex-1 py-2.5 rounded-xl"
                     style={{
-                      backgroundColor: noteDirty && !noteSaving ? t.accent : t.bgSub,
+                      backgroundColor: noteDirty && !noteSaving ? t.accent : t.lavenderTint,
                       color: noteDirty && !noteSaving ? '#fff' : t.textMuted,
                       fontSize: 13,
                       fontWeight: 700,
@@ -2158,7 +2158,7 @@ function StatsPanel({ books, onSelect }: { books: Book[]; onSelect: (b: Book) =>
           </p>
           <div className="flex rounded-xl overflow-hidden" style={{ border: `1px solid ${t.border}` }}>
             <div style={{ width: 3, backgroundColor: t.accent, flexShrink: 0 }} />
-            <div className="flex-1 p-3" style={{ backgroundColor: t.bgSub }}>
+            <div className="flex-1 p-3" style={{ backgroundColor: t.lavenderTint }}>
               <p style={{
                 fontSize: 14,
                 color: t.text,
@@ -2459,7 +2459,7 @@ export function BooksView() {
                       className="w-12 h-16 object-cover rounded-lg flex-shrink-0" />
                   ) : (
                     <div className="w-12 h-16 rounded-lg flex items-center justify-center flex-shrink-0"
-                      style={{ backgroundColor: t.bgSub }}>
+                      style={{ backgroundColor: t.lavenderTint }}>
                       <BookOpen size={20} color={t.textMuted} />
                     </div>
                   )}

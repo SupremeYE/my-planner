@@ -41,13 +41,13 @@ export function MemoryTab() {
 
   // 색 스케일 (토큰 기반 웜 농도): 0 / 1~2 / 3~5 / 6~9 / 10+
   const colorFor = (n: number): string => {
-    if (n <= 0) return t.bgSub;
+    if (n <= 0) return t.lavenderTint;
     if (n <= 2) return withAlpha(t.accent, 0.3);
     if (n <= 5) return withAlpha(t.accent, 0.58);
     if (n <= 9) return t.accent;
     return t.danger;
   };
-  const legendColors = [t.bgSub, withAlpha(t.accent, 0.3), withAlpha(t.accent, 0.58), t.accent, t.danger];
+  const legendColors = [t.lavenderTint, withAlpha(t.accent, 0.3), withAlpha(t.accent, 0.58), t.accent, t.danger];
 
   const empty = !loading && totalVisits === 0;
 
@@ -147,7 +147,7 @@ export function MemoryTab() {
                 ) : ranking.slice(0, 8).map(([rid, n]) => (
                   <div key={rid} className="flex items-center gap-2" style={{ marginBottom: 7, cursor: 'pointer' }} onClick={() => setSelected(rid)}>
                     <span style={{ width: 34, fontSize: 12, fontWeight: 700, color: t.text, flexShrink: 0 }}>{REGION_LABELS[rid] ?? rid}</span>
-                    <div style={{ flex: 1, height: 12, borderRadius: 6, backgroundColor: t.bgSub, overflow: 'hidden' }}>
+                    <div style={{ flex: 1, height: 12, borderRadius: 6, backgroundColor: t.lavenderTint, overflow: 'hidden' }}>
                       <div style={{ height: '100%', width: `${maxCount ? (n / maxCount) * 100 : 0}%`, borderRadius: 6, backgroundColor: colorFor(n) }} />
                     </div>
                     <span style={{ width: 26, textAlign: 'right', fontSize: 11.5, color: t.textSub, flexShrink: 0 }}>{n}번</span>

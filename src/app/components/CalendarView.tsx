@@ -308,13 +308,13 @@ export function SleepTimeEditModal({ record, onClose, onConfirm }: {
         </div>
         <div className="flex gap-2 px-5 py-4" style={{ borderTop: `1px solid ${t.border}` }}>
           <button onClick={onClose} className="flex-1 py-2.5 rounded-xl"
-            style={{ fontSize: 13, color: t.textSub, backgroundColor: t.bgSub, border: `1px solid ${t.border}` }}>
+            style={{ fontSize: 13, color: t.textSub, backgroundColor: t.lavenderTint, border: `1px solid ${t.border}` }}>
             취소
           </button>
           <button onClick={() => { if (start && end) onConfirm(start, end); }}
             disabled={!start || !end}
             className="flex-1 py-2.5 rounded-xl"
-            style={{ fontSize: 13, fontWeight: 600, backgroundColor: start && end ? '#94A3B8' : t.bgSub, color: start && end ? '#fff' : t.textMuted }}>
+            style={{ fontSize: 13, fontWeight: 600, backgroundColor: start && end ? '#94A3B8' : t.lavenderTint, color: start && end ? '#fff' : t.textMuted }}>
             확인
           </button>
         </div>
@@ -572,7 +572,7 @@ export function CalendarView() {
         key={todo.id}
         className="flex items-start gap-2.5 py-2 px-3 rounded-xl"
         style={{
-          backgroundColor: isDone ? t.bgSub + '80' : t.card,
+          backgroundColor: isDone ? t.lavenderTint + '80' : t.card,
           border: `1px solid ${accentColor}20`,
           borderLeft: `3px solid ${accentColor}${isDone ? '40' : ''}`,
         }}
@@ -618,11 +618,11 @@ export function CalendarView() {
 
         <div className="flex items-center gap-1 flex-shrink-0 mt-0.5">
           <button onClick={() => handleSnoozeTodo(todo)} title="다음 날로 미루기"
-            className="p-1.5 rounded-lg transition-colors" style={{ color: t.textMuted, backgroundColor: t.bgSub }}>
+            className="p-1.5 rounded-lg transition-colors" style={{ color: t.textMuted, backgroundColor: t.lavenderTint }}>
             <ArrowRight size={13} />
           </button>
           <button onClick={() => handleDeleteTodo(todo)} title="삭제"
-            className="p-1.5 rounded-lg transition-colors" style={{ color: t.danger, backgroundColor: t.bgSub }}>
+            className="p-1.5 rounded-lg transition-colors" style={{ color: t.danger, backgroundColor: t.lavenderTint }}>
             <X size={13} />
           </button>
         </div>
@@ -640,7 +640,7 @@ export function CalendarView() {
         key={event.id}
         className="flex items-start gap-2.5 py-2 px-3 rounded-xl"
         style={{
-          backgroundColor: isDone ? t.bgSub + '80' : t.card,
+          backgroundColor: isDone ? t.lavenderTint + '80' : t.card,
           border: `1px solid ${eventColor}20`,
           borderLeft: `3px solid ${eventColor}${isDone ? '40' : ''}`,
           opacity: isDone ? 0.65 : (isPast ? 0.8 : 1),
@@ -679,11 +679,11 @@ export function CalendarView() {
         </div>
         <div className="flex items-center gap-1 flex-shrink-0 mt-0.5">
           <button onClick={() => handleSnoozeEvent(event)} title="다음 날로 미루기"
-            className="p-1.5 rounded-lg transition-colors" style={{ color: t.textMuted, backgroundColor: t.bgSub }}>
+            className="p-1.5 rounded-lg transition-colors" style={{ color: t.textMuted, backgroundColor: t.lavenderTint }}>
             <ArrowRight size={13} />
           </button>
           <button onClick={() => handleDeleteEvent(event)} title="삭제"
-            className="p-1.5 rounded-lg transition-colors" style={{ color: t.danger, backgroundColor: t.bgSub }}>
+            className="p-1.5 rounded-lg transition-colors" style={{ color: t.danger, backgroundColor: t.lavenderTint }}>
             <X size={13} />
           </button>
         </div>
@@ -932,7 +932,7 @@ export function CalendarView() {
                                   fontSize: 12,
                                   fontWeight: 500,
                                   color: checked ? t.accent : t.textSub,
-                                  backgroundColor: checked ? t.accentLight : t.bgSub,
+                                  backgroundColor: checked ? t.accentLight : t.lavenderTint,
                                   border: `1px solid ${checked ? t.accent : t.border}`,
                                 }}
                               >
@@ -950,7 +950,7 @@ export function CalendarView() {
                         <h3 style={{ fontSize: 13, fontWeight: 700, color: t.text, marginBottom: 8 }}>자기관리</h3>
                         <div className="space-y-2">
                           {panelSelfCare.map(record => (
-                            <div key={record.id} className="rounded-xl px-3 py-2" style={{ backgroundColor: t.bgSub, border: `1px solid ${t.borderLight}` }}>
+                            <div key={record.id} className="rounded-xl px-3 py-2" style={{ backgroundColor: t.lavenderTint, border: `1px solid ${t.borderLight}` }}>
                               <div className="flex items-center gap-1.5">
                                 <span className="inline-flex items-center px-2 py-0.5 rounded-full" style={{ fontSize: 10, fontWeight: 600, color: t.textSub, backgroundColor: t.card, border: `1px solid ${t.border}` }}>
                                   {SELFCARE_CATEGORY_LABELS[record.category] ?? record.category}
@@ -971,14 +971,14 @@ export function CalendarView() {
                     {showMemoSection && panelMemo && (
                       <section>
                         <h3 style={{ fontSize: 13, fontWeight: 700, color: t.text, marginBottom: 8 }}>메모</h3>
-                        <div className="rounded-xl px-3 py-3" style={{ backgroundColor: t.bgSub, border: `1px solid ${t.borderLight}` }}>
+                        <div className="rounded-xl px-3 py-3" style={{ backgroundColor: t.lavenderTint, border: `1px solid ${t.borderLight}` }}>
                           <p style={{ fontSize: 13, color: t.text, lineHeight: 1.6 }}>{panelMemo}</p>
                         </div>
                       </section>
                     )}
 
                     {!hasPanelContent && (
-                      <div className="rounded-xl px-3 py-4" style={{ backgroundColor: t.bgSub, border: `1px solid ${t.borderLight}` }}>
+                      <div className="rounded-xl px-3 py-4" style={{ backgroundColor: t.lavenderTint, border: `1px solid ${t.borderLight}` }}>
                         <p style={{ fontSize: 13, color: t.textMuted }}>선택한 날짜에 표시할 기록이 아직 없어요</p>
                       </div>
                     )}

@@ -865,7 +865,7 @@ export function TodosView() {
           <button
             onClick={exitSelectMode}
             className="px-3 py-1.5 rounded-xl"
-            style={{ fontSize: 12, fontWeight: 600, color: t.textSub, backgroundColor: t.bgSub }}
+            style={{ fontSize: 12, fontWeight: 600, color: t.textSub, backgroundColor: t.lavenderTint }}
           >
             취소
           </button>

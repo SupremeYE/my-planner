@@ -134,7 +134,7 @@ export function TimelineAddModal({ date, initialStart, initialEnd, initialLane, 
                 className="flex items-center gap-1 px-3 py-2 rounded-lg"
                 style={{
                   fontSize: 12, fontWeight: 600, whiteSpace: 'nowrap',
-                  backgroundColor: isTop3 ? t.accentLight : t.bgSub,
+                  backgroundColor: isTop3 ? t.accentLight : t.lavenderTint,
                   color: isTop3 ? t.accent : t.textSub,
                   border: `1px solid ${isTop3 ? t.accent : t.border}`,
                 }}>
@@ -145,7 +145,7 @@ export function TimelineAddModal({ date, initialStart, initialEnd, initialLane, 
         </div>
         <div className="flex gap-3 px-5 py-4" style={{ borderTop: `1px solid ${t.border}` }}>
           <button onClick={onClose} className="flex-1 py-2.5 rounded-xl"
-            style={{ fontSize: 14, fontWeight: 500, color: t.textSub, backgroundColor: t.bgSub, border: `1px solid ${t.border}` }}>취소</button>
+            style={{ fontSize: 14, fontWeight: 500, color: t.textSub, backgroundColor: t.lavenderTint, border: `1px solid ${t.border}` }}>취소</button>
           <button onClick={handleSave} disabled={!canSave} className="flex-1 py-2.5 rounded-xl"
             style={{ fontSize: 14, fontWeight: 600, backgroundColor: canSave ? t.accent : t.border, color: '#fff', opacity: canSave ? 1 : 0.6 }}>추가</button>
         </div>

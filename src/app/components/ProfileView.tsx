@@ -71,7 +71,7 @@ function ActivityHeatmap({ activityData }: { activityData: Record<string, number
   });
 
   const getColor = (count: number) => {
-    if (count === 0) return t.bgSub;
+    if (count === 0) return t.lavenderTint;
     if (count <= 2) return '#FFD89A';
     if (count <= 5) return '#F4A582';
     if (count <= 10) return '#E07C5A';
@@ -182,7 +182,7 @@ function LevelGallery({ currentLevel }: { currentLevel: number }) {
                 overflow: 'hidden',
                 position: 'relative',
                 border: isCurrent ? `2px solid ${t.accent}` : `1.5px solid ${t.border}`,
-                backgroundColor: t.bgSub,
+                backgroundColor: t.lavenderTint,
                 boxShadow: isCurrent ? `0 0 0 3px ${t.accentLight}` : 'none',
                 display: 'flex',
                 alignItems: 'center',
@@ -452,7 +452,7 @@ export function ProfileView() {
                       fontFamily: t.font,
                       fontWeight: 700,
                       color: t.text,
-                      background: t.bgSub,
+                      background: t.lavenderTint,
                       border: `1.5px solid ${t.accent}`,
                       borderRadius: 8,
                       padding: '2px 10px',
@@ -464,7 +464,7 @@ export function ProfileView() {
                   <button onClick={handleSaveName} disabled={savingName} style={{ padding: 6, borderRadius: 8, background: t.accentLight, color: t.accent, border: 'none', cursor: savingName ? 'default' : 'pointer', opacity: savingName ? 0.6 : 1 }}>
                     <Check size={14} />
                   </button>
-                  <button onClick={() => { setIsEditingName(false); setNameError(null); }} disabled={savingName} style={{ padding: 6, borderRadius: 8, background: t.bgSub, color: t.textMuted, border: 'none', cursor: savingName ? 'default' : 'pointer', opacity: savingName ? 0.6 : 1 }}>
+                  <button onClick={() => { setIsEditingName(false); setNameError(null); }} disabled={savingName} style={{ padding: 6, borderRadius: 8, background: t.lavenderTint, color: t.textMuted, border: 'none', cursor: savingName ? 'default' : 'pointer', opacity: savingName ? 0.6 : 1 }}>
                     <X size={14} />
                   </button>
                 </div>
@@ -565,7 +565,7 @@ export function ProfileView() {
                     <span style={{ fontSize: 10, color: '#E07C5A', fontWeight: 700 }}>MAX ✨</span>
                   )}
                 </div>
-                <div style={{ height: 6, borderRadius: 3, backgroundColor: t.bgSub, overflow: 'hidden' }}>
+                <div style={{ height: 6, borderRadius: 3, backgroundColor: t.lavenderTint, overflow: 'hidden' }}>
                   <div
                     style={{
                       height: '100%',
@@ -611,7 +611,7 @@ export function ProfileView() {
               <div
                 key={label}
                 style={{
-                  backgroundColor: t.bgSub,
+                  backgroundColor: t.lavenderTint,
                   borderRadius: 14,
                   padding: '14px 16px',
                   display: 'flex',
@@ -641,7 +641,7 @@ export function ProfileView() {
               <div
                 key={label}
                 style={{
-                  backgroundColor: t.bgSub,
+                  backgroundColor: t.lavenderTint,
                   borderRadius: 14,
                   padding: '14px 16px',
                   display: 'flex',
@@ -693,7 +693,7 @@ export function ProfileView() {
                     gap: 6,
                     padding: '14px 10px',
                     borderRadius: 14,
-                    backgroundColor: earned ? t.accentLight : t.bgSub,
+                    backgroundColor: earned ? t.accentLight : t.lavenderTint,
                     border: earned ? `1.5px solid ${t.accent}` : `1.5px solid ${t.border}`,
                     opacity: earned ? 1 : 0.5,
                     transition: 'all 0.2s',

@@ -1459,7 +1459,7 @@ export function Timeline({ days = 1, selectedDate, dateTodos, dateEvents, onShow
           </div>
           {onToday && (
             <button onClick={onToday}
-              style={{ fontSize: 11, fontWeight: 700, color: t.accent, backgroundColor: t.bgSub, border: `1px solid ${t.border}`, borderRadius: 8, padding: '2px 12px', cursor: 'pointer' }}>
+              style={{ fontSize: 11, fontWeight: 700, color: t.accent, backgroundColor: t.lavenderTint, border: `1px solid ${t.border}`, borderRadius: 8, padding: '2px 12px', cursor: 'pointer' }}>
               Today
             </button>
           )}
@@ -1595,7 +1595,7 @@ export function Timeline({ days = 1, selectedDate, dateTodos, dateEvents, onShow
           <div className="flex items-center gap-2 flex-shrink-0">
             <button onClick={() => setShowLogModal(true)}
               className="flex items-center gap-1 px-2 py-1.5 rounded-lg lg:gap-1.5 lg:px-2.5"
-              style={{ fontSize: 11, color: t.textSub, backgroundColor: t.bgSub, border: `1px solid ${t.border}` }}>
+              style={{ fontSize: 11, color: t.textSub, backgroundColor: t.lavenderTint, border: `1px solid ${t.border}` }}>
               <span style={{ fontSize: 11 }}>💭</span> Think
             </button>
             {/* PLAN / 비교 / DO 탭 */}
@@ -1606,7 +1606,7 @@ export function Timeline({ days = 1, selectedDate, dateTodos, dateEvents, onShow
                   className="px-2 py-1.5 lg:px-2.5"
                   style={{
                     fontSize: 10, fontWeight: timelineTab === tab ? 700 : 500,
-                    backgroundColor: timelineTab === tab ? t.bgSub : 'transparent',
+                    backgroundColor: timelineTab === tab ? t.lavenderTint : 'transparent',
                     color: timelineTab === tab
                       ? t.text
                       : t.textMuted,

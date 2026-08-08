@@ -80,7 +80,7 @@ export function CourseSetup({ onStart }: { onStart: (start: CoursePoint, dest: C
 
       {/* 검색 패널 */}
       {picking && (
-        <div style={{ marginTop: 14, padding: 14, borderRadius: 16, backgroundColor: t.bgSub, border: `1px solid ${t.borderLight}` }}>
+        <div style={{ marginTop: 14, padding: 14, borderRadius: 16, backgroundColor: t.lavenderTint, border: `1px solid ${t.borderLight}` }}>
           <div className="flex items-center justify-between" style={{ marginBottom: 10 }}>
             <span style={{ fontSize: 13, fontWeight: 700, color: t.text }}>{picking === 'start' ? '출발지' : '도착지'} 선택</span>
             <button onClick={() => setPicking(null)} style={{ color: t.textSub, background: 'none', border: 'none', cursor: 'pointer' }}><X size={18} /></button>

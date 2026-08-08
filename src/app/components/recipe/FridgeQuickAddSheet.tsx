@@ -155,7 +155,7 @@ export function FridgeQuickAddSheet({ initialDrafts, onSave, onClose }: FridgeQu
                           className="px-2 py-0.5 rounded-full active:scale-95 transition-transform"
                           style={{
                             fontSize: 11, fontWeight: active ? 700 : 500,
-                            backgroundColor: active ? t.accent : t.bgSub,
+                            backgroundColor: active ? t.accent : t.lavenderTint,
                             color: active ? '#fff' : t.textSub,
                             border: `1px solid ${active ? t.accent : t.border}`,
                           }}>{p.label}</button>
@@ -170,14 +170,14 @@ export function FridgeQuickAddSheet({ initialDrafts, onSave, onClose }: FridgeQu
           {/* 행 추가 */}
           <button type="button" onClick={addRow}
             className="mt-3 flex items-center gap-1.5 px-3 py-2 rounded-xl w-full justify-center"
-            style={{ fontSize: 13, fontWeight: 600, backgroundColor: t.bgSub, color: t.textSub, border: `1px solid ${t.border}` }}>
+            style={{ fontSize: 13, fontWeight: 600, backgroundColor: t.lavenderTint, color: t.textSub, border: `1px solid ${t.border}` }}>
             <Plus size={15} /> 직접 추가
           </button>
 
           {/* PC 저장/취소 */}
           <div className="hidden lg:flex items-center justify-end gap-2 mt-5">
             <button type="button" onClick={onClose} className="px-4 py-2.5 rounded-xl"
-              style={{ fontSize: 14, fontWeight: 600, color: t.textSub, backgroundColor: t.bgSub, border: `1px solid ${t.border}` }}>
+              style={{ fontSize: 14, fontWeight: 600, color: t.textSub, backgroundColor: t.lavenderTint, border: `1px solid ${t.border}` }}>
               취소
             </button>
             <button type="submit" disabled={submitting} className="px-5 py-2.5 rounded-xl"

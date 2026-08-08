@@ -202,7 +202,7 @@ export function QuickAddInput({ defaultDate = null, onSubmitted, autoFocus, plac
               border: t.solidCardBorder ?? '1px solid rgba(122,92,162,0.12)',
               boxShadow: t.solidCardShadow ?? '0 8px 20px rgba(120,90,160,0.12)',
             }
-          : { backgroundColor: t.bgSub, border: `1px solid ${t.border}` }}
+          : { backgroundColor: t.lavenderTint, border: `1px solid ${t.border}` }}
       >
         <input
           autoFocus={autoFocus}

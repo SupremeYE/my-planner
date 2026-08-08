@@ -77,7 +77,7 @@ export function HappyCaptureModal({ onClose, onSaved }: {
             placeholder="어떤 순간이 행복했나요?"
             onKeyDown={e => { if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) save(); }}
             className="flex-1 rounded-lg px-3 py-2 border outline-none resize-none min-w-0"
-            style={{ borderColor: t.border, backgroundColor: t.bgSub, color: t.text, fontSize: 14, fontFamily: t.fontBody }}
+            style={{ borderColor: t.border, backgroundColor: t.lavenderTint, color: t.text, fontSize: 14, fontFamily: t.fontBody }}
           />
           <button
             type="button"
@@ -87,7 +87,7 @@ export function HappyCaptureModal({ onClose, onSaved }: {
             className="flex items-center justify-center rounded-lg flex-shrink-0"
             style={{
               width: 38, height: 38,
-              backgroundColor: isRec ? '#fee2e2' : t.bgSub,
+              backgroundColor: isRec ? '#fee2e2' : t.lavenderTint,
               border: `1px solid ${isRec ? '#fca5a5' : t.borderLight}`,
               color: isRec ? '#ef4444' : t.textMuted,
             }}

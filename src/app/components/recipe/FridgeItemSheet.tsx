@@ -95,7 +95,7 @@ export function FridgeItemSheet({ item, onSave, onDelete, onClose }: FridgeItemS
                   <button key={c} type="button" onClick={() => setCategory(c)}
                     className="flex-1 rounded-xl transition-all"
                     style={{ minHeight: 40, fontSize: 14, fontWeight: active ? 700 : 400,
-                      backgroundColor: active ? t.accent : t.bgSub, color: active ? '#fff' : t.textSub,
+                      backgroundColor: active ? t.accent : t.lavenderTint, color: active ? '#fff' : t.textSub,
                       border: `1px solid ${active ? t.accent : t.border}` }}>
                     {c}
                   </button>
@@ -140,7 +140,7 @@ export function FridgeItemSheet({ item, onSave, onDelete, onClose }: FridgeItemS
                     className="px-2.5 py-1 rounded-full active:scale-95 transition-transform"
                     style={{
                       fontSize: 12, fontWeight: active ? 700 : 500,
-                      backgroundColor: active ? t.accent : t.bgSub,
+                      backgroundColor: active ? t.accent : t.lavenderTint,
                       color: active ? '#fff' : t.textSub,
                       border: `1px solid ${active ? t.accent : t.border}`,
                     }}>{p.label}</button>
@@ -160,7 +160,7 @@ export function FridgeItemSheet({ item, onSave, onDelete, onClose }: FridgeItemS
             )}
             <div className="flex-1" />
             <button type="button" onClick={onClose} className="hidden lg:block px-4 py-2.5 rounded-xl"
-              style={{ fontSize: 14, fontWeight: 600, color: t.textSub, backgroundColor: t.bgSub, border: `1px solid ${t.border}` }}>취소</button>
+              style={{ fontSize: 14, fontWeight: 600, color: t.textSub, backgroundColor: t.lavenderTint, border: `1px solid ${t.border}` }}>취소</button>
             <button type="submit" disabled={submitting} className="px-5 py-2.5 rounded-xl"
               style={{ fontSize: 14, fontWeight: 700, color: '#fff', backgroundColor: t.accent, opacity: submitting ? 0.6 : 1 }}>{submitting ? '저장 중…' : '저장'}</button>
           </div>

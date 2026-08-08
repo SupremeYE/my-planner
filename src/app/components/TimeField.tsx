@@ -236,7 +236,7 @@ export function TimeField({
                     display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%',
                     padding: '6px 10px', borderRadius: 8, border: 'none', cursor: 'pointer', textAlign: 'left',
                     fontFamily: t.fontNumeric, fontSize: 13,
-                    background: selected ? t.accentLight : i === hi ? t.bgSub : 'transparent',
+                    background: selected ? t.accentLight : i === hi ? t.lavenderTint : 'transparent',
                     color: selected ? t.accent : strong ? t.text : t.textMuted,
                     fontWeight: strong || selected ? 500 : 400,
                   }}>
@@ -278,7 +278,7 @@ export function DurationChips({ start, end, onPick, className = '' }: {
             style={{
               fontSize: 12, fontWeight: 500, padding: '4px 14px', borderRadius: 999,
               border: `1px solid ${t.border}`, cursor: 'pointer', whiteSpace: 'nowrap',
-              background: selected ? t.accentSoft : t.card, // 선택=라일락 tint / 기본=흰색
+              background: selected ? t.lavenderTint : t.card, // 선택=라일락 tint / 기본=흰색
               color: selected ? t.text : t.textMuted,        // 선택=딥 인디고 / 기본=muted
             }}>
             {fmtDur(d)}

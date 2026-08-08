@@ -219,13 +219,13 @@ export function PeriodSection() {
                   <label style={{ fontSize: 11, color: t.textSub, fontWeight: 600 }}>시작일 *</label>
                   <input type="date" value={startDate} onChange={e => setStartDate(e.target.value)}
                     className="w-full mt-1 rounded-lg px-3 py-2 border outline-none"
-                    style={{ borderColor: t.border, backgroundColor: t.bgSub, color: t.text, fontSize: 13 }} />
+                    style={{ borderColor: t.border, backgroundColor: t.lavenderTint, color: t.text, fontSize: 13 }} />
                 </div>
                 <div>
                   <label style={{ fontSize: 11, color: t.textSub, fontWeight: 600 }}>종료일</label>
                   <input type="date" value={endDate} onChange={e => setEndDate(e.target.value)}
                     className="w-full mt-1 rounded-lg px-3 py-2 border outline-none"
-                    style={{ borderColor: t.border, backgroundColor: t.bgSub, color: t.text, fontSize: 13 }} />
+                    style={{ borderColor: t.border, backgroundColor: t.lavenderTint, color: t.text, fontSize: 13 }} />
                 </div>
               </div>
 
@@ -238,7 +238,7 @@ export function PeriodSection() {
                       className="flex-1 py-2 rounded-lg flex items-center justify-center gap-1"
                       style={{
                         fontSize: 12, fontWeight: 600,
-                        backgroundColor: flowLevel === opt.key ? PERIOD_COLOR : t.bgSub,
+                        backgroundColor: flowLevel === opt.key ? PERIOD_COLOR : t.lavenderTint,
                         color: flowLevel === opt.key ? '#fff' : t.text,
                         border: `1px solid ${flowLevel === opt.key ? PERIOD_COLOR : t.border}`,
                       }}>
@@ -257,7 +257,7 @@ export function PeriodSection() {
                       className="px-2.5 py-1 rounded-full transition-colors"
                       style={{
                         fontSize: 11, fontWeight: 600,
-                        backgroundColor: symptoms.includes(s) ? PERIOD_COLOR + '25' : t.bgSub,
+                        backgroundColor: symptoms.includes(s) ? PERIOD_COLOR + '25' : t.lavenderTint,
                         color: symptoms.includes(s) ? PERIOD_COLOR : t.textMuted,
                         border: `1px solid ${symptoms.includes(s) ? PERIOD_COLOR : t.border}`,
                       }}>
@@ -273,7 +273,7 @@ export function PeriodSection() {
                 <textarea value={memo} onChange={e => setMemo(e.target.value)} placeholder="증상이나 특이사항을 입력하세요"
                   rows={2}
                   className="w-full mt-1 rounded-lg px-3 py-2 border outline-none resize-none"
-                  style={{ borderColor: t.border, backgroundColor: t.bgSub, color: t.text, fontSize: 13 }} />
+                  style={{ borderColor: t.border, backgroundColor: t.lavenderTint, color: t.text, fontSize: 13 }} />
               </div>
 
               {/* 버튼 — 탭 아이덴티티색(생리 핑크) 폐기, 공통 HaonButton(t.accent) */}
@@ -623,7 +623,7 @@ export function SleepSection() {
       <div
         className="flex-1 rounded-2xl p-3 lg:p-4 flex flex-col items-center gap-1"
         style={{
-          backgroundColor: isEmpty ? t.bgSub : SLEEP_COLOR + '12',
+          backgroundColor: isEmpty ? t.lavenderTint : SLEEP_COLOR + '12',
           border: `1.5px solid ${isEmpty ? t.borderLight : SLEEP_COLOR + '40'}`,
           minWidth: 0,
         }}
@@ -718,7 +718,7 @@ export function SleepSection() {
             value={date}
             onChange={e => setDate(e.target.value)}
             className="w-full rounded-xl px-3 py-2 border outline-none"
-            style={{ borderColor: t.borderLight, backgroundColor: t.bgSub, color: t.text, fontSize: 13, WebkitAppearance: 'none', appearance: 'none', boxSizing: 'border-box', minWidth: 0 }}
+            style={{ borderColor: t.borderLight, backgroundColor: t.lavenderTint, color: t.text, fontSize: 13, WebkitAppearance: 'none', appearance: 'none', boxSizing: 'border-box', minWidth: 0 }}
           />
           <p style={{ fontSize: 10.5, color: t.textMuted, marginTop: 6, paddingLeft: 2 }}>
             일어난 날 기준으로 기록해요
@@ -1173,7 +1173,7 @@ export function SleepSection() {
               <button onClick={toggleSearch} aria-label="검색" aria-pressed={searchOpen}
                 className="p-1.5 rounded-lg"
                 style={{
-                  backgroundColor: searchOpen ? `${SLEEP_COLOR}1A` : t.bgSub,
+                  backgroundColor: searchOpen ? `${SLEEP_COLOR}1A` : t.lavenderTint,
                   color: searchOpen ? SLEEP_COLOR : t.textSub, border: 'none', cursor: 'pointer',
                 }}>
                 <Search size={15} />
@@ -1183,7 +1183,7 @@ export function SleepSection() {
             {searchOpen ? (
               /* 검색바 */
               <div className="flex items-center gap-2 mb-3 px-3 py-2 rounded-xl"
-                style={{ backgroundColor: t.bgSub, border: `1px solid ${t.borderLight}` }}>
+                style={{ backgroundColor: t.lavenderTint, border: `1px solid ${t.borderLight}` }}>
                 <Search size={14} color={t.textMuted} />
                 <input autoFocus value={searchQuery} onChange={e => setSearchQuery(e.target.value)}
                   placeholder="날짜·시간·수면시간 검색"
@@ -1214,7 +1214,7 @@ export function SleepSection() {
             {displayed.length === 0 ? (
               q ? (
                 <div className="py-8 text-center rounded-2xl"
-                  style={{ backgroundColor: t.bgSub, fontSize: 13, color: t.textMuted }}>
+                  style={{ backgroundColor: t.lavenderTint, fontSize: 13, color: t.textMuted }}>
                   검색 결과가 없어요
                 </div>
               ) : selectedDate ? (
@@ -1269,7 +1269,7 @@ export function SleepSection() {
 
             {isDefaultView && sleepRecords.length > listLimit && (
               <button onClick={() => setListLimit(n => n + 10)}
-                className="w-full mt-3 py-2 rounded-xl" style={{ backgroundColor: t.bgSub, color: t.textSub, fontSize: 13 }}>
+                className="w-full mt-3 py-2 rounded-xl" style={{ backgroundColor: t.lavenderTint, color: t.textSub, fontSize: 13 }}>
                 더보기
               </button>
             )}
@@ -1315,7 +1315,7 @@ function AddRecordModal({ onClose, editRecord }: { onClose: () => void; editReco
                 <button key={cat.key} onClick={() => setCategory(cat.key)}
                   className="flex-1 px-3 py-2 rounded-lg flex items-center justify-center gap-1.5"
                   style={{
-                    fontSize: 12, backgroundColor: category === cat.key ? cat.color : t.bgSub,
+                    fontSize: 12, backgroundColor: category === cat.key ? cat.color : t.lavenderTint,
                     color: category === cat.key ? '#fff' : t.text, border: `1px solid ${category === cat.key ? cat.color : t.border}`,
                   }}>
                   <cat.icon size={13} /> {cat.label.split(' ')[0]}
@@ -1327,23 +1327,23 @@ function AddRecordModal({ onClose, editRecord }: { onClose: () => void; editReco
             <label style={{ fontSize: 11, color: t.textSub, fontWeight: 600 }}>날짜</label>
             <input type="date" value={date} onChange={e => setDate(e.target.value)}
               className="w-full mt-1 rounded-lg px-3 py-2 border outline-none"
-              style={{ borderColor: t.border, backgroundColor: t.bgSub, color: t.text, fontSize: 13 }} />
+              style={{ borderColor: t.border, backgroundColor: t.lavenderTint, color: t.text, fontSize: 13 }} />
           </div>
           <div>
             <label style={{ fontSize: 11, color: t.textSub, fontWeight: 600 }}>내용</label>
             <input autoFocus value={content} onChange={e => setContent(e.target.value)} placeholder="예: 헬스장 상체 운동"
               className="w-full mt-1 rounded-lg px-3 py-2 border outline-none"
-              style={{ borderColor: t.border, backgroundColor: t.bgSub, color: t.text, fontSize: 13 }} />
+              style={{ borderColor: t.border, backgroundColor: t.lavenderTint, color: t.text, fontSize: 13 }} />
           </div>
           <div>
             <label style={{ fontSize: 11, color: t.textSub, fontWeight: 600 }}>소요 시간 (분)</label>
             <input type="number" min={5} max={480} value={duration} onChange={e => setDuration(Number(e.target.value))}
               className="w-full mt-1 rounded-lg px-3 py-2 border outline-none"
-              style={{ borderColor: t.border, backgroundColor: t.bgSub, color: t.text, fontSize: 13 }} />
+              style={{ borderColor: t.border, backgroundColor: t.lavenderTint, color: t.text, fontSize: 13 }} />
           </div>
         </div>
         <div className="flex gap-2 px-5 py-4 border-t" style={{ borderColor: t.border }}>
-          <button onClick={onClose} className="flex-1 py-2 rounded-xl" style={{ fontSize: 13, color: t.textSub, backgroundColor: t.bgSub }}>취소</button>
+          <button onClick={onClose} className="flex-1 py-2 rounded-xl" style={{ fontSize: 13, color: t.textSub, backgroundColor: t.lavenderTint }}>취소</button>
           <button onClick={handleSubmit} className="flex-1 py-2 rounded-xl" style={{ fontSize: 13, fontWeight: 600, backgroundColor: t.accent, color: '#fff' }}>
             {editRecord ? '수정' : '추가'}
           </button>
@@ -1507,7 +1507,7 @@ function DailyBarList({ report, selectedDate, onSelect }: {
             <span style={{ fontSize: 11, width: 34, flexShrink: 0, textAlign: 'center', color: d.isToday ? t.accent : t.textMuted, fontWeight: d.isToday ? 700 : 500 }}>
               {dateLabel}
             </span>
-            <div className="flex-1 flex rounded-full overflow-hidden" style={{ height: 14, backgroundColor: t.bgSub }}>
+            <div className="flex-1 flex rounded-full overflow-hidden" style={{ height: 14, backgroundColor: t.lavenderTint }}>
               {hasData && byCategory.map(c => {
                 const m = d.byCategory[c.tagId] ?? 0;
                 if (m <= 0) return null;
@@ -1543,7 +1543,7 @@ function CategoryBreakdown({ byCategory }: { byCategory: ReturnType<typeof useTi
               <span style={{ fontSize: 12, color: t.textSub, fontWeight: 600 }}>{fmtMinKo(c.totalMinutes)}</span>
               <span style={{ fontSize: 11, color: t.textMuted, width: 34, textAlign: 'right' }}>{pct}%</span>
             </div>
-            <div className="rounded-full overflow-hidden" style={{ height: 6, backgroundColor: t.bgSub }}>
+            <div className="rounded-full overflow-hidden" style={{ height: 6, backgroundColor: t.lavenderTint }}>
               <div style={{ width: `${pct}%`, height: '100%', backgroundColor: c.tagColor, borderRadius: 999, transition: 'width 0.4s' }} />
             </div>
           </div>
@@ -1558,7 +1558,7 @@ function ExpandedCategoryTodos({ byCategory }: { byCategory: ReturnType<typeof u
   const { t } = useTheme();
   if (byCategory.length === 0) {
     return (
-      <div className="py-8 text-center rounded-2xl" style={{ backgroundColor: t.bgSub, fontSize: 13, color: t.textMuted }}>
+      <div className="py-8 text-center rounded-2xl" style={{ backgroundColor: t.lavenderTint, fontSize: 13, color: t.textMuted }}>
         표시할 활동이 없어요
       </div>
     );
@@ -1732,7 +1732,7 @@ function ManualRecordsSection({ dateRange, onEdit }: {
 function PeriodTabs({ period, onChange }: { period: TimeReportPeriod; onChange: (p: TimeReportPeriod) => void }) {
   const { t } = useTheme();
   return (
-    <div className="flex p-1 rounded-xl" style={{ backgroundColor: t.bgSub }}>
+    <div className="flex p-1 rounded-xl" style={{ backgroundColor: t.lavenderTint }}>
       {([['week', '이번 주'], ['month', '이번 달']] as const).map(([key, label]) => (
         <button key={key} onClick={() => onChange(key)}
           className="flex-1 py-2 rounded-lg transition-colors"

@@ -159,7 +159,7 @@ export function RecipeCookFlow({ recipe, onClose }: RecipeCookFlowProps) {
             {/* 세그먼트 진행 바 */}
             <div className="flex-1 flex gap-1">
               {Array.from({ length: total }).map((_, i) => (
-                <div key={i} className="flex-1 rounded-full overflow-hidden" style={{ height: 3, backgroundColor: t.bgSub }}>
+                <div key={i} className="flex-1 rounded-full overflow-hidden" style={{ height: 3, backgroundColor: t.lavenderTint }}>
                   <div className="h-full rounded-full" style={{
                     width: i < index ? '100%' : i === index && !isDone ? '100%' : '0%',
                     backgroundColor: t.accent, transition: 'width .3s ease',
@@ -167,7 +167,7 @@ export function RecipeCookFlow({ recipe, onClose }: RecipeCookFlowProps) {
                 </div>
               ))}
               {/* 완성 세그먼트 */}
-              <div className="flex-1 rounded-full overflow-hidden" style={{ height: 3, backgroundColor: t.bgSub }}>
+              <div className="flex-1 rounded-full overflow-hidden" style={{ height: 3, backgroundColor: t.lavenderTint }}>
                 <div className="h-full rounded-full" style={{ width: isDone ? '100%' : '0%', backgroundColor: t.accent, transition: 'width .3s ease' }} />
               </div>
             </div>

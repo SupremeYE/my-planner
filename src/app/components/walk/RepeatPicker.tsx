@@ -47,7 +47,7 @@ export function RepeatPicker({ onPick }: { onPick: (source: WalkSession, target:
         const date = s.startedAt ? new Date(s.startedAt) : new Date(s.createdAt);
         return (
           <div key={s.id} className="flex items-center gap-3" style={{ padding: 10, borderRadius: 14, backgroundColor: t.card, border: `1px solid ${s.isSavedRoute ? t.accent : t.border}` }}>
-            <div style={{ flexShrink: 0 }}><RouteGlyph path={target} size={56} stroke={t.accent} bg={t.bgSub} strokeWidth={4} /></div>
+            <div style={{ flexShrink: 0 }}><RouteGlyph path={target} size={56} stroke={t.accent} bg={t.lavenderTint} strokeWidth={4} /></div>
             <div style={{ flex: 1, minWidth: 0 }}>
               <p className="flex items-center gap-1" style={{ fontSize: 14, fontWeight: 700, color: t.text }}>
                 {s.isSavedRoute && <Bookmark size={12} style={{ color: t.accent }} fill={t.accent} />}

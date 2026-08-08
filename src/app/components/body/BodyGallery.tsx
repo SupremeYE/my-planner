@@ -211,7 +211,7 @@ export function BodyGallery({ weightRecords, onClose, onAddWeight }: Props) {
         const deltaText = delta == null ? '—' : `${delta > 0 ? '+' : ''}${delta} kg`;
         const cell = (p: BodyPhoto, badge: typeof ba, label: string) => (
           <div className="rounded-2xl overflow-hidden" style={solidCardStyle(t)}>
-            <div className="w-full" style={{ aspectRatio: '3 / 4', background: t.bgSub }}>
+            <div className="w-full" style={{ aspectRatio: '3 / 4', background: t.lavenderTint }}>
               {urls[p.photoPath]
                 ? <img src={urls[p.photoPath]} alt="" className="w-full h-full object-cover" />
                 : <div className="w-full h-full flex items-center justify-center" style={{ fontSize: 12, color: t.textMuted }}>불러오는 중…</div>}
@@ -302,7 +302,7 @@ export function BodyGallery({ weightRecords, onClose, onAddWeight }: Props) {
             <h3 style={{ fontSize: 15, fontWeight: 700, color: t.text, marginBottom: 12 }}>사진 날짜</h3>
             <input type="date" value={addDate} max={getLogicalToday()} onChange={e => setAddDate(e.target.value)}
               className="w-full px-3 py-2 rounded-xl outline-none"
-              style={{ backgroundColor: t.bgSub, border: `1px solid ${t.border}`, color: t.text }} />
+              style={{ backgroundColor: t.lavenderTint, border: `1px solid ${t.border}`, color: t.text }} />
             <div className="flex gap-2 mt-4">
               <HaonButton variant="secondary" onClick={() => setPendingFile(null)} disabled={uploading} className="flex-1 text-sm">취소</HaonButton>
               <HaonButton variant="primary" onClick={confirmAdd} disabled={uploading} className="flex-1 text-sm">

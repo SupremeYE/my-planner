@@ -326,7 +326,7 @@ export function RecipeFormSheet({ recipe, onSave, onDelete, onClose }: RecipeFor
   const chip = (active: boolean): React.CSSProperties => ({
     display: 'inline-flex', alignItems: 'center', flexShrink: 0, whiteSpace: 'nowrap',
     padding: '6px 11px', borderRadius: 999, fontSize: 12, fontWeight: active ? 700 : 500,
-    backgroundColor: active ? t.accent : t.bgSub,
+    backgroundColor: active ? t.accent : t.lavenderTint,
     color: active ? '#fff' : t.textSub,
     border: `1px solid ${active ? t.accent : t.border}`,
   });
@@ -347,7 +347,7 @@ export function RecipeFormSheet({ recipe, onSave, onDelete, onClose }: RecipeFor
         style={{
           aspectRatio: '4 / 3',
           border: `2px solid ${isCover && url ? t.accent : t.border}`,
-          backgroundColor: t.bgSub,
+          backgroundColor: t.lavenderTint,
         }}>
         {url ? (
           <img src={url} alt={label} className="w-full h-full object-cover"
@@ -537,7 +537,7 @@ export function RecipeFormSheet({ recipe, onSave, onDelete, onClose }: RecipeFor
               <button type="button" onClick={addCustomIntent} disabled={!customIntentInput.trim()}
                 className="px-3 rounded-lg flex-shrink-0" style={{ fontSize: 13, fontWeight: 600, whiteSpace: 'nowrap',
                   color: customIntentInput.trim() ? '#fff' : t.textMuted,
-                  backgroundColor: customIntentInput.trim() ? t.accent : t.bgSub,
+                  backgroundColor: customIntentInput.trim() ? t.accent : t.lavenderTint,
                   opacity: customIntentInput.trim() ? 1 : 0.6 }}>추가</button>
             </div>
           </div>
@@ -572,7 +572,7 @@ export function RecipeFormSheet({ recipe, onSave, onDelete, onClose }: RecipeFor
               <button type="button" onClick={addCustomMain} disabled={!customMainInput.trim()}
                 className="px-3 rounded-lg flex-shrink-0" style={{ fontSize: 13, fontWeight: 600, whiteSpace: 'nowrap',
                   color: customMainInput.trim() ? '#fff' : t.textMuted,
-                  backgroundColor: customMainInput.trim() ? t.accent : t.bgSub,
+                  backgroundColor: customMainInput.trim() ? t.accent : t.lavenderTint,
                   opacity: customMainInput.trim() ? 1 : 0.6 }}>추가</button>
             </div>
           </div>
@@ -581,7 +581,7 @@ export function RecipeFormSheet({ recipe, onSave, onDelete, onClose }: RecipeFor
           <div>
             <button type="button" onClick={() => setDetailsOpen(v => !v)}
               className="w-full flex items-center justify-between px-3 py-2.5 rounded-xl"
-              style={{ backgroundColor: t.bgSub, border: `1px solid ${t.border}`, color: t.textSub, fontSize: 13, fontWeight: 600 }}>
+              style={{ backgroundColor: t.lavenderTint, border: `1px solid ${t.border}`, color: t.textSub, fontSize: 13, fontWeight: 600 }}>
               <span>재료 · 요리 순서 (선택)</span>
               {detailsOpen ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
             </button>
@@ -612,7 +612,7 @@ export function RecipeFormSheet({ recipe, onSave, onDelete, onClose }: RecipeFor
                     className="mt-2 flex items-center gap-1.5 px-3 py-2 rounded-xl w-full justify-center"
                     style={{ fontSize: 13, fontWeight: 700,
                       color: pasteText.trim() ? '#fff' : t.textMuted,
-                      backgroundColor: pasteText.trim() ? t.accent : t.bgSub,
+                      backgroundColor: pasteText.trim() ? t.accent : t.lavenderTint,
                       opacity: pasteText.trim() ? 1 : 0.6 }}>
                     <Wand2 size={14} /> 줄 단위로 정리
                   </button>
@@ -631,7 +631,7 @@ export function RecipeFormSheet({ recipe, onSave, onDelete, onClose }: RecipeFor
                       className="flex items-center gap-1 px-2 py-1 rounded-md"
                       style={{ fontSize: 11, fontWeight: 600,
                         color: ingListening ? '#fff' : t.textSub,
-                        backgroundColor: ingListening ? t.danger : t.bgSub,
+                        backgroundColor: ingListening ? t.danger : t.lavenderTint,
                         border: `1px solid ${ingListening ? t.danger : t.border}` }}>
                       {ingListening ? <MicOff size={11} /> : <Mic size={11} />}
                       {ingBusy ? '변환…' : ingListening ? '정지' : '음성'}
@@ -656,7 +656,7 @@ export function RecipeFormSheet({ recipe, onSave, onDelete, onClose }: RecipeFor
                       className="flex items-center gap-1 px-2 py-1 rounded-md"
                       style={{ fontSize: 11, fontWeight: 600,
                         color: stepListening ? '#fff' : t.textSub,
-                        backgroundColor: stepListening ? t.danger : t.bgSub,
+                        backgroundColor: stepListening ? t.danger : t.lavenderTint,
                         border: `1px solid ${stepListening ? t.danger : t.border}` }}>
                       {stepListening ? <MicOff size={11} /> : <Mic size={11} />}
                       {stepBusy ? '변환…' : stepListening ? '정지' : '음성'}
@@ -686,7 +686,7 @@ export function RecipeFormSheet({ recipe, onSave, onDelete, onClose }: RecipeFor
             <div className="flex-1" />
             <button type="button" onClick={onClose}
               className="hidden lg:block px-4 py-2.5 rounded-xl"
-              style={{ fontSize: 14, fontWeight: 600, color: t.textSub, backgroundColor: t.bgSub, border: `1px solid ${t.border}` }}>
+              style={{ fontSize: 14, fontWeight: 600, color: t.textSub, backgroundColor: t.lavenderTint, border: `1px solid ${t.border}` }}>
               취소
             </button>
             <button type="submit" disabled={submitting || uploading}

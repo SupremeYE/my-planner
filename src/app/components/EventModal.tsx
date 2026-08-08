@@ -215,7 +215,7 @@ export function EventModal({ date, event, initialTitle, initialStartTime, initia
                   type="button"
                   onClick={() => window.open(mapsUrl, '_blank', 'noopener,noreferrer')}
                   className="p-2 rounded-lg"
-                  style={{ backgroundColor: t.bgSub, color: t.info, border: `1px solid ${t.border}` }}
+                  style={{ backgroundColor: t.lavenderTint, color: t.info, border: `1px solid ${t.border}` }}
                 >
                   <MapPinned size={15} />
                 </button>
@@ -238,7 +238,7 @@ export function EventModal({ date, event, initialTitle, initialStartTime, initia
                   type="button"
                   onClick={() => window.open(normalizedLink, '_blank', 'noopener,noreferrer')}
                   className="p-2 rounded-lg"
-                  style={{ backgroundColor: t.bgSub, color: t.accent, border: `1px solid ${t.border}` }}
+                  style={{ backgroundColor: t.lavenderTint, color: t.accent, border: `1px solid ${t.border}` }}
                 >
                   <Link2 size={15} />
                 </button>
@@ -348,7 +348,7 @@ export function EventModal({ date, event, initialTitle, initialStartTime, initia
             </button>
           )}
           <div className="flex-1" />
-          <button onClick={onClose} className="px-4 py-2 rounded-xl" style={{ fontSize: 13, color: t.textSub, backgroundColor: t.bgSub }}>
+          <button onClick={onClose} className="px-4 py-2 rounded-xl" style={{ fontSize: 13, color: t.textSub, backgroundColor: t.lavenderTint }}>
             취소
           </button>
           <button onClick={handleSubmit} className="px-5 py-2 rounded-xl" style={{ fontSize: 13, fontWeight: 600, backgroundColor: t.accent, color: '#fff' }}>

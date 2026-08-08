@@ -76,7 +76,7 @@ function ShoppingRow({ item, onCheck, onUncheck, onEdit, selectMode, selected, o
         aria-label={`${item.name} 수정`}
         style={{
           width: 40, height: 40,
-          backgroundColor: t.bgSub,
+          backgroundColor: t.lavenderTint,
           border: `1px solid ${t.borderLight}`,
           fontSize: 20, lineHeight: 1,
         }}>
@@ -91,7 +91,7 @@ function ShoppingRow({ item, onCheck, onUncheck, onEdit, selectMode, selected, o
           {item.sourceLabel && (
             <span className="px-1.5 py-0.5 rounded-full flex-shrink-0"
               style={{ fontSize: 10, fontWeight: 600,
-                backgroundColor: item.sourceRecipeId ? t.accentLight : t.bgSub,
+                backgroundColor: item.sourceRecipeId ? t.accentLight : t.lavenderTint,
                 color: item.sourceRecipeId ? t.accent : t.textSub,
                 border: `1px solid ${item.sourceRecipeId ? `${t.accent}55` : t.border}` }}>
               {item.sourceRecipeId ? '🍳 ' : ''}{item.sourceLabel}
@@ -215,7 +215,7 @@ export function ShoppingTab() {
               <>
                 <button onClick={toggleSelectAll}
                   className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg"
-                  style={{ fontSize: 13, fontWeight: 600, color: t.textSub, backgroundColor: t.bgSub, border: `1px solid ${t.border}` }}>
+                  style={{ fontSize: 13, fontWeight: 600, color: t.textSub, backgroundColor: t.lavenderTint, border: `1px solid ${t.border}` }}>
                   <span className="rounded-full flex items-center justify-center"
                     style={{ width: 18, height: 18, backgroundColor: allSelected ? t.accent : 'transparent', border: `2px solid ${allSelected ? t.accent : t.border}` }}>
                     {allSelected && <Check size={11} color="#fff" />}
@@ -228,13 +228,13 @@ export function ShoppingTab() {
                     className="flex items-center gap-1 px-3 py-1.5 rounded-lg"
                     style={{ fontSize: 13, fontWeight: 700,
                       color: selectedIds.size > 0 ? '#fff' : t.textMuted,
-                      backgroundColor: selectedIds.size > 0 ? t.danger : t.bgSub,
+                      backgroundColor: selectedIds.size > 0 ? t.danger : t.lavenderTint,
                       opacity: selectedIds.size > 0 ? 1 : 0.6 }}>
                     <Trash2 size={14} /> 삭제
                   </button>
                   <button onClick={exitSelectMode}
                     className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg"
-                    style={{ fontSize: 13, fontWeight: 600, color: t.textSub, backgroundColor: t.bgSub, border: `1px solid ${t.border}` }}>
+                    style={{ fontSize: 13, fontWeight: 600, color: t.textSub, backgroundColor: t.lavenderTint, border: `1px solid ${t.border}` }}>
                     <X size={14} /> 취소
                   </button>
                 </div>
@@ -244,7 +244,7 @@ export function ShoppingTab() {
                 <span style={{ fontSize: 12, color: t.textMuted }}>체크하면 냉장고로 옮겨요</span>
                 <button onClick={() => setSelectMode(true)}
                   className="px-3 py-1.5 rounded-lg"
-                  style={{ fontSize: 13, fontWeight: 600, color: t.textSub, backgroundColor: t.bgSub, border: `1px solid ${t.border}` }}>
+                  style={{ fontSize: 13, fontWeight: 600, color: t.textSub, backgroundColor: t.lavenderTint, border: `1px solid ${t.border}` }}>
                   선택
                 </button>
               </>
@@ -255,7 +255,7 @@ export function ShoppingTab() {
         {loading ? (
           <div className="space-y-2">
             {Array.from({ length: 3 }).map((_, i) => (
-              <div key={i} className="rounded-xl" style={{ height: 54, backgroundColor: t.bgSub }} />
+              <div key={i} className="rounded-xl" style={{ height: 54, backgroundColor: t.lavenderTint }} />
             ))}
           </div>
         ) : items.length === 0 ? (

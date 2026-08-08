@@ -188,7 +188,7 @@ function DraggableTodoCard({
     opacity: isDragging ? 0.35 : 1,
     willChange: isDragging ? 'transform' : 'auto',
     cursor: isDragging ? 'grabbing' : 'grab',
-    backgroundColor: todo.status === 'done' ? t.bgSub : t.card,
+    backgroundColor: todo.status === 'done' ? t.lavenderTint : t.card,
     border: `1px solid ${t.borderLight}`,
     borderLeft: `3px solid ${color || t.borderLight}`,
     touchAction: 'none',
@@ -337,7 +337,7 @@ function DayColumn({ day, todos, tags, projects, activeDragId }: {
         onClick={goToDay}
         className="flex items-center justify-between px-3 py-2.5 w-full"
         style={{
-          backgroundColor: isToday ? t.accent : t.bgSub,
+          backgroundColor: isToday ? t.accent : t.lavenderTint,
           borderBottom: `1px solid ${isToday ? t.accent + '80' : t.borderLight}`,
         }}
       >
@@ -455,7 +455,7 @@ export function WeeklyGoalsSection({ weekKey, viewDate }: { weekKey: string; vie
         <span style={{ fontSize: 12, color: t.accent, fontWeight: 700 }}>{donePct}%</span>
       </div>
 
-      <div className="h-1.5 rounded-full overflow-hidden mb-3" style={{ backgroundColor: t.bgSub }}>
+      <div className="h-1.5 rounded-full overflow-hidden mb-3" style={{ backgroundColor: t.lavenderTint }}>
         <div className="h-full rounded-full transition-all" style={{ width: `${donePct}%`, backgroundColor: t.accent }} />
       </div>
 
@@ -519,14 +519,14 @@ export function WeeklyGoalsSection({ weekKey, viewDate }: { weekKey: string; vie
           onKeyDown={e => e.key === 'Enter' && handleAddGoal()}
           placeholder="새 주간 목표..."
           className="w-full px-3 py-2 rounded-xl outline-none"
-          style={{ fontSize: 12, backgroundColor: t.bgSub, color: t.text, border: `1px solid ${t.border}` }}
+          style={{ fontSize: 12, backgroundColor: t.lavenderTint, color: t.text, border: `1px solid ${t.border}` }}
         />
         {thisMonthGoals.length > 0 && (
           <select
             value={selectedMonthlyGoalId}
             onChange={e => setSelectedMonthlyGoalId(e.target.value)}
             className="w-full px-3 py-2 rounded-xl outline-none"
-            style={{ fontSize: 11, backgroundColor: t.bgSub, color: t.textSub, border: `1px solid ${t.border}` }}
+            style={{ fontSize: 11, backgroundColor: t.lavenderTint, color: t.textSub, border: `1px solid ${t.border}` }}
           >
             <option value="">월간 목표 연결 (선택)</option>
             {thisMonthGoals.map(mg => <option key={mg.id} value={mg.id}>{mg.text}</option>)}
@@ -639,7 +639,7 @@ export function WeeklyView() {
               {/* 패널 헤더 */}
               <div
                 className="flex items-center gap-2 px-4 py-3"
-                style={{ borderBottom: `1px solid ${t.borderLight}`, backgroundColor: t.accentSoft || t.accentLight }}
+                style={{ borderBottom: `1px solid ${t.borderLight}`, backgroundColor: t.lavenderTint || t.accentLight }}
               >
                 <ListTodo size={13} color={t.accent} />
                 <span style={{ fontSize: 11, fontWeight: 800, color: t.accent, letterSpacing: '0.06em', textTransform: 'uppercase' }}>

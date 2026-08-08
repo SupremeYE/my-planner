@@ -98,7 +98,7 @@ function TodayHabitChip({
         padding: '7px 12px',
         borderRadius: 20,
         border: `1.5px solid ${checked ? t.accent : t.borderLight}`,
-        background: checked ? t.accentLight : t.bgSub,
+        background: checked ? t.accentLight : t.lavenderTint,
         cursor: 'pointer',
         transition: 'all 0.2s',
         whiteSpace: 'nowrap',
@@ -169,7 +169,7 @@ function WeeklyHabitMiniTracker({ habits, t }: { habits: any[]; t: any }) {
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
-                    backgroundColor: checked ? t.card : isInactive ? 'transparent' : t.bgSub,
+                    backgroundColor: checked ? t.card : isInactive ? 'transparent' : t.lavenderTint,
                     border: isInactive
                       ? 'none'
                       : `${isToday ? 2 : 1}px solid ${isToday ? t.accent : t.border}`,
@@ -816,7 +816,7 @@ export function DashboardView() {
                     cursor: 'pointer',
                     transition: 'background 0.15s',
                   }}
-                  onMouseEnter={(e) => (e.currentTarget.style.background = t.bgSub)}
+                  onMouseEnter={(e) => (e.currentTarget.style.background = t.lavenderTint)}
                   onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
                 >
                   {wg.done ? (
@@ -1086,7 +1086,7 @@ export function DashboardView() {
             style={{
               fontSize: 12,
               color: t.textMuted,
-              background: t.bgSub,
+              background: t.lavenderTint,
               padding: '2px 10px',
               borderRadius: 10,
             }}

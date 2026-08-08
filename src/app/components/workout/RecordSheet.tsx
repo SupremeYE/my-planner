@@ -120,7 +120,7 @@ export function RecordSheet({ exercise, performedOn, editingLog, onClose, onSave
   const inputStyle = (prefill: boolean): React.CSSProperties => ({
     width: '100%', textAlign: 'center', fontSize: 15, fontWeight: 600,
     color: prefill ? t.textMuted : t.text,
-    backgroundColor: t.bgSub, border: `1px solid ${t.borderLight}`, borderRadius: 10,
+    backgroundColor: t.lavenderTint, border: `1px solid ${t.borderLight}`, borderRadius: 10,
     padding: '9px 6px', outline: 'none',
   });
 
@@ -163,7 +163,7 @@ export function RecordSheet({ exercise, performedOn, editingLog, onClose, onSave
             )}
             <div className="flex gap-1.5 mt-1">
               <Tag text={exercise.bodyPart} bg={t.accentLight} fg={t.accent} />
-              <Tag text={exercise.type} bg={t.bgSub} fg={t.textSub} />
+              <Tag text={exercise.type} bg={t.lavenderTint} fg={t.textSub} />
             </div>
           </div>
         </div>
@@ -237,7 +237,7 @@ export function RecordSheet({ exercise, performedOn, editingLog, onClose, onSave
             rows={2}
             placeholder="컨디션, 느낀 점 등"
             style={{
-              width: '100%', fontSize: 14, color: t.text, backgroundColor: t.bgSub,
+              width: '100%', fontSize: 14, color: t.text, backgroundColor: t.lavenderTint,
               border: `1px solid ${t.borderLight}`, borderRadius: 10, padding: '9px 11px', outline: 'none', resize: 'none',
             }}
           />

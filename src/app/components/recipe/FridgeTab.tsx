@@ -111,7 +111,7 @@ function FridgeRow({ item, onEdit, onQty, selectMode, selected, onToggleSelect }
         aria-label={`${item.name} 수정`}
         style={{
           width: 44, height: 44,
-          backgroundColor: urgent ? t.card : t.bgSub,
+          backgroundColor: urgent ? t.card : t.lavenderTint,
           border: `1px solid ${t.borderLight}`,
           fontSize: 22, lineHeight: 1,
         }}>
@@ -137,7 +137,7 @@ function FridgeRow({ item, onEdit, onQty, selectMode, selected, onToggleSelect }
           {days != null && (
             <span className="inline-flex items-center px-1.5 py-0.5 rounded-md"
               style={{ fontSize: 10, fontWeight: 700,
-                backgroundColor: t.bgSub, color: t.textSub, border: `1px solid ${t.borderLight}` }}>
+                backgroundColor: t.lavenderTint, color: t.textSub, border: `1px solid ${t.borderLight}` }}>
               {dDayLabel(days)}
             </span>
           )}
@@ -180,7 +180,7 @@ function SummaryCard({ label, value, danger, icon }:
       <span aria-hidden className="flex items-center justify-center rounded-xl flex-shrink-0"
         style={{
           width: 32, height: 32, fontSize: 16, lineHeight: 1,
-          backgroundColor: hot ? t.card : t.bgSub,
+          backgroundColor: hot ? t.card : t.lavenderTint,
           border: `1px solid ${t.borderLight}`,
         }}>{icon}</span>
       <div className="min-w-0">
@@ -356,7 +356,7 @@ export function FridgeTab() {
               aria-label={voiceListening ? '음성 인식 정지' : '음성 입력 시작'}
               className="flex-shrink-0 rounded-xl flex items-center justify-center active:scale-95 transition-all"
               style={{ width: 44, height: 44,
-                backgroundColor: voiceListening ? t.danger : t.bgSub,
+                backgroundColor: voiceListening ? t.danger : t.lavenderTint,
                 color: voiceListening ? '#fff' : t.textSub,
                 border: `1px solid ${voiceListening ? t.danger : t.border}` }}>
               {voiceListening ? <MicOff size={18} /> : <Mic size={18} />}
@@ -371,7 +371,7 @@ export function FridgeTab() {
               className="px-3 py-1.5 rounded-lg active:scale-95 transition-transform"
               style={{ fontSize: 13, fontWeight: 700,
                 color: quickText.trim() ? '#fff' : t.textMuted,
-                backgroundColor: quickText.trim() ? t.accent : t.bgSub,
+                backgroundColor: quickText.trim() ? t.accent : t.lavenderTint,
                 opacity: quickText.trim() ? 1 : 0.6 }}>
               확인하기
             </button>
@@ -392,7 +392,7 @@ export function FridgeTab() {
               <>
                 <button onClick={toggleSelectAll}
                   className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg"
-                  style={{ fontSize: 13, fontWeight: 600, color: t.textSub, backgroundColor: t.bgSub, border: `1px solid ${t.border}` }}>
+                  style={{ fontSize: 13, fontWeight: 600, color: t.textSub, backgroundColor: t.lavenderTint, border: `1px solid ${t.border}` }}>
                   <span className="rounded-full flex items-center justify-center"
                     style={{ width: 18, height: 18, backgroundColor: allSelected ? t.accent : 'transparent', border: `2px solid ${allSelected ? t.accent : t.border}` }}>
                     {allSelected && <Check size={11} color="#fff" />}
@@ -405,13 +405,13 @@ export function FridgeTab() {
                     className="flex items-center gap-1 px-3 py-1.5 rounded-lg"
                     style={{ fontSize: 13, fontWeight: 700,
                       color: selectedIds.size > 0 ? '#fff' : t.textMuted,
-                      backgroundColor: selectedIds.size > 0 ? t.danger : t.bgSub,
+                      backgroundColor: selectedIds.size > 0 ? t.danger : t.lavenderTint,
                       opacity: selectedIds.size > 0 ? 1 : 0.6 }}>
                     <Trash2 size={14} /> 삭제
                   </button>
                   <button onClick={exitSelectMode}
                     className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg"
-                    style={{ fontSize: 13, fontWeight: 600, color: t.textSub, backgroundColor: t.bgSub, border: `1px solid ${t.border}` }}>
+                    style={{ fontSize: 13, fontWeight: 600, color: t.textSub, backgroundColor: t.lavenderTint, border: `1px solid ${t.border}` }}>
                     <X size={14} /> 취소
                   </button>
                 </div>
@@ -421,7 +421,7 @@ export function FridgeTab() {
                 <span style={{ fontSize: 12, color: t.textMuted }}>탭하면 수정 · 길게 모아 삭제하려면 선택</span>
                 <button onClick={() => setSelectMode(true)}
                   className="px-3 py-1.5 rounded-lg"
-                  style={{ fontSize: 13, fontWeight: 600, color: t.textSub, backgroundColor: t.bgSub, border: `1px solid ${t.border}` }}>
+                  style={{ fontSize: 13, fontWeight: 600, color: t.textSub, backgroundColor: t.lavenderTint, border: `1px solid ${t.border}` }}>
                   선택
                 </button>
               </>
@@ -432,7 +432,7 @@ export function FridgeTab() {
         {loading ? (
           <div className="space-y-2">
             {Array.from({ length: 4 }).map((_, i) => (
-              <div key={i} className="rounded-xl" style={{ height: 56, backgroundColor: t.bgSub }} />
+              <div key={i} className="rounded-xl" style={{ height: 56, backgroundColor: t.lavenderTint }} />
             ))}
           </div>
         ) : items.length === 0 ? (

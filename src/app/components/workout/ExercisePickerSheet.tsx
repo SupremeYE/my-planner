@@ -83,7 +83,7 @@ export function ExercisePickerSheet({ title = '종목 선택', loggedExerciseIds
         {/* 검색창 */}
         <div
           className="flex items-center gap-2 px-3"
-          style={{ backgroundColor: t.bgSub, border: `1px solid ${t.borderLight}`, borderRadius: 12, height: 42 }}
+          style={{ backgroundColor: t.lavenderTint, border: `1px solid ${t.borderLight}`, borderRadius: 12, height: 42 }}
         >
           <Search size={16} color={t.textMuted} />
           <input
@@ -113,7 +113,7 @@ export function ExercisePickerSheet({ title = '종목 선택', loggedExerciseIds
                 style={{
                   flexShrink: 0, fontSize: 12, fontWeight: 700,
                   color: active ? '#fff' : t.textSub,
-                  backgroundColor: active ? t.accent : t.bgSub,
+                  backgroundColor: active ? t.accent : t.lavenderTint,
                   border: `1px solid ${active ? t.accent : t.borderLight}`,
                   padding: '5px 11px', borderRadius: 999,
                 }}
@@ -210,7 +210,7 @@ export function ExercisePickerSheet({ title = '종목 선택', loggedExerciseIds
               placeholder="비워두면 영어 이름으로 표시"
               onKeyDown={e => { if (e.key === 'Enter') confirmAdopt(); }}
               style={{
-                width: '100%', marginTop: 6, fontSize: 14, color: t.text, backgroundColor: t.bgSub,
+                width: '100%', marginTop: 6, fontSize: 14, color: t.text, backgroundColor: t.lavenderTint,
                 border: `1px solid ${t.borderLight}`, borderRadius: 10, padding: '10px 12px', outline: 'none',
               }}
             />

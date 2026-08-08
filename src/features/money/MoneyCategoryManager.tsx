@@ -136,7 +136,7 @@ export function CategoryManager({ m, onClose }: { m: UseMoney; onClose: () => vo
                 </div>
               );
             })() : (
-              <div style={{ textAlign: 'center', padding: '40px 0', color: t.textMuted, fontSize: 13, background: t.bgSub, borderRadius: 14 }}>
+              <div style={{ textAlign: 'center', padding: '40px 0', color: t.textMuted, fontSize: 13, background: t.lavenderTint, borderRadius: 14 }}>
                 왼쪽에서 대분류를 선택하면<br />소분류가 여기에 보여요.
               </div>
             )}

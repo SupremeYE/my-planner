@@ -40,7 +40,7 @@ function HeroBanner({ w }: { w: UseWorkout }) {
   return (
     <div
       style={{
-        background: `linear-gradient(120deg, ${t.accent} 0%, ${t.accentSoft} 100%)`,
+        background: `linear-gradient(120deg, ${t.accent} 0%, ${t.lavenderTint} 100%)`,
         borderRadius: 22, padding: '20px 26px', color: '#fff',
         boxShadow: '0 12px 30px rgba(0,0,0,0.08)',
       }}
@@ -230,7 +230,7 @@ function GrowthCard({ w }: { w: UseWorkout }) {
                   style={{
                     fontSize: 12, fontWeight: 700,
                     color: active ? '#fff' : t.textSub,
-                    backgroundColor: active ? t.accent : t.bgSub,
+                    backgroundColor: active ? t.accent : t.lavenderTint,
                     border: `1px solid ${active ? t.accent : t.borderLight}`,
                     padding: '5px 11px', borderRadius: 999,
                   }}

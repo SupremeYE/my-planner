@@ -523,7 +523,7 @@ export function TodoModal({ date, todo, initialPlanStart, initialPlanEnd, initia
                       fontSize: 11, fontWeight: recurrenceRule === opt.value ? 700 : 500,
                       // 단일 선택 토글 → duration chip 3단계와 동일: H 는 선택만 라일락(accentSoft)+딥인디고,
                       // 비선택 흰색+중립 hairline(§3 라일락 규칙·코랄 제거). 非-H 는 기존(코랄/bgSub) 유지 → 회귀 0.
-                      backgroundColor: recurrenceRule === opt.value ? t.accentSoft : t.card,
+                      backgroundColor: recurrenceRule === opt.value ? t.lavenderTint : t.card,
                       color: recurrenceRule === opt.value ? t.text : t.textMuted,
                       border: `1.5px solid ${t.border}`,
                     }}
@@ -546,7 +546,7 @@ export function TodoModal({ date, todo, initialPlanStart, initialPlanEnd, initia
                       style={{
                         fontSize: 11, fontWeight: 700,
                         // 요일 다중 선택 → 반복 칩과 동일 3단계(선택만 라일락, 비선택 흰색). 非-H 유지.
-                        backgroundColor: recurrenceDays.includes(dow) ? t.accentSoft : t.card,
+                        backgroundColor: recurrenceDays.includes(dow) ? t.lavenderTint : t.card,
                         color: recurrenceDays.includes(dow) ? t.text : t.textMuted,
                         border: `1.5px solid ${t.border}`,
                       }}

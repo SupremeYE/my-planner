@@ -137,7 +137,7 @@ function SnoozeModal({ todo, onClose }: { todo: Todo; onClose: () => void }) {
                 className="px-3 py-1.5 rounded-lg transition-all"
                 style={{
                   fontSize: 12,
-                  backgroundColor: selectedSnoozeDate === opt.date ? t.accent : t.bgSub,
+                  backgroundColor: selectedSnoozeDate === opt.date ? t.accent : t.lavenderTint,
                   color: selectedSnoozeDate === opt.date ? '#fff' : t.text,
                   border: `1px solid ${selectedSnoozeDate === opt.date ? t.accent : t.border}`,
                   fontWeight: selectedSnoozeDate === opt.date ? 600 : 400,
@@ -153,7 +153,7 @@ function SnoozeModal({ todo, onClose }: { todo: Todo; onClose: () => void }) {
           <p style={{ fontSize: 10, color: t.textMuted, fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase', marginBottom: 8 }}>
             날짜 선택
           </p>
-          <div className="rounded-xl p-3" style={{ backgroundColor: t.bgSub, border: `1px solid ${t.borderLight}` }}>
+          <div className="rounded-xl p-3" style={{ backgroundColor: t.lavenderTint, border: `1px solid ${t.borderLight}` }}>
             <div className="flex items-center justify-between mb-3">
               <button onClick={() => setViewMonth(subMonths(viewMonth, 1))}
                 className="p-1 rounded-lg" style={{ color: t.textSub }}>
@@ -227,7 +227,7 @@ function SnoozeModal({ todo, onClose }: { todo: Todo; onClose: () => void }) {
         <div className="flex gap-2 px-5 py-4" style={{ borderTop: `1px solid ${t.border}` }}>
           <button onClick={onClose}
             className="flex-1 py-2.5 rounded-xl transition-colors"
-            style={{ fontSize: 13, color: t.textSub, backgroundColor: t.bgSub, border: `1px solid ${t.border}` }}>
+            style={{ fontSize: 13, color: t.textSub, backgroundColor: t.lavenderTint, border: `1px solid ${t.border}` }}>
             취소
           </button>
           <button onClick={handleConfirm}
@@ -235,7 +235,7 @@ function SnoozeModal({ todo, onClose }: { todo: Todo; onClose: () => void }) {
             className="flex-1 py-2.5 rounded-xl transition-colors"
             style={{
               fontSize: 13, fontWeight: 600,
-              backgroundColor: selectedSnoozeDate ? '#D97706' : t.bgSub,
+              backgroundColor: selectedSnoozeDate ? '#D97706' : t.lavenderTint,
               color: selectedSnoozeDate ? '#fff' : t.textMuted,
               cursor: selectedSnoozeDate ? 'pointer' : 'not-allowed',
             }}>
@@ -339,7 +339,7 @@ function EventSnoozeModal({ event, onClose }: { event: Event; onClose: () => voi
                 className="px-3 py-1.5 rounded-lg transition-all"
                 style={{
                   fontSize: 12,
-                  backgroundColor: selectedSnoozeDate === opt.date ? t.accent : t.bgSub,
+                  backgroundColor: selectedSnoozeDate === opt.date ? t.accent : t.lavenderTint,
                   color: selectedSnoozeDate === opt.date ? '#fff' : t.text,
                   border: `1px solid ${selectedSnoozeDate === opt.date ? t.accent : t.border}`,
                   fontWeight: selectedSnoozeDate === opt.date ? 600 : 400,
@@ -355,7 +355,7 @@ function EventSnoozeModal({ event, onClose }: { event: Event; onClose: () => voi
           <p style={{ fontSize: 10, color: t.textMuted, fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase', marginBottom: 8 }}>
             날짜 선택
           </p>
-          <div className="rounded-xl p-3" style={{ backgroundColor: t.bgSub, border: `1px solid ${t.borderLight}` }}>
+          <div className="rounded-xl p-3" style={{ backgroundColor: t.lavenderTint, border: `1px solid ${t.borderLight}` }}>
             <div className="flex items-center justify-between mb-3">
               <button onClick={() => setViewMonth(subMonths(viewMonth, 1))}
                 className="p-1 rounded-lg" style={{ color: t.textSub }}>
@@ -429,7 +429,7 @@ function EventSnoozeModal({ event, onClose }: { event: Event; onClose: () => voi
         <div className="flex gap-2 px-5 py-4" style={{ borderTop: `1px solid ${t.border}` }}>
           <button onClick={onClose}
             className="flex-1 py-2.5 rounded-xl transition-colors"
-            style={{ fontSize: 13, color: t.textSub, backgroundColor: t.bgSub, border: `1px solid ${t.border}` }}>
+            style={{ fontSize: 13, color: t.textSub, backgroundColor: t.lavenderTint, border: `1px solid ${t.border}` }}>
             취소
           </button>
           <button onClick={handleConfirm}
@@ -437,7 +437,7 @@ function EventSnoozeModal({ event, onClose }: { event: Event; onClose: () => voi
             className="flex-1 py-2.5 rounded-xl transition-colors"
             style={{
               fontSize: 13, fontWeight: 600,
-              backgroundColor: selectedSnoozeDate ? '#D97706' : t.bgSub,
+              backgroundColor: selectedSnoozeDate ? '#D97706' : t.lavenderTint,
               color: selectedSnoozeDate ? '#fff' : t.textMuted,
               cursor: selectedSnoozeDate ? 'pointer' : 'not-allowed',
             }}>
@@ -520,7 +520,7 @@ function ContextMenu({ todo, position, onClose, onFocus, onDelete, deleteMessage
                 backgroundColor: isActive ? t.accentLight : 'transparent',
                 fontWeight: isActive ? 600 : 400,
               }}
-              onMouseEnter={e => (e.currentTarget.style.backgroundColor = (item as any).danger ? '#FEE2E2' : t.bgHover)}
+              onMouseEnter={e => (e.currentTarget.style.backgroundColor = (item as any).danger ? '#FEE2E2' : t.lavenderHover)}
               onMouseLeave={e => (e.currentTarget.style.backgroundColor = isActive ? t.accentLight : 'transparent')}
               onClick={() => {
                 if ((item as any).action === 'edit') {
@@ -609,7 +609,7 @@ function EventContextMenu({ event, position, onClose }: {
       }}>
       <button className="w-full flex items-center gap-2 px-3 py-1.5 transition-colors text-left"
         style={itemStyle}
-        onMouseEnter={e => (e.currentTarget.style.backgroundColor = t.bgHover)}
+        onMouseEnter={e => (e.currentTarget.style.backgroundColor = t.lavenderHover)}
         onMouseLeave={e => (e.currentTarget.style.backgroundColor = 'transparent')}
         onClick={() => { onClose(); window.dispatchEvent(new CustomEvent('editEvent', { detail: event })); }}>
         <Edit3 size={13} />
@@ -620,7 +620,7 @@ function EventContextMenu({ event, position, onClose }: {
           <div className="my-1" style={{ borderBottom: `1px solid ${t.border}` }} />
           <button className="w-full flex items-center gap-2 px-3 py-1.5 transition-colors text-left"
             style={itemStyle}
-            onMouseEnter={e => (e.currentTarget.style.backgroundColor = t.bgHover)}
+            onMouseEnter={e => (e.currentTarget.style.backgroundColor = t.lavenderHover)}
             onMouseLeave={e => (e.currentTarget.style.backgroundColor = 'transparent')}
             onClick={() => { runEventAsPlanned(event.id); onClose(); }}>
             <Play size={13} />
@@ -632,7 +632,7 @@ function EventContextMenu({ event, position, onClose }: {
       {/* 완료 토글 — 위치(actual)와 분리. 완료해도 DO 블록은 실제 자리에 그대로. */}
       <button className="w-full flex items-center gap-2 px-3 py-1.5 transition-colors text-left"
         style={itemStyle}
-        onMouseEnter={e => (e.currentTarget.style.backgroundColor = t.bgHover)}
+        onMouseEnter={e => (e.currentTarget.style.backgroundColor = t.lavenderHover)}
         onMouseLeave={e => (e.currentTarget.style.backgroundColor = 'transparent')}
         onClick={() => { toggleEventCompleted(event.id, !isDone); onClose(); }}>
         <Check size={13} />
@@ -775,7 +775,7 @@ function DailyDatePickerModal({ selectedDate, onClose, onConfirm }: {
         </div>
 
         <div className="px-5 py-4 space-y-4 lg:px-6 lg:py-5">
-          <div className="rounded-xl px-3 py-3 lg:px-4 lg:py-4" style={{ backgroundColor: t.bgSub, border: `1px solid ${t.borderLight}` }}>
+          <div className="rounded-xl px-3 py-3 lg:px-4 lg:py-4" style={{ backgroundColor: t.lavenderTint, border: `1px solid ${t.borderLight}` }}>
             <label className="flex items-center gap-2 mb-2" style={{ fontSize: 11, color: t.textMuted, fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase' }}>
               <CalendarDays size={14} />
               날짜
@@ -807,7 +807,7 @@ function DailyDatePickerModal({ selectedDate, onClose, onConfirm }: {
           <button
             onClick={onClose}
             className="flex-1 py-3 rounded-xl"
-            style={{ fontSize: 14, fontWeight: 500, color: t.textSub, backgroundColor: t.bgSub, border: `1px solid ${t.border}` }}
+            style={{ fontSize: 14, fontWeight: 500, color: t.textSub, backgroundColor: t.lavenderTint, border: `1px solid ${t.border}` }}
           >
             취소
           </button>
@@ -1268,7 +1268,7 @@ export function DailyView() {
             aria-label="미루기"
             title="내일로 미루기 (길게: 날짜 지정)"
             className="p-1.5 rounded-lg transition-colors"
-            style={{ color: t.textSub, backgroundColor: t.bgSub }}
+            style={{ color: t.textSub, backgroundColor: t.lavenderTint }}
             onPointerDown={(e) => {
               e.stopPropagation();
               snoozeLongPressRef.current.fired = false;
@@ -1310,7 +1310,7 @@ export function DailyView() {
             setContextMenu({ todo, pos: { x: e.clientX, y: e.clientY } });
           }}
             className="p-1.5 rounded-lg transition-colors"
-            style={{ color: t.textMuted, backgroundColor: t.bgSub }}>
+            style={{ color: t.textMuted, backgroundColor: t.lavenderTint }}>
             <MoreHorizontal size={13} />
           </button>
         </div>
@@ -1359,7 +1359,7 @@ export function DailyView() {
                 className="flex items-center gap-1 px-2.5 py-1 rounded-full transition-all"
                 style={{
                   fontSize: 11, fontWeight: 600, whiteSpace: 'nowrap',
-                  backgroundColor: t.accentSoft,
+                  backgroundColor: t.lavenderTint,
                   color: t.text,
                   border: '1px solid rgba(122,92,162,0.16)',
                   boxShadow: '0 2px 6px rgba(120,90,160,0.10)',
@@ -1371,13 +1371,13 @@ export function DailyView() {
           )}
           {/* 데스크탑: 기존 모달 */}
           <button onClick={() => setShowTimelineSettings(true)} className="hidden lg:flex px-3 py-1.5 rounded-lg items-center gap-1.5"
-            style={{ fontSize: 11, color: t.textSub, backgroundColor: t.bgSub, border: `1px solid ${t.border}` }}>
+            style={{ fontSize: 11, color: t.textSub, backgroundColor: t.lavenderTint, border: `1px solid ${t.border}` }}>
             <Settings size={12} />
             <span>시간대 설정</span>
           </button>
           {/* 모바일: 설정 페이지 링크 */}
           <NavLink to="/settings" className="lg:hidden p-1.5 rounded-lg flex items-center gap-1"
-            style={{ fontSize: 10, color: t.textSub, backgroundColor: t.bgSub, border: `1px solid ${t.border}` }}>
+            style={{ fontSize: 10, color: t.textSub, backgroundColor: t.lavenderTint, border: `1px solid ${t.border}` }}>
             <Settings size={12} />
           </NavLink>
         </div>
@@ -1461,7 +1461,7 @@ export function DailyView() {
                             aria-label="일정 미루기"
                             title="내일로 미루기 (길게: 날짜 지정)"
                             className="p-1.5 rounded-lg transition-colors"
-                            style={{ color: t.textSub, backgroundColor: t.bgSub }}
+                            style={{ color: t.textSub, backgroundColor: t.lavenderTint }}
                             onPointerDown={(e) => {
                               e.stopPropagation();
                               eventSnoozeLongPressRef.current.fired = false;
@@ -1493,7 +1493,7 @@ export function DailyView() {
                             aria-label="일정 편집"
                             title="편집"
                             className="p-1.5 rounded-lg transition-colors"
-                            style={{ color: t.textMuted, backgroundColor: t.bgSub }}
+                            style={{ color: t.textMuted, backgroundColor: t.lavenderTint }}
                           >
                             <Edit3 size={13} />
                           </button>
@@ -1502,7 +1502,7 @@ export function DailyView() {
                             aria-label="일정 삭제"
                             title="삭제"
                             className="p-1.5 rounded-lg transition-colors"
-                            style={{ color: t.danger, backgroundColor: t.bgSub }}
+                            style={{ color: t.danger, backgroundColor: t.lavenderTint }}
                           >
                             <Trash2 size={13} />
                           </button>

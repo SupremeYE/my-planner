@@ -352,7 +352,7 @@ function GrowSheet({ seed, onGoal, onBucket, onClose }: {
             className="w-full flex items-center gap-3 rounded-2xl px-4 py-3.5 text-left"
             style={{ backgroundColor: t.card, border: `1px solid ${t.border}` }}
           >
-            <span className="flex items-center justify-center rounded-full" style={{ width: 38, height: 38, backgroundColor: t.accentSoft, color: t.textSub, flexShrink: 0 }}>
+            <span className="flex items-center justify-center rounded-full" style={{ width: 38, height: 38, backgroundColor: t.lavenderTint, color: t.textSub, flexShrink: 0 }}>
               <Sprout size={18} />
             </span>
             <span className="min-w-0">

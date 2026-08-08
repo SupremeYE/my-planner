@@ -36,7 +36,7 @@ export function CultureFilterSheet({ value, onApply, onClose }: CultureFilterShe
 
   const chip = (active: boolean) => ({
     fontSize: 13, fontWeight: active ? 600 : 400,
-    backgroundColor: active ? t.accent : t.bgSub,
+    backgroundColor: active ? t.accent : t.lavenderTint,
     color: active ? '#fff' : t.textSub,
     border: `1px solid ${active ? t.accent : t.border}`,
     minHeight: 36,
@@ -94,7 +94,7 @@ export function CultureFilterSheet({ value, onApply, onClose }: CultureFilterShe
           style={{ borderTop: `1px solid ${t.border}`, paddingBottom: 'calc(20px + env(safe-area-inset-bottom))' }}>
           <button onClick={reset}
             className="flex items-center justify-center gap-1.5 px-4 rounded-xl"
-            style={{ minHeight: 46, backgroundColor: t.bgSub, color: t.textSub, fontSize: 14, fontWeight: 600,
+            style={{ minHeight: 46, backgroundColor: t.lavenderTint, color: t.textSub, fontSize: 14, fontWeight: 600,
               border: `1px solid ${t.border}` }}>
             <RotateCcw size={15} /> 초기화
           </button>

@@ -164,7 +164,7 @@ export function MandalartView() {
             <button onClick={() => creating ? commitCreate() : commitRename()} className="p-2 rounded-xl" style={{ backgroundColor: t.accent, color: '#fff' }}>
               <Check size={16} />
             </button>
-            <button onClick={() => { setRenaming(false); setCreating(false); }} className="p-2 rounded-xl" style={{ backgroundColor: t.bgSub, color: t.textMuted }}>
+            <button onClick={() => { setRenaming(false); setCreating(false); }} className="p-2 rounded-xl" style={{ backgroundColor: t.lavenderTint, color: t.textMuted }}>
               <X size={16} />
             </button>
           </div>

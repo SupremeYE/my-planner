@@ -296,7 +296,7 @@ export function RecipeDetail({ recipe, onClose, onEdit }: RecipeDetailProps) {
         </div>
 
         {/* 히어로 */}
-        <div className="relative w-full" style={{ aspectRatio: '16 / 10', backgroundColor: t.bgSub }}>
+        <div className="relative w-full" style={{ aspectRatio: '16 / 10', backgroundColor: t.lavenderTint }}>
           {cover ? (
             <img src={cover} alt="" className="w-full h-full object-cover"
               onError={e => { (e.currentTarget as HTMLImageElement).style.visibility = 'hidden'; }} />
@@ -383,7 +383,7 @@ export function RecipeDetail({ recipe, onClose, onEdit }: RecipeDetailProps) {
                 <span key={`m-${m}`} className="px-2 py-1 rounded-full"
                   style={{
                     fontSize: 12, fontWeight: 600,
-                    backgroundColor: t.bgSub, color: t.textSub,
+                    backgroundColor: t.lavenderTint, color: t.textSub,
                     border: `1px solid ${t.border}`,
                   }}>{`${MAIN_EMOJI[m] ?? ''} ${m}`.trim()}</span>
               ))}
@@ -410,7 +410,7 @@ export function RecipeDetail({ recipe, onClose, onEdit }: RecipeDetailProps) {
               <div className="flex items-center gap-2">
                 <button onClick={() => setServings(s => Math.max(1, s - 1))}
                   className="rounded-full flex items-center justify-center active:scale-95 transition-transform"
-                  style={{ width: 32, height: 32, backgroundColor: t.bgSub, border: `1px solid ${t.border}`, color: t.text }}
+                  style={{ width: 32, height: 32, backgroundColor: t.lavenderTint, border: `1px solid ${t.border}`, color: t.text }}
                   aria-label="인분 줄이기">
                   <Minus size={14} />
                 </button>
@@ -452,7 +452,7 @@ export function RecipeDetail({ recipe, onClose, onEdit }: RecipeDetailProps) {
                         <span className="flex-shrink-0 inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-md"
                           style={{
                             fontSize: 10, fontWeight: 700,
-                            backgroundColor: has ? t.accentLight : t.bgSub,
+                            backgroundColor: has ? t.accentLight : t.lavenderTint,
                             color: has ? t.accent : t.textMuted,
                             border: `1px solid ${has ? `${t.accent}55` : t.border}`,
                           }}>
@@ -484,7 +484,7 @@ export function RecipeDetail({ recipe, onClose, onEdit }: RecipeDetailProps) {
                   style={{
                     fontSize: 13, fontWeight: 700,
                     color: allMissingAlreadyInShopping ? t.textMuted : t.accent,
-                    backgroundColor: allMissingAlreadyInShopping ? t.bgSub : t.accentLight,
+                    backgroundColor: allMissingAlreadyInShopping ? t.lavenderTint : t.accentLight,
                     border: `1px solid ${allMissingAlreadyInShopping ? t.border : `${t.accent}55`}`,
                     opacity: addingToShopping ? 0.6 : 1,
                   }}>
@@ -655,7 +655,7 @@ function CookLogRow({ log, onDelete }: { log: RecipeCookLog; onDelete: () => voi
       style={{ backgroundColor: t.card, border: `1px solid ${t.border}` }}>
       {/* 사진 썸네일 또는 아이콘 */}
       <div className="flex-shrink-0 rounded-lg overflow-hidden"
-        style={{ width: 56, height: 56, backgroundColor: t.bgSub,
+        style={{ width: 56, height: 56, backgroundColor: t.lavenderTint,
           border: `1px solid ${t.border}` }}>
         {log.photoUrl ? (
           <img src={log.photoUrl} alt="" className="w-full h-full object-cover"
