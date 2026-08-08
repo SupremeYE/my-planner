@@ -8,7 +8,7 @@ import { useSomedaySeeds } from '../hooks/useSomedaySeeds';
 import ConfirmModal from './ConfirmModal';
 import { type SeedKind, type SomedaySeed } from '../../lib/db';
 import {
-  isHaon, solidCardStyle, solidRowStyle, glassBarStyle, addPopoverStyle,
+  solidCardStyle, solidRowStyle, glassBarStyle, addPopoverStyle,
   bottomSheetStyle, sheetBackdropStyle, buttonStyle, withAlpha,
 } from '../styles/haonStyles';
 import {
@@ -24,7 +24,6 @@ const TEXT_MAX = 280; // DB CHECK 와 동일 상한
 export function SomedayView() {
   const { t } = useTheme();
   const navigate = useNavigate();
-  const haon = isHaon(t);
   const { seeds, loading, addSeed, growToGoal, growToBucket, revertSeed } = useSomedaySeeds();
 
   // ── 던지기 입력 ──
@@ -107,7 +106,7 @@ export function SomedayView() {
       {/* ── 헤더 (glassBarStyle 오버레이) ── */}
       <header
         className="sticky top-0 z-20 px-5 lg:px-14 pt-10 lg:pt-12 pb-4 flex items-start justify-between gap-3"
-        style={{ ...glassBarStyle(t), ...(haon ? {} : { backgroundColor: t.bg }) }}
+        style={{ ...glassBarStyle(t) }}
       >
         <div className="min-w-0">
           <div className="flex items-center gap-1.5" style={{ color: t.accent }}>
@@ -249,7 +248,6 @@ export function SomedayView() {
               <SeedRow
                 key={seed.id}
                 seed={seed}
-                haon={haon}
                 onGrow={() => openGrow(seed)}
                 onOpenMenu={() => setMenuTarget(seed)}
               />
@@ -354,7 +352,7 @@ function GrowSheet({ seed, onGoal, onBucket, onClose }: {
             className="w-full flex items-center gap-3 rounded-2xl px-4 py-3.5 text-left"
             style={{ backgroundColor: t.card, border: `1px solid ${t.border}` }}
           >
-            <span className="flex items-center justify-center rounded-full" style={{ width: 38, height: 38, backgroundColor: t.accentSoft, color: t.textSub, flexShrink: 0 }}>
+            <span className="flex items-center justify-center rounded-full" style={{ width: 38, height: 38, backgroundColor: t.lavenderTint, color: t.textSub, flexShrink: 0 }}>
               <Sprout size={18} />
             </span>
             <span className="min-w-0">
@@ -397,17 +395,15 @@ function GrownMenu({ seed, onViewGoal, onRevert, onClose }: {
 }
 
 // ── 씨앗 행 (solidRowStyle + 3px 결 accent + dot + 결 태그 + 날짜 + 키우기/자람) ──
-function SeedRow({ seed, haon, onGrow, onOpenMenu }: {
-  seed: SomedaySeed; haon: boolean; onGrow: () => void; onOpenMenu: () => void;
+function SeedRow({ seed, onGrow, onOpenMenu }: {
+  seed: SomedaySeed; onGrow: () => void; onOpenMenu: () => void;
 }) {
   const { t } = useTheme();
   const c = seedKindColor(t, seed.kind);
   const grown = seed.status === 'grown';
 
   const base = solidRowStyle(t);
-  const rowStyle = haon
-    ? { ...base, borderLeft: `3px solid ${c.dot}` }
-    : { backgroundColor: t.card, border: `1px solid ${t.border}`, borderLeft: `3px solid ${c.dot}`, borderRadius: 14 };
+  const rowStyle = { ...base, borderLeft: `3px solid ${c.dot}` };
 
   return (
     <div className="flex items-start gap-3 px-3.5 py-3" style={rowStyle}>

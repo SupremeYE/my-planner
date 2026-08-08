@@ -190,7 +190,7 @@ function SidebarNewProjectForm({ onClose }: { onClose: () => void }) {
 
   return (
     <form onSubmit={handleSubmit} className="mx-3 mt-1 mb-2 p-3 rounded-xl space-y-2"
-      style={{ backgroundColor: t.bgSub, border: `1px solid ${t.border}` }}>
+      style={{ backgroundColor: t.lavenderTint, border: `1px solid ${t.border}` }}>
       <div className="flex gap-1.5 flex-wrap">
         {PROJECT_COLORS.slice(0, 6).map(c => (
           <button key={c} type="button" onClick={() => setColor(c)}
@@ -325,7 +325,7 @@ function RightPanel() {
             <span style={{ fontSize: 10, color: t.textSub }}>{weekDone}/{weekTotal} 완료</span>
             <span style={{ fontSize: 11, color: t.accent, fontWeight: 700 }}>{weekPct}%</span>
           </div>
-          <div className="h-1.5 rounded-full overflow-hidden" style={{ backgroundColor: t.bgSub }}>
+          <div className="h-1.5 rounded-full overflow-hidden" style={{ backgroundColor: t.lavenderTint }}>
             <div className="h-full rounded-full transition-all" style={{ width: `${weekPct}%`, backgroundColor: t.accent }} />
           </div>
         </div>
@@ -361,7 +361,7 @@ function RightPanel() {
                   <span style={{ fontSize: 12, color: t.text }}>{goal.text}</span>
                   <span style={{ fontSize: 10, color: t.accent }}>{pct}%</span>
                 </div>
-                <div className="h-1.5 rounded-full overflow-hidden" style={{ backgroundColor: t.bgSub }}>
+                <div className="h-1.5 rounded-full overflow-hidden" style={{ backgroundColor: t.lavenderTint }}>
                   <div className="h-full rounded-full transition-all" style={{ width: `${pct}%`, backgroundColor: t.accent }} />
                 </div>
               </div>
@@ -505,7 +505,7 @@ function MobileMenuOverlay({ onClose }: { onClose: () => void }) {
                     backgroundColor: isActive
                       ? t.accentLight
                       : isPressed
-                        ? t.bgSub
+                        ? t.lavenderTint
                         : withAlpha(t.bg, 0.75),
                     border: isActive
                       ? `1.5px solid ${t.accent}`
@@ -584,27 +584,23 @@ export function Layout() {
   const navActiveStyle = { backgroundColor: t.accentLight, color: t.text, fontWeight: 600 };
   const navInactiveStyle = { backgroundColor: 'transparent', color: t.textSub, fontWeight: 400 };
 
-  // 파스텔(H) 테마에서만 hover 피드백 적용 (DailyView isHaon과 동일 기준: cardFrosted 존재)
-  const isPastel = !!t.cardFrosted;
   // 비활성 항목 hover: 옅은 라벤더 tint + 글자 진해짐 + 살짝 슬라이드(펼침) / 확대(접힘).
   // active 항목은 hover에도 그대로. transition-all(className)이 부드럽게 애니메이션.
   const navItemStyle = (isActive: boolean, key: string, collapsed = false): React.CSSProperties => {
     if (isActive) return { ...navActiveStyle };
-    const hovered = isPastel && hoveredNav === key;
+    const hovered = hoveredNav === key;
     return {
       ...navInactiveStyle,
-      backgroundColor: hovered ? t.bgHover : 'transparent',
+      backgroundColor: hovered ? t.lavenderHover : 'transparent',
       color: hovered ? t.text : t.textSub,
       transform: hovered ? (collapsed ? 'scale(1.06)' : 'translateX(3px)') : 'none',
     };
   };
   const navHover = (key: string) => (
-    isPastel
-      ? { onMouseEnter: () => setHoveredNav(key), onMouseLeave: () => setHoveredNav(prev => (prev === key ? null : prev)) }
-      : {}
+    { onMouseEnter: () => setHoveredNav(key), onMouseLeave: () => setHoveredNav(prev => (prev === key ? null : prev)) }
   );
   const navIconColor = (isActive: boolean, key: string) =>
-    isActive || (isPastel && hoveredNav === key) ? t.text : t.textMuted;
+    isActive || hoveredNav === key ? t.text : t.textMuted;
 
   return (
     <div className="min-h-screen" style={{ backgroundColor: t.bg, fontFamily: t.font, transition: 'background-color 0.3s, color 0.3s' }}>
@@ -633,7 +629,7 @@ export function Layout() {
                   <button
                     onClick={() => setLeftSidebarOpen(false)}
                     className="p-2 rounded-lg transition-colors hover:bg-opacity-80"
-                    style={{ backgroundColor: t.bgSub, color: t.textSub }}
+                    style={{ backgroundColor: t.lavenderTint, color: t.textSub }}
                     title="사이드바 접기"
                   >
                     <Menu size={16} />
@@ -646,7 +642,7 @@ export function Layout() {
                 <button
                   onClick={() => setLeftSidebarOpen(true)}
                   className="p-2 rounded-lg transition-colors hover:bg-opacity-80"
-                  style={{ backgroundColor: t.bgSub, color: t.textSub }}
+                  style={{ backgroundColor: t.lavenderTint, color: t.textSub }}
                   title="사이드바 펼치기"
                 >
                   <Menu size={16} />
@@ -871,7 +867,7 @@ export function Layout() {
               <button
                 onClick={() => setRightPanelOpen(!rightPanelOpen)}
                 className="p-2 rounded-lg transition-colors hover:bg-opacity-80 flex-shrink-0"
-                style={{ backgroundColor: t.bgSub, color: t.textSub }}
+                style={{ backgroundColor: t.lavenderTint, color: t.textSub }}
                 title={rightPanelOpen ? '대시보드 접기' : '대시보드 펼치기'}
               >
                 <Menu size={16} />
@@ -884,10 +880,10 @@ export function Layout() {
             )}
             {!rightPanelOpen && (
               <div className="flex-1 flex flex-col items-center gap-4 pt-4">
-                <div className="p-2 rounded-lg" style={{ backgroundColor: t.accentSoft }}>
+                <div className="p-2 rounded-lg" style={{ backgroundColor: t.lavenderTint }}>
                   <Target size={18} color={t.textMuted} />
                 </div>
-                <div className="p-2 rounded-lg" style={{ backgroundColor: t.accentSoft }}>
+                <div className="p-2 rounded-lg" style={{ backgroundColor: t.lavenderTint }}>
                   <BarChart2 size={18} color={t.textMuted} />
                 </div>
               </div>
@@ -907,7 +903,7 @@ export function Layout() {
             <button
               onClick={() => setMobileMenuOpen(true)}
               className="p-2 rounded-xl transition-colors"
-              style={{ backgroundColor: t.bgSub, color: t.textSub }}
+              style={{ backgroundColor: t.lavenderTint, color: t.textSub }}
             >
               <Menu size={16} />
             </button>

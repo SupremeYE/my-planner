@@ -20,7 +20,7 @@ function CountdownRing({ timer, nowMs, size = 56 }: { timer: CookTimer; nowMs: n
   return (
     <div className="relative flex-shrink-0" style={{ width: size, height: size }}>
       <svg width={size} height={size} style={{ transform: 'rotate(-90deg)' }}>
-        <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke={t.bgSub} strokeWidth={stroke} />
+        <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke={t.lavenderTint} strokeWidth={stroke} />
         {!done && (
           <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke={color} strokeWidth={stroke}
             strokeLinecap="round" strokeDasharray={c} strokeDashoffset={c * (1 - ratio)}
@@ -70,7 +70,7 @@ function TimerCard({ timer }: { timer: CookTimer }) {
         ) : (
           <button onClick={() => cancelTimer(timer.id)} aria-label="취소"
             className="p-1.5 rounded-lg active:scale-95 transition-transform"
-            style={{ color: t.textMuted, backgroundColor: t.bgSub }}>
+            style={{ color: t.textMuted, backgroundColor: t.lavenderTint }}>
             <X size={15} />
           </button>
         )}

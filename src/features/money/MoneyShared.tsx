@@ -186,7 +186,7 @@ export function BudgetBar({ m }: { m: UseMoney }) {
         <span style={{ color: t.textSub }}>월 예산 {formatManShort(budget)}</span>
         <span style={{ color: t.textMuted }}>{used.toLocaleString('ko-KR')} / {budget.toLocaleString('ko-KR')}</span>
       </div>
-      <div style={{ height: 8, background: t.bgSub, borderRadius: 4, overflow: 'hidden' }}>
+      <div style={{ height: 8, background: t.lavenderTint, borderRadius: 4, overflow: 'hidden' }}>
         <div style={{ width: `${pct}%`, height: '100%', borderRadius: 4, background: over ? MONEY_PALETTE.coral : MONEY_PALETTE.gold, transition: 'width 0.6s' }} />
       </div>
       <div className="flex justify-between items-center" style={{ marginTop: 6 }}>
@@ -773,7 +773,7 @@ export function InvestPanel({ m }: { m: UseMoney }) {
           const rc = up ? MONEY_PALETTE.green : MONEY_PALETTE.coral;
           return (
             <button key={a.id} onClick={() => setEditor({ item: a })} className="flex items-center gap-3 text-left w-full active:scale-[0.99] transition-transform" style={{ background: t.card, borderRadius: 14, padding: 14, boxShadow: t.shadow }}>
-              <div style={{ width: 40, height: 40, borderRadius: 10, background: meta ? `${meta.color}20` : t.bgSub, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18 }}>{a.icon || '📈'}</div>
+              <div style={{ width: 40, height: 40, borderRadius: 10, background: meta ? `${meta.color}20` : t.lavenderTint, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18 }}>{a.icon || '📈'}</div>
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-1.5" style={{ minWidth: 0 }}>
                   <span style={{ fontSize: 13, fontWeight: 600, color: t.text, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{a.name}</span>
@@ -870,7 +870,7 @@ function GoalSection({ m, onEdit }: { m: UseMoney; onEdit: (g: MoneyGoal | null)
                   {badge && <span style={{ fontSize: 9.5, fontWeight: 700, color: badge.color, background: badge.bg, borderRadius: 6, padding: '2px 7px', whiteSpace: 'nowrap' }}>{badge.label}</span>}
                 </div>
               </div>
-              <div style={{ height: 10, background: t.bgSub, borderRadius: 5, overflow: 'hidden', marginBottom: 8 }}>
+              <div style={{ height: 10, background: t.lavenderTint, borderRadius: 5, overflow: 'hidden', marginBottom: 8 }}>
                 <div style={{ width: `${pct}%`, height: '100%', borderRadius: 5, background: color, transition: 'width 0.6s' }} />
               </div>
               <div className="flex justify-between" style={{ fontSize: 11, color: t.textMuted }}>
@@ -878,7 +878,7 @@ function GoalSection({ m, onEdit }: { m: UseMoney; onEdit: (g: MoneyGoal | null)
                 <span>목표 {g.targetAmount.toLocaleString('ko-KR')}원</span>
               </div>
               {monthlyNeed != null && monthlyNeed > 0 && (
-                <div className="flex justify-between items-center" style={{ marginTop: 10, padding: '8px 10px', background: t.bgSub, borderRadius: 10 }}>
+                <div className="flex justify-between items-center" style={{ marginTop: 10, padding: '8px 10px', background: t.lavenderTint, borderRadius: 10 }}>
                   <span style={{ fontSize: 11, color: t.textSub }}>달성 페이스 (월 필요 적립)</span>
                   <span style={{ fontSize: 13, fontWeight: 700, color: badge?.color ?? t.text }}>{monthlyNeed.toLocaleString('ko-KR')}원</span>
                 </div>
@@ -973,7 +973,7 @@ function LoanSection({ m, onEdit }: { m: UseMoney; onEdit: (l: MoneyLoan | null)
                 <div style={{ fontSize: 10, color: t.textSub }}>상환 완료</div>
                 <div style={{ fontSize: 13, fontWeight: 700, color: MONEY_PALETTE.green }}>{repaid.toLocaleString('ko-KR')}</div>
               </div>
-              <div className="flex-1 text-center" style={{ background: t.bgSub, borderRadius: 10, padding: 8 }}>
+              <div className="flex-1 text-center" style={{ background: t.lavenderTint, borderRadius: 10, padding: 8 }}>
                 <div style={{ fontSize: 10, color: t.textSub }}>남은 원금</div>
                 <div style={{ fontSize: 13, fontWeight: 700, color: t.text }}>{remain.toLocaleString('ko-KR')}</div>
               </div>
@@ -1003,13 +1003,13 @@ function LoanSection({ m, onEdit }: { m: UseMoney; onEdit: (l: MoneyLoan | null)
                       <span style={{ color: t.textSub }}>상환 {l.paidInstallments}/{l.totalInstallments}회{left != null ? ` · ${left}회 남음` : ''}</span>
                       <span style={{ color: MONEY_PALETTE.green, fontWeight: 600 }}>{pct}%</span>
                     </div>
-                    <div style={{ height: 8, background: t.bgSub, borderRadius: 4, overflow: 'hidden' }}>
+                    <div style={{ height: 8, background: t.lavenderTint, borderRadius: 4, overflow: 'hidden' }}>
                       <div style={{ width: `${pct}%`, height: '100%', borderRadius: 4, background: MONEY_PALETTE.green }} />
                     </div>
                   </>
                 )}
                 {l.monthlyPayment != null && (
-                  <div className="flex justify-between items-center" style={{ marginTop: 10, padding: 10, background: t.bgSub, borderRadius: 10 }}>
+                  <div className="flex justify-between items-center" style={{ marginTop: 10, padding: 10, background: t.lavenderTint, borderRadius: 10 }}>
                     <span style={{ fontSize: 12, color: t.textSub }}>다음 상환{dday != null ? ` D-${dday}` : ''}{l.paymentDay ? ` (매월 ${l.paymentDay}일)` : ''}</span>
                     <span style={{ fontSize: 13, fontWeight: 700, color: t.text }}>{l.monthlyPayment.toLocaleString('ko-KR')}원</span>
                   </div>
@@ -1125,7 +1125,7 @@ function PlanBanner({ m, onOpen }: { m: UseMoney; onOpen: () => void }) {
           { l: '저축+투자', v: plan.plannedSavings + plan.plannedInvestment, c: MONEY_PALETTE.green },
           { l: '생활비', v: plan.plannedLiving, c: MONEY_PALETTE.gold },
         ].map((x, i) => (
-          <div key={i} className="flex-1 text-center" style={{ background: t.bgSub, borderRadius: 10, padding: '7px 4px' }}>
+          <div key={i} className="flex-1 text-center" style={{ background: t.lavenderTint, borderRadius: 10, padding: '7px 4px' }}>
             <div style={{ fontSize: 10, color: t.textMuted }}>{x.l}</div>
             <div style={{ fontSize: 13, fontWeight: 700, color: x.c, marginTop: 1 }}>{formatManShort(x.v)}</div>
           </div>
@@ -1264,7 +1264,7 @@ export function SettingsSheet({ m, onClose }: { m: UseMoney; onClose: () => void
         )}
         <div style={{ marginBottom: 18 }}>
           <div style={{ fontSize: 12, color: t.textSub, marginBottom: 8 }}>월 예산</div>
-          <div style={{ fontSize: 12, color: t.textMuted, background: t.bgSub, borderRadius: 10, padding: '11px 13px', lineHeight: 1.5 }}>
+          <div style={{ fontSize: 12, color: t.textMuted, background: t.lavenderTint, borderRadius: 10, padding: '11px 13px', lineHeight: 1.5 }}>
             이제 월 예산은 <b style={{ color: t.textSub }}>가계부 ›  계획하기</b>의 <b style={{ color: t.textSub }}>생활비 한도</b>로 정해요.
             수입에서 고정비·저축을 떼고 남은 돈으로 한 달 한도를 세웁니다.
           </div>
@@ -1282,7 +1282,7 @@ export function SettingsSheet({ m, onClose }: { m: UseMoney; onClose: () => void
 
         {/* 카테고리 관리 진입 */}
         <button onClick={() => setShowCategories(true)}
-          className="flex items-center gap-3 w-full text-left" style={{ padding: '13px 14px', borderRadius: 12, background: t.bgSub, marginBottom: 20 }}>
+          className="flex items-center gap-3 w-full text-left" style={{ padding: '13px 14px', borderRadius: 12, background: t.lavenderTint, marginBottom: 20 }}>
           <div className="flex items-center justify-center flex-shrink-0" style={{ width: 34, height: 34, borderRadius: 9, background: `${MONEY_PALETTE.gold}20`, color: MONEY_PALETTE.gold }}>
             <Tags size={17} />
           </div>

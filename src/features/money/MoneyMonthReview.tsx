@@ -162,7 +162,7 @@ export function MonthReviewSheet({ m, onClose }: { m: UseMoney; onClose: () => v
     onClose();
   };
 
-  const card = { background: t.bgSub, borderRadius: 14, padding: 14 };
+  const card = { background: t.lavenderTint, borderRadius: 14, padding: 14 };
 
   return (
     <div className="fixed inset-0 z-[60] flex items-end lg:items-center justify-center" style={{ background: 'rgba(58,53,46,0.5)' }} onClick={onClose}>

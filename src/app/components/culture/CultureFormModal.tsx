@@ -184,7 +184,7 @@ export function CultureFormModal({ record, onSave, onDelete, onClose, notify, on
                     className="flex items-center gap-1.5 px-3 rounded-full flex-shrink-0 transition-all"
                     style={{
                       minHeight: 40, fontSize: 13, fontWeight: active ? 600 : 400,
-                      backgroundColor: active ? t.accent : t.bgSub,
+                      backgroundColor: active ? t.accent : t.lavenderTint,
                       color: active ? '#fff' : t.textSub,
                       border: `1px solid ${active ? t.accent : t.border}`,
                     }}>
@@ -200,7 +200,7 @@ export function CultureFormModal({ record, onSave, onDelete, onClose, notify, on
               className="flex items-center gap-1.5 px-3 py-2 rounded-xl transition-colors w-full justify-center"
               style={{
                 fontSize: 13, fontWeight: 600,
-                backgroundColor: tmdbOpen ? t.accent : t.bgSub,
+                backgroundColor: tmdbOpen ? t.accent : t.lavenderTint,
                 color: tmdbOpen ? '#fff' : t.textSub,
                 border: `1px solid ${tmdbOpen ? t.accent : t.border}`,
               }}>
@@ -269,7 +269,7 @@ export function CultureFormModal({ record, onSave, onDelete, onClose, notify, on
                     className="flex items-center gap-1.5 px-3 py-1.5 rounded-full transition-all"
                     style={{
                       fontSize: 12, fontWeight: active ? 600 : 400,
-                      backgroundColor: active ? t.accent : t.bgSub,
+                      backgroundColor: active ? t.accent : t.lavenderTint,
                       color: active ? '#fff' : t.textSub,
                       border: `1px solid ${active ? t.accent : t.border}`,
                     }}>
@@ -335,12 +335,12 @@ export function CultureFormModal({ record, onSave, onDelete, onClose, notify, on
             <div className="flex-1 hidden lg:block" />
             <button type="button" onClick={onClose}
               className="hidden lg:block px-4 py-2 rounded-xl transition-colors"
-              style={{ backgroundColor: t.bgSub, color: t.textSub, fontSize: 13, fontWeight: 500, border: `1px solid ${t.border}` }}>
+              style={{ backgroundColor: t.lavenderTint, color: t.textSub, fontSize: 13, fontWeight: 500, border: `1px solid ${t.border}` }}>
               취소
             </button>
             <button type="submit" disabled={submitting}
               className="hidden lg:block px-5 py-2 rounded-xl transition-colors"
-              style={{ backgroundColor: submitting ? t.bgSub : t.accent, color: submitting ? t.textMuted : '#fff', fontSize: 13, fontWeight: 600 }}>
+              style={{ backgroundColor: submitting ? t.lavenderTint : t.accent, color: submitting ? t.textMuted : '#fff', fontSize: 13, fontWeight: 600 }}>
               {submitting ? '저장 중…' : '저장'}
             </button>
           </div>

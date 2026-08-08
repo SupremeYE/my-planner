@@ -154,7 +154,7 @@ export function BrainstormView() {
                   style={{
                     padding: '16px',
                     borderRadius: '8px',
-                    background: t.bgSub,
+                    background: t.lavenderTint,
                     border: `1px solid ${t.borderLight}`,
                     display: 'flex',
                     alignItems: 'center',

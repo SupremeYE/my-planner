@@ -222,7 +222,7 @@ export function MandalartBoardMobile({ boardId, boardTitle, cells, onMutate, onN
         <div style={{ fontFamily: t.fontDecorative, fontWeight: 700, fontSize: 20, marginTop: 2, color: t.text }}>
           {boardTitle || '제목을 적어주세요'}
         </div>
-        <div className="h-2 rounded-full overflow-hidden mt-3" style={{ backgroundColor: t.bgSub }}>
+        <div className="h-2 rounded-full overflow-hidden mt-3" style={{ backgroundColor: t.lavenderTint }}>
           <div className="h-full" style={{ width: `${progress.overall}%`, backgroundColor: t.success }} />
         </div>
         <div className="flex justify-between mt-1.5" style={{ fontSize: 11, color: t.textMuted }}>
@@ -369,7 +369,7 @@ function SubCell({
       onContextMenu={e => { e.preventDefault(); onLongPress(); }}
       className="aspect-square rounded-2xl flex flex-col items-center justify-center gap-1.5 px-2 relative text-center cursor-pointer"
       style={{
-        backgroundColor: done ? t.success + '22' : t.bgSub,
+        backgroundColor: done ? t.success + '22' : t.lavenderTint,
         border: `1px solid ${done ? t.success + '66' : t.border}`,
         color: t.text, minWidth: 0,
       }}
@@ -434,7 +434,7 @@ function SubCenterCell({ name, pct, onClick }: { name: string; pct: number; onCl
     <button
       onClick={onClick}
       className="aspect-square rounded-2xl flex flex-col items-center justify-center gap-1 px-2 text-center"
-      style={{ backgroundColor: t.accentSoft, color: t.text, minWidth: 0, border: `1px solid ${t.border}` }}
+      style={{ backgroundColor: t.lavenderTint, color: t.text, minWidth: 0, border: `1px solid ${t.border}` }}
     >
       <span style={{
         fontFamily: t.fontDecorative, fontWeight: 700, fontSize: 14, lineHeight: 1.15,
@@ -548,7 +548,7 @@ function EditModal({
           placeholder={placeholder}
           rows={2}
           className="w-full rounded-xl px-3 py-2.5 border outline-none resize-none"
-          style={{ fontSize: 14, borderColor: t.border, backgroundColor: t.bgSub, color: t.text }}
+          style={{ fontSize: 14, borderColor: t.border, backgroundColor: t.lavenderTint, color: t.text }}
         />
         <div className="flex justify-between items-center gap-2 mt-3">
           {onSend ? (
@@ -565,7 +565,7 @@ function EditModal({
             <button
               onClick={onClose}
               className="px-3 py-1.5 rounded-xl"
-              style={{ fontSize: 13, color: t.textMuted, backgroundColor: t.bgSub }}
+              style={{ fontSize: 13, color: t.textMuted, backgroundColor: t.lavenderTint }}
             >취소</button>
             <button
               onClick={onSubmit}

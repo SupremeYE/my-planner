@@ -27,7 +27,7 @@ export function SectionTabs({ section, setSection }: {
   ];
   return (
     <div className="inline-flex rounded-full p-1 mb-4"
-      style={{ backgroundColor: t.bgSub, border: `1px solid ${t.border}` }}>
+      style={{ backgroundColor: t.lavenderTint, border: `1px solid ${t.border}` }}>
       {tabs.map(tab => {
         const active = section === tab.key;
         return (
@@ -150,7 +150,7 @@ export function MusicSection({ section, setSection }: {
                 <button key={m} onClick={() => setMoodFilter(m)}
                   className="flex-shrink-0 px-3 rounded-full transition-all"
                   style={{ minHeight: 34, fontSize: 13, fontWeight: active ? 600 : 400,
-                    backgroundColor: active ? t.accent : t.bgSub, color: active ? '#fff' : t.textSub,
+                    backgroundColor: active ? t.accent : t.lavenderTint, color: active ? '#fff' : t.textSub,
                     border: `1px solid ${active ? t.accent : t.border}` }}>
                   {label}
                 </button>
@@ -221,7 +221,7 @@ export function MusicSection({ section, setSection }: {
                   <button key={m} onClick={() => setMoodFilter(m)}
                     className="flex-shrink-0 px-3 rounded-full transition-all"
                     style={{ minHeight: 34, fontSize: 13, fontWeight: active ? 600 : 400,
-                      backgroundColor: active ? t.accent : t.bgSub, color: active ? '#fff' : t.textSub,
+                      backgroundColor: active ? t.accent : t.lavenderTint, color: active ? '#fff' : t.textSub,
                       border: `1px solid ${active ? t.accent : t.border}` }}>
                     {label}
                   </button>
@@ -305,7 +305,7 @@ function EmptyState({ hasAny, onAdd }: { hasAny: boolean; onAdd: () => void }) {
   return (
     <div className="flex flex-col items-center justify-center text-center py-16">
       <div className="flex items-center justify-center rounded-full mb-4"
-        style={{ width: 72, height: 72, backgroundColor: t.bgSub }}>
+        style={{ width: 72, height: 72, backgroundColor: t.lavenderTint }}>
         <Music size={32} color={t.accent} />
       </div>
       <p style={{ fontSize: 16, fontWeight: 700, color: t.text, marginBottom: 6 }}>

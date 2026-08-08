@@ -364,7 +364,7 @@ export default function MindmapTab({ scrapId, onNavigateScrap }: Props) {
             : { position: 'relative', width: '100%', borderRadius: 14 }),
           overflow: 'hidden',
           border: fullscreen ? 'none' : `1px solid ${t.borderLight}`,
-          backgroundColor: t.bgSub,
+          backgroundColor: t.lavenderTint,
           backgroundImage: `radial-gradient(${t.borderLight} 1px, transparent 1px)`,
           backgroundSize: '20px 20px',
           touchAction: 'none',
@@ -548,7 +548,7 @@ export default function MindmapTab({ scrapId, onNavigateScrap }: Props) {
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
                 backgroundColor: 'transparent', border: 'none',
               }}
-              onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.backgroundColor = t.bgSub; }}
+              onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.backgroundColor = t.lavenderTint; }}
               onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.backgroundColor = 'transparent'; }}
             >
               <Icon size={15} color={color} />
@@ -656,7 +656,7 @@ export default function MindmapTab({ scrapId, onNavigateScrap }: Props) {
               padding: '10px 12px',
               borderRadius: 10,
               border: `1px solid ${t.border}`,
-              backgroundColor: t.bgSub,
+              backgroundColor: t.lavenderTint,
               color: t.text,
               fontSize: 16,
               fontFamily: t.fontDecoratePen,
@@ -700,7 +700,7 @@ export default function MindmapTab({ scrapId, onNavigateScrap }: Props) {
                   style={{
                     width: 36, height: 32, borderRadius: 9,
                     display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    backgroundColor: active ? t.accent : t.bgSub,
+                    backgroundColor: active ? t.accent : t.lavenderTint,
                     border: `1px solid ${active ? t.accent : t.borderLight}`,
                   }}
                 >
@@ -738,7 +738,7 @@ export default function MindmapTab({ scrapId, onNavigateScrap }: Props) {
             style={{
               display: 'inline-flex', alignItems: 'center',
               color: t.textSub,
-              backgroundColor: t.bgSub, border: `1px solid ${t.borderLight}`,
+              backgroundColor: t.lavenderTint, border: `1px solid ${t.borderLight}`,
               padding: 8, borderRadius: 999,
             }}
           >
@@ -750,7 +750,7 @@ export default function MindmapTab({ scrapId, onNavigateScrap }: Props) {
             style={{
               display: 'inline-flex', alignItems: 'center',
               color: t.textSub,
-              backgroundColor: t.bgSub, border: `1px solid ${t.borderLight}`,
+              backgroundColor: t.lavenderTint, border: `1px solid ${t.borderLight}`,
               padding: 8, borderRadius: 999,
             }}
           >
@@ -763,7 +763,7 @@ export default function MindmapTab({ scrapId, onNavigateScrap }: Props) {
               style={{
                 display: 'inline-flex', alignItems: 'center',
                 color: t.danger,
-                backgroundColor: t.bgSub, border: `1px solid ${t.borderLight}`,
+                backgroundColor: t.lavenderTint, border: `1px solid ${t.borderLight}`,
                 padding: 8, borderRadius: 999,
               }}
             >

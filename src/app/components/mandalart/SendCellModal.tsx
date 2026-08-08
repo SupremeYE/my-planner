@@ -182,7 +182,7 @@ export function SendCellModal({ cellId, defaultText, isAction, onClose, onNotify
           rows={2}
           placeholder="보낼 내용"
           className="w-full rounded-xl px-3 py-2.5 border outline-none resize-none mb-3"
-          style={{ fontSize: 14, borderColor: t.border, backgroundColor: t.bgSub, color: t.text }}
+          style={{ fontSize: 14, borderColor: t.border, backgroundColor: t.lavenderTint, color: t.text }}
         />
 
         {/* 종류 탭 */}
@@ -199,7 +199,7 @@ export function SendCellModal({ cellId, defaultText, isAction, onClose, onNotify
                 style={{
                   fontSize: 12, fontWeight: 700,
                   color: active ? '#fff' : (sent ? t.textMuted : t.text),
-                  backgroundColor: active ? t.accent : t.bgSub,
+                  backgroundColor: active ? t.accent : t.lavenderTint,
                   border: `1px solid ${active ? t.accent : t.borderLight}`,
                 }}
               >
@@ -219,7 +219,7 @@ export function SendCellModal({ cellId, defaultText, isAction, onClose, onNotify
               onChange={e => setYear(parseInt(e.target.value || `${currentYear}`, 10))}
               min={2020} max={2099}
               className="w-full rounded-xl px-3 py-2 border outline-none"
-              style={{ fontSize: 14, borderColor: t.border, backgroundColor: t.bgSub, color: t.text }}
+              style={{ fontSize: 14, borderColor: t.border, backgroundColor: t.lavenderTint, color: t.text }}
             />
           </Field>
         )}
@@ -232,7 +232,7 @@ export function SendCellModal({ cellId, defaultText, isAction, onClose, onNotify
                 value={month}
                 onChange={e => setMonth(e.target.value || currentMonth)}
                 className="w-full rounded-xl px-3 py-2 border outline-none"
-                style={{ fontSize: 14, borderColor: t.border, backgroundColor: t.bgSub, color: t.text }}
+                style={{ fontSize: 14, borderColor: t.border, backgroundColor: t.lavenderTint, color: t.text }}
               />
             </Field>
             <Field label={`연결할 연간 목표 (선택, ${month.slice(0, 4)})`}>
@@ -240,7 +240,7 @@ export function SendCellModal({ cellId, defaultText, isAction, onClose, onNotify
                 value={monthlyAnnualId}
                 onChange={e => setMonthlyAnnualId(e.target.value)}
                 className="w-full rounded-xl px-3 py-2 border outline-none"
-                style={{ fontSize: 14, borderColor: t.border, backgroundColor: t.bgSub, color: t.text }}
+                style={{ fontSize: 14, borderColor: t.border, backgroundColor: t.lavenderTint, color: t.text }}
               >
                 <option value="">연결 없음</option>
                 {annualOptionsForYear
@@ -260,7 +260,7 @@ export function SendCellModal({ cellId, defaultText, isAction, onClose, onNotify
                 value={weekKey}
                 onChange={e => setWeekKey(e.target.value)}
                 className="w-full rounded-xl px-3 py-2 border outline-none"
-                style={{ fontSize: 14, borderColor: t.border, backgroundColor: t.bgSub, color: t.text }}
+                style={{ fontSize: 14, borderColor: t.border, backgroundColor: t.lavenderTint, color: t.text }}
               >
                 {weekChoices.map(wk => (
                   <option key={wk} value={wk}>
@@ -279,7 +279,7 @@ export function SendCellModal({ cellId, defaultText, isAction, onClose, onNotify
                 value={weeklyMonthlyId}
                 onChange={e => setWeeklyMonthlyId(e.target.value)}
                 className="w-full rounded-xl px-3 py-2 border outline-none"
-                style={{ fontSize: 14, borderColor: t.border, backgroundColor: t.bgSub, color: t.text }}
+                style={{ fontSize: 14, borderColor: t.border, backgroundColor: t.lavenderTint, color: t.text }}
               >
                 <option value="">연결 없음</option>
                 {monthlyGoals.map(g => (
@@ -298,7 +298,7 @@ export function SendCellModal({ cellId, defaultText, isAction, onClose, onNotify
                 value={todoDate}
                 onChange={e => setTodoDate(e.target.value)}
                 className="w-full rounded-xl px-3 py-2 border outline-none"
-                style={{ fontSize: 14, borderColor: t.border, backgroundColor: t.bgSub, color: t.text }}
+                style={{ fontSize: 14, borderColor: t.border, backgroundColor: t.lavenderTint, color: t.text }}
               />
               <button
                 type="button"
@@ -312,7 +312,7 @@ export function SendCellModal({ cellId, defaultText, isAction, onClose, onNotify
                 value={todoWeeklyGoalId}
                 onChange={e => setTodoWeeklyGoalId(e.target.value)}
                 className="w-full rounded-xl px-3 py-2 border outline-none"
-                style={{ fontSize: 14, borderColor: t.border, backgroundColor: t.bgSub, color: t.text }}
+                style={{ fontSize: 14, borderColor: t.border, backgroundColor: t.lavenderTint, color: t.text }}
               >
                 <option value="">연결 없음</option>
                 {weeklyOptionsForKey.length > 0 && (
@@ -345,7 +345,7 @@ export function SendCellModal({ cellId, defaultText, isAction, onClose, onNotify
           <button
             onClick={onClose}
             className="px-3 py-2 rounded-xl"
-            style={{ fontSize: 13, color: t.textMuted, backgroundColor: t.bgSub }}
+            style={{ fontSize: 13, color: t.textMuted, backgroundColor: t.lavenderTint }}
           >취소</button>
           <button
             onClick={submit}

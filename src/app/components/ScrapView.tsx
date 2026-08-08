@@ -173,7 +173,7 @@ function ScrapCard({
       </div>
       {/* 썸네일 영역 */}
       {hasImage ? (
-        <div style={{ position: 'relative', backgroundColor: t.bgSub }}>
+        <div style={{ position: 'relative', backgroundColor: t.lavenderTint }}>
           <img
             src={scrap.thumbnailUrl!}
             alt={scrap.title ?? ''}
@@ -302,7 +302,7 @@ function ScrapCard({
                 style={{
                   fontSize: 10,
                   color: t.textSub,
-                  backgroundColor: t.bgSub,
+                  backgroundColor: t.lavenderTint,
                   padding: '2px 7px',
                   borderRadius: 999,
                   border: `1px solid ${t.borderLight}`,
@@ -381,7 +381,7 @@ function DustyResurfaceCard({
             borderRadius: 10,
             overflow: 'hidden',
             border: `1px solid ${t.borderLight}`,
-            backgroundColor: t.bgSub,
+            backgroundColor: t.lavenderTint,
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
@@ -474,7 +474,7 @@ function DustyResurfaceCard({
                 color: canShuffle ? t.accent : t.textMuted,
                 padding: '5px 10px',
                 borderRadius: 999,
-                backgroundColor: canShuffle ? t.accentLight : t.bgSub,
+                backgroundColor: canShuffle ? t.accentLight : t.lavenderTint,
                 border: 'none',
                 display: 'inline-flex',
                 alignItems: 'center',
@@ -720,7 +720,7 @@ export function ScrapView() {
       <div className="px-6 lg:px-14 mt-5 flex items-center gap-2">
         <div
           className="flex-1 min-w-0 flex items-center gap-2 px-3 py-2 rounded-full"
-          style={{ backgroundColor: t.bgSub, border: `1px solid ${t.borderLight}` }}
+          style={{ backgroundColor: t.lavenderTint, border: `1px solid ${t.borderLight}` }}
         >
           <Search size={14} color={t.textMuted} />
           <input
@@ -940,7 +940,7 @@ export function ScrapView() {
                 fontWeight: 700,
                 padding: '8px 16px',
                 borderRadius: 999,
-                backgroundColor: selectedIds.size === 0 ? t.bgSub : t.danger,
+                backgroundColor: selectedIds.size === 0 ? t.lavenderTint : t.danger,
                 color: selectedIds.size === 0 ? t.textMuted : '#fff',
                 border: 'none',
                 whiteSpace: 'nowrap',

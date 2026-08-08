@@ -86,7 +86,7 @@ export function MusicDetailSheet({ record, onClose, onDelete }: MusicDetailSheet
         {/* 닫기 X */}
         <button onClick={onClose} aria-label="닫기"
           className="absolute top-3 right-3 flex items-center justify-center rounded-full z-10"
-          style={{ width: 34, height: 34, backgroundColor: t.bgSub, color: t.textSub }}>
+          style={{ width: 34, height: 34, backgroundColor: t.lavenderTint, color: t.textSub }}>
           <X size={18} />
         </button>
 
@@ -114,7 +114,7 @@ export function MusicDetailSheet({ record, onClose, onDelete }: MusicDetailSheet
               className="flex items-center justify-center gap-1.5 rounded-full px-5 py-2.5 active:scale-95 transition-transform"
               style={decorating
                 ? { backgroundColor: gold, color: '#fff', fontSize: 14, fontWeight: 700 }
-                : { backgroundColor: t.bgSub, color: t.text, fontSize: 14, fontWeight: 600, border: `1px solid ${t.border}` }}>
+                : { backgroundColor: t.lavenderTint, color: t.text, fontSize: 14, fontWeight: 600, border: `1px solid ${t.border}` }}>
               <Palette size={18} /> {decorating ? '완료' : '꾸미기'}
             </button>
           </div>
@@ -153,7 +153,7 @@ export function MusicDetailSheet({ record, onClose, onDelete }: MusicDetailSheet
               ))}
               {record.genre && (
                 <span className="rounded-full px-3 py-1" style={{ fontSize: 12, fontWeight: 600,
-                  color: green, backgroundColor: t.bgSub, border: `1px solid ${green}` }}>
+                  color: green, backgroundColor: t.lavenderTint, border: `1px solid ${green}` }}>
                   {record.genre}
                 </span>
               )}
@@ -172,13 +172,13 @@ export function MusicDetailSheet({ record, onClose, onDelete }: MusicDetailSheet
             <div className="grid grid-cols-2 gap-2">
               <a href={ytMusicSearch(record)} target="_blank" rel="noopener noreferrer"
                 className="flex items-center justify-center gap-1.5 rounded-xl py-3"
-                style={{ backgroundColor: t.bgSub, color: t.text, fontSize: 13, fontWeight: 600,
+                style={{ backgroundColor: t.lavenderTint, color: t.text, fontSize: 13, fontWeight: 600,
                   border: `1px solid ${t.border}` }}>
                 <ExternalLink size={15} /> 유튜브 뮤직
               </a>
               <a href={spotifySearch(record)} target="_blank" rel="noopener noreferrer"
                 className="flex items-center justify-center gap-1.5 rounded-xl py-3"
-                style={{ backgroundColor: t.bgSub, color: t.text, fontSize: 13, fontWeight: 600,
+                style={{ backgroundColor: t.lavenderTint, color: t.text, fontSize: 13, fontWeight: 600,
                   border: `1px solid ${t.border}` }}>
                 <ExternalLink size={15} /> 스포티파이
               </a>

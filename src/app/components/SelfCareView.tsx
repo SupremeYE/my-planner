@@ -6,7 +6,7 @@ import {
 } from 'recharts';
 import { usePlanner, SelfCareRecord, SLEEP_GOAL_DEFAULT_MIN, type ConditionRecord, getLogicalToday } from '../store';
 import { useTheme } from '../ThemeContext';
-import { isHaon, solidCardStyle, solidRowStyle } from '../styles/haonStyles';
+import { solidCardStyle, solidRowStyle } from '../styles/haonStyles';
 import { HaonButton } from './ui/HaonButton';
 import { useFabAction } from '../FabContext';
 import { db } from '../../lib/db';
@@ -212,20 +212,20 @@ export function PeriodSection() {
 
           {/* 기록 추가/편집 폼 */}
           {showForm ? (
-            <div className="p-4 rounded-xl mb-3" style={isHaon(t) ? solidCardStyle(t) : { backgroundColor: t.card, border: `1px solid ${PERIOD_COLOR}40` }}>
+            <div className="p-4 rounded-xl mb-3" style={solidCardStyle(t)}>
               {/* 날짜 행 */}
               <div className="grid grid-cols-2 gap-3 mb-3">
                 <div>
                   <label style={{ fontSize: 11, color: t.textSub, fontWeight: 600 }}>시작일 *</label>
                   <input type="date" value={startDate} onChange={e => setStartDate(e.target.value)}
                     className="w-full mt-1 rounded-lg px-3 py-2 border outline-none"
-                    style={{ borderColor: t.border, backgroundColor: t.bgSub, color: t.text, fontSize: 13 }} />
+                    style={{ borderColor: t.border, backgroundColor: t.lavenderTint, color: t.text, fontSize: 13 }} />
                 </div>
                 <div>
                   <label style={{ fontSize: 11, color: t.textSub, fontWeight: 600 }}>종료일</label>
                   <input type="date" value={endDate} onChange={e => setEndDate(e.target.value)}
                     className="w-full mt-1 rounded-lg px-3 py-2 border outline-none"
-                    style={{ borderColor: t.border, backgroundColor: t.bgSub, color: t.text, fontSize: 13 }} />
+                    style={{ borderColor: t.border, backgroundColor: t.lavenderTint, color: t.text, fontSize: 13 }} />
                 </div>
               </div>
 
@@ -238,7 +238,7 @@ export function PeriodSection() {
                       className="flex-1 py-2 rounded-lg flex items-center justify-center gap-1"
                       style={{
                         fontSize: 12, fontWeight: 600,
-                        backgroundColor: flowLevel === opt.key ? PERIOD_COLOR : t.bgSub,
+                        backgroundColor: flowLevel === opt.key ? PERIOD_COLOR : t.lavenderTint,
                         color: flowLevel === opt.key ? '#fff' : t.text,
                         border: `1px solid ${flowLevel === opt.key ? PERIOD_COLOR : t.border}`,
                       }}>
@@ -257,7 +257,7 @@ export function PeriodSection() {
                       className="px-2.5 py-1 rounded-full transition-colors"
                       style={{
                         fontSize: 11, fontWeight: 600,
-                        backgroundColor: symptoms.includes(s) ? PERIOD_COLOR + '25' : t.bgSub,
+                        backgroundColor: symptoms.includes(s) ? PERIOD_COLOR + '25' : t.lavenderTint,
                         color: symptoms.includes(s) ? PERIOD_COLOR : t.textMuted,
                         border: `1px solid ${symptoms.includes(s) ? PERIOD_COLOR : t.border}`,
                       }}>
@@ -273,7 +273,7 @@ export function PeriodSection() {
                 <textarea value={memo} onChange={e => setMemo(e.target.value)} placeholder="증상이나 특이사항을 입력하세요"
                   rows={2}
                   className="w-full mt-1 rounded-lg px-3 py-2 border outline-none resize-none"
-                  style={{ borderColor: t.border, backgroundColor: t.bgSub, color: t.text, fontSize: 13 }} />
+                  style={{ borderColor: t.border, backgroundColor: t.lavenderTint, color: t.text, fontSize: 13 }} />
               </div>
 
               {/* 버튼 — 탭 아이덴티티색(생리 핑크) 폐기, 공통 HaonButton(t.accent) */}
@@ -303,7 +303,7 @@ export function PeriodSection() {
                 : null;
               return (
                 <div key={r.id} className="px-4 py-3 rounded-xl"
-                  style={isHaon(t) ? solidRowStyle(t) : { backgroundColor: t.card, border: `1px solid ${t.borderLight}` }}>
+                  style={solidRowStyle(t)}>
                   <div className="flex items-center gap-2">
                     <Heart size={12} color={PERIOD_COLOR} fill={PERIOD_COLOR} />
                     <span style={{ fontSize: 13, fontWeight: 600, color: t.text }}>
@@ -623,7 +623,7 @@ export function SleepSection() {
       <div
         className="flex-1 rounded-2xl p-3 lg:p-4 flex flex-col items-center gap-1"
         style={{
-          backgroundColor: isEmpty ? t.bgSub : SLEEP_COLOR + '12',
+          backgroundColor: isEmpty ? t.lavenderTint : SLEEP_COLOR + '12',
           border: `1.5px solid ${isEmpty ? t.borderLight : SLEEP_COLOR + '40'}`,
           minWidth: 0,
         }}
@@ -698,7 +698,7 @@ export function SleepSection() {
 
       {/* 입력 카드 (펼침 상태에서만) */}
       {inputOpen && (
-      <div ref={formRef} className="p-3 lg:p-4 rounded-2xl mb-3" style={isHaon(t) ? solidCardStyle(t) : { backgroundColor: t.card, border: `1px solid ${t.borderLight}` }}>
+      <div ref={formRef} className="p-3 lg:p-4 rounded-2xl mb-3" style={solidCardStyle(t)}>
         {/* 입력 헤더 + 닫기 */}
         <div className="flex items-center justify-between mb-3">
           <span style={{ fontSize: 12, fontWeight: 700, color: SLEEP_COLOR }}>{editingId ? '수면 수정' : '수면 기록'}</span>
@@ -718,7 +718,7 @@ export function SleepSection() {
             value={date}
             onChange={e => setDate(e.target.value)}
             className="w-full rounded-xl px-3 py-2 border outline-none"
-            style={{ borderColor: t.borderLight, backgroundColor: t.bgSub, color: t.text, fontSize: 13, WebkitAppearance: 'none', appearance: 'none', boxSizing: 'border-box', minWidth: 0 }}
+            style={{ borderColor: t.borderLight, backgroundColor: t.lavenderTint, color: t.text, fontSize: 13, WebkitAppearance: 'none', appearance: 'none', boxSizing: 'border-box', minWidth: 0 }}
           />
           <p style={{ fontSize: 10.5, color: t.textMuted, marginTop: 6, paddingLeft: 2 }}>
             일어난 날 기준으로 기록해요
@@ -754,7 +754,7 @@ export function SleepSection() {
 
       {/* 통계 + 주간 그래프 */}
       {hasStats && (
-        <div className="p-3 lg:p-4 rounded-2xl mb-3" style={isHaon(t) ? solidCardStyle(t) : { backgroundColor: t.card, border: `1px solid ${t.borderLight}` }}>
+        <div className="p-3 lg:p-4 rounded-2xl mb-3" style={solidCardStyle(t)}>
           {/* 통계 카드 */}
           <div className="flex gap-4 mb-4">
             <div className="flex-1 text-center">
@@ -854,7 +854,7 @@ export function SleepSection() {
       {/* PC 2열 그룹: 30일 추이 + 이번주 부채 (모바일은 세로 스택 유지) */}
       <div className="grid gap-3 mb-3 lg:grid-cols-2">
       {/* 최근 30일 수면 추이 선그래프 */}
-      <div className="p-3 lg:p-4 rounded-2xl flex flex-col" style={isHaon(t) ? solidCardStyle(t) : { backgroundColor: t.card, border: `1px solid ${t.borderLight}` }}>
+      <div className="p-3 lg:p-4 rounded-2xl flex flex-col" style={solidCardStyle(t)}>
         <div className="flex items-baseline justify-between mb-2">
           <p style={{ fontSize: 13, fontWeight: 700, color: t.text }}>최근 30일 수면 추이</p>
           <p style={{ fontSize: 10, color: t.textMuted }}>
@@ -921,7 +921,7 @@ export function SleepSection() {
         const debtMax = sleepGoalMin;
 
         return (
-          <div className="p-3 lg:p-4 rounded-2xl" style={isHaon(t) ? solidCardStyle(t) : { backgroundColor: t.card, border: `1px solid ${t.borderLight}` }}>
+          <div className="p-3 lg:p-4 rounded-2xl" style={solidCardStyle(t)}>
             <div className="flex items-baseline justify-between mb-2">
               <p style={{ fontSize: 13, fontWeight: 700, color: t.text }}>{titleLabel}</p>
               <p style={{ fontSize: 10, color: t.textMuted }}>
@@ -988,7 +988,7 @@ export function SleepSection() {
       {/* PC 2열 그룹: 규칙성 + 상관 (모바일은 세로 스택 유지) */}
       <div className="grid gap-3 mb-3 lg:grid-cols-2">
       {/* 최근 30일 취침·기상 규칙성 */}
-      <div className="p-3 lg:p-4 rounded-2xl" style={isHaon(t) ? solidCardStyle(t) : { backgroundColor: t.card, border: `1px solid ${t.borderLight}` }}>
+      <div className="p-3 lg:p-4 rounded-2xl" style={solidCardStyle(t)}>
         <div className="flex items-baseline justify-between mb-3">
           <p style={{ fontSize: 13, fontWeight: 700, color: t.text }}>취침·기상 규칙성</p>
           <p style={{ fontSize: 10, color: t.textMuted }}>최근 30일 · 기록 {regularity.count}일</p>
@@ -1069,7 +1069,7 @@ export function SleepSection() {
         const totalPairs = correlation.pairs.length;
 
         return (
-          <div className="p-3 lg:p-4 rounded-2xl" style={isHaon(t) ? solidCardStyle(t) : { backgroundColor: t.card, border: `1px solid ${t.borderLight}` }}>
+          <div className="p-3 lg:p-4 rounded-2xl" style={solidCardStyle(t)}>
             <div className="flex items-baseline justify-between mb-3">
               <p style={{ fontSize: 13, fontWeight: 700, color: t.text }}>수면 ↔ 다음날 컨디션</p>
               <p style={{ fontSize: 10, color: t.textMuted }}>
@@ -1173,7 +1173,7 @@ export function SleepSection() {
               <button onClick={toggleSearch} aria-label="검색" aria-pressed={searchOpen}
                 className="p-1.5 rounded-lg"
                 style={{
-                  backgroundColor: searchOpen ? `${SLEEP_COLOR}1A` : t.bgSub,
+                  backgroundColor: searchOpen ? `${SLEEP_COLOR}1A` : t.lavenderTint,
                   color: searchOpen ? SLEEP_COLOR : t.textSub, border: 'none', cursor: 'pointer',
                 }}>
                 <Search size={15} />
@@ -1183,7 +1183,7 @@ export function SleepSection() {
             {searchOpen ? (
               /* 검색바 */
               <div className="flex items-center gap-2 mb-3 px-3 py-2 rounded-xl"
-                style={{ backgroundColor: t.bgSub, border: `1px solid ${t.borderLight}` }}>
+                style={{ backgroundColor: t.lavenderTint, border: `1px solid ${t.borderLight}` }}>
                 <Search size={14} color={t.textMuted} />
                 <input autoFocus value={searchQuery} onChange={e => setSearchQuery(e.target.value)}
                   placeholder="날짜·시간·수면시간 검색"
@@ -1214,13 +1214,13 @@ export function SleepSection() {
             {displayed.length === 0 ? (
               q ? (
                 <div className="py-8 text-center rounded-2xl"
-                  style={{ backgroundColor: t.bgSub, fontSize: 13, color: t.textMuted }}>
+                  style={{ backgroundColor: t.lavenderTint, fontSize: 13, color: t.textMuted }}>
                   검색 결과가 없어요
                 </div>
               ) : selectedDate ? (
                 /* 빈 날 넛지 — 선택한 날짜에 수면 기록이 없을 때 */
                 <div className="py-6 px-4 text-center rounded-2xl"
-                  style={isHaon(t) ? solidCardStyle(t) : { backgroundColor: t.card, border: `1px solid ${t.borderLight}` }}>
+                  style={solidCardStyle(t)}>
                   <p style={{ fontSize: 13, fontWeight: 600, color: t.text }}>
                     {selectedDate === todayStr ? '오늘은' : `${format(parseISO(selectedDate), 'M월 d일')}은`} 아직 수면 기록이 없어요
                   </p>
@@ -1240,9 +1240,7 @@ export function SleepSection() {
                   const incomplete = (!!r.sleepStart) !== (!!r.sleepEnd);
                   return (
                   <div key={r.id} className="flex items-center gap-3 px-4 py-2.5 rounded-xl"
-                    style={isHaon(t)
-                      ? { ...solidRowStyle(t), ...(incomplete ? { border: `1px solid ${SLEEP_COLOR}55` } : {}) }
-                      : { backgroundColor: t.card, border: `1px solid ${incomplete ? SLEEP_COLOR + '55' : t.borderLight}` }}>
+                    style={{ ...solidRowStyle(t), ...(incomplete ? { border: `1px solid ${SLEEP_COLOR}55` } : {}) }}>
                     <Moon size={12} color={SLEEP_COLOR} />
                     <span style={{ fontSize: 11, color: t.textMuted, width: 44, flexShrink: 0 }}>{r.date.slice(5)}</span>
                     <button onClick={() => openEdit(r)}
@@ -1271,7 +1269,7 @@ export function SleepSection() {
 
             {isDefaultView && sleepRecords.length > listLimit && (
               <button onClick={() => setListLimit(n => n + 10)}
-                className="w-full mt-3 py-2 rounded-xl" style={{ backgroundColor: t.bgSub, color: t.textSub, fontSize: 13 }}>
+                className="w-full mt-3 py-2 rounded-xl" style={{ backgroundColor: t.lavenderTint, color: t.textSub, fontSize: 13 }}>
                 더보기
               </button>
             )}
@@ -1317,7 +1315,7 @@ function AddRecordModal({ onClose, editRecord }: { onClose: () => void; editReco
                 <button key={cat.key} onClick={() => setCategory(cat.key)}
                   className="flex-1 px-3 py-2 rounded-lg flex items-center justify-center gap-1.5"
                   style={{
-                    fontSize: 12, backgroundColor: category === cat.key ? cat.color : t.bgSub,
+                    fontSize: 12, backgroundColor: category === cat.key ? cat.color : t.lavenderTint,
                     color: category === cat.key ? '#fff' : t.text, border: `1px solid ${category === cat.key ? cat.color : t.border}`,
                   }}>
                   <cat.icon size={13} /> {cat.label.split(' ')[0]}
@@ -1329,23 +1327,23 @@ function AddRecordModal({ onClose, editRecord }: { onClose: () => void; editReco
             <label style={{ fontSize: 11, color: t.textSub, fontWeight: 600 }}>날짜</label>
             <input type="date" value={date} onChange={e => setDate(e.target.value)}
               className="w-full mt-1 rounded-lg px-3 py-2 border outline-none"
-              style={{ borderColor: t.border, backgroundColor: t.bgSub, color: t.text, fontSize: 13 }} />
+              style={{ borderColor: t.border, backgroundColor: t.lavenderTint, color: t.text, fontSize: 13 }} />
           </div>
           <div>
             <label style={{ fontSize: 11, color: t.textSub, fontWeight: 600 }}>내용</label>
             <input autoFocus value={content} onChange={e => setContent(e.target.value)} placeholder="예: 헬스장 상체 운동"
               className="w-full mt-1 rounded-lg px-3 py-2 border outline-none"
-              style={{ borderColor: t.border, backgroundColor: t.bgSub, color: t.text, fontSize: 13 }} />
+              style={{ borderColor: t.border, backgroundColor: t.lavenderTint, color: t.text, fontSize: 13 }} />
           </div>
           <div>
             <label style={{ fontSize: 11, color: t.textSub, fontWeight: 600 }}>소요 시간 (분)</label>
             <input type="number" min={5} max={480} value={duration} onChange={e => setDuration(Number(e.target.value))}
               className="w-full mt-1 rounded-lg px-3 py-2 border outline-none"
-              style={{ borderColor: t.border, backgroundColor: t.bgSub, color: t.text, fontSize: 13 }} />
+              style={{ borderColor: t.border, backgroundColor: t.lavenderTint, color: t.text, fontSize: 13 }} />
           </div>
         </div>
         <div className="flex gap-2 px-5 py-4 border-t" style={{ borderColor: t.border }}>
-          <button onClick={onClose} className="flex-1 py-2 rounded-xl" style={{ fontSize: 13, color: t.textSub, backgroundColor: t.bgSub }}>취소</button>
+          <button onClick={onClose} className="flex-1 py-2 rounded-xl" style={{ fontSize: 13, color: t.textSub, backgroundColor: t.lavenderTint }}>취소</button>
           <button onClick={handleSubmit} className="flex-1 py-2 rounded-xl" style={{ fontSize: 13, fontWeight: 600, backgroundColor: t.accent, color: '#fff' }}>
             {editRecord ? '수정' : '추가'}
           </button>
@@ -1509,7 +1507,7 @@ function DailyBarList({ report, selectedDate, onSelect }: {
             <span style={{ fontSize: 11, width: 34, flexShrink: 0, textAlign: 'center', color: d.isToday ? t.accent : t.textMuted, fontWeight: d.isToday ? 700 : 500 }}>
               {dateLabel}
             </span>
-            <div className="flex-1 flex rounded-full overflow-hidden" style={{ height: 14, backgroundColor: t.bgSub }}>
+            <div className="flex-1 flex rounded-full overflow-hidden" style={{ height: 14, backgroundColor: t.lavenderTint }}>
               {hasData && byCategory.map(c => {
                 const m = d.byCategory[c.tagId] ?? 0;
                 if (m <= 0) return null;
@@ -1545,7 +1543,7 @@ function CategoryBreakdown({ byCategory }: { byCategory: ReturnType<typeof useTi
               <span style={{ fontSize: 12, color: t.textSub, fontWeight: 600 }}>{fmtMinKo(c.totalMinutes)}</span>
               <span style={{ fontSize: 11, color: t.textMuted, width: 34, textAlign: 'right' }}>{pct}%</span>
             </div>
-            <div className="rounded-full overflow-hidden" style={{ height: 6, backgroundColor: t.bgSub }}>
+            <div className="rounded-full overflow-hidden" style={{ height: 6, backgroundColor: t.lavenderTint }}>
               <div style={{ width: `${pct}%`, height: '100%', backgroundColor: c.tagColor, borderRadius: 999, transition: 'width 0.4s' }} />
             </div>
           </div>
@@ -1560,7 +1558,7 @@ function ExpandedCategoryTodos({ byCategory }: { byCategory: ReturnType<typeof u
   const { t } = useTheme();
   if (byCategory.length === 0) {
     return (
-      <div className="py-8 text-center rounded-2xl" style={{ backgroundColor: t.bgSub, fontSize: 13, color: t.textMuted }}>
+      <div className="py-8 text-center rounded-2xl" style={{ backgroundColor: t.lavenderTint, fontSize: 13, color: t.textMuted }}>
         표시할 활동이 없어요
       </div>
     );
@@ -1734,7 +1732,7 @@ function ManualRecordsSection({ dateRange, onEdit }: {
 function PeriodTabs({ period, onChange }: { period: TimeReportPeriod; onChange: (p: TimeReportPeriod) => void }) {
   const { t } = useTheme();
   return (
-    <div className="flex p-1 rounded-xl" style={{ backgroundColor: t.bgSub }}>
+    <div className="flex p-1 rounded-xl" style={{ backgroundColor: t.lavenderTint }}>
       {([['week', '이번 주'], ['month', '이번 달']] as const).map(([key, label]) => (
         <button key={key} onClick={() => onChange(key)}
           className="flex-1 py-2 rounded-lg transition-colors"

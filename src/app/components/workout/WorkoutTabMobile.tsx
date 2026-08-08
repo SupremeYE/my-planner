@@ -1,6 +1,6 @@
 import { Flame, Plus, ChevronRight, History as HistoryIcon, Pencil, TrendingUp } from 'lucide-react';
 import { useTheme } from '../../ThemeContext';
-import { isHaon, solidCardStyle, solidRowStyle } from '../../styles/haonStyles';
+import { solidCardStyle, solidRowStyle } from '../../styles/haonStyles';
 import { HaonButton } from '../ui/HaonButton';
 import { exerciseLabel } from '../../../lib/db';
 import { ExerciseThumb } from './ExerciseThumb';
@@ -19,7 +19,7 @@ export function WorkoutTabMobile({ w }: { w: UseWorkout }) {
       <div className="space-y-3 pb-4">
 
         {/* 1) 스트릭/요약 히어로 */}
-        <div style={{ background: `linear-gradient(135deg, ${t.accent} 0%, ${t.accentSoft} 100%)`, borderRadius: 18, padding: 16, color: '#fff' }}>
+        <div style={{ background: `linear-gradient(135deg, ${t.accent} 0%, ${t.lavenderTint} 100%)`, borderRadius: 18, padding: 16, color: '#fff' }}>
           <div className="flex items-center gap-2">
             <Flame size={20} color="#fff" />
             <span style={{ fontSize: 28, fontWeight: 800, fontFamily: t.fontStat, lineHeight: 1 }}>{w.streak}</span>
@@ -79,7 +79,7 @@ export function WorkoutTabMobile({ w }: { w: UseWorkout }) {
                   key={part}
                   style={{
                     display: 'flex', alignItems: 'center', gap: 5,
-                    backgroundColor: isRested ? t.dangerLight : t.bgSub,
+                    backgroundColor: isRested ? t.dangerLight : t.lavenderTint,
                     border: `1px solid ${isRested ? t.danger : t.borderLight}`,
                     borderRadius: 999, padding: '5px 11px',
                   }}
@@ -116,7 +116,7 @@ export function WorkoutTabMobile({ w }: { w: UseWorkout }) {
                       style={{
                         flexShrink: 0, fontSize: 12, fontWeight: 700,
                         color: active ? '#fff' : t.textSub,
-                        backgroundColor: active ? t.accent : t.bgSub,
+                        backgroundColor: active ? t.accent : t.lavenderTint,
                         border: `1px solid ${active ? t.accent : t.borderLight}`,
                         padding: '5px 11px', borderRadius: 999,
                       }}
@@ -145,7 +145,7 @@ export function WorkoutTabMobile({ w }: { w: UseWorkout }) {
                   key={log.id}
                   onClick={() => w.setRecord({ exercise: log.exercise!, performedOn: log.performedOn, editingLog: log })}
                   className="w-full flex items-center gap-3 text-left"
-                  style={{ ...(isHaon(t) ? solidRowStyle(t) : { backgroundColor: t.bgSub, border: `1px solid ${t.borderLight}` }), borderRadius: 12, padding: 9 }}
+                  style={{ ...solidRowStyle(t), borderRadius: 12, padding: 9 }}
                 >
                   <ExerciseThumb exercise={log.exercise} size={42} radius={9} />
                   <div className="flex-1 min-w-0">
@@ -177,7 +177,7 @@ export function WorkoutTabMobile({ w }: { w: UseWorkout }) {
 function Card({ children }: { children: React.ReactNode }) {
   const { t } = useTheme();
   return (
-    <div style={{ ...(isHaon(t) ? solidCardStyle(t) : { backgroundColor: t.card, border: `1px solid ${t.borderLight}` }), borderRadius: 16, padding: 14 }}>
+    <div style={{ ...solidCardStyle(t), borderRadius: 16, padding: 14 }}>
       {children}
     </div>
   );

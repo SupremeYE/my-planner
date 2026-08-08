@@ -131,7 +131,7 @@ export function GlobalFloatingTimer() {
       <div className="flex items-center gap-3">
         <div
           className="flex h-10 w-10 items-center justify-center rounded-full flex-shrink-0"
-          style={{ backgroundColor: activeTimer.isPaused ? t.bgSub : t.accent, color: activeTimer.isPaused ? t.textMuted : '#fff' }}
+          style={{ backgroundColor: activeTimer.isPaused ? t.lavenderTint : t.accent, color: activeTimer.isPaused ? t.textMuted : '#fff' }}
         >
           <Timer size={17} className={activeTimer.isPaused ? '' : 'animate-pulse'} />
         </div>
@@ -153,7 +153,7 @@ export function GlobalFloatingTimer() {
           <button
             onClick={activeTimer.isPaused ? resumeTimer : pauseTimer}
             className="flex items-center gap-1.5 rounded-xl px-3 py-2"
-            style={{ backgroundColor: t.bgSub, color: t.text, fontSize: 12, fontWeight: 700, border: `1px solid ${t.borderLight}` }}
+            style={{ backgroundColor: t.lavenderTint, color: t.text, fontSize: 12, fontWeight: 700, border: `1px solid ${t.borderLight}` }}
           >
             {activeTimer.isPaused ? <Play size={12} /> : <Pause size={12} />}
             {activeTimer.isPaused ? '재개' : '일시정지'}

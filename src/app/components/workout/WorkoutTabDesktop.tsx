@@ -1,6 +1,6 @@
 import { Flame, Plus, ChevronRight, History as HistoryIcon, Pencil, TrendingUp, Calendar } from 'lucide-react';
 import { useTheme } from '../../ThemeContext';
-import { isHaon, solidCardStyle, solidRowStyle } from '../../styles/haonStyles';
+import { solidCardStyle, solidRowStyle } from '../../styles/haonStyles';
 import { HaonButton } from '../ui/HaonButton';
 import { exerciseLabel } from '../../../lib/db';
 import type { WorkoutLog } from '../../../lib/db';
@@ -40,7 +40,7 @@ function HeroBanner({ w }: { w: UseWorkout }) {
   return (
     <div
       style={{
-        background: `linear-gradient(120deg, ${t.accent} 0%, ${t.accentSoft} 100%)`,
+        background: `linear-gradient(120deg, ${t.accent} 0%, ${t.lavenderTint} 100%)`,
         borderRadius: 22, padding: '20px 26px', color: '#fff',
         boxShadow: '0 12px 30px rgba(0,0,0,0.08)',
       }}
@@ -124,7 +124,7 @@ function TodayRoutineCard({ w }: { w: UseWorkout }) {
             <div
               key={re.id}
               className="flex items-center gap-3"
-              style={{ ...(isHaon(t) ? solidRowStyle(t) : { backgroundColor: t.bgSub, border: `1px solid ${t.borderLight}` }), borderRadius: 12, padding: 9 }}
+              style={{ ...solidRowStyle(t), borderRadius: 12, padding: 9 }}
             >
               <ExerciseThumb exercise={re.exercise} size={42} radius={9} />
               <div className="flex-1 min-w-0">
@@ -176,7 +176,7 @@ function TodayWorkoutCard({ w }: { w: UseWorkout }) {
               key={log.id}
               onClick={() => w.setRecord({ exercise: log.exercise!, performedOn: log.performedOn, editingLog: log })}
               className="group w-full flex items-center gap-3 text-left"
-              style={{ ...(isHaon(t) ? solidRowStyle(t) : { backgroundColor: t.bgSub, border: `1px solid ${t.borderLight}` }), borderRadius: 12, padding: 10 }}
+              style={{ ...solidRowStyle(t), borderRadius: 12, padding: 10 }}
             >
               <ExerciseThumb exercise={log.exercise} size={46} radius={10} />
               <div className="flex-1 min-w-0">
@@ -230,7 +230,7 @@ function GrowthCard({ w }: { w: UseWorkout }) {
                   style={{
                     fontSize: 12, fontWeight: 700,
                     color: active ? '#fff' : t.textSub,
-                    backgroundColor: active ? t.accent : t.bgSub,
+                    backgroundColor: active ? t.accent : t.lavenderTint,
                     border: `1px solid ${active ? t.accent : t.borderLight}`,
                     padding: '5px 11px', borderRadius: 999,
                   }}
@@ -272,7 +272,7 @@ function RecentHistoryCard({ w }: { w: UseWorkout }) {
               key={log.id}
               onClick={() => w.setRecord({ exercise: log.exercise!, performedOn: log.performedOn, editingLog: log })}
               className="w-full flex items-center gap-3 text-left"
-              style={{ ...(isHaon(t) ? solidRowStyle(t) : { backgroundColor: t.bgSub, border: `1px solid ${t.borderLight}` }), borderRadius: 12, padding: 9 }}
+              style={{ ...solidRowStyle(t), borderRadius: 12, padding: 9 }}
             >
               <ExerciseThumb exercise={log.exercise} size={40} radius={9} />
               <div className="flex-1 min-w-0">
@@ -294,7 +294,7 @@ function RecentHistoryCard({ w }: { w: UseWorkout }) {
 function DCard({ children }: { children: React.ReactNode }) {
   const { t } = useTheme();
   return (
-    <div style={{ ...(isHaon(t) ? solidCardStyle(t) : { backgroundColor: t.card, border: `1px solid ${t.borderLight}` }), borderRadius: 18, padding: 18 }}>
+    <div style={{ ...solidCardStyle(t), borderRadius: 18, padding: 18 }}>
       {children}
     </div>
   );

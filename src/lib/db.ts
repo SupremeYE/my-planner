@@ -129,6 +129,8 @@ type MonthlyGoalRow = {
   id: string; text: string; month: string; project_id: string | null;
   annual_goal_id?: string | null;
   mandalart_cell_id?: string | null;
+  retro_status?: string | null;
+  retro_note?: string | null;
 };
 
 type BrainstormItemRow = {
@@ -523,11 +525,19 @@ const fromWeeklyGoal = (g: WeeklyGoal): WeeklyGoalRow => ({
   mandalart_cell_id: g.mandalartCellId ?? null,
 });
 
+const RETRO_STATUSES = ['done', 'partial', 'missed'] as const;
+const toRetroStatus = (v: unknown): MonthlyGoal['retroStatus'] =>
+  (RETRO_STATUSES as readonly string[]).includes(v as string)
+    ? (v as MonthlyGoal['retroStatus'])
+    : undefined;
+
 const toMonthlyGoal = (r: MonthlyGoalRow): MonthlyGoal => ({
   id: r.id, text: r.text, month: r.month,
   projectId: r.project_id ?? undefined,
   annualGoalId: r.annual_goal_id ?? undefined,
   mandalartCellId: r.mandalart_cell_id ?? undefined,
+  retroStatus: toRetroStatus(r.retro_status),
+  retroNote: r.retro_note ?? undefined,
 });
 
 const fromMonthlyGoal = (g: MonthlyGoal): MonthlyGoalRow => ({
@@ -535,6 +545,8 @@ const fromMonthlyGoal = (g: MonthlyGoal): MonthlyGoalRow => ({
   project_id: g.projectId ?? null,
   annual_goal_id: g.annualGoalId ?? null,
   mandalart_cell_id: g.mandalartCellId ?? null,
+  retro_status: g.retroStatus ?? null,
+  retro_note: g.retroNote ?? null,
 });
 
 const toAnnualGoal = (r: AnnualGoalRow): AnnualGoal => ({

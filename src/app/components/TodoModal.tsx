@@ -5,7 +5,6 @@ import { CalendarDays, RefreshCw, Star, Trash2, X } from 'lucide-react';
 import { usePlanner, Todo, getLogicalToday } from '../store';
 import { useTheme } from '../ThemeContext';
 import ConfirmModal from './ConfirmModal';
-import { TimePicker } from './TimePicker';
 import { TimeField, DurationChips } from './TimeField';
 import { RecurrenceBranchModal } from './RecurrenceBranchModal';
 import { isVirtualTodoId, parseVirtualTodoId, DOW_LABELS } from '../../lib/recurrenceExpansion';
@@ -13,7 +12,7 @@ import { totalElapsedForTodo } from '../../lib/timeBlocks';
 import { formatTotalDoKo } from '../../lib/todoDoDuration';
 import { DEFAULT_TAG_COLORS, TAG_PALETTE_KEY, MAX_TAG_COLORS } from '../../lib/tagPalette';
 import { PROJECT_COLORS } from './ProjectView';
-import { inputBg, dangerText, dangerFill, isHaon } from '../styles/haonStyles';
+import { inputBg, dangerText, dangerFill } from '../styles/haonStyles';
 
 interface TodoModalProps {
   /** date prop은 기본 날짜로 사용되며, 모달 안에서 변경/해제할 수 있다. */
@@ -395,7 +394,7 @@ export function TodoModal({ date, todo, initialPlanStart, initialPlanEnd, initia
                 type="button"
                 onClick={() => setModalDate('')}
                 className="px-3 py-2 rounded-lg"
-                style={{ fontSize: 11, fontWeight: 600, color: t.textSub, backgroundColor: inputBg(t), ...(isHaon(t) ? { boxShadow: `inset 0 0 0 1px ${t.border}` } : null) }}
+                style={{ fontSize: 11, fontWeight: 600, color: t.textSub, backgroundColor: inputBg(t), boxShadow: `inset 0 0 0 1px ${t.border}` }}
               >
                 미지정
               </button>
@@ -448,30 +447,22 @@ export function TodoModal({ date, todo, initialPlanStart, initialPlanEnd, initia
             <div className="flex-1">
               <label style={{ fontSize: 11, color: t.textSub, fontWeight: 600 }}>계획 시작</label>
               <div className="mt-1">
-                {isHaon(t) ? (
-                  <TimeField value={planStart} onChange={setPlanStart} role="start" placeholder="시작 시간"
-                    onCommitFocusNext={() => planEndRef.current?.focus()} />
-                ) : (
-                  <TimePicker value={planStart} onChange={setPlanStart} placeholder="시작 시간" />
-                )}
+                <TimeField value={planStart} onChange={setPlanStart} role="start" placeholder="시작 시간"
+                  onCommitFocusNext={() => planEndRef.current?.focus()} />
               </div>
             </div>
             <div className="flex-1">
               <label style={{ fontSize: 11, color: t.textSub, fontWeight: 600 }}>계획 종료</label>
               <div className="mt-1">
-                {isHaon(t) ? (
-                  <TimeField value={planEnd} onChange={setPlanEnd} role="end" rangeStart={planStart}
-                    placeholder="종료 시간" inputRef={planEndRef} />
-                ) : (
-                  <TimePicker value={planEnd} onChange={setPlanEnd} placeholder="종료 시간" />
-                )}
+                <TimeField value={planEnd} onChange={setPlanEnd} role="end" rangeStart={planStart}
+                  placeholder="종료 시간" inputRef={planEndRef} />
               </div>
             </div>
           </div>
 
           {/* 모바일 duration chip — 계획 시작 기준 종료 자동설정, 폼 전체 폭 한 줄.
               PC(lg)는 종료 콤보박스 목록의 duration 병기로 대체하므로 숨김(lg:hidden). */}
-          {isHaon(t) && <DurationChips start={planStart} end={planEnd} onPick={setPlanEnd} className="lg:hidden" />}
+          <DurationChips start={planStart} end={planEnd} onPick={setPlanEnd} className="lg:hidden" />
 
           {/* 실제(DO) 시간 — 읽기전용 요약 (DESIGN.md §5 「읽기전용 값 요약」).
               생성·조정은 타임라인/타이머가 관리. 표시 소스 = do_start~do_end 단일(do_elapsed_sec 안 섞음).
@@ -532,13 +523,9 @@ export function TodoModal({ date, todo, initialPlanStart, initialPlanEnd, initia
                       fontSize: 11, fontWeight: recurrenceRule === opt.value ? 700 : 500,
                       // 단일 선택 토글 → duration chip 3단계와 동일: H 는 선택만 라일락(accentSoft)+딥인디고,
                       // 비선택 흰색+중립 hairline(§3 라일락 규칙·코랄 제거). 非-H 는 기존(코랄/bgSub) 유지 → 회귀 0.
-                      backgroundColor: isHaon(t)
-                        ? (recurrenceRule === opt.value ? t.accentSoft : t.card)
-                        : (recurrenceRule === opt.value ? t.accent : t.bgSub),
-                      color: isHaon(t)
-                        ? (recurrenceRule === opt.value ? t.text : t.textMuted)
-                        : (recurrenceRule === opt.value ? '#fff' : t.textSub),
-                      border: `1.5px solid ${isHaon(t) ? t.border : (recurrenceRule === opt.value ? t.accent : t.border)}`,
+                      backgroundColor: recurrenceRule === opt.value ? t.lavenderTint : t.card,
+                      color: recurrenceRule === opt.value ? t.text : t.textMuted,
+                      border: `1.5px solid ${t.border}`,
                     }}
                   >
                     {opt.label}
@@ -559,13 +546,9 @@ export function TodoModal({ date, todo, initialPlanStart, initialPlanEnd, initia
                       style={{
                         fontSize: 11, fontWeight: 700,
                         // 요일 다중 선택 → 반복 칩과 동일 3단계(선택만 라일락, 비선택 흰색). 非-H 유지.
-                        backgroundColor: isHaon(t)
-                          ? (recurrenceDays.includes(dow) ? t.accentSoft : t.card)
-                          : (recurrenceDays.includes(dow) ? t.accent : t.bgSub),
-                        color: isHaon(t)
-                          ? (recurrenceDays.includes(dow) ? t.text : t.textMuted)
-                          : (recurrenceDays.includes(dow) ? '#fff' : t.textSub),
-                        border: `1.5px solid ${isHaon(t) ? t.border : (recurrenceDays.includes(dow) ? t.accent : t.border)}`,
+                        backgroundColor: recurrenceDays.includes(dow) ? t.lavenderTint : t.card,
+                        color: recurrenceDays.includes(dow) ? t.text : t.textMuted,
+                        border: `1.5px solid ${t.border}`,
                       }}
                     >
                       {label}
@@ -669,9 +652,9 @@ export function TodoModal({ date, todo, initialPlanStart, initialPlanEnd, initia
                     flexShrink: 0,
                     // disabled 배경을 라일락(bgSub)으로 두지 않는다 — H 는 accent+opacity(§5 disabled, 태그 '추가' 버튼과 통일).
                     // 非-H 는 기존(bgSub/textMuted) 유지 → 회귀 0.
-                    backgroundColor: newProjectName.trim() ? t.accent : (isHaon(t) ? t.accent : t.bgSub),
-                    color: newProjectName.trim() ? '#fff' : (isHaon(t) ? '#fff' : t.textMuted),
-                    ...(!newProjectName.trim() && isHaon(t) ? { opacity: 0.5 } : null),
+                    backgroundColor: newProjectName.trim() ? t.accent : t.accent,
+                    color: newProjectName.trim() ? '#fff' : '#fff',
+                    ...(!newProjectName.trim() ? { opacity: 0.5 } : null),
                     fontSize: 13, fontWeight: 700, padding: '0 14px', borderRadius: 10, border: 'none',
                   }}
                 >
@@ -1030,7 +1013,7 @@ export function TodoModal({ date, todo, initialPlanStart, initialPlanEnd, initia
             <button
               onClick={handleDelete}
               className="px-4 py-2 rounded-xl transition-colors"
-              style={{ fontSize: 12, color: dangerText(t), backgroundColor: isHaon(t) ? 'transparent' : dangerFill(t, '#FEE2E2') }}
+              style={{ fontSize: 12, color: dangerText(t), backgroundColor: 'transparent' }}
             >
               삭제
             </button>
@@ -1039,7 +1022,7 @@ export function TodoModal({ date, todo, initialPlanStart, initialPlanEnd, initia
           <button
             onClick={onClose}
             className="px-4 py-2 rounded-xl"
-            style={{ fontSize: 13, color: t.textSub, backgroundColor: inputBg(t), ...(isHaon(t) ? { boxShadow: `inset 0 0 0 1px ${t.border}` } : null) }}
+            style={{ fontSize: 13, color: t.textSub, backgroundColor: inputBg(t), boxShadow: `inset 0 0 0 1px ${t.border}` }}
           >
             취소
           </button>

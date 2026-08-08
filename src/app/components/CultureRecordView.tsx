@@ -111,7 +111,7 @@ export function CultureRecordView() {
             className="px-3 py-1 rounded-full transition-all"
             style={{
               fontSize: 12, fontWeight: isActive ? 600 : 400,
-              backgroundColor: isActive ? t.accent : t.bgSub,
+              backgroundColor: isActive ? t.accent : t.lavenderTint,
               color: isActive ? '#fff' : t.textSub,
               border: `1px solid ${isActive ? t.accent : t.border}`,
             }}>
@@ -178,7 +178,7 @@ export function CultureRecordView() {
                       <button key={k} onClick={() => { setSortKey(k); setSortOpen(false); }}
                         className="block w-full text-left px-3 py-2 transition-colors"
                         style={{ fontSize: 13, color: sortKey === k ? t.accent : t.text,
-                          fontWeight: sortKey === k ? 600 : 400, backgroundColor: sortKey === k ? t.bgSub : 'transparent' }}>
+                          fontWeight: sortKey === k ? 600 : 400, backgroundColor: sortKey === k ? t.lavenderTint : 'transparent' }}>
                         {SORT_LABELS[k]}
                       </button>
                     ))}
@@ -268,7 +268,7 @@ export function CultureRecordView() {
               <button key={opt.value} onClick={() => setStatusFilter(opt.value)}
                 className="flex-shrink-0 px-3 rounded-full transition-all"
                 style={{ minHeight: 34, fontSize: 13, fontWeight: active ? 600 : 400,
-                  backgroundColor: active ? t.accent : t.bgSub, color: active ? '#fff' : t.textSub,
+                  backgroundColor: active ? t.accent : t.lavenderTint, color: active ? '#fff' : t.textSub,
                   border: `1px solid ${active ? t.accent : t.border}` }}>
                 {opt.label}
               </button>
@@ -282,7 +282,7 @@ export function CultureRecordView() {
             className="flex items-center gap-1 px-3 rounded-full"
             style={{ minHeight: 34, fontSize: 13, color: mobileFiltersActive ? t.accent : t.textSub,
               fontWeight: mobileFiltersActive ? 600 : 400,
-              backgroundColor: mobileFiltersActive ? t.accentLight : t.bgSub,
+              backgroundColor: mobileFiltersActive ? t.accentLight : t.lavenderTint,
               border: `1px solid ${mobileFiltersActive ? t.accent : t.border}` }}>
             플랫폼·유형 <ChevronDown size={14} />
           </button>
@@ -290,7 +290,7 @@ export function CultureRecordView() {
           <button onClick={() => setFilterSheetOpen(true)}
             className="flex items-center gap-1 px-3 rounded-full"
             style={{ minHeight: 34, fontSize: 13, color: t.textSub,
-              backgroundColor: t.bgSub, border: `1px solid ${t.border}` }}>
+              backgroundColor: t.lavenderTint, border: `1px solid ${t.border}` }}>
             {SORT_LABELS[sortKey]} <ChevronDown size={14} />
           </button>
         </div>
@@ -403,8 +403,8 @@ function SkeletonGrid() {
     <div className="grid grid-cols-3 gap-2">
       {Array.from({ length: 6 }).map((_, i) => (
         <div key={i} className="flex flex-col">
-          <div className="rounded-lg animate-pulse" style={{ aspectRatio: '2 / 3', backgroundColor: t.bgSub }} />
-          <div className="mt-1.5 h-3 rounded animate-pulse" style={{ width: '85%', backgroundColor: t.bgSub }} />
+          <div className="rounded-lg animate-pulse" style={{ aspectRatio: '2 / 3', backgroundColor: t.lavenderTint }} />
+          <div className="mt-1.5 h-3 rounded animate-pulse" style={{ width: '85%', backgroundColor: t.lavenderTint }} />
         </div>
       ))}
     </div>
@@ -496,7 +496,7 @@ function CultureCard({ record, onClick, onStatusChange }: {
                     }}
                     className="flex items-center gap-2 w-full px-3 py-2 transition-colors"
                     style={{ fontSize: 12, color: active ? t.accent : t.text,
-                      fontWeight: active ? 600 : 400, backgroundColor: active ? t.bgSub : 'transparent' }}>
+                      fontWeight: active ? 600 : 400, backgroundColor: active ? t.lavenderTint : 'transparent' }}>
                     <Icon size={13} color={active ? t.accent : t.textSub} />
                     {STATUS_META[s].label}
                   </button>
@@ -530,7 +530,7 @@ function EmptyState({ hasRecords, onAdd }: { hasRecords: boolean; onAdd: () => v
   return (
     <div className="flex flex-col items-center justify-center text-center py-20">
       <div className="flex items-center justify-center rounded-full mb-4"
-        style={{ width: 72, height: 72, backgroundColor: t.bgSub }}>
+        style={{ width: 72, height: 72, backgroundColor: t.lavenderTint }}>
         <Clapperboard size={32} color={t.accent} />
       </div>
       <p style={{ fontSize: 16, fontWeight: 700, color: t.text, marginBottom: 6 }}>

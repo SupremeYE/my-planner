@@ -35,7 +35,7 @@ export function DistributionDonut({ segments, total, size = 128 }: { segments: {
   return (
     <div className="flex items-center gap-4">
       <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} className="flex-shrink-0">
-        <circle cx={cx} cy={cy} r={r} fill="none" stroke={t.bgSub} strokeWidth={sw} />
+        <circle cx={cx} cy={cy} r={r} fill="none" stroke={t.lavenderTint} strokeWidth={sw} />
         {total > 0 && active.map((s, i) => {
           const frac = Math.min(1, s.value / total);
           const len = frac * C;
@@ -195,7 +195,7 @@ export function MoneyPlanSheet({ m, onClose }: { m: UseMoney; onClose: () => voi
     width: '100%', padding: '11px 14px', borderRadius: 12, border: `1.5px solid ${t.border}`,
     fontSize: 18, fontWeight: 700, color: t.text, background: 'transparent', outline: 'none', textAlign: 'right' as const,
   };
-  const card = { background: t.bgSub, borderRadius: 14, padding: 14 };
+  const card = { background: t.lavenderTint, borderRadius: 14, padding: 14 };
   const toggleBtn = (active: boolean) => ({
     padding: '4px 12px', borderRadius: 7, fontSize: 11.5, fontWeight: 700, cursor: 'pointer',
     background: active ? t.card : 'transparent', color: active ? t.text : t.textMuted,
@@ -301,7 +301,7 @@ export function MoneyPlanSheet({ m, onClose }: { m: UseMoney; onClose: () => voi
                   <span style={{ width: 10, height: 10, borderRadius: 3, background: SEG.living, display: 'inline-block' }} />
                   생활비 한도
                 </span>
-                <div className="flex" style={{ background: t.bgSub, borderRadius: 9, padding: 2 }}>
+                <div className="flex" style={{ background: t.lavenderTint, borderRadius: 9, padding: 2 }}>
                   <button onClick={() => setMode('auto')} style={toggleBtn(mode === 'auto')}>자동</button>
                   <button onClick={() => setMode('direct')} style={toggleBtn(mode === 'direct')}>직접</button>
                 </div>
@@ -400,7 +400,7 @@ function AllocRow({ row, color, accounts, t, onName, onAmount, onAccount, onRemo
   onName: (v: string) => void; onAmount: (v: string) => void; onAccount: (v: string | null) => void; onRemove: () => void;
 }) {
   return (
-    <div style={{ background: t.bgSub, borderRadius: 14, padding: '10px 12px' }}>
+    <div style={{ background: t.lavenderTint, borderRadius: 14, padding: '10px 12px' }}>
       <div className="flex items-center gap-2">
         <span style={{ width: 10, height: 10, borderRadius: 3, background: color, display: 'inline-block', flexShrink: 0 }} />
         <input value={row.name} onChange={e => onName(e.target.value)} placeholder="항목명 (예: 월세)"

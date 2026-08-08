@@ -72,7 +72,7 @@ export function WalkRecordDetail({ session, onClose, onChanged }: { session: Wal
           <div style={{ position: 'absolute', inset: 0, background: photo ? `linear-gradient(180deg, ${withAlpha(t.text, 0.12)} 0%, ${withAlpha(t.text, 0.58)} 100%)` : 'transparent' }} />
 
           <div style={{ position: 'absolute', top: 14, right: 14 }}>
-            <RouteGlyph path={session.path} size={92} stroke={photo ? '#fff' : t.accent} bg={photo ? withAlpha('#000', 0.25) : t.bgSub} />
+            <RouteGlyph path={session.path} size={92} stroke={photo ? '#fff' : t.accent} bg={photo ? withAlpha('#000', 0.25) : t.lavenderTint} />
           </div>
 
           <div style={{ position: 'absolute', left: 0, right: 0, bottom: 0, padding: 18 }}>
@@ -85,7 +85,7 @@ export function WalkRecordDetail({ session, onClose, onChanged }: { session: Wal
               <textarea
                 value={memo} onChange={e => setMemo(e.target.value)} autoFocus rows={2}
                 placeholder="메모…"
-                style={{ width: '100%', background: withAlpha(photo ? '#000' : t.bgSub, photo ? 0.25 : 1), borderRadius: 10, border: 'none', outline: 'none', resize: 'none', padding: 8, fontFamily: t.fontDecoratePen, fontSize: 24, lineHeight: 1.2, color: photo ? '#fff' : t.text }}
+                style={{ width: '100%', background: withAlpha(photo ? '#000' : t.lavenderTint, photo ? 0.25 : 1), borderRadius: 10, border: 'none', outline: 'none', resize: 'none', padding: 8, fontFamily: t.fontDecoratePen, fontSize: 24, lineHeight: 1.2, color: photo ? '#fff' : t.text }}
               />
             ) : session.memo ? (
               <p style={{ fontFamily: t.fontDecoratePen, fontSize: 26, lineHeight: 1.2, color: photo ? '#fff' : t.text, whiteSpace: 'pre-wrap' }}>{session.memo}</p>
@@ -108,7 +108,7 @@ export function WalkRecordDetail({ session, onClose, onChanged }: { session: Wal
 
         {/* 코스로 저장 (내 코스 다시용) */}
         {canBeCourse && (
-          <div style={{ marginTop: 14, padding: 14, borderRadius: 14, backgroundColor: t.bgSub, border: `1px solid ${t.borderLight}` }}>
+          <div style={{ marginTop: 14, padding: 14, borderRadius: 14, backgroundColor: t.lavenderTint, border: `1px solid ${t.borderLight}` }}>
             {session.isSavedRoute ? (
               <div className="flex items-center justify-between">
                 <span className="flex items-center gap-1.5" style={{ fontSize: 13, color: t.text }}>

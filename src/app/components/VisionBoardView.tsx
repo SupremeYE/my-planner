@@ -123,7 +123,7 @@ function VisionCard({
             width: '100%',
             aspectRatio: '0.95',
             borderRadius: 2,
-            backgroundColor: t.bgSub,
+            backgroundColor: t.lavenderTint,
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',

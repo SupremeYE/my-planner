@@ -156,7 +156,7 @@ export function MusicAddSheet({ onClose, onAdded, notify }: MusicAddSheetProps) 
                       ? <img src={r.artworkUrl} alt="" className="rounded-md flex-shrink-0 object-cover"
                           style={{ width: 44, height: 44 }} />
                       : <div className="rounded-md flex-shrink-0 flex items-center justify-center"
-                          style={{ width: 44, height: 44, backgroundColor: t.bgSub }}>
+                          style={{ width: 44, height: 44, backgroundColor: t.lavenderTint }}>
                           <Music size={18} color={t.textMuted} />
                         </div>}
                     <div className="min-w-0 flex-1">
@@ -180,7 +180,7 @@ export function MusicAddSheet({ onClose, onAdded, notify }: MusicAddSheetProps) 
                 {selected.artworkUrl
                   ? <img src={selected.artworkUrl} alt="" className="rounded-lg object-cover" style={{ width: 56, height: 56 }} />
                   : <div className="rounded-lg flex items-center justify-center"
-                      style={{ width: 56, height: 56, backgroundColor: t.bgSub }}>
+                      style={{ width: 56, height: 56, backgroundColor: t.lavenderTint }}>
                       <Music size={22} color={t.textMuted} />
                     </div>}
                 <div className="min-w-0">
@@ -199,7 +199,7 @@ export function MusicAddSheet({ onClose, onAdded, notify }: MusicAddSheetProps) 
                   return (
                     <button key={m} type="button" onClick={() => toggleMood(m)}
                       className="rounded-full px-3 py-1.5 text-xs font-medium"
-                      style={{ backgroundColor: on ? t.accent : t.bgSub, color: on ? '#fff' : t.textSub,
+                      style={{ backgroundColor: on ? t.accent : t.lavenderTint, color: on ? '#fff' : t.textSub,
                         border: `1px solid ${on ? t.accent : t.border}` }}>
                       {m}
                     </button>

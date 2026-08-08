@@ -109,7 +109,7 @@ export default function ScrapLinkSheet({
           <div
             className="flex items-center gap-2"
             style={{
-              backgroundColor: t.bgSub,
+              backgroundColor: t.lavenderTint,
               border: `1px solid ${t.borderLight}`,
               borderRadius: 10,
               padding: '8px 12px',
@@ -161,7 +161,7 @@ export default function ScrapLinkSheet({
                   <div
                     style={{
                       width: 44, height: 44, borderRadius: 8, overflow: 'hidden', flex: '0 0 auto',
-                      backgroundColor: t.bgSub, display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      backgroundColor: t.lavenderTint, display: 'flex', alignItems: 'center', justifyContent: 'center',
                     }}
                   >
                     {s.thumbnailUrl ? (

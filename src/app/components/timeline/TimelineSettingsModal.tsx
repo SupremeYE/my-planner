@@ -36,7 +36,7 @@ export function TimelineSettingsModal({ startHour, endHour, onSave, onClose }: {
           </button>
         </div>
         <div className="px-6 py-6 space-y-4">
-          <div style={{ fontSize: 12, color: t.textMuted, backgroundColor: t.bgSub, borderRadius: 10, padding: '8px 12px' }}>
+          <div style={{ fontSize: 12, color: t.textMuted, backgroundColor: t.lavenderTint, borderRadius: 10, padding: '8px 12px' }}>
             현재 설정: {toTimeStr(startHour)} – {toTimeStr(endHour)}{endHour >= 24 ? ' (다음날)' : ''}
           </div>
           <div>
@@ -53,7 +53,7 @@ export function TimelineSettingsModal({ startHour, endHour, onSave, onClose }: {
         </div>
         <div className="flex gap-3 px-6 py-5" style={{ borderTop: `1px solid ${t.border}` }}>
           <button onClick={onClose} className="flex-1 py-3 rounded-xl"
-            style={{ fontSize: 14, fontWeight: 500, color: t.textSub, backgroundColor: t.bgSub, border: `1px solid ${t.border}` }}>
+            style={{ fontSize: 14, fontWeight: 500, color: t.textSub, backgroundColor: t.lavenderTint, border: `1px solid ${t.border}` }}>
             취소
           </button>
           <button onClick={handleSave} className="flex-1 py-3 rounded-xl"

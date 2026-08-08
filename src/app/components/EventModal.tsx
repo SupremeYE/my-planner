@@ -4,9 +4,8 @@ import { format } from 'date-fns';
 import { usePlanner, Event, getLogicalToday } from '../store';
 import { useTheme } from '../ThemeContext';
 import ConfirmModal from './ConfirmModal';
-import { TimePicker } from './TimePicker';
 import { TimeField } from './TimeField';
-import { inputBg, dangerText, dangerFill, isHaon } from '../styles/haonStyles';
+import { inputBg, dangerText, dangerFill } from '../styles/haonStyles';
 
 interface EventModalProps {
   date?: string;
@@ -189,17 +188,13 @@ export function EventModal({ date, event, initialTitle, initialStartTime, initia
               <div>
                 <label style={{ fontSize: 11, color: t.textSub, fontWeight: 600 }}>시작시간</label>
                 <div className="mt-1">
-                  {isHaon(t)
-                    ? <TimeField value={startTime} onChange={setStartTime} placeholder="시작 시간" />
-                    : <TimePicker value={startTime} onChange={setStartTime} placeholder="시작 시간" />}
+                  <TimeField value={startTime} onChange={setStartTime} placeholder="시작 시간" />
                 </div>
               </div>
               <div>
                 <label style={{ fontSize: 11, color: t.textSub, fontWeight: 600 }}>종료시간</label>
                 <div className="mt-1">
-                  {isHaon(t)
-                    ? <TimeField value={endTime} onChange={setEndTime} placeholder="종료 시간" />
-                    : <TimePicker value={endTime} onChange={setEndTime} placeholder="종료 시간" />}
+                  <TimeField value={endTime} onChange={setEndTime} placeholder="종료 시간" />
                 </div>
               </div>
             </div>
@@ -220,7 +215,7 @@ export function EventModal({ date, event, initialTitle, initialStartTime, initia
                   type="button"
                   onClick={() => window.open(mapsUrl, '_blank', 'noopener,noreferrer')}
                   className="p-2 rounded-lg"
-                  style={{ backgroundColor: t.bgSub, color: t.info, border: `1px solid ${t.border}` }}
+                  style={{ backgroundColor: t.lavenderTint, color: t.info, border: `1px solid ${t.border}` }}
                 >
                   <MapPinned size={15} />
                 </button>
@@ -243,7 +238,7 @@ export function EventModal({ date, event, initialTitle, initialStartTime, initia
                   type="button"
                   onClick={() => window.open(normalizedLink, '_blank', 'noopener,noreferrer')}
                   className="p-2 rounded-lg"
-                  style={{ backgroundColor: t.bgSub, color: t.accent, border: `1px solid ${t.border}` }}
+                  style={{ backgroundColor: t.lavenderTint, color: t.accent, border: `1px solid ${t.border}` }}
                 >
                   <Link2 size={15} />
                 </button>
@@ -353,7 +348,7 @@ export function EventModal({ date, event, initialTitle, initialStartTime, initia
             </button>
           )}
           <div className="flex-1" />
-          <button onClick={onClose} className="px-4 py-2 rounded-xl" style={{ fontSize: 13, color: t.textSub, backgroundColor: t.bgSub }}>
+          <button onClick={onClose} className="px-4 py-2 rounded-xl" style={{ fontSize: 13, color: t.textSub, backgroundColor: t.lavenderTint }}>
             취소
           </button>
           <button onClick={handleSubmit} className="px-5 py-2 rounded-xl" style={{ fontSize: 13, fontWeight: 600, backgroundColor: t.accent, color: '#fff' }}>

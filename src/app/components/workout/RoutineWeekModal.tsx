@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Plus, X } from 'lucide-react';
 import { useTheme } from '../../ThemeContext';
-import { isHaon, addPopoverStyle, sheetBackdropStyle } from '../../styles/haonStyles';
+import { addPopoverStyle, sheetBackdropStyle } from '../../styles/haonStyles';
 import { HaonButton } from '../ui/HaonButton';
 import { db, exerciseLabel } from '../../../lib/db';
 import type { RoutineDay } from '../../../lib/db';
@@ -62,7 +62,7 @@ export function RoutineWeekModal({ loggedExerciseIds, onClose, onChanged }: Prop
     <>
       <div
         className="fixed inset-0 z-50 flex items-center justify-center"
-        style={{ ...(isHaon(t) ? sheetBackdropStyle() : { backgroundColor: 'rgba(0,0,0,0.45)' }), opacity: isIn ? 1 : 0, transition: 'opacity 0.2s ease', padding: 20 }}
+        style={{ ...sheetBackdropStyle(), opacity: isIn ? 1 : 0, transition: 'opacity 0.2s ease', padding: 20 }}
         onClick={close}
       >
         <div
@@ -70,9 +70,7 @@ export function RoutineWeekModal({ loggedExerciseIds, onClose, onChanged }: Prop
           className="flex flex-col overflow-hidden"
           style={{
             width: 'min(1160px, 95vw)', maxHeight: '90vh',
-            ...(isHaon(t)
-              ? addPopoverStyle(t)
-              : { backgroundColor: t.card, borderRadius: 20, boxShadow: '0 24px 60px rgba(0,0,0,0.25)' }),
+            ...addPopoverStyle(t),
             transform: isIn ? 'translateY(0)' : 'translateY(16px)',
             transition: 'transform 0.26s cubic-bezier(0.32, 0.72, 0, 1)',
           }}
@@ -145,7 +143,7 @@ function DayColumn({
     <div
       className="flex flex-col"
       style={{
-        backgroundColor: isToday ? t.accentLight : t.bgSub,
+        backgroundColor: isToday ? t.accentLight : t.lavenderTint,
         border: `1.5px solid ${isToday ? t.accent : t.borderLight}`,
         borderRadius: 14, padding: 10, minHeight: 240,
       }}

@@ -137,7 +137,7 @@ function VoiceInputButton({ onResult, disabled }: { onResult: (text: string) => 
   return (
     <button type="button" onClick={toggle} disabled={disabled || isBusy}
       className="flex items-center justify-center rounded-lg flex-shrink-0"
-      style={{ width: 30, height: 30, backgroundColor: isRec ? '#fee2e2' : t.bgSub, border: `1px solid ${isRec ? '#fca5a5' : t.borderLight}`, color: isRec ? '#ef4444' : t.textMuted }}>
+      style={{ width: 30, height: 30, backgroundColor: isRec ? '#fee2e2' : t.lavenderTint, border: `1px solid ${isRec ? '#fca5a5' : t.borderLight}`, color: isRec ? '#ef4444' : t.textMuted }}>
       {isRec
         ? <span className="animate-pulse rounded-full" style={{ width: 9, height: 9, backgroundColor: '#ef4444', display: 'block' }} />
         : <Mic size={13} />}
@@ -273,7 +273,7 @@ function RecordSheet({ onClose, onSave, initialData, defaultDate }: RecordSheetP
                     className="flex flex-col items-center gap-1.5 transition-transform"
                     style={{ transform: energyLevel === level ? 'scale(1.1)' : 'scale(1)' }}>
                     <div className="rounded-full transition-all"
-                      style={{ width: energyLevel === level ? 40 : 32, height: energyLevel === level ? 40 : 32, backgroundColor: energyLevel === level ? t.accent : t.bgSub, border: `2px solid ${energyLevel === level ? t.accent : t.borderLight}` }} />
+                      style={{ width: energyLevel === level ? 40 : 32, height: energyLevel === level ? 40 : 32, backgroundColor: energyLevel === level ? t.accent : t.lavenderTint, border: `2px solid ${energyLevel === level ? t.accent : t.borderLight}` }} />
                     <span style={{ fontSize: 12, fontWeight: energyLevel === level ? 700 : 400, color: energyLevel === level ? t.accent : t.textMuted }}>{level}</span>
                   </button>
                 ))}
@@ -300,7 +300,7 @@ function RecordSheet({ onClose, onSave, initialData, defaultDate }: RecordSheetP
           {step > 1 ? (
             <button onClick={() => setStep(s => s - 1)}
               className="flex items-center gap-1 px-5 py-3 rounded-xl"
-              style={{ backgroundColor: t.bgSub, color: t.textSub, fontSize: 14, fontWeight: 600, border: `1px solid ${t.borderLight}` }}>
+              style={{ backgroundColor: t.lavenderTint, color: t.textSub, fontSize: 14, fontWeight: 600, border: `1px solid ${t.borderLight}` }}>
               <ChevronLeft size={16} /> 이전
             </button>
           ) : <div className="w-2 flex-shrink-0" />}
@@ -499,7 +499,7 @@ function CalendarView({ records, today, onAddRecord, onEdit, onDelete }: {
       {/* Grid */}
       <div className="grid grid-cols-7 gap-px rounded-xl overflow-hidden" style={{ backgroundColor: t.borderLight }}>
         {cells.map((day, i) => {
-          if (!day) return <div key={i} style={{ backgroundColor: t.bgSub, minHeight: 44 }} />;
+          if (!day) return <div key={i} style={{ backgroundColor: t.lavenderTint, minHeight: 44 }} />;
           const ds = dateStr(day);
           const dayRecs = records.filter(r => r.date === ds);
           const isToday = ds === today;
@@ -510,7 +510,7 @@ function CalendarView({ records, today, onAddRecord, onEdit, onDelete }: {
           return (
             <div key={i} onClick={() => setSelectedDate(isSelected ? null : ds)}
               className="relative flex flex-col cursor-pointer select-none"
-              style={{ minHeight: 44, backgroundColor: color ? color.bg : t.bgSub, outline: isSelected ? `2px solid ${t.accent}` : isToday ? `2px solid ${t.accent}88` : 'none', outlineOffset: -1, padding: '3px 4px' }}>
+              style={{ minHeight: 44, backgroundColor: color ? color.bg : t.lavenderTint, outline: isSelected ? `2px solid ${t.accent}` : isToday ? `2px solid ${t.accent}88` : 'none', outlineOffset: -1, padding: '3px 4px' }}>
               <span style={{ fontSize: 11, lineHeight: 1, color: isToday ? t.accent : color ? color.accent : t.textMuted, fontWeight: isToday ? 700 : 400 }}>{day}</span>
               {latestRec && (
                 <div className="flex-1 flex items-center justify-center">
@@ -780,7 +780,7 @@ function StatsTab({ records }: { records: MoodRecord[] }) {
           {(['this-month', 'last-month', '14-days', 'custom'] as PeriodFilter[]).map(key => (
             <button key={key} onClick={() => setPeriodFilter(key)}
               className="flex-shrink-0 px-4 py-2 rounded-full transition-all"
-              style={{ fontSize: 12, fontWeight: periodFilter === key ? 700 : 400, backgroundColor: periodFilter === key ? t.accent : t.bgSub, color: periodFilter === key ? '#fff' : t.textSub, border: `1px solid ${periodFilter === key ? t.accent : t.borderLight}` }}>
+              style={{ fontSize: 12, fontWeight: periodFilter === key ? 700 : 400, backgroundColor: periodFilter === key ? t.accent : t.lavenderTint, color: periodFilter === key ? '#fff' : t.textSub, border: `1px solid ${periodFilter === key ? t.accent : t.borderLight}` }}>
               {periodLabels[key]}
             </button>
           ))}
@@ -857,7 +857,7 @@ function StatsTab({ records }: { records: MoodRecord[] }) {
                         </span>
                         <span style={{ fontSize: 11, color: t.textMuted }}>{count}건 ({pct}%)</span>
                       </div>
-                      <div className="h-2 rounded-full overflow-hidden" style={{ backgroundColor: t.bgSub }}>
+                      <div className="h-2 rounded-full overflow-hidden" style={{ backgroundColor: t.lavenderTint }}>
                         <div className="h-full rounded-full transition-all"
                           style={{ width: `${(count / maxCat) * 100}%`, backgroundColor: color?.accent ?? t.accent }} />
                       </div>
@@ -877,7 +877,7 @@ function StatsTab({ records }: { records: MoodRecord[] }) {
                   const color = getEmotionColor([tag]);
                   return (
                     <div key={tag} className="flex items-center gap-1.5 px-3 py-1.5 rounded-full"
-                      style={{ backgroundColor: color?.bg ?? t.bgSub, border: `1px solid ${color?.accent ? color.accent + '55' : t.borderLight}` }}>
+                      style={{ backgroundColor: color?.bg ?? t.lavenderTint, border: `1px solid ${color?.accent ? color.accent + '55' : t.borderLight}` }}>
                       {i < 3 && <span style={{ fontSize: 10, fontWeight: 700, color: color?.accent ?? t.accent }}>#{i + 1}</span>}
                       <span style={{ fontSize: 12, color: color?.accent ?? t.text, fontWeight: 600 }}>{tag}</span>
                       <span style={{ fontSize: 10, color: t.textMuted }}>{count}</span>
@@ -967,7 +967,7 @@ export function MoodView() {
         {tabs.map(({ key, label }) => (
           <button key={key} onClick={() => setTab(key)}
             className="px-4 py-2 rounded-xl transition-all"
-            style={{ fontSize: 13, fontWeight: tab === key ? 600 : 400, backgroundColor: tab === key ? t.accent : t.bgSub, color: tab === key ? '#fff' : t.textSub }}>
+            style={{ fontSize: 13, fontWeight: tab === key ? 600 : 400, backgroundColor: tab === key ? t.accent : t.lavenderTint, color: tab === key ? '#fff' : t.textSub }}>
             {label}
           </button>
         ))}

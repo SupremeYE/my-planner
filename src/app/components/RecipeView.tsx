@@ -59,7 +59,7 @@ export function RecipeView() {
             )}
           </button>
           {/* PC 세그먼트 컨트롤 */}
-          <div className="hidden lg:flex gap-1 p-1 rounded-xl" style={{ backgroundColor: t.bgSub, border: `1px solid ${t.border}` }}>
+          <div className="hidden lg:flex gap-1 p-1 rounded-xl" style={{ backgroundColor: t.lavenderTint, border: `1px solid ${t.border}` }}>
             {TABS.map(({ key, label, icon: Icon }) => {
               const isActive = tab === key;
               return (

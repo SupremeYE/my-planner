@@ -100,7 +100,7 @@ function TimelineSection() {
           <p style={{ fontSize: 11, color: t.accent, marginTop: 4 }}>다음날 새벽으로 설정됩니다</p>
         )}
       </div>
-      <p style={{ fontSize: 11, color: t.textMuted, backgroundColor: t.bgSub, borderRadius: 8, padding: '6px 10px' }}>
+      <p style={{ fontSize: 11, color: t.textMuted, backgroundColor: t.lavenderTint, borderRadius: 8, padding: '6px 10px' }}>
         현재: {toTimeStr(dayStartHour)} – {toTimeStr(dayEndHour)}{dayEndHour >= 24 ? ' (다음날)' : ''}
       </p>
       {dayEndHour > 24 && (
@@ -146,7 +146,7 @@ function ChoiceChipRow<T extends string | number>({ label, desc, value, options,
                 fontSize: 12,
                 fontWeight: active ? 700 : 500,
                 color: active ? '#fff' : t.textSub,
-                backgroundColor: active ? t.accent : t.bgSub,
+                backgroundColor: active ? t.accent : t.lavenderTint,
                 border: `1px solid ${active ? t.accent : t.border}`,
               }}
             >
@@ -247,7 +247,7 @@ function TagsSection() {
         {tags.map(tag => (
           <div key={tag.id}>
             {editingId === tag.id ? (
-              <div className="space-y-2 p-3 rounded-xl" style={{ backgroundColor: t.bgSub }}>
+              <div className="space-y-2 p-3 rounded-xl" style={{ backgroundColor: t.lavenderTint }}>
                 <div className="flex gap-1.5 flex-wrap">
                   {DEFAULT_TAG_COLORS.map(c => (
                     <button key={c} type="button" onClick={() => setEditColor(c)}
@@ -303,7 +303,7 @@ function TagsSection() {
 
       {/* 새 태그 추가 */}
       {showNewTag ? (
-        <div className="space-y-2 p-3 rounded-xl" style={{ backgroundColor: t.bgSub, border: `1px solid ${t.border}` }}>
+        <div className="space-y-2 p-3 rounded-xl" style={{ backgroundColor: t.lavenderTint, border: `1px solid ${t.border}` }}>
           <div className="flex gap-1.5 flex-wrap">
             {DEFAULT_TAG_COLORS.map(c => (
               <button key={c} type="button" onClick={() => setNewColor(c)}
@@ -373,7 +373,7 @@ function AffirmationSection() {
         placeholder="나만의 확언을 입력하세요..."
         rows={3}
         className="w-full rounded-xl px-3 py-2.5 border outline-none resize-none"
-        style={{ fontSize: 13, borderColor: t.border, backgroundColor: t.bgSub, color: t.text, lineHeight: 1.6 }}
+        style={{ fontSize: 13, borderColor: t.border, backgroundColor: t.lavenderTint, color: t.text, lineHeight: 1.6 }}
       />
       <button
         onClick={handleSave}

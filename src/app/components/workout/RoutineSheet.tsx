@@ -70,7 +70,7 @@ export function RoutineSheet({ loggedExerciseIds, onClose, onChanged }: Props) {
                 style={{
                   fontSize: 14, fontWeight: 700,
                   color: active ? '#fff' : t.textSub,
-                  backgroundColor: active ? t.accent : t.bgSub,
+                  backgroundColor: active ? t.accent : t.lavenderTint,
                   border: `1px solid ${active ? t.accent : t.borderLight}`,
                   borderRadius: 12, padding: '9px 0',
                 }}
@@ -97,7 +97,7 @@ export function RoutineSheet({ loggedExerciseIds, onClose, onChanged }: Props) {
             onKeyDown={e => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur(); }}
             placeholder="예: 하체 + 코어"
             style={{
-              width: '100%', fontSize: 14, color: t.text, backgroundColor: t.bgSub,
+              width: '100%', fontSize: 14, color: t.text, backgroundColor: t.lavenderTint,
               border: `1px solid ${t.borderLight}`, borderRadius: 10, padding: '10px 12px', outline: 'none',
             }}
           />
@@ -113,7 +113,7 @@ export function RoutineSheet({ loggedExerciseIds, onClose, onChanged }: Props) {
               <div
                 key={re.id}
                 className="flex items-center gap-3"
-                style={{ backgroundColor: t.bgSub, border: `1px solid ${t.borderLight}`, borderRadius: 12, padding: 8 }}
+                style={{ backgroundColor: t.lavenderTint, border: `1px solid ${t.borderLight}`, borderRadius: 12, padding: 8 }}
               >
                 {re.exercise && <ExerciseThumb exercise={re.exercise} size={40} radius={9} />}
                 <div className="flex-1 min-w-0">

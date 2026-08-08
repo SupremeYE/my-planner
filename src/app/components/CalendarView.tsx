@@ -26,17 +26,10 @@ import ConfirmModal from './ConfirmModal';
 import { RecurrenceBranchModal } from './RecurrenceBranchModal';
 import { useFabAction } from '../FabContext';
 import { Timeline } from './timeline/Timeline';
-import { isHaon, glassBarStyle, solidCardStyle, mixHex } from '../styles/haonStyles';
+import { glassBarStyle, solidCardStyle, mixHex } from '../styles/haonStyles';
 
 type TabType = 'month' | 'week';
 type FilterType = 'all' | 'todo' | 'event' | 'habit' | 'selfcare';
-
-const CHIP_COLORS: Record<Exclude<FilterType, 'all'>, { bg: string; color: string }> = {
-  todo: { bg: '#F0C4B8', color: '#D4735A' },
-  event: { bg: '#D0E0F5', color: '#7B9ED9' },
-  habit: { bg: '#C8E6D0', color: '#006b62' },
-  selfcare: { bg: '#E8D9C0', color: '#A08050' },
-};
 
 const FILTER_TABS: { key: FilterType; label: string; activeColor: string }[] = [
   { key: 'all', label: '전체', activeColor: '#26343d' },
@@ -177,7 +170,7 @@ function MonthView({ viewDate, filter, selectedTagIds, weekStartsOn, onSelectDat
     <div>
       <div className="grid grid-cols-7 mb-1">
         {weekdayLabels.map(label => (
-          <div key={label} className="text-center py-2" style={{ fontSize: 12, color: isHaon(t) ? t.textMuted : '#888', fontWeight: 600 }}>
+          <div key={label} className="text-center py-2" style={{ fontSize: 12, color: t.textMuted, fontWeight: 600 }}>
             {label}
           </div>
         ))}
@@ -201,45 +194,33 @@ function MonthView({ viewDate, filter, selectedTagIds, weekStartsOn, onSelectDat
               className="relative flex flex-col items-start p-1 rounded-xl transition-all"
               style={{
                 // Haon(H): §6.5 — 셀 전체 배경 틴트 대신 날짜 숫자 원 마커로 선택/오늘 표시(아래 span).
-                backgroundColor: isHaon(t)
-                  ? 'transparent'
-                  : (isToday ? '#d5e3fd' : isSelected ? '#f8fbff' : 'transparent'),
-                border: isHaon(t)
-                  ? '1px solid transparent'
-                  : (isSelected ? '1px solid #d5e3fd' : '1px solid transparent'),
-                boxShadow: isHaon(t)
-                  ? 'none'
-                  : (isSelected && !isToday ? '0 0 0 1px rgba(81,95,116,0.04)' : 'none'),
+                backgroundColor: 'transparent',
+                border: '1px solid transparent',
+                boxShadow: 'none',
                 minHeight: 72,
               }}
             >
               <div className="self-center flex flex-col items-center gap-0.5">
-                {isHaon(t) ? (
-                  // §6.5 — 선택일=소프트 코랄 채움 원(강조, 카테고리색 아님) / 오늘=코랄 하이라인 링(조용한 마커).
-                  // 오늘==선택: 채움 원(선택 우선) + 링(오늘 보조) 공존 → 두 상태 시각 구분 유지.
-                  <span
-                    style={{
-                      width: 22,
-                      height: 22,
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      borderRadius: '50%',
-                      boxSizing: 'border-box',
-                      fontSize: 12,
-                      fontWeight: isSelected || isToday ? 700 : 400,
-                      color: t.text,
-                      backgroundColor: isSelected ? mixHex(t.accent, 255, 0.72) : 'transparent',
-                      border: isToday ? `1.5px solid ${t.accent}` : '1.5px solid transparent',
-                    }}
-                  >
-                    {day}
-                  </span>
-                ) : (
-                  <span style={{ fontSize: 13, color: isToday ? '#515f74' : '#26343d', fontWeight: isSelected || isToday ? 700 : 400 }}>
-                    {day}
-                  </span>
-                )}
+                {/* §6.5 — 선택일=소프트 코랄 채움 원(강조, 카테고리색 아님) / 오늘=코랄 하이라인 링(조용한 마커).
+                    오늘==선택: 채움 원(선택 우선) + 링(오늘 보조) 공존 → 두 상태 시각 구분 유지. */}
+                <span
+                  style={{
+                    width: 22,
+                    height: 22,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    borderRadius: '50%',
+                    boxSizing: 'border-box',
+                    fontSize: 12,
+                    fontWeight: isSelected || isToday ? 700 : 400,
+                    color: t.text,
+                    backgroundColor: isSelected ? mixHex(t.accent, 255, 0.72) : 'transparent',
+                    border: isToday ? `1.5px solid ${t.accent}` : '1.5px solid transparent',
+                  }}
+                >
+                  {day}
+                </span>
                 {hasPeriod && (
                   <span
                     style={{
@@ -248,7 +229,7 @@ function MonthView({ viewDate, filter, selectedTagIds, weekStartsOn, onSelectDat
                       height: 5,
                       borderRadius: '50%',
                       // H: 오늘 슬레이트(#515f74) 오버라이드 미적용(오늘은 링으로 표시) → 기간 마커 본연색만.
-                      backgroundColor: isToday && !isHaon(t) ? '#515f74' : '#E07899',
+                      backgroundColor: '#E07899',
                       flexShrink: 0,
                     }}
                   />
@@ -257,48 +238,23 @@ function MonthView({ viewDate, filter, selectedTagIds, weekStartsOn, onSelectDat
               <div className="flex flex-col gap-0.5 w-full mt-0.5">
                 {shown.map(item => {
                   // Haon(H): §6.4 — 색 채운 미니바 대신 '작은 카테고리 dot + 본문색 truncated 라벨'
-                  if (isHaon(t)) {
-                    return (
-                      <div key={item.id} className="flex items-center gap-1 w-full overflow-hidden">
-                        <span
-                          aria-hidden
-                          style={{
-                            width: 5,
-                            height: 5,
-                            borderRadius: '50%',
-                            backgroundColor: `var(--cat-${CAT_VAR[item.type]}-dot)`,
-                            flexShrink: 0,
-                          }}
-                        />
-                        <span
-                          style={{
-                            fontSize: 9,
-                            fontWeight: 500,
-                            color: t.text,
-                            whiteSpace: 'nowrap',
-                            overflow: 'hidden',
-                            textOverflow: 'ellipsis',
-                            display: 'block',
-                            lineHeight: '14px',
-                          }}
-                        >
-                          {item.text}
-                        </span>
-                      </div>
-                    );
-                  }
-                  const color = CHIP_COLORS[item.type];
                   return (
-                    <div
-                      key={item.id}
-                      className="rounded px-1 w-full overflow-hidden"
-                      style={{ backgroundColor: color.bg }}
-                    >
+                    <div key={item.id} className="flex items-center gap-1 w-full overflow-hidden">
+                      <span
+                        aria-hidden
+                        style={{
+                          width: 5,
+                          height: 5,
+                          borderRadius: '50%',
+                          backgroundColor: `var(--cat-${CAT_VAR[item.type]}-dot)`,
+                          flexShrink: 0,
+                        }}
+                      />
                       <span
                         style={{
                           fontSize: 9,
-                          fontWeight: 600,
-                          color: color.color,
+                          fontWeight: 500,
+                          color: t.text,
                           whiteSpace: 'nowrap',
                           overflow: 'hidden',
                           textOverflow: 'ellipsis',
@@ -312,7 +268,7 @@ function MonthView({ viewDate, filter, selectedTagIds, weekStartsOn, onSelectDat
                   );
                 })}
                 {overflow > 0 && (
-                  <span style={{ fontSize: 9, color: isHaon(t) ? t.textMuted : '#999', paddingLeft: 2 }}>
+                  <span style={{ fontSize: 9, color: t.textMuted, paddingLeft: 2 }}>
                     +{overflow}개
                   </span>
                 )}
@@ -352,13 +308,13 @@ export function SleepTimeEditModal({ record, onClose, onConfirm }: {
         </div>
         <div className="flex gap-2 px-5 py-4" style={{ borderTop: `1px solid ${t.border}` }}>
           <button onClick={onClose} className="flex-1 py-2.5 rounded-xl"
-            style={{ fontSize: 13, color: t.textSub, backgroundColor: t.bgSub, border: `1px solid ${t.border}` }}>
+            style={{ fontSize: 13, color: t.textSub, backgroundColor: t.lavenderTint, border: `1px solid ${t.border}` }}>
             취소
           </button>
           <button onClick={() => { if (start && end) onConfirm(start, end); }}
             disabled={!start || !end}
             className="flex-1 py-2.5 rounded-xl"
-            style={{ fontSize: 13, fontWeight: 600, backgroundColor: start && end ? '#94A3B8' : t.bgSub, color: start && end ? '#fff' : t.textMuted }}>
+            style={{ fontSize: 13, fontWeight: 600, backgroundColor: start && end ? '#94A3B8' : t.lavenderTint, color: start && end ? '#fff' : t.textMuted }}>
             확인
           </button>
         </div>
@@ -616,7 +572,7 @@ export function CalendarView() {
         key={todo.id}
         className="flex items-start gap-2.5 py-2 px-3 rounded-xl"
         style={{
-          backgroundColor: isDone ? t.bgSub + '80' : t.card,
+          backgroundColor: isDone ? t.lavenderTint + '80' : t.card,
           border: `1px solid ${accentColor}20`,
           borderLeft: `3px solid ${accentColor}${isDone ? '40' : ''}`,
         }}
@@ -662,11 +618,11 @@ export function CalendarView() {
 
         <div className="flex items-center gap-1 flex-shrink-0 mt-0.5">
           <button onClick={() => handleSnoozeTodo(todo)} title="다음 날로 미루기"
-            className="p-1.5 rounded-lg transition-colors" style={{ color: t.textMuted, backgroundColor: t.bgSub }}>
+            className="p-1.5 rounded-lg transition-colors" style={{ color: t.textMuted, backgroundColor: t.lavenderTint }}>
             <ArrowRight size={13} />
           </button>
           <button onClick={() => handleDeleteTodo(todo)} title="삭제"
-            className="p-1.5 rounded-lg transition-colors" style={{ color: t.danger, backgroundColor: t.bgSub }}>
+            className="p-1.5 rounded-lg transition-colors" style={{ color: t.danger, backgroundColor: t.lavenderTint }}>
             <X size={13} />
           </button>
         </div>
@@ -684,7 +640,7 @@ export function CalendarView() {
         key={event.id}
         className="flex items-start gap-2.5 py-2 px-3 rounded-xl"
         style={{
-          backgroundColor: isDone ? t.bgSub + '80' : t.card,
+          backgroundColor: isDone ? t.lavenderTint + '80' : t.card,
           border: `1px solid ${eventColor}20`,
           borderLeft: `3px solid ${eventColor}${isDone ? '40' : ''}`,
           opacity: isDone ? 0.65 : (isPast ? 0.8 : 1),
@@ -723,11 +679,11 @@ export function CalendarView() {
         </div>
         <div className="flex items-center gap-1 flex-shrink-0 mt-0.5">
           <button onClick={() => handleSnoozeEvent(event)} title="다음 날로 미루기"
-            className="p-1.5 rounded-lg transition-colors" style={{ color: t.textMuted, backgroundColor: t.bgSub }}>
+            className="p-1.5 rounded-lg transition-colors" style={{ color: t.textMuted, backgroundColor: t.lavenderTint }}>
             <ArrowRight size={13} />
           </button>
           <button onClick={() => handleDeleteEvent(event)} title="삭제"
-            className="p-1.5 rounded-lg transition-colors" style={{ color: t.danger, backgroundColor: t.bgSub }}>
+            className="p-1.5 rounded-lg transition-colors" style={{ color: t.danger, backgroundColor: t.lavenderTint }}>
             <X size={13} />
           </button>
         </div>
@@ -737,22 +693,20 @@ export function CalendarView() {
 
   return (
     <div className={`relative lg:h-full lg:flex lg:flex-col${tab === 'week' ? ' h-full flex flex-col' : ''}`} style={{ backgroundColor: t.bg }}>
-      <div className="px-3 py-3 lg:px-4 lg:py-4" style={{ flexShrink: 0, ...(isHaon(t) ? glassBarStyle(t) : { backgroundColor: t.sidebar, borderBottom: `1px solid ${t.border}` }) }}>
+      <div className="px-3 py-3 lg:px-4 lg:py-4" style={{ flexShrink: 0, ...glassBarStyle(t) }}>
         <div className="flex items-center gap-2 mb-3">
           <button onClick={handlePrev} className="p-1.5 lg:p-2 rounded-xl hover:bg-[#eef4fa]">
-            <ChevronLeft size={18} color={isHaon(t) ? t.textMuted : '#888'} />
+            <ChevronLeft size={18} color={t.textMuted} />
           </button>
-          <span className="flex-1 text-center" style={{ fontSize: 16, fontWeight: 700, color: isHaon(t) ? t.text : '#26343d' }}>{navLabel}</span>
+          <span className="flex-1 text-center" style={{ fontSize: 16, fontWeight: 700, color: t.text }}>{navLabel}</span>
           <button onClick={handleNext} className="p-1.5 lg:p-2 rounded-xl hover:bg-[#eef4fa]">
-            <ChevronRight size={18} color={isHaon(t) ? t.textMuted : '#888'} />
+            <ChevronRight size={18} color={t.textMuted} />
           </button>
         </div>
 
         <div
           className="flex gap-1 p-1 rounded-xl"
-          style={isHaon(t)
-            ? { backgroundColor: t.borderLight, border: `1px solid ${t.border}` }
-            : { backgroundColor: '#EFE7D8', border: '1px solid #E2D5BF' }}
+          style={{ backgroundColor: t.borderLight, border: `1px solid ${t.border}` }}
         >
           {(['month', 'week'] as TabType[]).map(value => {
             const active = tab === value;
@@ -766,25 +720,16 @@ export function CalendarView() {
                 className="flex-1 py-1.5 rounded-lg transition-all"
                 style={{
                   fontSize: 12,
-                  fontWeight: active ? (isHaon(t) ? 600 : 700) : 500,
-                  ...(isHaon(t)
-                    ? {
-                        position: 'relative',
-                        color: active ? t.text : t.textMuted,
-                        ...(active
-                          ? { ...solidCardStyle(t), borderRadius: undefined }
-                          : { backgroundColor: 'transparent' }),
-                      }
-                    : {
-                        backgroundColor: active ? '#FDFAF4' : 'transparent',
-                        color: active ? '#8D7152' : '#B0A188',
-                        border: active ? '1px solid #C4A882' : '1px solid transparent',
-                        boxShadow: active ? '0 1px 3px rgba(196,168,130,0.25)' : 'none',
-                      }),
+                  fontWeight: active ? 600 : 500,
+                  position: 'relative',
+                  color: active ? t.text : t.textMuted,
+                  ...(active
+                    ? { ...solidCardStyle(t), borderRadius: undefined }
+                    : { backgroundColor: 'transparent' }),
                 }}
               >
                 {/* 파스텔(H) 활성 탭: 코랄 강조는 하단 중앙 3px 언더라인으로만 (그라데이션 풀 채움 제거) — 할일 페이지 세그먼트 결정 재사용 (DESIGN §6.1) */}
-                {isHaon(t) && active && (
+                {active && (
                   <span
                     aria-hidden
                     className="absolute left-1/2 -translate-x-1/2"
@@ -809,23 +754,15 @@ export function CalendarView() {
                     key={item.key}
                     onClick={() => setFilter(item.key)}
                     className="flex-shrink-0 px-3 py-1 rounded-full transition-all"
-                    style={isHaon(t)
-                      // Haon(H): 활성 = 카테고리 소프트 틴트 fill + dot 색 보더(그라데이션 풀채움 금지, §6.3).
-                      // '전체'는 중립 솔리드(흰 카드+뉴트럴 보더, 코랄 금지). 비활성 = 투명+뮤트.
-                      ? {
-                          fontSize: 11,
-                          fontWeight: active ? 700 : 500,
-                          backgroundColor: active ? (catKey ? `var(--cat-${catKey}-fill)` : t.card) : 'transparent',
-                          color: active ? t.text : t.textMuted,
-                          border: `1.5px solid ${active ? (catKey ? `var(--cat-${catKey}-dot)` : t.border) : t.borderLight}`,
-                        }
-                      : {
-                          fontSize: 11,
-                          fontWeight: active ? 700 : 500,
-                          backgroundColor: active ? item.activeColor : '#eef4fa',
-                          color: active ? '#fff' : item.activeColor,
-                          border: `1.5px solid ${active ? item.activeColor : item.activeColor + '60'}`,
-                        }}
+                    // Haon(H): 활성 = 카테고리 소프트 틴트 fill + dot 색 보더(그라데이션 풀채움 금지, §6.3).
+                    // '전체'는 중립 솔리드(흰 카드+뉴트럴 보더, 코랄 금지). 비활성 = 투명+뮤트.
+                    style={{
+                      fontSize: 11,
+                      fontWeight: active ? 700 : 500,
+                      backgroundColor: active ? (catKey ? `var(--cat-${catKey}-fill)` : t.card) : 'transparent',
+                      color: active ? t.text : t.textMuted,
+                      border: `1.5px solid ${active ? (catKey ? `var(--cat-${catKey}-dot)` : t.border) : t.borderLight}`,
+                    }}
                   >
                     {item.label}
                   </button>
@@ -843,22 +780,14 @@ export function CalendarView() {
                         prev.includes(tag.id) ? prev.filter(id => id !== tag.id) : [...prev, tag.id]
                       )}
                       className="flex-shrink-0 px-3 py-1 rounded-full transition-all"
-                      style={isHaon(t)
-                        // Haon(H): §5 태그칩 패턴 — 채도 파스텔 채움(활성) + 어두운 텍스트. 비활성은 아웃라인.
-                        ? {
-                            fontSize: 11,
-                            fontWeight: active ? 700 : 500,
-                            backgroundColor: active ? mixHex(tag.color, 255, 0.78) : 'transparent',
-                            color: mixHex(tag.color, 0, 0.32),
-                            border: `1.5px solid ${active ? mixHex(tag.color, 0, 0.32) : mixHex(tag.color, 255, 0.5)}`,
-                          }
-                        : {
-                            fontSize: 11,
-                            fontWeight: active ? 700 : 500,
-                            backgroundColor: active ? `${tag.color}22` : '#eef4fa',
-                            color: tag.color,
-                            border: `1.5px solid ${active ? tag.color : `${tag.color}66`}`,
-                          }}
+                      // Haon(H): §5 태그칩 패턴 — 채도 파스텔 채움(활성) + 어두운 텍스트. 비활성은 아웃라인.
+                      style={{
+                        fontSize: 11,
+                        fontWeight: active ? 700 : 500,
+                        backgroundColor: active ? mixHex(tag.color, 255, 0.78) : 'transparent',
+                        color: mixHex(tag.color, 0, 0.32),
+                        border: `1.5px solid ${active ? mixHex(tag.color, 0, 0.32) : mixHex(tag.color, 255, 0.5)}`,
+                      }}
                     >
                       {tag.name}
                     </button>
@@ -872,7 +801,7 @@ export function CalendarView() {
 
       {tab === 'week' ? (
         <div className="flex-1 px-3 pb-3 pt-2.5 lg:px-4 lg:pb-4 lg:pt-3 flex flex-col" style={{ minHeight: 0, overflow: 'hidden' }}>
-          <div className="bg-white rounded-2xl shadow-sm h-full" style={{ ...(isHaon(t) ? solidCardStyle(t) : { border: '1px solid #eef4fa' }), display: 'flex', flexDirection: 'column', minHeight: 0, overflow: 'hidden' }}>
+          <div className="bg-white rounded-2xl shadow-sm h-full" style={{ ...solidCardStyle(t), display: 'flex', flexDirection: 'column', minHeight: 0, overflow: 'hidden' }}>
             {/* 모바일: 일자 탭 전환 → 일간 편집 타임라인(days=1) */}
             <div className="flex flex-col md:hidden" style={{ flex: 1, minHeight: 0, overflow: 'hidden' }}>
               <div className="flex flex-shrink-0" style={{ borderBottom: `1px solid ${t.borderLight}` }}>
@@ -921,7 +850,7 @@ export function CalendarView() {
           >
             <div
               className="bg-white rounded-2xl p-4 shadow-sm"
-              style={isHaon(t) ? { ...solidCardStyle(t) } : { border: '1px solid #eef4fa' }}
+              style={{ ...solidCardStyle(t) }}
               onTouchStart={handleMonthTouchStart}
               onTouchEnd={handleMonthTouchEnd}
             >
@@ -954,7 +883,7 @@ export function CalendarView() {
           <div className="lg:flex-1 lg:min-h-0 lg:overflow-hidden">
             <div
               className="rounded-[18px] lg:h-full overflow-hidden"
-              style={isHaon(t) ? { ...solidCardStyle(t) } : { backgroundColor: t.card, border: `1px solid ${t.border}` }}
+              style={{ ...solidCardStyle(t) }}
             >
               <div className="lg:h-full lg:overflow-y-auto px-4 py-4 lg:px-5">
                 {!panelDate && (
@@ -1003,7 +932,7 @@ export function CalendarView() {
                                   fontSize: 12,
                                   fontWeight: 500,
                                   color: checked ? t.accent : t.textSub,
-                                  backgroundColor: checked ? t.accentLight : t.bgSub,
+                                  backgroundColor: checked ? t.accentLight : t.lavenderTint,
                                   border: `1px solid ${checked ? t.accent : t.border}`,
                                 }}
                               >
@@ -1021,7 +950,7 @@ export function CalendarView() {
                         <h3 style={{ fontSize: 13, fontWeight: 700, color: t.text, marginBottom: 8 }}>자기관리</h3>
                         <div className="space-y-2">
                           {panelSelfCare.map(record => (
-                            <div key={record.id} className="rounded-xl px-3 py-2" style={{ backgroundColor: t.bgSub, border: `1px solid ${t.borderLight}` }}>
+                            <div key={record.id} className="rounded-xl px-3 py-2" style={{ backgroundColor: t.lavenderTint, border: `1px solid ${t.borderLight}` }}>
                               <div className="flex items-center gap-1.5">
                                 <span className="inline-flex items-center px-2 py-0.5 rounded-full" style={{ fontSize: 10, fontWeight: 600, color: t.textSub, backgroundColor: t.card, border: `1px solid ${t.border}` }}>
                                   {SELFCARE_CATEGORY_LABELS[record.category] ?? record.category}
@@ -1042,14 +971,14 @@ export function CalendarView() {
                     {showMemoSection && panelMemo && (
                       <section>
                         <h3 style={{ fontSize: 13, fontWeight: 700, color: t.text, marginBottom: 8 }}>메모</h3>
-                        <div className="rounded-xl px-3 py-3" style={{ backgroundColor: t.bgSub, border: `1px solid ${t.borderLight}` }}>
+                        <div className="rounded-xl px-3 py-3" style={{ backgroundColor: t.lavenderTint, border: `1px solid ${t.borderLight}` }}>
                           <p style={{ fontSize: 13, color: t.text, lineHeight: 1.6 }}>{panelMemo}</p>
                         </div>
                       </section>
                     )}
 
                     {!hasPanelContent && (
-                      <div className="rounded-xl px-3 py-4" style={{ backgroundColor: t.bgSub, border: `1px solid ${t.borderLight}` }}>
+                      <div className="rounded-xl px-3 py-4" style={{ backgroundColor: t.lavenderTint, border: `1px solid ${t.borderLight}` }}>
                         <p style={{ fontSize: 13, color: t.textMuted }}>선택한 날짜에 표시할 기록이 아직 없어요</p>
                       </div>
                     )}

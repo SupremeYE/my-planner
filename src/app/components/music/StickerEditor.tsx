@@ -149,7 +149,7 @@ export function StickerPalette({ onPick }: { onPick: (emoji: string) => void }) 
   const { t } = useTheme();
   return (
     <div className="rounded-2xl p-3 mb-4"
-      style={{ backgroundColor: t.bgSub, border: `1px solid ${t.border}` }}>
+      style={{ backgroundColor: t.lavenderTint, border: `1px solid ${t.border}` }}>
       <p className="text-center mb-2" style={{ fontSize: 11, fontWeight: 700, color: t.textMuted,
         letterSpacing: '0.04em' }}>스티커를 탭해 붙이고, 드래그로 옮기고, 두 번 탭하면 지워져요</p>
       <div className="flex flex-wrap justify-center gap-1.5">

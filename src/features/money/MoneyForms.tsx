@@ -95,7 +95,7 @@ export function FormSheet({ title, onClose, onSave, onDelete, canSave = true, de
           <div style={{ marginTop: 16, padding: 14, borderRadius: 12, background: `${MONEY_PALETTE.coral}12`, border: `1px solid ${MONEY_PALETTE.coral}40` }}>
             <div style={{ fontSize: 13, color: t.text, marginBottom: 10, fontWeight: 600 }}>{deleteWarning ?? '정말 삭제할까요? 되돌릴 수 없어요.'}</div>
             <div className="flex gap-2">
-              <button onClick={() => setConfirmDel(false)} style={{ flex: 1, padding: 10, borderRadius: 10, background: t.bgSub, color: t.textSub, fontSize: 13, fontWeight: 600 }}>취소</button>
+              <button onClick={() => setConfirmDel(false)} style={{ flex: 1, padding: 10, borderRadius: 10, background: t.lavenderTint, color: t.textSub, fontSize: 13, fontWeight: 600 }}>취소</button>
               <button onClick={() => { onDelete?.(); onClose(); }} style={{ flex: 1, padding: 10, borderRadius: 10, background: MONEY_PALETTE.coral, color: '#fff', fontSize: 13, fontWeight: 600 }}>삭제</button>
             </div>
           </div>

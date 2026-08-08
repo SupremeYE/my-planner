@@ -320,7 +320,7 @@ export function MomentView() {
                 disabled={photoFiles.length >= 5}
                 className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl transition-all"
                 style={{
-                  backgroundColor: t.bgSub,
+                  backgroundColor: t.lavenderTint,
                   color: photoFiles.length >= 5 ? t.textMuted : t.textSub,
                   fontSize: 12,
                 }}
@@ -343,7 +343,7 @@ export function MomentView() {
                 disabled={photoFiles.length >= 5}
                 className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl transition-all"
                 style={{
-                  backgroundColor: t.bgSub,
+                  backgroundColor: t.lavenderTint,
                   color: photoFiles.length >= 5 ? t.textMuted : t.textSub,
                   fontSize: 12,
                 }}
@@ -490,7 +490,7 @@ export function MomentView() {
                       disabled={photoFiles.length >= 5}
                       className="flex items-center justify-center w-8 h-8 rounded-lg transition-all"
                       style={{
-                        backgroundColor: t.bgSub,
+                        backgroundColor: t.lavenderTint,
                         color: photoFiles.length >= 5 ? t.textMuted : t.textSub,
                       }}
                       aria-label="카메라"
@@ -502,7 +502,7 @@ export function MomentView() {
                       disabled={photoFiles.length >= 5}
                       className="flex items-center justify-center w-8 h-8 rounded-lg transition-all"
                       style={{
-                        backgroundColor: t.bgSub,
+                        backgroundColor: t.lavenderTint,
                         color: photoFiles.length >= 5 ? t.textMuted : t.textSub,
                       }}
                       aria-label="갤러리"
@@ -558,7 +558,7 @@ export function MomentView() {
             {/* ── 우측 메인 콘텐츠 ──────────────────────────────────── */}
             <main className="min-w-0 space-y-6">
               {/* 세그먼트 토글: 피드 / 모아보기 */}
-              <div className="flex p-1 rounded-xl w-fit" style={{ backgroundColor: t.bgSub }}>
+              <div className="flex p-1 rounded-xl w-fit" style={{ backgroundColor: t.lavenderTint }}>
                 {([['feed', '피드'], ['grid', '모아보기']] as const).map(([v, label]) => (
                   <button
                     key={v}
@@ -706,7 +706,7 @@ export function MomentView() {
           </div>
 
           {/* 세그먼트 토글: 피드 / 모아보기 */}
-          <div className="flex p-1 rounded-xl" style={{ backgroundColor: t.bgSub }}>
+          <div className="flex p-1 rounded-xl" style={{ backgroundColor: t.lavenderTint }}>
             {([['feed', '피드'], ['grid', '모아보기']] as const).map(([v, label]) => (
               <button
                 key={v}
@@ -935,7 +935,7 @@ function ReorderGrid({
             style={{
               aspectRatio: '1 / 1',
               borderRadius: 10,
-              background: hasPhoto ? t.bgSub : `linear-gradient(135deg, ${t.bgSub} 0%, ${t.accentSoft} 100%)`,
+              background: hasPhoto ? t.lavenderTint : `linear-gradient(135deg, ${t.lavenderTint} 0%, ${t.lavenderTint} 100%)`,
               opacity: isDragging ? 0.5 : 1,
               boxShadow: isDragging ? `0 0 0 2px ${t.accent}` : 'none',
               cursor: 'grab',
@@ -998,7 +998,7 @@ function MomentGridTile({
         aspectRatio: '1 / 1',
         borderRadius: 10,
         // 사진 없는 모먼트: 연한 그라데이션 placeholder (디자인 토큰 기반)
-        background: hasPhoto ? t.bgSub : `linear-gradient(135deg, ${t.bgSub} 0%, ${t.accentSoft} 100%)`,
+        background: hasPhoto ? t.lavenderTint : `linear-gradient(135deg, ${t.lavenderTint} 0%, ${t.lavenderTint} 100%)`,
       }}
     >
       {hasPhoto ? (
@@ -1062,7 +1062,7 @@ function HighlightMiniTile({ moment, t }: { moment: Moment; t: ThemeTokens }) {
       style={{
         aspectRatio: '1 / 1',
         borderRadius: 10,
-        background: hasPhoto ? t.bgSub : `linear-gradient(135deg, ${t.bgSub} 0%, ${t.accentSoft} 100%)`,
+        background: hasPhoto ? t.lavenderTint : `linear-gradient(135deg, ${t.lavenderTint} 0%, ${t.lavenderTint} 100%)`,
         boxShadow: `0 0 0 2px ${t.accent}`,
       }}
     >
@@ -1159,7 +1159,7 @@ function MomentFeedCardPC({
               className="flex items-center justify-center rounded-full"
               style={{
                 width: 26, height: 26,
-                backgroundColor: hi ? t.accentSoft : t.bgSub,
+                backgroundColor: hi ? t.lavenderTint : t.lavenderTint,
                 color: hi ? t.danger : t.textMuted,
               }}
               aria-label={hi ? '하이라이트 해제' : '하이라이트 지정'}
@@ -1182,7 +1182,7 @@ function MomentFeedCardPC({
               fontSize: 17,
               color: t.text,
               lineHeight: 1.45,
-              backgroundColor: t.bgSub,
+              backgroundColor: t.lavenderTint,
               border: `1px solid ${t.border}`,
             }}
           />
@@ -1207,7 +1207,7 @@ function MomentFeedCardPC({
             {weather && (
               <span
                 className="flex items-center gap-1 px-1.5 py-0.5 rounded-md"
-                style={{ backgroundColor: t.bgSub, fontSize: 11, color: t.textSub }}
+                style={{ backgroundColor: t.lavenderTint, fontSize: 11, color: t.textSub }}
               >
                 <span>{weather.emoji}</span>
                 {moment.weather_temp != null && <span>{moment.weather_temp}°C</span>}
@@ -1272,7 +1272,7 @@ function HighlightCard({ moment, t }: { moment: Moment; t: ThemeTokens }) {
       style={{
         width: 108, height: 132,
         borderRadius: 13,
-        background: hasPhoto ? t.bgSub : `linear-gradient(135deg, ${t.bgSub} 0%, ${t.accentSoft} 100%)`,
+        background: hasPhoto ? t.lavenderTint : `linear-gradient(135deg, ${t.lavenderTint} 0%, ${t.lavenderTint} 100%)`,
         boxShadow: `0 0 0 2px ${t.accent}`,
       }}
     >
@@ -1348,7 +1348,7 @@ function MomentCardMobile({ moment, expanded, onToggle, onDelete, onUpdateConten
       {weather && (
         <span
           className="flex items-center gap-1 px-1.5 py-0.5 rounded-md"
-          style={{ backgroundColor: t.bgSub, fontSize: 10.5, color: t.textSub }}
+          style={{ backgroundColor: t.lavenderTint, fontSize: 10.5, color: t.textSub }}
         >
           <span>{weather.emoji}</span>
           {moment.weather_temp != null && <span>{moment.weather_temp}°C</span>}
@@ -1366,7 +1366,7 @@ function MomentCardMobile({ moment, expanded, onToggle, onDelete, onUpdateConten
         height: expanded ? undefined : 64,
         aspectRatio: expanded ? '1.25 / 1' : undefined,
         borderRadius: 11,
-        backgroundColor: t.bgSub,
+        backgroundColor: t.lavenderTint,
         transition: 'width 0.3s ease, height 0.3s ease',
       }}
     >
@@ -1404,7 +1404,7 @@ function MomentCardMobile({ moment, expanded, onToggle, onDelete, onUpdateConten
                     fontSize: 18,
                     color: t.text,
                     lineHeight: 1.5,
-                    backgroundColor: t.bgSub,
+                    backgroundColor: t.lavenderTint,
                     border: `1px solid ${t.border}`,
                   }}
                 />

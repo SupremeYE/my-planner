@@ -59,7 +59,7 @@ export function MoveToFridgeSheet({ item, onConfirm, onClose }: MoveToFridgeShee
                 <button key={key} type="button" onClick={() => setCategory(key)}
                   className="flex-1 flex flex-col items-center gap-1 py-3 rounded-xl transition-all"
                   style={{ fontSize: 13, fontWeight: active ? 700 : 500,
-                    backgroundColor: active ? t.accent : t.bgSub,
+                    backgroundColor: active ? t.accent : t.lavenderTint,
                     color: active ? '#fff' : t.textSub,
                     border: `1px solid ${active ? t.accent : t.border}` }}>
                   <Icon size={20} color={active ? '#fff' : t.textSub} />
@@ -72,7 +72,7 @@ export function MoveToFridgeSheet({ item, onConfirm, onClose }: MoveToFridgeShee
           <div className="flex items-center gap-2">
             <button type="button" onClick={onClose}
               className="flex-1 px-4 py-2.5 rounded-xl"
-              style={{ fontSize: 14, fontWeight: 600, color: t.textSub, backgroundColor: t.bgSub, border: `1px solid ${t.border}` }}>
+              style={{ fontSize: 14, fontWeight: 600, color: t.textSub, backgroundColor: t.lavenderTint, border: `1px solid ${t.border}` }}>
               취소
             </button>
             <button type="button" onClick={handle} disabled={submitting}

@@ -138,7 +138,7 @@ export function FolderFormSheet({ folder, folders, onClose, onSaved }: Props) {
             {/* 미리보기 */}
             <div
               className="flex items-center gap-3 mt-1 mb-2"
-              style={{ padding: '10px 12px', borderRadius: 13, backgroundColor: t.bgSub }}
+              style={{ padding: '10px 12px', borderRadius: 13, backgroundColor: t.lavenderTint }}
             >
               <div
                 className="flex items-center justify-center"

@@ -12,7 +12,7 @@ import { MandalartSourceBadge } from './mandalart/MandalartSourceBadge';
 import { TodoModal } from './TodoModal';
 import { QuickAddInput } from './QuickAddInput';
 import { isInboxCandidate } from '../../lib/inbox';
-import { isHaon, solidCardStyle, solidRowStyle, glassBarStyle, mixHex, selectedRowStyle, actionBarStyle, buttonStyle } from '../styles/haonStyles';
+import { solidCardStyle, solidRowStyle, glassBarStyle, mixHex, selectedRowStyle, actionBarStyle, buttonStyle } from '../styles/haonStyles';
 
 // ─── Constants ───────────────────────────────────────────────
 const STATUS_CONFIG: Record<string, { label: string; color: string; bgColor: string }> = {
@@ -101,12 +101,12 @@ function TodoRow({
   const project = todo.projectId ? projects.find(p => p.id === todo.projectId) : null;
 
   // Haon(H): 배지(프로젝트·마일스톤)는 채도 파스텔 채움 + 어두운 텍스트 시블링. 그 외 테마는 기존 저채도 워시.
-  const badgeBg = (c: string) => (isHaon(t) ? mixHex(c, 255, 0.78) : c + '18');
-  const badgeText = (c: string) => (isHaon(t) ? mixHex(c, 0, 0.32) : c);
+  const badgeBg = (c: string) => mixHex(c, 255, 0.78);
+  const badgeText = (c: string) => mixHex(c, 0, 0.32);
 
   // Haon(H): 항목 행 = 솔리드 행 recipe. 핵심(KEY, isTop3) 행은 코랄 톤(keyRow 토큰 + 좌측 코랄 그라데이션 바).
   // 그 외 테마(A/B/C/D)는 기존 카드 모양 유지.
-  const isKeyRow = isHaon(t) && todo.isTop3;
+  const isKeyRow = todo.isTop3;
   let rowStyle: CSSProperties;
   if (isKeyRow) {
     rowStyle = {
@@ -117,14 +117,8 @@ function TodoRow({
       position: 'relative',
       opacity: isCancelled ? 0.6 : 1,
     };
-  } else if (isHaon(t)) {
-    rowStyle = { ...solidRowStyle(t), opacity: isCancelled ? 0.6 : 1 };
   } else {
-    rowStyle = {
-      backgroundColor: t.card,
-      border: `1px solid ${isDone ? t.borderLight : t.border}`,
-      opacity: isCancelled ? 0.6 : 1,
-    };
+    rowStyle = { ...solidRowStyle(t), opacity: isCancelled ? 0.6 : 1 };
   }
   // 다중 선택: 기존 행 표면 위에 코랄 링만 덧댐(배경·그림자 불변) — DESIGN §5 Selection mode
   if (selected) rowStyle = { ...rowStyle, ...selectedRowStyle(t) };
@@ -450,25 +444,19 @@ function TodoListTab({ selectMode, selected, onSelectToggle }: TabSelectionProps
         <div className="px-4">
           <div
             className="rounded-2xl p-3"
-            style={
-              isHaon(t)
-                ? { ...solidCardStyle(t), position: 'relative' }
-                : { backgroundColor: t.dangerLight, border: `1px solid ${t.danger}33` }
-            }
+            style={{ ...solidCardStyle(t), position: 'relative' }}
           >
             {/* 파스텔(H): 좌측 코랄 액센트 바 — 자체 좌측 코너를 카드 반경에 맞춰 라운딩(overflow 마스킹 없이) */}
-            {isHaon(t) && (
-              <span
-                aria-hidden
-                className="absolute left-0 top-0 bottom-0"
-                style={{
-                  width: 4,
-                  background: t.primaryGradient ?? t.accent,
-                  borderTopLeftRadius: t.solidCardRadius ?? 20,
-                  borderBottomLeftRadius: t.solidCardRadius ?? 20,
-                }}
-              />
-            )}
+            <span
+              aria-hidden
+              className="absolute left-0 top-0 bottom-0"
+              style={{
+                width: 4,
+                background: t.primaryGradient ?? t.accent,
+                borderTopLeftRadius: t.solidCardRadius ?? 20,
+                borderBottomLeftRadius: t.solidCardRadius ?? 20,
+              }}
+            />
             <div className="flex items-center gap-2 mb-2.5">
               <AlertTriangle size={14} color={t.danger} />
               <span style={{ fontSize: 11, fontWeight: 700, color: t.danger, letterSpacing: '0.04em' }}>
@@ -503,7 +491,7 @@ function TodoListTab({ selectMode, selected, onSelectToggle }: TabSelectionProps
         <div className="px-4">
           <div
             className="rounded-2xl p-3"
-            style={isHaon(t) ? solidCardStyle(t) : { backgroundColor: `${t.success}12`, border: `1px solid ${t.success}33` }}
+            style={solidCardStyle(t)}
           >
             <div className="flex items-center gap-2 mb-2.5">
               <Play size={13} color={t.success} fill={t.success} />
@@ -756,7 +744,7 @@ export function TodosView() {
       {/* Header — 스크롤 위에 떠 있는 오버레이라 파스텔(H)에서만 글래스(backdrop-filter는 여기에만) */}
       <div
         className="flex-shrink-0 sticky top-0 z-10"
-        style={isHaon(t) ? glassBarStyle(t) : { backgroundColor: t.sidebar, borderBottom: `1px solid ${t.border}` }}
+        style={glassBarStyle(t)}
       >
         <div className="px-3 py-3 lg:px-6 lg:py-4">
           <div className="flex items-center justify-between">
@@ -781,9 +769,7 @@ export function TodosView() {
           {/* 탭 — 파스텔(H): near-neutral 트랙(borderLight) + 가로 스트레치 제거(maxWidth, 좌측정렬). 그 외 테마 무변경 */}
           <div
             className="flex gap-1 mt-3 p-1 rounded-xl"
-            style={isHaon(t)
-              ? { backgroundColor: t.borderLight, border: `1px solid ${t.border}`, maxWidth: 460 }
-              : { backgroundColor: t.bgSub, border: `1px solid ${t.border}` }}
+            style={{ backgroundColor: t.borderLight, border: `1px solid ${t.border}`, maxWidth: 460 }}
           >
             {([
               { value: 'list' as Tab, label: '할 일', count: listCount, badge: overdueCount },
@@ -797,20 +783,16 @@ export function TodosView() {
                   className="flex-1 py-1.5 rounded-lg transition-all flex items-center justify-center gap-1.5"
                   style={{
                     fontSize: 12,
-                    fontWeight: isActive ? (isHaon(t) ? 600 : 700) : 500,
-                    color: isActive
-                      ? (isHaon(t) ? t.text : '#fff')
-                      : (isHaon(t) ? t.textMuted : t.textSub),
-                    ...(isHaon(t) ? { position: 'relative' } : {}),
+                    fontWeight: isActive ? 600 : 500,
+                    color: isActive ? t.text : t.textMuted,
+                    position: 'relative',
                     ...(isActive
-                      ? (isHaon(t)
-                          ? { ...solidCardStyle(t), borderRadius: undefined }
-                          : { backgroundColor: t.accent })
+                      ? { ...solidCardStyle(t), borderRadius: undefined }
                       : { backgroundColor: 'transparent' }),
                   }}
                 >
                   {/* 파스텔(H) 활성 탭: 코랄 강조는 하단 중앙 3px 언더라인으로만 (그라데이션 풀 채움 제거) */}
-                  {isActive && isHaon(t) && (
+                  {isActive && (
                     <span
                       aria-hidden
                       className="absolute left-1/2 -translate-x-1/2"
@@ -826,12 +808,8 @@ export function TodosView() {
                         minWidth: 18,
                         height: 16,
                         fontWeight: 700,
-                        backgroundColor: isActive
-                          ? (isHaon(t) ? mixHex(t.accent, 255, 0.80) : 'rgba(255,255,255,0.25)')
-                          : t.borderLight,
-                        color: isActive
-                          ? (isHaon(t) ? mixHex(t.accent, 0, 0.30) : '#fff')
-                          : (isHaon(t) ? t.textMuted : t.textSub),
+                        backgroundColor: isActive ? mixHex(t.accent, 255, 0.80) : t.borderLight,
+                        color: isActive ? mixHex(t.accent, 0, 0.30) : t.textMuted,
                       }}
                     >
                       {count}
@@ -887,7 +865,7 @@ export function TodosView() {
           <button
             onClick={exitSelectMode}
             className="px-3 py-1.5 rounded-xl"
-            style={{ fontSize: 12, fontWeight: 600, color: t.textSub, backgroundColor: t.bgSub }}
+            style={{ fontSize: 12, fontWeight: 600, color: t.textSub, backgroundColor: t.lavenderTint }}
           >
             취소
           </button>

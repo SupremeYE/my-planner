@@ -126,12 +126,12 @@ export function RepeatWalkSession({ target, name, onFinish, onCancel }: {
         <div style={{ margin: '0 16px 8px', padding: '12px 14px', borderRadius: 12, backgroundColor: withAlpha(t.danger, 0.12), color: t.danger, fontSize: 13, lineHeight: 1.5 }}>{tr.errorMsg}</div>
       )}
 
-      <div style={{ flex: 1, minHeight: 0, position: 'relative', margin: '0 16px', borderRadius: 18, overflow: 'hidden', backgroundColor: t.bgSub }}>
+      <div style={{ flex: 1, minHeight: 0, position: 'relative', margin: '0 16px', borderRadius: 18, overflow: 'hidden', backgroundColor: t.lavenderTint }}>
         {useMap ? (
           <div ref={mapElRef} style={{ position: 'absolute', inset: 0 }} />
         ) : (
           <div className="flex flex-col items-center justify-center h-full">
-            <RouteGlyph path={target} size={200} stroke={t.textMuted} bg={t.bgSub} />
+            <RouteGlyph path={target} size={200} stroke={t.textMuted} bg={t.lavenderTint} />
             <p style={{ fontSize: 12, color: t.textMuted, marginTop: 10 }}>지도 키가 없어 목표 경로 모양만 표시해요</p>
           </div>
         )}

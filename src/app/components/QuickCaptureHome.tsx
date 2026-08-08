@@ -123,7 +123,7 @@ export function QuickCaptureHome() {
     switch (role) {
       case 'accent': return { bg: t.accentLight, fg: t.accent, bd: t.accentLight };
       case 'danger': return { bg: t.dangerLight, fg: t.danger, bd: t.dangerLight };
-      case 'text':   return { bg: t.bgSub,       fg: t.text,   bd: t.border };
+      case 'text':   return { bg: t.lavenderTint,       fg: t.text,   bd: t.border };
     }
   };
 
@@ -303,7 +303,7 @@ export function QuickCaptureHome() {
                 style={{
                   gap: 7, aspectRatio: '1 / 0.9', padding: '12px 6px', borderRadius: 14,
                   border: `1px solid ${t.border}`,
-                  background: isInstant ? t.bgSub : t.card,
+                  background: isInstant ? t.lavenderTint : t.card,
                   cursor: 'pointer',
                 }}
               >

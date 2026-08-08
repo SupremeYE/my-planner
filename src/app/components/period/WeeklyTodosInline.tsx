@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react';
 import { Link2, Plus, X } from 'lucide-react';
 import { usePlanner, type Todo } from '../../store';
 import { useTheme } from '../../ThemeContext';
+import { inputBg } from '../../styles/haonStyles';
 import { TodoModal } from '../TodoModal';
 
 interface Props {
@@ -51,7 +52,8 @@ export function WeeklyTodosInline({ weeklyGoalId, weekKey }: Props) {
                 onClick={(e) => { e.stopPropagation(); setEditingTodo(td); }}
                 role="button"
                 className="flex items-center gap-2 px-2 py-1.5 rounded-lg cursor-pointer"
-                style={{ backgroundColor: t.bgSub, border: `1px solid ${t.borderLight}` }}
+                // 카드 안 중첩 행 = surfaceMuted(중립). 완료여도 배경 불변 — 상태는 체크/취소선/뮤트로만 (DESIGN §5 List row)
+                style={{ backgroundColor: t.surfaceMuted, border: `1px solid ${t.borderLight}` }}
               >
                 <button
                   onClick={(e) => { e.stopPropagation(); toggleDone(td); }}
@@ -178,7 +180,7 @@ function LinkExistingTodoModal({ onClose, onPick, alreadyLinkedIds }: {
             onChange={e => setQ(e.target.value)}
             placeholder="할일 검색..."
             className="w-full px-3 py-2 rounded-lg border outline-none"
-            style={{ fontSize: 13, borderColor: t.borderLight, backgroundColor: t.bgSub, color: t.text }}
+            style={{ fontSize: 13, borderColor: t.borderLight, backgroundColor: inputBg(t), color: t.text }}
           />
         </div>
         <div className="flex-1 overflow-y-auto px-2 pb-3">

@@ -59,7 +59,7 @@ function SessionRow({ s, onClick }: { s: WalkSession; onClick: () => void }) {
       {s.photoUrl ? (
         <img src={s.photoUrl} alt="" style={{ width: 56, height: 56, borderRadius: 12, objectFit: 'cover', flexShrink: 0 }} />
       ) : (
-        <div style={{ flexShrink: 0 }}><RouteGlyph path={s.path} size={56} stroke={t.accent} bg={t.bgSub} strokeWidth={4} /></div>
+        <div style={{ flexShrink: 0 }}><RouteGlyph path={s.path} size={56} stroke={t.accent} bg={t.lavenderTint} strokeWidth={4} /></div>
       )}
       <div style={{ flex: 1, minWidth: 0 }}>
         <p style={{ fontSize: 14, fontWeight: 700, color: t.text }}>

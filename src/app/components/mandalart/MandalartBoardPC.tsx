@@ -117,7 +117,7 @@ export function MandalartBoardPC({ boardId, boardTitle, cells, onMutate, onNotif
       <div className="flex items-center justify-end mb-4">
         <div className="flex items-center gap-3" style={{ minWidth: 260 }}>
           <span style={{ fontSize: 12, color: t.textMuted }}>전체 진행률</span>
-          <div className="flex-1 h-2 rounded-full overflow-hidden" style={{ backgroundColor: t.bgSub, minWidth: 140 }}>
+          <div className="flex-1 h-2 rounded-full overflow-hidden" style={{ backgroundColor: t.lavenderTint, minWidth: 140 }}>
             <div className="h-full" style={{ width: `${progress.overall}%`, backgroundColor: t.success }} />
           </div>
           <span style={{ fontFamily: t.fontSection, fontSize: 22, color: t.text }}> {/* 툴바 진행률 수치, 섹션 헤더급 */}
@@ -158,7 +158,7 @@ export function MandalartBoardPC({ boardId, boardTitle, cells, onMutate, onNotif
                 style={{
                   padding: 5,
                   borderRadius: 12,
-                  backgroundColor: t.bgSub,
+                  backgroundColor: t.lavenderTint,
                   border: `1.5px dashed ${t.accentLight}`,
                   minWidth: 0,
                   aspectRatio: '1',
@@ -188,7 +188,7 @@ export function MandalartBoardPC({ boardId, boardTitle, cells, onMutate, onNotif
                 gap: 4,
                 padding: 5,
                 borderRadius: 12,
-                backgroundColor: t.bgSub,
+                backgroundColor: t.lavenderTint,
                 boxShadow: isCenterBlock ? `0 0 0 2px ${t.accent}55` : `inset 0 0 0 1px ${t.border}`,
                 minWidth: 0,
               }}
@@ -400,7 +400,7 @@ function SubPCCell({ cell, sent, pct, hasActions, t, onClick, onEdit }: {
         {cell.content}
       </span>
       {hasActions ? (
-        <span style={{ width: '74%', height: 4, borderRadius: 999, backgroundColor: t.bgSub, overflow: 'hidden', display: 'block' }}>
+        <span style={{ width: '74%', height: 4, borderRadius: 999, backgroundColor: t.lavenderTint, overflow: 'hidden', display: 'block' }}>
           <b style={{ display: 'block', height: '100%', width: `${pct}%`, backgroundColor: t.success }} />
         </span>
       ) : (
@@ -427,7 +427,7 @@ function SubCenterPCCell({ name, pct, t, onClick }: {
       onClick={onClick}
       style={{
         ...cellBase,
-        backgroundColor: t.accentSoft,
+        backgroundColor: t.lavenderTint,
         color: t.text,
         border: `1px solid ${t.border}`,
       }}
@@ -532,7 +532,7 @@ function EditModalPC({
           placeholder={placeholder}
           rows={3}
           className="w-full rounded-xl px-3 py-2.5 border outline-none resize-none"
-          style={{ fontSize: 14, borderColor: t.border, backgroundColor: t.bgSub, color: t.text }}
+          style={{ fontSize: 14, borderColor: t.border, backgroundColor: t.lavenderTint, color: t.text }}
         />
         <div className="flex justify-between items-center gap-2 mt-3">
           {onSend ? (
@@ -549,7 +549,7 @@ function EditModalPC({
             <button
               onClick={onClose}
               className="px-3 py-1.5 rounded-xl"
-              style={{ fontSize: 13, color: t.textMuted, backgroundColor: t.bgSub }}
+              style={{ fontSize: 13, color: t.textMuted, backgroundColor: t.lavenderTint }}
             >취소</button>
             <button
               onClick={onSubmit}

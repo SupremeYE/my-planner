@@ -62,7 +62,7 @@ export function HistorySheet({ onClose, onChanged }: Props) {
                     key={log.id}
                     onClick={() => setEditing(log)}
                     className="w-full flex items-center gap-3 text-left"
-                    style={{ backgroundColor: t.bgSub, border: `1px solid ${t.borderLight}`, borderRadius: 12, padding: 9 }}
+                    style={{ backgroundColor: t.lavenderTint, border: `1px solid ${t.borderLight}`, borderRadius: 12, padding: 9 }}
                   >
                     {log.exercise && <ExerciseThumb exercise={log.exercise} size={42} radius={9} />}
                     <div className="flex-1 min-w-0">

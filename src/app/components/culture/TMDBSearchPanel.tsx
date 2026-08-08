@@ -52,7 +52,7 @@ export function TMDBSearchPanel({ onSelect, notify }: TMDBSearchPanelProps) {
 
   if (!tokenAvailable) {
     return (
-      <div className="rounded-xl p-3" style={{ backgroundColor: t.bgSub, border: `1px dashed ${t.border}` }}>
+      <div className="rounded-xl p-3" style={{ backgroundColor: t.lavenderTint, border: `1px dashed ${t.border}` }}>
         <p style={{ fontSize: 12, color: t.textMuted, lineHeight: 1.5 }}>
           <code>VITE_TMDB_API_TOKEN</code> 환경변수가 설정되지 않았습니다. TMDB 검색을 사용하려면 토큰을 추가하세요. (수동 입력은 계속 가능합니다)
         </p>
@@ -61,7 +61,7 @@ export function TMDBSearchPanel({ onSelect, notify }: TMDBSearchPanelProps) {
   }
 
   return (
-    <div className="rounded-xl p-3 space-y-3" style={{ backgroundColor: t.bgSub, border: `1px solid ${t.border}` }}>
+    <div className="rounded-xl p-3 space-y-3" style={{ backgroundColor: t.lavenderTint, border: `1px solid ${t.border}` }}>
       <div className="relative">
         <Search size={15} color={t.textMuted}
           style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)' }} />
@@ -89,7 +89,7 @@ export function TMDBSearchPanel({ onSelect, notify }: TMDBSearchPanelProps) {
                 onClick={() => onSelect(r)}
                 className="text-left rounded-lg overflow-hidden transition-transform hover:-translate-y-0.5"
                 style={{ backgroundColor: t.card, border: `1px solid ${t.border}` }}>
-                <div className="relative" style={{ aspectRatio: '2 / 3', backgroundColor: t.bgSub }}>
+                <div className="relative" style={{ aspectRatio: '2 / 3', backgroundColor: t.lavenderTint }}>
                   {poster
                     ? <img src={poster} alt={r.title} className="w-full h-full object-cover" />
                     : <div className="w-full h-full flex items-center justify-center"
@@ -129,7 +129,7 @@ export function TMDBSearchPanel({ onSelect, notify }: TMDBSearchPanelProps) {
                 className="text-left flex flex-col active:opacity-70 transition-opacity">
                 {/* 포스터 (2:3 비율) */}
                 <div className="relative rounded-lg overflow-hidden w-full"
-                  style={{ aspectRatio: '2 / 3', backgroundColor: t.bgSub }}>
+                  style={{ aspectRatio: '2 / 3', backgroundColor: t.lavenderTint }}>
                   {poster
                     ? <img src={poster} alt={r.title || r.original_title}
                         className="w-full h-full object-cover" />

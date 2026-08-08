@@ -190,7 +190,7 @@ export function FloatingAddFab({
           type="button"
           onClick={() => { onAddEvent(); setOpen(false); }}
           className="flex items-center gap-1 px-2.5 py-1 rounded-lg"
-          style={{ fontSize: 11, fontWeight: 600, color: t.info, backgroundColor: t.bgSub }}
+          style={{ fontSize: 11, fontWeight: 600, color: t.info, backgroundColor: t.lavenderTint }}
         >
           <CalendarDays size={12} /> 일정
         </button>

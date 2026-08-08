@@ -191,7 +191,7 @@ export default function VisionFormModal({ item, categories, onClose, onSaved, on
           {/* 이미지 영역 */}
           <div>
             {previewSrc ? (
-              <div style={{ position: 'relative', borderRadius: 12, overflow: 'hidden', backgroundColor: t.bgSub }}>
+              <div style={{ position: 'relative', borderRadius: 12, overflow: 'hidden', backgroundColor: t.lavenderTint }}>
                 <img src={previewSrc} alt="" style={{ width: '100%', display: 'block', maxHeight: 320, objectFit: 'cover' }} />
                 <button
                   type="button"
@@ -267,7 +267,7 @@ export default function VisionFormModal({ item, categories, onClose, onSaved, on
                 padding: '10px 12px',
                 borderRadius: 10,
                 border: `1px solid ${t.border}`,
-                backgroundColor: t.bgSub,
+                backgroundColor: t.lavenderTint,
                 color: t.text,
                 fontSize: 14,
                 resize: 'none',

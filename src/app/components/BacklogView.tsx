@@ -69,7 +69,7 @@ export function BacklogView() {
               className="px-3 py-1.5 rounded-full flex-shrink-0 transition-all"
               style={{
                 fontSize: 12,
-                backgroundColor: selectedCategory === cat ? t.accent : t.bgSub,
+                backgroundColor: selectedCategory === cat ? t.accent : t.lavenderTint,
                 color: selectedCategory === cat ? '#fff' : t.textMuted,
                 fontWeight: selectedCategory === cat ? 600 : 400,
               }}
@@ -124,7 +124,7 @@ export function BacklogView() {
                             value={snoozeDate}
                             onChange={e => setSnoozeDate(e.target.value)}
                             className="px-2 py-1 rounded-lg outline-none"
-                            style={{ fontSize: 12, backgroundColor: t.bgSub, border: 'none', color: t.text }}
+                            style={{ fontSize: 12, backgroundColor: t.lavenderTint, border: 'none', color: t.text }}
                           />
                           <button onClick={() => handleAssignDate(todo.id)}
                             className="px-2 py-1 rounded-lg"
@@ -132,7 +132,7 @@ export function BacklogView() {
                             배정
                           </button>
                           <button onClick={() => setSnoozeId(null)} className="px-2 py-1 rounded-lg"
-                            style={{ fontSize: 12, backgroundColor: t.bgSub, color: t.textMuted }}>
+                            style={{ fontSize: 12, backgroundColor: t.lavenderTint, color: t.textMuted }}>
                             취소
                           </button>
                         </div>
@@ -145,7 +145,7 @@ export function BacklogView() {
                           </button>
                           <button onClick={() => setDeleteTarget(todo)}
                             className="p-1.5 rounded-lg hover:bg-[var(--bl-hover)]"
-                            style={{ ['--bl-hover']: t.bgSub } as CSSProperties}>
+                            style={{ ['--bl-hover']: t.lavenderTint } as CSSProperties}>
                             <Trash2 size={13} color={t.textMuted} />
                           </button>
                         </>
@@ -179,7 +179,7 @@ export function BacklogView() {
                     </span>
                   )}
                 </div>
-                <button onClick={() => setDeleteTarget(todo)} className="p-1.5 rounded-lg hover:bg-[var(--bl-hover)] flex-shrink-0" style={{ ['--bl-hover']: t.bgSub } as CSSProperties}>
+                <button onClick={() => setDeleteTarget(todo)} className="p-1.5 rounded-lg hover:bg-[var(--bl-hover)] flex-shrink-0" style={{ ['--bl-hover']: t.lavenderTint } as CSSProperties}>
                   <Trash2 size={13} color={t.textMuted} />
                 </button>
               </div>
@@ -191,7 +191,7 @@ export function BacklogView() {
                     value={snoozeDate}
                     onChange={e => setSnoozeDate(e.target.value)}
                     className="flex-1 px-3 py-2 rounded-xl outline-none"
-                    style={{ fontSize: 13, backgroundColor: t.bgSub, border: 'none', color: t.text }}
+                    style={{ fontSize: 13, backgroundColor: t.lavenderTint, border: 'none', color: t.text }}
                   />
                   <button onClick={() => handleAssignDate(todo.id)}
                     className="px-3 py-2 rounded-xl"
@@ -200,7 +200,7 @@ export function BacklogView() {
                   </button>
                   <button onClick={() => setSnoozeId(null)}
                     className="px-3 py-2 rounded-xl"
-                    style={{ fontSize: 13, backgroundColor: t.bgSub, color: t.textMuted }}>
+                    style={{ fontSize: 13, backgroundColor: t.lavenderTint, color: t.textMuted }}>
                     취소
                   </button>
                 </div>
@@ -235,14 +235,14 @@ export function BacklogView() {
               onKeyDown={e => e.key === 'Enter' && handleAdd()}
               placeholder="날짜 없는 할일 추가..."
               className="w-full px-3 py-2 rounded-xl outline-none"
-              style={{ fontSize: 13, backgroundColor: t.bgSub, color: t.text, border: 'none' }}
+              style={{ fontSize: 13, backgroundColor: t.lavenderTint, color: t.text, border: 'none' }}
             />
             <div className="flex gap-2">
               <select
                 value={newCategory}
                 onChange={e => setNewCategory(e.target.value)}
                 className="flex-1 px-3 py-2 rounded-xl outline-none"
-                style={{ fontSize: 13, backgroundColor: t.bgSub, color: newCategory ? t.text : t.textMuted, border: 'none' }}
+                style={{ fontSize: 13, backgroundColor: t.lavenderTint, color: newCategory ? t.text : t.textMuted, border: 'none' }}
               >
                 <option value="">카테고리 선택 (선택사항)</option>
                 {CATEGORIES.slice(1).map(cat => <option key={cat} value={cat}>{cat}</option>)}

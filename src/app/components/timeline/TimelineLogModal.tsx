@@ -91,7 +91,7 @@ export function TimelineLogModal({ date, logs, onAdd, onDelete, onClose }: {
                 <label style={{ fontSize: 13, color: t.textSub, fontWeight: 500, marginBottom: 8, display: 'block' }}>아이콘</label>
                 <input value={icon} onChange={e => setIcon(e.target.value)} placeholder="🎯"
                   className="rounded-xl px-3 py-2.5 outline-none text-center"
-                  style={{ border: `1px solid ${t.border}`, fontSize: 16, width: 52, backgroundColor: t.bgSub, color: t.text }} />
+                  style={{ border: `1px solid ${t.border}`, fontSize: 16, width: 52, backgroundColor: t.lavenderTint, color: t.text }} />
               </div>
             </div>
 
@@ -102,7 +102,7 @@ export function TimelineLogModal({ date, logs, onAdd, onDelete, onClose }: {
                 placeholder="지금 이 순간 드는 생각, 감정, 인사이트를 자유롭게..."
                 className="w-full rounded-xl px-4 py-3 outline-none resize-none"
                 style={{
-                  border: `1px solid ${t.border}`, fontSize: 14, backgroundColor: t.bgSub, color: t.text,
+                  border: `1px solid ${t.border}`, fontSize: 14, backgroundColor: t.lavenderTint, color: t.text,
                   minHeight: 120, lineHeight: 1.6,
                 }} />
             </div>
@@ -115,7 +115,7 @@ export function TimelineLogModal({ date, logs, onAdd, onDelete, onClose }: {
               저장
             </button>
             <button onClick={() => setMode('list')} className="flex-1 py-3 rounded-xl"
-              style={{ fontSize: 14, fontWeight: 500, color: t.textSub, backgroundColor: t.bgSub, border: `1px solid ${t.border}` }}>
+              style={{ fontSize: 14, fontWeight: 500, color: t.textSub, backgroundColor: t.lavenderTint, border: `1px solid ${t.border}` }}>
               취소
             </button>
           </div>
@@ -144,7 +144,7 @@ export function TimelineLogModal({ date, logs, onAdd, onDelete, onClose }: {
         <div className="flex-1 overflow-y-auto px-6 py-4">
           {dateLogs.length === 0 && (
             <div className="py-10 text-center">
-              <div className="w-12 h-12 rounded-full mx-auto mb-3 flex items-center justify-center" style={{ backgroundColor: t.bgSub }}>
+              <div className="w-12 h-12 rounded-full mx-auto mb-3 flex items-center justify-center" style={{ backgroundColor: t.lavenderTint }}>
                 <Edit3 size={18} style={{ color: t.textMuted }} />
               </div>
               <p style={{ fontSize: 13, color: t.textMuted }}>아직 기록이 없습니다</p>

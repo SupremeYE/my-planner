@@ -74,7 +74,7 @@ function RecipeCard({ recipe, onClick, highlight, matchBadge }:
         boxShadow: highlight ? `0 8px 24px ${t.accent}33` : t.shadow,
       }}>
       {/* 썸네일 / placeholder */}
-      <div className="relative w-full" style={{ aspectRatio: '4 / 3', backgroundColor: t.bgSub }}>
+      <div className="relative w-full" style={{ aspectRatio: '4 / 3', backgroundColor: t.lavenderTint }}>
         {cover ? (
           <img src={cover} alt="" className="w-full h-full object-cover"
             onError={e => { (e.currentTarget as HTMLImageElement).style.visibility = 'hidden'; }} />
@@ -105,7 +105,7 @@ function RecipeCard({ recipe, onClick, highlight, matchBadge }:
                 backgroundColor:
                   matchBadge.kind === 'ready' ? t.accentLight
                   : matchBadge.kind === 'urgent' ? t.dangerLight
-                  : t.bgSub,
+                  : t.lavenderTint,
                 color:
                   matchBadge.kind === 'ready' ? t.accent
                   : matchBadge.kind === 'urgent' ? t.danger
@@ -136,7 +136,7 @@ function RecipeCard({ recipe, onClick, highlight, matchBadge }:
               <span key={i} className="px-1.5 py-0.5 rounded-md"
                 style={{
                   fontSize: 10, fontWeight: 600,
-                  backgroundColor: c.kind === 'main' ? t.bgSub : t.accentLight,
+                  backgroundColor: c.kind === 'main' ? t.lavenderTint : t.accentLight,
                   color: c.kind === 'main' ? t.textSub : t.accent,
                   border: `1px solid ${c.kind === 'main' ? t.border : 'transparent'}`,
                 }}>{c.label}</span>
@@ -376,7 +376,7 @@ export function RecipeListTab() {
         {hasAnyFilter && (activeIntents.size > 0 || activeMains.size > 0) && (
           <button onClick={() => { setActiveIntents(new Set()); setActiveMains(new Set()); }}
             className="inline-flex items-center gap-1 mb-3 px-2 py-1 rounded-md"
-            style={{ fontSize: 11, color: t.textMuted, backgroundColor: t.bgSub, border: `1px solid ${t.border}` }}>
+            style={{ fontSize: 11, color: t.textMuted, backgroundColor: t.lavenderTint, border: `1px solid ${t.border}` }}>
             <X size={11} /> 필터 해제
           </button>
         )}
@@ -423,7 +423,7 @@ export function RecipeListTab() {
               className="flex-shrink-0 flex items-center gap-1 px-3 py-1.5 rounded-full active:scale-95 transition-transform"
               style={{
                 fontSize: 12, fontWeight: 700,
-                backgroundColor: filtered.length === 0 ? t.bgSub : t.accent,
+                backgroundColor: filtered.length === 0 ? t.lavenderTint : t.accent,
                 color: filtered.length === 0 ? t.textMuted : '#fff',
                 cursor: filtered.length === 0 ? 'not-allowed' : 'pointer',
               }}>
@@ -455,7 +455,7 @@ export function RecipeListTab() {
         {loading ? (
           <div className="grid grid-cols-2 lg:grid-cols-4 xl:grid-cols-5 gap-3">
             {Array.from({ length: 4 }).map((_, i) => (
-              <div key={i} className="rounded-2xl" style={{ aspectRatio: '4 / 3.6', backgroundColor: t.bgSub }} />
+              <div key={i} className="rounded-2xl" style={{ aspectRatio: '4 / 3.6', backgroundColor: t.lavenderTint }} />
             ))}
           </div>
         ) : recipes.length === 0 ? (

@@ -224,7 +224,7 @@ export function PhotoCaptureSheet({ domain, onConfirm, onConfirmRecipe, onManual
               </button>
               <button onClick={onManualFallback}
                 className="w-full text-center py-2.5 rounded-xl"
-                style={{ fontSize: 13, fontWeight: 700, color: t.textSub, backgroundColor: t.bgSub, border: `1px solid ${t.border}` }}>
+                style={{ fontSize: 13, fontWeight: 700, color: t.textSub, backgroundColor: t.lavenderTint, border: `1px solid ${t.border}` }}>
                 직접 입력으로 추가
               </button>
             </div>
@@ -243,7 +243,7 @@ export function PhotoCaptureSheet({ domain, onConfirm, onConfirmRecipe, onManual
               </p>
               <div className="flex items-center gap-2 mt-4 w-full">
                 <button onClick={() => { setStep('pick'); setErrMsg(null); }}
-                  className="flex-1 py-2.5 rounded-xl" style={{ fontSize: 13.5, fontWeight: 700, color: t.text, backgroundColor: t.bgSub, border: `1px solid ${t.border}` }}>
+                  className="flex-1 py-2.5 rounded-xl" style={{ fontSize: 13.5, fontWeight: 700, color: t.text, backgroundColor: t.lavenderTint, border: `1px solid ${t.border}` }}>
                   다시 찍기
                 </button>
                 <button onClick={onManualFallback}

@@ -103,7 +103,7 @@ export function CompletionCard({ draft, onSaved, onDiscard }: { draft: WalkDraft
 
           {/* 글리프 (우상단) */}
           <div style={{ position: 'absolute', top: 14, right: 14 }}>
-            <RouteGlyph path={draft.path} size={84} stroke={photoPreview ? '#fff' : t.accent} bg={photoPreview ? withAlpha('#000', 0.25) : t.bgSub} />
+            <RouteGlyph path={draft.path} size={84} stroke={photoPreview ? '#fff' : t.accent} bg={photoPreview ? withAlpha('#000', 0.25) : t.lavenderTint} />
           </div>
 
           {/* 하단 지표 + 손글씨 */}

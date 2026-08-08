@@ -2,7 +2,7 @@ import { useState, type CSSProperties } from 'react';
 import { RefreshCw, Edit3, Check, X, Sparkles } from 'lucide-react';
 import { usePlanner, DEFAULT_AFFIRMATIONS } from '../store';
 import { useTheme } from '../ThemeContext';
-import { isHaon, solidCardStyle } from '../styles/haonStyles';
+import { solidCardStyle } from '../styles/haonStyles';
 
 function pickAffirmation(date: string, offset: number): string {
   let hash = 0;
@@ -15,42 +15,25 @@ function pickAffirmation(date: string, offset: number): string {
 
 export function AffirmationCard({ date }: { date: string }) {
   const { dailyAffirmations, setDailyAffirmation, appSettings } = usePlanner();
-  const { t, theme } = useTheme();
+  const { t } = useTheme();
 
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState('');
   const [randomOffset, setRandomOffset] = useState(0);
 
-  const isB = theme === 'B';
-  // 파스텔(H): 넓은 면 그라데이션 채움 대신 옆 스탯 카드와 동일한 솔리드 흰 표면 +
-  // 좌측 3px 코랄 액센트 바로만 강조 (DESIGN §5 "풀 그라데이션 채움 금지").
-  const pastel = isHaon(t);
   const customText = dailyAffirmations[date];
   const displayText = customText || appSettings.globalAffirmation || pickAffirmation(date, randomOffset);
 
-  // 테마별 색상 — B 테마는 피치 코랄 계열, 그 외는 디자인 시스템 accent
-  const accentColor = isB ? '#E89568' : t.accent;
-  // 파스텔은 솔리드 흰 표면 위이므로 본문은 t.text(대비 유지), 코랄은 작은 액센트로만.
-  const textColor = isB ? '#A0541E' : pastel ? t.text : t.accent;
-  const borderColor = isB ? 'rgba(244,165,130,0.22)' : t.planBorder;
-  // 은은한 그라데이션 배경 (단색 → 입체감) — 파스텔(H)에서는 미사용(솔리드로 대체)
-  const cardBg = isB
-    ? 'linear-gradient(135deg, rgba(244,165,130,0.14) 0%, rgba(244,165,130,0.05) 100%)'
-    : `linear-gradient(135deg, ${t.accentLight} 0%, ${t.card} 120%)`;
-  const badgeBg = isB ? 'rgba(244,165,130,0.18)' : t.accentLight;
+  const accentColor = t.accent;
+  // 솔리드 흰 표면 위이므로 본문은 t.text(대비 유지), 코랄은 작은 액센트로만.
+  const textColor = t.text;
+  const badgeBg = t.accentLight;
 
-  // 카드 표면(공용) — 파스텔은 solidCardStyle + 좌측 코랄 액센트 바(inset), 그 외는 기존 그라데이션.
-  const cardSurface: CSSProperties = pastel
-    ? {
-        ...solidCardStyle(t),
-        // 넓은 면 채움 대신 좌측 3px 코랄 바만 (밀림 없이 inset 그림자로 표현) + 기존 솔리드 그림자 유지
-        boxShadow: `inset 3px 0 0 ${t.accent}, ${t.solidCardShadow ?? '0 8px 20px rgba(120,90,160,0.12)'}`,
-      }
-    : {
-        background: cardBg,
-        border: `1px solid ${borderColor}`,
-        boxShadow: `0 1px 3px ${isB ? 'rgba(160,84,30,0.08)' : 'rgba(196,168,130,0.12)'}`,
-      };
+  // 카드 표면 — solidCardStyle + 좌측 3px 코랄 액센트 바(inset). 넓은 면 채움 금지(DESIGN §5).
+  const cardSurface: CSSProperties = {
+    ...solidCardStyle(t),
+    boxShadow: `inset 3px 0 0 ${t.accent}, ${t.solidCardShadow ?? '0 8px 20px rgba(120,90,160,0.12)'}`,
+  };
 
   if (editing) {
     return (

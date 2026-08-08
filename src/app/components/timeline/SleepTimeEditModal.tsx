@@ -33,13 +33,13 @@ export function SleepTimeEditModal({ record, onClose, onConfirm }: {
         </div>
         <div className="flex gap-3 px-5 py-4" style={{ borderTop: `1px solid ${t.border}` }}>
           <button onClick={onClose} className="flex-1 py-2.5 rounded-xl"
-            style={{ fontSize: 13, color: t.textSub, backgroundColor: t.bgSub, border: `1px solid ${t.border}` }}>
+            style={{ fontSize: 13, color: t.textSub, backgroundColor: t.lavenderTint, border: `1px solid ${t.border}` }}>
             취소
           </button>
           <button onClick={() => { if (start && end) onConfirm(start, end); }}
             disabled={!start || !end}
             className="flex-1 py-2.5 rounded-xl"
-            style={{ fontSize: 13, fontWeight: 600, backgroundColor: start && end ? '#94A3B8' : t.bgSub, color: start && end ? '#fff' : t.textMuted }}>
+            style={{ fontSize: 13, fontWeight: 600, backgroundColor: start && end ? '#94A3B8' : t.lavenderTint, color: start && end ? '#fff' : t.textMuted }}>
             확인
           </button>
         </div>

@@ -10,7 +10,7 @@ import { format, addDays, subDays, addMonths, subMonths, startOfMonth, getDaysIn
 import { ko } from 'date-fns/locale';
 import { usePlanner, Todo, Event, getLogicalToday } from '../store';
 import { useTheme } from '../ThemeContext';
-import { isHaon, solidCardStyle, solidRowStyle, glassBarStyle, mixHex, withAlpha } from '../styles/haonStyles';
+import { solidCardStyle, solidRowStyle, glassBarStyle, mixHex, withAlpha } from '../styles/haonStyles';
 import { useNotification } from '../hooks/useNotification';
 import { TimePicker } from './TimePicker';
 import ConfirmModal from './ConfirmModal';
@@ -137,7 +137,7 @@ function SnoozeModal({ todo, onClose }: { todo: Todo; onClose: () => void }) {
                 className="px-3 py-1.5 rounded-lg transition-all"
                 style={{
                   fontSize: 12,
-                  backgroundColor: selectedSnoozeDate === opt.date ? t.accent : t.bgSub,
+                  backgroundColor: selectedSnoozeDate === opt.date ? t.accent : t.lavenderTint,
                   color: selectedSnoozeDate === opt.date ? '#fff' : t.text,
                   border: `1px solid ${selectedSnoozeDate === opt.date ? t.accent : t.border}`,
                   fontWeight: selectedSnoozeDate === opt.date ? 600 : 400,
@@ -153,7 +153,7 @@ function SnoozeModal({ todo, onClose }: { todo: Todo; onClose: () => void }) {
           <p style={{ fontSize: 10, color: t.textMuted, fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase', marginBottom: 8 }}>
             날짜 선택
           </p>
-          <div className="rounded-xl p-3" style={{ backgroundColor: t.bgSub, border: `1px solid ${t.borderLight}` }}>
+          <div className="rounded-xl p-3" style={{ backgroundColor: t.lavenderTint, border: `1px solid ${t.borderLight}` }}>
             <div className="flex items-center justify-between mb-3">
               <button onClick={() => setViewMonth(subMonths(viewMonth, 1))}
                 className="p-1 rounded-lg" style={{ color: t.textSub }}>
@@ -227,7 +227,7 @@ function SnoozeModal({ todo, onClose }: { todo: Todo; onClose: () => void }) {
         <div className="flex gap-2 px-5 py-4" style={{ borderTop: `1px solid ${t.border}` }}>
           <button onClick={onClose}
             className="flex-1 py-2.5 rounded-xl transition-colors"
-            style={{ fontSize: 13, color: t.textSub, backgroundColor: t.bgSub, border: `1px solid ${t.border}` }}>
+            style={{ fontSize: 13, color: t.textSub, backgroundColor: t.lavenderTint, border: `1px solid ${t.border}` }}>
             취소
           </button>
           <button onClick={handleConfirm}
@@ -235,7 +235,7 @@ function SnoozeModal({ todo, onClose }: { todo: Todo; onClose: () => void }) {
             className="flex-1 py-2.5 rounded-xl transition-colors"
             style={{
               fontSize: 13, fontWeight: 600,
-              backgroundColor: selectedSnoozeDate ? '#D97706' : t.bgSub,
+              backgroundColor: selectedSnoozeDate ? '#D97706' : t.lavenderTint,
               color: selectedSnoozeDate ? '#fff' : t.textMuted,
               cursor: selectedSnoozeDate ? 'pointer' : 'not-allowed',
             }}>
@@ -339,7 +339,7 @@ function EventSnoozeModal({ event, onClose }: { event: Event; onClose: () => voi
                 className="px-3 py-1.5 rounded-lg transition-all"
                 style={{
                   fontSize: 12,
-                  backgroundColor: selectedSnoozeDate === opt.date ? t.accent : t.bgSub,
+                  backgroundColor: selectedSnoozeDate === opt.date ? t.accent : t.lavenderTint,
                   color: selectedSnoozeDate === opt.date ? '#fff' : t.text,
                   border: `1px solid ${selectedSnoozeDate === opt.date ? t.accent : t.border}`,
                   fontWeight: selectedSnoozeDate === opt.date ? 600 : 400,
@@ -355,7 +355,7 @@ function EventSnoozeModal({ event, onClose }: { event: Event; onClose: () => voi
           <p style={{ fontSize: 10, color: t.textMuted, fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase', marginBottom: 8 }}>
             날짜 선택
           </p>
-          <div className="rounded-xl p-3" style={{ backgroundColor: t.bgSub, border: `1px solid ${t.borderLight}` }}>
+          <div className="rounded-xl p-3" style={{ backgroundColor: t.lavenderTint, border: `1px solid ${t.borderLight}` }}>
             <div className="flex items-center justify-between mb-3">
               <button onClick={() => setViewMonth(subMonths(viewMonth, 1))}
                 className="p-1 rounded-lg" style={{ color: t.textSub }}>
@@ -429,7 +429,7 @@ function EventSnoozeModal({ event, onClose }: { event: Event; onClose: () => voi
         <div className="flex gap-2 px-5 py-4" style={{ borderTop: `1px solid ${t.border}` }}>
           <button onClick={onClose}
             className="flex-1 py-2.5 rounded-xl transition-colors"
-            style={{ fontSize: 13, color: t.textSub, backgroundColor: t.bgSub, border: `1px solid ${t.border}` }}>
+            style={{ fontSize: 13, color: t.textSub, backgroundColor: t.lavenderTint, border: `1px solid ${t.border}` }}>
             취소
           </button>
           <button onClick={handleConfirm}
@@ -437,7 +437,7 @@ function EventSnoozeModal({ event, onClose }: { event: Event; onClose: () => voi
             className="flex-1 py-2.5 rounded-xl transition-colors"
             style={{
               fontSize: 13, fontWeight: 600,
-              backgroundColor: selectedSnoozeDate ? '#D97706' : t.bgSub,
+              backgroundColor: selectedSnoozeDate ? '#D97706' : t.lavenderTint,
               color: selectedSnoozeDate ? '#fff' : t.textMuted,
               cursor: selectedSnoozeDate ? 'pointer' : 'not-allowed',
             }}>
@@ -520,7 +520,7 @@ function ContextMenu({ todo, position, onClose, onFocus, onDelete, deleteMessage
                 backgroundColor: isActive ? t.accentLight : 'transparent',
                 fontWeight: isActive ? 600 : 400,
               }}
-              onMouseEnter={e => (e.currentTarget.style.backgroundColor = (item as any).danger ? '#FEE2E2' : t.bgHover)}
+              onMouseEnter={e => (e.currentTarget.style.backgroundColor = (item as any).danger ? '#FEE2E2' : t.lavenderHover)}
               onMouseLeave={e => (e.currentTarget.style.backgroundColor = isActive ? t.accentLight : 'transparent')}
               onClick={() => {
                 if ((item as any).action === 'edit') {
@@ -609,7 +609,7 @@ function EventContextMenu({ event, position, onClose }: {
       }}>
       <button className="w-full flex items-center gap-2 px-3 py-1.5 transition-colors text-left"
         style={itemStyle}
-        onMouseEnter={e => (e.currentTarget.style.backgroundColor = t.bgHover)}
+        onMouseEnter={e => (e.currentTarget.style.backgroundColor = t.lavenderHover)}
         onMouseLeave={e => (e.currentTarget.style.backgroundColor = 'transparent')}
         onClick={() => { onClose(); window.dispatchEvent(new CustomEvent('editEvent', { detail: event })); }}>
         <Edit3 size={13} />
@@ -620,7 +620,7 @@ function EventContextMenu({ event, position, onClose }: {
           <div className="my-1" style={{ borderBottom: `1px solid ${t.border}` }} />
           <button className="w-full flex items-center gap-2 px-3 py-1.5 transition-colors text-left"
             style={itemStyle}
-            onMouseEnter={e => (e.currentTarget.style.backgroundColor = t.bgHover)}
+            onMouseEnter={e => (e.currentTarget.style.backgroundColor = t.lavenderHover)}
             onMouseLeave={e => (e.currentTarget.style.backgroundColor = 'transparent')}
             onClick={() => { runEventAsPlanned(event.id); onClose(); }}>
             <Play size={13} />
@@ -632,7 +632,7 @@ function EventContextMenu({ event, position, onClose }: {
       {/* 완료 토글 — 위치(actual)와 분리. 완료해도 DO 블록은 실제 자리에 그대로. */}
       <button className="w-full flex items-center gap-2 px-3 py-1.5 transition-colors text-left"
         style={itemStyle}
-        onMouseEnter={e => (e.currentTarget.style.backgroundColor = t.bgHover)}
+        onMouseEnter={e => (e.currentTarget.style.backgroundColor = t.lavenderHover)}
         onMouseLeave={e => (e.currentTarget.style.backgroundColor = 'transparent')}
         onClick={() => { toggleEventCompleted(event.id, !isDone); onClose(); }}>
         <Check size={13} />
@@ -775,7 +775,7 @@ function DailyDatePickerModal({ selectedDate, onClose, onConfirm }: {
         </div>
 
         <div className="px-5 py-4 space-y-4 lg:px-6 lg:py-5">
-          <div className="rounded-xl px-3 py-3 lg:px-4 lg:py-4" style={{ backgroundColor: t.bgSub, border: `1px solid ${t.borderLight}` }}>
+          <div className="rounded-xl px-3 py-3 lg:px-4 lg:py-4" style={{ backgroundColor: t.lavenderTint, border: `1px solid ${t.borderLight}` }}>
             <label className="flex items-center gap-2 mb-2" style={{ fontSize: 11, color: t.textMuted, fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase' }}>
               <CalendarDays size={14} />
               날짜
@@ -807,7 +807,7 @@ function DailyDatePickerModal({ selectedDate, onClose, onConfirm }: {
           <button
             onClick={onClose}
             className="flex-1 py-3 rounded-xl"
-            style={{ fontSize: 14, fontWeight: 500, color: t.textSub, backgroundColor: t.bgSub, border: `1px solid ${t.border}` }}
+            style={{ fontSize: 14, fontWeight: 500, color: t.textSub, backgroundColor: t.lavenderTint, border: `1px solid ${t.border}` }}
           >
             취소
           </button>
@@ -1074,12 +1074,11 @@ export function DailyView() {
   const TagChip = ({ tagId }: { tagId: string }) => {
     const tag = tags.find(tg => tg.id === tagId);
     if (!tag) return null;
-    const filled = isHaon(t);
     return (
       <span className="inline-flex items-center px-1.5 py-px rounded-full" style={{
         fontSize: 9,
-        backgroundColor: filled ? mixHex(tag.color, 255, 0.78) : tag.color + '18',
-        color: filled ? mixHex(tag.color, 0, 0.32) : tag.color,
+        backgroundColor: mixHex(tag.color, 255, 0.78),
+        color: mixHex(tag.color, 0, 0.32),
         lineHeight: '14px',
       }}>
         {tag.name}
@@ -1117,7 +1116,7 @@ export function DailyView() {
     // Haon(H): 솔리드 행 recipe(불투명 흰색 + 하이라인 + 소프트 그림자). 태그 있는 행만 좌측 3px 액센트 바.
     // 핵심(KEY, isTop3) 행은 코랄 톤으로 뚜렷하게 강조(배경 틴트·코랄 테두리·핑크 글로우 + 좌측 그라데이션 바).
     // 그 외 테마: 기존 동작(카드색 + 태그색 좌측 바) 유지.
-    const isKeyRow = isHaon(t) && todo.isTop3;
+    const isKeyRow = todo.isTop3;
     let rowStyle: CSSProperties;
     if (isHighlighted) {
       rowStyle = {
@@ -1139,7 +1138,7 @@ export function DailyView() {
         position: 'relative',
         overflow: 'hidden',
       };
-    } else if (isHaon(t)) {
+    } else {
       rowStyle = {
         cursor: 'pointer',
         backgroundColor: isDone ? '#F7F4FB' : (t.solidRowBg ?? '#FFFFFF'),
@@ -1148,13 +1147,6 @@ export function DailyView() {
         borderRadius: t.solidRowRadius ?? 14,
       };
       if (firstTag) rowStyle.borderLeft = `3px solid ${firstTag.color}`;
-    } else {
-      rowStyle = {
-        cursor: 'pointer',
-        backgroundColor: isDone ? t.bgSub + '80' : t.card,
-        border: `1px solid ${accentColor}20`,
-        borderLeft: `3px solid ${accentColor}${isDone ? '40' : ''}`,
-      };
     }
 
     return (
@@ -1276,7 +1268,7 @@ export function DailyView() {
             aria-label="미루기"
             title="내일로 미루기 (길게: 날짜 지정)"
             className="p-1.5 rounded-lg transition-colors"
-            style={{ color: t.textSub, backgroundColor: t.bgSub }}
+            style={{ color: t.textSub, backgroundColor: t.lavenderTint }}
             onPointerDown={(e) => {
               e.stopPropagation();
               snoozeLongPressRef.current.fired = false;
@@ -1318,7 +1310,7 @@ export function DailyView() {
             setContextMenu({ todo, pos: { x: e.clientX, y: e.clientY } });
           }}
             className="p-1.5 rounded-lg transition-colors"
-            style={{ color: t.textMuted, backgroundColor: t.bgSub }}>
+            style={{ color: t.textMuted, backgroundColor: t.lavenderTint }}>
             <MoreHorizontal size={13} />
           </button>
         </div>
@@ -1360,7 +1352,6 @@ export function DailyView() {
         </div>
         <div className="flex items-center gap-1.5 lg:gap-2">
           {selectedDate !== nowStr && (
-            isHaon(t) ? (
               // 파스텔(H): 붉은 코랄 배경+코랄 글자(레드온레드) → 차분한 라벤더 솔리드 pill +
               // 딥인디고 글자 + 작은 코랄 '오늘' 도트로 페이지 톤에 맞춤.
               <button
@@ -1368,7 +1359,7 @@ export function DailyView() {
                 className="flex items-center gap-1 px-2.5 py-1 rounded-full transition-all"
                 style={{
                   fontSize: 11, fontWeight: 600, whiteSpace: 'nowrap',
-                  backgroundColor: t.accentSoft,
+                  backgroundColor: t.lavenderTint,
                   color: t.text,
                   border: '1px solid rgba(122,92,162,0.16)',
                   boxShadow: '0 2px 6px rgba(120,90,160,0.10)',
@@ -1377,25 +1368,16 @@ export function DailyView() {
                 <span aria-hidden style={{ width: 5, height: 5, borderRadius: 9999, background: t.accent, flexShrink: 0 }} />
                 Today
               </button>
-            ) : (
-              <button
-                onClick={goToday}
-                className="px-2 py-1 rounded-lg"
-                style={{ fontSize: 11, fontWeight: 600, backgroundColor: t.accentLight, color: t.accent, whiteSpace: 'nowrap' }}
-              >
-                Today
-              </button>
-            )
           )}
           {/* 데스크탑: 기존 모달 */}
           <button onClick={() => setShowTimelineSettings(true)} className="hidden lg:flex px-3 py-1.5 rounded-lg items-center gap-1.5"
-            style={{ fontSize: 11, color: t.textSub, backgroundColor: t.bgSub, border: `1px solid ${t.border}` }}>
+            style={{ fontSize: 11, color: t.textSub, backgroundColor: t.lavenderTint, border: `1px solid ${t.border}` }}>
             <Settings size={12} />
             <span>시간대 설정</span>
           </button>
           {/* 모바일: 설정 페이지 링크 */}
           <NavLink to="/settings" className="lg:hidden p-1.5 rounded-lg flex items-center gap-1"
-            style={{ fontSize: 10, color: t.textSub, backgroundColor: t.bgSub, border: `1px solid ${t.border}` }}>
+            style={{ fontSize: 10, color: t.textSub, backgroundColor: t.lavenderTint, border: `1px solid ${t.border}` }}>
             <Settings size={12} />
           </NavLink>
         </div>
@@ -1456,7 +1438,7 @@ export function DailyView() {
                     const accentColor = evt.color || t.info;
                     return (
                       <div key={evt.id}
-                        className={`group flex items-center gap-2.5 ${isHaon(t) ? 'px-3 py-2.5' : 'py-1.5'}`}
+                        className="group flex items-center gap-2.5 px-3 py-2.5"
                         style={{ opacity: isDone ? 0.55 : (isPast ? 0.75 : 1), ...solidRowStyle(t) }}>
                         <button
                           onClick={() => toggleEventCompleted(evt.id, !isDone)}
@@ -1479,7 +1461,7 @@ export function DailyView() {
                             aria-label="일정 미루기"
                             title="내일로 미루기 (길게: 날짜 지정)"
                             className="p-1.5 rounded-lg transition-colors"
-                            style={{ color: t.textSub, backgroundColor: t.bgSub }}
+                            style={{ color: t.textSub, backgroundColor: t.lavenderTint }}
                             onPointerDown={(e) => {
                               e.stopPropagation();
                               eventSnoozeLongPressRef.current.fired = false;
@@ -1511,7 +1493,7 @@ export function DailyView() {
                             aria-label="일정 편집"
                             title="편집"
                             className="p-1.5 rounded-lg transition-colors"
-                            style={{ color: t.textMuted, backgroundColor: t.bgSub }}
+                            style={{ color: t.textMuted, backgroundColor: t.lavenderTint }}
                           >
                             <Edit3 size={13} />
                           </button>
@@ -1520,7 +1502,7 @@ export function DailyView() {
                             aria-label="일정 삭제"
                             title="삭제"
                             className="p-1.5 rounded-lg transition-colors"
-                            style={{ color: t.danger, backgroundColor: t.bgSub }}
+                            style={{ color: t.danger, backgroundColor: t.lavenderTint }}
                           >
                             <Trash2 size={13} />
                           </button>
@@ -1565,8 +1547,8 @@ export function DailyView() {
                 </div>
               )}
 
-              {/* 파스텔(H) + 핵심 있으면: 핵심 그룹(서브헤더) → 구분선 → 그 외 그룹. 그 외엔 기존 concat 유지. */}
-              {isHaon(t) && importantTodos.length > 0 ? (
+              {/* 핵심 있으면: 핵심 그룹(서브헤더) → 구분선 → 그 외 그룹. 핵심 0개면 flat concat + 빈 상태. */}
+              {importantTodos.length > 0 ? (
                 <>
                   <div className="flex items-center gap-1.5 mb-2">
                     <Star size={12} fill={t.accent} color={t.accent} />
@@ -1608,7 +1590,7 @@ export function DailyView() {
               <button
                 onClick={() => navigate('/habits')}
                 className="w-full flex items-center gap-3 rounded-2xl px-4 py-3 text-left transition-all"
-                style={isHaon(t) ? solidCardStyle(t) : { backgroundColor: t.card, border: `1px solid ${t.danger}33` }}
+                style={solidCardStyle(t)}
               >
                 <span className="flex items-center justify-center rounded-xl flex-shrink-0" style={{ width: 38, height: 38, backgroundColor: `${t.danger}14` }}>
                   <Bell size={17} color={t.danger} />

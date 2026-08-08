@@ -193,7 +193,7 @@ function ProjectCard({ project }: { project: Project }) {
           <span style={{ fontSize: 11, color: t.textMuted }}>할일 {doneTodos.length}/{projectTodos.length}</span>
           <span style={{ fontSize: 12, color: project.color, fontWeight: 700 }}>{progress}%</span>
         </div>
-        <div className="h-2 rounded-full overflow-hidden" style={{ backgroundColor: t.bgSub }}>
+        <div className="h-2 rounded-full overflow-hidden" style={{ backgroundColor: t.lavenderTint }}>
           <div className="h-full rounded-full transition-all"
             style={{ width: `${progress}%`, backgroundColor: project.color }} />
         </div>
@@ -295,7 +295,7 @@ export function ProjectsView() {
             <p style={{ fontSize: 12, color: t.textMuted, marginTop: 4 }}>새 프로젝트를 만들어 보세요</p>
             <button onClick={() => setShowNewModal(true)}
               className="mt-4 px-4 py-2 rounded-xl"
-              style={{ backgroundColor: t.bgSub, color: t.accent, fontSize: 13, fontWeight: 600 }}>
+              style={{ backgroundColor: t.lavenderTint, color: t.accent, fontSize: 13, fontWeight: 600 }}>
               + 프로젝트 만들기
             </button>
           </div>
@@ -379,7 +379,7 @@ function MilestoneCard({ milestone, projectId, projectColor }: {
         </div>
 
         {/* Progress bar */}
-        <div className="h-1.5 rounded-full overflow-hidden mb-3" style={{ backgroundColor: t.bgSub }}>
+        <div className="h-1.5 rounded-full overflow-hidden mb-3" style={{ backgroundColor: t.lavenderTint }}>
           <div className="h-full" style={{ width: `${pct}%`, backgroundColor: auto100 ? t.success : projectColor }} />
         </div>
 
@@ -424,7 +424,7 @@ function MilestoneCard({ milestone, projectId, projectColor }: {
         <button
           onClick={() => setAddTodoOpen(true)}
           className="mt-2 w-full text-left flex items-center gap-1 px-2 py-1.5 rounded-lg"
-          style={{ fontSize: 11, color: t.accent, backgroundColor: t.bgSub }}
+          style={{ fontSize: 11, color: t.accent, backgroundColor: t.lavenderTint }}
         >
           <Plus size={11} /> 할일 추가
         </button>
@@ -465,7 +465,7 @@ function ProjectTodoRow({ todo, projectColor, milestones, onEdit }: {
     <div
       className="flex items-start gap-2.5 p-3 rounded-xl group cursor-pointer"
       style={{
-        backgroundColor: done ? t.bgSub : t.card,
+        backgroundColor: done ? t.lavenderTint : t.card,
         border: `1px solid ${t.borderLight}`,
       }}
       onClick={onEdit}
@@ -493,7 +493,7 @@ function ProjectTodoRow({ todo, projectColor, milestones, onEdit }: {
             </span>
           ) : (
             <span className="inline-flex items-center px-1.5 py-0.5 rounded-full" style={{
-              fontSize: 10, backgroundColor: t.bgSub, color: t.textMuted,
+              fontSize: 10, backgroundColor: t.lavenderTint, color: t.textMuted,
             }}>🚩 미지정</span>
           )}
           {todo.date && (
@@ -569,7 +569,7 @@ function GoalLinkEditor({ project }: { project: Project }) {
       )}
       <button
         onClick={() => { updateProject(project.id, { goalKind: undefined, goalId: undefined }); setEditing(false); }}
-        className="px-2 py-1 rounded-lg" style={{ fontSize: 11, color: t.textMuted, backgroundColor: t.bgSub }}
+        className="px-2 py-1 rounded-lg" style={{ fontSize: 11, color: t.textMuted, backgroundColor: t.lavenderTint }}
       >해제</button>
       <button
         onClick={() => setEditing(false)}
@@ -608,7 +608,7 @@ export function ProjectDetailView() {
           <FolderKanban size={40} color={t.borderLight} />
           <p style={{ fontSize: 15, color: t.textMuted, marginTop: 12 }}>프로젝트를 찾을 수 없어요</p>
           <NavLink to="/projects" className="mt-3 inline-block px-4 py-2 rounded-xl"
-            style={{ backgroundColor: t.bgSub, color: t.accent, fontSize: 13, fontWeight: 600 }}>
+            style={{ backgroundColor: t.lavenderTint, color: t.accent, fontSize: 13, fontWeight: 600 }}>
             목록으로
           </NavLink>
         </div>
@@ -679,7 +679,7 @@ export function ProjectDetailView() {
             <div className="rounded-2xl p-4" style={{ backgroundColor: t.card, border: `1px solid ${t.borderLight}` }}>
               <p style={{ fontSize: 11, color: t.textMuted, textTransform: 'uppercase', letterSpacing: '0.05em', fontWeight: 600 }}>진행률</p>
               <p style={{ fontSize: 26, fontWeight: 700, color: project.color, marginTop: 4 }}>{progress}%</p>
-              <div className="mt-2 h-1.5 rounded-full overflow-hidden" style={{ backgroundColor: t.bgSub }}>
+              <div className="mt-2 h-1.5 rounded-full overflow-hidden" style={{ backgroundColor: t.lavenderTint }}>
                 <div className="h-full rounded-full" style={{ width: `${progress}%`, backgroundColor: project.color }} />
               </div>
             </div>
@@ -714,7 +714,7 @@ export function ProjectDetailView() {
         </div>
 
         {/* Mobile tabs */}
-        <div className="lg:hidden flex gap-1.5 rounded-xl p-1" style={{ backgroundColor: t.bgSub }}>
+        <div className="lg:hidden flex gap-1.5 rounded-xl p-1" style={{ backgroundColor: t.lavenderTint }}>
           {(['milestones', 'todos'] as const).map(k => (
             <button
               key={k}
@@ -750,7 +750,7 @@ export function ProjectDetailView() {
                 <button
                   onClick={() => setShowAddMilestone(v => !v)}
                   className="flex items-center gap-1 px-2.5 py-1 rounded-lg"
-                  style={{ backgroundColor: t.bgSub, color: t.accent, fontSize: 12 }}
+                  style={{ backgroundColor: t.lavenderTint, color: t.accent, fontSize: 12 }}
                 >
                   <Plus size={11} /> 추가
                 </button>
@@ -758,7 +758,7 @@ export function ProjectDetailView() {
 
               {/* Add form */}
               {showAddMilestone && (
-                <form onSubmit={handleAddMilestone} className="mb-3 p-3 rounded-xl space-y-2" style={{ backgroundColor: t.bgSub }}>
+                <form onSubmit={handleAddMilestone} className="mb-3 p-3 rounded-xl space-y-2" style={{ backgroundColor: t.lavenderTint }}>
                   <input
                     autoFocus value={newMilestoneTitle}
                     onChange={e => setNewMilestoneTitle(e.target.value)}
@@ -820,7 +820,7 @@ export function ProjectDetailView() {
                   <button
                     onClick={() => setAddingTodoForProject(true)}
                     className="flex items-center gap-1 px-2.5 py-1 rounded-lg"
-                    style={{ backgroundColor: t.bgSub, color: t.accent, fontSize: 12 }}
+                    style={{ backgroundColor: t.lavenderTint, color: t.accent, fontSize: 12 }}
                   >
                     <Plus size={11} /> 추가
                   </button>

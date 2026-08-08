@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Search, X, Check } from 'lucide-react';
 import { useTheme } from '../../ThemeContext';
-import { isHaon, solidCardStyle, sheetBackdropStyle } from '../../styles/haonStyles';
+import { solidCardStyle, sheetBackdropStyle } from '../../styles/haonStyles';
 import { HaonButton } from '../ui/HaonButton';
 import { db, exerciseLabel } from '../../../lib/db';
 import type { Exercise, ExerciseBodyPart } from '../../../lib/db';
@@ -83,7 +83,7 @@ export function ExercisePickerSheet({ title = '종목 선택', loggedExerciseIds
         {/* 검색창 */}
         <div
           className="flex items-center gap-2 px-3"
-          style={{ backgroundColor: t.bgSub, border: `1px solid ${t.borderLight}`, borderRadius: 12, height: 42 }}
+          style={{ backgroundColor: t.lavenderTint, border: `1px solid ${t.borderLight}`, borderRadius: 12, height: 42 }}
         >
           <Search size={16} color={t.textMuted} />
           <input
@@ -113,7 +113,7 @@ export function ExercisePickerSheet({ title = '종목 선택', loggedExerciseIds
                 style={{
                   flexShrink: 0, fontSize: 12, fontWeight: 700,
                   color: active ? '#fff' : t.textSub,
-                  backgroundColor: active ? t.accent : t.bgSub,
+                  backgroundColor: active ? t.accent : t.lavenderTint,
                   border: `1px solid ${active ? t.accent : t.borderLight}`,
                   padding: '5px 11px', borderRadius: 999,
                 }}
@@ -162,7 +162,7 @@ export function ExercisePickerSheet({ title = '종목 선택', loggedExerciseIds
                   key={ex.id}
                   onClick={() => handleTap(ex)}
                   className="flex flex-col items-start text-left"
-                  style={{ ...(isHaon(t) ? solidCardStyle(t) : { backgroundColor: t.card, border: `1px solid ${t.borderLight}` }), borderRadius: 14, padding: 10, gap: 8 }}
+                  style={{ ...solidCardStyle(t), borderRadius: 14, padding: 10, gap: 8 }}
                 >
                   <ExerciseThumb exercise={ex} size={64} radius={10} />
                   <div className="w-full min-w-0">
@@ -187,13 +187,13 @@ export function ExercisePickerSheet({ title = '종목 선택', loggedExerciseIds
       {adopting && (
         <div
           className="absolute inset-0 z-10 flex items-end lg:items-center lg:justify-center"
-          style={isHaon(t) ? sheetBackdropStyle() : { backgroundColor: 'rgba(0,0,0,0.4)' }}
+          style={sheetBackdropStyle()}
           onClick={() => setAdopting(null)}
         >
           <div
             onClick={e => e.stopPropagation()}
             className="w-full lg:w-[360px] lg:rounded-2xl rounded-t-2xl"
-            style={{ ...(isHaon(t) ? solidCardStyle(t) : { backgroundColor: t.card }), padding: 18, paddingBottom: 'max(env(safe-area-inset-bottom), 18px)' }}
+            style={{ ...solidCardStyle(t), padding: 18, paddingBottom: 'max(env(safe-area-inset-bottom), 18px)' }}
           >
             <div className="flex items-center gap-3 mb-3">
               <ExerciseThumb exercise={adopting} size={48} />
@@ -210,7 +210,7 @@ export function ExercisePickerSheet({ title = '종목 선택', loggedExerciseIds
               placeholder="비워두면 영어 이름으로 표시"
               onKeyDown={e => { if (e.key === 'Enter') confirmAdopt(); }}
               style={{
-                width: '100%', marginTop: 6, fontSize: 14, color: t.text, backgroundColor: t.bgSub,
+                width: '100%', marginTop: 6, fontSize: 14, color: t.text, backgroundColor: t.lavenderTint,
                 border: `1px solid ${t.borderLight}`, borderRadius: 10, padding: '10px 12px', outline: 'none',
               }}
             />
