@@ -95,8 +95,14 @@ export function TodoModal({ date, todo, initialPlanStart, initialPlanEnd, initia
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [deletingTagId, setDeletingTagId] = useState<string | null>(null);
 
-  // 멀티데이 종료일
-  const [endDate, setEndDate] = useState<string>(todo?.endDate ?? '');
+  // 기간(멀티데이) 종료일 — 기본은 단일 날짜. 실제 기간(종료 > 시작)일 때만 값/펼침 유지.
+  // (마이그레이션으로 단일 날짜는 end_date=date 라 endDate===date 는 "기간 아님"으로 접는다.)
+  const [endDate, setEndDate] = useState<string>(
+    todo?.endDate && todo?.date && todo.endDate > todo.date ? todo.endDate : '',
+  );
+  const [rangeOpen, setRangeOpen] = useState<boolean>(
+    !!(todo?.endDate && todo?.date && todo.endDate > todo.date),
+  );
 
   // 반복 일정 state
   const [recurrenceRule, setRecurrenceRule] = useState<Todo['recurrenceRule']>(todo?.recurrenceRule ?? initialRecurrenceRule ?? undefined);
@@ -267,7 +273,11 @@ export function TodoModal({ date, todo, initialPlanStart, initialPlanEnd, initia
   const buildChanges = () => ({
     text: text.trim(),
     date: effectiveDate || null,
-    endDate: endDate || undefined,
+    // 기간 종료: 날짜 있고 비반복이면 항상 채운다(단일 날짜=시작과 동일 → 기간 파생이 일관).
+    // 실제 기간이면 endDate, 아니면 시작일. 미지정/반복이면 없음.
+    endDate: effectiveDate && !recurrenceRule
+      ? (endDate && endDate > effectiveDate ? endDate : effectiveDate)
+      : undefined,
     planStart: planStart || undefined,
     planEnd: planEnd || undefined,
     // do_* 는 모달에서 쓰지 않는다(읽기전용 요약). 실제 시각 생성·조정은 타임라인/타이머 전담 → desync 유발 경로 차단.
@@ -400,26 +410,35 @@ export function TodoModal({ date, todo, initialPlanStart, initialPlanEnd, initia
               </button>
             </div>
 
-            {/* 멀티데이 종료일 — 시작일이 있고 반복이 없을 때만 표시 */}
+            {/* 기간(멀티데이) — 기본은 단일 날짜, 필요할 때만 확장. 반복과 상호배타. */}
             {effectiveDate && !recurrenceRule && (
-              <div className="flex items-center gap-2 mt-2">
-                <span style={{ fontSize: 11, color: t.textSub, fontWeight: 600, whiteSpace: 'nowrap' }}>종료일</span>
-                <input
-                  type="date"
-                  value={endDate}
-                  min={effectiveDate}
-                  onChange={e => {
-                    setEndDate(e.target.value);
-                    if (e.target.value) setRecurrenceRule(undefined);
-                  }}
-                  className="flex-1 rounded-lg px-3 py-1.5 outline-none"
-                  style={{ border: `1px solid ${t.border}`, backgroundColor: inputBg(t), color: t.text, fontSize: 12 }}
-                />
-                {endDate && (
-                  <button type="button" onClick={() => setEndDate('')}
-                    style={{ fontSize: 11, color: t.textMuted }}>지우기</button>
-                )}
-              </div>
+              rangeOpen ? (
+                <div className="flex items-center gap-2 mt-2">
+                  <span style={{ fontSize: 11, color: t.textSub, fontWeight: 600, whiteSpace: 'nowrap' }}>종료일</span>
+                  <input
+                    type="date"
+                    value={endDate}
+                    min={effectiveDate}
+                    onChange={e => {
+                      setEndDate(e.target.value);
+                      if (e.target.value) setRecurrenceRule(undefined);
+                    }}
+                    className="flex-1 rounded-lg px-3 py-1.5 outline-none"
+                    style={{ border: `1px solid ${t.border}`, backgroundColor: inputBg(t), color: t.text, fontSize: 12 }}
+                  />
+                  <button type="button" onClick={() => { setRangeOpen(false); setEndDate(''); }}
+                    style={{ fontSize: 11, color: t.textMuted, whiteSpace: 'nowrap' }}>단일 날짜</button>
+                </div>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => { setRangeOpen(true); setEndDate(effectiveDate); }}
+                  className="mt-2 inline-flex items-center gap-1"
+                  style={{ fontSize: 11, color: t.accent, fontWeight: 600 }}
+                >
+                  + 기간으로 (여러 날)
+                </button>
+              )
             )}
           </div>
 
