@@ -1,5 +1,6 @@
 import { type CSSProperties } from 'react';
 import { type ThemeTokens } from '../ThemeContext';
+import { type RetroStatus } from '../store';
 
 // ─── Haon Soft Pastel — Solid Elevation helpers (DESIGN.md v1.1) ───
 // 확장 토큰(solidCard* 등)이 있는 테마(H)에서만 파스텔 솔리드 표면으로 렌더하고,
@@ -309,6 +310,35 @@ export function photoTileStyle(t: ThemeTokens): CSSProperties {
     };
   }
   return { ...base, backgroundColor: t.bgSub, border: `1px solid ${t.border}`, borderRadius: 12 };
+}
+
+// ─── 월말 회고 슬롯 상태 칩 (DESIGN.md §5 "월말 회고 슬롯") ───
+// 월간 목표 카드 안의 회고 3버튼(달성/부분/미달). 시맨틱 색(§3)을 tint 로만 쓰고 텍스트는 딥 인디고
+// (t.text)로 대비 확보 — "붉은 위 붉은" 회피(§5 duration chip 관례와 동일 정신).
+//   · 달성(done)   → success (녹색)
+//   · 부분(partial) → warning (앰버·주의)
+//   · 미달(missed)  → danger  (§3: danger=위험·삭제·실패, "미달"=실패로 정렬)
+// 비선택 = 흰색(t.card) + hairline + muted 라벨. 선택 = 시맨틱 tint(mixHex 파생) + 시맨틱 테두리 + 딥 인디고 라벨.
+// 전 테마 공통(토큰 기반) — isHaon 게이팅 없음. 신규 색 토큰 없음(mixHex 로 Light tint 파생).
+export function retroStatusColor(t: ThemeTokens, s: RetroStatus): string {
+  return s === 'done' ? t.success : s === 'partial' ? t.warning : t.danger;
+}
+export function retroStatusStyle(t: ThemeTokens, s: RetroStatus, selected: boolean): CSSProperties {
+  const base = retroStatusColor(t, s);
+  if (!selected) {
+    return {
+      background: t.card,
+      border: `1px solid ${t.border}`,
+      color: t.textMuted,
+      borderRadius: 10,
+    };
+  }
+  return {
+    background: mixHex(base, 255, 0.82),
+    border: `1.5px solid ${base}`,
+    color: t.text,
+    borderRadius: 10,
+  };
 }
 
 // 뱃지 pill(날짜·체중·slot) — 사진 위 가독을 위해 스크림 없이 '불투명 토큰 표면'. 하드코딩 색 없음.

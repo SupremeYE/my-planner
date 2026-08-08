@@ -668,6 +668,56 @@ BeautyCare 등과 동일 관용구 — 신규 컴포넌트 없음, 토큰만) �
   (키우기/추가 버튼), `mixHex`(결 none fill·tint 파생). **신규 haonStyles 헬퍼 없음** — 결 색 맵
   `SEED_KIND_COLORS`(§3) + inline 조합. 결 accent/dot/태그는 카테고리 accent(§5 List row)와 동일 방식.
 
+### 목표 페이지 — 기간별(월간 중심) 재구성 (Stage A / Stage B 상속)
+
+목표 페이지 "기간별" 탭. **연간→월간→주간 캐스케이드 강제를 폐기하고 월간 목표를 화면 주인공으로**
+둔다(구 3컬럼 동등 배치 폐기). 여기서 확정한 카드/진행/색 사용을 **다음 Stage(만다라트)가 그대로
+물려받는다** — 같은 페이지 두 탭이 따로 놀지 않게 하기 위한 계약이다. Theme H 기준, 토큰만.
+
+**레이아웃(동일 컴포넌트 `lg:` 분기).**
+- **PC(`lg:`) = 2컬럼 master-detail** — 좌 340px 이번 달 월간 목표 리스트(카드 클릭 = 선택, 코랄 아웃라인
+  `selectedRowStyle`), 우 나머지 = 선택된 월간의 상세(주차별 주간 목표 + 각 주간 아래 연결 할일 펼침 +
+  월말 회고 슬롯).
+- **모바일 = 세로 아코디언** — 연간 배너 → 기간 네비 → 월간 목표 카드(탭하면 펼침: 주간 목표 + 할일 수 +
+  회고 슬롯). **고정 높이·flex 잠금 금지**(캘린더 모바일 상세패널 높이예산 붕괴 회피).
+
+**연간 배너(얇게, 상단).** `solidCardStyle` 한 줄 배너 — "YYYY년에 되고 싶은 나" 한 줄(인라인 편집) +
+핵심 가치 칩 최대 3개(태그 chip idiom, `accentSoft` 선택 tint). **비어 있어도 화면을 막지 않는다**(저강조
+placeholder, 차단 문구 없음). 연간 데이터는 `user_settings.annual_profiles`(연도별) 재사용.
+
+**기간 네비.** `‹ YYYY년 M월 ›` — **Period navigator(§5)** idiom 재사용: 스테퍼 = `periodStepperStyle`,
+중앙 라벨 Pretendard 600–700(§4). 월 단위 이동.
+
+**월간 목표 카드.** `solidCardStyle`. 구성 = 제목(card-title §4) / **진행바** / 주간 목표 중첩 / 회고 슬롯.
+- **진행바 = 얇은 바(새 패턴 금지)** — 트랙 `t.surfaceMuted`, 채움 `t.success`, 높이 6px pill. 라벨은
+  `done/total · pct%`(`fontNumeric`). 기존 기간 캐스케이드 롤업(`periodProgress.ts`)을 그대로 소비.
+- **선택 상태(PC)** = `selectedRowStyle`(코랄 링). 코랄은 선택·중심 전용(§3) — 목표별 색 구분이 필요하면
+  6색 파스텔(lilac/blue/sage/magenta/purple/teal, 코랄 제외)을 쓰되 Stage A 는 진행바+선택 링으로 충분.
+
+**주간 목표(중첩 자식).** 월간 카드 안에서 바로 추가·표시. 각 주간 목표에 **연결된 할일 수**(`todos.weekly_goal_id`)
+를 `done/total`(예: `3/5`)로 표기. 할일 목록 펼침·연결은 기존 `WeeklyTodosInline` 재사용. **주차 라벨** =
+`M월 N주차`(그 달이 걸치는 ISO 주 순번). 이번 Stage 는 **표시**가 주목적(할일↔주간 연결 UI 는 할일 페이지 별도 Stage).
+
+**월말 회고 슬롯(목표 카드 안).** 별도 회고 화면을 만들지 않는다 — 회고 대상(목표)을 보면서 쓴다. **버튼이
+백지보다 먼저**: 3버튼(달성/부분/미달, `retroStatusStyle`) + 한 줄 회고 입력(`inputBg`). `retro_status`/
+`retro_note`(monthly_goals)에 저장. 상태 색은 아래 회고 슬롯 규정.
+
+**빈 상태(기본 화면).** 목표 0행이 기본이므로 빈 상태가 성패를 가른다. **차단 문구 금지**("연간 먼저
+추가하세요" 류 전부 제거). 월간 목표 없으면 → 바로 추가할 입력 어피던스를 눈에 띄게 + "연간 목표 없이도
+바로 추가할 수 있어요" 안내. 주간 목표 없으면 → 월간 카드 안에서 바로 추가.
+
+**회고 슬롯 상태 색(달성/부분/미달).** 시맨틱 색을 tint 로만 쓰고 라벨은 딥 인디고(`t.text`)로 대비 확보
+(§5 duration chip 의 "붉은 위 붉은 회피"와 동일 정신). `retroStatusStyle(t, status, selected)` 헬퍼로 소비:
+- 달성(done) → `t.success`, 부분(partial) → `t.warning`, 미달(missed) → `t.danger`(§3: danger=위험·삭제·**실패**,
+  "미달"=실패로 정렬 — `warning`/`short` 와 혼동 금지).
+- 비선택 = 흰색(`t.card`) + hairline(`t.border`) + muted 라벨. 선택 = 시맨틱 tint(`mixHex(base,255,0.82)` 파생)
+  + 1.5px 시맨틱 테두리 + 딥 인디고 라벨. **신규 색 토큰 없음**(Light tint 는 mixHex 파생).
+
+**Scope:** Theme H, 토큰만; 비-H(A/B/C/D)는 동일 구조에 각 테마 토큰으로 렌더(회귀 0). **PC 레이아웃도 이번에
+함께 만든다**(구 3컬럼이 개편 대상 그 자체 — "PC 보존" 원칙의 명시적 예외). **재사용 헬퍼:** `solidCardStyle`,
+`selectedRowStyle`, `periodStepperStyle`, `inputBg`, `buttonStyle`, `mixHex`, `isHaon`. **신규 haonStyles 헬퍼:**
+`retroStatusStyle`/`retroStatusColor`(회고 3버튼)뿐.
+
 ---
 
 ## 6. 캘린더 페이지 (page-specific patterns)

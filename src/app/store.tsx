@@ -550,14 +550,21 @@ export interface WeeklyGoal {
   mandalartCellId?: string;
 }
 
+/** 월간 목표 회고 상태 — 월말 회고 슬롯(달성/부분/미달). 미작성 = undefined. */
+export type RetroStatus = 'done' | 'partial' | 'missed';
+
 export interface MonthlyGoal {
   id: string;
   text: string;
   month: string;
   projectId?: string;
-  /** 연간 목표 1개에 연결 (레거시 행은 비어 있을 수 있음) */
+  /** 연간 목표 1개에 연결 (선택 — 캐스케이드 해제로 없어도 됨) */
   annualGoalId?: string;
   mandalartCellId?: string;
+  /** 월말 회고: 달성/부분/미달. 미작성이면 undefined */
+  retroStatus?: RetroStatus;
+  /** 월말 회고 한 줄 메모 */
+  retroNote?: string;
 }
 
 /** 연도별 연간 정체성·핵심 가치 (키: "2026" 등) */
@@ -898,8 +905,8 @@ interface PlannerContextType {
   deleteWeeklyGoal: (id: string) => void;
 
   // Monthly goal actions
-  addMonthlyGoal: (text: string, annualGoalId: string, month: string, projectId?: string) => void;
-  updateMonthlyGoal: (id: string, changes: Partial<Pick<MonthlyGoal, 'text' | 'annualGoalId' | 'projectId'>>) => void;
+  addMonthlyGoal: (text: string, month: string, annualGoalId?: string, projectId?: string) => void;
+  updateMonthlyGoal: (id: string, changes: Partial<Pick<MonthlyGoal, 'text' | 'annualGoalId' | 'projectId' | 'retroStatus' | 'retroNote'>>) => void;
   deleteMonthlyGoal: (id: string) => void;
 
   // Annual goal actions
@@ -1940,15 +1947,16 @@ export function PlannerProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   // ── Monthly goal actions ──
-  const addMonthlyGoal = useCallback((text: string, annualGoalId: string, month: string, projectId?: string) => {
+  const addMonthlyGoal = useCallback((text: string, month: string, annualGoalId?: string, projectId?: string) => {
+    // 캐스케이드 해제: 연간 목표(annualGoalId) 없이도 월간 목표를 추가할 수 있다.
     const trimmed = text.trim();
-    if (!trimmed || !annualGoalId) return;
+    if (!trimmed) return;
     const newGoal: MonthlyGoal = { id: newId(), text: trimmed, month, projectId, annualGoalId };
     setMonthlyGoals(prev => [...prev, newGoal]);
     db.monthlyGoals.upsert(newGoal);
   }, []);
 
-  const updateMonthlyGoal = useCallback((id: string, changes: Partial<Pick<MonthlyGoal, 'text' | 'annualGoalId' | 'projectId'>>) => {
+  const updateMonthlyGoal = useCallback((id: string, changes: Partial<Pick<MonthlyGoal, 'text' | 'annualGoalId' | 'projectId' | 'retroStatus' | 'retroNote'>>) => {
     setMonthlyGoals(prev => {
       const updated = prev.map(g => (g.id === id ? { ...g, ...changes } : g));
       const goal = updated.find(g => g.id === id);
