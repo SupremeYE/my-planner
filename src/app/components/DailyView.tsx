@@ -1063,19 +1063,18 @@ export function DailyView() {
   };
 
   // Status badge
-  // 완료/미루기/취소는 저장 상태 그대로, 그 외(미완료)는 기간 파생(진행중/늦음/예정)으로 표시.
+  // 배지 규칙(도배 방지): 단일 날짜 진행중=배지 없음(기본). 여러 날 진행중=우측 "N일째"가 담당.
+  // 늦음=배지. 완료/미루기/취소=저장 상태 라벨. (진행중 텍스트 배지는 더 이상 붙이지 않는다.)
   const StatusBadge = ({ phase, status }: { phase: DerivedTodoPhase; status: string }) => {
     let label: string, color: string, bg: string;
     if (status === 'done' || status === 'snoozed' || status === 'cancelled') {
       const cfg = STATUS_CONFIG[status];
       label = cfg.label; color = cfg.color; bg = cfg.bgColor;
-    } else if (phase === 'inProgress') {
-      label = '진행중'; color = t.success; bg = `${t.success}18`;
     } else if (phase === 'late') {
       label = '늦음'; color = t.warning; bg = t.warningLight;
     } else {
-      const cfg = STATUS_CONFIG.active; // upcoming/기타 = 예정
-      label = cfg.label; color = cfg.color; bg = cfg.bgColor;
+      // 진행중(단일·여러날 공통)·예정 = 배지 없음. 진행중은 톤/‘N일째’로, 예정은 목록 위치로 드러난다.
+      return null;
     }
     return (
       <span className="px-2 py-0.5 rounded-full" style={{
@@ -1188,8 +1187,9 @@ export function DailyView() {
             border: isDone ? 'none' : `2px solid ${withAlpha(isInProgress ? t.success : accentColor, 0.38)}`,
             backgroundColor: isDone ? t.checkDone : (isInProgress ? withAlpha(t.success, 0.07) : 'transparent'),
           }}>
+          {/* 왼쪽 원형 = 항상 완료 체크박스(상태 무관). 진행중은 테두리 톤으로만 표현, Play 글리프 금지.
+              타이머 시작은 우측 별도 버튼(포커스). */}
           {isDone && <Check size={11} color="#fff" strokeWidth={3} />}
-          {!isDone && isInProgress && <Play size={9} color={t.success} fill={t.success} />}
         </button>
 
         {/* Content */}

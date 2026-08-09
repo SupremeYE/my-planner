@@ -2,7 +2,7 @@ import { useState, useMemo, useRef, useEffect, type CSSProperties } from 'react'
 import { format, isToday, isTomorrow, isPast, parseISO } from 'date-fns';
 import {
   Trash2, ChevronDown, ChevronUp,
-  Check, Star, Pencil, ListTodo, Play,
+  Check, Star, Pencil, ListTodo,
   AlertTriangle, ArrowDownToLine, Inbox,
 } from 'lucide-react';
 import { usePlanner, Todo, TodoStatus, getLogicalToday } from '../store';
@@ -187,8 +187,8 @@ function TodoRow({
                 backgroundColor: isDone ? t.accent : 'transparent',
               }}
             >
+              {/* 왼쪽 원형 = 항상 완료 체크박스. 진행중은 테두리 톤으로만(Play 글리프 금지). */}
               {isDone && <Check size={10} color="#fff" strokeWidth={3} />}
-              {!isDone && isInProgress && <Play size={8} color={t.success} fill={t.success} />}
             </button>
           )}
 
