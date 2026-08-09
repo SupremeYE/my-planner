@@ -5,6 +5,7 @@ import { ko } from 'date-fns/locale';
 import { usePlanner } from '../store';
 import { useTheme } from '../ThemeContext';
 import { SheetShell } from './workout/SheetShell';
+import { VoiceInputButton, LabelRow } from './VoiceInputButton';
 import { inputBg, buttonStyle } from '../styles/haonStyles';
 
 // ─── RetroSheet — 하루 회고 공용 시트 (PC 모달 / 모바일 바텀시트) ───
@@ -57,13 +58,18 @@ export function RetroSheet({ date, onClose, onSaved }: RetroSheetProps) {
     ? format(parseISO(date), 'M월 d일 (EEEE)', { locale: ko })
     : '오늘';
 
+  // 음성 결과 이어붙이기 (인라인 리뷰 탭과 동일 패턴)
+  const appendText = (cur: string, add: string) => (cur ? `${cur} ${add}` : add);
+
   // ── 감사 조작 ──
   const setGratLine = (i: number, v: string) => setGratitude(prev => prev.map((g, idx) => idx === i ? v : g));
+  const appendGratVoice = (i: number, text: string) => setGratitude(prev => prev.map((g, idx) => idx === i ? appendText(g, text) : g));
   const addGratLine = () => setGratitude(prev => [...prev, '']);
   const removeGratLine = (i: number) => setGratitude(prev => prev.length <= 1 ? [''] : prev.filter((_, idx) => idx !== i));
 
   // ── 좋았던 순간 조작 ──
   const setHappyLine = (i: number, v: string) => setHappyList(prev => prev.map((h, idx) => idx === i ? { ...h, content: v } : h));
+  const appendHappyVoice = (i: number, text: string) => setHappyList(prev => prev.map((h, idx) => idx === i ? { ...h, content: appendText(h.content, text) } : h));
   const addHappyLine = () => setHappyList(prev => [...prev, { id: null, content: '' }]);
   const removeHappyLine = (i: number) => setHappyList(prev => prev.filter((_, idx) => idx !== i));
 
@@ -151,6 +157,7 @@ export function RetroSheet({ date, onClose, onSaved }: RetroSheetProps) {
                   placeholder="오늘 감사한 것"
                   style={textInput}
                 />
+                <VoiceInputButton onResult={text => appendGratVoice(i, text)} />
                 <button type="button" aria-label="줄 삭제" onClick={() => removeGratLine(i)} style={iconBtn}>
                   <X size={16} />
                 </button>
@@ -178,6 +185,7 @@ export function RetroSheet({ date, onClose, onSaved }: RetroSheetProps) {
                   placeholder="좋았던 순간"
                   style={textInput}
                 />
+                <VoiceInputButton onResult={text => appendHappyVoice(i, text)} />
                 <button type="button" aria-label="삭제" onClick={() => removeHappyLine(i)} style={iconBtn}>
                   <Trash2 size={15} />
                 </button>
@@ -212,7 +220,7 @@ export function RetroSheet({ date, onClose, onSaved }: RetroSheetProps) {
                 ['Try · 시도할 것', kptTry, setKptTry, '다음에 시도해볼 것'],
               ] as const).map(([label, val, setter, ph]) => (
                 <div key={label}>
-                  <div style={{ fontSize: 11, fontWeight: 600, color: t.textSub, marginBottom: 4 }}>{label}</div>
+                  <LabelRow label={label} onVoiceResult={text => setter(prev => appendText(prev, text))} />
                   <textarea
                     value={val}
                     onChange={e => setter(e.target.value)}
