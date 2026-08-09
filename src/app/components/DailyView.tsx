@@ -25,6 +25,7 @@ import { isEventPast, isVirtualEventId } from '../../api/events';
 import { expandRecurringTodos, isVirtualTodoId, parseVirtualTodoId } from '../../lib/recurrenceExpansion';
 import { periodCoversDate, todoEndDate, isTodoIncomplete, deriveTodoPhase, todoRunningDays, type DerivedTodoPhase } from '../../lib/todoPeriod';
 import { RecurrenceBranchModal } from './RecurrenceBranchModal';
+import { RetroSheet } from './RetroSheet';
 import { Timeline } from './timeline/Timeline';
 import { TimelineSettingsModal } from './timeline/TimelineSettingsModal';
 
@@ -645,6 +646,19 @@ function RecordChips({ date }: { date: string }) {
   const { t } = useTheme();
   const navigate = useNavigate();
   const s = useDailySummary(date);
+  const { reviewRecords, happyMoments } = usePlanner();
+  const [retroOpen, setRetroOpen] = useState(false);
+
+  // 회고 상태 요약(그날 review_records + happy_moments) — 카드 값 표시용
+  const retroRec = reviewRecords.find(r => r.date === date);
+  const retroGCount = (retroRec?.gratitude ?? []).filter(Boolean).length;
+  const retroHCount = happyMoments.filter(m => m.date === date).length;
+  const retroHasKpt = !!(retroRec?.kptKeep || retroRec?.kptProblem || retroRec?.kptTry);
+  const retroParts: string[] = [];
+  if (retroGCount) retroParts.push(`감사 ${retroGCount}`);
+  if (retroHCount) retroParts.push(`순간 ${retroHCount}`);
+  if (retroHasKpt) retroParts.push('KPT');
+  const retroValue = retroParts.length ? retroParts.join(' · ') : null;
 
   const fmtSleep = (min: number) => {
     const h = Math.floor(min / 60);
@@ -725,6 +739,34 @@ function RecordChips({ date }: { date: string }) {
         <span style={{ fontSize: 11, color: t.textMuted }}>탭하면 그 페이지로</span>
       </div>
       <div className="grid grid-cols-2 gap-2">{core.map(renderChip)}</div>
+      {/* 회고 카드 — 페이지 이동이 아니라 시트를 연다(RetroSheet). 상태 표시는 core 카드와 동일 형식. */}
+      {(() => {
+        const empty = retroValue === null;
+        const haonCard = !!t.recordCardBg;
+        return (
+          <button
+            onClick={() => setRetroOpen(true)}
+            className="relative flex items-center gap-3 rounded-2xl px-3 py-2.5 text-left transition-all mt-2 w-full"
+            style={{
+              minHeight: 56,
+              backgroundColor: haonCard ? t.recordCardBg : (empty ? 'transparent' : t.card),
+              border: haonCard ? t.recordCardBorder : (empty ? `1px dashed ${t.border}` : `1px solid ${t.border}`),
+              boxShadow: haonCard ? t.recordCardShadow : undefined,
+              opacity: haonCard ? 1 : (empty ? 0.6 : 1),
+            }}
+          >
+            <span style={{ fontSize: 19, lineHeight: 1, filter: empty ? 'grayscale(0.4)' : 'none' }}>🙏</span>
+            <div className="flex-1 min-w-0">
+              <div style={{ fontSize: 12, fontWeight: 700, color: empty ? t.textMuted : t.text }}>회고</div>
+              <div style={{ fontSize: 11, color: empty ? t.textMuted : t.textSub, lineHeight: 1.35, fontWeight: empty ? 600 : 400, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                {empty ? '아직 없음' : retroValue}
+              </div>
+            </div>
+            <span style={{ fontSize: 11, color: t.accent, fontWeight: 700, flexShrink: 0 }}>기록 ›</span>
+          </button>
+        );
+      })()}
+      {retroOpen && <RetroSheet date={date} onClose={() => setRetroOpen(false)} />}
       {conditional.length > 0 && (
         <>
           <div className="flex items-center gap-2 mt-3 mb-2">
