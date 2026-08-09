@@ -819,7 +819,8 @@ export function CalendarView() {
           })}
         </div>
 
-        {tab === 'month' && (
+        {/* 필터칩 — 월별·주별 공용(주별 종일 레인에도 동일 필터 적용). 태그 레이어는 월별 전용(showTagLayer). */}
+        {(tab === 'month' || tab === 'week') && (
           <>
             <div className="flex gap-1.5 mt-2 overflow-x-auto" style={{ scrollbarWidth: 'none' }}>
               {FILTER_TABS.map(item => {
