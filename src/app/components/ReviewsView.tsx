@@ -6,7 +6,7 @@ import { useTheme } from '../ThemeContext';
 import { LabelRow } from './VoiceInputButton';
 import { useMediaQuery } from '../hooks/useMediaQuery';
 import { useRealtimeSync } from '../hooks/useRealtimeSync';
-import { weekFocusReport, monthFocusReport } from '../hooks/useTimeReport';
+import { monthFocusReport } from '../hooks/useTimeReport';
 import { HappyCaptureModal } from './HappyCaptureModal';
 import { supabase } from '../../lib/supabase';
 import { getCategoryEmoji, getMoodCategoryLabel, ENERGY_LABELS } from './MoodView';
@@ -467,7 +467,7 @@ function FocusBlock({
 
 function WeekTab({ jump }: { jump?: JumpReq }) {
   const {
-    todos, timeBlocks, tags, habits, events, projects,
+    todos, tags, habits, events, projects,
     weeklyGoals, monthlyGoals, toggleWeeklyGoal,
     weeklyReviews, addWeeklyReview, updateWeeklyReview,
     appSettings,
@@ -525,11 +525,40 @@ function WeekTab({ jump }: { jump?: JumpReq }) {
   const habitDays = habits.length ? weekDays.filter(d => habits.some(h => h.checkedDates.includes(d))).length : 0;
   const habitPct = Math.round((habitDays / 7) * 100);
 
-  // ── 집중시간 분석 — 시간 리포트 엔진(aggregateRange) 재사용. 합계/요일별/태그별/직전주 비교 모두 단일 소스 ──
-  const focus = useMemo(
-    () => weekFocusReport(todos, tags, range.start, weekStartsOn, getLogicalToday(), timeBlocks),
-    [todos, timeBlocks, tags, range.startStr, weekStartsOn],
-  );
+  // ── ② 시간 스트립 — track_time 태그별 그 주 이벤트(캘린더 일정) 시간 집계 ──
+  // 축 고정 아님: track_time=true 태그를 동적으로 렌더. 이벤트에 붙은 태그의 시간만 쌓인다.
+  const trackTime = useMemo(() => {
+    const toMin = (s?: string): number | null => {
+      if (!s) return null;
+      const [h, m] = s.split(':').map(Number);
+      return Number.isNaN(h) || Number.isNaN(m) ? null : h * 60 + m;
+    };
+    const trackTags = tags.filter(tg => tg.trackTime);
+    const minutes = new Map<string, number>();
+    trackTags.forEach(tg => minutes.set(tg.id, 0));
+    for (const e of events) {
+      if (!e.date || e.date < range.startStr || e.date > range.endStr) continue;
+      if (!e.tags || e.tags.length === 0) continue;
+      const s = toMin(e.startTime); const en = toMin(e.endTime);
+      if (s == null || en == null) continue;
+      const dur = Math.max(0, en - s);
+      if (dur === 0) continue;
+      for (const tagId of e.tags) {
+        if (minutes.has(tagId)) minutes.set(tagId, (minutes.get(tagId) ?? 0) + dur);
+      }
+    }
+    const rows = trackTags
+      .map(tg => ({ tag: tg, minutes: minutes.get(tg.id) ?? 0 }))
+      .filter(r => r.minutes > 0)
+      .sort((a, b) => b.minutes - a.minutes);
+    const total = rows.reduce((s, r) => s + r.minutes, 0);
+    return { rows, total, hasTrackTags: trackTags.length > 0 };
+  }, [events, tags, range.startStr, range.endStr]);
+
+  const fmtMin = (min: number) => {
+    const h = Math.floor(min / 60); const m = min % 60;
+    return h > 0 ? (m > 0 ? `${h}시간 ${m}분` : `${h}시간`) : `${m}분`;
+  };
 
   // ── 회고 입력 (Stage 1 필드로 실제 저장) ──
   const weeklyReview = weeklyReviews.find(r => r.weekKey === range.weekKey);
@@ -717,21 +746,42 @@ function WeekTab({ jump }: { jump?: JumpReq }) {
     </div>
   );
 
-  // ── 집중시간 분석 블록 (주간/월간 공용 컴포넌트, 요일 축 주입) ──
-  const focusBlock = (
-    <FocusBlock
-      totalMinutes={focus.totalMinutes}
-      prevTotalMinutes={focus.prevTotalMinutes}
-      deltaMinutes={focus.deltaMinutes}
-      avgPerDayMinutes={focus.avgPerDayMinutes}
-      prevLabel="주"
-      bucketTitle="언제 — 요일별"
-      buckets={focus.daily.map(d => ({ key: d.date, label: d.dayLabel, isCurrent: d.isToday, totalMinutes: d.totalMinutes }))}
-      byCategory={focus.byCategory}
-      isDesktop={isDesktop}
-      emptyText="이번 주 기록된 집중시간이 없어요"
-      onMore={() => navigate('/time-report')}
-    />
+  // ── ② 시간 스트립 블록 (track_time 태그별 가로 스택 바 + 범례) ──
+  const timeStrip = (
+    <div className="p-4 rounded-xl" style={{ backgroundColor: t.card, border: `1px solid ${t.borderLight}` }}>
+      <div className="flex items-center justify-between mb-3">
+        <h3 style={{ fontSize: 13, fontWeight: 700, color: t.text }}>⏱ 시간</h3>
+        {trackTime.total > 0 && <span style={{ fontSize: 12, fontWeight: 700, color: t.text, fontFamily: t.fontStat }}>{fmtMin(trackTime.total)}</span>}
+      </div>
+      {trackTime.total === 0 ? (
+        <div className="rounded-lg px-3 py-3" style={{ backgroundColor: t.surfaceMuted, border: `1px dashed ${t.border}` }}>
+          <p style={{ fontSize: 12, color: t.textSub, lineHeight: 1.5 }}>
+            캘린더 일정에 <b style={{ fontWeight: 600 }}>태그</b>를 붙이면 태그별 시간이 여기 쌓여요.
+          </p>
+          <button onClick={() => navigate('/calendar')} className="mt-2" style={{ fontSize: 12, fontWeight: 600, color: t.accent }}>
+            캘린더로 가기 →
+          </button>
+        </div>
+      ) : (
+        <>
+          <div className="flex w-full rounded-full overflow-hidden" style={{ height: 12, backgroundColor: t.surfaceMuted }}>
+            {trackTime.rows.map(r => (
+              <div key={r.tag.id} title={`${r.tag.name} · ${fmtMin(r.minutes)}`}
+                style={{ width: `${(r.minutes / trackTime.total) * 100}%`, backgroundColor: r.tag.color }} />
+            ))}
+          </div>
+          <div className="flex flex-wrap gap-x-4 gap-y-1.5 mt-3">
+            {trackTime.rows.map(r => (
+              <div key={r.tag.id} className="flex items-center gap-1.5" style={{ fontSize: 11, color: t.textSub }}>
+                <span style={{ width: 8, height: 8, borderRadius: 999, backgroundColor: r.tag.color, display: 'inline-block' }} />
+                <span style={{ fontWeight: 600, color: t.text }}>{r.tag.name}</span>
+                <span style={{ color: t.textMuted }}>{fmtMin(r.minutes)}</span>
+              </div>
+            ))}
+          </div>
+        </>
+      )}
+    </div>
   );
 
   const reviewForm = (
@@ -819,8 +869,8 @@ function WeekTab({ jump }: { jump?: JumpReq }) {
         <div className="flex gap-6 items-start">
           <div className="flex-1 min-w-0 space-y-4">
             {goalsBlock}
+            {timeStrip}
             {statsBlock}
-            {focusBlock}
             {reviewForm}
           </div>
           <div className="flex-shrink-0" style={{ width: 340 }}>
@@ -830,8 +880,8 @@ function WeekTab({ jump }: { jump?: JumpReq }) {
       ) : (
         <div className="space-y-5">
           {goalsBlock}
+          {timeStrip}
           {statsBlock}
-          {focusBlock}
           {reviewForm}
           {pastBlock}
         </div>
