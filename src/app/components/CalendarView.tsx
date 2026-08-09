@@ -18,6 +18,7 @@ import { deriveTodoPhase } from '../../lib/todoPeriod';
 import { isDoOvertimeVsPlan, doElapsedTitleSuffix } from '../../lib/todoDoDuration';
 import { expandRecurringTodos, isVirtualTodoId, parseVirtualTodoId } from '../../lib/recurrenceExpansion';
 import { buildTodoToggleUpdate } from '../../lib/todoToggle';
+import { todoEndDate, isTodoLate } from '../../lib/todoPeriod';
 import { isEventPast } from '../../api/events';
 import { useTheme } from '../ThemeContext';
 import { TimePicker } from './TimePicker';
@@ -26,7 +27,8 @@ import { EventModal } from './EventModal';
 import ConfirmModal from './ConfirmModal';
 import { RecurrenceBranchModal } from './RecurrenceBranchModal';
 import { useFabAction } from '../FabContext';
-import { Timeline } from './timeline/Timeline';
+import { Timeline, WEEK_TIME_COL } from './timeline/Timeline';
+import { WeekAllDayLane, AllDayItemInput } from './timeline/WeekAllDayLane';
 import { glassBarStyle, solidCardStyle, mixHex } from '../styles/haonStyles';
 
 type TabType = 'month' | 'week';
@@ -402,6 +404,79 @@ export function CalendarView() {
   // 모바일 주간 = 일자 탭 전환 → 선택일의 todos/events 를 일간 Timeline(days=1) 에 전달
   const selectedDayTodos = weekDaysData.find(d => d.date === selectedDate)?.todos ?? [];
   const selectedDayEvents = events.filter(ev => ev.date === selectedDate);
+
+  const todayStr = getLogicalToday();
+  const weekDates = useMemo(() => weekDaysData.map(d => d.date), [weekDaysData]);
+
+  // ── 종일(all-day) 레인 데이터 ──
+  // 시간 격자 밖 항목: (a) 시각 없는 할일 / (b) 여러 날 걸치는 할일(기간 막대) / (c) 종일 이벤트.
+  // 필터칩 연동: 'all'/'todo' → 할일, 'all'/'event' → 종일 이벤트. habit/selfcare 면 레인 비움.
+  // 시간 지정된 단일 할일은 시간 격자(PLAN)에 이미 있으므로 레인 제외(중복 방지). 단, 기간(여러 날)
+  // 할일은 격자에 표현 방법이 없으므로 planStart 유무와 무관하게 항상 막대로 넣는다.
+  const weekAllDayItems = useMemo<AllDayItemInput[]>(() => {
+    if (weekDates.length === 0) return [];
+    const winStart = weekDates[0];
+    const winEnd = weekDates[weekDates.length - 1];
+    const items: AllDayItemInput[] = [];
+
+    const matchesTags = (itemTags?: string[]) =>
+      selectedTagIds.length === 0 || (itemTags ?? []).some(tagId => selectedTagIds.includes(tagId));
+
+    if (filter === 'all' || filter === 'todo') {
+      const expanded = expandRecurringTodos(todos, winStart, winEnd);
+      for (const td of expanded) {
+        if (!td.date) continue;
+        if (td.status === 'backlog' || td.status === 'cancelled') continue;
+        if (filter === 'todo' && !matchesTags(td.tags)) continue;
+        const end = todoEndDate(td) ?? td.date;
+        const multiDay = end > td.date;
+        // 시간 지정 단일 할일은 격자에 있으니 레인 제외(기간 할일은 항상 포함)
+        if (!multiDay && td.planStart && td.planEnd) continue;
+        if (end < winStart || td.date > winEnd) continue; // 창 밖
+        items.push({
+          id: td.id,
+          kind: 'todo',
+          text: td.text,
+          startDate: td.date,
+          endDate: end,
+          done: td.status === 'done',
+          late: isTodoLate(td, todayStr),
+          raw: td,
+        });
+      }
+    }
+
+    if (filter === 'all' || filter === 'event') {
+      for (const ev of events) {
+        if (!ev.isAllDay) continue;
+        if (filter === 'event' && !matchesTags(ev.tags)) continue;
+        const start = ev.startDate ?? ev.date;
+        const end = ev.endDate ?? ev.date;
+        if (!start || end < winStart || start > winEnd) continue;
+        items.push({
+          id: `ev-${ev.id}`,
+          kind: 'event',
+          text: ev.title,
+          startDate: start,
+          endDate: end,
+          done: !!ev.completed,
+          late: false,
+          raw: ev,
+        });
+      }
+    }
+    return items;
+  }, [weekDates, filter, selectedTagIds, todos, events, todayStr]);
+
+  const handleAllDayEdit = (raw: Todo | Event, kind: 'todo' | 'event') => {
+    if (kind === 'todo') setEditingTodo(raw as Todo);
+    else setEditingEvent(raw as Event);
+  };
+  // 빈 칸 클릭 → 그 날짜로 할일 추가 (기존 추가 흐름 재사용)
+  const handleAllDayAdd = (date: string) => {
+    setSelectedDate(date);
+    setShowAddTodoModal(true);
+  };
 
   const handleSelectDate = (dateStr: string) => {
     setSelectedDate(dateStr);
@@ -821,6 +896,16 @@ export function CalendarView() {
                   );
                 })}
               </div>
+              {/* 모바일 종일 레인 — 선택일 1칸(자연 높이, 고정 높이·flex 잠금 금지) */}
+              <div className="flex-shrink-0">
+                <WeekAllDayLane
+                  dates={[selectedDate]}
+                  items={weekAllDayItems}
+                  timeColWidth={WEEK_TIME_COL}
+                  onEdit={handleAllDayEdit}
+                  onEmptyAdd={handleAllDayAdd}
+                />
+              </div>
               <Timeline
                 days={1}
                 selectedDate={selectedDate}
@@ -840,6 +925,15 @@ export function CalendarView() {
                 onSelectDate={handleSelectDate}
                 onToday={handleToday}
                 onShowContextMenu={(todo) => setEditingTodo(todo)}
+                allDayLane={
+                  <WeekAllDayLane
+                    dates={weekDates}
+                    items={weekAllDayItems}
+                    timeColWidth={WEEK_TIME_COL}
+                    onEdit={handleAllDayEdit}
+                    onEmptyAdd={handleAllDayAdd}
+                  />
+                }
               />
             </div>
           </div>
