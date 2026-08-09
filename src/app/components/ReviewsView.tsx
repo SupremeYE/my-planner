@@ -1,16 +1,16 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { Plus, X, Mic, Search, ChevronLeft, ChevronRight, ChevronDown, Trash2, Clock } from 'lucide-react';
+import { Plus, X, Search, ChevronLeft, ChevronRight, ChevronDown, Trash2, Clock } from 'lucide-react';
 import { useNavigate } from 'react-router';
 import { usePlanner, ReviewRecord, MonthlyReview, getWeekKey, getLogicalToday } from '../store';
 import { useTheme } from '../ThemeContext';
-import { useVoiceInput } from '../hooks/useVoiceInput';
+import { LabelRow } from './VoiceInputButton';
 import { useMediaQuery } from '../hooks/useMediaQuery';
 import { useRealtimeSync } from '../hooks/useRealtimeSync';
 import { weekFocusReport, monthFocusReport } from '../hooks/useTimeReport';
 import { HappyCaptureModal } from './HappyCaptureModal';
 import { supabase } from '../../lib/supabase';
 import { getCategoryEmoji, getMoodCategoryLabel, ENERGY_LABELS } from './MoodView';
-import { inputBg, buttonStyle } from '../styles/haonStyles';
+import { inputBg } from '../styles/haonStyles';
 import { RetroSheet } from './RetroSheet';
 import {
   format, addDays, subDays, subYears, parseISO,
@@ -19,74 +19,6 @@ import {
   startOfISOWeek, endOfISOWeek, setISOWeek, setISOWeekYear,
 } from 'date-fns';
 import { ko } from 'date-fns/locale';
-
-// ─── 음성 입력 버튼 (기존 useVoiceInput 재사용) ───
-function VoiceInputButton({
-  onResult,
-  disabled,
-}: {
-  onResult: (text: string) => void;
-  disabled?: boolean;
-}) {
-  const { t } = useTheme();
-  const { status, startRecording, stopRecording, text, setText } = useVoiceInput();
-  const isRec = status === 'recording';
-  const isBusy = status === 'transcribing';
-
-  useEffect(() => {
-    if (text) {
-      onResult(text);
-      setText('');
-    }
-  }, [text, onResult, setText]);
-
-  const toggle = async () => {
-    if (isBusy) return;
-    if (isRec) await stopRecording();
-    else await startRecording();
-  };
-
-  return (
-    <button
-      type="button"
-      onClick={toggle}
-      disabled={disabled || isBusy}
-      title={isRec ? '녹음 중지' : '음성으로 입력'}
-      className="flex items-center justify-center rounded-lg flex-shrink-0 transition-colors"
-      style={{
-        width: 30,
-        height: 30,
-        backgroundColor: isRec ? '#fee2e2' : t.surfaceMuted,
-        border: `1px solid ${isRec ? '#fca5a5' : t.borderLight}`,
-        color: isRec ? '#ef4444' : t.textMuted,
-      }}
-    >
-      {isRec ? (
-        <span
-          className="animate-pulse rounded-full"
-          style={{ width: 9, height: 9, backgroundColor: '#ef4444', display: 'block' }}
-        />
-      ) : (
-        <Mic size={13} />
-      )}
-    </button>
-  );
-}
-
-// label + VoiceInputButton을 한 줄에 나란히
-function LabelRow({ label, labelColor, onVoiceResult }: {
-  label: string;
-  labelColor?: string;
-  onVoiceResult: (text: string) => void;
-}) {
-  const { t } = useTheme();
-  return (
-    <div className="flex items-center justify-between mb-1">
-      <label style={{ fontSize: 11, color: labelColor ?? t.textSub, fontWeight: 600 }}>{label}</label>
-      <VoiceInputButton onResult={onVoiceResult} />
-    </div>
-  );
-}
 
 const RECORD_TYPES = [
   { key: 'gratitude', emoji: '🙏', label: '감사 일기' },
@@ -239,7 +171,7 @@ function PastTimeline({ dayDate, onSelect }: { dayDate: string; onSelect: (date:
 type JumpReq = { date: string; nonce: number } | null;
 
 function DayTab({ jump }: { jump?: JumpReq }) {
-  const { reviewRecords, addReviewRecord, updateReviewRecord } = usePlanner();
+  const { reviewRecords, happyMoments } = usePlanner();
   const { t } = useTheme();
   const isDesktop = useMediaQuery('(min-width: 1024px)');
 
@@ -251,116 +183,81 @@ function DayTab({ jump }: { jump?: JumpReq }) {
 
   const dayRecord = reviewRecords.find(r => r.date === dayDate);
 
-  const [gratitude, setGratitude] = useState<string[]>(['', '', '']);
-  const [kptKeep, setKptKeep] = useState('');
-  const [kptProblem, setKptProblem] = useState('');
-  const [kptTry, setKptTry] = useState('');
-  const [savedFlash, setSavedFlash] = useState(false);
   const [retroOpen, setRetroOpen] = useState(false);
-
-  // 선택 날짜/레코드 변경 시 입력 상태 동기화
-  useEffect(() => {
-    setGratitude(dayRecord?.gratitude && dayRecord.gratitude.length ? dayRecord.gratitude : ['', '', '']);
-    setKptKeep(dayRecord?.kptKeep || '');
-    setKptProblem(dayRecord?.kptProblem || '');
-    setKptTry(dayRecord?.kptTry || '');
-  }, [dayDate, dayRecord?.id]);
 
   const goPrev = () => setDayDate(format(subDays(parseISO(dayDate), 1), 'yyyy-MM-dd'));
   const goNext = () => setDayDate(format(addDays(parseISO(dayDate), 1), 'yyyy-MM-dd'));
 
-  const addGratitudeLine = () => setGratitude(prev => [...prev, '']);
-  const removeGratitudeLine = (i: number) => setGratitude(prev => prev.filter((_, idx) => idx !== i));
-  const setGratitudeLine = (i: number, v: string) =>
-    setGratitude(prev => prev.map((g, idx) => idx === i ? v : g));
-  const appendGratitudeVoice = (i: number, text: string) =>
-    setGratitude(prev => prev.map((g, idx) => idx === i ? (g ? `${g} ${text}` : text) : g));
+  // 회고 요약(그날 review_records + happy_moments). 상태 표현은 일간 '오늘 기록' 카드와 동일 방식.
+  const gList = (dayRecord?.gratitude ?? []).filter(Boolean);
+  const hList = happyMoments.filter(m => m.date === dayDate);
+  const hasKpt = !!(dayRecord?.kptKeep || dayRecord?.kptProblem || dayRecord?.kptTry);
+  const summaryParts: string[] = [];
+  if (gList.length) summaryParts.push(`감사 ${gList.length}개`);
+  if (hList.length) summaryParts.push(`좋았던 순간 ${hList.length}개`);
+  if (hasKpt) summaryParts.push('KPT 작성됨');
+  const retroEmpty = summaryParts.length === 0;
+  const kptText = (label: string, val?: string) => val ? (
+    <div style={{ fontSize: 13, color: t.text, lineHeight: 1.5, whiteSpace: 'pre-wrap' }}>
+      <span style={{ fontWeight: 600 }}>{label}</span> · {val}
+    </div>
+  ) : null;
 
-  const save = () => {
-    const cleanGratitude = gratitude.map(g => g.trim()).filter(Boolean);
-    const hasG = cleanGratitude.length > 0;
-    const hasK = !!(kptKeep.trim() || kptProblem.trim() || kptTry.trim());
-    // 기존 types 중 gratitude/kpt 외(happiness/daily)는 보존
-    const otherTypes = (dayRecord?.types ?? []).filter(ty => ty !== 'gratitude' && ty !== 'kpt');
-    const types = [...otherTypes, ...(hasG ? ['gratitude'] : []), ...(hasK ? ['kpt'] : [])];
-
-    // 부분 업데이트(머지): gratitude/kpt 만 전송 → 과거 daily_*/happiness 보존(Stage 1)
-    const data: Omit<ReviewRecord, 'id'> = {
-      date: dayDate,
-      types,
-      gratitude: cleanGratitude,
-      kptKeep: kptKeep,
-      kptProblem: kptProblem,
-      kptTry: kptTry,
-    };
-    if (dayRecord) updateReviewRecord(dayRecord.id, data);
-    else addReviewRecord(data);
-    setSavedFlash(true);
-    window.setTimeout(() => setSavedFlash(false), 1800);
-  };
-
-  const inputStyle = {
-    borderColor: t.border, backgroundColor: inputBg(t), color: t.text, fontSize: 13,
-    fontFamily: t.fontBody,
-  };
-
+  // 회고 카드 — 읽기는 카드에서, 편집은 시트에서(탭 → RetroSheet). 입력 두 벌 중복 제거.
   const writeCol = (
     <div className="space-y-4">
-      {/* 컨디션 배지 */}
+      {/* 컨디션 배지 — 회고와 별개(건강 링크). 유지. */}
       <ConditionBadge date={dayDate} />
 
-      {/* 감사 일기 */}
-      <div className="p-4 rounded-xl" style={{ backgroundColor: t.card, border: `1px solid ${t.borderLight}` }}>
-        <h3 style={{ fontSize: 13, fontWeight: 700, color: t.text, marginBottom: 12 }}>🙏 감사 일기</h3>
-        <div className="space-y-2">
-          {gratitude.map((g, i) => (
-            <div key={i} className="flex items-center gap-2">
-              <span style={{ fontSize: 12, color: t.accent, fontWeight: 600, width: 16 }}>{i + 1}.</span>
-              <input value={g} onChange={e => setGratitudeLine(i, e.target.value)}
-                placeholder="오늘 감사한 것" className="flex-1 rounded-lg px-3 py-2 border outline-none min-w-0" style={inputStyle} />
-              <VoiceInputButton onResult={text => appendGratitudeVoice(i, text)} />
-              <button type="button" onClick={() => removeGratitudeLine(i)} title="이 줄 삭제"
-                className="flex items-center justify-center rounded-lg flex-shrink-0"
-                style={{ width: 30, height: 30, backgroundColor: t.surfaceMuted, border: `1px solid ${t.borderLight}`, color: t.textMuted }}>
-                <X size={13} />
-              </button>
+      <div className="rounded-xl overflow-hidden" style={{ backgroundColor: t.card, border: `1px solid ${t.borderLight}` }}>
+        <button type="button" onClick={() => setRetroOpen(true)} className="w-full flex items-center gap-2.5 px-4 py-3 text-left">
+          <span style={{ fontSize: 18, lineHeight: 1 }}>🙏</span>
+          <div className="flex-1 min-w-0">
+            <div style={{ fontSize: 13, fontWeight: 700, color: t.text }}>회고</div>
+            <div style={{ fontSize: 11, color: retroEmpty ? t.textMuted : t.textSub, fontWeight: retroEmpty ? 600 : 400, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+              {retroEmpty ? '아직 기록 없음 · 탭해서 오늘 회고를 남겨보세요' : summaryParts.join(' · ')}
             </div>
-          ))}
-        </div>
-        <button type="button" onClick={addGratitudeLine}
-          className="flex items-center gap-1 mt-3"
-          style={{ fontSize: 12, color: t.accent, fontWeight: 600 }}>
-          <Plus size={14} /> 한 줄 더 추가
+          </div>
+          <span style={{ fontSize: 12, color: t.accent, fontWeight: 700, flexShrink: 0 }}>{retroEmpty ? '작성 ›' : '편집 ›'}</span>
         </button>
-      </div>
 
-      {/* KPT 회고 */}
-      <div className="p-4 rounded-xl" style={{ backgroundColor: t.card, border: `1px solid ${t.borderLight}` }}>
-        <h3 style={{ fontSize: 13, fontWeight: 700, color: t.text, marginBottom: 12 }}>🔄 KPT 회고</h3>
-        <div className={isDesktop ? 'grid grid-cols-3 gap-3' : 'space-y-3'}>
-          <div>
-            <LabelRow label="Keep (유지할 것)" labelColor="#006b62" onVoiceResult={text => setKptKeep(prev => prev ? `${prev} ${text}` : text)} />
-            <textarea value={kptKeep} onChange={e => setKptKeep(e.target.value)} rows={isDesktop ? 4 : 2}
-              className="w-full rounded-lg px-3 py-2 border outline-none resize-none" style={inputStyle} />
+        {!retroEmpty && (
+          <div className="px-4 pb-4 space-y-3" style={{ borderTop: `1px solid ${t.borderLight}`, paddingTop: 12 }}>
+            {gList.length > 0 && (
+              <div>
+                <div style={{ fontSize: 11, fontWeight: 700, color: t.textSub, marginBottom: 5 }}>🙏 감사</div>
+                <ol className="space-y-1">
+                  {gList.map((g, i) => (
+                    <li key={i} style={{ fontSize: 13, color: t.text, lineHeight: 1.5 }}>
+                      <span style={{ color: t.accent, fontWeight: 600, marginRight: 6 }}>{i + 1}.</span>{g}
+                    </li>
+                  ))}
+                </ol>
+              </div>
+            )}
+            {hList.length > 0 && (
+              <div>
+                <div style={{ fontSize: 11, fontWeight: 700, color: t.textSub, marginBottom: 5 }}>✨ 좋았던 순간</div>
+                <ul className="space-y-1">
+                  {hList.map(m => (
+                    <li key={m.id} style={{ fontSize: 13, color: t.text, lineHeight: 1.5 }}>✨ {m.content}</li>
+                  ))}
+                </ul>
+              </div>
+            )}
+            {hasKpt && (
+              <div>
+                <div style={{ fontSize: 11, fontWeight: 700, color: t.textSub, marginBottom: 5 }}>🔄 KPT</div>
+                <div className="space-y-1">
+                  {kptText('Keep', dayRecord?.kptKeep)}
+                  {kptText('Problem', dayRecord?.kptProblem)}
+                  {kptText('Try', dayRecord?.kptTry)}
+                </div>
+              </div>
+            )}
           </div>
-          <div>
-            <LabelRow label="Problem (문제점)" labelColor="#D4735A" onVoiceResult={text => setKptProblem(prev => prev ? `${prev} ${text}` : text)} />
-            <textarea value={kptProblem} onChange={e => setKptProblem(e.target.value)} rows={isDesktop ? 4 : 2}
-              className="w-full rounded-lg px-3 py-2 border outline-none resize-none" style={inputStyle} />
-          </div>
-          <div>
-            <LabelRow label="Try (시도할 것)" labelColor="#7B9ED9" onVoiceResult={text => setKptTry(prev => prev ? `${prev} ${text}` : text)} />
-            <textarea value={kptTry} onChange={e => setKptTry(e.target.value)} rows={isDesktop ? 4 : 2}
-              className="w-full rounded-lg px-3 py-2 border outline-none resize-none" style={inputStyle} />
-          </div>
-        </div>
+        )}
       </div>
-
-      <button onClick={save}
-        className="w-full py-3 rounded-xl transition-colors"
-        style={{ fontSize: 14, fontWeight: 600, backgroundColor: savedFlash ? t.success : t.accent, color: '#fff' }}>
-        {savedFlash ? '저장됨 ✓' : '저장하기'}
-      </button>
     </div>
   );
 
@@ -383,14 +280,6 @@ function DayTab({ jump }: { jump?: JumpReq }) {
   return (
     <div>
       {dateNav}
-      {/* 회고 시트 열기 — 인라인 감사/KPT(음성·넓은 레이아웃)는 유지하고, 좋았던 순간 포함 통합 시트 접근.
-          저장소가 같아(review_records+happy_moments) 시트 저장 후 아래 인라인도 자동 동기화. */}
-      <div className="flex justify-center mb-4">
-        <button type="button" onClick={() => setRetroOpen(true)}
-          style={{ ...buttonStyle(t, 'ghost'), padding: '8px 16px', fontSize: 13, display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-          <Plus size={15} /> 회고 시트 열기 · ✨ 좋았던 순간
-        </button>
-      </div>
       {retroOpen && <RetroSheet date={dayDate} onClose={() => setRetroOpen(false)} />}
       {isDesktop ? (
         <div className="flex gap-6 items-start">
