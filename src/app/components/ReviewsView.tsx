@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { Plus, X, Search, ChevronLeft, ChevronRight, ChevronDown, Trash2, Clock } from 'lucide-react';
+import { Plus, X, Search, ChevronLeft, ChevronRight, ChevronDown, Trash2, Clock, Check } from 'lucide-react';
 import { useNavigate } from 'react-router';
 import { usePlanner, ReviewRecord, MonthlyReview, getWeekKey, getLogicalToday } from '../store';
 import { useTheme } from '../ThemeContext';
@@ -467,7 +467,8 @@ function FocusBlock({
 
 function WeekTab({ jump }: { jump?: JumpReq }) {
   const {
-    todos, timeBlocks, tags, habits,
+    todos, timeBlocks, tags, habits, events, projects,
+    weeklyGoals, monthlyGoals, toggleWeeklyGoal,
     weeklyReviews, addWeeklyReview, updateWeeklyReview,
     appSettings,
   } = usePlanner();
@@ -502,6 +503,18 @@ function WeekTab({ jump }: { jump?: JumpReq }) {
     () => Array.from({ length: 7 }, (_, i) => format(addDays(range.start, i), 'yyyy-MM-dd')),
     [range.startStr],
   );
+
+  // ── ① 이번 주 목표 (weekly_goals, 여기서 체크·부모 월간칩·연결 할일 진행) ──
+  const weekGoals = useMemo(
+    () => weeklyGoals.filter(g => g.weekKey === range.weekKey),
+    [weeklyGoals, range.weekKey],
+  );
+  const goalsDone = weekGoals.filter(g => g.done).length;
+  const goalTodoProgress = useCallback((goalId: string) => {
+    const linked = todos.filter(td => td.weeklyGoalId === goalId && !td.id.includes('__'));
+    if (!linked.length) return null;
+    return { done: linked.filter(td => td.status === 'done').length, total: linked.length };
+  }, [todos]);
 
   // ── 작은 통계 2종 (선택 주 범위 기준) ──
   const weekTodos = todos.filter(td => td.date && td.date >= range.startStr && td.date <= range.endStr);
@@ -641,6 +654,57 @@ function WeekTab({ jump }: { jump?: JumpReq }) {
     </div>
   );
 
+  // ── ① 이번 주 목표 블록 ──
+  const goalsBlock = (
+    <div className="p-4 rounded-xl" style={{ backgroundColor: t.card, border: `1px solid ${t.borderLight}` }}>
+      <div className="flex items-center justify-between mb-3">
+        <h3 style={{ fontSize: 13, fontWeight: 700, color: t.text }}>🎯 이번 주 목표</h3>
+        {weekGoals.length > 0 && (
+          <span style={{ fontSize: 12, fontWeight: 700, color: t.accent }}>{goalsDone} / {weekGoals.length} 달성</span>
+        )}
+      </div>
+      {weekGoals.length === 0 ? (
+        <button onClick={() => navigate('/goals')} className="w-full text-left rounded-lg px-3 py-3"
+          style={{ fontSize: 13, color: t.textSub, backgroundColor: t.surfaceMuted, border: `1px dashed ${t.border}` }}>
+          목표 페이지에서 이번 주 목표를 세워보세요 →
+        </button>
+      ) : (
+        <div className="space-y-2">
+          {weekGoals.map(g => {
+            const parent = g.monthlyGoalId ? monthlyGoals.find(m => m.id === g.monthlyGoalId) : null;
+            const parentColor = parent?.projectId ? (projects.find(p => p.id === parent.projectId)?.color ?? t.accent) : t.accent;
+            const prog = goalTodoProgress(g.id);
+            return (
+              <div key={g.id} className="flex items-start gap-2.5 rounded-lg px-3 py-2" style={{ backgroundColor: t.surfaceMuted }}>
+                <button onClick={() => toggleWeeklyGoal(g.id)} aria-label={g.done ? '달성 해제' : '달성'}
+                  className="flex-shrink-0 mt-0.5 w-5 h-5 rounded-full flex items-center justify-center transition-all"
+                  style={{ border: g.done ? 'none' : `2px solid ${t.border}`, backgroundColor: g.done ? t.accent : 'transparent' }}>
+                  {g.done && <Check size={11} color="#fff" strokeWidth={3} />}
+                </button>
+                <div className="flex-1 min-w-0">
+                  <div style={{ fontSize: 13, fontWeight: 600, color: g.done ? t.textMuted : t.text, textDecoration: g.done ? 'line-through' : 'none' }}>{g.text}</div>
+                  <div className="flex items-center gap-2 mt-1 flex-wrap">
+                    {parent && (
+                      <span className="inline-flex items-center gap-1" style={{ fontSize: 10, color: t.textSub, maxWidth: 200 }} title={parent.text}>
+                        <span style={{ width: 7, height: 7, borderRadius: 999, backgroundColor: parentColor, display: 'inline-block', flexShrink: 0 }} />
+                        <span className="truncate">{parent.text}</span>
+                      </span>
+                    )}
+                    {prog && (
+                      <span className="px-1.5 py-px rounded-full" style={{ fontSize: 9, fontWeight: 600, backgroundColor: t.accentLight, color: t.accent }}>
+                        할일 {prog.done}/{prog.total}
+                      </span>
+                    )}
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+
   // ── 작은 통계 2종 (완료율 % · 습관 달성일 n/7) ──
   const statsBlock = (
     <div className="grid grid-cols-2 gap-3">
@@ -754,6 +818,7 @@ function WeekTab({ jump }: { jump?: JumpReq }) {
       {isDesktop ? (
         <div className="flex gap-6 items-start">
           <div className="flex-1 min-w-0 space-y-4">
+            {goalsBlock}
             {statsBlock}
             {focusBlock}
             {reviewForm}
@@ -764,6 +829,7 @@ function WeekTab({ jump }: { jump?: JumpReq }) {
         </div>
       ) : (
         <div className="space-y-5">
+          {goalsBlock}
           {statsBlock}
           {focusBlock}
           {reviewForm}
