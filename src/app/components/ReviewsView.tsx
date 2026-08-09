@@ -11,7 +11,7 @@ import { useRealtimeSync } from '../hooks/useRealtimeSync';
 import { HappyCaptureModal } from './HappyCaptureModal';
 import { supabase } from '../../lib/supabase';
 import { getCategoryEmoji, getMoodCategoryLabel, ENERGY_LABELS } from './MoodView';
-import { inputBg } from '../styles/haonStyles';
+import { inputBg, mixHex, retroStatusColor } from '../styles/haonStyles';
 import { RetroSheet } from './RetroSheet';
 import {
   format, addDays, subDays, subYears, parseISO,
@@ -864,7 +864,7 @@ function BestCategory({ emoji, label, candidates, value, onChange }: {
 
 function MonthTab({ jump }: { jump?: JumpReq }) {
   const {
-    todos, habits,
+    todos, habits, monthlyGoals, projects,
     monthlyReviews, addMonthlyReview, updateMonthlyReview,
     appSettings,
   } = usePlanner();
@@ -1065,6 +1065,54 @@ function MonthTab({ jump }: { jump?: JumpReq }) {
   // 4-2. 시간 스트립 — 주간 탭과 동일 공용 컴포넌트를 월 범위로 재사용
   const timeStrip = <TrackTimeStrip startStr={monthStartStr} endStr={monthEndStr} />;
 
+  // ── 이 달의 목표 (신규·읽기 전용) — monthly_goals + 목표별 회고 상태(retro_status/note) ──
+  // 편집은 목표 페이지 카드 안에서만(입력 지점 이원화 방지). 여기선 읽고 링크로 유도.
+  const monthGoals = monthlyGoals.filter(g => g.month === monthKey);
+  const RETRO_LABEL: Record<string, string> = { done: '달성', partial: '부분', missed: '미달' };
+  const monthGoalsBlock = (
+    <div className="p-4 rounded-xl" style={{ backgroundColor: t.card, border: `1px solid ${t.borderLight}` }}>
+      <h3 style={{ fontSize: 13, fontWeight: 700, color: t.text, marginBottom: 12 }}>🎯 이 달의 목표</h3>
+      {monthGoals.length === 0 ? (
+        <button onClick={() => navigate('/goals')} className="w-full text-left rounded-lg px-3 py-3"
+          style={{ fontSize: 13, color: t.textSub, backgroundColor: t.surfaceMuted, border: `1px dashed ${t.border}` }}>
+          목표 페이지에서 이번 달 목표를 세워보세요 →
+        </button>
+      ) : (
+        <>
+          <div className="space-y-2">
+            {monthGoals.map(g => {
+              const dotColor = g.projectId ? (projects.find(p => p.id === g.projectId)?.color ?? t.accent) : t.accent;
+              const rc = g.retroStatus ? retroStatusColor(t, g.retroStatus) : null;
+              return (
+                <div key={g.id} className="rounded-lg px-3 py-2" style={{ backgroundColor: t.surfaceMuted }}>
+                  <div className="flex items-center gap-2">
+                    <span style={{ width: 8, height: 8, borderRadius: 999, backgroundColor: dotColor, display: 'inline-block', flexShrink: 0 }} />
+                    <span className="flex-1 min-w-0 truncate" style={{ fontSize: 13, fontWeight: 600, color: t.text }} title={g.text}>{g.text}</span>
+                    {rc ? (
+                      <span className="px-2 py-0.5 rounded-full flex-shrink-0" style={{ fontSize: 10, fontWeight: 700, backgroundColor: mixHex(rc, 255, 0.82), color: rc }}>
+                        {RETRO_LABEL[g.retroStatus!]}
+                      </span>
+                    ) : (
+                      <span className="px-2 py-0.5 rounded-full flex-shrink-0" style={{ fontSize: 10, fontWeight: 600, backgroundColor: t.card, color: t.textMuted, border: `1px solid ${t.border}` }}>
+                        회고 미작성
+                      </span>
+                    )}
+                  </div>
+                  {g.retroNote && (
+                    <p style={{ fontSize: 12, color: t.textSub, marginTop: 5, marginLeft: 16, lineHeight: 1.45 }}>{g.retroNote}</p>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+          <button onClick={() => navigate('/goals')} className="mt-3" style={{ fontSize: 12, fontWeight: 600, color: t.accent }}>
+            목표 페이지에서 회고 쓰기 →
+          </button>
+        </>
+      )}
+    </div>
+  );
+
   // 4-3. 이 달의 베스트 (하이브리드 픽)
   const bestBlock = (
     <div>
@@ -1168,7 +1216,8 @@ function MonthTab({ jump }: { jump?: JumpReq }) {
         <div className="flex gap-6 items-start">
           <div className="flex-1 min-w-0 space-y-5">
             {statsBlock}
-
+            {timeStrip}
+            {monthGoalsBlock}
             {bestBlock}
             {reviewForm}
           </div>
@@ -1179,7 +1228,8 @@ function MonthTab({ jump }: { jump?: JumpReq }) {
       ) : (
         <div className="space-y-5">
           {statsBlock}
-
+          {timeStrip}
+          {monthGoalsBlock}
           {bestBlock}
           {reviewForm}
           {pastBlock}
