@@ -884,17 +884,17 @@ function WeekTab({ jump }: { jump?: JumpReq }) {
       <div className="space-y-3">
         <div>
           <LabelRow label="잘한 것" labelColor="#006b62" onVoiceResult={text => setWrGood(prev => prev ? `${prev} ${text}` : text)} />
-          <textarea value={wrGood} onChange={e => setWrGood(e.target.value)} rows={3}
+          <textarea value={wrGood} onChange={e => setWrGood(e.target.value)} rows={3} placeholder="이번 주 잘한 것"
             className="w-full rounded-lg px-3 py-2 border outline-none resize-none" style={inputStyle} />
         </div>
         <div>
-          <LabelRow label="어려웠던 점" labelColor="#D4735A" onVoiceResult={text => setWrHard(prev => prev ? `${prev} ${text}` : text)} />
-          <textarea value={wrHard} onChange={e => setWrHard(e.target.value)} rows={3}
+          <LabelRow label="아쉬운 것" labelColor="#D4735A" onVoiceResult={text => setWrHard(prev => prev ? `${prev} ${text}` : text)} />
+          <textarea value={wrHard} onChange={e => setWrHard(e.target.value)} rows={3} placeholder="이번 주 아쉬운 것"
             className="w-full rounded-lg px-3 py-2 border outline-none resize-none" style={inputStyle} />
         </div>
         <div>
-          <LabelRow label="다음 주 다짐" labelColor="#7B9ED9" onVoiceResult={text => setWrNext(prev => prev ? `${prev} ${text}` : text)} />
-          <textarea value={wrNext} onChange={e => setWrNext(e.target.value)} rows={3}
+          <LabelRow label="다음 주 한 가지" labelColor="#7B9ED9" onVoiceResult={text => setWrNext(prev => prev ? `${prev} ${text}` : text)} />
+          <textarea value={wrNext} onChange={e => setWrNext(e.target.value)} rows={2} placeholder="다음 주에 할 단 한 가지 — 그대로 다음 주 목표가 돼요"
             className="w-full rounded-lg px-3 py-2 border outline-none resize-none" style={inputStyle} />
         </div>
       </div>
@@ -966,9 +966,9 @@ function WeekTab({ jump }: { jump?: JumpReq }) {
             {timeStrip}
             {statsBlock}
             {piecesBlock}
-            {reviewForm}
           </div>
-          <div className="flex-shrink-0" style={{ width: 340 }}>
+          <div className="flex-shrink-0 space-y-4" style={{ width: 340 }}>
+            {reviewForm}
             <div style={{ position: 'sticky', top: 12 }}>{pastBlock}</div>
           </div>
         </div>
