@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { Plus, X, Search, ChevronLeft, ChevronRight, ChevronDown, Trash2, Clock, Check } from 'lucide-react';
 import { useNavigate } from 'react-router';
-import { usePlanner, ReviewRecord, MonthlyReview, getWeekKey, getLogicalToday } from '../store';
+import { usePlanner, ReviewRecord, MonthlyReview, WeightRecord, CultureRecord, MusicRecord, getWeekKey, getLogicalToday } from '../store';
+import { db, type WalkSession } from '../../lib/db';
 import { useTheme } from '../ThemeContext';
 import { LabelRow } from './VoiceInputButton';
 import { useMediaQuery } from '../hooks/useMediaQuery';
@@ -467,7 +468,7 @@ function FocusBlock({
 
 function WeekTab({ jump }: { jump?: JumpReq }) {
   const {
-    todos, tags, habits, events, projects,
+    todos, tags, habits, events, projects, foodRecords,
     weeklyGoals, monthlyGoals, toggleWeeklyGoal,
     weeklyReviews, addWeeklyReview, updateWeeklyReview,
     appSettings,
@@ -559,6 +560,57 @@ function WeekTab({ jump }: { jump?: JumpReq }) {
     const h = Math.floor(min / 60); const m = min % 60;
     return h > 0 ? (m > 0 ? `${h}시간 ${m}분` : `${h}시간`) : `${m}분`;
   };
+
+  // ── ③④ 전역 store 밖 소스(몸무게·문화·음악·산책)는 여기서 1회 fetch 후 주 범위로 필터 ──
+  const [wkData, setWkData] = useState<{ weights: WeightRecord[]; culture: CultureRecord[]; music: MusicRecord[]; walks: WalkSession[] }>(
+    { weights: [], culture: [], music: [], walks: [] },
+  );
+  useEffect(() => {
+    let alive = true;
+    Promise.all([db.weightRecords.fetchAll(), db.cultureRecords.fetchAll(), db.musicRecords.fetchAll(), db.walkSessions.fetchAll()])
+      .then(([weights, culture, music, walks]) => { if (alive) setWkData({ weights, culture, music, walks }); })
+      .catch(() => { /* 빈 상태 유지 */ });
+    return () => { alive = false; };
+  }, []);
+
+  // ③ 몸무게 변화 — 동일 slot 비교(DESIGN §7.4 폴백≠비교). 기준 slot=아침>저녁>기타, 그 주 내 첫↔마지막.
+  const weekWeight = useMemo(() => {
+    const inWeek = wkData.weights.filter(w => w.date >= range.startStr && w.date <= range.endStr);
+    if (!inWeek.length) return null;
+    const slotOrder = ['아침', '저녁', '기타'] as const;
+    const baseSlot = slotOrder.find(s => inWeek.some(w => w.slot === s));
+    if (!baseSlot) return null;
+    const sameSlot = inWeek.filter(w => w.slot === baseSlot).sort((a, b) => a.date.localeCompare(b.date));
+    if (sameSlot.length < 2) return null;
+    const delta = Math.round((sameSlot[sameSlot.length - 1].weight - sameSlot[0].weight) * 10) / 10;
+    return { delta, slot: baseSlot };
+  }, [wkData.weights, range.startStr, range.endStr]);
+
+  // ④ 이번 주의 조각 — 그 주를 떠올리게 하는 기록(사진 없어도 제목만으로 성립)
+  const dOf = (s?: string | null) => (s ? s.slice(0, 10) : '');
+  const inRange = (d: string) => !!d && d >= range.startStr && d <= range.endStr;
+  const weekPieces = useMemo(() => {
+    const out: { key: string; kind: string; title: string; thumb?: string | null }[] = [];
+    // 맛있었던 것 — taste 'good' 상위 1~2개만(21끼 전부 아님)
+    foodRecords
+      .filter(f => inRange(f.date) && f.tasteRating === 'good')
+      .slice(0, 2)
+      .forEach(f => out.push({ key: `food-${f.id}`, kind: '맛있었던 것', title: f.foodName, thumb: f.photoUrl }));
+    wkData.culture
+      .filter(c => inRange(c.watchedDate ?? dOf(c.createdAt)))
+      .slice(0, 4)
+      .forEach(c => out.push({ key: `culture-${c.id}`, kind: '영상', title: c.title, thumb: c.thumbnailUrl }));
+    wkData.music
+      .filter(m => inRange(dOf(m.createdAt)))
+      .slice(0, 4)
+      .forEach(m => out.push({ key: `music-${m.id}`, kind: '음악', title: m.trackTitle, thumb: m.artworkUrl }));
+    wkData.walks
+      .filter(w => inRange(dOf(w.startedAt ?? w.createdAt)))
+      .slice(0, 3)
+      .forEach(w => out.push({ key: `walk-${w.id}`, kind: '산책', title: w.routeName || '산책', thumb: w.photoUrl }));
+    return out;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [foodRecords, wkData, range.startStr, range.endStr]);
 
   // ── 회고 입력 (Stage 1 필드로 실제 저장) ──
   const weeklyReview = weeklyReviews.find(r => r.weekKey === range.weekKey);
@@ -734,15 +786,57 @@ function WeekTab({ jump }: { jump?: JumpReq }) {
     </div>
   );
 
-  // ── 작은 통계 2종 (완료율 % · 습관 달성일 n/7) ──
+  // ── ③ 숫자 스트립 (완료율 % · 습관 달성일 n/7 · 몸무게 변화[데이터 있을 때만]) ──
   const statsBlock = (
-    <div className="grid grid-cols-2 gap-3">
+    <div className={`grid ${weekWeight ? 'grid-cols-3' : 'grid-cols-2'} gap-3`}>
       <StatCard value={weekTodos.length ? String(completionPct) : '–'} unit={weekTodos.length ? '%' : undefined}
         label="할일 완료율" sub={weekTodos.length ? `${doneTodos.length}/${weekTodos.length}` : '할일 없음'}
         pct={completionPct} barColor={t.success} />
       <StatCard value={habits.length ? String(habitDays) : '–'} unit={habits.length ? '/7' : undefined}
         label="습관 달성일" sub={habits.length ? undefined : '습관 없음'}
         pct={habitPct} barColor={t.accent} />
+      {weekWeight && (
+        <StatCard
+          value={`${weekWeight.delta > 0 ? '+' : ''}${weekWeight.delta.toFixed(1)}`} unit="kg"
+          label="몸무게" sub={`${weekWeight.slot} 기준`}
+          pct={Math.min(100, Math.abs(weekWeight.delta) * 25)}
+          barColor={weekWeight.delta <= 0 ? t.success : t.danger} />
+      )}
+    </div>
+  );
+
+  // ── ④ 이번 주의 조각 (썸네일 가로 스트립 + 종류 배지, 사진 없으면 제목만) ──
+  const piecesBlock = (
+    <div className="p-4 rounded-xl" style={{ backgroundColor: t.card, border: `1px solid ${t.borderLight}` }}>
+      <h3 style={{ fontSize: 13, fontWeight: 700, color: t.text, marginBottom: 12 }}>🧩 이번 주의 조각</h3>
+      {weekPieces.length === 0 ? (
+        <p style={{ fontSize: 12, color: t.textMuted, lineHeight: 1.5 }}>
+          이번 주 남긴 기록이 아직 없어요 · 맛있었던 것·영상·음악·산책이 여기 모여요.
+        </p>
+      ) : (
+        <div className="flex gap-3 overflow-x-auto pb-1" style={{ scrollbarWidth: 'thin' }}>
+          {weekPieces.map(p => (
+            <div key={p.key} style={{ width: 112, flexShrink: 0 }}>
+              <div className="relative rounded-xl overflow-hidden" style={{ aspectRatio: '3 / 4', backgroundColor: t.surfaceMuted, border: `1px solid ${t.borderLight}` }}>
+                {p.thumb ? (
+                  <img src={p.thumb} alt={p.title} className="w-full h-full" style={{ objectFit: 'cover' }} loading="lazy" />
+                ) : (
+                  <div className="w-full h-full flex items-center justify-center px-2 text-center"
+                    style={{ fontSize: 12, color: t.textSub, fontWeight: 600, lineHeight: 1.35, overflow: 'hidden' }}>
+                    {p.title}
+                  </div>
+                )}
+                <span className="absolute" style={{ top: 6, left: 6, fontSize: 9, fontWeight: 700, color: t.text, backgroundColor: t.card, borderRadius: 999, padding: '2px 6px', boxShadow: '0 1px 3px rgba(120,90,160,0.16)' }}>
+                  {p.kind}
+                </span>
+              </div>
+              <div style={{ fontSize: 11, color: t.textSub, marginTop: 4, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={p.title}>
+                {p.title}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 
@@ -871,6 +965,7 @@ function WeekTab({ jump }: { jump?: JumpReq }) {
             {goalsBlock}
             {timeStrip}
             {statsBlock}
+            {piecesBlock}
             {reviewForm}
           </div>
           <div className="flex-shrink-0" style={{ width: 340 }}>
@@ -882,6 +977,7 @@ function WeekTab({ jump }: { jump?: JumpReq }) {
           {goalsBlock}
           {timeStrip}
           {statsBlock}
+          {piecesBlock}
           {reviewForm}
           {pastBlock}
         </div>
