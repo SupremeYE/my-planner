@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router';
 import { usePlanner, ReviewRecord, MonthlyReview, WeightRecord, CultureRecord, MusicRecord, getWeekKey, getLogicalToday } from '../store';
 import { db, type WalkSession } from '../../lib/db';
 import { TrackTimeStrip } from './review/TrackTimeStrip';
+import { computeWeightDelta } from './review/reviewMetrics';
 import { useTheme } from '../ThemeContext';
 import { LabelRow } from './VoiceInputButton';
 import { useMediaQuery } from '../hooks/useMediaQuery';
@@ -423,18 +424,11 @@ function WeekTab({ jump }: { jump?: JumpReq }) {
     return () => { alive = false; };
   }, []);
 
-  // ③ 몸무게 변화 — 동일 slot 비교(DESIGN §7.4 폴백≠비교). 기준 slot=아침>저녁>기타, 그 주 내 첫↔마지막.
-  const weekWeight = useMemo(() => {
-    const inWeek = wkData.weights.filter(w => w.date >= range.startStr && w.date <= range.endStr);
-    if (!inWeek.length) return null;
-    const slotOrder = ['아침', '저녁', '기타'] as const;
-    const baseSlot = slotOrder.find(s => inWeek.some(w => w.slot === s));
-    if (!baseSlot) return null;
-    const sameSlot = inWeek.filter(w => w.slot === baseSlot).sort((a, b) => a.date.localeCompare(b.date));
-    if (sameSlot.length < 2) return null;
-    const delta = Math.round((sameSlot[sameSlot.length - 1].weight - sameSlot[0].weight) * 10) / 10;
-    return { delta, slot: baseSlot };
-  }, [wkData.weights, range.startStr, range.endStr]);
+  // ③ 몸무게 변화 — 공용 헬퍼(동일 slot 비교, DESIGN §7.4). 주간·월간 동일 로직.
+  const weekWeight = useMemo(
+    () => computeWeightDelta(wkData.weights, range.startStr, range.endStr),
+    [wkData.weights, range.startStr, range.endStr],
+  );
 
   // ④ 이번 주의 조각 — 그 주를 떠올리게 하는 기록(사진 없어도 제목만으로 성립)
   const dOf = (s?: string | null) => (s ? s.slice(0, 10) : '');
@@ -894,11 +888,11 @@ function MonthTab({ jump }: { jump?: JumpReq }) {
   }, [habits, monthKey]);
 
   // ── 자동집계 + 베스트 후보: 외부 소스 테이블 읽기 전용 ──
-  const [src, setSrc] = useState<{ video: BestItem[]; music: BestItem[]; book: BestItem[]; place: BestItem[]; walkCount: number }>(
-    { video: [], music: [], book: [], place: [], walkCount: 0 },
+  const [src, setSrc] = useState<{ video: BestItem[]; music: BestItem[]; book: BestItem[]; place: BestItem[]; walkCount: number; weights: { date: string; slot: string; weight: number }[] }>(
+    { video: [], music: [], book: [], place: [], walkCount: 0, weights: [] },
   );
   const loadSrc = useCallback(async () => {
-    const [cu, mu, bk, pv, wk] = await Promise.all([
+    const [cu, mu, bk, pv, wk, wt] = await Promise.all([
       supabase.from('culture_records').select('id,title,watched_date')
         .gte('watched_date', monthStartStr).lte('watched_date', monthEndStr).order('watched_date', { ascending: false }),
       supabase.from('music_records').select('id,track_title,artist,created_at').order('created_at', { ascending: false }),
@@ -907,6 +901,8 @@ function MonthTab({ jump }: { jump?: JumpReq }) {
       supabase.from('place_visits').select('id,name,visited_on')
         .gte('visited_on', monthStartStr).lte('visited_on', monthEndStr).order('visited_on', { ascending: false }),
       supabase.from('walk_sessions').select('id,started_at,created_at'),
+      supabase.from('weight_records').select('date,slot,weight')
+        .gte('date', monthStartStr).lte('date', monthEndStr),
     ]);
     setSrc({
       video: (cu.data ?? []).map((r: any) => ({ id: r.id, label: r.title })),
@@ -915,6 +911,7 @@ function MonthTab({ jump }: { jump?: JumpReq }) {
       book: (bk.data ?? []).map((r: any) => ({ id: r.id, label: r.title })),
       place: (pv.data ?? []).map((r: any) => ({ id: r.id, label: r.name })),
       walkCount: (wk.data ?? []).filter((r: any) => String((r.started_at ?? r.created_at) ?? '').slice(0, 7) === monthKey).length,
+      weights: (wt.data ?? []).map((r: any) => ({ date: r.date, slot: r.slot, weight: Number(r.weight) })),
     });
   }, [monthKey, monthStartStr, monthEndStr]);
   useEffect(() => { loadSrc(); }, [loadSrc]);
@@ -923,6 +920,10 @@ function MonthTab({ jump }: { jump?: JumpReq }) {
   useRealtimeSync('books', loadSrc);
   useRealtimeSync('place_visits', loadSrc);
   useRealtimeSync('walk_sessions', loadSrc);
+  useRealtimeSync('weight_records', loadSrc);
+
+  // ③ 몸무게 변화 — 주간과 동일 공용 헬퍼(동일 slot 비교, DESIGN §7.4). 2건 미만이면 null → 생략.
+  const monthWeight = computeWeightDelta(src.weights, monthStartStr, monthEndStr);
 
   // ── 회고 + 베스트 (Stage 1 monthly_reviews 컬럼) ──
   const monthlyReview = monthlyReviews.find(r => r.month === monthKey);
@@ -1051,13 +1052,16 @@ function MonthTab({ jump }: { jump?: JumpReq }) {
   const statsBlock = (
     <div>
       <h3 style={{ fontSize: 12, fontWeight: 700, color: t.textSub, marginBottom: 9 }}>숫자로 보는 한 달</h3>
-      <div className="grid gap-2.5" style={{ gridTemplateColumns: isDesktop ? 'repeat(6,1fr)' : 'repeat(3,1fr)' }}>
+      <div className="grid gap-2.5" style={{ gridTemplateColumns: isDesktop ? `repeat(${monthWeight ? 7 : 6},1fr)` : 'repeat(3,1fr)' }}>
         <MiniCell value={monthTodos.length ? String(completionPct) : '–'} unit={monthTodos.length ? '%' : undefined} label="할일 완료율" />
         <MiniCell value={String(habitDays)} unit="일" label="습관 달성일" />
         <MiniCell value={String(src.book.length)} unit="권" label="읽은 책" />
         <MiniCell value={String(src.video.length)} unit="개" label="본 미디어" />
         <MiniCell value={String(src.walkCount)} unit="회" label="산책" />
         <MiniCell value={String(src.place.length)} unit="곳" label="다녀온 곳" />
+        {monthWeight && (
+          <MiniCell value={`${monthWeight.delta > 0 ? '+' : ''}${monthWeight.delta.toFixed(1)}`} unit="kg" label={`몸무게·${monthWeight.slot}`} />
+        )}
       </div>
     </div>
   );
@@ -1148,7 +1152,7 @@ function MonthTab({ jump }: { jump?: JumpReq }) {
         </div>
         <div>
           <LabelRow label="다음 달 포커스" labelColor="#7B9ED9" onVoiceResult={text => setMNextFocus(prev => prev ? `${prev} ${text}` : text)} />
-          <textarea value={mNextFocus} onChange={e => setMNextFocus(e.target.value)} placeholder="다음 달에 집중하고 싶은 것은?" rows={3}
+          <textarea value={mNextFocus} onChange={e => setMNextFocus(e.target.value)} placeholder="다음 달에 집중할 단 한 가지 — 그대로 다음 달 목표가 돼요" rows={2}
             className="w-full rounded-lg px-3 py-2 border outline-none resize-none" style={inputStyle} />
         </div>
       </div>
@@ -1219,9 +1223,9 @@ function MonthTab({ jump }: { jump?: JumpReq }) {
             {timeStrip}
             {monthGoalsBlock}
             {bestBlock}
-            {reviewForm}
           </div>
-          <div className="flex-shrink-0" style={{ width: 340 }}>
+          <div className="flex-shrink-0 space-y-5" style={{ width: 340 }}>
+            {reviewForm}
             <div style={{ position: 'sticky', top: 12 }}>{pastBlock}</div>
           </div>
         </div>
