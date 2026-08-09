@@ -10,7 +10,8 @@ import { weekFocusReport, monthFocusReport } from '../hooks/useTimeReport';
 import { HappyCaptureModal } from './HappyCaptureModal';
 import { supabase } from '../../lib/supabase';
 import { getCategoryEmoji, getMoodCategoryLabel, ENERGY_LABELS } from './MoodView';
-import { inputBg } from '../styles/haonStyles';
+import { inputBg, buttonStyle } from '../styles/haonStyles';
+import { RetroSheet } from './RetroSheet';
 import {
   format, addDays, subDays, subYears, parseISO,
   startOfWeek, endOfWeek, addWeeks, subWeeks, startOfMonth, endOfMonth,
@@ -255,6 +256,7 @@ function DayTab({ jump }: { jump?: JumpReq }) {
   const [kptProblem, setKptProblem] = useState('');
   const [kptTry, setKptTry] = useState('');
   const [savedFlash, setSavedFlash] = useState(false);
+  const [retroOpen, setRetroOpen] = useState(false);
 
   // 선택 날짜/레코드 변경 시 입력 상태 동기화
   useEffect(() => {
@@ -381,6 +383,15 @@ function DayTab({ jump }: { jump?: JumpReq }) {
   return (
     <div>
       {dateNav}
+      {/* 회고 시트 열기 — 인라인 감사/KPT(음성·넓은 레이아웃)는 유지하고, 좋았던 순간 포함 통합 시트 접근.
+          저장소가 같아(review_records+happy_moments) 시트 저장 후 아래 인라인도 자동 동기화. */}
+      <div className="flex justify-center mb-4">
+        <button type="button" onClick={() => setRetroOpen(true)}
+          style={{ ...buttonStyle(t, 'ghost'), padding: '8px 16px', fontSize: 13, display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+          <Plus size={15} /> 회고 시트 열기 · ✨ 좋았던 순간
+        </button>
+      </div>
+      {retroOpen && <RetroSheet date={dayDate} onClose={() => setRetroOpen(false)} />}
       {isDesktop ? (
         <div className="flex gap-6 items-start">
           <div className="flex-1 min-w-0">{writeCol}</div>
