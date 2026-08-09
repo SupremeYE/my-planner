@@ -1250,11 +1250,22 @@ interface ArchiveItem {
   id: string;
   kind: ArchiveKind;
   date: string;          // yyyy-MM-dd — 정렬·그룹·연도·점프 기준
-  dateLabel: string;
+  dateLabel: string;     // 기간형(주간/월간) 카드 헤더용 라벨
   time?: string;         // 행복: 시각 표시(a h:mm)
   hour?: number;         // 행복: happened_at 시(時) — 시간대 패턴 집계용(NULL이면 미집계)
-  text: string;          // 검색 대상 + 미리보기 본문
+  text: string;          // 검색 대상(전 본문 join)
   jump: { tab: 'day' | 'week' | 'month'; date: string };
+  // ── 블록 렌더용 구조화 페이로드(감사 줄 단위·KPT 3분할 등, 검색은 text로) ──
+  gratitude?: string[];
+  happy?: string;
+  kpt?: { keep?: string; problem?: string; try?: string };
+  daily?: { summary?: string; good?: string; improve?: string };
+  weekly?: { good?: string; hard?: string; nextWeek?: string; keep?: string; problem?: string; try?: string };
+  monthly?: {
+    highlight?: string; didWell?: string; regret?: string; nextFocus?: string; achievement?: string;
+    bestVideo?: string; bestMusic?: string; bestBook?: string; bestPlace?: string;
+    keep?: string; problem?: string; try?: string;
+  };
 }
 
 // 키워드 매칭 하이라이트(mark). 대소문자 무시, 전체 occurrence.
@@ -1276,13 +1287,14 @@ function highlightText(text: string, q: string, markBg: string): React.ReactNode
   return parts;
 }
 
+// 필터칩 — '행복' → '좋았던 순간'(회고 시트 명칭과 통일). 색 점은 kindMeta 색을 재사용한다.
 const ARCHIVE_FILTERS = [
-  { key: 'all', label: '전체', emoji: '' },
-  { key: 'gratitude', label: '감사', emoji: '🙏' },
-  { key: 'happy', label: '행복', emoji: '✨' },
-  { key: 'kpt', label: 'KPT', emoji: '🔄' },
-  { key: 'weekly', label: '주간', emoji: '📅' },
-  { key: 'monthly', label: '월간', emoji: '🗓' },
+  { key: 'all', label: '전체' },
+  { key: 'gratitude', label: '감사' },
+  { key: 'happy', label: '좋았던 순간' },
+  { key: 'kpt', label: 'KPT' },
+  { key: 'weekly', label: '주간' },
+  { key: 'monthly', label: '월간' },
 ] as const;
 
 function ArchiveOverlay({ onClose, onJump }: {
@@ -1291,11 +1303,8 @@ function ArchiveOverlay({ onClose, onJump }: {
 }) {
   const { reviewRecords, happyMoments, weeklyReviews, monthlyReviews } = usePlanner();
   const { t } = useTheme();
-  // 3단 분기: PC(lg) 3열 / 태블릿(md) 2열 / 모바일 1열 (B안)
+  // 세로 타임라인 — PC는 중앙 정렬 단일 컬럼, 모바일은 앵커 폭만 축소(lg 분기).
   const isLg = useMediaQuery('(min-width: 1024px)');
-  const isMd = useMediaQuery('(min-width: 768px)');
-  const columnCount = isLg ? 3 : isMd ? 2 : 1;
-  const useColumns = columnCount > 1;
 
   const [rawQuery, setRawQuery] = useState('');
   const [query, setQuery] = useState('');
@@ -1311,13 +1320,14 @@ function ArchiveOverlay({ onClose, onJump }: {
     return () => window.clearTimeout(id);
   }, [rawQuery]);
 
-  // 타입별 배지 색(토큰만): 감사=green / 행복=coral / KPT=gold / 데일리=info / 주간=info / 월간=text
+  // 타입별 색(토큰만, 6종 모두 구분): 감사=green / 좋았던순간=coral / KPT=blue / 데일리=muted / 주간=amber / 월간=indigo.
+  // (구: 좋았던순간·KPT 가 모두 코랄이라 점이 구분되지 않던 문제 → KPT를 info(블루)로, 주간을 warning(앰버)으로 분리.)
   const kindMeta: Record<ArchiveKind, { label: string; emoji: string; color: string }> = {
     gratitude: { label: '감사', emoji: '🙏', color: t.success },
-    happy: { label: '행복', emoji: '✨', color: t.danger },
-    kpt: { label: 'KPT', emoji: '🔄', color: t.accent },
+    happy: { label: '좋았던 순간', emoji: '✨', color: t.danger },
+    kpt: { label: 'KPT', emoji: '🔄', color: t.info },
     daily: { label: '데일리', emoji: '📔', color: t.textMuted },
-    weekly: { label: '주간', emoji: '📅', color: t.info },
+    weekly: { label: '주간', emoji: '📅', color: t.warning },
     monthly: { label: '월간', emoji: '🗓', color: t.text },
   };
 
@@ -1331,12 +1341,13 @@ function ArchiveOverlay({ onClose, onJump }: {
       if (g.length) {
         out.push({ id: `g-${r.id}`, kind: 'gratitude', date: r.date,
           dateLabel: format(parseISO(r.date), 'M월 d일 (E)', { locale: ko }),
-          text: `🙏 ${g.join(', ')}`, jump: { tab: 'day', date: r.date } });
+          gratitude: g, text: g.join(' '), jump: { tab: 'day', date: r.date } });
       }
       const kpt = join([r.kptKeep, r.kptProblem, r.kptTry]);
       if (kpt) {
         out.push({ id: `k-${r.id}`, kind: 'kpt', date: r.date,
           dateLabel: format(parseISO(r.date), 'M월 d일 (E)', { locale: ko }),
+          kpt: { keep: r.kptKeep, problem: r.kptProblem, try: r.kptTry },
           text: kpt, jump: { tab: 'day', date: r.date } });
       }
       // 과거 데일리 리뷰(daily_*) 읽기전용 승계
@@ -1344,6 +1355,7 @@ function ArchiveOverlay({ onClose, onJump }: {
       if (daily) {
         out.push({ id: `d-${r.id}`, kind: 'daily', date: r.date,
           dateLabel: format(parseISO(r.date), 'M월 d일 (E)', { locale: ko }),
+          daily: { summary: r.dailySummary, good: r.dailyGood, improve: r.dailyImprove },
           text: daily, jump: { tab: 'day', date: r.date } });
       }
     }
@@ -1351,11 +1363,12 @@ function ArchiveOverlay({ onClose, onJump }: {
     // 행복: happy_moments (백필분 포함). review_records.happiness 는 이 테이블로 분리됐으므로 중복 방지로 미포함.
     for (const h of happyMoments) {
       if (!h.content?.trim()) continue;
+      const content = h.content.trim();
       out.push({ id: `h-${h.id}`, kind: 'happy', date: h.date,
         dateLabel: format(parseISO(h.date), 'M월 d일 (E)', { locale: ko }),
         time: h.happenedAt ? format(parseISO(h.happenedAt), 'a h:mm', { locale: ko }) : undefined,
         hour: h.happenedAt ? parseISO(h.happenedAt).getHours() : undefined,
-        text: h.content.trim(), jump: { tab: 'day', date: h.date } });
+        happy: content, text: content, jump: { tab: 'day', date: h.date } });
     }
 
     for (const w of weeklyReviews) {
@@ -1364,6 +1377,7 @@ function ArchiveOverlay({ onClose, onJump }: {
       const rg = weekKeyToRange(w.weekKey);
       out.push({ id: `w-${w.id}`, kind: 'weekly', date: rg.startStr,
         dateLabel: `${format(rg.start, 'M.d')}–${format(rg.end, 'M.d')} 주간`,
+        weekly: { good: w.good, hard: w.hard, nextWeek: w.nextWeek, keep: w.kptKeep, problem: w.kptProblem, try: w.kptTry },
         text, jump: { tab: 'week', date: rg.startStr } });
     }
 
@@ -1376,6 +1390,11 @@ function ArchiveOverlay({ onClose, onJump }: {
       const mDate = `${m.month}-01`;
       out.push({ id: `m-${m.id}`, kind: 'monthly', date: mDate,
         dateLabel: format(parseISO(mDate), 'yyyy년 M월', { locale: ko }),
+        monthly: {
+          highlight: m.highlight, didWell: m.didWell, regret: m.regret, nextFocus: m.nextFocus, achievement: m.achievement,
+          bestVideo: m.bestVideo, bestMusic: m.bestMusic, bestBook: m.bestBook, bestPlace: m.bestPlace,
+          keep: m.kptKeep, problem: m.kptProblem, try: m.kptTry,
+        },
         text, jump: { tab: 'month', date: mDate } });
     }
 
@@ -1400,16 +1419,34 @@ function ArchiveOverlay({ onClose, onJump }: {
     });
   }, [items, typeFilter, yearFilter, query]);
 
-  // 월별 그룹(역순 유지)
-  const groups = useMemo(() => {
-    const gs: { month: string; label: string; items: ArchiveItem[] }[] = [];
+  // 월 → 일 2단 그룹(역순 유지). 같은 날 기록은 하나의 day 로 묶고, 그 안에서
+  // 일간형(감사·좋았던순간·KPT·데일리)은 한 카드로, 기간형(주간·월간)은 별도 카드로 렌더.
+  interface DayGroup {
+    date: string; dayNum: string; weekday: string;
+    daily: ArchiveItem[]; weekly: ArchiveItem[]; monthly: ArchiveItem[];
+  }
+  interface MonthGroup { monthKey: string; label: string; count: number; days: DayGroup[]; }
+  const groups = useMemo<MonthGroup[]>(() => {
+    const months: MonthGroup[] = [];
     for (const it of filtered) {
-      const month = it.date.slice(0, 7);
-      let g = gs.find(x => x.month === month);
-      if (!g) { g = { month, label: format(parseISO(`${month}-01`), 'yyyy년 M월', { locale: ko }), items: [] }; gs.push(g); }
-      g.items.push(it);
+      const mk = it.date.slice(0, 7);
+      let m = months.find(x => x.monthKey === mk);
+      if (!m) {
+        m = { monthKey: mk, label: format(parseISO(`${mk}-01`), 'yyyy년 M월', { locale: ko }), count: 0, days: [] };
+        months.push(m);
+      }
+      m.count++;
+      let d = m.days.find(x => x.date === it.date);
+      if (!d) {
+        const dt = parseISO(it.date);
+        d = { date: it.date, dayNum: format(dt, 'd'), weekday: format(dt, 'E', { locale: ko }), daily: [], weekly: [], monthly: [] };
+        m.days.push(d);
+      }
+      if (it.kind === 'weekly') d.weekly.push(it);
+      else if (it.kind === 'monthly') d.monthly.push(it);
+      else d.daily.push(it);
     }
-    return gs;
+    return months;
   }, [filtered]);
 
   const markBg = `${t.accent}33`;
@@ -1497,25 +1534,181 @@ function ArchiveOverlay({ onClose, onJump }: {
     </div>
   );
 
-  const renderCard = (it: ArchiveItem) => {
-    const meta = kindMeta[it.kind];
+  // ── 타임라인 지오메트리(축·앵커·노드) — 모바일은 앵커 폭 축소 ──
+  const P = isLg ? 70 : 56;          // 타임라인 좌측 패딩(앵커+축 자리)
+  const anchorW = isLg ? 54 : 42;
+  const axisLeft = isLg ? 26 : 20;
+  const nodeLeft = isLg ? -47 : -37;
+
+  const hl = (s: string) => highlightText(s, query, markBg);
+
+  const cardBase: React.CSSProperties = {
+    display: 'block', width: '100%', textAlign: 'left',
+    backgroundColor: t.card, border: `1px solid ${t.borderLight}`, borderRadius: 16,
+    boxShadow: '0 1px 2px rgba(46,42,91,.04), 0 5px 14px rgba(46,42,91,.05)',
+    padding: '14px 15px',
+  };
+
+  const blockHead = (color: string, emoji: string, label: string) => (
+    <div className="flex items-center gap-1.5" style={{ marginBottom: 8 }}>
+      <span style={{ width: 7, height: 7, borderRadius: 999, backgroundColor: color, flexShrink: 0 }} />
+      <span style={{ fontSize: 11, fontWeight: 700, color: t.textSub }}>{emoji} {label}</span>
+    </div>
+  );
+
+  // 라벨 + 값 한 줄(주간·월간 필드)
+  const field = (label: string, value?: string) => value?.trim() ? (
+    <div style={{ fontSize: 13, lineHeight: 1.55, color: t.text, whiteSpace: 'pre-wrap' }}>
+      <span style={{ fontWeight: 600, color: t.textSub, marginRight: 6 }}>{label}</span>{hl(value)}
+    </div>
+  ) : null;
+
+  // KPT 3분할(Keep/Problem/Try) — PC 3열 / 모바일 세로
+  const kptGrid = (kpt: NonNullable<ArchiveItem['kpt']>) => {
+    const cells: [string, string | undefined][] = [['Keep', kpt.keep], ['Problem', kpt.problem], ['Try', kpt.try]];
+    const shown = cells.filter(([, v]) => v?.trim());
+    if (!shown.length) return null;
     return (
-      <button key={it.id} onClick={() => onJump(it.jump.tab, it.jump.date)}
-        className="w-full text-left p-3 rounded-xl transition-colors"
-        style={{ backgroundColor: t.card, border: `1px solid ${t.borderLight}`, breakInside: 'avoid', marginBottom: 10, display: 'block' }}>
-        <div className="flex items-center gap-2 mb-1.5 flex-wrap">
-          <span className="px-2 py-0.5 rounded-full" style={{ fontSize: 10, fontWeight: 700, backgroundColor: `${meta.color}1f`, color: meta.color }}>
-            {meta.emoji} {meta.label}
-          </span>
-          <span style={{ fontSize: 12, fontWeight: 700, color: t.text }}>{it.dateLabel}</span>
-          {it.time && <span style={{ fontSize: 11, color: t.danger, fontWeight: 600 }}>{it.time}</span>}
-        </div>
-        <p style={{ fontSize: 12.5, color: t.textSub, lineHeight: 1.5, display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
-          {highlightText(it.text, query, markBg)}
-        </p>
+      <div className="grid gap-2 lg:grid-cols-3">
+        {shown.map(([k, v]) => (
+          <div key={k} className="rounded-lg" style={{ backgroundColor: t.surfaceMuted, padding: '9px 11px' }}>
+            <div style={{ fontSize: 10, fontWeight: 700, color: t.textSub, marginBottom: 4 }}>{k}</div>
+            <div style={{ fontSize: 12.5, lineHeight: 1.5, color: t.text, whiteSpace: 'pre-wrap' }}>{hl(v!)}</div>
+          </div>
+        ))}
+      </div>
+    );
+  };
+
+  // 일간형 카드 — 같은 날 감사·좋았던순간·KPT·데일리를 점선 구분 블록으로 한 카드에 묶는다.
+  const renderDailyCard = (d: DayGroup) => {
+    const grat = d.daily.find(x => x.kind === 'gratitude');
+    const happies = d.daily.filter(x => x.kind === 'happy');
+    const kptItem = d.daily.find(x => x.kind === 'kpt');
+    const dly = d.daily.find(x => x.kind === 'daily');
+
+    const blocks: React.ReactNode[] = [];
+    if (grat?.gratitude?.length) {
+      blocks.push(
+        <div key="g">
+          {blockHead(kindMeta.gratitude.color, '🙏', '감사한 것')}
+          <ol className="space-y-1.5">
+            {grat.gratitude.map((g, i) => (
+              <li key={i} className="flex gap-2" style={{ fontSize: 13, lineHeight: 1.5, color: t.text }}>
+                <span style={{ fontFamily: t.fontNumeric, fontSize: 11, fontWeight: 700, color: kindMeta.gratitude.color, flexShrink: 0, paddingTop: 2 }}>{i + 1}</span>
+                <span>{hl(g)}</span>
+              </li>
+            ))}
+          </ol>
+        </div>,
+      );
+    }
+    if (happies.length) {
+      blocks.push(
+        <div key="h">
+          {blockHead(kindMeta.happy.color, '✨', '좋았던 순간')}
+          <ul className="space-y-1.5">
+            {happies.map(h => (
+              <li key={h.id} style={{ fontSize: 13, lineHeight: 1.5, color: t.text }}>
+                {h.time && <span style={{ fontSize: 11, fontWeight: 600, color: kindMeta.happy.color, marginRight: 6 }}>{h.time}</span>}
+                {hl(h.happy ?? h.text)}
+              </li>
+            ))}
+          </ul>
+        </div>,
+      );
+    }
+    if (kptItem?.kpt) {
+      const grid = kptGrid(kptItem.kpt);
+      if (grid) blocks.push(<div key="k">{blockHead(kindMeta.kpt.color, '🔄', 'KPT 회고')}{grid}</div>);
+    }
+    if (dly?.daily) {
+      const { summary, good, improve } = dly.daily;
+      blocks.push(
+        <div key="d">
+          {blockHead(kindMeta.daily.color, '📔', '데일리 리뷰')}
+          <div className="space-y-1">
+            {summary?.trim() && <div style={{ fontSize: 13, lineHeight: 1.55, color: t.text, whiteSpace: 'pre-wrap' }}>{hl(summary)}</div>}
+            {field('잘한 점', good)}
+            {field('개선할 점', improve)}
+          </div>
+        </div>,
+      );
+    }
+    if (!blocks.length) return null;
+
+    return (
+      <button onClick={() => onJump('day', d.date)} style={cardBase}>
+        {blocks.map((b, i) => (
+          <div key={i} style={{
+            paddingTop: i === 0 ? 0 : 11,
+            paddingBottom: i === blocks.length - 1 ? 0 : 11,
+            borderTop: i === 0 ? 'none' : `1px dashed ${t.borderLight}`,
+          }}>{b}</div>
+        ))}
       </button>
     );
   };
+
+  // 기간형 카드(주간·월간) — 좌측 3px 색 액센트 + 헤더 라벨
+  const renderWeeklyCard = (it: ArchiveItem) => {
+    const w = it.weekly; if (!w) return null;
+    return (
+      <button key={it.id} onClick={() => onJump('week', it.jump.date)}
+        style={{ ...cardBase, borderLeft: `3px solid ${kindMeta.weekly.color}` }}>
+        {blockHead(kindMeta.weekly.color, '📅', `주간 리뷰 · ${it.dateLabel}`)}
+        <div className="space-y-1.5">
+          {field('잘한 것', w.good)}
+          {field('아쉬운 것', w.hard)}
+          {field('다음 주', w.nextWeek)}
+          {field('Keep', w.keep)}
+          {field('Problem', w.problem)}
+          {field('Try', w.try)}
+        </div>
+      </button>
+    );
+  };
+
+  const renderMonthlyCard = (it: ArchiveItem) => {
+    const m = it.monthly; if (!m) return null;
+    const best = [m.bestVideo && `🎬 ${m.bestVideo}`, m.bestMusic && `🎵 ${m.bestMusic}`,
+      m.bestBook && `📖 ${m.bestBook}`, m.bestPlace && `📍 ${m.bestPlace}`].filter(Boolean).join('  ');
+    return (
+      <button key={it.id} onClick={() => onJump('month', it.jump.date)}
+        style={{ ...cardBase, borderLeft: `3px solid ${kindMeta.monthly.color}` }}>
+        {blockHead(kindMeta.monthly.color, '🗓', `월간 리뷰 · ${it.dateLabel}`)}
+        <div className="space-y-1.5">
+          {field('하이라이트', m.highlight)}
+          {field('잘한 것', m.didWell)}
+          {field('아쉬운 것', m.regret)}
+          {field('다음 달 집중', m.nextFocus)}
+          {field('성취', m.achievement)}
+          {best ? field('이 달의 베스트', best) : null}
+          {field('Keep', m.keep)}
+          {field('Problem', m.problem)}
+          {field('Try', m.try)}
+        </div>
+      </button>
+    );
+  };
+
+  // 하루 렌더 — 날짜 앵커(큰 숫자 Sora + 요일) + 노드 + 그 날의 카드들
+  const renderDay = (d: DayGroup) => (
+    <div key={d.date} style={{ position: 'relative', marginBottom: 14 }}>
+      <div style={{ position: 'absolute', left: -P, top: 0, width: anchorW, textAlign: 'right' }}>
+        <div style={{ fontFamily: t.fontNumeric, fontSize: 19, fontWeight: 700, lineHeight: 1, color: t.text }}>{d.dayNum}</div>
+        <div style={{ fontSize: 10.5, color: t.textMuted, marginTop: 3 }}>{d.weekday}</div>
+      </div>
+      <div style={{ position: 'absolute', left: nodeLeft, top: 5, width: 11, height: 11, borderRadius: 999, backgroundColor: t.card, border: `2.5px solid ${t.accent}`, zIndex: 2 }} />
+      <div className="space-y-2.5">
+        {renderDailyCard(d)}
+        {d.weekly.map(renderWeeklyCard)}
+        {d.monthly.map(renderMonthlyCard)}
+      </div>
+    </div>
+  );
+
+  const noRecords = items.length === 0;
 
   return (
     <div className="fixed inset-0 z-50 flex flex-col" style={{ backgroundColor: t.bg }}>
@@ -1542,11 +1735,13 @@ function ArchiveOverlay({ onClose, onJump }: {
         <div className="flex items-center gap-2 overflow-x-auto pb-0.5">
           {ARCHIVE_FILTERS.map(f => {
             const on = typeFilter === f.key;
+            const dot = f.key === 'all' ? null : kindMeta[f.key as ArchiveKind].color;
             return (
-              <button key={f.key} onClick={() => setTypeFilter(f.key)} className="rounded-full flex-shrink-0"
+              <button key={f.key} onClick={() => setTypeFilter(f.key)} className="rounded-full flex-shrink-0 flex items-center gap-1.5"
                 style={{ fontSize: 12, fontWeight: on ? 600 : 400, padding: '5px 11px', whiteSpace: 'nowrap',
                   backgroundColor: on ? t.accent : t.surfaceMuted, color: on ? '#fff' : t.textSub, border: `1px solid ${on ? t.accent : t.borderLight}` }}>
-                {f.emoji && `${f.emoji} `}{f.label}
+                {dot && <span style={{ width: 7, height: 7, borderRadius: 999, backgroundColor: on ? '#fff' : dot, flexShrink: 0 }} />}
+                {f.label}
               </button>
             );
           })}
@@ -1560,26 +1755,47 @@ function ArchiveOverlay({ onClose, onJump }: {
         </div>
       </div>
 
-      {/* 결과 스트림 */}
+      {/* 결과 — 세로 타임라인 */}
       <div className="flex-1 overflow-y-auto px-4 lg:px-6 py-3">
-        {/* ✨행복 필터 시 상단 패턴뷰 */}
-        {patternView}
-        {groups.length === 0 ? (
-          !happyPattern && <p className="text-center py-16" style={{ fontSize: 14, color: t.textMuted }}>검색 결과가 없어요</p>
-        ) : (
-          <div style={useColumns ? { columnCount, columnGap: 18 } : undefined}>
-            {groups.map(g => (
-              <React.Fragment key={g.month}>
-                <div style={{ breakInside: 'avoid', columnSpan: 'all' as any,
-                  position: useColumns ? 'static' : 'sticky', top: 0, zIndex: 1,
-                  backgroundColor: t.bg, padding: '6px 0 8px', marginTop: 2 }}>
-                  <h3 style={{ fontSize: 12, fontWeight: 700, color: t.textMuted, letterSpacing: '.3px' }}>{g.label} · {g.items.length}건</h3>
+        <div className="mx-auto" style={{ maxWidth: 720 }}>
+          {/* ✨좋았던 순간 필터 시 상단 패턴뷰 */}
+          {patternView}
+          {groups.length === 0 ? (
+            !happyPattern && (
+              <div className="text-center" style={{ padding: '48px 20px' }}>
+                <div style={{ fontSize: 30, marginBottom: 12 }}>{noRecords ? '🌱' : '🔍'}</div>
+                <p style={{ fontSize: 14, color: t.textSub, lineHeight: 1.7 }}>
+                  {noRecords ? (
+                    <>아직 돌아볼 기록이 없어요.<br />일간 탭에서 감사·좋았던 순간·KPT를 남기면<br />여기 시간순으로 쌓여요.</>
+                  ) : (
+                    <>{query ? `‘${query}’에 ` : ''}해당하는 기록이 없어요.<br />검색어나 필터를 바꿔보세요.</>
+                  )}
+                </p>
+                {noRecords && (
+                  <button onClick={() => onJump('day', getLogicalToday())} className="mt-4 rounded-xl"
+                    style={{ padding: '9px 16px', backgroundColor: t.accent, color: '#fff', fontSize: 13, fontWeight: 600 }}>
+                    일간 탭에서 회고 남기기 →
+                  </button>
+                )}
+              </div>
+            )
+          ) : (
+            groups.map(m => (
+              <div key={m.monthKey}>
+                {/* 월 헤더 — 월이 바뀔 때 구분 */}
+                <div className="flex items-baseline gap-2" style={{ margin: '22px 0 10px', paddingLeft: 2 }}>
+                  <span style={{ fontSize: 15, fontWeight: 800, color: t.text, fontFamily: t.fontPageTitle }}>{m.label}</span>
+                  <span style={{ fontSize: 11.5, color: t.textMuted }}>{m.count}건</span>
                 </div>
-                {g.items.map(renderCard)}
-              </React.Fragment>
-            ))}
-          </div>
-        )}
+                {/* 타임라인 축 + 하루들 */}
+                <div style={{ position: 'relative', paddingLeft: P }}>
+                  <div style={{ position: 'absolute', left: axisLeft, top: 6, bottom: 6, width: 1.5, backgroundColor: t.borderLight }} />
+                  {m.days.map(renderDay)}
+                </div>
+              </div>
+            ))
+          )}
+        </div>
       </div>
 
       {/* ✨ 행복한 순간 캡처(공용) + 토스트 */}
