@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { Plus, X, Search, ChevronLeft, ChevronRight, ChevronDown, Trash2, Clock, Check } from 'lucide-react';
 import { useNavigate } from 'react-router';
 import { usePlanner, ReviewRecord, MonthlyReview, WeightRecord, CultureRecord, MusicRecord, getWeekKey, getLogicalToday } from '../store';
@@ -12,7 +12,7 @@ import { useRealtimeSync } from '../hooks/useRealtimeSync';
 import { HappyCaptureModal } from './HappyCaptureModal';
 import { supabase } from '../../lib/supabase';
 import { getCategoryEmoji, getMoodCategoryLabel, ENERGY_LABELS } from './MoodView';
-import { inputBg, mixHex, retroStatusColor } from '../styles/haonStyles';
+import { inputBg, mixHex, retroStatusColor, withAlpha } from '../styles/haonStyles';
 import { RetroSheet } from './RetroSheet';
 import {
   format, addDays, subDays, subYears, parseISO,
@@ -1287,6 +1287,11 @@ function highlightText(text: string, q: string, markBg: string): React.ReactNode
   return parts;
 }
 
+// 히트맵 노출 최소 기록 수(연도별). 근거: 히트맵은 1년(365칸) 격자다. 기록이 5건 남짓이면
+// 채워지는 칸이 1~2%뿐이라 "빈 격자"로 보여 오히려 초라하다. 30건이면 대략 12일에 하나꼴로
+// 한 해에 밀도 패턴이 눈에 보이기 시작한다. 상수로 두어 데이터가 쌓이면 조정 가능하게 함.
+const HEATMAP_MIN_RECORDS = 30;
+
 // 필터칩 — '행복' → '좋았던 순간'(회고 시트 명칭과 통일). 색 점은 kindMeta 색을 재사용한다.
 const ARCHIVE_FILTERS = [
   { key: 'all', label: '전체' },
@@ -1448,6 +1453,39 @@ function ArchiveOverlay({ onClose, onJump }: {
     }
     return months;
   }, [filtered]);
+
+  // 하루 앵커 DOM 참조(히트맵 셀 클릭 → 해당 날짜로 스크롤)
+  const dayRefs = useRef<Record<string, HTMLDivElement | null>>({});
+
+  // ── 히트맵(조건부) — 대상 연도의 기록 밀도 격자. 기록이 적을 땐 렌더하지 않는다. ──
+  // 대상 연도: 연도 필터가 특정 연도면 그 연도, '전체'면 가장 최근 연도. 표시된 결과(filtered)
+  // 기준으로 집계해 화면과 일치시킨다(타입/검색 필터 반영). 임계 미만이면 null → 미렌더.
+  const heatmap = useMemo(() => {
+    const targetYear = yearFilter !== 'all' ? yearFilter : (years[0] ?? null);
+    if (!targetYear) return null;
+    const dayCount: Record<string, number> = {};
+    let yearCount = 0;
+    for (const it of filtered) {
+      if (it.date.slice(0, 4) !== targetYear) continue;
+      dayCount[it.date] = (dayCount[it.date] ?? 0) + 1;
+      yearCount++;
+    }
+    if (yearCount < HEATMAP_MIN_RECORDS) return null;
+    const Y = Number(targetYear);
+    const dec31 = new Date(Y, 11, 31);
+    let cur = startOfWeek(new Date(Y, 0, 1), { weekStartsOn: 0 });
+    const weeks: { dstr: string; count: number; inYear: boolean }[][] = [];
+    while (cur <= dec31) {
+      const col: { dstr: string; count: number; inYear: boolean }[] = [];
+      for (let i = 0; i < 7; i++) {
+        const dstr = format(cur, 'yyyy-MM-dd');
+        col.push({ dstr, count: dayCount[dstr] ?? 0, inYear: cur.getFullYear() === Y });
+        cur = addDays(cur, 1);
+      }
+      weeks.push(col);
+    }
+    return { targetYear, yearCount, weeks };
+  }, [filtered, yearFilter, years]);
 
   const markBg = `${t.accent}33`;
 
@@ -1694,7 +1732,7 @@ function ArchiveOverlay({ onClose, onJump }: {
 
   // 하루 렌더 — 날짜 앵커(큰 숫자 Sora + 요일) + 노드 + 그 날의 카드들
   const renderDay = (d: DayGroup) => (
-    <div key={d.date} style={{ position: 'relative', marginBottom: 14 }}>
+    <div key={d.date} ref={el => { dayRefs.current[d.date] = el; }} style={{ position: 'relative', marginBottom: 14, scrollMarginTop: 12 }}>
       <div style={{ position: 'absolute', left: -P, top: 0, width: anchorW, textAlign: 'right' }}>
         <div style={{ fontFamily: t.fontNumeric, fontSize: 19, fontWeight: 700, lineHeight: 1, color: t.text }}>{d.dayNum}</div>
         <div style={{ fontSize: 10.5, color: t.textMuted, marginTop: 3 }}>{d.weekday}</div>
@@ -1760,6 +1798,46 @@ function ArchiveOverlay({ onClose, onJump }: {
         <div className="mx-auto" style={{ maxWidth: 720 }}>
           {/* ✨좋았던 순간 필터 시 상단 패턴뷰 */}
           {patternView}
+
+          {/* 히트맵 — 조건부(연도 기록이 HEATMAP_MIN_RECORDS 이상일 때만) */}
+          {heatmap && (
+            <div className="rounded-2xl" style={{ backgroundColor: t.card, border: `1px solid ${t.borderLight}`, padding: 14, marginBottom: 6 }}>
+              <div className="flex items-baseline justify-between" style={{ marginBottom: 11 }}>
+                <span style={{ fontSize: 12, fontWeight: 700, color: t.text }}>{heatmap.targetYear}년 기록</span>
+                <span style={{ fontSize: 11, color: t.textMuted }}>
+                  <b style={{ fontFamily: t.fontNumeric, color: t.text, fontSize: 13 }}>{heatmap.yearCount}</b>건
+                </span>
+              </div>
+              <div style={{ overflowX: 'auto', paddingBottom: 4 }}>
+                <div style={{ display: 'flex', gap: 3 }}>
+                  {heatmap.weeks.map((col, ci) => (
+                    <div key={ci} style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+                      {col.map((cell, ri) => {
+                        const clickable = cell.inYear && cell.count > 0;
+                        const bg = !cell.inYear ? 'transparent'
+                          : cell.count === 0 ? t.surfaceMuted
+                          : withAlpha(t.accent, cell.count === 1 ? 0.3 : cell.count === 2 ? 0.5 : cell.count <= 4 ? 0.72 : 1);
+                        return (
+                          <button key={ri} disabled={!clickable}
+                            onClick={() => dayRefs.current[cell.dstr]?.scrollIntoView({ behavior: 'smooth', block: 'center' })}
+                            title={cell.inYear ? `${cell.dstr} · ${cell.count}건` : undefined}
+                            style={{ width: 11, height: 11, borderRadius: 3, backgroundColor: bg, border: 'none', padding: 0, cursor: clickable ? 'pointer' : 'default' }} />
+                        );
+                      })}
+                    </div>
+                  ))}
+                </div>
+              </div>
+              <div className="flex items-center justify-end" style={{ gap: 4, marginTop: 8, fontSize: 10, color: t.textMuted }}>
+                적음
+                {[t.surfaceMuted, withAlpha(t.accent, 0.3), withAlpha(t.accent, 0.5), withAlpha(t.accent, 0.72), t.accent].map((c, i) => (
+                  <span key={i} style={{ width: 9, height: 9, borderRadius: 2.5, backgroundColor: c }} />
+                ))}
+                많음
+              </div>
+            </div>
+          )}
+
           {groups.length === 0 ? (
             !happyPattern && (
               <div className="text-center" style={{ padding: '48px 20px' }}>
