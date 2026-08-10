@@ -901,7 +901,8 @@ export function CalendarView() {
                   );
                 })}
               </div>
-              {/* 모바일 종일 레인 — 선택일 1칸(자연 높이, 고정 높이·flex 잠금 금지) */}
+              {/* 모바일 종일 레인 — 선택일 1칸(자연 높이, 고정 높이·flex 잠금 금지).
+                  sublabel = 선택 요일 → "종일" 아래 코랄 표기로 상단 요일 탭과 연결 명확화. */}
               <div className="flex-shrink-0">
                 <WeekAllDayLane
                   dates={[selectedDate]}
@@ -909,6 +910,7 @@ export function CalendarView() {
                   timeColWidth={WEEK_TIME_COL}
                   onEdit={handleAllDayEdit}
                   onEmptyAdd={handleAllDayAdd}
+                  sublabel={format(parseISO(selectedDate), 'E', { locale: ko })}
                 />
               </div>
               <Timeline

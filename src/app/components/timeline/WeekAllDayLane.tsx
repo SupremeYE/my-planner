@@ -46,6 +46,9 @@ interface WeekAllDayLaneProps {
   timeColWidth: number;                  // 좌측 라벨칸 폭 (시간 격자 정렬용)
   onEdit: (raw: Todo | Event, kind: 'todo' | 'event') => void;
   onEmptyAdd: (date: string) => void;
+  // 단일일(모바일) 레인에서 "종일" 라벨 아래 표기할 선택 요일(예: '화') — 선택 탭과의 연결 명확화.
+  // 미전달(PC 7일)이면 표기 안 함.
+  sublabel?: string;
 }
 
 const ROW_H = 20;              // 한 줄(막대) 높이
@@ -53,7 +56,7 @@ const ROW_GAP = 3;
 const COLLAPSED_LINES = 3;     // 접힘 상태 최대 표시 줄(항목+토글 포함) — 격자 보호 상한
 // 펼침 시 PC(lg:) 레인 콘텐츠 max-height + 내부 스크롤은 haon.css `.lane-expanded-scroll`(lg: 한정).
 
-export function WeekAllDayLane({ dates, items, timeColWidth, onEdit, onEmptyAdd }: WeekAllDayLaneProps) {
+export function WeekAllDayLane({ dates, items, timeColWidth, onEdit, onEmptyAdd, sublabel }: WeekAllDayLaneProps) {
   const { t } = useTheme();
   // 세션 내 유지(컴포넌트가 마운트 유지되므로 주 이동에도 상태 보존)
   const [expanded, setExpanded] = useState(false);
@@ -112,16 +115,16 @@ export function WeekAllDayLane({ dates, items, timeColWidth, onEdit, onEmptyAdd 
           alignItems: 'stretch',
         }}
       >
-        {/* 좌측 "종일" 라벨칸 */}
+        {/* 좌측 "종일" 라벨칸 — 단일일(모바일)이면 선택 요일을 코랄로 병기해 선택 탭과 연결 */}
         <div
           style={{
             gridColumn: 1,
-            display: 'flex', alignItems: 'flex-start', justifyContent: 'flex-end',
-            padding: '4px 8px 4px 0',
-            fontSize: 9, fontWeight: 700, color: t.textMuted, letterSpacing: '0.02em',
+            display: 'flex', flexDirection: 'column', alignItems: 'flex-end', justifyContent: 'flex-start',
+            gap: 1, padding: '4px 8px 4px 0',
           }}
         >
-          종일
+          <span style={{ fontSize: 9, fontWeight: 700, color: t.textMuted, letterSpacing: '0.02em' }}>종일</span>
+          {sublabel && <span style={{ fontSize: 9, fontWeight: 800, color: t.accent }}>{sublabel}</span>}
         </div>
 
         {/* 우측 항목 영역 — dayCount 컬럼 중첩 그리드 */}
