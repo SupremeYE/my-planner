@@ -545,7 +545,7 @@ function WeekTab({ jump }: { jump?: JumpReq }) {
   const piecesBlock = <MemoryPieces startStr={range.startStr} endStr={range.endStr} title="이번 주의 조각" />;
 
   // ── ② 시간 스트립 — 공용 컴포넌트(주간·월간 재사용), 기간만 주입 ──
-  const timeStrip = <TrackTimeStrip startStr={range.startStr} endStr={range.endStr} />;
+  const timeStrip = <TrackTimeStrip startStr={range.startStr} endStr={range.endStr} period="week" />;
 
   const reviewForm = (
     <div className="p-4 rounded-xl" style={{ backgroundColor: t.card, border: `1px solid ${t.borderLight}` }}>
@@ -998,7 +998,7 @@ function MonthTab({ jump }: { jump?: JumpReq }) {
   );
 
   // 4-2. 시간 스트립 — 주간 탭과 동일 공용 컴포넌트를 월 범위로 재사용
-  const timeStrip = <TrackTimeStrip startStr={monthStartStr} endStr={monthEndStr} />;
+  const timeStrip = <TrackTimeStrip startStr={monthStartStr} endStr={monthEndStr} period="month" />;
 
   // ── 이 달의 목표 (신규·읽기 전용) — monthly_goals + 목표별 회고 상태(retro_status/note) ──
   // 편집은 목표 페이지 카드 안에서만(입력 지점 이원화 방지). 여기선 읽고 링크로 유도.
