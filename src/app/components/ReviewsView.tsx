@@ -12,7 +12,7 @@ import { useRealtimeSync } from '../hooks/useRealtimeSync';
 import { HappyCaptureModal } from './HappyCaptureModal';
 import { supabase } from '../../lib/supabase';
 import { getCategoryEmoji, getMoodCategoryLabel, ENERGY_LABELS } from './MoodView';
-import { inputBg, mixHex, retroStatusColor, withAlpha } from '../styles/haonStyles';
+import { inputBg, mixHex, retroStatusColor, withAlpha, periodStepperStyle } from '../styles/haonStyles';
 import { RetroSheet } from './RetroSheet';
 import {
   format, addDays, subDays, subYears, parseISO,
@@ -1316,6 +1316,7 @@ function ArchiveOverlay({ onClose, onJump }: {
   const [query, setQuery] = useState('');
   const [typeFilter, setTypeFilter] = useState<'all' | ArchiveKind>('all');
   const [yearFilter, setYearFilter] = useState<string>('all');
+  const [heatmapYear, setHeatmapYear] = useState<string | null>(null); // 히트맵 ‹ › 이동 연도('전체' 필터일 때)
   const [happyOpen, setHappyOpen] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
   const notify = (msg: string) => { setToast(msg); window.setTimeout(() => setToast(null), 1900); };
@@ -1459,10 +1460,21 @@ function ArchiveOverlay({ onClose, onJump }: {
   const dayRefs = useRef<Record<string, HTMLDivElement | null>>({});
 
   // ── 히트맵(조건부) — 대상 연도의 기록 밀도 격자. 기록이 적을 땐 렌더하지 않는다. ──
-  // 대상 연도: 연도 필터가 특정 연도면 그 연도, '전체'면 가장 최근 연도. 표시된 결과(filtered)
-  // 기준으로 집계해 화면과 일치시킨다(타입/검색 필터 반영). 임계 미만이면 null → 미렌더.
+  // 히트맵이 표시하는 연도(effective): 연도 필터가 특정 연도면 그것, '전체'면 heatmapYear(‹ ›로 이동)
+  // 또는 가장 최근 연도. 데이터가 있는 연도(years) 안으로 클램프.
+  const heatmapYearEff = useMemo(() => {
+    const base = yearFilter !== 'all' ? yearFilter : (heatmapYear ?? years[0] ?? null);
+    return base && years.includes(base) ? base : (years[0] ?? null);
+  }, [yearFilter, heatmapYear, years]);
+  // ‹ › 이동 대상 — 데이터가 있는 연도 중 바로 이전/다음(빈 연도로 가서 히트맵이 사라지는 걸 방지). 없으면 비활성.
+  const olderYear = heatmapYearEff ? (years.filter(y => y < heatmapYearEff).sort().at(-1) ?? null) : null;
+  const newerYear = heatmapYearEff ? (years.filter(y => y > heatmapYearEff).sort()[0] ?? null) : null;
+  // 연도 이동 — 특정 연도 필터가 걸려 있으면 필터를 함께 이동(타임라인도 그 해로), '전체'면 히트맵만 이동.
+  const goHeatmapYear = (y: string) => { if (yearFilter !== 'all') setYearFilter(y); else setHeatmapYear(y); };
+
+  // 표시된 결과(filtered) 기준으로 집계해 화면과 일치시킨다(타입/검색 필터 반영). 임계 미만이면 null → 미렌더.
   const heatmap = useMemo(() => {
-    const targetYear = yearFilter !== 'all' ? yearFilter : (years[0] ?? null);
+    const targetYear = heatmapYearEff;
     if (!targetYear) return null;
     const dayCount: Record<string, number> = {};
     let yearCount = 0;
@@ -1486,7 +1498,7 @@ function ArchiveOverlay({ onClose, onJump }: {
       weeks.push(col);
     }
     return { targetYear, yearCount, weeks };
-  }, [filtered, yearFilter, years]);
+  }, [filtered, heatmapYearEff]);
 
   const markBg = `${t.accent}33`;
 
@@ -1803,10 +1815,22 @@ function ArchiveOverlay({ onClose, onJump }: {
           {/* 히트맵 — 조건부(연도 기록이 HEATMAP_MIN_RECORDS 이상일 때만) */}
           {heatmap && (
             <div className="rounded-2xl" style={{ backgroundColor: t.card, border: `1px solid ${t.borderLight}`, padding: 14, marginBottom: 6 }}>
-              <div className="flex items-baseline justify-between" style={{ marginBottom: 11 }}>
-                <span style={{ fontSize: 12, fontWeight: 700, color: t.text }}>{heatmap.targetYear}년 기록</span>
+              <div className="flex items-center justify-between" style={{ marginBottom: 11 }}>
+                <div className="flex items-center" style={{ gap: 6 }}>
+                  <button onClick={() => olderYear && goHeatmapYear(olderYear)} disabled={!olderYear}
+                    aria-label="이전 연도" style={{ ...periodStepperStyle(t, !olderYear), width: 24, height: 24 }}>
+                    <ChevronLeft size={15} />
+                  </button>
+                  <span style={{ fontSize: 13, fontWeight: 700, color: t.text, fontFamily: t.fontNumeric, minWidth: 46, textAlign: 'center' }}>
+                    {heatmap.targetYear}
+                  </span>
+                  <button onClick={() => newerYear && goHeatmapYear(newerYear)} disabled={!newerYear}
+                    aria-label="다음 연도" style={{ ...periodStepperStyle(t, !newerYear), width: 24, height: 24 }}>
+                    <ChevronRight size={15} />
+                  </button>
+                </div>
                 <span style={{ fontSize: 11, color: t.textMuted }}>
-                  <b style={{ fontFamily: t.fontNumeric, color: t.text, fontSize: 13 }}>{heatmap.yearCount}</b>건
+                  <b style={{ fontFamily: t.fontNumeric, color: t.text, fontSize: 13 }}>{heatmap.yearCount}</b>건 기록
                 </span>
               </div>
               <div style={{ overflowX: 'auto', paddingBottom: 4 }}>
