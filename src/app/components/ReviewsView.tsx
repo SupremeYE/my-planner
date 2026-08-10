@@ -1573,11 +1573,17 @@ function ArchiveOverlay({ onClose, onJump }: {
     </div>
   );
 
-  // ── 타임라인 지오메트리(축·앵커·노드) — 모바일은 앵커 폭 축소 ──
-  const P = isLg ? 70 : 56;          // 타임라인 좌측 패딩(앵커+축 자리)
-  const anchorW = isLg ? 54 : 42;
-  const axisLeft = isLg ? 26 : 20;
-  const nodeLeft = isLg ? -47 : -37;
+  // ── 타임라인 지오메트리(앵커·축·노드) — 모바일은 앵커 폭 축소 ──
+  // 레이아웃(day 기준 좌표): 왼→오 [날짜 앵커 0~anchorW] · 여백 · [세로 축 axisLeft].
+  // 앵커는 컨테이너 좌측(x=0, left:-P)에 고정되고, 두 자리 숫자(예: 27)가 들어갈 폭만 쓴다.
+  // 앵커 오른쪽 끝은 노드 왼쪽 끝보다 왼쪽에 있어 겹치지 않는다(구버전은 anchorW>axisLeft 라
+  // 우측 정렬된 두 자리 숫자가 축·노드 위로 올라와 겹쳤다). 노드는 축선 중앙에 정렬.
+  // 축 절대 위치(axisLeft - P)는 기존과 동일(-44 / -36)이라 카드·축선은 그대로다.
+  const NODE_D = 11;                    // 노드 지름
+  const P = isLg ? 84 : 72;             // 타임라인 좌측 패딩(앵커 + 여백 + 축)
+  const anchorW = isLg ? 30 : 26;       // 날짜 앵커 폭 — 두 자리 숫자 기준(축 왼쪽 공간에 수용)
+  const axisLeft = isLg ? 40 : 36;      // 축 x(패딩 컨테이너 기준). 축 절대 위치 = axisLeft - P
+  const nodeLeft = (axisLeft - P) + 0.75 - NODE_D / 2;  // 노드를 축선(중심) 위로 정렬
 
   const hl = (s: string) => highlightText(s, query, markBg);
 
@@ -1738,7 +1744,7 @@ function ArchiveOverlay({ onClose, onJump }: {
         <div style={{ fontFamily: t.fontNumeric, fontSize: 19, fontWeight: 700, lineHeight: 1, color: t.text }}>{d.dayNum}</div>
         <div style={{ fontSize: 10.5, color: t.textMuted, marginTop: 3 }}>{d.weekday}</div>
       </div>
-      <div style={{ position: 'absolute', left: nodeLeft, top: 5, width: 11, height: 11, borderRadius: 999, backgroundColor: t.card, border: `2.5px solid ${t.accent}`, zIndex: 2 }} />
+      <div style={{ position: 'absolute', left: nodeLeft, top: 5, width: NODE_D, height: NODE_D, borderRadius: 999, backgroundColor: t.card, border: `2.5px solid ${t.accent}`, zIndex: 2 }} />
       <div className="space-y-2.5">
         {renderDailyCard(d)}
         {d.weekly.map(renderWeeklyCard)}
