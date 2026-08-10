@@ -1,4 +1,5 @@
-import { useState, useEffect, useRef, type CSSProperties } from 'react';
+import { useState, useEffect, useLayoutEffect, useRef, type CSSProperties } from 'react';
+import { createPortal } from 'react-dom';
 import { useSearchParams, NavLink, useNavigate } from 'react-router';
 import {
   ChevronLeft, ChevronRight, Star, Play,
@@ -456,6 +457,43 @@ function EventSnoozeModal({ event, onClose }: { event: Event; onClose: () => voi
 }
 
 // ─── Context Menu ───
+/**
+ * 팝오버(컨텍스트 메뉴) 위치 훅 — 클릭 좌표(뷰포트 기준)에서 열되,
+ * 실제 렌더 크기를 측정해 화면 밖으로 넘치면 좌/상으로 뒤집는다(flip).
+ * 포털(body 렌더)과 함께 쓰면 overflow:hidden·transform 조상에 갇히지 않는다.
+ * 스크롤/리사이즈 시엔 위치가 어긋나므로 닫는다.
+ */
+function useMenuPosition(
+  rawPos: { x: number; y: number },
+  ref: React.RefObject<HTMLElement>,
+  onClose: () => void,
+): { x: number; y: number } {
+  const [pos, setPos] = useState(rawPos);
+  useLayoutEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const M = 8; // 뷰포트 여백
+    const { width, height } = el.getBoundingClientRect();
+    let x = rawPos.x;
+    let y = rawPos.y;
+    if (x + width > window.innerWidth - M) x = rawPos.x - width; // 오른쪽 넘침 → 좌측 flip
+    if (x < M) x = M;
+    if (y + height > window.innerHeight - M) y = rawPos.y - height; // 아래 공간 부족 → 위로 flip
+    if (y < M) y = M;
+    setPos({ x, y });
+  }, [rawPos.x, rawPos.y, ref]);
+  useEffect(() => {
+    // 캡처 단계로 중첩 스크롤 컨테이너의 스크롤까지 잡아 닫는다(위치 고정 캡처라 어긋남 방지).
+    window.addEventListener('scroll', onClose, true);
+    window.addEventListener('resize', onClose);
+    return () => {
+      window.removeEventListener('scroll', onClose, true);
+      window.removeEventListener('resize', onClose);
+    };
+  }, [onClose]);
+  return pos;
+}
+
 function ContextMenu({ todo, position, onClose, onFocus, onDelete, deleteMessage, variant = 'list' }: {
   todo: Todo;
   position: { x: number; y: number };
@@ -469,6 +507,7 @@ function ContextMenu({ todo, position, onClose, onFocus, onDelete, deleteMessage
   const { t } = useTheme();
   const ref = useRef<HTMLDivElement>(null);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const menuPos = useMenuPosition(position, ref, onClose);
 
   useEffect(() => {
     const handler = (e: MouseEvent) => {
@@ -501,12 +540,12 @@ function ContextMenu({ todo, position, onClose, onFocus, onDelete, deleteMessage
         { label: '삭제', icon: Trash2, action: 'delete', danger: true },
       ];
 
-  return (
+  return createPortal(
     <>
-      <div ref={ref} className="fixed z-50 rounded-xl py-1.5 min-w-[140px]"
+      <div ref={ref} role="menu" className="fixed z-50 rounded-xl py-1.5 min-w-[140px]"
         style={{
-          top: position.y,
-          left: position.x,
+          top: menuPos.y,
+          left: menuPos.x,
           backgroundColor: t.card,
           border: `1px solid ${t.border}`,
           boxShadow: '0 10px 15px -3px rgba(0,0,0,0.1), 0 4px 6px -4px rgba(0,0,0,0.1)',
@@ -567,7 +606,8 @@ function ContextMenu({ todo, position, onClose, onFocus, onDelete, deleteMessage
           onCancel={() => setShowDeleteConfirm(false)}
         />
       )}
-    </>
+    </>,
+    document.body,
   );
 }
 
@@ -581,6 +621,7 @@ function EventContextMenu({ event, position, onClose }: {
   const { runEventAsPlanned, toggleEventCompleted } = usePlanner();
   const { t } = useTheme();
   const ref = useRef<HTMLDivElement>(null);
+  const menuPos = useMenuPosition(position, ref, onClose);
 
   useEffect(() => {
     const handler = (e: MouseEvent) => {
@@ -596,11 +637,11 @@ function EventContextMenu({ event, position, onClose }: {
 
   const itemStyle = { fontSize: 12, color: t.text } as const;
 
-  return (
-    <div ref={ref} className="fixed z-50 rounded-xl py-1.5 min-w-[140px]"
+  return createPortal(
+    <div ref={ref} role="menu" className="fixed z-50 rounded-xl py-1.5 min-w-[140px]"
       style={{
-        top: position.y,
-        left: position.x,
+        top: menuPos.y,
+        left: menuPos.x,
         backgroundColor: t.card,
         border: `1px solid ${t.border}`,
         boxShadow: '0 10px 15px -3px rgba(0,0,0,0.1), 0 4px 6px -4px rgba(0,0,0,0.1)',
@@ -636,7 +677,8 @@ function EventContextMenu({ event, position, onClose }: {
         <Check size={13} />
         <span>{isDone ? '완료 취소' : '완료'}</span>
       </button>
-    </div>
+    </div>,
+    document.body,
   );
 }
 
@@ -1382,6 +1424,7 @@ export function DailyView() {
             e.stopPropagation();
             setContextMenu({ todo, pos: { x: e.clientX, y: e.clientY } });
           }}
+            aria-label="할일 메뉴"
             className="p-1.5 rounded-lg transition-colors"
             style={{ color: t.textMuted, backgroundColor: t.lavenderTint }}>
             <MoreHorizontal size={13} />
@@ -1732,10 +1775,8 @@ export function DailyView() {
         />
       )}
       {contextMenu && (() => {
-        const MENU_W = 160;
-        const rawX = contextMenu.pos.x;
-        const adjustedX = rawX + MENU_W > window.innerWidth ? rawX - MENU_W : rawX;
-        const adjustedPos = { x: adjustedX, y: contextMenu.pos.y };
+        // 위치 보정(좌/상 flip)은 ContextMenu 내부 useMenuPosition 이 실제 렌더 크기로 처리한다.
+        const adjustedPos = contextMenu.pos;
         // Stage 3b: DO 블록 막대는 합성 todo(_blk)라 원본 todo 로 편집/삭제를 매핑한다.
         const doBlk = (contextMenu.todo as Todo & { _blk?: { id: string; todoId: string } })._blk;
         const menuTodo = doBlk ? (todos.find(t => t.id === doBlk.todoId) ?? contextMenu.todo) : contextMenu.todo;
@@ -1766,18 +1807,13 @@ export function DailyView() {
           />
         );
       })()}
-      {eventMenu && (() => {
-        const MENU_W = 160;
-        const rawX = eventMenu.pos.x;
-        const adjustedX = rawX + MENU_W > window.innerWidth ? rawX - MENU_W : rawX;
-        return (
-          <EventContextMenu
-            event={eventMenu.event}
-            position={{ x: adjustedX, y: eventMenu.pos.y }}
-            onClose={() => setEventMenu(null)}
-          />
-        );
-      })()}
+      {eventMenu && (
+        <EventContextMenu
+          event={eventMenu.event}
+          position={eventMenu.pos}
+          onClose={() => setEventMenu(null)}
+        />
+      )}
       {recurringDeleteTarget && (() => {
         const info = parseVirtualTodoId(recurringDeleteTarget.id);
         return info ? (

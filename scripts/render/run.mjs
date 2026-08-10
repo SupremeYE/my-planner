@@ -29,7 +29,8 @@ const CHROME = process.env.HAON_CHROME
 
 // ── 대상 라우트 / 서브뷰 ─────────────────────────────────────────────────────
 const ALL_ROUTES = [
-  { slug: 'daily', path: '/daily' },
+  // openMenu: 최하단 항목의 '…' 메뉴를 열어 클리핑/뷰포트 이탈을 검출(Stage 3 실증)
+  { slug: 'daily', path: '/daily', openMenu: true },
   { slug: 'todos', path: '/todos' },
   {
     slug: 'calendar', path: '/calendar',
@@ -280,6 +281,24 @@ async function main() {
           const ok = await tryClickText(page, sub.text);
           if (ok) { await doShot(sub.name); }
           else console.log(`   · ${route.slug}:${sub.name} 탭 못 찾음(스킵)`);
+        }
+        // Stage 3 실증: 최하단 항목의 '…' 메뉴를 열어 포털/flip 이 클리핑을 막는지 검출
+        if (route.openMenu) {
+          try {
+            const btns = page.locator('button[aria-label="할일 메뉴"]:visible');
+            const n = await btns.count();
+            if (n > 0) {
+              const last = btns.last();
+              await last.scrollIntoViewIfNeeded();
+              await last.click({ timeout: 2000 });
+              await page.waitForTimeout(400);
+              await doShot('menu');
+            } else {
+              console.log(`   · ${route.slug}:menu 트리거 못 찾음(스킵)`);
+            }
+          } catch (e) {
+            console.log(`   · ${route.slug}:menu 열기 실패(스킵): ${e.message.split('\n')[0]}`);
+          }
         }
       }
       await ctx.close();
