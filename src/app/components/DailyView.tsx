@@ -23,6 +23,7 @@ import { QuickAddInput } from './QuickAddInput';
 import { useDailySummary } from '../hooks/useDailySummary';
 import { isEventPast, isVirtualEventId } from '../../api/events';
 import { expandRecurringTodos, isVirtualTodoId, parseVirtualTodoId } from '../../lib/recurrenceExpansion';
+import { shiftedEndDate } from '../../lib/todoSnooze';
 import { periodCoversDate, todoEndDate, isTodoIncomplete, deriveTodoPhase, todoRunningDays, type DerivedTodoPhase } from '../../lib/todoPeriod';
 import { RecurrenceBranchModal } from './RecurrenceBranchModal';
 import { RetroSheet } from './RetroSheet';
@@ -87,6 +88,7 @@ function SnoozeModal({ todo, onClose }: { todo: Todo; onClose: () => void }) {
         addTodo({
           text: todo.text,
           date: selectedSnoozeDate,
+          endDate: selectedSnoozeDate,
           status: 'active',
           isTop3: todo.isTop3,
           planStart: snoozeTime || undefined,
@@ -99,6 +101,8 @@ function SnoozeModal({ todo, onClose }: { todo: Todo; onClose: () => void }) {
     }
     updateTodo(todo.id, {
       date: selectedSnoozeDate,
+      // 기간 할일이면 end_date 도 함께 이동(역전 방지 — DB CHECK 위반으로 저장이 통째로 실패하던 버그)
+      endDate: shiftedEndDate(todo, selectedSnoozeDate),
       status: 'active',
       planStart: snoozeTime || undefined,
       planEnd: undefined,
@@ -1060,12 +1064,12 @@ export function DailyView() {
       }
       deleteRecurringTodo(parentId, instanceDate, scope);
       addTodo({
-        text: todo.text, date: nextDay, status: 'active', isTop3: todo.isTop3,
+        text: todo.text, date: nextDay, endDate: nextDay, status: 'active', isTop3: todo.isTop3,
         planStart: todo.planStart || undefined, tags: todo.tags, projectId: todo.projectId,
       });
     } else {
       updateTodo(todo.id, {
-        date: nextDay, status: 'active',
+        date: nextDay, endDate: shiftedEndDate(todo, nextDay), status: 'active',
         planEnd: undefined, doStart: undefined, doEnd: undefined, doElapsedSec: undefined,
       });
     }

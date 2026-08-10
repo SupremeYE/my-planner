@@ -13,6 +13,7 @@ import { TodoModal } from './TodoModal';
 import { QuickAddInput } from './QuickAddInput';
 import { isInboxCandidate } from '../../lib/inbox';
 import { periodCoversDate, todoEndDate, deriveTodoPhase } from '../../lib/todoPeriod';
+import { shiftedEndDate } from '../../lib/todoSnooze';
 import { solidCardStyle, solidRowStyle, glassBarStyle, mixHex, selectedRowStyle, actionBarStyle, buttonStyle } from '../styles/haonStyles';
 
 // ─── Constants ───────────────────────────────────────────────
@@ -426,7 +427,7 @@ function TodoListTab({ selectMode, selected, onSelectToggle }: TabSelectionProps
                 selectMode={selectMode}
                 selected={selected.has(todo.id)}
                 onSelectToggle={() => onSelectToggle(todo.id)}
-                onMoveToToday={() => updateTodo(todo.id, { date: todayStr, status: 'active' })}
+                onMoveToToday={() => updateTodo(todo.id, { date: todayStr, endDate: shiftedEndDate(todo, todayStr), status: 'active' })}
               />
             ))}
           </div>
@@ -472,7 +473,7 @@ function TodoListTab({ selectMode, selected, onSelectToggle }: TabSelectionProps
                 selectMode={selectMode}
                 selected={selected.has(todo.id)}
                 onSelectToggle={() => onSelectToggle(todo.id)}
-                  onMoveToToday={() => updateTodo(todo.id, { date: todayStr })}
+                  onMoveToToday={() => updateTodo(todo.id, { date: todayStr, endDate: shiftedEndDate(todo, todayStr) })}
                 />
               ))}
             </div>

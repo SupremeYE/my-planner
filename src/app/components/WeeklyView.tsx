@@ -22,6 +22,7 @@ import {
 } from '@dnd-kit/core';
 import { CSS } from '@dnd-kit/utilities';
 import { usePlanner, getWeekKey, Todo, Tag as TagType, getLogicalToday } from '../store';
+import { shiftedEndDate } from '../../lib/todoSnooze';
 import { useTheme } from '../ThemeContext';
 import { useNavigate } from 'react-router';
 
@@ -597,7 +598,8 @@ export function WeeklyView() {
     const todo = todos.find(t => t.id === todoId);
     if (!todo || todo.date === newDate) return;
 
-    updateTodo(todoId, { date: newDate });
+    // 기간 할일이면 end_date 도 함께 이동(역전 방지 — DB CHECK 위반 시 저장이 통째로 실패)
+    updateTodo(todoId, { date: newDate, endDate: shiftedEndDate(todo, newDate) });
   };
 
   return (

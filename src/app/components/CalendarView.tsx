@@ -17,6 +17,7 @@ import { usePlanner, Event, PeriodRecord, SelfCareRecord, Todo, getLogicalToday 
 import { deriveTodoPhase } from '../../lib/todoPeriod';
 import { isDoOvertimeVsPlan, doElapsedTitleSuffix } from '../../lib/todoDoDuration';
 import { expandRecurringTodos, isVirtualTodoId, parseVirtualTodoId } from '../../lib/recurrenceExpansion';
+import { shiftedEndDate } from '../../lib/todoSnooze';
 import { buildTodoToggleUpdate } from '../../lib/todoToggle';
 import { todoEndDate, isTodoLate } from '../../lib/todoPeriod';
 import { isEventPast } from '../../api/events';
@@ -617,6 +618,7 @@ export function CalendarView() {
         addTodo({
           text: todo.text,
           date: next,
+          endDate: next,
           status: 'active',
           isTop3: todo.isTop3,
           planStart: todo.planStart || undefined,
@@ -628,6 +630,8 @@ export function CalendarView() {
     }
     updateTodo(todo.id, {
       date: next,
+      // 기간 할일이면 end_date 도 함께 이동(역전 방지)
+      endDate: shiftedEndDate(todo, next),
       status: 'active',
       planEnd: undefined,
       doStart: undefined,
