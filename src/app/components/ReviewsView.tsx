@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { X, Search, ChevronLeft, ChevronRight, ChevronDown, Trash2, Clock, Check } from 'lucide-react';
 import { useNavigate } from 'react-router';
-import { usePlanner, ReviewRecord, MonthlyReview, WeightRecord, CultureRecord, MusicRecord, HappyMoment, getWeekKey, getLogicalToday } from '../store';
+import { usePlanner, MonthlyReview, WeightRecord, CultureRecord, MusicRecord, HappyMoment, getWeekKey, getLogicalToday } from '../store';
 import { db, type WalkSession } from '../../lib/db';
 import { TrackTimeStrip } from './review/TrackTimeStrip';
 import { computeWeightDelta } from './review/reviewMetrics';
@@ -14,7 +14,7 @@ import { getCategoryEmoji, getMoodCategoryLabel, ENERGY_LABELS } from './MoodVie
 import { inputBg, mixHex, retroStatusColor, withAlpha } from '../styles/haonStyles';
 import { RetroSheet } from './RetroSheet';
 import {
-  format, addDays, subDays, subYears, parseISO,
+  format, addDays, subDays, parseISO,
   startOfWeek, endOfWeek, addWeeks, subWeeks, startOfMonth, endOfMonth,
   addMonths, subMonths,
   startOfISOWeek, endOfISOWeek, setISOWeek, setISOWeekYear,
@@ -91,78 +91,6 @@ function ConditionBadge({ date }: { date: string }) {
         </div>
       ) : (
         <p style={{ fontSize: 12, color: t.textMuted }}>아직 기분 기록 없음</p>
-      )}
-    </div>
-  );
-}
-
-// ─── 과거 타임라인 카드 ───
-function recordPreview(r: ReviewRecord): string {
-  const g = (r.gratitude ?? []).filter(Boolean);
-  if (g.length) return `🙏 ${g.join(', ')}`;
-  const kpt = [r.kptKeep, r.kptProblem, r.kptTry].filter(Boolean).join(' · ');
-  if (kpt) return `🔄 ${kpt}`;
-  if (r.dailySummary) return `📔 ${r.dailySummary}`;
-  return '';
-}
-
-function PastCard({ record, onSelect, anniversary }: {
-  record: ReviewRecord; onSelect: (date: string) => void; anniversary?: boolean;
-}) {
-  const { t } = useTheme();
-  const gCount = (record.gratitude ?? []).filter(Boolean).length;
-  const hasKpt = !!(record.kptKeep || record.kptProblem || record.kptTry);
-  const preview = recordPreview(record);
-  return (
-    <button onClick={() => onSelect(record.date)}
-      className="w-full text-left p-3 rounded-xl transition-colors"
-      style={{
-        backgroundColor: anniversary ? t.accentLight : t.card,
-        border: `1px solid ${anniversary ? t.accent : t.borderLight}`,
-      }}>
-      <div className="flex items-center gap-2 mb-1.5 flex-wrap">
-        {anniversary && <span style={{ fontSize: 11, fontWeight: 700, color: t.accent }}>🕰 1년 전 오늘</span>}
-        <span style={{ fontSize: 12, fontWeight: 700, color: t.text }}>
-          {format(parseISO(record.date), 'M월 d일 (E)', { locale: ko })}
-        </span>
-        <div className="flex gap-1">
-          {gCount > 0 && (
-            <span className="px-2 py-0.5 rounded-full" style={{ fontSize: 9, backgroundColor: t.surfaceMuted, color: t.textSub }}>감사 {gCount}</span>
-          )}
-          {hasKpt && (
-            <span className="px-2 py-0.5 rounded-full" style={{ fontSize: 9, backgroundColor: t.surfaceMuted, color: t.textSub }}>KPT</span>
-          )}
-        </div>
-      </div>
-      {preview && (
-        <p style={{ fontSize: 12, color: t.textSub, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{preview}</p>
-      )}
-    </button>
-  );
-}
-
-function PastTimeline({ dayDate, onSelect }: { dayDate: string; onSelect: (date: string) => void }) {
-  const { t } = useTheme();
-  const { reviewRecords } = usePlanner();
-
-  const anniversaryDate = format(subYears(parseISO(dayDate), 1), 'yyyy-MM-dd');
-  const anniversaryRec = reviewRecords.find(r => r.date === anniversaryDate);
-
-  const recent = [...reviewRecords]
-    .filter(r => r.date !== dayDate && r.date !== anniversaryDate && recordPreview(r))
-    .sort((a, b) => b.date.localeCompare(a.date))
-    .slice(0, 7);
-
-  return (
-    <div className="space-y-2">
-      <h3 className="flex items-center gap-1.5" style={{ fontSize: 12, fontWeight: 700, color: t.textSub }}>
-        <Clock size={13} /> 지난 기록
-      </h3>
-      {anniversaryRec && <PastCard record={anniversaryRec} onSelect={onSelect} anniversary />}
-      {recent.length === 0 && !anniversaryRec ? (
-        <p style={{ fontSize: 12, color: t.textMuted, padding: '12px 0' }}>아직 지난 기록이 없어요</p>
-      ) : (
-        recent.map(r => <PastCard key={r.id} record={r} onSelect={onSelect} />)
       )}
     </div>
   );
@@ -282,21 +210,12 @@ function DayTab({ jump }: { jump?: JumpReq }) {
     <div>
       {dateNav}
       {retroOpen && <RetroSheet date={dayDate} onClose={() => setRetroOpen(false)} />}
-      {isDesktop ? (
-        <div className="flex gap-6 items-start">
-          <div className="flex-1 min-w-0">{writeCol}</div>
-          <div className="flex-shrink-0" style={{ width: 320 }}>
-            <div style={{ position: 'sticky', top: 12 }}>
-              <PastTimeline dayDate={dayDate} onSelect={setDayDate} />
-            </div>
-          </div>
-        </div>
-      ) : (
-        <div className="space-y-5">
-          {writeCol}
-          <PastTimeline dayDate={dayDate} onSelect={setDayDate} />
-        </div>
-      )}
+      {/* '지난 기록'(PastTimeline) 제거 — 돌아보기 화면과 완전 중복이라 상단 '돌아보기' 버튼으로 충분.
+          인라인 회고 제거 후 카드 2개(컨디션·회고)만 남아, 전폭으로 늘이면 비어 보이므로
+          데스크톱에선 읽기 좋은 폭으로 중앙 정렬한다(무게중심 안정). */}
+      <div className="mx-auto" style={{ maxWidth: isDesktop ? 560 : undefined }}>
+        {writeCol}
+      </div>
     </div>
   );
 }
