@@ -1470,7 +1470,10 @@ export function Timeline({ days = 1, selectedDate, dateTodos, dateEvents, onShow
         {/* 스크롤 컨테이너 (sticky 헤더 + 바디 동일 컨테이너 → 컬럼 정렬 보장) */}
         <div ref={scrollRef} className="flex-1" style={{ overflowY: 'auto', minHeight: 0, overscrollBehavior: 'contain' }}>
           {/* sticky 헤더: 날짜 행 + P/D 서브헤더 */}
-          <div style={{ position: 'sticky', top: 0, zIndex: 20, backgroundColor: t.card, borderBottom: `1px solid ${t.border}` }}>
+          {/* sticky 헤더(날짜·종일 레인·P/D) z-index 는 바디 콘텐츠(현재시각선 z-20·로그마커 z-15~20)보다
+              위여야 한다 — 동률(20)이면 DOM 뒤의 바디 요소가 위로 그려져, 레인 펼침 시 현재시각선이
+              레인을 관통해 비쳐 보였다(버그). 30 으로 올려 헤더가 항상 바디를 가린다. */}
+          <div style={{ position: 'sticky', top: 0, zIndex: 30, backgroundColor: t.card, borderBottom: `1px solid ${t.border}` }}>
             <div style={{ display: 'grid', gridTemplateColumns: weekFlatCols }}>
               <div />
               {weekDays.map((wd, i) => {

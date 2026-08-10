@@ -111,14 +111,17 @@ export function WeekAllDayLane({ dates, items, timeColWidth, onEdit, onEmptyAdd,
   // ── Stage 4-1: 날짜 이동 드래그(할일만, 7일 주간 변형 전용) ──
   // 좌표는 요일 컬럼 단위. 그랩 컬럼(originIdx) → 드롭 컬럼(targetIdx) 차이만큼 date·endDate 이동.
   // 마우스=5px 임계로 드래그 시작(그 미만은 탭=편집), 터치/펜=250ms 롱프레스(대기 중 이동은 스크롤로 간주).
+  // 시각 피드백: 칩이 커서를 따라오는 고스트(fixed) + 드롭 대상 요일 옅은 틴트. (커서에 '들려' 이동하는 모션)
   const draggable = dayCount > 1 && !!onMoveDate;
   const dayAreaRef = useRef<HTMLDivElement>(null);
   const [dragItemId, setDragItemId] = useState<string | null>(null);
   const [dragTargetIdx, setDragTargetIdx] = useState<number | null>(null);
+  const [ghost, setGhost] = useState<{ x: number; y: number; text: string; fill: string } | null>(null);
   const dragRef = useRef<{
     pointerId: number; el: HTMLElement; raw: Todo; originIdx: number;
     activated: boolean; moved: boolean; pointerType: string;
     startX: number; startY: number; targetIdx: number;
+    text: string; fill: string;
     longPressTimer: ReturnType<typeof setTimeout> | null;
   } | null>(null);
 
@@ -129,6 +132,7 @@ export function WeekAllDayLane({ dates, items, timeColWidth, onEdit, onEmptyAdd,
     const w = r.width / dayCount;
     return Math.max(0, Math.min(dayCount - 1, Math.floor((clientX - r.left) / w)));
   };
+  // 드래그 종료 시 모든 상태를 확실히 정리한다. 정리 누락 → hover 마다 하이라이트가 되살아나는 버그의 원인.
   const clearDrag = () => {
     const d = dragRef.current;
     if (d?.longPressTimer) clearTimeout(d.longPressTimer);
@@ -136,21 +140,25 @@ export function WeekAllDayLane({ dates, items, timeColWidth, onEdit, onEmptyAdd,
     dragRef.current = null;
     setDragItemId(null);
     setDragTargetIdx(null);
+    setGhost(null);
   };
-  const activateDrag = (d: NonNullable<typeof dragRef.current>) => {
+  const activateDrag = (d: NonNullable<typeof dragRef.current>, clientX: number, clientY: number) => {
     d.activated = true;
     setDragItemId(d.raw.id);
     setDragTargetIdx(d.originIdx);
+    setGhost({ x: clientX, y: clientY, text: d.text, fill: d.fill });
     if (d.pointerType !== 'mouse' && navigator.vibrate) { try { navigator.vibrate(10); } catch { /* noop */ } }
   };
   const onChipPointerDown = (e: React.PointerEvent, item: PlacedItem) => {
     if (!draggable || item.kind !== 'todo' || e.button === 2) return;
     const el = e.currentTarget as HTMLElement;
     const originIdx = colFromClientX(e.clientX);
+    const fill = item.color ? mixHex(item.color, 255, 0.72) : 'var(--cat-todo-fill)';
     const d = {
       pointerId: e.pointerId, el, raw: item.raw as Todo, originIdx,
       activated: false, moved: false, pointerType: e.pointerType,
       startX: e.clientX, startY: e.clientY, targetIdx: originIdx,
+      text: item.text, fill,
       longPressTimer: null as ReturnType<typeof setTimeout> | null,
     };
     dragRef.current = d;
@@ -161,17 +169,20 @@ export function WeekAllDayLane({ dates, items, timeColWidth, onEdit, onEmptyAdd,
         d.longPressTimer = null;
         if (dragRef.current !== d) return;
         try { el.setPointerCapture(e.pointerId); } catch { /* noop */ }
-        activateDrag(d);
+        activateDrag(d, d.startX, d.startY);
       }, 250);
     }
   };
   const onChipPointerMove = (e: React.PointerEvent) => {
     const d = dragRef.current;
     if (!d || e.pointerId !== d.pointerId) return;
+    // 마우스에서 버튼이 안 눌린 이동(=hover)인데 dragRef 가 남아 있으면 정리(유실된 드래그 잔재 방어).
+    // 이 가드가 "드롭 후 마우스 움직일 때마다 계속 하이라이트되는" 버그를 원천 차단한다.
+    if (d.pointerType === 'mouse' && e.buttons === 0) { clearDrag(); return; }
     if (!d.activated) {
       const dx = e.clientX - d.startX, dy = e.clientY - d.startY;
       if (d.pointerType === 'mouse') {
-        if (Math.abs(dx) > 5 || Math.abs(dy) > 5) activateDrag(d);
+        if (Math.abs(dx) > 5 || Math.abs(dy) > 5) activateDrag(d, e.clientX, e.clientY);
         else return;
       } else {
         if (Math.abs(dx) > 8 || Math.abs(dy) > 8) clearDrag(); // 롱프레스 전 이동 = 스크롤
@@ -182,10 +193,11 @@ export function WeekAllDayLane({ dates, items, timeColWidth, onEdit, onEmptyAdd,
     d.targetIdx = idx;
     d.moved = true;
     setDragTargetIdx(idx);
+    setGhost(g => (g ? { ...g, x: e.clientX, y: e.clientY } : g));
   };
   const onChipPointerUp = (e: React.PointerEvent, item: PlacedItem) => {
     const d = dragRef.current;
-    if (!d || e.pointerId !== d.pointerId) return;
+    if (!d || e.pointerId !== d.pointerId) { clearDrag(); return; }
     if (d.longPressTimer) { clearTimeout(d.longPressTimer); d.longPressTimer = null; }
     if (d.activated && d.moved && d.targetIdx !== d.originIdx) {
       onMoveDate!(d.raw, d.targetIdx - d.originIdx);
@@ -194,11 +206,8 @@ export function WeekAllDayLane({ dates, items, timeColWidth, onEdit, onEmptyAdd,
     }
     clearDrag();
   };
-  const onChipPointerCancel = (e: React.PointerEvent) => {
-    const d = dragRef.current;
-    if (!d || e.pointerId !== d.pointerId) return;
-    clearDrag();
-  };
+  const onChipPointerCancel = () => clearDrag();
+  const onChipLostCapture = () => clearDrag();
 
   return (
     <div style={{ borderTop: `1px solid ${t.borderLight}`, backgroundColor: t.surfaceMuted }}>
@@ -224,7 +233,7 @@ export function WeekAllDayLane({ dates, items, timeColWidth, onEdit, onEmptyAdd,
 
         {/* 우측 항목 영역 — dayCount 컬럼 중첩 그리드 */}
         <div ref={dayAreaRef} style={{ gridColumn: `2 / -1`, position: 'relative', padding: '4px 0' }}>
-          {/* 드래그 중 드롭 대상 요일 하이라이트 */}
+          {/* 드래그 중 드롭 대상 요일 — 옅은 틴트만(주 피드백은 커서를 따라오는 고스트). */}
           {dragTargetIdx !== null && (
             <div
               aria-hidden
@@ -232,8 +241,8 @@ export function WeekAllDayLane({ dates, items, timeColWidth, onEdit, onEmptyAdd,
                 position: 'absolute', top: 0, bottom: 0,
                 left: `${(dragTargetIdx / dayCount) * 100}%`,
                 width: `${100 / dayCount}%`,
-                backgroundColor: withAlpha(t.accent, 0.14),
-                border: `1.5px dashed ${t.accent}`,
+                backgroundColor: withAlpha(t.accent, 0.09),
+                border: `1px solid ${withAlpha(t.accent, 0.3)}`,
                 borderRadius: 6, pointerEvents: 'none', zIndex: 4,
               }}
             />
@@ -285,6 +294,7 @@ export function WeekAllDayLane({ dates, items, timeColWidth, onEdit, onEmptyAdd,
                   onChipPointerMove={onChipPointerMove}
                   onChipPointerUp={onChipPointerUp}
                   onChipPointerCancel={onChipPointerCancel}
+                  onChipLostCapture={onChipLostCapture}
                 />
               )),
             )}
@@ -308,11 +318,31 @@ export function WeekAllDayLane({ dates, items, timeColWidth, onEdit, onEmptyAdd,
           {expanded ? '접기' : `+${hiddenCount} 더보기`}
         </button>
       )}
+
+      {/* 드래그 고스트 — 커서를 따라오는 '들린 칩'. fixed 라 레이아웃에 영향 없음. */}
+      {ghost && (
+        <div
+          aria-hidden
+          style={{
+            position: 'fixed', left: ghost.x + 12, top: ghost.y + 8,
+            zIndex: 9999, pointerEvents: 'none',
+            maxWidth: 200, height: ROW_H, padding: '0 8px',
+            display: 'flex', alignItems: 'center',
+            backgroundColor: ghost.fill, color: t.text,
+            borderRadius: 6, fontSize: 10, fontWeight: 700,
+            boxShadow: '0 6px 16px rgba(0,0,0,0.22)',
+            whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+            opacity: 0.95, transform: 'rotate(-1.5deg)',
+          }}
+        >
+          {ghost.text}
+        </div>
+      )}
     </div>
   );
 }
 
-function LaneChip({ item, row, onEdit, draggable, dragging, onChipPointerDown, onChipPointerMove, onChipPointerUp, onChipPointerCancel }: {
+function LaneChip({ item, row, onEdit, draggable, dragging, onChipPointerDown, onChipPointerMove, onChipPointerUp, onChipPointerCancel, onChipLostCapture }: {
   item: PlacedItem;
   row: number;
   onEdit: (raw: Todo | Event, kind: 'todo' | 'event') => void;
@@ -322,6 +352,7 @@ function LaneChip({ item, row, onEdit, draggable, dragging, onChipPointerDown, o
   onChipPointerMove: (e: React.PointerEvent) => void;
   onChipPointerUp: (e: React.PointerEvent, item: PlacedItem) => void;
   onChipPointerCancel: (e: React.PointerEvent) => void;
+  onChipLostCapture: () => void;
 }) {
   const { t } = useTheme();
   const isTodo = item.kind === 'todo';
@@ -349,6 +380,7 @@ function LaneChip({ item, row, onEdit, draggable, dragging, onChipPointerDown, o
       onPointerMove={draggable ? onChipPointerMove : undefined}
       onPointerUp={draggable ? (e) => onChipPointerUp(e, item) : undefined}
       onPointerCancel={draggable ? onChipPointerCancel : undefined}
+      onLostPointerCapture={draggable ? onChipLostCapture : undefined}
       title={item.text}
       style={{
         gridColumn: `${item.startIdx + 1} / ${item.endIdx + 2}`,
