@@ -1061,7 +1061,10 @@ function MonthTab({ jump }: { jump?: JumpReq }) {
     </div>
   );
 
-  // 4-3b. 좋았던 순간 패턴 — 아카이브에서 이전(읽기 전용). 그 달 기록 없으면 카드가 null 반환.
+  // 4-3b. 이 달의 조각 — 주간과 동일 공용 컴포넌트를 월 범위로 재사용(모먼트·맛·영상·음악·산책).
+  const monthPiecesBlock = <MemoryPieces startStr={monthStartStr} endStr={monthEndStr} title="이 달의 조각" />;
+
+  // 4-3c. 좋았던 순간 패턴 — 아카이브에서 이전(읽기 전용). 그 달 기록 없으면 카드가 null 반환.
   const monthMoments = happyMoments.filter(m => m.date >= monthStartStr && m.date <= monthEndStr);
   const happyPatternBlock = <HappyPatternCard moments={monthMoments} monthLabel={format(anchor, 'M월', { locale: ko })} />;
 
@@ -1158,6 +1161,7 @@ function MonthTab({ jump }: { jump?: JumpReq }) {
             {timeStrip}
             {monthGoalsBlock}
             {bestBlock}
+            {monthPiecesBlock}
             {happyPatternBlock}
           </div>
           <div className="flex-shrink-0 space-y-5" style={{ width: 340 }}>
@@ -1171,6 +1175,7 @@ function MonthTab({ jump }: { jump?: JumpReq }) {
           {timeStrip}
           {monthGoalsBlock}
           {bestBlock}
+          {monthPiecesBlock}
           {happyPatternBlock}
           {reviewForm}
           {pastBlock}
