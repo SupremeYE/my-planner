@@ -7,6 +7,8 @@ import { usePlanner, Routine, RoutineStep, getRoutineTotalMinutes, getRoutineSte
 import { useTheme } from '../ThemeContext';
 import { TimePicker } from './TimePicker';
 import { format } from 'date-fns';
+// 시계 포맷은 단일 헬퍼로 통일(1시간 이상 H:MM:SS) — src/lib/formatClock.ts
+import { formatClock as formatDuration } from '../../lib/formatClock';
 
 const EMOJI_PALETTE = ['🌅','🧘','🏋️','📖','🚿','☕','🌙','💊','🧹','🍎','🎯','✍️','🎵','💪','🧠','🧴','🌿','🏃','🎨','📝'];
 export const today = getLogicalToday();
@@ -28,13 +30,6 @@ export function getStreak(checkedDates: string[]): number {
 function isValidYoutubeUrl(url: string): boolean {
   if (!url.trim()) return true;
   return /^https?:\/\/(www\.)?(youtube\.com\/watch\?v=|youtu\.be\/)[\w\-]+/.test(url);
-}
-
-function formatDuration(sec: number): string {
-  const absS = Math.abs(sec);
-  const m = Math.floor(absS / 60).toString().padStart(2, '0');
-  const s = (absS % 60).toString().padStart(2, '0');
-  return `${m}:${s}`;
 }
 
 function formatMinSec(totalSec: number): string {

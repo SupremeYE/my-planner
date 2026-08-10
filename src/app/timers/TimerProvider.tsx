@@ -205,9 +205,5 @@ export function remainingSec(t: CookTimer, nowMs: number): number {
   return Math.max(0, Math.ceil((t.endsAt - nowMs) / 1000));
 }
 
-// mm:ss 포맷
-export function formatClock(sec: number): string {
-  const mm = Math.floor(sec / 60);
-  const ss = sec % 60;
-  return `${String(mm).padStart(2, '0')}:${String(ss).padStart(2, '0')}`;
-}
+// 시계 포맷(MM:SS / 1시간 이상 H:MM:SS)은 단일 헬퍼로 통일 — src/lib/formatClock.ts.
+export { formatClock } from '../../lib/formatClock';
