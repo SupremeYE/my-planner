@@ -1301,7 +1301,11 @@ export function PlannerProvider({ children }: { children: React.ReactNode }) {
 
   // ── Todo actions ──
   const addTodo = useCallback((todo: Omit<Todo, 'id'>) => {
-    const newTodo: Todo = { ...todo, id: newId(), tags: todo.tags ?? [] };
+    // end_date 기본값 = date (단일 날짜 = 시작·종료 동일). 모든 생성 경로(QuickAdd·모달·
+    // 타임라인·일간·캘린더)가 이 한 지점을 거치므로 여기서 채우면 null 누락이 사라진다.
+    // date 가 null(Inbox)이면 end_date 도 null 로 둔다(DB CHECK: date null → end_date null).
+    const endDate = todo.endDate ?? todo.date ?? undefined;
+    const newTodo: Todo = { ...todo, id: newId(), tags: todo.tags ?? [], endDate };
     setTodos(prev => [...prev, newTodo]);
     db.todos.upsert(newTodo);
   }, []);
