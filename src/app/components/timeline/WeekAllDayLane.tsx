@@ -3,6 +3,33 @@ import { Check } from 'lucide-react';
 import type { Todo, Event } from '../../store';
 import { useTheme } from '../../ThemeContext';
 import { mixHex, withAlpha } from '../../styles/haonStyles';
+import { PX_PER_MIN, minutesToTime } from './timelineConstants';
+
+/** 격자 드롭 대상(4-2) — 종일 레인 칩을 시간 격자 P/D 슬롯에 떨어뜨렸을 때 해석된 지점. */
+export interface GridDropTarget {
+  date: string;
+  lane: 'plan' | 'do';
+  start: string;   // HH:mm
+  end: string;     // HH:mm (기본 시작+60분, 그리드 끝으로 클램프)
+}
+
+// (clientX,clientY) 아래에 시간 격자 P/D 슬롯이 있으면 드롭 지점을 해석. 없으면 null(레인 내부 취급).
+// 슬롯 top = 그 슬롯의 data-start-hour 시각. 시각 = startHour*60 + (y - slotTop)/PX_PER_MIN, 15분 스냅.
+function resolveGridDrop(clientX: number, clientY: number): GridDropTarget | null {
+  const els = typeof document !== 'undefined' ? document.elementsFromPoint(clientX, clientY) : [];
+  const slot = els.find(el => el instanceof HTMLElement && el.dataset.weekSlot) as HTMLElement | undefined;
+  if (!slot) return null;
+  const lane = slot.dataset.weekSlot as 'plan' | 'do';
+  const date = slot.dataset.weekDate;
+  if (!date || (lane !== 'plan' && lane !== 'do')) return null;
+  const startHour = parseInt(slot.dataset.startHour || '0', 10);
+  const endHour = parseInt(slot.dataset.endHour || '24', 10);
+  const rect = slot.getBoundingClientRect();
+  const rawMin = startHour * 60 + (clientY - rect.top) / PX_PER_MIN;
+  const startMin = Math.max(startHour * 60, Math.min(endHour * 60 - 60, Math.round(rawMin / 15) * 15));
+  const endMin = Math.min(endHour * 60, startMin + 60);
+  return { date, lane, start: minutesToTime(startMin), end: minutesToTime(endMin) };
+}
 
 // ─── 주별 캘린더 종일(All-day) 레인 ───
 // 시간 격자 "밖"에 두는 별도 레인. 시각 없는 항목(대부분의 할일)과 종일 이벤트,
@@ -52,6 +79,8 @@ interface WeekAllDayLaneProps {
   // Stage 4-1: 할일 칩을 다른 요일 칸으로 드래그 → 날짜 이동(deltaDays 만큼 date·endDate 동시 이동).
   // 전달 + 7일(주간) 변형일 때만 드래그 활성 — 모바일 단일일(dates=1)은 드롭 대상이 없어 비활성(편집 모달로 대체).
   onMoveDate?: (raw: Todo, deltaDays: number) => void;
+  // Stage 4-2: 칩을 시간 격자 P/D 슬롯으로 드롭 → 계획(plan)/실적(do) 시각 부여.
+  onDropToGrid?: (raw: Todo, target: GridDropTarget) => void;
 }
 
 const ROW_H = 20;              // 한 줄(막대) 높이
@@ -59,7 +88,7 @@ const ROW_GAP = 3;
 const COLLAPSED_LINES = 3;     // 접힘 상태 최대 표시 줄(항목+토글 포함) — 격자 보호 상한
 // 펼침 시 PC(lg:) 레인 콘텐츠 max-height + 내부 스크롤은 haon.css `.lane-expanded-scroll`(lg: 한정).
 
-export function WeekAllDayLane({ dates, items, timeColWidth, onEdit, onEmptyAdd, sublabel, onMoveDate }: WeekAllDayLaneProps) {
+export function WeekAllDayLane({ dates, items, timeColWidth, onEdit, onEmptyAdd, sublabel, onMoveDate, onDropToGrid }: WeekAllDayLaneProps) {
   const { t } = useTheme();
   // 세션 내 유지(컴포넌트가 마운트 유지되므로 주 이동에도 상태 보존)
   const [expanded, setExpanded] = useState(false);
@@ -189,18 +218,31 @@ export function WeekAllDayLane({ dates, items, timeColWidth, onEdit, onEmptyAdd,
         return;
       }
     }
-    const idx = colFromClientX(e.clientX);
-    d.targetIdx = idx;
     d.moved = true;
-    setDragTargetIdx(idx);
     setGhost(g => (g ? { ...g, x: e.clientX, y: e.clientY } : g));
+    // 격자 슬롯 위면 레인 요일 하이라이트를 끄고(격자로 떨어질 것), 아니면 대상 요일 하이라이트.
+    const overGrid = onDropToGrid && resolveGridDrop(e.clientX, e.clientY);
+    if (overGrid) {
+      d.targetIdx = -1;         // 레인 밖(격자) 표시
+      setDragTargetIdx(null);
+    } else {
+      const idx = colFromClientX(e.clientX);
+      d.targetIdx = idx;
+      setDragTargetIdx(idx);
+    }
   };
   const onChipPointerUp = (e: React.PointerEvent, item: PlacedItem) => {
     const d = dragRef.current;
     if (!d || e.pointerId !== d.pointerId) { clearDrag(); return; }
     if (d.longPressTimer) { clearTimeout(d.longPressTimer); d.longPressTimer = null; }
-    if (d.activated && d.moved && d.targetIdx !== d.originIdx) {
-      onMoveDate!(d.raw, d.targetIdx - d.originIdx);
+    if (d.activated && d.moved) {
+      // 격자 P/D 슬롯 위에 드롭 → 계획/실적 시각 부여(4-2). 아니면 레인 내 날짜 이동(4-1).
+      const gridTarget = onDropToGrid ? resolveGridDrop(e.clientX, e.clientY) : null;
+      if (gridTarget) {
+        onDropToGrid!(d.raw, gridTarget);
+      } else if (d.targetIdx >= 0 && d.targetIdx !== d.originIdx) {
+        onMoveDate!(d.raw, d.targetIdx - d.originIdx);
+      }
     } else if (!d.activated) {
       onEdit(item.raw, item.kind); // 탭 = 편집(드래그 활성 칩은 onClick 미부착)
     }
@@ -210,7 +252,8 @@ export function WeekAllDayLane({ dates, items, timeColWidth, onEdit, onEmptyAdd,
   const onChipLostCapture = () => clearDrag();
 
   return (
-    <div style={{ borderTop: `1px solid ${t.borderLight}`, backgroundColor: t.surfaceMuted }}>
+    // data-allday-lane: 격자 블록을 레인 위로 드롭(4-2 역방향)할 때의 DOM 히트테스트 타깃.
+    <div data-allday-lane="1" style={{ borderTop: `1px solid ${t.borderLight}`, backgroundColor: t.surfaceMuted }}>
       {/* 상단: 라벨칸 + 항목 영역 */}
       <div
         style={{
