@@ -1590,6 +1590,9 @@ function ArchiveOverlay({ onClose, onJump }: {
   const anchorW = isLg ? 54 : 42;
   const axisLeft = isLg ? 26 : 20;
   const nodeLeft = isLg ? -47 : -37;
+  const CONTENT_MAX = 760;           // PC 중앙 정렬 단일 컬럼 최대 폭(검색·필터·본문 공통 정렬)
+  const HM_CELL = 10;                // 히트맵 칸 크기 · 간격(1년 53주가 CONTENT_MAX 안에 들어오도록: 53*(10+2)=636)
+  const HM_GAP = 2;
 
   const hl = (s: string) => highlightText(s, query, markBg);
 
@@ -1772,8 +1775,9 @@ function ArchiveOverlay({ onClose, onJump }: {
         <span style={{ width: 72 }} />
       </div>
 
-      {/* 검색 + 필터 */}
-      <div className="px-4 lg:px-6 pt-3 pb-2 flex-shrink-0 space-y-2.5">
+      {/* 검색 + 필터 (본문과 같은 폭으로 중앙 정렬) */}
+      <div className="px-4 lg:px-6 pt-3 pb-2 flex-shrink-0">
+        <div className="mx-auto w-full space-y-2.5" style={{ maxWidth: CONTENT_MAX }}>
         <div className="flex items-center gap-2 rounded-xl px-3" style={{ backgroundColor: t.card, border: `1px solid ${t.borderLight}` }}>
           <Search size={16} style={{ color: t.textMuted, flexShrink: 0 }} />
           <input value={rawQuery} onChange={e => setRawQuery(e.target.value)} autoFocus
@@ -1804,11 +1808,12 @@ function ArchiveOverlay({ onClose, onJump }: {
             </select>
           )}
         </div>
+        </div>
       </div>
 
       {/* 결과 — 세로 타임라인 */}
       <div className="flex-1 overflow-y-auto px-4 lg:px-6 py-3">
-        <div className="mx-auto" style={{ maxWidth: 720 }}>
+        <div className="mx-auto" style={{ maxWidth: CONTENT_MAX }}>
           {/* ✨좋았던 순간 필터 시 상단 패턴뷰 */}
           {patternView}
 
@@ -1817,26 +1822,32 @@ function ArchiveOverlay({ onClose, onJump }: {
             <div className="rounded-2xl" style={{ backgroundColor: t.card, border: `1px solid ${t.borderLight}`, padding: 14, marginBottom: 6 }}>
               <div className="flex items-center justify-between" style={{ marginBottom: 11 }}>
                 <div className="flex items-center" style={{ gap: 6 }}>
-                  <button onClick={() => olderYear && goHeatmapYear(olderYear)} disabled={!olderYear}
-                    aria-label="이전 연도" style={{ ...periodStepperStyle(t, !olderYear), width: 24, height: 24 }}>
-                    <ChevronLeft size={15} />
-                  </button>
-                  <span style={{ fontSize: 13, fontWeight: 700, color: t.text, fontFamily: t.fontNumeric, minWidth: 46, textAlign: 'center' }}>
-                    {heatmap.targetYear}
+                  {/* 연도 ‹ › — 넘어갈 다른 연도가 있을 때만 노출(연도 하나뿐이면 죽은 버튼 대신 라벨만) */}
+                  {(olderYear || newerYear) && (
+                    <button onClick={() => olderYear && goHeatmapYear(olderYear)} disabled={!olderYear}
+                      aria-label="이전 연도" style={{ ...periodStepperStyle(t, !olderYear), width: 24, height: 24 }}>
+                      <ChevronLeft size={15} />
+                    </button>
+                  )}
+                  <span style={{ fontSize: 13, fontWeight: 700, color: t.text, fontFamily: t.fontNumeric }}>
+                    {heatmap.targetYear}년 기록
                   </span>
-                  <button onClick={() => newerYear && goHeatmapYear(newerYear)} disabled={!newerYear}
-                    aria-label="다음 연도" style={{ ...periodStepperStyle(t, !newerYear), width: 24, height: 24 }}>
-                    <ChevronRight size={15} />
-                  </button>
+                  {(olderYear || newerYear) && (
+                    <button onClick={() => newerYear && goHeatmapYear(newerYear)} disabled={!newerYear}
+                      aria-label="다음 연도" style={{ ...periodStepperStyle(t, !newerYear), width: 24, height: 24 }}>
+                      <ChevronRight size={15} />
+                    </button>
+                  )}
                 </div>
                 <span style={{ fontSize: 11, color: t.textMuted }}>
-                  <b style={{ fontFamily: t.fontNumeric, color: t.text, fontSize: 13 }}>{heatmap.yearCount}</b>건 기록
+                  <b style={{ fontFamily: t.fontNumeric, color: t.text, fontSize: 13 }}>{heatmap.yearCount}</b>건
                 </span>
               </div>
-              <div style={{ overflowX: 'auto', paddingBottom: 4 }}>
-                <div style={{ display: 'flex', gap: 3 }}>
+              {/* 1년치 격자 — CONTENT_MAX 안에 다 들어오게 칸을 작게(PC 가로 스크롤 없음). 좁은 모바일에서만 가로 스크롤. */}
+              <div style={{ overflowX: 'auto', paddingBottom: 2 }}>
+                <div style={{ display: 'flex', gap: HM_GAP, width: 'max-content' }}>
                   {heatmap.weeks.map((col, ci) => (
-                    <div key={ci} style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+                    <div key={ci} style={{ display: 'flex', flexDirection: 'column', gap: HM_GAP }}>
                       {col.map((cell, ri) => {
                         const clickable = cell.inYear && cell.count > 0;
                         const bg = !cell.inYear ? 'transparent'
@@ -1846,7 +1857,7 @@ function ArchiveOverlay({ onClose, onJump }: {
                           <button key={ri} disabled={!clickable}
                             onClick={() => dayRefs.current[cell.dstr]?.scrollIntoView({ behavior: 'smooth', block: 'center' })}
                             title={cell.inYear ? `${cell.dstr} · ${cell.count}건` : undefined}
-                            style={{ width: 11, height: 11, borderRadius: 3, backgroundColor: bg, border: 'none', padding: 0, cursor: clickable ? 'pointer' : 'default' }} />
+                            style={{ width: HM_CELL, height: HM_CELL, borderRadius: 2.5, backgroundColor: bg, border: 'none', padding: 0, cursor: clickable ? 'pointer' : 'default' }} />
                         );
                       })}
                     </div>
