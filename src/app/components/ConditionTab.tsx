@@ -12,7 +12,7 @@ import { db } from '../../lib/db';
 import { useRealtimeSync } from '../hooks/useRealtimeSync';
 import {
   getSymptomOptions, STRESS_LEVELS, normalizeSymptom, DEFAULT_SYMPTOMS,
-  CONDITION_LEVELS, CONDITION_SLOTS, autoConditionSlot, conditionLabel, type ConditionSlot,
+  CONDITION_LEVELS, CONDITION_SLOTS, autoConditionSlot, conditionLabel, conditionSlotRank, type ConditionSlot,
 } from '../../constants/symptoms';
 import { usePlanner, type ConditionRecord, type UserSymptom, getLogicalToday } from '../store';
 import ConfirmModal from './ConfirmModal';
@@ -234,21 +234,43 @@ export function ConditionTab() {
   const weekRecs = records.filter(r => r.date >= weekStart && r.date <= weekEnd);
   const monthRecs = records.filter(r => r.date.startsWith(monthPrefix));
 
-  // 스트레스가 null 인 기록(컨디션만 찍은 날)은 평균에서 제외 — 집계를 깨뜨리지 않는다.
-  const avg = (arr: ConditionRecord[]) => {
-    const vals = arr.map(r => r.stress).filter((v): v is number => v != null);
+  // 평균 헬퍼 — null(미입력) 값은 제외. 스트레스·컨디션 둘 다 이 규칙(집계를 깨뜨리지 않는다).
+  const avgOf = (arr: ConditionRecord[], pick: (r: ConditionRecord) => number | null) => {
+    const vals = arr.map(pick).filter((v): v is number => v != null);
     return vals.length ? (vals.reduce((s, v) => s + v, 0) / vals.length).toFixed(1) : '—';
   };
-  const weekAvg = avg(weekRecs);
-  const monthAvg = avg(monthRecs);
+  const weekCondAvg = avgOf(weekRecs, r => r.condition);   // 컨디션 평균(주) — 카드 headline
+  const weekStressAvg = avgOf(weekRecs, r => r.stress);    // 스트레스 평균(주) — 병기
+  const monthAvg = avgOf(monthRecs, r => r.stress);        // 스트레스 평균(월) — 히트맵 헤더
+  // 기록한 '날' 수(하루 여러 건이어도 1일) — 카드 라벨용
+  const weekRecordDays = new Set(weekRecs.map(r => r.date)).size;
 
-  // 선택된 주의 요일별 스트레스 (주 시작 요일 설정 반영)
+  // 그날 '마지막 상태' 컨디션 — 시점 순위(저녁>낮>아침>미상) 최상위 중 condition 있는 값.
+  //   (요일 셀 색·일간 카드가 같은 규칙: summaryForDate 와 동일 정신 — "그날의 현재 진실".)
+  const lastConditionByDate = (recs: ConditionRecord[]): Record<string, number> => {
+    const best: Record<string, { rank: number; cond: number }> = {};
+    recs.forEach(r => {
+      if (r.condition == null) return;
+      const rank = conditionSlotRank(r.slot);
+      const cur = best[r.date];
+      if (!cur || rank >= cur.rank) best[r.date] = { rank, cond: r.condition };
+    });
+    return Object.fromEntries(Object.entries(best).map(([d, v]) => [d, v.cond]));
+  };
+  // 그날 스트레스 평균 — 하루 여러 건이면 평균(마지막-값 덮어쓰기 방지). 히트맵·요일 툴팁용.
+  const stressAvgByDate = (recs: ConditionRecord[]): Record<string, number> => {
+    const acc: Record<string, { sum: number; n: number }> = {};
+    recs.forEach(r => { if (r.stress != null) { (acc[r.date] ??= { sum: 0, n: 0 }); acc[r.date].sum += r.stress; acc[r.date].n++; } });
+    return Object.fromEntries(Object.entries(acc).map(([d, v]) => [d, v.sum / v.n]));
+  };
+
+  // 선택된 주의 요일별 (주 시작 요일 설정 반영)
   const WEEK_LABELS = weekStartsOn === 1
     ? ['월', '화', '수', '목', '금', '토', '일']
     : ['일', '월', '화', '수', '목', '금', '토'];
   const weekDays = Array.from({ length: 7 }, (_, i) => format(addDays(weekStartDate, i), 'yyyy-MM-dd'));
-  const stressByDate: Record<string, number> = {};
-  weekRecs.forEach(r => { if (r.stress != null) stressByDate[r.date] = r.stress; });
+  const condByDateWeek = lastConditionByDate(weekRecs);    // 요일 셀 색 = 그날 마지막 상태 컨디션
+  const stressByDateWeek = stressAvgByDate(weekRecs);      // 요일 셀 툴팁 = 그날 스트레스 평균
   const weekRangeLabel = `${format(weekStartDate, 'M.d')} – ${format(weekEndDate, 'M.d')}`;
   const weekTitle = weekOffset === 0 ? '이번주' : weekOffset === -1 ? '지난주' : weekRangeLabel;
 
@@ -273,8 +295,10 @@ export function ConditionTab() {
     const monthStart = startOfMonth(today);
     const startDow = getDay(monthStart);
     const days = getDaysInMonth(today);
-    const byDate: Record<string, number> = {};
-    monthRecs.forEach(r => { if (r.stress != null) byDate[r.date] = r.stress; });
+    // 하루 여러 건 → 그날 스트레스 평균(마지막-값 덮어쓰기 방지)
+    const acc: Record<string, { sum: number; n: number }> = {};
+    monthRecs.forEach(r => { if (r.stress != null) { (acc[r.date] ??= { sum: 0, n: 0 }); acc[r.date].sum += r.stress; acc[r.date].n++; } });
+    const byDate: Record<string, number> = Object.fromEntries(Object.entries(acc).map(([d, v]) => [d, v.sum / v.n]));
     const cells: ({ day: number; dateStr: string; stress: number | null } | null)[] = [];
     for (let i = 0; i < startDow; i++) cells.push(null);
     for (let d = 1; d <= days; d++) {
@@ -490,7 +514,7 @@ export function ConditionTab() {
             <ChevronLeft size={16} />
           </button>
           <div className="text-center">
-            <p style={{ fontSize: 13, fontWeight: 700, color: t.text }}>{weekTitle} 평균 스트레스</p>
+            <p style={{ fontSize: 13, fontWeight: 700, color: t.text }}>{weekTitle} 컨디션</p>
             <p style={{ fontSize: 11, color: t.textMuted }}>{weekRangeLabel}</p>
           </div>
           <button onClick={() => setWeekOffset(o => Math.min(0, o + 1))} disabled={weekOffset >= 0}
@@ -503,31 +527,42 @@ export function ConditionTab() {
           </button>
         </div>
 
-        {/* 평균 */}
-        <div className="flex items-baseline justify-center gap-2 mb-3">
-          <span style={{ fontSize: 24, fontWeight: 700, color: t.text }}>{weekAvg}</span>
-          <span style={{ fontSize: 11, color: t.textMuted }}>· 기록 {weekRecs.length}일</span>
+        {/* 평균 — 컨디션(주축) headline + 스트레스 병기 */}
+        <div className="flex items-baseline justify-center gap-2 mb-1">
+          <span style={{ fontSize: 11, color: t.textMuted }}>컨디션</span>
+          <span style={{ fontSize: 24, fontWeight: 700, color: t.text }}>{weekCondAvg}</span>
+          <span style={{ fontSize: 11, color: t.textMuted }}>/ 4</span>
         </div>
+        <p className="text-center mb-3" style={{ fontSize: 11, color: t.textMuted }}>
+          스트레스 평균 {weekStressAvg} · 기록 {weekRecordDays}일
+        </p>
 
-        {/* 요일별 컨디션 셀 */}
+        {/* 요일별 컨디션 셀 — 그날 '마지막 상태' 컨디션 색. 컨디션 기록 없는 날은 중립 표면. */}
         <div className="grid grid-cols-7 gap-1">
           {weekDays.map((d, i) => {
-            const s = stressByDate[d] ?? null;
+            const cond = condByDateWeek[d] ?? null;
+            const st = stressByDateWeek[d] ?? null;
             const isToday = d === todayStr;
             const isSelected = selectedDate === d;
+            const cellColor = cond != null ? conditionLevelColor(t, cond) : null;
+            const tip = [
+              d,
+              cond != null ? `컨디션 ${conditionLabel(cond)}` : null,
+              st != null ? `스트레스 ${st.toFixed(st % 1 ? 1 : 0)}` : null,
+            ].filter(Boolean).join(' · ');
             return (
               <div key={d} className="flex flex-col items-center gap-1">
                 <span style={{ fontSize: 10, color: t.textMuted }}>{WEEK_LABELS[i]}</span>
                 <button onClick={() => toggleDate(d)} aria-pressed={isSelected}
                   className="w-full flex items-center justify-center rounded-lg aspect-square lg:aspect-auto lg:h-14"
                   style={{
-                    backgroundColor: s != null ? stressShade(s) : t.surfaceMuted,
-                    border: `1px solid ${isSelected ? t.danger : isToday ? t.accent : t.border}`,
+                    backgroundColor: cellColor ? mixHex(cellColor, 255, 0.30) : t.surfaceMuted,
+                    border: `1px solid ${isSelected ? t.danger : isToday ? t.accent : cellColor ?? t.border}`,
                     boxShadow: isSelected ? `0 0 0 2px ${t.danger}` : 'none',
                     cursor: 'pointer',
                   }}
-                  title={s != null ? `${d} · 스트레스 ${s}` : d}>
-                  <span style={{ fontSize: 11, fontWeight: 600, color: s != null && s >= 3 ? '#fff' : t.textMuted }}>
+                  title={tip}>
+                  <span style={{ fontSize: 11, fontWeight: 600, color: t.text }}>
                     {parseInt(d.slice(8), 10)}
                   </span>
                 </button>

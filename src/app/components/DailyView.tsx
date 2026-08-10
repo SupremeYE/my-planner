@@ -22,6 +22,7 @@ import { FocusModal } from './FocusModal';
 import { useFabAction } from '../FabContext';
 import { QuickAddInput } from './QuickAddInput';
 import { useDailySummary } from '../hooks/useDailySummary';
+import { conditionLabel } from '../../constants/symptoms';
 import { isEventPast, isVirtualEventId } from '../../api/events';
 import { expandRecurringTodos, isVirtualTodoId, parseVirtualTodoId } from '../../lib/recurrenceExpansion';
 import { shiftedEndDate } from '../../lib/todoSnooze';
@@ -563,7 +564,12 @@ function RecordChips({ date }: { date: string }) {
   const core: RecordChip[] = [
     {
       key: 'condition', icon: '🙂', name: '컨디션', to: '/health?tab=condition',
-      value: s.condition ? `스트레스 ${s.condition.stress ?? '-'}${s.condition.symptomCount ? ` · 증상 ${s.condition.symptomCount}` : ''}` : null,
+      // 그날 '마지막 상태'(시점 순위 저녁>낮>아침) 컨디션을 표시. 컨디션은 있는데 아직 없던 구 기록은 스트레스로 폴백.
+      value: s.condition
+        ? (s.condition.condition != null
+            ? `${conditionLabel(s.condition.condition)}${s.condition.slot ? ` · ${s.condition.slot}` : ''}${s.condition.count > 1 ? ` 외 ${s.condition.count - 1}` : ''}`
+            : (s.condition.stress != null ? `스트레스 ${s.condition.stress}` : '기록 있음'))
+        : null,
     },
     {
       key: 'food', icon: '🍽️', name: '식사', to: '/food',
