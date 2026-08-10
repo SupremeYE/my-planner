@@ -543,6 +543,36 @@ export function CalendarView() {
       : { date, doStart: start, doEnd: end });
   };
 
+  // Stage 4-2 역방향: 격자 PLAN/DO 블록을 종일 레인에 드롭 → 해당 필드 해제(레인으로 복귀).
+  //  · PLAN 블록 → plan_* 해제 · DO 블록 → do_*(+doElapsedSec) 해제. 반대 필드·날짜·기간은 보존.
+  //  · 반복 가상 인스턴스는 실체화(반대 필드 보존).
+  const handleBlockToAllDay = (todo: Todo, type: 'plan' | 'do') => {
+    if (isVirtualTodoId(todo.id)) {
+      const info = parseVirtualTodoId(todo.id);
+      if (info && todo.date) {
+        deleteRecurringTodo(info.parentId, info.instanceDate, 'this');
+        addTodo({
+          text: todo.text,
+          date: todo.date,
+          endDate: todo.endDate ?? undefined,
+          status: 'active',
+          isTop3: todo.isTop3,
+          planStart: type === 'plan' ? undefined : (todo.planStart || undefined),
+          planEnd: type === 'plan' ? undefined : (todo.planEnd || undefined),
+          doStart: type === 'do' ? undefined : (todo.doStart || undefined),
+          doEnd: type === 'do' ? undefined : (todo.doEnd || undefined),
+          tags: todo.tags,
+          projectId: todo.projectId,
+          weeklyGoalId: todo.weeklyGoalId,
+        });
+        return;
+      }
+    }
+    updateTodo(todo.id, type === 'plan'
+      ? { planStart: undefined, planEnd: undefined }
+      : { doStart: undefined, doEnd: undefined, doElapsedSec: undefined });
+  };
+
   const handleSelectDate = (dateStr: string) => {
     setSelectedDate(dateStr);
     setViewDate(parseISO(dateStr));
@@ -993,6 +1023,7 @@ export function CalendarView() {
                 onSelectDate={handleSelectDate}
                 onToday={handleToday}
                 onShowContextMenu={(todo) => setEditingTodo(todo)}
+                onBlockToAllDay={handleBlockToAllDay}
                 allDayLane={
                   <WeekAllDayLane
                     dates={weekDates}

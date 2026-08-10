@@ -252,7 +252,8 @@ export function WeekAllDayLane({ dates, items, timeColWidth, onEdit, onEmptyAdd,
   const onChipLostCapture = () => clearDrag();
 
   return (
-    <div style={{ borderTop: `1px solid ${t.borderLight}`, backgroundColor: t.surfaceMuted }}>
+    // data-allday-lane: 격자 블록을 레인 위로 드롭(4-2 역방향)할 때의 DOM 히트테스트 타깃.
+    <div data-allday-lane="1" style={{ borderTop: `1px solid ${t.borderLight}`, backgroundColor: t.surfaceMuted }}>
       {/* 상단: 라벨칸 + 항목 영역 */}
       <div
         style={{

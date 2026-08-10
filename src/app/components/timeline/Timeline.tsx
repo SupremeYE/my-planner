@@ -46,6 +46,8 @@ interface TimelineProps {
   onToday?: () => void;
   // 종일(all-day) 레인 — sticky 헤더의 날짜 행과 P/D 라벨 행 사이에 삽입(주간 전용, 미전달 시 없음)
   allDayLane?: React.ReactNode;
+  // 4-2 역방향: 격자의 PLAN/DO 블록을 종일 레인 위에 드롭하면 해당 필드 해제(주간 전용).
+  onBlockToAllDay?: (todo: Todo, type: 'plan' | 'do') => void;
   // ── 색상 오버라이드(옵션) — 일간 파스텔 테마 전용. 미전달 시 기존 하드코딩값 유지(캘린더 무영향) ──
   nowLineColor?: string;       // 현재 시각선 색 (기본 CURRENT_TIME_COLOR)
   defaultBlockBg?: string;     // 태그 없는 블록 배경 (기본 초록 계열)
@@ -57,7 +59,7 @@ interface TimelineProps {
 // 주간 그리드: 시간 레이블 폭 + (7일 × P/D 2컬럼)
 export const WEEK_TIME_COL = 44;
 
-export function Timeline({ days = 1, selectedDate, dateTodos, dateEvents, onShowContextMenu, className, weekDays, onSelectDate, onToday, allDayLane, nowLineColor = CURRENT_TIME_COLOR, defaultBlockBg, defaultBlockBorder, defaultBlockText, dayBoundLabel }: TimelineProps) {
+export function Timeline({ days = 1, selectedDate, dateTodos, dateEvents, onShowContextMenu, className, weekDays, onSelectDate, onToday, allDayLane, onBlockToAllDay, nowLineColor = CURRENT_TIME_COLOR, defaultBlockBg, defaultBlockBorder, defaultBlockText, dayBoundLabel }: TimelineProps) {
   const isWeek = days > 1 && !!weekDays;
   const {
     todos, timeBlocks, updateTodo, updateEvent, updateEventActual, updateTimeBlock, tags,
@@ -222,11 +224,25 @@ export function Timeline({ days = 1, selectedDate, dateTodos, dateEvents, onShow
     setDragPreview(preview);
   };
 
+  // (clientX,clientY) 아래에 종일 레인(data-allday-lane)이 있으면 true — 4-2 역방향 드롭 판정.
+  const isOverAllDayLane = (clientX: number, clientY: number): boolean => {
+    if (typeof document === 'undefined') return false;
+    return document.elementsFromPoint(clientX, clientY)
+      .some(el => el instanceof HTMLElement && el.dataset.alldayLane);
+  };
+
   const handleBlockPointerUp = (e: React.PointerEvent) => {
     const d = pointerDragRef.current;
     if (!d || e.pointerId !== d.pointerId) return;
     cancelBlockLongPress(d);
     const blk = (d.todo as DoBlockTodo)._blk;
+    // 4-2 역방향: PLAN/DO 블록을 종일 레인 위에 드롭 → 해당 필드 해제(레인으로 복귀).
+    // 시간 블록(_blk)은 제외(블록 삭제는 별도) — 현재 todo_time_blocks 0건이라 레거시 do_* 만 대상.
+    if (d.activated && d.moved && !blk && onBlockToAllDay && isOverAllDayLane(e.clientX, e.clientY)) {
+      onBlockToAllDay(d.todo, d.type);
+      clearBlockDrag(d);
+      return;
+    }
     if (d.activated && d.moved && d.preview) {
       const startStr = minutesToTime(d.preview.startMin);
       const endStr = minutesToTime(d.preview.endMin);
