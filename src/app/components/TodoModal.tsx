@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { format, getDay, parseISO } from 'date-fns';
 import { ko } from 'date-fns/locale';
-import { CalendarDays, CalendarPlus, RefreshCw, Star, Trash2, X } from 'lucide-react';
+import { CalendarDays, RefreshCw, Star, Trash2, X } from 'lucide-react';
 import { usePlanner, Todo, getLogicalToday } from '../store';
 import { useTheme } from '../ThemeContext';
 import ConfirmModal from './ConfirmModal';
@@ -51,8 +51,6 @@ export function TodoModal({ date, todo, initialPlanStart, initialPlanEnd, initia
   // 반복에서 분리된 단일 예외 레코드(이 날짜만의 일정) — 반복 주기 설정이 의미 없으므로 안내 배너만 표시
   const isDetachedException = !!todo?.recurrenceParentId;
 
-  const todayStr = getLogicalToday();
-
   const [modalDate, setModalDateRaw] = useState<string>(
     date ?? todo?.date ?? '',
   );
@@ -100,9 +98,6 @@ export function TodoModal({ date, todo, initialPlanStart, initialPlanEnd, initia
   // (마이그레이션으로 단일 날짜는 end_date=date 라 endDate===date 는 "기간 아님"으로 접는다.)
   const [endDate, setEndDate] = useState<string>(
     todo?.endDate && todo?.date && todo.endDate > todo.date ? todo.endDate : '',
-  );
-  const [rangeOpen, setRangeOpen] = useState<boolean>(
-    !!(todo?.endDate && todo?.date && todo.endDate > todo.date),
   );
 
   // 반복 일정 state
@@ -380,63 +375,18 @@ export function TodoModal({ date, todo, initialPlanStart, initialPlanEnd, initia
               <span style={{ fontSize: 12, color: t.text, fontWeight: 600 }}>날짜</span>
               <span style={{ fontSize: 11, color: t.textMuted }}>{dateLabel}</span>
             </div>
-            <div className="flex items-center gap-2">
-              <div className="flex-1">
-                <DateField value={effectiveDate} onChange={setModalDate} clearable={false} size="md" ariaLabel="시작 날짜" placeholder="날짜 선택" />
-              </div>
-              <button
-                type="button"
-                onClick={() => setModalDate(todayStr)}
-                className="px-3 py-2 rounded-lg"
-                style={{ fontSize: 11, fontWeight: 600, color: t.accent, backgroundColor: t.accentLight }}
-              >
-                오늘
-              </button>
-              <button
-                type="button"
-                onClick={() => setModalDate('')}
-                className="px-3 py-2 rounded-lg"
-                style={{ fontSize: 11, fontWeight: 600, color: t.textSub, backgroundColor: inputBg(t), boxShadow: `inset 0 0 0 1px ${t.border}` }}
-              >
-                미지정
-              </button>
-              {/* 종료일 추가 — 필드 존재로 단일/기간을 드러낸다(라벨 토글 아님, DESIGN §5 날짜 입력) */}
-              {effectiveDate && !recurrenceRule && !rangeOpen && (
-                <button
-                  type="button"
-                  aria-label="종료일 추가"
-                  title="종료일 추가 (여러 날)"
-                  onClick={() => { setRangeOpen(true); setEndDate(effectiveDate); }}
-                  className="p-2 rounded-lg flex-shrink-0"
-                  style={{ color: t.accent, backgroundColor: t.accentLight }}
-                >
-                  <CalendarPlus size={16} />
-                </button>
-              )}
-            </div>
-
-            {/* 종료일 필드 — 존재 = 기간, X 로 제거 = 단일 복귀. 반복과 상호배타. */}
-            {effectiveDate && !recurrenceRule && rangeOpen && (
-              <div className="flex items-center gap-2 mt-2">
-                <span style={{ fontSize: 11, color: t.textSub, fontWeight: 600, whiteSpace: 'nowrap' }}>종료일</span>
-                <div className="flex-1">
-                  <DateField
-                    value={endDate}
-                    min={effectiveDate}
-                    onChange={v => { setEndDate(v); if (v) setRecurrenceRule(undefined); }}
-                    clearable={false}
-                    ariaLabel="종료 날짜"
-                    placeholder="종료일 선택"
-                  />
-                </div>
-                <button type="button" aria-label="종료일 제거 (단일 날짜)" title="단일 날짜로"
-                  onClick={() => { setRangeOpen(false); setEndDate(''); }}
-                  className="p-2 rounded-lg flex-shrink-0"
-                  style={{ color: t.textMuted, backgroundColor: inputBg(t), boxShadow: `inset 0 0 0 1px ${t.border}` }}>
-                  <X size={14} />
-                </button>
-              </div>
-            )}
+            {/* 날짜 — 필드 하나로 단일/기간 모두 처리(DESIGN §5). 빠른선택(오늘/내일/주말/없음)과
+                "기간으로" 토글은 팝오버 안(PC)·조건부 종료 필드(모바일)로. 반복과 상호배타. */}
+            <DateField
+              value={effectiveDate}
+              onChange={setModalDate}
+              range={!recurrenceRule}
+              endValue={endDate}
+              onEndChange={v => { setEndDate(v); if (v) setRecurrenceRule(undefined); }}
+              size="md"
+              ariaLabel="날짜"
+              placeholder="날짜 선택"
+            />
           </div>
 
           {/* 할일 텍스트 */}
