@@ -28,7 +28,7 @@ import ConfirmModal from './ConfirmModal';
 import { RecurrenceBranchModal } from './RecurrenceBranchModal';
 import { useFabAction } from '../FabContext';
 import { Timeline, WEEK_TIME_COL } from './timeline/Timeline';
-import { WeekAllDayLane, AllDayItemInput } from './timeline/WeekAllDayLane';
+import { WeekAllDayLane, AllDayItemInput, GridDropTarget } from './timeline/WeekAllDayLane';
 import { glassBarStyle, solidCardStyle, mixHex } from '../styles/haonStyles';
 
 type TabType = 'month' | 'week';
@@ -510,6 +510,39 @@ export function CalendarView() {
     updateTodo(raw.id, { date: newDate, ...(raw.endDate ? { endDate: newEnd } : {}) });
   };
 
+  // Stage 4-2: 종일 레인 칩을 시간 격자 P/D 슬롯에 드롭 → 계획/실적 시각 부여.
+  //  · P 슬롯 → plan_start/plan_end · D 슬롯 → do_start/do_end(doElapsedSec 미설정 → 블록 길이 = 실적)
+  //  · date 는 드롭한 요일로 이동. 반복 가상 인스턴스는 실체화(반대 필드·기간은 보존).
+  //  · DO 드롭은 완료 없이 실적을 기록 → useTimeReport 가 완료 무관하게 집계(주간 리뷰 시간 스트립 반영).
+  //    ⚠️ Philosophy B: 이후 완료→완료취소 하면 do_* 가 삭제됨(현행 유지 결정). 편집 모달로 재기록 가능.
+  const handleAllDayDropToGrid = (raw: Todo, target: GridDropTarget) => {
+    const { date, lane, start, end } = target;
+    if (isVirtualTodoId(raw.id)) {
+      const info = parseVirtualTodoId(raw.id);
+      if (info) {
+        deleteRecurringTodo(info.parentId, info.instanceDate, 'this');
+        addTodo({
+          text: raw.text,
+          date,
+          endDate: raw.endDate ?? undefined,
+          status: 'active',
+          isTop3: raw.isTop3,
+          planStart: lane === 'plan' ? start : (raw.planStart || undefined),
+          planEnd: lane === 'plan' ? end : (raw.planEnd || undefined),
+          doStart: lane === 'do' ? start : (raw.doStart || undefined),
+          doEnd: lane === 'do' ? end : (raw.doEnd || undefined),
+          tags: raw.tags,
+          projectId: raw.projectId,
+          weeklyGoalId: raw.weeklyGoalId,
+        });
+        return;
+      }
+    }
+    updateTodo(raw.id, lane === 'plan'
+      ? { date, planStart: start, planEnd: end }
+      : { date, doStart: start, doEnd: end });
+  };
+
   const handleSelectDate = (dateStr: string) => {
     setSelectedDate(dateStr);
     setViewDate(parseISO(dateStr));
@@ -968,6 +1001,7 @@ export function CalendarView() {
                     onEdit={handleAllDayEdit}
                     onEmptyAdd={handleAllDayAdd}
                     onMoveDate={handleAllDayMoveDate}
+                    onDropToGrid={handleAllDayDropToGrid}
                   />
                 }
               />

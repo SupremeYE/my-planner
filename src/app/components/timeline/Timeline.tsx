@@ -1531,8 +1531,9 @@ export function Timeline({ days = 1, selectedDate, dateTodos, dateEvents, onShow
                 return (
                   <div key={wd.date} style={{ gridColumn: 'span 2', position: 'relative', borderLeft: dayIdx > 0 ? `1px solid ${t.borderLight}` : 'none' }}>
                     <div style={{ position: 'absolute', inset: 0, display: 'grid', gridTemplateColumns: '1fr 1fr' }}>
-                      {/* PLAN 슬롯 */}
+                      {/* PLAN 슬롯 — data-* 는 종일 레인 드롭(4-2)의 DOM 히트테스트용. 슬롯 top=tlStartHour 기준. */}
                       <div style={{ position: 'relative', borderRight: '1px dashed #C8D8F0' }}
+                        data-week-slot="plan" data-week-date={wd.date} data-start-hour={tlStartHour} data-end-hour={tlEndHour}
                         onPointerDown={e => handleWeekCreateDown(e, wd.date, 'plan')}
                         onPointerMove={handleWeekCreateMove}
                         onPointerUp={handleWeekCreateUp}>
@@ -1541,6 +1542,7 @@ export function Timeline({ days = 1, selectedDate, dateTodos, dateEvents, onShow
                       </div>
                       {/* DO 슬롯 (수면 = 탭 편집) */}
                       <div style={{ position: 'relative' }}
+                        data-week-slot="do" data-week-date={wd.date} data-start-hour={tlStartHour} data-end-hour={tlEndHour}
                         onPointerDown={e => handleWeekCreateDown(e, wd.date, 'do')}
                         onPointerMove={handleWeekCreateMove}
                         onPointerUp={handleWeekCreateUp}>
