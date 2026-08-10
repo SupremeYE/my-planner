@@ -47,6 +47,8 @@ const ALL_ROUTES = [
     ],
   },
   { slug: 'goals', path: '/goals' },
+  // 컨디션 재설계(condition·slot 축) 검증 — 통계 카드·요일 셀·기록 리스트를 시드로 렌더.
+  { slug: 'health-condition', path: '/health?tab=condition' },
 ];
 
 const VIEWPORTS = [
@@ -277,6 +279,20 @@ async function main() {
         };
 
         await doShot(null);
+        if (route.slug === 'health-condition') {
+          // 통계 카드 아래 '기록 리스트'(컨디션·시점 뱃지)까지 담기 위해 스크롤 컨테이너를 끝까지 내린다.
+          await page.evaluate(() => {
+            for (const el of document.querySelectorAll('*')) {
+              const cs = getComputedStyle(el);
+              if (/(auto|scroll)/.test(cs.overflowY) && el.scrollHeight > el.clientHeight + 4) {
+                el.scrollTop = el.scrollHeight;
+              }
+            }
+            (document.scrollingElement || document.documentElement).scrollTop = 1e6;
+          });
+          await page.waitForTimeout(500);
+          await doShot('list');
+        }
         for (const sub of route.subs || []) {
           const ok = await tryClickText(page, sub.text);
           if (ok) { await doShot(sub.name); }

@@ -195,6 +195,19 @@ const SEED: Record<string, any> = {
   periodRecords: [],
   habitMonthlyMemos: [],
   foodRecords: [],
+  userSymptoms: [],
+  // 컨디션 재설계 검증 시드 — 하루 여러 건/컨디션만/구 기록(null) 시나리오를 모두 담는다.
+  conditionRecords: [
+    // 오늘: 아침 좋음(스트레스 낮음) → 저녁 나쁨(스트레스 높음). "아침엔 괜찮았는데 저녁에 무너졌다".
+    { id: 'c1', date: iso(shift(0)), slot: '아침', condition: 3, stress: 2, symptoms: [], memo: '아침엔 괜찮았다' },
+    { id: 'c2', date: iso(shift(0)), slot: '저녁', condition: 1, stress: 5, symptoms: ['두통', '피로'], memo: '저녁에 무너짐' },
+    // 어제: 컨디션만(스트레스 없이) 저장.
+    { id: 'c3', date: iso(shift(-1)), slot: '낮', condition: 4, stress: null, symptoms: [], memo: '컨디션만 기록' },
+    // 그제: 보통.
+    { id: 'c4', date: iso(shift(-2)), slot: '아침', condition: 2, stress: 3, symptoms: ['졸림'], memo: null },
+    // 구 기록(재설계 전): condition·slot = null, 스트레스만 → "컨디션 기록 없음"으로 표시돼야 함.
+    { id: 'c5', date: iso(shift(-3)), slot: null, condition: null, stress: 4, symptoms: ['소화불량'], memo: '예전 기록' },
+  ],
 };
 
 // ── namespace 프록시 ─────────────────────────────────────────────────────────
