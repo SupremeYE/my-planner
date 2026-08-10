@@ -255,3 +255,13 @@
   background-color: rgba(46, 42, 91, 0.04) !important;
   border-color: rgba(46, 42, 91, 0.22) !important;
 }
+
+/* 주별 종일 레인 — 펼침 시 PC(lg:)에서만 max-height + 내부 스크롤로 시간 격자를 보호한다.
+   모바일은 고정 높이·flex 잠금을 쓰지 않는다(과거 상세패널 높이 예산 붕괴 회귀 방지) → 자연 높이. */
+@media (min-width: 1024px) {
+  .lane-expanded-scroll {
+    max-height: 168px;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+  }
+}

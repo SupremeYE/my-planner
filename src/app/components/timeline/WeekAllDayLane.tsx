@@ -12,7 +12,11 @@ import { useTheme } from '../../ThemeContext';
 //  · 완료 → 배경 불변(체크 + 취소선 + 뮤트, DESIGN §5 등록 규칙)
 //  · 늦음(미완료 + 종료일 지남) → t.warning 마커
 // 레이아웃: 좌측 "종일" 라벨칸(시간 레이블 폭과 정렬) + 우측 dayCount 컬럼 중첩 그리드.
-// variant='week'(7일 가로 막대) / 'day'(모바일 선택일 1칸 — 막대는 칩으로 축약).
+//
+// 높이 계약(중요): 접힘(기본)은 항상 최대 3줄(2줄 항목 + '+N 더보기' 토글 줄)로 고정한다 —
+// 레인이 시간 격자를 밀어내지 못하게 하는 핵심 보호장치. 펼침은 전부 표시하되 PC(lg:)에서만
+// maxHeight + 내부 스크롤로 격자를 지킨다. 모바일은 고정 높이·flex 잠금을 쓰지 않고 자연 높이
+// (펼침은 사용자가 명시적으로 연 것 → 허용). 빈 레인은 최소 한 줄 높이만 차지.
 
 /** 레인에 넣을 정규화된 항목(할일/이벤트 공용). geometry(컬럼 인덱스)는 레인 내부에서 계산. */
 export interface AllDayItemInput {
@@ -41,12 +45,14 @@ interface WeekAllDayLaneProps {
   onEmptyAdd: (date: string) => void;
 }
 
-const ROW_H = 20;         // 한 줄(막대) 높이
+const ROW_H = 20;              // 한 줄(막대) 높이
 const ROW_GAP = 3;
-const MAX_ROWS = 3;       // 접힘 상태 최대 표시 줄 수 (넘치면 마지막 줄을 +N 로)
+const COLLAPSED_LINES = 3;     // 접힘 상태 최대 표시 줄(항목+토글 포함) — 격자 보호 상한
+// 펼침 시 PC(lg:) 레인 콘텐츠 max-height + 내부 스크롤은 haon.css `.lane-expanded-scroll`(lg: 한정).
 
 export function WeekAllDayLane({ dates, items, timeColWidth, onEdit, onEmptyAdd }: WeekAllDayLaneProps) {
   const { t } = useTheme();
+  // 세션 내 유지(컴포넌트가 마운트 유지되므로 주 이동에도 상태 보존)
   const [expanded, setExpanded] = useState(false);
   const dayCount = dates.length;
   const winStart = dates[0];
@@ -82,134 +88,100 @@ export function WeekAllDayLane({ dates, items, timeColWidth, onEdit, onEmptyAdd 
     return r;
   }, [placed]);
 
-  // 접힘: MAX_ROWS 초과 시 마지막 표시 줄을 +N 요약으로. 펼침: 전부 표시.
-  const overflowing = rows.length > MAX_ROWS && !expanded;
-  const visibleRows = overflowing ? rows.slice(0, MAX_ROWS - 1) : rows;
-  const overflowRows = overflowing ? rows.slice(MAX_ROWS - 1) : [];
+  // 접힘: COLLAPSED_LINES 초과 시 (LINES-1)줄만 보이고 마지막 줄은 '+N 더보기' 토글.
+  // 펼침: 전부 표시 + '접기'. 토글은 항상 보이며(양방향) 칩과 겹치지 않는 별도 하단 바.
+  const hasOverflow = rows.length > COLLAPSED_LINES;
+  const visibleRows = expanded || !hasOverflow ? rows : rows.slice(0, COLLAPSED_LINES - 1);
+  const hiddenCount = hasOverflow && !expanded
+    ? rows.slice(COLLAPSED_LINES - 1).reduce((s, r) => s + r.length, 0)
+    : 0;
 
-  // 컬럼별 넘침 개수 (숨겨진 행에서 그 날짜를 덮는 항목 수)
-  const overflowByCol = useMemo(() => {
-    const counts = new Array(dayCount).fill(0);
-    for (const row of overflowRows) {
-      for (const it of row) {
-        for (let c = it.startIdx; c <= it.endIdx; c++) counts[c]++;
-      }
-    }
-    return counts;
-  }, [overflowRows, dayCount]);
-
-  const gridRows = visibleRows.length + (overflowing ? 1 : 0);
-  const bodyHeight = Math.max(gridRows, 1) * ROW_H + Math.max(gridRows - 1, 0) * ROW_GAP;
+  const contentRows = Math.max(visibleRows.length, 1);
+  const contentHeight = contentRows * ROW_H + Math.max(contentRows - 1, 0) * ROW_GAP;
 
   return (
-    <div
-      style={{
-        display: 'grid',
-        gridTemplateColumns: `${timeColWidth}px repeat(${dayCount}, minmax(0, 1fr))`,
-        alignItems: 'stretch',
-        borderTop: `1px solid ${t.borderLight}`,
-        backgroundColor: t.surfaceMuted,
-      }}
-    >
-      {/* 좌측 "종일" 라벨칸 */}
+    <div style={{ borderTop: `1px solid ${t.borderLight}`, backgroundColor: t.surfaceMuted }}>
+      {/* 상단: 라벨칸 + 항목 영역 */}
       <div
         style={{
-          gridColumn: 1,
-          display: 'flex', alignItems: 'flex-start', justifyContent: 'flex-end',
-          padding: '4px 8px 4px 0',
-          fontSize: 9, fontWeight: 700, color: t.textMuted,
-          letterSpacing: '0.02em',
+          display: 'grid',
+          gridTemplateColumns: `${timeColWidth}px repeat(${dayCount}, minmax(0, 1fr))`,
+          alignItems: 'stretch',
         }}
       >
-        종일
-      </div>
-
-      {/* 우측 항목 영역 — dayCount 컬럼 중첩 그리드 */}
-      <div style={{ gridColumn: `2 / -1`, position: 'relative', padding: '4px 0' }}>
-        {/* 빈 칸 클릭 → 그 날짜로 할일 추가 (항목 아래 배경 레이어) */}
+        {/* 좌측 "종일" 라벨칸 */}
         <div
           style={{
-            position: 'absolute', inset: 0,
-            display: 'grid', gridTemplateColumns: `repeat(${dayCount}, minmax(0, 1fr))`,
+            gridColumn: 1,
+            display: 'flex', alignItems: 'flex-start', justifyContent: 'flex-end',
+            padding: '4px 8px 4px 0',
+            fontSize: 9, fontWeight: 700, color: t.textMuted, letterSpacing: '0.02em',
           }}
         >
-          {dates.map((d, i) => (
-            <button
-              key={d}
-              type="button"
-              aria-label={`${d} 할일 추가`}
-              onClick={() => onEmptyAdd(d)}
-              style={{
-                borderLeft: i > 0 ? `1px solid ${t.borderLight}` : 'none',
-                background: 'transparent', cursor: 'pointer',
-              }}
-            />
-          ))}
+          종일
         </div>
 
-        {/* 항목 그리드 */}
-        <div
-          style={{
-            position: 'relative',
-            display: 'grid',
-            gridTemplateColumns: `repeat(${dayCount}, minmax(0, 1fr))`,
-            gridAutoRows: `${ROW_H}px`,
-            rowGap: ROW_GAP,
-            minHeight: bodyHeight,
-            pointerEvents: 'none', // 칩만 개별적으로 pointerEvents 복구
-          }}
-        >
-          {visibleRows.map((row, ri) =>
-            row.map(it => (
-              <LaneChip
-                key={it.id}
-                item={it}
-                row={ri + 1}
-                onEdit={onEdit}
-              />
-            )),
-          )}
-          {/* +N 넘침 줄 */}
-          {overflowing && overflowByCol.map((n, c) =>
-            n > 0 ? (
-              <button
-                key={`ov-${c}`}
-                type="button"
-                onClick={() => setExpanded(true)}
-                title="모두 보기"
-                style={{
-                  gridColumn: `${c + 1} / ${c + 2}`,
-                  gridRow: visibleRows.length + 1,
-                  pointerEvents: 'auto',
-                  margin: '0 2px',
-                  borderRadius: 6,
-                  background: 'transparent',
-                  fontSize: 9, fontWeight: 700, color: t.textMuted,
-                  textAlign: 'left', paddingLeft: 4, cursor: 'pointer',
-                  overflow: 'hidden', whiteSpace: 'nowrap',
-                }}
-              >
-                +{n}
-              </button>
-            ) : null,
-          )}
-        </div>
-
-        {/* 펼침 상태 → 접기 버튼 */}
-        {expanded && rows.length > MAX_ROWS && (
-          <button
-            type="button"
-            onClick={() => setExpanded(false)}
+        {/* 우측 항목 영역 — dayCount 컬럼 중첩 그리드 */}
+        <div style={{ gridColumn: `2 / -1`, position: 'relative', padding: '4px 0' }}>
+          {/* 빈 칸 클릭 → 그 날짜로 할일 추가 (항목 아래 배경 레이어) */}
+          <div
             style={{
-              position: 'absolute', top: 2, right: 4, zIndex: 2,
-              fontSize: 9, fontWeight: 700, color: t.textMuted,
-              background: 'transparent', cursor: 'pointer',
+              position: 'absolute', inset: 0,
+              display: 'grid', gridTemplateColumns: `repeat(${dayCount}, minmax(0, 1fr))`,
             }}
           >
-            접기
-          </button>
-        )}
+            {dates.map((d, i) => (
+              <button
+                key={d}
+                type="button"
+                aria-label={`${d} 할일 추가`}
+                onClick={() => onEmptyAdd(d)}
+                style={{
+                  borderLeft: i > 0 ? `1px solid ${t.borderLight}` : 'none',
+                  background: 'transparent', cursor: 'pointer',
+                }}
+              />
+            ))}
+          </div>
+
+          {/* 항목 그리드 — 펼침 시 PC(lg:)만 maxHeight+스크롤로 격자 보호(lane-scroll 클래스) */}
+          <div
+            className={expanded ? 'lane-expanded-scroll' : undefined}
+            style={{
+              position: 'relative',
+              display: 'grid',
+              gridTemplateColumns: `repeat(${dayCount}, minmax(0, 1fr))`,
+              gridAutoRows: `${ROW_H}px`,
+              rowGap: ROW_GAP,
+              minHeight: contentHeight,
+              pointerEvents: 'none', // 칩만 개별적으로 pointerEvents 복구
+            }}
+          >
+            {visibleRows.map((row, ri) =>
+              row.map(it => (
+                <LaneChip key={it.id} item={it} row={ri + 1} onEdit={onEdit} />
+              )),
+            )}
+          </div>
+        </div>
       </div>
+
+      {/* 토글 바 — 항목 영역 아래 전폭(라벨칸만큼 들여쓰기). 오버플로 있을 때만. 양방향. */}
+      {hasOverflow && (
+        <button
+          type="button"
+          onClick={() => setExpanded(v => !v)}
+          style={{
+            display: 'block', width: '100%', textAlign: 'left',
+            paddingLeft: timeColWidth + 6, paddingRight: 8,
+            paddingTop: 2, paddingBottom: 3,
+            fontSize: 9, fontWeight: 700, color: t.textMuted,
+            background: 'transparent', cursor: 'pointer',
+          }}
+        >
+          {expanded ? '접기' : `+${hiddenCount} 더보기`}
+        </button>
+      )}
     </div>
   );
 }
@@ -223,7 +195,6 @@ function LaneChip({ item, row, onEdit }: {
   const isTodo = item.kind === 'todo';
   const fill = isTodo ? 'var(--cat-todo-fill)' : 'var(--cat-schedule-fill)';
   const dot = isTodo ? 'var(--cat-todo-dot)' : 'var(--cat-schedule-dot)';
-  const isSpan = item.endIdx > item.startIdx;
 
   return (
     <button
@@ -252,7 +223,7 @@ function LaneChip({ item, row, onEdit }: {
     >
       {/* 왼쪽 잘림 화살표 */}
       {item.clipStart && <span style={{ fontSize: 10, color: t.text, flexShrink: 0, lineHeight: 1 }}>‹</span>}
-      {/* 할일=체크 동그라미 / 이벤트=dot. 늦음이면 warning dot 우선 */}
+      {/* 할일=체크 동그라미 / 이벤트=dot. 늦음이면 warning 색 테두리 우선 */}
       {isTodo ? (
         <span
           aria-hidden
