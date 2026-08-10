@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react';
 import { Check } from 'lucide-react';
 import type { Todo, Event } from '../../store';
 import { useTheme } from '../../ThemeContext';
+import { mixHex } from '../../styles/haonStyles';
 
 // ─── 주별 캘린더 종일(All-day) 레인 ───
 // 시간 격자 "밖"에 두는 별도 레인. 시각 없는 항목(대부분의 할일)과 종일 이벤트,
@@ -11,6 +12,7 @@ import { useTheme } from '../../ThemeContext';
 //  · 주 경계를 넘는 기간 → 잘린 쪽에 ‹ / › 화살표
 //  · 완료 → 배경 불변(체크 + 취소선 + 뮤트, DESIGN §5 등록 규칙)
 //  · 늦음(미완료 + 종료일 지남) → t.warning 마커
+//  · 색 = 태그 색(첫 태그, tag.color) 우선 → 없으면 카테고리 색(--cat-todo/--cat-schedule) 폴백
 // 레이아웃: 좌측 "종일" 라벨칸(시간 레이블 폭과 정렬) + 우측 dayCount 컬럼 중첩 그리드.
 //
 // 높이 계약(중요): 접힘(기본)은 항상 최대 3줄(2줄 항목 + '+N 더보기' 토글 줄)로 고정한다 —
@@ -27,6 +29,7 @@ export interface AllDayItemInput {
   endDate: string;        // yyyy-MM-dd (기간 종료 = todo.endDate ?? date)
   done: boolean;
   late: boolean;
+  color?: string;         // 태그 색(첫 태그). 없으면 undefined → 카테고리 색 폴백
   raw: Todo | Event;
 }
 
@@ -193,8 +196,19 @@ function LaneChip({ item, row, onEdit }: {
 }) {
   const { t } = useTheme();
   const isTodo = item.kind === 'todo';
-  const fill = isTodo ? 'var(--cat-todo-fill)' : 'var(--cat-schedule-fill)';
-  const dot = isTodo ? 'var(--cat-todo-dot)' : 'var(--cat-schedule-dot)';
+  // 색: 태그 색(첫 태그) 우선 → 없으면 카테고리 색 폴백. dot 은 정확한 tag.color(시간 스트립과 동일 색 인식).
+  let fill: string;
+  let dot: string;
+  if (item.color) {
+    fill = mixHex(item.color, 255, 0.72); // 채도 낮춘 파스텔 채움(가독) + 정확 색 dot
+    dot = item.color;
+  } else if (isTodo) {
+    fill = 'var(--cat-todo-fill)';
+    dot = 'var(--cat-todo-dot)';
+  } else {
+    fill = 'var(--cat-schedule-fill)';
+    dot = 'var(--cat-schedule-dot)';
+  }
 
   return (
     <button
