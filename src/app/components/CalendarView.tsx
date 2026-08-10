@@ -433,6 +433,9 @@ export function CalendarView() {
         // 시간 지정 단일 할일은 격자에 있으니 레인 제외(기간 할일은 항상 포함)
         if (!multiDay && td.planStart && td.planEnd) continue;
         if (end < winStart || td.date > winEnd) continue; // 창 밖
+        // 색: 첫 태그 색(대표) — 없으면 undefined → 레인이 카테고리색 폴백.
+        // 첫 태그 기준은 앱 관례(renderTodoCard·리뷰 시간 스트립과 동일한 tag.color 정체성).
+        const tagColor = td.tags?.length ? tags.find(tg => tg.id === td.tags![0])?.color : undefined;
         items.push({
           id: td.id,
           kind: 'todo',
@@ -441,6 +444,7 @@ export function CalendarView() {
           endDate: end,
           done: td.status === 'done',
           late: isTodoLate(td, todayStr),
+          color: tagColor,
           raw: td,
         });
       }
@@ -466,7 +470,7 @@ export function CalendarView() {
       }
     }
     return items;
-  }, [weekDates, filter, selectedTagIds, todos, events, todayStr]);
+  }, [weekDates, filter, selectedTagIds, todos, events, tags, todayStr]);
 
   const handleAllDayEdit = (raw: Todo | Event, kind: 'todo' | 'event') => {
     if (kind === 'todo') setEditingTodo(raw as Todo);
