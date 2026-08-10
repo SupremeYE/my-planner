@@ -482,6 +482,34 @@ export function CalendarView() {
     setShowAddTodoModal(true);
   };
 
+  // Stage 4-1: 종일 레인 날짜 이동 — deltaDays 만큼 date·endDate 동시 이동(기간 보존).
+  // 반복 가상 인스턴스는 스누즈와 동일하게 그 회차만 취소 후 단일 할일로 실체화해 이동한다.
+  const handleAllDayMoveDate = (raw: Todo, deltaDays: number) => {
+    if (deltaDays === 0 || !raw.date) return;
+    const newDate = format(addDays(parseISO(raw.date), deltaDays), 'yyyy-MM-dd');
+    const newEnd = raw.endDate ? format(addDays(parseISO(raw.endDate), deltaDays), 'yyyy-MM-dd') : undefined;
+    if (isVirtualTodoId(raw.id)) {
+      const info = parseVirtualTodoId(raw.id);
+      if (info) {
+        deleteRecurringTodo(info.parentId, info.instanceDate, 'this');
+        addTodo({
+          text: raw.text,
+          date: newDate,
+          endDate: newEnd,
+          status: 'active',
+          isTop3: raw.isTop3,
+          planStart: raw.planStart || undefined,
+          planEnd: raw.planEnd || undefined,
+          tags: raw.tags,
+          projectId: raw.projectId,
+          weeklyGoalId: raw.weeklyGoalId,
+        });
+        return;
+      }
+    }
+    updateTodo(raw.id, { date: newDate, ...(raw.endDate ? { endDate: newEnd } : {}) });
+  };
+
   const handleSelectDate = (dateStr: string) => {
     setSelectedDate(dateStr);
     setViewDate(parseISO(dateStr));
@@ -901,7 +929,8 @@ export function CalendarView() {
                   );
                 })}
               </div>
-              {/* 모바일 종일 레인 — 선택일 1칸(자연 높이, 고정 높이·flex 잠금 금지) */}
+              {/* 모바일 종일 레인 — 선택일 1칸(자연 높이, 고정 높이·flex 잠금 금지).
+                  sublabel = 선택 요일 → "종일" 아래 코랄 표기로 상단 요일 탭과 연결 명확화. */}
               <div className="flex-shrink-0">
                 <WeekAllDayLane
                   dates={[selectedDate]}
@@ -909,6 +938,7 @@ export function CalendarView() {
                   timeColWidth={WEEK_TIME_COL}
                   onEdit={handleAllDayEdit}
                   onEmptyAdd={handleAllDayAdd}
+                  sublabel={format(parseISO(selectedDate), 'E', { locale: ko })}
                 />
               </div>
               <Timeline
@@ -937,6 +967,7 @@ export function CalendarView() {
                     timeColWidth={WEEK_TIME_COL}
                     onEdit={handleAllDayEdit}
                     onEmptyAdd={handleAllDayAdd}
+                    onMoveDate={handleAllDayMoveDate}
                   />
                 }
               />
