@@ -481,15 +481,24 @@ function MonthSpanBar({ span, pos, onOpen }: {
         pointerEvents: 'auto',
         display: 'flex', alignItems: 'center', gap: 4,
         minWidth: 0, height: MONTH_BAR_H,
-        margin: '0 2px', padding: '0 6px',
+        // 주 경계로 잘린 쪽은 셀 끝에 딱 붙임(연속감), 안 잘린 쪽만 여백
+        marginLeft: pos.clipStart ? 0 : 2,
+        marginRight: pos.clipEnd ? 0 : 2,
+        padding: '0 6px',
         // 완료여도 배경 그대로 — 완료는 체크/취소선/뮤트로만 표현(DESIGN §5)
         backgroundColor: fill,
-        borderRadius: 6,
+        // 주 경계 잘림: 잘린 쪽 모서리를 평평하게(다음/이전 주로 이어짐 신호)
+        borderTopLeftRadius: pos.clipStart ? 0 : 6,
+        borderBottomLeftRadius: pos.clipStart ? 0 : 6,
+        borderTopRightRadius: pos.clipEnd ? 0 : 6,
+        borderBottomRightRadius: pos.clipEnd ? 0 : 6,
         textAlign: 'left', cursor: 'pointer',
         opacity: span.done ? 0.7 : 1,
         overflow: 'hidden',
       }}
     >
+      {/* 왼쪽 잘림: 이전 주/달에서 이어짐 → ‹ */}
+      {pos.clipStart && <span aria-hidden style={{ fontSize: 11, color: t.text, flexShrink: 0, lineHeight: 1 }}>‹</span>}
       {/* 할일=체크 동그라미 / 이벤트=dot. 늦음(미완료)은 warning 테두리 */}
       {isTodo ? (
         <span
@@ -520,6 +529,10 @@ function MonthSpanBar({ span, pos, onOpen }: {
       </span>
       {span.late && !span.done && (
         <span style={{ fontSize: 8, fontWeight: 800, color: t.warning, flexShrink: 0, letterSpacing: '0.02em' }}>늦음</span>
+      )}
+      {/* 오른쪽 잘림: 다음 주/달로 이어짐 → › */}
+      {pos.clipEnd && (
+        <span aria-hidden style={{ fontSize: 11, color: t.text, flexShrink: 0, marginLeft: 'auto', lineHeight: 1 }}>›</span>
       )}
     </button>
   );
