@@ -31,6 +31,7 @@ import { useFabAction } from '../FabContext';
 import { Timeline, WEEK_TIME_COL } from './timeline/Timeline';
 import { WeekAllDayLane, AllDayItemInput, GridDropTarget } from './timeline/WeekAllDayLane';
 import { glassBarStyle, solidCardStyle, mixHex } from '../styles/haonStyles';
+import { MonthSpan, SpanPlacement, assignSpanLanes, placeSpanInWeek } from '../../lib/monthSpans';
 
 type TabType = 'month' | 'week';
 type FilterType = 'all' | 'todo' | 'event' | 'habit' | 'selfcare';
@@ -103,57 +104,6 @@ const MONTH_LANE_CAP = 3;      // 주당 최대 막대 줄(초과분은 그 날�
 const MONTH_CHIP_CAP = 3;      // 셀당 단일 칩 최대(초과분 +N)
 const MONTH_DATE_H = 26;       // 날짜 숫자 영역 고정 높이(막대 밴드 시작 y 결정)
 const MONTH_BAND_TOP = 5 + MONTH_DATE_H; // 셀 border(1)+padding(4)+날짜영역 → 오버레이 top
-
-interface MonthSpan {
-  id: string;
-  kind: 'todo' | 'event';
-  text: string;
-  startDate: string;  // yyyy-MM-dd (기간 시작)
-  endDate: string;    // yyyy-MM-dd (기간 종료, > startDate)
-  done: boolean;
-  late: boolean;
-  color?: string;     // 첫 태그 색 — 없으면 undefined → 카테고리 색 폴백
-  lane: number;       // 월 전체 안정 lane(줄)
-  raw: Todo | Event;
-}
-
-interface SpanPlacement { startCol: number; endCol: number; clipStart: boolean; clipEnd: boolean }
-
-// 월 전체 안정 lane 배정 — 시작일 오름차순 그리디. 날짜가 겹치지 않는 가장 낮은 lane 재사용.
-// → 같은 항목은 어느 주 행에서든 동일 lane(세로 위치)로 그려진다(요구: 주 바뀌어도 같은 줄).
-function assignSpanLanes(spans: Omit<MonthSpan, 'lane'>[]): MonthSpan[] {
-  const sorted = [...spans].sort(
-    (a, b) => a.startDate.localeCompare(b.startDate) || b.endDate.localeCompare(a.endDate),
-  );
-  const laneEnds: string[] = []; // laneEnds[k] = 그 lane 마지막 항목의 종료일
-  return sorted.map(s => {
-    let lane = 0;
-    while (lane < laneEnds.length && laneEnds[lane] >= s.startDate) lane++;
-    laneEnds[lane] = s.endDate;
-    return { ...s, lane };
-  });
-}
-
-// 주 행(7칸, null=빈칸) 안에서 span의 컬럼 범위 + 잘림 여부. 교집합 없으면 null.
-//  · clipStart = 이 주 시작 이전부터 이어짐(이전 주/이전 달) → 왼쪽 ‹
-//  · clipEnd   = 이 주 끝 이후로 이어짐(다음 주/다음 달) → 오른쪽 ›
-function placeSpanInWeek(weekDates: (string | null)[], span: MonthSpan): SpanPlacement | null {
-  const valid = weekDates
-    .map((d, i) => ({ d, i }))
-    .filter((x): x is { d: string; i: number } => !!x.d);
-  if (valid.length === 0) return null;
-  const weekStart = valid[0].d;
-  const weekEnd = valid[valid.length - 1].d;
-  if (span.endDate < weekStart || span.startDate > weekEnd) return null;
-  const startEntry = valid.find(x => x.d >= span.startDate) ?? valid[0];
-  const endEntry = [...valid].reverse().find(x => x.d <= span.endDate) ?? valid[valid.length - 1];
-  return {
-    startCol: startEntry.i,
-    endCol: endEntry.i,
-    clipStart: span.startDate < weekStart,
-    clipEnd: span.endDate > weekEnd,
-  };
-}
 
 function MonthView({ viewDate, filter, selectedTagIds, weekStartsOn, onSelectDate, onOpenSpan, collapsed }: {
   viewDate: Date;
