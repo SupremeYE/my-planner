@@ -44,6 +44,8 @@ interface TimelineProps {
   weekDays?: TimelineWeekDay[];
   onSelectDate?: (date: string) => void;
   onToday?: () => void;
+  // 종일(all-day) 레인 — sticky 헤더의 날짜 행과 P/D 라벨 행 사이에 삽입(주간 전용, 미전달 시 없음)
+  allDayLane?: React.ReactNode;
   // ── 색상 오버라이드(옵션) — 일간 파스텔 테마 전용. 미전달 시 기존 하드코딩값 유지(캘린더 무영향) ──
   nowLineColor?: string;       // 현재 시각선 색 (기본 CURRENT_TIME_COLOR)
   defaultBlockBg?: string;     // 태그 없는 블록 배경 (기본 초록 계열)
@@ -53,9 +55,9 @@ interface TimelineProps {
 }
 
 // 주간 그리드: 시간 레이블 폭 + (7일 × P/D 2컬럼)
-const WEEK_TIME_COL = 44;
+export const WEEK_TIME_COL = 44;
 
-export function Timeline({ days = 1, selectedDate, dateTodos, dateEvents, onShowContextMenu, className, weekDays, onSelectDate, onToday, nowLineColor = CURRENT_TIME_COLOR, defaultBlockBg, defaultBlockBorder, defaultBlockText, dayBoundLabel }: TimelineProps) {
+export function Timeline({ days = 1, selectedDate, dateTodos, dateEvents, onShowContextMenu, className, weekDays, onSelectDate, onToday, allDayLane, nowLineColor = CURRENT_TIME_COLOR, defaultBlockBg, defaultBlockBorder, defaultBlockText, dayBoundLabel }: TimelineProps) {
   const isWeek = days > 1 && !!weekDays;
   const {
     todos, timeBlocks, updateTodo, updateEvent, updateEventActual, updateTimeBlock, tags,
@@ -1490,6 +1492,8 @@ export function Timeline({ days = 1, selectedDate, dateTodos, dateEvents, onShow
                 );
               })}
             </div>
+            {/* 종일(all-day) 레인 — 날짜 행과 P/D 라벨 행 사이 */}
+            {allDayLane}
             <div style={{ display: 'grid', gridTemplateColumns: weekFlatCols }}>
               <div />
               {weekDays.map((wd, i) => (
