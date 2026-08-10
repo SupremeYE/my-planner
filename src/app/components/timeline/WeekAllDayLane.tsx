@@ -1,8 +1,8 @@
-import { useMemo, useState } from 'react';
+import React, { useMemo, useRef, useState } from 'react';
 import { Check } from 'lucide-react';
 import type { Todo, Event } from '../../store';
 import { useTheme } from '../../ThemeContext';
-import { mixHex } from '../../styles/haonStyles';
+import { mixHex, withAlpha } from '../../styles/haonStyles';
 
 // ─── 주별 캘린더 종일(All-day) 레인 ───
 // 시간 격자 "밖"에 두는 별도 레인. 시각 없는 항목(대부분의 할일)과 종일 이벤트,
@@ -49,6 +49,9 @@ interface WeekAllDayLaneProps {
   // 단일일(모바일) 레인에서 "종일" 라벨 아래 표기할 선택 요일(예: '화') — 선택 탭과의 연결 명확화.
   // 미전달(PC 7일)이면 표기 안 함.
   sublabel?: string;
+  // Stage 4-1: 할일 칩을 다른 요일 칸으로 드래그 → 날짜 이동(deltaDays 만큼 date·endDate 동시 이동).
+  // 전달 + 7일(주간) 변형일 때만 드래그 활성 — 모바일 단일일(dates=1)은 드롭 대상이 없어 비활성(편집 모달로 대체).
+  onMoveDate?: (raw: Todo, deltaDays: number) => void;
 }
 
 const ROW_H = 20;              // 한 줄(막대) 높이
@@ -56,7 +59,7 @@ const ROW_GAP = 3;
 const COLLAPSED_LINES = 3;     // 접힘 상태 최대 표시 줄(항목+토글 포함) — 격자 보호 상한
 // 펼침 시 PC(lg:) 레인 콘텐츠 max-height + 내부 스크롤은 haon.css `.lane-expanded-scroll`(lg: 한정).
 
-export function WeekAllDayLane({ dates, items, timeColWidth, onEdit, onEmptyAdd, sublabel }: WeekAllDayLaneProps) {
+export function WeekAllDayLane({ dates, items, timeColWidth, onEdit, onEmptyAdd, sublabel, onMoveDate }: WeekAllDayLaneProps) {
   const { t } = useTheme();
   // 세션 내 유지(컴포넌트가 마운트 유지되므로 주 이동에도 상태 보존)
   const [expanded, setExpanded] = useState(false);
@@ -105,6 +108,98 @@ export function WeekAllDayLane({ dates, items, timeColWidth, onEdit, onEmptyAdd,
   const contentRows = Math.max(visibleRows.length, 1);
   const contentHeight = contentRows * ROW_H + Math.max(contentRows - 1, 0) * ROW_GAP;
 
+  // ── Stage 4-1: 날짜 이동 드래그(할일만, 7일 주간 변형 전용) ──
+  // 좌표는 요일 컬럼 단위. 그랩 컬럼(originIdx) → 드롭 컬럼(targetIdx) 차이만큼 date·endDate 이동.
+  // 마우스=5px 임계로 드래그 시작(그 미만은 탭=편집), 터치/펜=250ms 롱프레스(대기 중 이동은 스크롤로 간주).
+  const draggable = dayCount > 1 && !!onMoveDate;
+  const dayAreaRef = useRef<HTMLDivElement>(null);
+  const [dragItemId, setDragItemId] = useState<string | null>(null);
+  const [dragTargetIdx, setDragTargetIdx] = useState<number | null>(null);
+  const dragRef = useRef<{
+    pointerId: number; el: HTMLElement; raw: Todo; originIdx: number;
+    activated: boolean; moved: boolean; pointerType: string;
+    startX: number; startY: number; targetIdx: number;
+    longPressTimer: ReturnType<typeof setTimeout> | null;
+  } | null>(null);
+
+  const colFromClientX = (clientX: number): number => {
+    const el = dayAreaRef.current;
+    if (!el) return 0;
+    const r = el.getBoundingClientRect();
+    const w = r.width / dayCount;
+    return Math.max(0, Math.min(dayCount - 1, Math.floor((clientX - r.left) / w)));
+  };
+  const clearDrag = () => {
+    const d = dragRef.current;
+    if (d?.longPressTimer) clearTimeout(d.longPressTimer);
+    if (d) { try { d.el.releasePointerCapture(d.pointerId); } catch { /* noop */ } }
+    dragRef.current = null;
+    setDragItemId(null);
+    setDragTargetIdx(null);
+  };
+  const activateDrag = (d: NonNullable<typeof dragRef.current>) => {
+    d.activated = true;
+    setDragItemId(d.raw.id);
+    setDragTargetIdx(d.originIdx);
+    if (d.pointerType !== 'mouse' && navigator.vibrate) { try { navigator.vibrate(10); } catch { /* noop */ } }
+  };
+  const onChipPointerDown = (e: React.PointerEvent, item: PlacedItem) => {
+    if (!draggable || item.kind !== 'todo' || e.button === 2) return;
+    const el = e.currentTarget as HTMLElement;
+    const originIdx = colFromClientX(e.clientX);
+    const d = {
+      pointerId: e.pointerId, el, raw: item.raw as Todo, originIdx,
+      activated: false, moved: false, pointerType: e.pointerType,
+      startX: e.clientX, startY: e.clientY, targetIdx: originIdx,
+      longPressTimer: null as ReturnType<typeof setTimeout> | null,
+    };
+    dragRef.current = d;
+    if (e.pointerType === 'mouse') {
+      try { el.setPointerCapture(e.pointerId); } catch { /* noop */ }
+    } else {
+      d.longPressTimer = setTimeout(() => {
+        d.longPressTimer = null;
+        if (dragRef.current !== d) return;
+        try { el.setPointerCapture(e.pointerId); } catch { /* noop */ }
+        activateDrag(d);
+      }, 250);
+    }
+  };
+  const onChipPointerMove = (e: React.PointerEvent) => {
+    const d = dragRef.current;
+    if (!d || e.pointerId !== d.pointerId) return;
+    if (!d.activated) {
+      const dx = e.clientX - d.startX, dy = e.clientY - d.startY;
+      if (d.pointerType === 'mouse') {
+        if (Math.abs(dx) > 5 || Math.abs(dy) > 5) activateDrag(d);
+        else return;
+      } else {
+        if (Math.abs(dx) > 8 || Math.abs(dy) > 8) clearDrag(); // 롱프레스 전 이동 = 스크롤
+        return;
+      }
+    }
+    const idx = colFromClientX(e.clientX);
+    d.targetIdx = idx;
+    d.moved = true;
+    setDragTargetIdx(idx);
+  };
+  const onChipPointerUp = (e: React.PointerEvent, item: PlacedItem) => {
+    const d = dragRef.current;
+    if (!d || e.pointerId !== d.pointerId) return;
+    if (d.longPressTimer) { clearTimeout(d.longPressTimer); d.longPressTimer = null; }
+    if (d.activated && d.moved && d.targetIdx !== d.originIdx) {
+      onMoveDate!(d.raw, d.targetIdx - d.originIdx);
+    } else if (!d.activated) {
+      onEdit(item.raw, item.kind); // 탭 = 편집(드래그 활성 칩은 onClick 미부착)
+    }
+    clearDrag();
+  };
+  const onChipPointerCancel = (e: React.PointerEvent) => {
+    const d = dragRef.current;
+    if (!d || e.pointerId !== d.pointerId) return;
+    clearDrag();
+  };
+
   return (
     <div style={{ borderTop: `1px solid ${t.borderLight}`, backgroundColor: t.surfaceMuted }}>
       {/* 상단: 라벨칸 + 항목 영역 */}
@@ -128,7 +223,21 @@ export function WeekAllDayLane({ dates, items, timeColWidth, onEdit, onEmptyAdd,
         </div>
 
         {/* 우측 항목 영역 — dayCount 컬럼 중첩 그리드 */}
-        <div style={{ gridColumn: `2 / -1`, position: 'relative', padding: '4px 0' }}>
+        <div ref={dayAreaRef} style={{ gridColumn: `2 / -1`, position: 'relative', padding: '4px 0' }}>
+          {/* 드래그 중 드롭 대상 요일 하이라이트 */}
+          {dragTargetIdx !== null && (
+            <div
+              aria-hidden
+              style={{
+                position: 'absolute', top: 0, bottom: 0,
+                left: `${(dragTargetIdx / dayCount) * 100}%`,
+                width: `${100 / dayCount}%`,
+                backgroundColor: withAlpha(t.accent, 0.14),
+                border: `1.5px dashed ${t.accent}`,
+                borderRadius: 6, pointerEvents: 'none', zIndex: 4,
+              }}
+            />
+          )}
           {/* 빈 칸 클릭 → 그 날짜로 할일 추가 (항목 아래 배경 레이어) */}
           <div
             style={{
@@ -165,7 +274,18 @@ export function WeekAllDayLane({ dates, items, timeColWidth, onEdit, onEmptyAdd,
           >
             {visibleRows.map((row, ri) =>
               row.map(it => (
-                <LaneChip key={it.id} item={it} row={ri + 1} onEdit={onEdit} />
+                <LaneChip
+                  key={it.id}
+                  item={it}
+                  row={ri + 1}
+                  onEdit={onEdit}
+                  draggable={draggable && it.kind === 'todo'}
+                  dragging={dragItemId === it.id}
+                  onChipPointerDown={onChipPointerDown}
+                  onChipPointerMove={onChipPointerMove}
+                  onChipPointerUp={onChipPointerUp}
+                  onChipPointerCancel={onChipPointerCancel}
+                />
               )),
             )}
           </div>
@@ -192,10 +312,16 @@ export function WeekAllDayLane({ dates, items, timeColWidth, onEdit, onEmptyAdd,
   );
 }
 
-function LaneChip({ item, row, onEdit }: {
+function LaneChip({ item, row, onEdit, draggable, dragging, onChipPointerDown, onChipPointerMove, onChipPointerUp, onChipPointerCancel }: {
   item: PlacedItem;
   row: number;
   onEdit: (raw: Todo | Event, kind: 'todo' | 'event') => void;
+  draggable: boolean;
+  dragging: boolean;
+  onChipPointerDown: (e: React.PointerEvent, item: PlacedItem) => void;
+  onChipPointerMove: (e: React.PointerEvent) => void;
+  onChipPointerUp: (e: React.PointerEvent, item: PlacedItem) => void;
+  onChipPointerCancel: (e: React.PointerEvent) => void;
 }) {
   const { t } = useTheme();
   const isTodo = item.kind === 'todo';
@@ -213,10 +339,16 @@ function LaneChip({ item, row, onEdit }: {
     dot = 'var(--cat-schedule-dot)';
   }
 
+  // 드래그 활성 칩은 onClick 미부착 — 탭=편집을 pointerup 이 판정(드래그와 탭 구분).
+  // 비드래그(이벤트·모바일 단일일)는 기존 onClick=편집.
   return (
     <button
       type="button"
-      onClick={() => onEdit(item.raw, item.kind)}
+      onClick={draggable ? undefined : () => onEdit(item.raw, item.kind)}
+      onPointerDown={draggable ? (e) => onChipPointerDown(e, item) : undefined}
+      onPointerMove={draggable ? onChipPointerMove : undefined}
+      onPointerUp={draggable ? (e) => onChipPointerUp(e, item) : undefined}
+      onPointerCancel={draggable ? onChipPointerCancel : undefined}
       title={item.text}
       style={{
         gridColumn: `${item.startIdx + 1} / ${item.endIdx + 2}`,
@@ -233,8 +365,8 @@ function LaneChip({ item, row, onEdit }: {
         borderBottomLeftRadius: item.clipStart ? 0 : 6,
         borderTopRightRadius: item.clipEnd ? 0 : 6,
         borderBottomRightRadius: item.clipEnd ? 0 : 6,
-        cursor: 'pointer', textAlign: 'left',
-        opacity: item.done ? 0.7 : 1,
+        cursor: draggable ? 'grab' : 'pointer', textAlign: 'left',
+        opacity: dragging ? 0.4 : (item.done ? 0.7 : 1),
         overflow: 'hidden',
       }}
     >
