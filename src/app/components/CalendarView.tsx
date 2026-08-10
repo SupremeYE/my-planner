@@ -31,6 +31,7 @@ import { useFabAction } from '../FabContext';
 import { Timeline, WEEK_TIME_COL } from './timeline/Timeline';
 import { WeekAllDayLane, AllDayItemInput, GridDropTarget } from './timeline/WeekAllDayLane';
 import { glassBarStyle, solidCardStyle, mixHex } from '../styles/haonStyles';
+import { MonthSpan, SpanPlacement, assignSpanLanes, placeSpanInWeek } from '../../lib/monthSpans';
 
 type TabType = 'month' | 'week';
 type FilterType = 'all' | 'todo' | 'event' | 'habit' | 'selfcare';
@@ -90,15 +91,30 @@ const SELFCARE_CATEGORY_LABELS: Record<string, string> = {
   sleep: '수면',
 };
 
-function MonthView({ viewDate, filter, selectedTagIds, weekStartsOn, onSelectDate, collapsed }: {
+// ─── 월별 기간 막대(span bar) ───
+// 여러 날 걸치는 항목(할일 endDate>date, 다일 종일 이벤트)을 주 행마다 가로 막대로 그린다.
+// 주별 종일 레인(WeekAllDayLane)의 시각 언어 — 태그색 파스텔 채움 + ‹/› 잘림 화살표 + 완료=취소선·뮤트 —
+// 를 재사용하되, 월별은 "여러 주 그리드"라 배치가 다르다:
+//   · lane(줄) = 월 전체에서 안정 배정 → 같은 항목은 주가 바뀌어도 같은 줄 위치 유지
+//   · 컬럼 = 주 행 단위로 계산(주 경계에서 잘라 각 줄에 그림)
+// 주별 파일(WeekAllDayLane)은 범위상 수정 금지 → 색/배치 로직은 여기 독립 재구현(개념만 공유).
+const MONTH_BAR_H = 18;        // 막대 높이(모바일에서도 라벨이 읽히는 최소 크기)
+const MONTH_BAR_GAP = 2;       // 막대 줄 간격
+const MONTH_LANE_CAP = 3;      // 주당 최대 막대 줄(초과분은 그 날짜 +N 으로 — 셀 높이 폭주 방지)
+const MONTH_CHIP_CAP = 3;      // 셀당 단일 칩 최대(초과분 +N)
+const MONTH_DATE_H = 26;       // 날짜 숫자 영역 고정 높이(막대 밴드 시작 y 결정)
+const MONTH_BAND_TOP = 5 + MONTH_DATE_H; // 셀 border(1)+padding(4)+날짜영역 → 오버레이 top
+
+function MonthView({ viewDate, filter, selectedTagIds, weekStartsOn, onSelectDate, onOpenSpan, collapsed }: {
   viewDate: Date;
   filter: FilterType;
   selectedTagIds: string[];
   weekStartsOn: 0 | 1;
   onSelectDate: (d: string) => void;
+  onOpenSpan: (raw: Todo | Event, kind: 'todo' | 'event') => void;
   collapsed?: boolean;
 }) {
-  const { todos: rawTodos, events, habits, selfCareRecords, periodRecords, selectedDate } = usePlanner();
+  const { todos: rawTodos, events, habits, selfCareRecords, periodRecords, selectedDate, tags } = usePlanner();
   const { t } = useTheme();
 
   const firstDay = startOfMonth(viewDate);
@@ -119,10 +135,11 @@ function MonthView({ viewDate, filter, selectedTagIds, weekStartsOn, onSelectDat
   for (let i = 0; i < startOffset; i++) cells.push(null);
   for (let day = 1; day <= daysInMonth; day++) cells.push(day);
 
+  const matchesTags = (itemTags?: string[]) =>
+    selectedTagIds.length === 0 || (itemTags ?? []).some(tagId => selectedTagIds.includes(tagId));
+
   const getItems = (dateStr: string) => {
     const items: { id: string; text: string; type: Exclude<FilterType, 'all'> }[] = [];
-    const matchesTags = (itemTags?: string[]) =>
-      selectedTagIds.length === 0 || (itemTags ?? []).some(tagId => selectedTagIds.includes(tagId));
 
     if (filter === 'all' || filter === 'todo') {
       todos
@@ -130,13 +147,20 @@ function MonthView({ viewDate, filter, selectedTagIds, weekStartsOn, onSelectDat
           todo.date === dateStr &&
           todo.status !== 'backlog' &&
           todo.status !== 'cancelled' &&
+          // 기간(여러 날) 할일은 칩이 아니라 상단 막대로 → 칩 목록에서 제외(이중 렌더 방지)
+          (todoEndDate(todo) ?? todo.date) === todo.date &&
           (filter !== 'todo' || matchesTags(todo.tags))
         )
         .forEach(todo => items.push({ id: todo.id, text: todo.text, type: 'todo' }));
     }
     if (filter === 'all' || filter === 'event') {
       events
-        .filter(event => event.date === dateStr && (filter !== 'event' || matchesTags(event.tags)))
+        .filter(event =>
+          event.date === dateStr &&
+          // 다일 종일 이벤트는 막대로 → 칩 제외. 단일일·시간지정 이벤트는 기존대로 칩.
+          !(event.isAllDay && (event.endDate ?? event.date) > (event.startDate ?? event.date)) &&
+          (filter !== 'event' || matchesTags(event.tags))
+        )
         .forEach(event => items.push({ id: event.id, text: event.title, type: 'event' }));
     }
     if (filter === 'all' || filter === 'habit') {
@@ -157,6 +181,42 @@ function MonthView({ viewDate, filter, selectedTagIds, weekStartsOn, onSelectDat
   };
 
   const todayStr = getLogicalToday();
+
+  // ── 기간 막대 데이터 ── 여러 날 걸치는 할일 + 다일 종일 이벤트를 월 전체 안정 lane 으로 배정.
+  // 색: 첫 태그 색(대표) → 없으면 undefined(막대가 카테고리색 폴백). 필터·태그 연동은 칩과 동일 규칙.
+  const spans = useMemo<MonthSpan[]>(() => {
+    const raw: Omit<MonthSpan, 'lane'>[] = [];
+    if (filter === 'all' || filter === 'todo') {
+      for (const td of todos) {
+        if (!td.date) continue;
+        if (td.status === 'backlog' || td.status === 'cancelled') continue;
+        if (filter === 'todo' && !matchesTags(td.tags)) continue;
+        const end = todoEndDate(td) ?? td.date;
+        if (end <= td.date) continue; // 단일일 → 칩
+        const color = td.tags?.length ? tags.find(tg => tg.id === td.tags![0])?.color : undefined;
+        raw.push({
+          id: td.id, kind: 'todo', text: td.text, startDate: td.date, endDate: end,
+          done: td.status === 'done', late: isTodoLate(td, todayStr), color, raw: td,
+        });
+      }
+    }
+    if (filter === 'all' || filter === 'event') {
+      for (const ev of events) {
+        if (!ev.isAllDay) continue;
+        const start = ev.startDate ?? ev.date;
+        const end = ev.endDate ?? ev.date;
+        if (!start || !end || end <= start) continue; // 단일일 → 칩
+        if (filter === 'event' && !matchesTags(ev.tags)) continue;
+        const color = ev.tags?.length ? tags.find(tg => tg.id === ev.tags![0])?.color : undefined;
+        raw.push({
+          id: `ev-${ev.id}`, kind: 'event', text: ev.title, startDate: start, endDate: end,
+          done: !!ev.completed, late: false, color, raw: ev,
+        });
+      }
+    }
+    return assignSpanLanes(raw);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [todos, events, tags, filter, selectedTagIds, todayStr]);
 
   // Collapsed: show only the week row containing selectedDate (or today)
   const activeStr = selectedDate || todayStr;
@@ -179,109 +239,252 @@ function MonthView({ viewDate, filter, selectedTagIds, weekStartsOn, onSelectDat
           </div>
         ))}
       </div>
-      <div className="grid grid-cols-7 gap-1">
-        {displayCells.map((day, index) => {
-          if (day === null) return <div key={index} />;
+      {/* 주 행(band) 단위 렌더 — 각 행 위에 기간 막대 오버레이(컬럼 span), 아래에 날짜·단일 칩. */}
+      <div className="flex flex-col gap-1">
+        {Array.from({ length: Math.ceil(displayCells.length / 7) }, (_, wi) =>
+          displayCells.slice(wi * 7, wi * 7 + 7),
+        ).map((week, wi) => {
+          const dateOf = (day: number) =>
+            `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+          const weekDates = week.map(day => (day === null ? null : dateOf(day)));
 
-          const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
-          const items = getItems(dateStr);
-          const shown = items.slice(0, 4);
-          const overflow = items.length - 4;
-          const isSelected = dateStr === selectedDate;
-          const isToday = dateStr === todayStr;
-          const hasPeriod = isPeriodDate(dateStr, periodRecords);
+          // 이 주에 걸치는 막대 배치. 그려지는 것은 lane < CAP, 나머지는 그 날짜 +N 으로.
+          const placed = spans
+            .map(s => ({ s, pos: placeSpanInWeek(weekDates, s) }))
+            .filter((x): x is { s: MonthSpan; pos: SpanPlacement } => x.pos !== null);
+          const drawn = placed.filter(x => x.s.lane < MONTH_LANE_CAP);
+          const maxLane = drawn.reduce((m, x) => Math.max(m, x.s.lane), -1);
+          const bandHeight = maxLane >= 0 ? (maxLane + 1) * (MONTH_BAR_H + MONTH_BAR_GAP) : 0;
+          // 상한 초과 막대(lane>=CAP): 걸치는 각 칸에 +1(그 날짜 +N 에 반영)
+          const hiddenByCol = new Array(7).fill(0) as number[];
+          placed
+            .filter(x => x.s.lane >= MONTH_LANE_CAP)
+            .forEach(x => { for (let c = x.pos.startCol; c <= x.pos.endCol; c++) hiddenByCol[c] += 1; });
 
           return (
-            <button
-              key={index}
-              onClick={() => onSelectDate(dateStr)}
-              className="relative flex flex-col items-start p-1 rounded-xl transition-all"
-              style={{
-                // Haon(H): §6.5 — 셀 전체 배경 틴트 대신 날짜 숫자 원 마커로 선택/오늘 표시(아래 span).
-                backgroundColor: 'transparent',
-                border: '1px solid transparent',
-                boxShadow: 'none',
-                minHeight: 72,
-              }}
-            >
-              <div className="self-center flex flex-col items-center gap-0.5">
-                {/* §6.5 — 선택일=소프트 코랄 채움 원(강조, 카테고리색 아님) / 오늘=코랄 하이라인 링(조용한 마커).
-                    오늘==선택: 채움 원(선택 우선) + 링(오늘 보조) 공존 → 두 상태 시각 구분 유지. */}
-                <span
-                  style={{
-                    width: 22,
-                    height: 22,
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    borderRadius: '50%',
-                    boxSizing: 'border-box',
-                    fontSize: 12,
-                    fontWeight: isSelected || isToday ? 700 : 400,
-                    color: t.text,
-                    backgroundColor: isSelected ? mixHex(t.accent, 255, 0.72) : 'transparent',
-                    border: isToday ? `1.5px solid ${t.accent}` : '1.5px solid transparent',
-                  }}
-                >
-                  {day}
-                </span>
-                {hasPeriod && (
-                  <span
-                    style={{
-                      display: 'block',
-                      width: 5,
-                      height: 5,
-                      borderRadius: '50%',
-                      // H: 오늘 슬레이트(#515f74) 오버라이드 미적용(오늘은 링으로 표시) → 기간 마커 본연색만.
-                      backgroundColor: '#E07899',
-                      flexShrink: 0,
-                    }}
-                  />
-                )}
-              </div>
-              <div className="flex flex-col gap-0.5 w-full mt-0.5">
-                {shown.map(item => {
-                  // Haon(H): §6.4 — 색 채운 미니바 대신 '작은 카테고리 dot + 본문색 truncated 라벨'
+            <div key={wi} className="relative">
+              <div className="grid grid-cols-7 gap-1">
+                {week.map((day, ci) => {
+                  if (day === null) return <div key={ci} style={{ minHeight: 72 }} />;
+
+                  const dateStr = dateOf(day);
+                  const items = getItems(dateStr);
+                  const shown = items.slice(0, MONTH_CHIP_CAP);
+                  const overflow = (items.length - shown.length) + hiddenByCol[ci];
+                  const isSelected = dateStr === selectedDate;
+                  const isToday = dateStr === todayStr;
+                  const hasPeriod = isPeriodDate(dateStr, periodRecords);
+
                   return (
-                    <div key={item.id} className="flex items-center gap-1 w-full overflow-hidden">
-                      <span
-                        aria-hidden
-                        style={{
-                          width: 5,
-                          height: 5,
-                          borderRadius: '50%',
-                          backgroundColor: `var(--cat-${CAT_VAR[item.type]}-dot)`,
-                          flexShrink: 0,
-                        }}
-                      />
-                      <span
-                        style={{
-                          fontSize: 9,
-                          fontWeight: 500,
-                          color: t.text,
-                          whiteSpace: 'nowrap',
-                          overflow: 'hidden',
-                          textOverflow: 'ellipsis',
-                          display: 'block',
-                          lineHeight: '14px',
-                        }}
+                    <button
+                      key={ci}
+                      onClick={() => onSelectDate(dateStr)}
+                      className="relative flex flex-col items-start p-1 rounded-xl transition-all"
+                      style={{
+                        // Haon(H): §6.5 — 셀 전체 배경 틴트 대신 날짜 숫자 원 마커로 선택/오늘 표시(아래 span).
+                        backgroundColor: 'transparent',
+                        border: '1px solid transparent',
+                        boxShadow: 'none',
+                        minHeight: 72,
+                      }}
+                    >
+                      {/* 날짜 영역(고정 높이) — 막대 밴드 시작 y 를 결정. 기간 마커는 숫자 아래 절대배치. */}
+                      <div
+                        className="w-full flex items-start justify-center"
+                        style={{ height: MONTH_DATE_H, position: 'relative' }}
                       >
-                        {item.text}
-                      </span>
-                    </div>
+                        {/* §6.5 — 선택일=소프트 코랄 채움 원 / 오늘=코랄 하이라인 링. 공존 시 채움+링. */}
+                        <span
+                          style={{
+                            width: 22,
+                            height: 22,
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            borderRadius: '50%',
+                            boxSizing: 'border-box',
+                            fontSize: 12,
+                            fontWeight: isSelected || isToday ? 700 : 400,
+                            color: t.text,
+                            backgroundColor: isSelected ? mixHex(t.accent, 255, 0.72) : 'transparent',
+                            border: isToday ? `1.5px solid ${t.accent}` : '1.5px solid transparent',
+                          }}
+                        >
+                          {day}
+                        </span>
+                        {hasPeriod && (
+                          <span
+                            style={{
+                              position: 'absolute',
+                              bottom: 0,
+                              width: 5,
+                              height: 5,
+                              borderRadius: '50%',
+                              // H: 오늘 슬레이트 오버라이드 미적용(오늘은 링) → 기간 마커 본연색만.
+                              backgroundColor: '#E07899',
+                            }}
+                          />
+                        )}
+                      </div>
+
+                      {/* 막대 밴드만큼 세로 공간 예약 → 칩이 막대와 겹치지 않게 아래로 */}
+                      {bandHeight > 0 && <div style={{ height: bandHeight, flexShrink: 0 }} aria-hidden />}
+
+                      <div className="flex flex-col gap-0.5 w-full mt-0.5">
+                        {shown.map(item => {
+                          // Haon(H): §6.4 — '작은 카테고리 dot + 본문색 truncated 라벨'
+                          return (
+                            <div key={item.id} className="flex items-center gap-1 w-full overflow-hidden">
+                              <span
+                                aria-hidden
+                                style={{
+                                  width: 5,
+                                  height: 5,
+                                  borderRadius: '50%',
+                                  backgroundColor: `var(--cat-${CAT_VAR[item.type]}-dot)`,
+                                  flexShrink: 0,
+                                }}
+                              />
+                              <span
+                                style={{
+                                  fontSize: 9,
+                                  fontWeight: 500,
+                                  color: t.text,
+                                  whiteSpace: 'nowrap',
+                                  overflow: 'hidden',
+                                  textOverflow: 'ellipsis',
+                                  display: 'block',
+                                  lineHeight: '14px',
+                                }}
+                              >
+                                {item.text}
+                              </span>
+                            </div>
+                          );
+                        })}
+                        {overflow > 0 && (
+                          <span style={{ fontSize: 9, color: t.textMuted, paddingLeft: 2 }}>
+                            +{overflow}개
+                          </span>
+                        )}
+                      </div>
+                    </button>
                   );
                 })}
-                {overflow > 0 && (
-                  <span style={{ fontSize: 9, color: t.textMuted, paddingLeft: 2 }}>
-                    +{overflow}개
-                  </span>
-                )}
               </div>
-            </button>
+
+              {/* 기간 막대 오버레이 — 날짜 셀 그리드와 동일한 7컬럼(gap-1)이라 트랙 정렬. lane=행. */}
+              {bandHeight > 0 && (
+                <div
+                  className="absolute grid grid-cols-7 gap-1"
+                  style={{
+                    top: MONTH_BAND_TOP,
+                    left: 0,
+                    right: 0,
+                    pointerEvents: 'none',
+                    gridAutoRows: `${MONTH_BAR_H}px`,
+                    rowGap: MONTH_BAR_GAP,
+                  }}
+                >
+                  {drawn.map(({ s, pos }) => (
+                    <MonthSpanBar key={s.id} span={s} pos={pos} onOpen={onOpenSpan} />
+                  ))}
+                </div>
+              )}
+            </div>
           );
         })}
       </div>
     </div>
+  );
+}
+
+// 월별 기간 막대 1개. 색 규칙은 주별 종일 레인과 동일(태그색 파스텔 채움 + 정확색 dot / 카테고리 폴백).
+// 완료는 배경 불변(체크 + 취소선 + 뮤트, DESIGN §5). 탭 → 상세(편집 모달)로 잘린 라벨 전체 확인.
+function MonthSpanBar({ span, pos, onOpen }: {
+  span: MonthSpan;
+  pos: SpanPlacement;
+  onOpen: (raw: Todo | Event, kind: 'todo' | 'event') => void;
+}) {
+  const { t } = useTheme();
+  const isTodo = span.kind === 'todo';
+  let fill: string;
+  let dot: string;
+  if (span.color) {
+    fill = mixHex(span.color, 255, 0.72); // 채도 낮춘 파스텔 채움(가독) + 정확 색 dot
+    dot = span.color;
+  } else if (isTodo) {
+    fill = 'var(--cat-todo-fill)';
+    dot = 'var(--cat-todo-dot)';
+  } else {
+    fill = 'var(--cat-schedule-fill)';
+    dot = 'var(--cat-schedule-dot)';
+  }
+  return (
+    <button
+      type="button"
+      onClick={(e) => { e.stopPropagation(); onOpen(span.raw, span.kind); }}
+      title={span.text}
+      style={{
+        gridColumn: `${pos.startCol + 1} / ${pos.endCol + 2}`,
+        gridRow: span.lane + 1,
+        pointerEvents: 'auto',
+        display: 'flex', alignItems: 'center', gap: 4,
+        minWidth: 0, height: MONTH_BAR_H,
+        // 주 경계로 잘린 쪽은 셀 끝에 딱 붙임(연속감), 안 잘린 쪽만 여백
+        marginLeft: pos.clipStart ? 0 : 2,
+        marginRight: pos.clipEnd ? 0 : 2,
+        padding: '0 6px',
+        // 완료여도 배경 그대로 — 완료는 체크/취소선/뮤트로만 표현(DESIGN §5)
+        backgroundColor: fill,
+        // 주 경계 잘림: 잘린 쪽 모서리를 평평하게(다음/이전 주로 이어짐 신호)
+        borderTopLeftRadius: pos.clipStart ? 0 : 6,
+        borderBottomLeftRadius: pos.clipStart ? 0 : 6,
+        borderTopRightRadius: pos.clipEnd ? 0 : 6,
+        borderBottomRightRadius: pos.clipEnd ? 0 : 6,
+        textAlign: 'left', cursor: 'pointer',
+        opacity: span.done ? 0.7 : 1,
+        overflow: 'hidden',
+      }}
+    >
+      {/* 왼쪽 잘림: 이전 주/달에서 이어짐 → ‹ */}
+      {pos.clipStart && <span aria-hidden style={{ fontSize: 11, color: t.text, flexShrink: 0, lineHeight: 1 }}>‹</span>}
+      {/* 할일=체크 동그라미 / 이벤트=dot. 늦음(미완료)은 warning 테두리 */}
+      {isTodo ? (
+        <span
+          aria-hidden
+          style={{
+            width: 11, height: 11, borderRadius: '50%', flexShrink: 0,
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            border: span.done ? 'none' : `1.5px solid ${span.late ? t.warning : dot}`,
+            backgroundColor: span.done ? dot : 'transparent',
+          }}
+        >
+          {span.done && <Check size={7} color="#fff" strokeWidth={3.5} />}
+        </span>
+      ) : (
+        <span aria-hidden style={{ width: 6, height: 6, borderRadius: '50%', backgroundColor: dot, flexShrink: 0 }} />
+      )}
+      {/* 라벨 — 막대 전체 폭 기준 truncate(칸 하나 기준 아님). 다일 막대는 폭이 넓어 모바일에서도 읽힘. */}
+      <span
+        style={{
+          fontSize: 11, fontWeight: 600, minWidth: 0,
+          color: span.done ? t.textMuted : t.text,
+          textDecoration: span.done ? 'line-through' : 'none',
+          whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+          lineHeight: `${MONTH_BAR_H}px`,
+        }}
+      >
+        {span.text}
+      </span>
+      {span.late && !span.done && (
+        <span style={{ fontSize: 8, fontWeight: 800, color: t.warning, flexShrink: 0, letterSpacing: '0.02em' }}>늦음</span>
+      )}
+      {/* 오른쪽 잘림: 다음 주/달로 이어짐 → › */}
+      {pos.clipEnd && (
+        <span aria-hidden style={{ fontSize: 11, color: t.text, flexShrink: 0, marginLeft: 'auto', lineHeight: 1 }}>›</span>
+      )}
+    </button>
   );
 }
 
@@ -1061,6 +1264,7 @@ export function CalendarView() {
                 selectedTagIds={selectedTagIds}
                 weekStartsOn={weekStartsOn}
                 onSelectDate={handleSelectDate}
+                onOpenSpan={handleAllDayEdit}
                 collapsed={!isCalendarExpanded}
               />
             </div>
