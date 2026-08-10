@@ -8,9 +8,35 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 npm install       # Install dependencies
 npm run dev       # Start dev server at http://localhost:5173
 npm run build     # Production build → dist/
+npm run render:check   # 렌더 하네스 — 실제 화면 스크린샷 + 자동 검사
 ```
 
 No test runner or linter is configured in this project.
+
+## 렌더 하네스 (`npm run render:check`) — UI 변경 시 필수
+
+`scripts/render/` 에 상주하는 재사용 렌더 하네스. **빌드/린트가 통과해도 화면이 깨진 채
+배포된 사례**(종일 레인이 격자 삼킴·드롭다운 클리핑·완료 체크박스가 재생 아이콘으로 바뀜·
+목표 페이지 라벤더 도배)가 반복돼, 실제 렌더를 한 번 보고 넘어가도록 상주화했다.
+
+- **동작**: Vite dev 서버로 실제 컴포넌트를 띄우되 `lib/supabase`·`lib/db` 를
+  `scripts/render/mock-supabase.ts`·`mock-db.ts` 로 리다이렉트(run.mjs 의 Vite 플러그인)해
+  네트워크/인증 없이 **시드 데이터**로 렌더한다. 사전 설치된 Chromium(playwright-core,
+  `/opt/pw-browsers`)으로 스크린샷 + `getComputedStyle` 검사.
+- **시드**: `mock-db.ts` — 완료/미완료/기간/늦음/태그유무/중요가 섞인 할일 17건 +
+  일정·습관·회고·목표. 날짜는 브라우저 '오늘' 기준 동적 생성(`getLogicalToday` 정렬).
+- **대상**: 일간 / 할일 / 캘린더(주별·월별) / 리뷰(일간·주간·월간) / 목표 × PC(1280)·모바일(390).
+- **자동 검사(수치 리포트 + PASS/WARN/FAIL)**:
+  1. **라벤더 잔여** — 기존 기준 재사용(`B>R && B>G && (B-G)>=8 && 모든 채널>220`).
+     라일락은 하온 정체성이라 WARN(정보성). "늘어남"을 눈으로 확인하는 용도.
+  2. **요소 클리핑/뷰포트 이탈** — 팝오버·드롭다운이 `overflow:hidden` 부모에 갇히거나
+     뷰포트를 벗어나는지(FAIL 조건).
+  3. **화면 붕괴** — `#root` scrollHeight < 200px(빈 화면)이면 FAIL. 이 앱은 PC/모바일
+     이중 트리(`hidden lg:block`/`lg:hidden`)라 숨은 `<main>` 은 높이 0 → 보이는 main 으로 측정.
+- **산출물**: `scripts/render/output/<viewport>-<route>.png` + `report.json`(gitignore).
+- **부분 실행**: `node scripts/render/run.mjs --route=daily,todos`.
+- **규칙**: **UI 를 바꾸는 모든 작업은 `render:check` 를 돌리고 스크린샷을 보고에 첨부한다.**
+  "정적 검증으로 대체"는 하네스가 실제로 실패할 때만 허용하며 그 경우 실패 로그를 함께 제출한다.
 
 ## Architecture
 

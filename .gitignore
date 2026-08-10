@@ -24,3 +24,6 @@ npm-debug.log*
 
 # Vite cache
 .vite/
+
+# 렌더 하네스 산출물 (스크린샷/리포트) — 로컬 검증용, 커밋하지 않음
+scripts/render/output/

@@ -1,0 +1,320 @@
+#!/usr/bin/env node
+/**
+ * 렌더 하네스 (상주) — `npm run render:check`
+ *
+ * 실제 컴포넌트를 Vite dev 서버로 띄우되 `lib/supabase`·`lib/db` 를
+ * scripts/render/mock-*.ts 로 리다이렉트해 네트워크/인증 없이 시드 데이터로 렌더한다.
+ * 사전 설치된 Chromium(Playwright)으로 라우트×뷰포트별 스크린샷을 저장하고,
+ * 라벤더 잔여 / 요소 클리핑·뷰포트 이탈 / 주요 영역 0-높이 붕괴를 수치로 리포트한다.
+ *
+ * 산출물: scripts/render/output/<viewport>-<route>.png, report.json
+ * 사용법: node scripts/render/run.mjs [--route=daily,todos] [--open]
+ */
+import { fileURLToPath } from 'node:url';
+import path from 'node:path';
+import fs from 'node:fs';
+import net from 'node:net';
+import { createServer } from 'vite';
+import react from '@vitejs/plugin-react';
+import tailwindcss from '@tailwindcss/vite';
+import { chromium } from 'playwright-core';
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const ROOT = path.resolve(__dirname, '../..');
+const OUT = path.resolve(__dirname, 'output');
+const MOCK_SUPABASE = path.resolve(__dirname, 'mock-supabase.ts');
+const MOCK_DB = path.resolve(__dirname, 'mock-db.ts');
+const CHROME = process.env.HAON_CHROME
+  || '/opt/pw-browsers/chromium-1194/chrome-linux/chrome';
+
+// ── 대상 라우트 / 서브뷰 ─────────────────────────────────────────────────────
+const ALL_ROUTES = [
+  { slug: 'daily', path: '/daily' },
+  { slug: 'todos', path: '/todos' },
+  {
+    slug: 'calendar', path: '/calendar',
+    subs: [
+      { name: 'week', text: ['주별', '주간', '주'] },
+      { name: 'month', text: ['월별', '월간', '월'] },
+    ],
+  },
+  {
+    slug: 'reviews', path: '/reviews',
+    subs: [
+      { name: 'weekly', text: ['주간'] },
+      { name: 'monthly', text: ['월간'] },
+    ],
+  },
+  { slug: 'goals', path: '/goals' },
+];
+
+const VIEWPORTS = [
+  { name: 'pc', width: 1280, height: 900 },
+  { name: 'mobile', width: 390, height: 844 },
+];
+
+// CLI: --route=daily,todos 로 일부만
+const routeArg = process.argv.find((a) => a.startsWith('--route='));
+const wanted = routeArg ? routeArg.split('=')[1].split(',') : null;
+const ROUTES = wanted ? ALL_ROUTES.filter((r) => wanted.includes(r.slug)) : ALL_ROUTES;
+
+// ── 페이지 내 자동 검사 (page.evaluate 로 주입) ───────────────────────────────
+function pageAudit() {
+  const W = window.innerWidth, H = window.innerHeight;
+  const parseRGB = (s) => {
+    const m = s && s.match(/rgba?\(([^)]+)\)/);
+    if (!m) return null;
+    const p = m[1].split(',').map((x) => parseFloat(x.trim()));
+    if (p[3] !== undefined && p[3] < 0.1) return null;
+    return { r: p[0], g: p[1], b: p[2] };
+  };
+  // 기존 기준 재사용: B>R && B>G && (B-G)>=8 && 모든 채널>220
+  const isLav = (c) => c && c.r > 220 && c.g > 220 && c.b > 220 && c.b > c.r && c.b > c.g && (c.b - c.g) >= 8;
+  const selOf = (el) => {
+    let s = el.tagName.toLowerCase();
+    if (el.id) s += '#' + el.id;
+    if (el.className && typeof el.className === 'string') {
+      const cls = el.className.trim().split(/\s+/).slice(0, 2).join('.');
+      if (cls) s += '.' + cls;
+    }
+    return s;
+  };
+  const all = Array.from(document.querySelectorAll('body *'));
+  const lav = [];
+  for (const el of all) {
+    const cs = getComputedStyle(el);
+    if (cs.visibility === 'hidden' || cs.display === 'none') continue;
+    const bg = parseRGB(cs.backgroundColor);
+    if (isLav(bg)) lav.push({ sel: selOf(el), prop: 'bg', rgb: bg });
+  }
+  const overflowClips = (el) => {
+    let p = el.parentElement;
+    const r = el.getBoundingClientRect();
+    while (p && p !== document.body) {
+      const cs = getComputedStyle(p);
+      const clipsX = ['hidden', 'auto', 'scroll'].includes(cs.overflowX);
+      const clipsY = ['hidden', 'auto', 'scroll'].includes(cs.overflowY);
+      if (clipsX || clipsY) {
+        const pr = p.getBoundingClientRect();
+        if ((clipsY && (r.top < pr.top - 1 || r.bottom > pr.bottom + 1)) ||
+            (clipsX && (r.left < pr.left - 1 || r.right > pr.right + 1))) {
+          return { ancestor: selOf(p), overflow: cs.overflowX + '/' + cs.overflowY };
+        }
+      }
+      p = p.parentElement;
+    }
+    return null;
+  };
+  const popSel = '[role=menu],[role=listbox],[role=dialog],[role=tooltip],[data-radix-popper-content-wrapper],[data-radix-popover-content],[data-radix-menu-content],[data-radix-dropdown-menu-content]';
+  const clippedPopovers = [], offViewport = [];
+  for (const el of Array.from(document.querySelectorAll(popSel))) {
+    const cs = getComputedStyle(el);
+    if (cs.visibility === 'hidden' || cs.display === 'none') continue;
+    const r = el.getBoundingClientRect();
+    if (r.width === 0 && r.height === 0) continue;
+    const clip = overflowClips(el);
+    if (clip) clippedPopovers.push({ sel: selOf(el), ...clip });
+    if (r.right > W + 1 || r.left < -1 || r.bottom > H + 1 || r.top < -1)
+      offViewport.push({ sel: selOf(el), rect: { t: Math.round(r.top), l: Math.round(r.left), r: Math.round(r.right), b: Math.round(r.bottom) } });
+  }
+  const bodyHorizontalOverflow = document.documentElement.scrollWidth > W + 1;
+  // 이 앱은 PC/모바일 이중 트리(hidden lg:block / lg:hidden)라 숨은 <main> 은 높이 0 이다.
+  // → 보이는(높이>0) main 을 고르고, 전체 렌더 여부는 #root scrollHeight 로 판단한다.
+  const mains = Array.from(document.querySelectorAll('main,[role=main]'));
+  const visibleMain = mains.find((m) => m.getBoundingClientRect().height > 0);
+  const rootEl = document.getElementById('root') || document.body;
+  const mainEl = visibleMain || rootEl;
+  const mainHeight = Math.round(mainEl.getBoundingClientRect().height);
+  const rootScroll = Math.round(rootEl.scrollHeight);
+  const collapsedRegions = [];
+  for (const el of Array.from(mainEl.children)) {
+    const cs = getComputedStyle(el);
+    if (cs.display === 'none' || cs.visibility === 'hidden') continue; // 숨은 트리 제외
+    const r = el.getBoundingClientRect();
+    if (r.width > 40 && r.height === 0 && el.children.length > 0) collapsedRegions.push(selOf(el));
+  }
+  return {
+    lavenderCount: lav.length,
+    lavenderSamples: lav.slice(0, 12),
+    bodyHorizontalOverflow,
+    clippedPopovers,
+    offViewport: offViewport.slice(0, 12),
+    mainHeight,
+    rootScroll,
+    collapsedRegions: collapsedRegions.slice(0, 10),
+  };
+}
+
+// ── 헬퍼 ─────────────────────────────────────────────────────────────────────
+async function freePort() {
+  return new Promise((res) => {
+    const srv = net.createServer();
+    srv.listen(0, '127.0.0.1', () => {
+      const p = srv.address().port;
+      srv.close(() => res(p));
+    });
+  });
+}
+
+function mockRedirectPlugin() {
+  return {
+    name: 'render-harness-mocks',
+    enforce: 'pre',
+    resolveId(source, importer) {
+      if (source.includes('scripts/render/')) return null;
+      const bare = source.replace(/\.(t|j)sx?$/, '');
+      const fromLib = !!importer && importer.replace(/\\/g, '/').includes('/src/lib/');
+      const isSup = bare === '@/lib/supabase' || /(^|\/)lib\/supabase$/.test(bare) || (bare === './supabase' && fromLib);
+      if (isSup) return MOCK_SUPABASE;
+      const isDb = bare === '@/lib/db' || /(^|\/)lib\/db$/.test(bare) || (bare === './db' && fromLib);
+      if (isDb) return MOCK_DB;
+      return null;
+    },
+  };
+}
+
+function verdict(a) {
+  const fails = [];
+  const warns = [];
+  if ((a.rootScroll ?? 0) < 200) fails.push(`화면 붕괴(root ${a.rootScroll}px)`);
+  if (a.clippedPopovers.length) fails.push(`팝오버 클리핑 ${a.clippedPopovers.length}건`);
+  if (a.collapsedRegions.length) warns.push(`0-높이 영역 ${a.collapsedRegions.length}건`);
+  if (a.lavenderCount > 8) warns.push(`라벤더 ${a.lavenderCount}건`);
+  else if (a.lavenderCount > 0) warns.push(`라벤더 ${a.lavenderCount}건(경미)`);
+  if (a.bodyHorizontalOverflow) warns.push('가로 오버플로우');
+  if (a.offViewport.length) warns.push(`뷰포트 이탈 ${a.offViewport.length}건`);
+  return { status: fails.length ? 'FAIL' : warns.length ? 'WARN' : 'PASS', fails, warns };
+}
+
+async function settle(page) {
+  await page.waitForTimeout(2600); // 스플래시(1.8s) + 인증 + 초기 로드
+  try { await page.waitForSelector('main', { timeout: 8000 }); } catch {}
+  try { await page.evaluate(() => document.fonts && document.fonts.ready); } catch {}
+  await page.waitForTimeout(500);
+}
+
+async function tryClickText(page, candidates) {
+  const attempts = [];
+  for (const t of candidates) {
+    attempts.push(() => page.getByRole('tab', { name: t, exact: true }).first());
+    attempts.push(() => page.getByRole('button', { name: t, exact: true }).first());
+    attempts.push(() => page.getByText(t, { exact: true }).first());
+    attempts.push(() => page.getByText(t, { exact: false }).first());
+  }
+  for (const make of attempts) {
+    try {
+      const loc = make();
+      if (await loc.count()) {
+        await loc.click({ timeout: 1200 });
+        await page.waitForTimeout(700);
+        return true;
+      }
+    } catch {}
+  }
+  return false;
+}
+
+// ── 메인 ─────────────────────────────────────────────────────────────────────
+async function main() {
+  fs.mkdirSync(OUT, { recursive: true });
+  if (!fs.existsSync(CHROME)) {
+    console.error(`✗ Chromium 바이너리를 찾을 수 없습니다: ${CHROME}\n  HAON_CHROME 환경변수로 경로를 지정하세요.`);
+    process.exit(2);
+  }
+
+  const port = await freePort();
+  console.log('▶ Vite dev 서버 기동…');
+  const server = await createServer({
+    configFile: false,
+    root: ROOT,
+    logLevel: 'warn',
+    plugins: [mockRedirectPlugin(), react(), tailwindcss()],
+    resolve: { alias: { '@': path.resolve(ROOT, 'src') } },
+    server: { port, host: '127.0.0.1', strictPort: true },
+    optimizeDeps: { entries: ['src/main.tsx'] },
+  });
+  await server.listen();
+  const base = `http://127.0.0.1:${port}`;
+  console.log(`  ${base}`);
+
+  console.log('▶ Chromium 기동…');
+  const browser = await chromium.launch({
+    executablePath: CHROME,
+    args: ['--no-sandbox', '--disable-gpu', '--disable-dev-shm-usage'],
+  });
+
+  const report = [];
+  const shots = [];
+  try {
+    for (const vp of VIEWPORTS) {
+      const ctx = await browser.newContext({
+        viewport: { width: vp.width, height: vp.height },
+        deviceScaleFactor: 1,
+      });
+      const page = await ctx.newPage();
+      page.on('pageerror', (e) => console.log(`   [pageerror ${vp.name}] ${String(e).slice(0, 160)}` + (process.env.HAON_STACK ? `\n${(e.stack || '').split('\n').slice(0, 6).join('\n')}` : '')));
+
+      for (const route of ROUTES) {
+        const url = base + route.path;
+        try {
+          await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 45000 });
+        } catch (e) {
+          console.log(`   ✗ goto 실패 ${route.slug}: ${e.message}`);
+        }
+        await settle(page);
+
+        const doShot = async (subName) => {
+          const label = subName ? `${vp.name}-${route.slug}-${subName}` : `${vp.name}-${route.slug}`;
+          const file = path.join(OUT, `${label}.png`);
+          await page.screenshot({ path: file, fullPage: true });
+          const audit = await page.evaluate(pageAudit).catch((e) => ({ error: String(e) }));
+          const v = verdict(audit);
+          report.push({ viewport: vp.name, route: route.slug, sub: subName || null, audit, verdict: v });
+          shots.push(path.relative(ROOT, file));
+          const tag = v.status === 'FAIL' ? '✗' : v.status === 'WARN' ? '△' : '✓';
+          console.log(`   ${tag} ${label.padEnd(24)} main=${audit.mainHeight ?? '?'}px  라벤더=${audit.lavenderCount ?? '?'}  ${[...v.fails, ...v.warns].join(', ')}`);
+        };
+
+        await doShot(null);
+        for (const sub of route.subs || []) {
+          const ok = await tryClickText(page, sub.text);
+          if (ok) { await doShot(sub.name); }
+          else console.log(`   · ${route.slug}:${sub.name} 탭 못 찾음(스킵)`);
+        }
+      }
+      await ctx.close();
+    }
+  } finally {
+    await browser.close();
+    await server.close();
+  }
+
+  // ── 리포트 저장 ──
+  const summary = {
+    generatedAt: new Date().toISOString(),
+    totals: {
+      shots: report.length,
+      fail: report.filter((r) => r.verdict.status === 'FAIL').length,
+      warn: report.filter((r) => r.verdict.status === 'WARN').length,
+      pass: report.filter((r) => r.verdict.status === 'PASS').length,
+    },
+    results: report,
+  };
+  fs.writeFileSync(path.join(OUT, 'report.json'), JSON.stringify(summary, null, 2));
+
+  console.log('\n── 요약 ───────────────────────────────');
+  console.log(`  스크린샷 ${summary.totals.shots}장 → ${path.relative(ROOT, OUT)}/`);
+  console.log(`  PASS ${summary.totals.pass} · WARN ${summary.totals.warn} · FAIL ${summary.totals.fail}`);
+  console.log(`  리포트: ${path.relative(ROOT, path.join(OUT, 'report.json'))}`);
+
+  if (summary.totals.fail > 0 && !process.argv.includes('--no-fail')) {
+    console.log('\n✗ FAIL 항목이 있습니다.');
+    process.exit(1);
+  }
+  console.log('\n✓ 완료');
+}
+
+main().catch((e) => {
+  console.error('render:check 실패:', e);
+  process.exit(1);
+});
