@@ -2,15 +2,11 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { Clock3, Play, Timer, X } from 'lucide-react';
 import { Todo, TimerMode } from '../store';
 import { useTheme } from '../ThemeContext';
+import { formatClock } from '../../lib/formatClock';
 
 const DRUM_ITEM_HEIGHT = 40;
 const POMODORO_OPTIONS = Array.from({ length: 24 }, (_, index) => (index + 1) * 5);
 
-function formatClock(totalSec: number) {
-  const mm = Math.floor(totalSec / 60);
-  const ss = totalSec % 60;
-  return `${String(mm).padStart(2, '0')}:${String(ss).padStart(2, '0')}`;
-}
 
 export function FocusModal({
   todo,

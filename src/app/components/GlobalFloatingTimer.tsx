@@ -2,12 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Check, Pause, Play, Square, Timer } from 'lucide-react';
 import { getTimerElapsedSec, getTimerRemainingSec, usePlanner } from '../store';
 import { useTheme } from '../ThemeContext';
-
-function formatElapsed(sec: number): string {
-  const mm = Math.floor(sec / 60);
-  const ss = sec % 60;
-  return `${String(mm).padStart(2, '0')}:${String(ss).padStart(2, '0')}`;
-}
+import { formatClock } from '../../lib/formatClock';
 
 function playDoneSound() {
   try {
@@ -60,8 +55,8 @@ export function GlobalFloatingTimer() {
     }
 
     const nextTitle = activeTimer.mode === 'pomodoro'
-      ? `🍅 ${formatElapsed(displaySec)} - ${todoText}`
-      : `⏱ ${formatElapsed(displaySec)} - ${todoText}`;
+      ? `🍅 ${formatClock(displaySec)} - ${todoText}`
+      : `⏱ ${formatClock(displaySec)} - ${todoText}`;
     document.title = nextTitle;
 
     return () => {
@@ -146,7 +141,7 @@ export function GlobalFloatingTimer() {
             {activeTimer.mode === 'pomodoro' ? '남은 시간' : '경과 시간'}
           </div>
           <div style={{ fontSize: 20, fontWeight: 700, lineHeight: 1.1, color: t.text, marginTop: 1 }}>
-            {formatElapsed(displaySec)}
+            {formatClock(displaySec)}
           </div>
         </div>
         <div className="ml-auto flex items-center gap-2 flex-shrink-0">
