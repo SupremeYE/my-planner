@@ -958,18 +958,24 @@ export function DailyView() {
   // 기간 기반: 선택 날짜가 기간(date~endDate)에 포함되는 할일(단일 날짜면 그날). backlog 제외.
   const dateTodos = expandRecurringTodos(todos, selectedDate, selectedDate)
     .filter(td => periodCoversDate(td, selectedDate) && td.status !== 'backlog');
-  const importantTodos = dateTodos.filter(td => td.isTop3);
-  const regularTodos = dateTodos.filter(td => !td.isTop3);
+  // Stage 2: 완료(done)한 할일은 목록 맨 아래로 밀어낸다(사라지지 않게 — 성취감·되돌리기·justCompletedIds 유지).
+  // 안정 정렬이라 그룹 내(미완료끼리·완료끼리) 기존 순서는 보존된다.
+  const byDoneLast = <T extends Todo>(list: T[]): T[] =>
+    [...list].sort((a, b) => (a.status === 'done' ? 1 : 0) - (b.status === 'done' ? 1 : 0));
+  const importantTodos = byDoneLast(dateTodos.filter(td => td.isTop3));
+  const regularTodos = byDoneLast(dateTodos.filter(td => !td.isTop3));
 
   // 늦음 이월: 오늘 볼 때, 종료일이 지난 미완료 할일을 "늦음"으로 계속 노출한다.
   // (status 가 아니라 기간에서 파생 — 완료/해제로 사라지던 근원 제거)
   // 완화 장치: 방금 완료한 항목(justCompletedIds)은 미완료가 아니어도 이번 세션엔 남긴다.
   const isViewingToday = selectedDate === getLogicalToday();
   const carryoverTodos = isViewingToday
-    ? todos
-        .filter(td => !!td.date && todoEndDate(td)! < selectedDate
-          && (isTodoIncomplete(td.status) || justCompletedIds.has(td.id)))
-        .sort((a, b) => (a.date ?? '').localeCompare(b.date ?? ''))
+    ? byDoneLast(
+        todos
+          .filter(td => !!td.date && todoEndDate(td)! < selectedDate
+            && (isTodoIncomplete(td.status) || justCompletedIds.has(td.id)))
+          .sort((a, b) => (a.date ?? '').localeCompare(b.date ?? '')),
+      )
     : [];
   const [carryoverCollapsed, setCarryoverCollapsed] = useState(false);
 
@@ -1191,7 +1197,8 @@ export function DailyView() {
       // 핵심 행: 좌측은 코랄 그라데이션 바가 차지하므로 태그 좌측 바는 생략(태그는 칩으로 계속 노출).
       rowStyle = {
         cursor: 'pointer',
-        backgroundColor: isDone ? '#F7F4FB' : (t.keyRowBg ?? '#FFF5F2'),
+        // 완료는 배경으로 표현하지 않는다(DESIGN.md §5) — 취소선 + 텍스트 뮤트만. 배경은 미완료와 동일.
+        backgroundColor: t.keyRowBg ?? '#FFF5F2',
         border: t.keyRowBorder ?? '1px solid rgba(255,111,145,0.35)',
         boxShadow: t.keyRowShadow ?? '0 2px 4px rgba(120,90,160,0.10), 0 10px 24px rgba(255,111,145,0.22)',
         borderRadius: t.solidRowRadius ?? 14,
@@ -1201,7 +1208,8 @@ export function DailyView() {
     } else {
       rowStyle = {
         cursor: 'pointer',
-        backgroundColor: isDone ? '#F7F4FB' : (t.solidRowBg ?? '#FFFFFF'),
+        // 완료는 배경으로 표현하지 않는다(DESIGN.md §5) — 취소선 + 텍스트 뮤트만. 배경은 미완료와 동일.
+        backgroundColor: t.solidRowBg ?? '#FFFFFF',
         border: t.solidRowBorder ?? '1px solid rgba(122,92,162,0.10)',
         boxShadow: t.solidRowShadow ?? '0 6px 16px rgba(120,90,160,0.10)',
         borderRadius: t.solidRowRadius ?? 14,
