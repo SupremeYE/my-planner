@@ -184,6 +184,17 @@ function fmtMonthDay(dateStr: string): string {
   return `${m}월 ${d}일`;
 }
 
+/** 마지막 글자에 받침(종성)이 있으면 true. 한글 음절이 아니면 false(기본형 조사). */
+function hasJongseong(word: string): boolean {
+  if (!word) return false;
+  const c = word.charCodeAt(word.length - 1);
+  if (c < 0xac00 || c > 0xd7a3) return false;
+  return (c - 0xac00) % 28 !== 0;
+}
+/** 받침 유무에 맞는 조사(은/는, 이/가)를 붙여 자연스러운 문장을 만든다. */
+function withEunNeun(word: string): string { return word + (hasJongseong(word) ? '은' : '는'); }
+function withIGa(word: string): string { return word + (hasJongseong(word) ? '이' : '가'); }
+
 export interface InsightInput {
   todos: Todo[];
   events: Event[];
@@ -240,7 +251,7 @@ export function buildActivityInsights(input: InsightInput): string[] {
     if (h.count < GAP_MIN_HISTORY || !h.last) continue;
     const days = daysBetween(h.last, refStr);
     if (days < GAP_ALERT_DAYS[period]) continue;
-    gapLines.push({ days, text: `${nameOf(id)}은(는) ${fmtMonthDay(h.last)} 이후 기록이 없어요` });
+    gapLines.push({ days, text: `${withEunNeun(nameOf(id))} ${fmtMonthDay(h.last)} 이후 기록이 없어요` });
   }
   gapLines.sort((a, b) => b.days - a.days);
 
@@ -253,7 +264,7 @@ export function buildActivityInsights(input: InsightInput): string[] {
     cur.byTag.forEach((v, id) => { if (v.count > topCount) { topCount = v.count; topId = id; } });
     const periodWord = period === 'week' ? '주' : '달';
     if (topId && topCount > 0 && out.length < MAX_INSIGHTS) {
-      out.push(`이번 ${periodWord} ${nameOf(topId)}이(가) ${topCount}건으로 가장 많았어요`);
+      out.push(`이번 ${periodWord} ${withIGa(nameOf(topId))} ${topCount}건으로 가장 많았어요`);
     }
     // 지난 기간 대비 최대 변화
     if (out.length < MAX_INSIGHTS) {
@@ -266,7 +277,7 @@ export function buildActivityInsights(input: InsightInput): string[] {
       if (bestId && Math.abs(bestDelta) >= COUNT_DELTA_THRESHOLD) {
         const lastWord = period === 'week' ? '지난주' : '지난달';
         const verb = bestDelta > 0 ? '늘었어요' : '줄었어요';
-        out.push(`${lastWord}보다 ${nameOf(bestId)}이(가) ${Math.abs(bestDelta)}건 ${verb}`);
+        out.push(`${lastWord}보다 ${withIGa(nameOf(bestId))} ${Math.abs(bestDelta)}건 ${verb}`);
       }
     }
   }

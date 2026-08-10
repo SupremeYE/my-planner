@@ -12,6 +12,7 @@ import { useFabAction } from '../FabContext';
 import { db } from '../../lib/db';
 import { useRealtimeSync } from '../hooks/useRealtimeSync';
 import { useTimeReport, type TimeReportPeriod } from '../hooks/useTimeReport';
+import { useActivityInsights } from '../hooks/useActivityInsights';
 import { PeriodNavigator } from './ui/PeriodNavigator';
 import { format, subDays, differenceInDays, parseISO, addDays, startOfWeek } from 'date-fns';
 
@@ -1385,6 +1386,24 @@ function TimeInsightCard({ insight }: { insight: ReturnType<typeof useTimeReport
   );
 }
 
+// 문장형 인사이트(공백 알림 우선, 최대 3줄) — 리뷰 스트립과 같은 공용 훅 사용.
+// "빠진 것"을 짚어주는 게 핵심 가치. 데이터 부족하면 빈 배열이라 렌더 안 함.
+function ActivityInsightLines({ startStr, endStr, period }: { startStr: string; endStr: string; period: TimeReportPeriod }) {
+  const { t } = useTheme();
+  const lines = useActivityInsights(startStr, endStr, period);
+  if (lines.length === 0) return null;
+  return (
+    <div className="px-4 py-3 rounded-2xl mb-5 space-y-1.5" style={{ backgroundColor: t.card, border: `1px solid ${t.borderLight}` }}>
+      {lines.map((line, i) => (
+        <p key={i} className="flex items-start gap-2" style={{ fontSize: 13, color: t.text, fontWeight: 500, lineHeight: 1.45 }}>
+          <span style={{ color: t.accent, flexShrink: 0 }}>·</span>
+          <span>{line}</span>
+        </p>
+      ))}
+    </div>
+  );
+}
+
 // 차트 공통 커스텀 툴팁
 function ChartTooltip({ active, payload, label, t }: any) {
   if (!active || !payload?.length) return null;
@@ -1802,6 +1821,7 @@ export function SelfCareView() {
 
         {/* ③ 인사이트 카드 */}
         <TimeInsightCard insight={report.insight} />
+        <ActivityInsightLines startStr={report.dateRange.start} endStr={report.dateRange.end} period={period} />
 
         {/* ④ 도넛 차트 + 범례 */}
         <TimeDonut data={report.byCategory} />
@@ -1863,6 +1883,7 @@ export function SelfCareView() {
           ) : (
             <TimeInsightCard insight={report.insight} />
           )}
+          <ActivityInsightLines startStr={report.dateRange.start} endStr={report.dateRange.end} period={period} />
 
           {/* 도넛 + 카테고리 breakdown (가로 배치) */}
           <div className="rounded-2xl p-6" style={{ backgroundColor: t.card, border: `1px solid ${t.borderLight}` }}>

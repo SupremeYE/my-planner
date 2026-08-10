@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router';
 import { usePlanner } from '../../store';
 import { useTheme } from '../../ThemeContext';
 import { aggregateActivity, toTagRows, formatMinutes } from '../../../lib/timeAggregation';
+import { useActivityInsights } from '../../hooks/useActivityInsights';
 
 // ─── 활동 스트립 (track_time 태그별 기간 집계) — 주간·월간 공용 ───
 // 소스 통일: 「시간 리포트」와 **같은 함수**(aggregateActivity)를 호출한다.
@@ -16,7 +17,7 @@ export function fmtMin(min: number): string {
   return formatMinutes(min);
 }
 
-export function TrackTimeStrip({ startStr, endStr }: { startStr: string; endStr: string }) {
+export function TrackTimeStrip({ startStr, endStr, period }: { startStr: string; endStr: string; period?: 'week' | 'month' }) {
   const { todos, events, tags, timeBlocks } = usePlanner();
   const { t } = useTheme();
   const navigate = useNavigate();
@@ -31,6 +32,9 @@ export function TrackTimeStrip({ startStr, endStr }: { startStr: string; endStr:
       countTotal: agg.totalCount,
     };
   }, [todos, events, tags, timeBlocks, startStr, endStr]);
+
+  // ── 문장형 인사이트 (최대 3줄, 공백 알림 우선) — 시간 리포트와 같은 공용 훅 ──
+  const insights = useActivityInsights(startStr, endStr, period);
 
   const bothEmpty = timeTotal === 0 && countTotal === 0;
 
@@ -51,6 +55,18 @@ export function TrackTimeStrip({ startStr, endStr }: { startStr: string; endStr:
         </>
       ) : (
         <div className="space-y-4">
+          {/* ── 문장형 인사이트: 빠진 것을 먼저 짚어준다(공백 알림 우선, 최대 3줄) ── */}
+          {insights.length > 0 && (
+            <div className="rounded-lg px-3 py-2.5 space-y-1" style={{ backgroundColor: t.surfaceMuted }}>
+              {insights.map((line, i) => (
+                <p key={i} className="flex items-start gap-1.5" style={{ fontSize: 12, color: t.textSub, lineHeight: 1.5 }}>
+                  <span style={{ color: t.accent, flexShrink: 0 }}>·</span>
+                  <span>{line}</span>
+                </p>
+              ))}
+            </div>
+          )}
+
           {/* ── ⏱ 시간 축: "얼마나 오래" (실행 시각 기록분만) ── */}
           <section>
             <div className="flex items-center justify-between mb-2">
