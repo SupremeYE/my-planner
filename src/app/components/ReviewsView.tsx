@@ -1,9 +1,10 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { X, Search, ChevronLeft, ChevronRight, ChevronDown, Trash2, Clock, Check } from 'lucide-react';
 import { useNavigate } from 'react-router';
-import { usePlanner, MonthlyReview, WeightRecord, CultureRecord, MusicRecord, HappyMoment, getWeekKey, getLogicalToday } from '../store';
-import { db, type WalkSession } from '../../lib/db';
+import { usePlanner, MonthlyReview, WeightRecord, HappyMoment, getWeekKey, getLogicalToday } from '../store';
+import { db } from '../../lib/db';
 import { TrackTimeStrip } from './review/TrackTimeStrip';
+import { MemoryPieces } from './review/MemoryPieces';
 import { computeWeightDelta } from './review/reviewMetrics';
 import { useTheme } from '../ThemeContext';
 import { LabelRow } from './VoiceInputButton';
@@ -272,7 +273,7 @@ function MiniCell({ value, unit, label }: { value: string; unit?: string; label:
 
 function WeekTab({ jump }: { jump?: JumpReq }) {
   const {
-    todos, tags, habits, events, projects, foodRecords,
+    todos, habits, projects,
     weeklyGoals, monthlyGoals, toggleWeeklyGoal,
     weeklyReviews, addWeeklyReview, updateWeeklyReview,
     appSettings,
@@ -330,49 +331,22 @@ function WeekTab({ jump }: { jump?: JumpReq }) {
   const habitDays = habits.length ? weekDays.filter(d => habits.some(h => h.checkedDates.includes(d))).length : 0;
   const habitPct = Math.round((habitDays / 7) * 100);
 
-  // ── ③④ 전역 store 밖 소스(몸무게·문화·음악·산책)는 여기서 1회 fetch 후 주 범위로 필터 ──
-  const [wkData, setWkData] = useState<{ weights: WeightRecord[]; culture: CultureRecord[]; music: MusicRecord[]; walks: WalkSession[] }>(
-    { weights: [], culture: [], music: [], walks: [] },
-  );
+  // ── ③ 몸무게 소스(전역 store 밖)는 여기서 1회 fetch 후 주 범위로 필터 ──
+  // (조각의 culture/music/walk 는 MemoryPieces 가 자체 fetch 하므로 여기선 몸무게만.)
+  const [wkWeights, setWkWeights] = useState<WeightRecord[]>([]);
   useEffect(() => {
     let alive = true;
-    Promise.all([db.weightRecords.fetchAll(), db.cultureRecords.fetchAll(), db.musicRecords.fetchAll(), db.walkSessions.fetchAll()])
-      .then(([weights, culture, music, walks]) => { if (alive) setWkData({ weights, culture, music, walks }); })
+    db.weightRecords.fetchAll()
+      .then(weights => { if (alive) setWkWeights(weights); })
       .catch(() => { /* 빈 상태 유지 */ });
     return () => { alive = false; };
   }, []);
 
   // ③ 몸무게 변화 — 공용 헬퍼(동일 slot 비교, DESIGN §7.4). 주간·월간 동일 로직.
   const weekWeight = useMemo(
-    () => computeWeightDelta(wkData.weights, range.startStr, range.endStr),
-    [wkData.weights, range.startStr, range.endStr],
+    () => computeWeightDelta(wkWeights, range.startStr, range.endStr),
+    [wkWeights, range.startStr, range.endStr],
   );
-
-  // ④ 이번 주의 조각 — 그 주를 떠올리게 하는 기록(사진 없어도 제목만으로 성립)
-  const dOf = (s?: string | null) => (s ? s.slice(0, 10) : '');
-  const inRange = (d: string) => !!d && d >= range.startStr && d <= range.endStr;
-  const weekPieces = useMemo(() => {
-    const out: { key: string; kind: string; title: string; thumb?: string | null }[] = [];
-    // 맛있었던 것 — taste 'good' 상위 1~2개만(21끼 전부 아님)
-    foodRecords
-      .filter(f => inRange(f.date) && f.tasteRating === 'good')
-      .slice(0, 2)
-      .forEach(f => out.push({ key: `food-${f.id}`, kind: '맛있었던 것', title: f.foodName, thumb: f.photoUrl }));
-    wkData.culture
-      .filter(c => inRange(c.watchedDate ?? dOf(c.createdAt)))
-      .slice(0, 4)
-      .forEach(c => out.push({ key: `culture-${c.id}`, kind: '영상', title: c.title, thumb: c.thumbnailUrl }));
-    wkData.music
-      .filter(m => inRange(dOf(m.createdAt)))
-      .slice(0, 4)
-      .forEach(m => out.push({ key: `music-${m.id}`, kind: '음악', title: m.trackTitle, thumb: m.artworkUrl }));
-    wkData.walks
-      .filter(w => inRange(dOf(w.startedAt ?? w.createdAt)))
-      .slice(0, 3)
-      .forEach(w => out.push({ key: `walk-${w.id}`, kind: '산책', title: w.routeName || '산책', thumb: w.photoUrl }));
-    return out;
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [foodRecords, wkData, range.startStr, range.endStr]);
 
   // ── 회고 입력 (Stage 1 필드로 실제 저장) ──
   const weeklyReview = weeklyReviews.find(r => r.weekKey === range.weekKey);
@@ -567,40 +541,8 @@ function WeekTab({ jump }: { jump?: JumpReq }) {
     </div>
   );
 
-  // ── ④ 이번 주의 조각 (썸네일 가로 스트립 + 종류 배지, 사진 없으면 제목만) ──
-  const piecesBlock = (
-    <div className="p-4 rounded-xl" style={{ backgroundColor: t.card, border: `1px solid ${t.borderLight}` }}>
-      <h3 style={{ fontSize: 13, fontWeight: 700, color: t.text, marginBottom: 12 }}>🧩 이번 주의 조각</h3>
-      {weekPieces.length === 0 ? (
-        <p style={{ fontSize: 12, color: t.textMuted, lineHeight: 1.5 }}>
-          이번 주 남긴 기록이 아직 없어요 · 맛있었던 것·영상·음악·산책이 여기 모여요.
-        </p>
-      ) : (
-        <div className="flex gap-3 overflow-x-auto pb-1" style={{ scrollbarWidth: 'thin' }}>
-          {weekPieces.map(p => (
-            <div key={p.key} style={{ width: 112, flexShrink: 0 }}>
-              <div className="relative rounded-xl overflow-hidden" style={{ aspectRatio: '3 / 4', backgroundColor: t.surfaceMuted, border: `1px solid ${t.borderLight}` }}>
-                {p.thumb ? (
-                  <img src={p.thumb} alt={p.title} className="w-full h-full" style={{ objectFit: 'cover' }} loading="lazy" />
-                ) : (
-                  <div className="w-full h-full flex items-center justify-center px-2 text-center"
-                    style={{ fontSize: 12, color: t.textSub, fontWeight: 600, lineHeight: 1.35, overflow: 'hidden' }}>
-                    {p.title}
-                  </div>
-                )}
-                <span className="absolute" style={{ top: 6, left: 6, fontSize: 9, fontWeight: 700, color: t.text, backgroundColor: t.card, borderRadius: 999, padding: '2px 6px', boxShadow: '0 1px 3px rgba(120,90,160,0.16)' }}>
-                  {p.kind}
-                </span>
-              </div>
-              <div style={{ fontSize: 11, color: t.textSub, marginTop: 4, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={p.title}>
-                {p.title}
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
-    </div>
-  );
+  // ── ④ 이번 주의 조각 — 공용 컴포넌트(주간·월간 재사용), 기간만 주입 ──
+  const piecesBlock = <MemoryPieces startStr={range.startStr} endStr={range.endStr} title="이번 주의 조각" />;
 
   // ── ② 시간 스트립 — 공용 컴포넌트(주간·월간 재사용), 기간만 주입 ──
   const timeStrip = <TrackTimeStrip startStr={range.startStr} endStr={range.endStr} />;
