@@ -1891,19 +1891,25 @@ export const db = {
       return (data ?? []).map((r: any): ConditionRecord => ({
         id: r.id,
         date: r.date,
-        stress: r.stress,
+        slot: (r.slot ?? null) as ConditionRecord['slot'],
+        condition: r.condition ?? null,
+        stress: r.stress ?? null,
         symptoms: r.symptoms ?? [],
         memo: r.memo ?? null,
       }));
     },
+    // 충돌 키 = (date, slot): 하루에 아침/낮/저녁 공존, 같은 (날짜,시점) 재기록만 덮어쓰기.
+    // (구 null-slot 행은 NULLS DISTINCT 라 충돌 대상 아님 — 시점을 붙여 다시 찍으면 새 행이 된다.)
     upsert: async (record: ConditionRecord) => {
       const { error } = await supabase.from('condition_records').upsert({
         id: record.id,
         date: record.date,
+        slot: record.slot,
+        condition: record.condition,
         stress: record.stress,
         symptoms: record.symptoms ?? [],
         memo: record.memo ?? null,
-      }, { onConflict: 'date' });
+      }, { onConflict: 'date,slot' });
       if (error) console.error('[db] condition_records upsert:', error.message);
     },
     delete: async (id: string) => {
@@ -1911,12 +1917,29 @@ export const db = {
       if (error) console.error('[db] condition_records delete:', error.message);
     },
     // 일간 칩 집약 — 그날(논리 날짜) 컨디션 요약. 데이터 없으면 null.
-    summaryForDate: async (date: string): Promise<{ stress: number | null; symptomCount: number } | null> => {
+    // 하루 여러 건 요약 방식: '그날의 마지막 상태' = 시점 순위(저녁>낮>아침>미상) 최상위, 동순위는 최신 입력.
+    //   ("아침엔 괜찮았는데 저녁에 무너졌다" → 저녁이 그날의 현재 진실.) count 로 "외 N건" 표기 가능.
+    summaryForDate: async (
+      date: string,
+    ): Promise<{ condition: number | null; stress: number | null; slot: string | null; symptomCount: number; count: number } | null> => {
       const { data, error } = await supabase
-        .from('condition_records').select('stress, symptoms').eq('date', date).maybeSingle();
+        .from('condition_records').select('condition, stress, slot, symptoms, created_at').eq('date', date);
       if (error) { console.error('[db] condition_records summaryForDate:', error.message); return null; }
-      if (!data) return null;
-      return { stress: data.stress ?? null, symptomCount: (data.symptoms ?? []).length };
+      const rows = data ?? [];
+      if (!rows.length) return null;
+      const rank = (s: string | null | undefined) => (s === '저녁' ? 3 : s === '낮' ? 2 : s === '아침' ? 1 : 0);
+      const latest = [...rows].sort((a: any, b: any) => {
+        const dr = rank(b.slot) - rank(a.slot);
+        if (dr !== 0) return dr;
+        return String(b.created_at ?? '').localeCompare(String(a.created_at ?? ''));
+      })[0];
+      return {
+        condition: latest.condition ?? null,
+        stress: latest.stress ?? null,
+        slot: latest.slot ?? null,
+        symptomCount: (latest.symptoms ?? []).length,
+        count: rows.length,
+      };
     },
   },
 

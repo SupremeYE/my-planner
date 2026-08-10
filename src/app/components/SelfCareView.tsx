@@ -558,7 +558,8 @@ export function SleepSection() {
   // 수면 r.date 는 '일어난 날(기상일)' 기준이므로, 같은 날의 컨디션 = 그 수면 직후의 컨디션
   const correlation = useMemo(() => {
     const stressByDate = new Map<string, number>();
-    conditionRecords.forEach(c => stressByDate.set(c.date, c.stress));
+    // 스트레스가 null 인 기록(컨디션만 찍은 날)은 상관분석에서 제외 — 집계를 깨뜨리지 않는다.
+    conditionRecords.forEach(c => { if (c.stress != null) stressByDate.set(c.date, c.stress); });
     const pairs = sleepRecords
       .filter(r => r.duration > 0)
       .map(r => ({

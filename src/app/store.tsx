@@ -233,10 +233,15 @@ export interface BodyPhoto {
   createdAt?: string;
 }
 
+// 컨디션 기록 — 컨디션(몸 상태)과 스트레스는 서로 다른 축. 하루에 시점(slot)별 여러 건 공존 가능.
+// 기존 8행(재설계 전)은 condition·slot = null(역산·추정 금지), stress 만 존재.
+export type ConditionSlot = '아침' | '낮' | '저녁';
 export interface ConditionRecord {
   id: string;
-  date: string;             // yyyy-MM-dd
-  stress: number;           // 1~5
+  date: string;                    // yyyy-MM-dd
+  slot: ConditionSlot | null;      // 시점(아침/낮/저녁). null = 시점 불명(구 기록)
+  condition: number | null;        // 1~4 몸 상태. null = 기록 없음(구 기록)
+  stress: number | null;           // 1~5. 선택 입력(없이 저장 가능)
   symptoms: string[];
   memo?: string | null;
 }

@@ -81,9 +81,20 @@ export function hexToRgb(hex: string): { r: number; g: number; b: number } | nul
   const n = parseInt(v, 16);
   return { r: (n >> 16) & 255, g: (n >> 8) & 255, b: n & 255 };
 }
-// target: 255=흰색 쪽, 0=검정 쪽. amt: 0~1 섞는 정도.
+// hex('#RRGGBB'/'#RGB') 또는 rgb()/rgba() 문자열을 {r,g,b}로. (mixHex 결과를 다시 mixHex 하는 체인 지원)
+function toRgb(color: string): { r: number; g: number; b: number } | null {
+  const hex = hexToRgb(color);
+  if (hex) return hex;
+  const m = color.trim().match(/^rgba?\(([^)]+)\)$/i);
+  if (m) {
+    const [r, g, b] = m[1].split(',').map(s => parseFloat(s.trim()));
+    if ([r, g, b].every(v => Number.isFinite(v))) return { r, g, b };
+  }
+  return null;
+}
+// target: 255=흰색 쪽, 0=검정 쪽. amt: 0~1 섞는 정도. hex/rgb() 입력 모두 허용(파생색 재믹스 안전).
 export function mixHex(hex: string, target: number, amt: number): string {
-  const rgb = hexToRgb(hex);
+  const rgb = toRgb(hex);
   if (!rgb) return hex;
   const m = (c: number) => Math.round(c + (target - c) * amt);
   return `rgb(${m(rgb.r)}, ${m(rgb.g)}, ${m(rgb.b)})`;
@@ -291,6 +302,29 @@ export function retroStatusStyle(t: ThemeTokens, s: RetroStatus, selected: boole
     color: t.text,
     borderRadius: 10,
   };
+}
+
+// ─── 컨디션 4단계 선택칩 (몸 상태 — 스트레스와 다른 축) ───
+// 월말 회고 슬롯(retroStatus)과 동일 정신: 시맨틱 색을 tint 로만 쓰고 라벨은 딥 인디고(t.text)로 대비 확보.
+// 이모지 대신 '색 단계'로 표현 — 폼의 형제 컨트롤(스트레스 그리드)·앱의 다단계 선택칩(retroStatus)과 일관.
+// 4색 램프(나쁨→아주좋음)는 토큰만으로 구성(danger/warning/success + mixHex) → 색 하드코딩·라일락 우회 없음.
+//   · 1 나쁨     → danger  (코랄)
+//   · 2 보통     → warning (앰버)
+//   · 3 좋음     → success (세이지)
+//   · 4 아주 좋음 → success 를 더 진하게(mixHex) — 좋음과 구분되는 딥 그린(순서상 진할수록 좋음)
+// 전 테마 공통(토큰 기반) — 신규 색 토큰 없음.
+export function conditionLevelColor(t: ThemeTokens, value: number): string {
+  if (value <= 1) return t.danger;
+  if (value === 2) return t.warning;
+  if (value === 3) return t.success;
+  return mixHex(t.success, 0, 0.28); // 4 아주 좋음 — 딥 그린
+}
+export function conditionLevelStyle(t: ThemeTokens, value: number, selected: boolean): CSSProperties {
+  const base = conditionLevelColor(t, value);
+  if (!selected) {
+    return { background: t.card, border: `1px solid ${t.border}`, color: t.textMuted, borderRadius: 12 };
+  }
+  return { background: mixHex(base, 255, 0.82), border: `1.5px solid ${base}`, color: t.text, borderRadius: 12 };
 }
 
 // 뱃지 pill(날짜·체중·slot) — 사진 위 가독을 위해 스크림 없이 '불투명 토큰 표면'. 하드코딩 색 없음.

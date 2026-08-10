@@ -5,11 +5,15 @@ import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
 } from 'recharts';
 import { useTheme } from '../ThemeContext';
-import { solidCardStyle, solidRowStyle, inputBg } from '../styles/haonStyles';
+import { solidCardStyle, solidRowStyle, inputBg, conditionLevelStyle, conditionLevelColor, mixHex } from '../styles/haonStyles';
 import { HaonButton } from './ui/HaonButton';
+import { DateField } from './DateField';
 import { db } from '../../lib/db';
 import { useRealtimeSync } from '../hooks/useRealtimeSync';
-import { getSymptomOptions, STRESS_LEVELS, normalizeSymptom, DEFAULT_SYMPTOMS } from '../../constants/symptoms';
+import {
+  getSymptomOptions, STRESS_LEVELS, normalizeSymptom, DEFAULT_SYMPTOMS,
+  CONDITION_LEVELS, CONDITION_SLOTS, autoConditionSlot, conditionLabel, type ConditionSlot,
+} from '../../constants/symptoms';
 import { usePlanner, type ConditionRecord, type UserSymptom, getLogicalToday } from '../store';
 import ConfirmModal from './ConfirmModal';
 
@@ -36,9 +40,12 @@ export function ConditionTab() {
 
   // 입력 폼
   const [date, setDate] = useState(getLogicalToday());
-  const [stress, setStress] = useState<number | null>(null);
+  const [slot, setSlot] = useState<ConditionSlot>(autoConditionSlot());
+  const [condition, setCondition] = useState<number | null>(null); // 필수(몸 상태)
+  const [stress, setStress] = useState<number | null>(null);       // 선택
   const [symptoms, setSymptoms] = useState<string[]>([]);
   const [memo, setMemo] = useState('');
+  const [editingId, setEditingId] = useState<string | null>(null); // (날짜,시점) 기존 기록 수정 중이면 그 id
 
   const [pendingOverwrite, setPendingOverwrite] = useState<ConditionRecord | null>(null);
   const [deleteId, setDeleteId] = useState<string | null>(null);
@@ -73,15 +80,37 @@ export function ConditionTab() {
   const sorted = useMemo(() => [...records].sort((a, b) => b.date.localeCompare(a.date)), [records]);
 
   // ── 저장 ──
-  const resetForm = () => {
-    setStress(null); setSymptoms([]); setMemo('');
+  // 값 필드만 비운다(날짜·시점은 유지). editingId 도 해제.
+  const clearValues = () => {
+    setCondition(null); setStress(null); setSymptoms([]); setMemo('');
+    setEditingId(null);
     setSymptomAddOpen(false); setSymptomDraft(''); setSymptomNotice(null);
   };
+  const resetForm = () => { clearValues(); };
+
+  // (날짜, 시점)에 기존 기록이 있으면 폼에 불러와 '수정' 모드로, 없으면 새 입력으로 초기화.
+  const loadForSlot = (d: string, s: ConditionSlot, list: ConditionRecord[] = records) => {
+    const rec = list.find(r => r.date === d && r.slot === s);
+    if (rec) {
+      setEditingId(rec.id);
+      setCondition(rec.condition);
+      setStress(rec.stress);
+      setSymptoms(rec.symptoms ?? []);
+      setMemo(rec.memo ?? '');
+      setSymptomAddOpen(false); setSymptomDraft(''); setSymptomNotice(null);
+    } else {
+      clearValues();
+    }
+  };
+  const pickSlot = (s: ConditionSlot) => { setSlot(s); loadForSlot(date, s); };
+  const pickDate = (d: string) => { if (!d) return; setDate(d); loadForSlot(d, slot); };
 
   const buildRecord = (existingId?: string): ConditionRecord => ({
     id: existingId ?? crypto.randomUUID(),
     date,
-    stress: stress!,
+    slot,
+    condition,
+    stress,                       // 선택 — null 로 저장될 수 있다
     symptoms,
     memo: memo.trim() || null,
   });
@@ -93,10 +122,11 @@ export function ConditionTab() {
   };
 
   const handleSubmit = () => {
-    if (stress == null) return;
-    const existing = records.find(r => r.date === date);
-    if (existing) { setPendingOverwrite(existing); return; }
-    saveRecord(buildRecord());
+    if (condition == null) return;  // 컨디션이 필수(스트레스는 선택)
+    const existing = records.find(r => r.date === date && r.slot === slot);
+    // 편집 중이 아닌데 같은 (날짜,시점) 기록이 이미 있으면 덮어쓰기 확인
+    if (existing && existing.id !== editingId) { setPendingOverwrite(existing); return; }
+    saveRecord(buildRecord(editingId ?? existing?.id));
   };
 
   const toggleSymptom = (s: string) => {
@@ -170,10 +200,19 @@ export function ConditionTab() {
     });
   };
 
-  // 빈 날 넛지 [기록하기] → 기존 인라인 입력 카드를 그 날짜로 prefill하여 연다 (새 UI 없음)
+  // "컨디션 기록하기" — 오늘 날짜 + 시각 기준 시점으로 폼을 연다(그 시점에 기록이 있으면 수정 모드).
+  const openRecord = () => {
+    const s = autoConditionSlot();
+    setSlot(s);
+    loadForSlot(date, s);
+    setInputOpen(true);
+  };
+  // 빈 날 넛지 [기록하기] → 그 날짜 + 시각 기준 시점으로 폼을 연다.
   const openRecordFor = (d: string) => {
-    resetForm();
+    const s = autoConditionSlot();
     setDate(d);
+    setSlot(s);
+    loadForSlot(d, s);
     setInputOpen(true);
   };
   // 입력 카드가 열리면 화면에 보이도록 스크롤(이미 보이면 이동 없음)
@@ -195,8 +234,11 @@ export function ConditionTab() {
   const weekRecs = records.filter(r => r.date >= weekStart && r.date <= weekEnd);
   const monthRecs = records.filter(r => r.date.startsWith(monthPrefix));
 
-  const avg = (arr: ConditionRecord[]) =>
-    arr.length ? (arr.reduce((s, r) => s + r.stress, 0) / arr.length).toFixed(1) : '—';
+  // 스트레스가 null 인 기록(컨디션만 찍은 날)은 평균에서 제외 — 집계를 깨뜨리지 않는다.
+  const avg = (arr: ConditionRecord[]) => {
+    const vals = arr.map(r => r.stress).filter((v): v is number => v != null);
+    return vals.length ? (vals.reduce((s, v) => s + v, 0) / vals.length).toFixed(1) : '—';
+  };
   const weekAvg = avg(weekRecs);
   const monthAvg = avg(monthRecs);
 
@@ -206,7 +248,7 @@ export function ConditionTab() {
     : ['일', '월', '화', '수', '목', '금', '토'];
   const weekDays = Array.from({ length: 7 }, (_, i) => format(addDays(weekStartDate, i), 'yyyy-MM-dd'));
   const stressByDate: Record<string, number> = {};
-  weekRecs.forEach(r => { stressByDate[r.date] = r.stress; });
+  weekRecs.forEach(r => { if (r.stress != null) stressByDate[r.date] = r.stress; });
   const weekRangeLabel = `${format(weekStartDate, 'M.d')} – ${format(weekEndDate, 'M.d')}`;
   const weekTitle = weekOffset === 0 ? '이번주' : weekOffset === -1 ? '지난주' : weekRangeLabel;
 
@@ -221,9 +263,9 @@ export function ConditionTab() {
   const trend = useMemo(() => {
     const cutoff = format(subDays(today, 29), 'yyyy-MM-dd');
     return [...records]
-      .filter(r => r.date >= cutoff)
+      .filter(r => r.date >= cutoff && r.stress != null)
       .sort((a, b) => a.date.localeCompare(b.date))
-      .map(r => ({ date: r.date.slice(5), stress: r.stress }));
+      .map(r => ({ date: r.date.slice(5), stress: r.stress as number }));
   }, [records]);
 
   // 이번달 히트맵
@@ -232,7 +274,7 @@ export function ConditionTab() {
     const startDow = getDay(monthStart);
     const days = getDaysInMonth(today);
     const byDate: Record<string, number> = {};
-    monthRecs.forEach(r => { byDate[r.date] = r.stress; });
+    monthRecs.forEach(r => { if (r.stress != null) byDate[r.date] = r.stress; });
     const cells: ({ day: number; dateStr: string; stress: number | null } | null)[] = [];
     for (let i = 0; i < startDow; i++) cells.push(null);
     for (let d = 1; d <= days; d++) {
@@ -242,7 +284,8 @@ export function ConditionTab() {
     return cells;
   }, [monthRecs]);
 
-  const stressLabel = (v: number) => STRESS_LEVELS.find(s => s.value === v)?.label ?? String(v);
+  const stressLabel = (v: number | null | undefined) =>
+    v == null ? '' : (STRESS_LEVELS.find(s => s.value === v)?.label ?? String(v));
 
   // 표시할 기록 도출: 검색어 > 선택 날짜 > 전체 최신순
   // (검색과 날짜 필터는 동시 적용하지 않음 — 검색이 우선)
@@ -250,7 +293,7 @@ export function ConditionTab() {
     const q = searchQuery.trim().toLowerCase();
     if (q) {
       return sorted.filter(r =>
-        [r.memo ?? '', ...(r.symptoms ?? []), stressLabel(r.stress)]
+        [r.memo ?? '', r.slot ?? '', conditionLabel(r.condition), ...(r.symptoms ?? []), stressLabel(r.stress)]
           .join(' ').toLowerCase().includes(q)
       );
     }
@@ -261,11 +304,17 @@ export function ConditionTab() {
   // 필터/검색이 없는 기본 상태에서만 "더보기" 노출 (필터 결과는 전체 표시)
   const isDefaultView = !searchQuery.trim() && !selectedDate;
 
+  // 폼에서 선택한 날짜에 이미 기록된 시점(시점 버튼에 점으로 표시 — "이미 기록된 시점" 노출)
+  const recordedSlotsForDate = useMemo(
+    () => new Set(records.filter(r => r.date === date && r.slot).map(r => r.slot as ConditionSlot)),
+    [records, date]
+  );
+
   return (
     <div className="space-y-5">
       {/* (A) 입력 영역 — 기본 접힘 */}
       {!inputOpen && (
-        <HaonButton variant="primary" onClick={() => setInputOpen(true)}
+        <HaonButton variant="primary" onClick={openRecord}
           leftIcon={<Plus size={16} />} className="w-full text-sm">
           컨디션 기록하기
         </HaonButton>
@@ -273,26 +322,76 @@ export function ConditionTab() {
       {inputOpen && (
       <div ref={formRef} className="p-4 rounded-2xl" style={solidCardStyle(t)}>
         <div className="flex items-center justify-between mb-3">
-          <span style={{ fontSize: 13, fontWeight: 700, color: t.text }}>컨디션 기록</span>
+          <span style={{ fontSize: 13, fontWeight: 700, color: t.text }}>
+            {editingId ? '컨디션 수정' : '컨디션 기록'}
+          </span>
           <button onClick={() => { setInputOpen(false); resetForm(); }} className="p-1 rounded"
             style={{ color: t.textMuted, background: 'none', border: 'none', cursor: 'pointer' }} aria-label="닫기">
             <X size={15} />
           </button>
         </div>
-        <div className="mb-3">
-          <label style={{ fontSize: 12, color: t.textSub }}>날짜</label>
-          <input type="date" value={date} onChange={e => setDate(e.target.value)}
-            className="w-full mt-1 px-3 py-2 rounded-xl outline-none"
-            style={{ backgroundColor: inputBg(t), border: `1px solid ${t.border}`, color: t.text }} />
+
+        {/* 날짜 + 시점 — PC 2단, 모바일 세로 */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 mb-3">
+          <div>
+            <label style={{ fontSize: 12, color: t.textSub, display: 'block', marginBottom: 4 }}>날짜</label>
+            <DateField value={date} onChange={pickDate} clearable={false} size="md"
+              weekStartsOn={weekStartsOn} ariaLabel="컨디션 날짜" />
+          </div>
+          <div>
+            <label style={{ fontSize: 12, color: t.textSub }}>시점</label>
+            <div className="grid grid-cols-3 gap-1.5 mt-1">
+              {CONDITION_SLOTS.map(s => {
+                const active = slot === s;
+                const recorded = recordedSlotsForDate.has(s);
+                return (
+                  <button key={s} type="button" onClick={() => pickSlot(s)}
+                    className="relative py-2 rounded-xl transition-all"
+                    style={{
+                      fontSize: 13, fontWeight: active ? 700 : 500,
+                      backgroundColor: active ? t.accent : t.surfaceMuted,
+                      color: active ? '#fff' : t.textSub,
+                      border: `1px solid ${active ? t.accent : t.border}`,
+                    }}>
+                    {s}
+                    {recorded && (
+                      <span aria-label="기록됨" title="이미 기록된 시점"
+                        style={{
+                          position: 'absolute', top: 5, right: 6, width: 6, height: 6, borderRadius: 999,
+                          background: active ? '#fff' : t.accent,
+                        }} />
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
         </div>
 
-        {/* 스트레스 5단계 */}
-        <label style={{ fontSize: 12, color: t.textSub }}>스트레스 *</label>
+        {/* 컨디션 4단계 — 필수(몸 상태). 색 단계(이모지 대신)로 표현. */}
+        <label style={{ fontSize: 12, color: t.textSub }}>컨디션 *</label>
+        <div className="grid grid-cols-4 gap-1.5 mt-1">
+          {CONDITION_LEVELS.map(c => {
+            const active = condition === c.value;
+            return (
+              <button key={c.value} type="button" onClick={() => setCondition(c.value)}
+                className="py-2 rounded-xl transition-all"
+                style={{ fontSize: 12, fontWeight: active ? 700 : 500, ...conditionLevelStyle(t, c.value, active) }}>
+                <span className="lg:hidden">{c.short}</span>
+                <span className="hidden lg:inline">{c.label}</span>
+              </button>
+            );
+          })}
+        </div>
+
+        {/* 스트레스 5단계 — 선택 */}
+        <label style={{ fontSize: 12, color: t.textSub, display: 'block', marginTop: 14 }}>스트레스 (선택)</label>
         <div className="grid grid-cols-5 gap-1.5 mt-1">
           {STRESS_LEVELS.map(s => {
             const active = stress === s.value;
             return (
-              <button key={s.value} onClick={() => setStress(s.value)}
+              <button key={s.value} type="button"
+                onClick={() => setStress(active ? null : s.value)}
                 className="py-2 rounded-xl transition-all"
                 style={{
                   fontSize: 11, fontWeight: active ? 700 : 500,
@@ -376,8 +475,8 @@ export function ConditionTab() {
           className="w-full mt-1 px-3 py-2 rounded-xl outline-none resize-none"
           style={{ backgroundColor: inputBg(t), border: `1px solid ${t.border}`, color: t.text, fontSize: 14 }} />
 
-        <HaonButton variant="primary" onClick={handleSubmit} disabled={stress == null}
-          className="w-full mt-3 text-sm">기록하기</HaonButton>
+        <HaonButton variant="primary" onClick={handleSubmit} disabled={condition == null}
+          className="w-full mt-3 text-sm">{editingId ? '수정하기' : '기록하기'}</HaonButton>
       </div>
       )}
 
@@ -589,17 +688,43 @@ export function ConditionTab() {
           )
         ) : (
           <div className="space-y-2">
-            {displayedRecords.map(r => (
+            {displayedRecords.map(r => {
+              const condColor = r.condition != null ? conditionLevelColor(t, r.condition) : null;
+              return (
               <div key={r.id} className="flex items-start gap-3 px-3 py-2.5 rounded-xl"
                 style={solidRowStyle(t)}>
                 <span style={{ fontSize: 12, color: t.textSub, width: 50, flexShrink: 0, paddingTop: 2 }}>{r.date.slice(5)}</span>
                 <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <span className="px-2 py-0.5 rounded-full" style={{
-                      fontSize: 11, fontWeight: 700, color: '#fff', backgroundColor: stressShade(r.stress),
-                    }}>
-                      {stressLabel(r.stress)}
-                    </span>
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    {/* 시점 */}
+                    {r.slot && (
+                      <span className="px-2 py-0.5 rounded-full" style={{
+                        fontSize: 11, fontWeight: 600, color: t.textSub,
+                        backgroundColor: t.surfaceMuted, border: `1px solid ${t.border}`,
+                      }}>{r.slot}</span>
+                    )}
+                    {/* 컨디션 (몸 상태) — 없으면 "기록 없음" */}
+                    {condColor ? (
+                      <span className="px-2 py-0.5 rounded-full" style={{
+                        fontSize: 11, fontWeight: 700, color: t.text,
+                        backgroundColor: mixHex(condColor, 255, 0.82), border: `1px solid ${condColor}`,
+                      }}>
+                        컨디션 {conditionLabel(r.condition)}
+                      </span>
+                    ) : (
+                      <span className="px-2 py-0.5 rounded-full" style={{
+                        fontSize: 11, fontWeight: 600, color: t.textMuted,
+                        backgroundColor: t.surfaceMuted, border: `1px dashed ${t.border}`,
+                      }}>컨디션 기록 없음</span>
+                    )}
+                    {/* 스트레스 (선택) — 있을 때만 */}
+                    {r.stress != null && (
+                      <span className="px-2 py-0.5 rounded-full" style={{
+                        fontSize: 11, fontWeight: 700, color: '#fff', backgroundColor: stressShade(r.stress),
+                      }}>
+                        스트레스 {stressLabel(r.stress)}
+                      </span>
+                    )}
                     {(r.symptoms ?? []).map(s => (
                       <span key={s} className="px-2 py-0.5 rounded-full"
                         style={{ fontSize: 11, backgroundColor: `${STRESS_COLOR}14`, color: STRESS_COLOR }}>{s}</span>
@@ -612,7 +737,8 @@ export function ConditionTab() {
                   <Trash2 size={13} color={t.danger} />
                 </button>
               </div>
-            ))}
+              );
+            })}
           </div>
         )}
         {isDefaultView && sorted.length > listLimit && (
@@ -626,8 +752,8 @@ export function ConditionTab() {
       {/* 덮어쓰기 확인 */}
       {pendingOverwrite && (
         <ConfirmModal
-          message="오늘 이미 기록이 있어요. 덮어쓸까요?"
-          description={`${pendingOverwrite.date}의 기존 컨디션 기록을 새 값으로 교체합니다.`}
+          message={`${pendingOverwrite.slot ?? ''} 시점에 이미 기록이 있어요. 덮어쓸까요?`}
+          description={`${pendingOverwrite.date}${pendingOverwrite.slot ? ` ${pendingOverwrite.slot}` : ''}의 기존 컨디션 기록을 새 값으로 교체합니다.`}
           confirmText="덮어쓰기"
           onConfirm={() => { saveRecord(buildRecord(pendingOverwrite.id)); setPendingOverwrite(null); }}
           onCancel={() => setPendingOverwrite(null)}
