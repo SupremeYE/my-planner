@@ -1,9 +1,9 @@
 import { useState, useMemo, useRef, useEffect, type CSSProperties } from 'react';
-import { format, isToday, isTomorrow, isPast, parseISO } from 'date-fns';
+import { format, isToday, isTomorrow, isPast, parseISO, addDays } from 'date-fns';
 import {
   Trash2, ChevronDown, ChevronUp,
-  Check, Star, Pencil, ListTodo,
-  AlertTriangle, ArrowDownToLine, Inbox,
+  Check, Star, ListTodo,
+  AlertTriangle, ArrowDownToLine, Inbox, MoreHorizontal,
 } from 'lucide-react';
 import { usePlanner, Todo, TodoStatus, getLogicalToday } from '../store';
 import { useTheme } from '../ThemeContext';
@@ -14,6 +14,7 @@ import { QuickAddInput } from './QuickAddInput';
 import { isInboxCandidate } from '../../lib/inbox';
 import { periodCoversDate, todoEndDate, deriveTodoPhase } from '../../lib/todoPeriod';
 import { shiftedEndDate } from '../../lib/todoSnooze';
+import { TodoActionMenu } from './todo/TodoActionMenu';
 import { solidCardStyle, solidRowStyle, glassBarStyle, mixHex, selectedRowStyle, actionBarStyle, buttonStyle } from '../styles/haonStyles';
 
 // ─── Constants ───────────────────────────────────────────────
@@ -73,10 +74,11 @@ function TodoRow({
   selectMode = false, selected = false, onSelectToggle,
 }: TodoRowProps) {
   const { t } = useTheme();
-  const { projects, weeklyGoals, milestones, tags } = usePlanner();
+  const { projects, weeklyGoals, milestones, tags, updateTodo, startTimer } = usePlanner();
   const weeklyGoal = todo.weeklyGoalId ? weeklyGoals.find(w => w.id === todo.weeklyGoalId) : null;
   const milestone = todo.milestoneId ? milestones.find(m => m.id === todo.milestoneId) : null;
-  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  // '…' 공용 액션 메뉴 위치(뷰포트 좌표). 열리면 TodoActionMenu 를 포털로 렌더.
+  const [menuPos, setMenuPos] = useState<{ x: number; y: number } | null>(null);
 
   // 완료 체크 시 즉시 사라지지 않고 부드럽게 슬라이드 아웃한 뒤 실제 상태를 커밋한다.
   const [leaving, setLeaving] = useState(false);
@@ -305,11 +307,13 @@ function TodoRow({
                 color={todo.isTop3 ? t.accent : t.textMuted}
               />
             </button>
-            <button onClick={onEdit} className="p-1.5 rounded-lg hover:opacity-70">
-              <Pencil size={13} color={t.textMuted} />
-            </button>
-            <button onClick={() => setShowDeleteConfirm(true)} className="p-1.5 rounded-lg hover:opacity-70">
-              <Trash2 size={13} color={t.textMuted} />
+            {/* 편집·예정·포커스·미루기·취소·삭제는 공용 '…' 메뉴로(일간과 동일 액션 집합). */}
+            <button
+              aria-label="할일 메뉴"
+              onClick={(e) => { e.stopPropagation(); setMenuPos({ x: e.clientX, y: e.clientY }); }}
+              className="p-1.5 rounded-lg hover:opacity-70"
+            >
+              <MoreHorizontal size={13} color={t.textMuted} />
             </button>
           </div>
           )}
@@ -318,13 +322,21 @@ function TodoRow({
         </div>
       </div>
 
-      {showDeleteConfirm && (
-        <ConfirmModal
-          message="할일을 삭제할까요?"
-          confirmText="삭제"
-          confirmDanger
-          onConfirm={() => { onDelete(); setShowDeleteConfirm(false); }}
-          onCancel={() => setShowDeleteConfirm(false)}
+      {menuPos && (
+        <TodoActionMenu
+          todo={todo}
+          position={menuPos}
+          onClose={() => setMenuPos(null)}
+          onEdit={onEdit}
+          onSnooze={() => {
+            // 목록 미루기 = 다음날로 이동(일간은 날짜 선택 모달 — 노출 방식은 달라도 액션은 동일).
+            const base = todo.date ?? getLogicalToday();
+            const next = format(addDays(parseISO(base), 1), 'yyyy-MM-dd');
+            updateTodo(todo.id, { date: next, endDate: shiftedEndDate(todo, next), status: 'active' });
+          }}
+          onFocus={() => startTimer(todo.id)}
+          onSetStatus={(st) => updateTodo(todo.id, { status: todo.status === st && st !== 'active' ? 'active' : st })}
+          onDelete={onDelete}
         />
       )}
     </>

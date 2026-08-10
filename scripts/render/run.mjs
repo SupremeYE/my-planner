@@ -31,7 +31,7 @@ const CHROME = process.env.HAON_CHROME
 const ALL_ROUTES = [
   // openMenu: 최하단 항목의 '…' 메뉴를 열어 클리핑/뷰포트 이탈을 검출(Stage 3 실증)
   { slug: 'daily', path: '/daily', openMenu: true },
-  { slug: 'todos', path: '/todos' },
+  { slug: 'todos', path: '/todos', openMenu: true },
   {
     slug: 'calendar', path: '/calendar',
     subs: [

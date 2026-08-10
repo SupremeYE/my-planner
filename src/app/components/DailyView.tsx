@@ -1,4 +1,4 @@
-import { useState, useEffect, useLayoutEffect, useRef, type CSSProperties } from 'react';
+import { useState, useEffect, useRef, type CSSProperties } from 'react';
 import { createPortal } from 'react-dom';
 import { useSearchParams, NavLink, useNavigate } from 'react-router';
 import {
@@ -25,6 +25,8 @@ import { useDailySummary } from '../hooks/useDailySummary';
 import { isEventPast, isVirtualEventId } from '../../api/events';
 import { expandRecurringTodos, isVirtualTodoId, parseVirtualTodoId } from '../../lib/recurrenceExpansion';
 import { shiftedEndDate } from '../../lib/todoSnooze';
+import { useMenuPosition } from '../hooks/useMenuPosition';
+import { TodoActionMenu } from './todo/TodoActionMenu';
 import { periodCoversDate, todoEndDate, isTodoIncomplete, deriveTodoPhase, todoRunningDays, type DerivedTodoPhase } from '../../lib/todoPeriod';
 import { RecurrenceBranchModal } from './RecurrenceBranchModal';
 import { RetroSheet } from './RetroSheet';
@@ -453,161 +455,6 @@ function EventSnoozeModal({ event, onClose }: { event: Event; onClose: () => voi
         </div>
       </div>
     </div>
-  );
-}
-
-// ─── Context Menu ───
-/**
- * 팝오버(컨텍스트 메뉴) 위치 훅 — 클릭 좌표(뷰포트 기준)에서 열되,
- * 실제 렌더 크기를 측정해 화면 밖으로 넘치면 좌/상으로 뒤집는다(flip).
- * 포털(body 렌더)과 함께 쓰면 overflow:hidden·transform 조상에 갇히지 않는다.
- * 스크롤/리사이즈 시엔 위치가 어긋나므로 닫는다.
- */
-function useMenuPosition(
-  rawPos: { x: number; y: number },
-  ref: React.RefObject<HTMLElement>,
-  onClose: () => void,
-): { x: number; y: number } {
-  const [pos, setPos] = useState(rawPos);
-  useLayoutEffect(() => {
-    const el = ref.current;
-    if (!el) return;
-    const M = 8; // 뷰포트 여백
-    const { width, height } = el.getBoundingClientRect();
-    let x = rawPos.x;
-    let y = rawPos.y;
-    if (x + width > window.innerWidth - M) x = rawPos.x - width; // 오른쪽 넘침 → 좌측 flip
-    if (x < M) x = M;
-    if (y + height > window.innerHeight - M) y = rawPos.y - height; // 아래 공간 부족 → 위로 flip
-    if (y < M) y = M;
-    setPos({ x, y });
-  }, [rawPos.x, rawPos.y, ref]);
-  useEffect(() => {
-    // 캡처 단계로 중첩 스크롤 컨테이너의 스크롤까지 잡아 닫는다(위치 고정 캡처라 어긋남 방지).
-    window.addEventListener('scroll', onClose, true);
-    window.addEventListener('resize', onClose);
-    return () => {
-      window.removeEventListener('scroll', onClose, true);
-      window.removeEventListener('resize', onClose);
-    };
-  }, [onClose]);
-  return pos;
-}
-
-function ContextMenu({ todo, position, onClose, onFocus, onDelete, deleteMessage, variant = 'list' }: {
-  todo: Todo;
-  position: { x: number; y: number };
-  onClose: () => void;
-  onFocus: (todo: Todo) => void;
-  onDelete?: () => void;
-  deleteMessage?: string;
-  variant?: 'list' | 'block'; // 'block' = 타임라인 블록/우클릭 공통 (편집·미루기·삭제만)
-}) {
-  const { updateTodo, deleteTodo } = usePlanner();
-  const { t } = useTheme();
-  const ref = useRef<HTMLDivElement>(null);
-  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
-  const menuPos = useMenuPosition(position, ref, onClose);
-
-  useEffect(() => {
-    const handler = (e: MouseEvent) => {
-      // ConfirmModal이 떠 있는 동안에는 컨텍스트 메뉴를 바깥 클릭으로 닫지 않음.
-      // (모달 버튼 클릭 시 mousedown이 먼저 발생하면서 메뉴/모달이 언마운트되어 onClick이 실행되지 않는 이슈 방지)
-      if (showDeleteConfirm) return;
-      if (ref.current && !ref.current.contains(e.target as Node)) onClose();
-    };
-    document.addEventListener('mousedown', handler);
-    return () => document.removeEventListener('mousedown', handler);
-  }, [onClose, showDeleteConfirm]);
-
-  const menuItems = variant === 'block'
-    ? [
-        { label: '편집', icon: Edit3, action: 'edit' },
-        { divider: true },
-        { label: '미루기', icon: ArrowRight, action: 'snooze-modal' },
-        { divider: true },
-        { label: '삭제', icon: Trash2, action: 'delete', danger: true },
-      ]
-    : [
-        { label: '편집', icon: Edit3, action: 'edit' },
-        { divider: true },
-        { label: '예정', icon: Clock, action: 'active', status: 'active' },
-        // '진행중'은 기간에서 파생된다(수동 토글 제거) — 시작하려면 '포커스 시작'(타이머).
-        { label: '포커스 시작', icon: Play, action: 'focus' },
-        { label: '미루기', icon: Pause, action: 'snoozed', status: 'snoozed' },
-        { label: '취소', icon: Ban, action: 'cancelled', status: 'cancelled' },
-        { divider: true },
-        { label: '삭제', icon: Trash2, action: 'delete', danger: true },
-      ];
-
-  return createPortal(
-    <>
-      <div ref={ref} role="menu" className="fixed z-50 rounded-xl py-1.5 min-w-[140px]"
-        style={{
-          top: menuPos.y,
-          left: menuPos.x,
-          backgroundColor: t.card,
-          border: `1px solid ${t.border}`,
-          boxShadow: '0 10px 15px -3px rgba(0,0,0,0.1), 0 4px 6px -4px rgba(0,0,0,0.1)',
-        }}>
-        {menuItems.map((item, i) => {
-          if ('divider' in item && item.divider) {
-            return <div key={i} className="my-1" style={{ borderBottom: `1px solid ${t.border}` }} />;
-          }
-          const Icon = (item as any).icon;
-          const isActive = 'status' in item && todo.status === (item as any).status;
-          return (
-            <button key={i}
-              className="w-full flex items-center gap-2 px-3 py-1.5 transition-colors text-left"
-              style={{
-                fontSize: 12,
-                color: (item as any).danger ? '#DC2626' : isActive ? t.accent : t.text,
-                backgroundColor: isActive ? t.accentLight : 'transparent',
-                fontWeight: isActive ? 600 : 400,
-              }}
-              onMouseEnter={e => (e.currentTarget.style.backgroundColor = (item as any).danger ? '#FEE2E2' : t.lavenderHover)}
-              onMouseLeave={e => (e.currentTarget.style.backgroundColor = isActive ? t.accentLight : 'transparent')}
-              onClick={() => {
-                if ((item as any).action === 'edit') {
-                  onClose();
-                  window.dispatchEvent(new CustomEvent('editTodo', { detail: todo }));
-                } else if ((item as any).action === 'focus') {
-                  onFocus(todo);
-                  onClose();
-                } else if ((item as any).action === 'snoozed' || (item as any).action === 'snooze-modal') {
-                  onClose();
-                  window.dispatchEvent(new CustomEvent('snoozeTodo', { detail: todo }));
-                } else if ((item as any).action === 'delete') {
-                  setShowDeleteConfirm(true);
-                } else if ('status' in item) {
-                  const st = (item as any).status;
-                  // 같은 상태를 다시 누르면 해제(→ 예정). 진행중은 파생이라 여기서 다루지 않는다.
-                  updateTodo(todo.id, { status: todo.status === st && st !== 'active' ? 'active' : st });
-                  onClose();
-                }
-              }}>
-              {Icon && <Icon size={13} />}
-              <span>{(item as any).label}</span>
-            </button>
-          );
-        })}
-      </div>
-      {showDeleteConfirm && (
-        <ConfirmModal
-          message={deleteMessage ?? "이 할일을 삭제할까요?"}
-          confirmText="삭제"
-          confirmDanger
-          onConfirm={() => {
-            if (onDelete) onDelete();
-            else deleteTodo(todo.id);
-            setShowDeleteConfirm(false);
-            onClose();
-          }}
-          onCancel={() => setShowDeleteConfirm(false)}
-        />
-      )}
-    </>,
-    document.body,
   );
 }
 
@@ -1782,12 +1629,15 @@ export function DailyView() {
         const menuTodo = doBlk ? (todos.find(t => t.id === doBlk.todoId) ?? contextMenu.todo) : contextMenu.todo;
         const isVirtual = isVirtualTodoId(menuTodo.id);
         return (
-          <ContextMenu
+          <TodoActionMenu
             todo={menuTodo}
             position={adjustedPos}
             onClose={() => setContextMenu(null)}
-            onFocus={setFocusingTodo}
             variant={contextMenu.source ? 'block' : 'list'}
+            onEdit={() => setEditingTodo(menuTodo)}
+            onSnooze={() => setSnoozingTodo(menuTodo)}
+            onFocus={() => setFocusingTodo(menuTodo)}
+            onSetStatus={(st) => updateTodo(menuTodo.id, { status: menuTodo.status === st && st !== 'active' ? 'active' : st })}
             onDelete={contextMenu.source === 'do'
               ? () => {
                   if (doBlk) deleteTimeBlock(doBlk.id);
