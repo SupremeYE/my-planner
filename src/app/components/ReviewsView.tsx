@@ -1,21 +1,21 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
-import { Plus, X, Search, ChevronLeft, ChevronRight, ChevronDown, Trash2, Clock, Check } from 'lucide-react';
+import { X, Search, ChevronLeft, ChevronRight, ChevronDown, Trash2, Clock, Check } from 'lucide-react';
 import { useNavigate } from 'react-router';
-import { usePlanner, ReviewRecord, MonthlyReview, WeightRecord, CultureRecord, MusicRecord, getWeekKey, getLogicalToday } from '../store';
-import { db, type WalkSession } from '../../lib/db';
+import { usePlanner, MonthlyReview, WeightRecord, HappyMoment, getWeekKey, getLogicalToday } from '../store';
+import { db } from '../../lib/db';
 import { TrackTimeStrip } from './review/TrackTimeStrip';
+import { MemoryPieces } from './review/MemoryPieces';
 import { computeWeightDelta } from './review/reviewMetrics';
 import { useTheme } from '../ThemeContext';
 import { LabelRow } from './VoiceInputButton';
 import { useMediaQuery } from '../hooks/useMediaQuery';
 import { useRealtimeSync } from '../hooks/useRealtimeSync';
-import { HappyCaptureModal } from './HappyCaptureModal';
 import { supabase } from '../../lib/supabase';
 import { getCategoryEmoji, getMoodCategoryLabel, ENERGY_LABELS } from './MoodView';
 import { inputBg, mixHex, retroStatusColor, withAlpha, periodStepperStyle } from '../styles/haonStyles';
 import { RetroSheet } from './RetroSheet';
 import {
-  format, addDays, subDays, subYears, parseISO,
+  format, addDays, subDays, parseISO,
   startOfWeek, endOfWeek, addWeeks, subWeeks, startOfMonth, endOfMonth,
   addMonths, subMonths,
   startOfISOWeek, endOfISOWeek, setISOWeek, setISOWeekYear,
@@ -92,78 +92,6 @@ function ConditionBadge({ date }: { date: string }) {
         </div>
       ) : (
         <p style={{ fontSize: 12, color: t.textMuted }}>아직 기분 기록 없음</p>
-      )}
-    </div>
-  );
-}
-
-// ─── 과거 타임라인 카드 ───
-function recordPreview(r: ReviewRecord): string {
-  const g = (r.gratitude ?? []).filter(Boolean);
-  if (g.length) return `🙏 ${g.join(', ')}`;
-  const kpt = [r.kptKeep, r.kptProblem, r.kptTry].filter(Boolean).join(' · ');
-  if (kpt) return `🔄 ${kpt}`;
-  if (r.dailySummary) return `📔 ${r.dailySummary}`;
-  return '';
-}
-
-function PastCard({ record, onSelect, anniversary }: {
-  record: ReviewRecord; onSelect: (date: string) => void; anniversary?: boolean;
-}) {
-  const { t } = useTheme();
-  const gCount = (record.gratitude ?? []).filter(Boolean).length;
-  const hasKpt = !!(record.kptKeep || record.kptProblem || record.kptTry);
-  const preview = recordPreview(record);
-  return (
-    <button onClick={() => onSelect(record.date)}
-      className="w-full text-left p-3 rounded-xl transition-colors"
-      style={{
-        backgroundColor: anniversary ? t.accentLight : t.card,
-        border: `1px solid ${anniversary ? t.accent : t.borderLight}`,
-      }}>
-      <div className="flex items-center gap-2 mb-1.5 flex-wrap">
-        {anniversary && <span style={{ fontSize: 11, fontWeight: 700, color: t.accent }}>🕰 1년 전 오늘</span>}
-        <span style={{ fontSize: 12, fontWeight: 700, color: t.text }}>
-          {format(parseISO(record.date), 'M월 d일 (E)', { locale: ko })}
-        </span>
-        <div className="flex gap-1">
-          {gCount > 0 && (
-            <span className="px-2 py-0.5 rounded-full" style={{ fontSize: 9, backgroundColor: t.surfaceMuted, color: t.textSub }}>감사 {gCount}</span>
-          )}
-          {hasKpt && (
-            <span className="px-2 py-0.5 rounded-full" style={{ fontSize: 9, backgroundColor: t.surfaceMuted, color: t.textSub }}>KPT</span>
-          )}
-        </div>
-      </div>
-      {preview && (
-        <p style={{ fontSize: 12, color: t.textSub, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{preview}</p>
-      )}
-    </button>
-  );
-}
-
-function PastTimeline({ dayDate, onSelect }: { dayDate: string; onSelect: (date: string) => void }) {
-  const { t } = useTheme();
-  const { reviewRecords } = usePlanner();
-
-  const anniversaryDate = format(subYears(parseISO(dayDate), 1), 'yyyy-MM-dd');
-  const anniversaryRec = reviewRecords.find(r => r.date === anniversaryDate);
-
-  const recent = [...reviewRecords]
-    .filter(r => r.date !== dayDate && r.date !== anniversaryDate && recordPreview(r))
-    .sort((a, b) => b.date.localeCompare(a.date))
-    .slice(0, 7);
-
-  return (
-    <div className="space-y-2">
-      <h3 className="flex items-center gap-1.5" style={{ fontSize: 12, fontWeight: 700, color: t.textSub }}>
-        <Clock size={13} /> 지난 기록
-      </h3>
-      {anniversaryRec && <PastCard record={anniversaryRec} onSelect={onSelect} anniversary />}
-      {recent.length === 0 && !anniversaryRec ? (
-        <p style={{ fontSize: 12, color: t.textMuted, padding: '12px 0' }}>아직 지난 기록이 없어요</p>
-      ) : (
-        recent.map(r => <PastCard key={r.id} record={r} onSelect={onSelect} />)
       )}
     </div>
   );
@@ -283,21 +211,12 @@ function DayTab({ jump }: { jump?: JumpReq }) {
     <div>
       {dateNav}
       {retroOpen && <RetroSheet date={dayDate} onClose={() => setRetroOpen(false)} />}
-      {isDesktop ? (
-        <div className="flex gap-6 items-start">
-          <div className="flex-1 min-w-0">{writeCol}</div>
-          <div className="flex-shrink-0" style={{ width: 320 }}>
-            <div style={{ position: 'sticky', top: 12 }}>
-              <PastTimeline dayDate={dayDate} onSelect={setDayDate} />
-            </div>
-          </div>
-        </div>
-      ) : (
-        <div className="space-y-5">
-          {writeCol}
-          <PastTimeline dayDate={dayDate} onSelect={setDayDate} />
-        </div>
-      )}
+      {/* '지난 기록'(PastTimeline) 제거 — 돌아보기 화면과 완전 중복이라 상단 '돌아보기' 버튼으로 충분.
+          인라인 회고 제거 후 카드 2개(컨디션·회고)만 남아, 전폭으로 늘이면 비어 보이므로
+          데스크톱에선 읽기 좋은 폭으로 중앙 정렬한다(무게중심 안정). */}
+      <div className="mx-auto" style={{ maxWidth: isDesktop ? 560 : undefined }}>
+        {writeCol}
+      </div>
     </div>
   );
 }
@@ -354,7 +273,7 @@ function MiniCell({ value, unit, label }: { value: string; unit?: string; label:
 
 function WeekTab({ jump }: { jump?: JumpReq }) {
   const {
-    todos, tags, habits, events, projects, foodRecords,
+    todos, habits, projects,
     weeklyGoals, monthlyGoals, toggleWeeklyGoal,
     weeklyReviews, addWeeklyReview, updateWeeklyReview,
     appSettings,
@@ -412,49 +331,22 @@ function WeekTab({ jump }: { jump?: JumpReq }) {
   const habitDays = habits.length ? weekDays.filter(d => habits.some(h => h.checkedDates.includes(d))).length : 0;
   const habitPct = Math.round((habitDays / 7) * 100);
 
-  // ── ③④ 전역 store 밖 소스(몸무게·문화·음악·산책)는 여기서 1회 fetch 후 주 범위로 필터 ──
-  const [wkData, setWkData] = useState<{ weights: WeightRecord[]; culture: CultureRecord[]; music: MusicRecord[]; walks: WalkSession[] }>(
-    { weights: [], culture: [], music: [], walks: [] },
-  );
+  // ── ③ 몸무게 소스(전역 store 밖)는 여기서 1회 fetch 후 주 범위로 필터 ──
+  // (조각의 culture/music/walk 는 MemoryPieces 가 자체 fetch 하므로 여기선 몸무게만.)
+  const [wkWeights, setWkWeights] = useState<WeightRecord[]>([]);
   useEffect(() => {
     let alive = true;
-    Promise.all([db.weightRecords.fetchAll(), db.cultureRecords.fetchAll(), db.musicRecords.fetchAll(), db.walkSessions.fetchAll()])
-      .then(([weights, culture, music, walks]) => { if (alive) setWkData({ weights, culture, music, walks }); })
+    db.weightRecords.fetchAll()
+      .then(weights => { if (alive) setWkWeights(weights); })
       .catch(() => { /* 빈 상태 유지 */ });
     return () => { alive = false; };
   }, []);
 
   // ③ 몸무게 변화 — 공용 헬퍼(동일 slot 비교, DESIGN §7.4). 주간·월간 동일 로직.
   const weekWeight = useMemo(
-    () => computeWeightDelta(wkData.weights, range.startStr, range.endStr),
-    [wkData.weights, range.startStr, range.endStr],
+    () => computeWeightDelta(wkWeights, range.startStr, range.endStr),
+    [wkWeights, range.startStr, range.endStr],
   );
-
-  // ④ 이번 주의 조각 — 그 주를 떠올리게 하는 기록(사진 없어도 제목만으로 성립)
-  const dOf = (s?: string | null) => (s ? s.slice(0, 10) : '');
-  const inRange = (d: string) => !!d && d >= range.startStr && d <= range.endStr;
-  const weekPieces = useMemo(() => {
-    const out: { key: string; kind: string; title: string; thumb?: string | null }[] = [];
-    // 맛있었던 것 — taste 'good' 상위 1~2개만(21끼 전부 아님)
-    foodRecords
-      .filter(f => inRange(f.date) && f.tasteRating === 'good')
-      .slice(0, 2)
-      .forEach(f => out.push({ key: `food-${f.id}`, kind: '맛있었던 것', title: f.foodName, thumb: f.photoUrl }));
-    wkData.culture
-      .filter(c => inRange(c.watchedDate ?? dOf(c.createdAt)))
-      .slice(0, 4)
-      .forEach(c => out.push({ key: `culture-${c.id}`, kind: '영상', title: c.title, thumb: c.thumbnailUrl }));
-    wkData.music
-      .filter(m => inRange(dOf(m.createdAt)))
-      .slice(0, 4)
-      .forEach(m => out.push({ key: `music-${m.id}`, kind: '음악', title: m.trackTitle, thumb: m.artworkUrl }));
-    wkData.walks
-      .filter(w => inRange(dOf(w.startedAt ?? w.createdAt)))
-      .slice(0, 3)
-      .forEach(w => out.push({ key: `walk-${w.id}`, kind: '산책', title: w.routeName || '산책', thumb: w.photoUrl }));
-    return out;
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [foodRecords, wkData, range.startStr, range.endStr]);
 
   // ── 회고 입력 (Stage 1 필드로 실제 저장) ──
   const weeklyReview = weeklyReviews.find(r => r.weekKey === range.weekKey);
@@ -649,40 +541,8 @@ function WeekTab({ jump }: { jump?: JumpReq }) {
     </div>
   );
 
-  // ── ④ 이번 주의 조각 (썸네일 가로 스트립 + 종류 배지, 사진 없으면 제목만) ──
-  const piecesBlock = (
-    <div className="p-4 rounded-xl" style={{ backgroundColor: t.card, border: `1px solid ${t.borderLight}` }}>
-      <h3 style={{ fontSize: 13, fontWeight: 700, color: t.text, marginBottom: 12 }}>🧩 이번 주의 조각</h3>
-      {weekPieces.length === 0 ? (
-        <p style={{ fontSize: 12, color: t.textMuted, lineHeight: 1.5 }}>
-          이번 주 남긴 기록이 아직 없어요 · 맛있었던 것·영상·음악·산책이 여기 모여요.
-        </p>
-      ) : (
-        <div className="flex gap-3 overflow-x-auto pb-1" style={{ scrollbarWidth: 'thin' }}>
-          {weekPieces.map(p => (
-            <div key={p.key} style={{ width: 112, flexShrink: 0 }}>
-              <div className="relative rounded-xl overflow-hidden" style={{ aspectRatio: '3 / 4', backgroundColor: t.surfaceMuted, border: `1px solid ${t.borderLight}` }}>
-                {p.thumb ? (
-                  <img src={p.thumb} alt={p.title} className="w-full h-full" style={{ objectFit: 'cover' }} loading="lazy" />
-                ) : (
-                  <div className="w-full h-full flex items-center justify-center px-2 text-center"
-                    style={{ fontSize: 12, color: t.textSub, fontWeight: 600, lineHeight: 1.35, overflow: 'hidden' }}>
-                    {p.title}
-                  </div>
-                )}
-                <span className="absolute" style={{ top: 6, left: 6, fontSize: 9, fontWeight: 700, color: t.text, backgroundColor: t.card, borderRadius: 999, padding: '2px 6px', boxShadow: '0 1px 3px rgba(120,90,160,0.16)' }}>
-                  {p.kind}
-                </span>
-              </div>
-              <div style={{ fontSize: 11, color: t.textSub, marginTop: 4, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={p.title}>
-                {p.title}
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
-    </div>
-  );
+  // ── ④ 이번 주의 조각 — 공용 컴포넌트(주간·월간 재사용), 기간만 주입 ──
+  const piecesBlock = <MemoryPieces startStr={range.startStr} endStr={range.endStr} title="이번 주의 조각" />;
 
   // ── ② 시간 스트립 — 공용 컴포넌트(주간·월간 재사용), 기간만 주입 ──
   const timeStrip = <TrackTimeStrip startStr={range.startStr} endStr={range.endStr} />;
@@ -856,11 +716,82 @@ function BestCategory({ emoji, label, candidates, value, onChange }: {
   );
 }
 
+// 좋았던 순간 패턴(읽기 전용) — 시간대 분포 막대 + 총 횟수 + 가장 많은 요일.
+// 아카이브(열람 전용)에서 월간 리뷰로 이전한 통계 카드. 입력 버튼 없음(회고 시트가 단일 입력 지점).
+// 주간에는 넣지 않는다 — 한 주 표본으로는 "가장 많은 요일" 등이 무의미(요일별 1건).
+function HappyPatternCard({ moments, monthLabel }: { moments: HappyMoment[]; monthLabel: string }) {
+  const { t } = useTheme();
+  const pattern = useMemo(() => {
+    const WD = ['일', '월', '화', '수', '목', '금', '토'];
+    const buckets = [
+      { key: 'morning', label: '아침', range: '05–11' },
+      { key: 'afternoon', label: '오후', range: '11–17' },
+      { key: 'evening', label: '저녁', range: '17–22' },
+      { key: 'night', label: '밤', range: '22–05' },
+    ] as const;
+    const bucketOf = (h: number) =>
+      h >= 5 && h < 11 ? 'morning' : h >= 11 && h < 17 ? 'afternoon' : h >= 17 && h < 22 ? 'evening' : 'night';
+    const counts: Record<string, number> = { morning: 0, afternoon: 0, evening: 0, night: 0 };
+    const wd = new Array(7).fill(0);
+    let withHour = 0;
+    for (const m of moments) {
+      if (m.happenedAt) { counts[bucketOf(parseISO(m.happenedAt).getHours())]++; withHour++; }
+      wd[parseISO(m.date).getDay()]++;
+    }
+    const topBucket = withHour > 0 ? buckets.reduce((a, b) => (counts[b.key] > counts[a.key] ? b : a)) : null;
+    const topWdIdx = wd.some((c: number) => c > 0) ? wd.reduce((bi: number, c: number, i: number) => (c > wd[bi] ? i : bi), 0) : -1;
+    return {
+      buckets: buckets.map(b => ({ ...b, count: counts[b.key] })),
+      max: Math.max(1, ...buckets.map(b => counts[b.key])),
+      withHour,
+      count: moments.length,
+      topBucketLabel: topBucket?.label ?? null,
+      topWd: topWdIdx >= 0 ? `${WD[topWdIdx]}요일` : null,
+    };
+  }, [moments]);
+
+  // 그 달 좋았던 순간이 없으면 섹션 자체를 숨긴다(빈 통계 카드로 어색해지지 않게).
+  if (moments.length === 0) return null;
+
+  return (
+    <div className="rounded-2xl" style={{ backgroundColor: t.card, border: `1px solid ${t.borderLight}`, padding: 16 }}>
+      <h3 style={{ fontSize: 14, fontWeight: 700, color: t.text, marginBottom: 12 }}>✨ 주로 이럴 때 행복을 느껴요</h3>
+      <div className="flex items-end gap-3" style={{ height: 92 }}>
+        {pattern.buckets.map(b => {
+          const h = b.count > 0 ? `${Math.max(8, (b.count / pattern.max) * 100)}%` : '0%';
+          const isTop = pattern.topBucketLabel === b.label && b.count > 0;
+          return (
+            <div key={b.key} className="flex flex-col items-center gap-1.5 flex-1 min-w-0" style={{ height: '100%', justifyContent: 'flex-end' }}>
+              <div className="relative w-full flex justify-center" style={{ flex: 1, alignItems: 'flex-end' }}>
+                <div style={{ width: '100%', maxWidth: 44, height: h, borderRadius: '8px 8px 0 0', backgroundColor: isTop ? t.danger : t.accent, position: 'relative', transition: 'height .3s' }}>
+                  {b.count > 0 && (
+                    <span style={{ position: 'absolute', top: -16, left: 0, right: 0, textAlign: 'center', fontSize: 10, fontWeight: 700, color: isTop ? t.danger : t.textMuted }}>{b.count}</span>
+                  )}
+                </div>
+              </div>
+              <span style={{ fontSize: 11, color: isTop ? t.danger : t.textSub, fontWeight: isTop ? 700 : 400 }}>{b.label}</span>
+              <span style={{ fontSize: 9, color: t.textMuted }}>{b.range}</span>
+            </div>
+          );
+        })}
+      </div>
+      <p className="mt-3" style={{ fontSize: 12, color: t.textSub, lineHeight: 1.6 }}>
+        {monthLabel} · 행복한 순간 <b style={{ color: t.text }}>{pattern.count}번</b>
+        {pattern.topBucketLabel && <> · 가장 많은 시간대 <b style={{ color: t.danger }}>{pattern.topBucketLabel}</b></>}
+        {pattern.topWd && <> · 가장 많은 요일 <b style={{ color: t.danger }}>{pattern.topWd}</b></>}
+      </p>
+      {pattern.withHour < pattern.count && (
+        <p style={{ fontSize: 10.5, color: t.textMuted, marginTop: 4 }}>※ 시간대 막대는 시각이 기록된 {pattern.withHour}건만 반영</p>
+      )}
+    </div>
+  );
+}
+
 function MonthTab({ jump }: { jump?: JumpReq }) {
   const {
     todos, habits, monthlyGoals, projects,
     monthlyReviews, addMonthlyReview, updateMonthlyReview,
-    appSettings,
+    happyMoments, appSettings,
   } = usePlanner();
   const { t } = useTheme();
   const navigate = useNavigate();
@@ -1130,6 +1061,13 @@ function MonthTab({ jump }: { jump?: JumpReq }) {
     </div>
   );
 
+  // 4-3b. 이 달의 조각 — 주간과 동일 공용 컴포넌트를 월 범위로 재사용(모먼트·맛·영상·음악·산책).
+  const monthPiecesBlock = <MemoryPieces startStr={monthStartStr} endStr={monthEndStr} title="이 달의 조각" />;
+
+  // 4-3c. 좋았던 순간 패턴 — 아카이브에서 이전(읽기 전용). 그 달 기록 없으면 카드가 null 반환.
+  const monthMoments = happyMoments.filter(m => m.date >= monthStartStr && m.date <= monthEndStr);
+  const happyPatternBlock = <HappyPatternCard moments={monthMoments} monthLabel={format(anchor, 'M월', { locale: ko })} />;
+
   // 4-4. 이 달의 회고
   const reviewForm = (
     <div className="p-4 rounded-xl" style={{ backgroundColor: t.card, border: `1px solid ${t.borderLight}` }}>
@@ -1223,6 +1161,8 @@ function MonthTab({ jump }: { jump?: JumpReq }) {
             {timeStrip}
             {monthGoalsBlock}
             {bestBlock}
+            {monthPiecesBlock}
+            {happyPatternBlock}
           </div>
           <div className="flex-shrink-0 space-y-5" style={{ width: 340 }}>
             {reviewForm}
@@ -1235,6 +1175,8 @@ function MonthTab({ jump }: { jump?: JumpReq }) {
           {timeStrip}
           {monthGoalsBlock}
           {bestBlock}
+          {monthPiecesBlock}
+          {happyPatternBlock}
           {reviewForm}
           {pastBlock}
         </div>
@@ -1252,7 +1194,6 @@ interface ArchiveItem {
   date: string;          // yyyy-MM-dd — 정렬·그룹·연도·점프 기준
   dateLabel: string;     // 기간형(주간/월간) 카드 헤더용 라벨
   time?: string;         // 행복: 시각 표시(a h:mm)
-  hour?: number;         // 행복: happened_at 시(時) — 시간대 패턴 집계용(NULL이면 미집계)
   text: string;          // 검색 대상(전 본문 join)
   jump: { tab: 'day' | 'week' | 'month'; date: string };
   // ── 블록 렌더용 구조화 페이로드(감사 줄 단위·KPT 3분할 등, 검색은 text로) ──
@@ -1317,9 +1258,6 @@ function ArchiveOverlay({ onClose, onJump }: {
   const [typeFilter, setTypeFilter] = useState<'all' | ArchiveKind>('all');
   const [yearFilter, setYearFilter] = useState<string>('all');
   const [heatmapYear, setHeatmapYear] = useState<string | null>(null); // 히트맵 ‹ › 이동 연도('전체' 필터일 때)
-  const [happyOpen, setHappyOpen] = useState(false);
-  const [toast, setToast] = useState<string | null>(null);
-  const notify = (msg: string) => { setToast(msg); window.setTimeout(() => setToast(null), 1900); };
 
   // 검색 디바운스(220ms)
   useEffect(() => {
@@ -1374,7 +1312,6 @@ function ArchiveOverlay({ onClose, onJump }: {
       out.push({ id: `h-${h.id}`, kind: 'happy', date: h.date,
         dateLabel: format(parseISO(h.date), 'M월 d일 (E)', { locale: ko }),
         time: h.happenedAt ? format(parseISO(h.happenedAt), 'a h:mm', { locale: ko }) : undefined,
-        hour: h.happenedAt ? parseISO(h.happenedAt).getHours() : undefined,
         happy: content, text: content, jump: { tab: 'day', date: h.date } });
     }
 
@@ -1502,94 +1439,17 @@ function ArchiveOverlay({ onClose, onJump }: {
 
   const markBg = `${t.accent}33`;
 
-  // ── 행복 패턴(✨행복 필터 시) — 시간대 빈도 + 요약. 클라이언트 집계만. ──
-  const happyPattern = useMemo(() => {
-    if (typeFilter !== 'happy') return null;
-    const WD = ['일', '월', '화', '수', '목', '금', '토'];
-    const buckets = [
-      { key: 'morning', label: '아침', range: '05–11' },
-      { key: 'afternoon', label: '오후', range: '11–17' },
-      { key: 'evening', label: '저녁', range: '17–22' },
-      { key: 'night', label: '밤', range: '22–05' },
-    ] as const;
-    const bucketOf = (h: number) =>
-      h >= 5 && h < 11 ? 'morning' : h >= 11 && h < 17 ? 'afternoon' : h >= 17 && h < 22 ? 'evening' : 'night';
-    const counts: Record<string, number> = { morning: 0, afternoon: 0, evening: 0, night: 0 };
-    const wd = new Array(7).fill(0);
-    let withHour = 0;
-    for (const it of filtered) {
-      if (it.hour != null) { counts[bucketOf(it.hour)]++; withHour++; }
-      wd[parseISO(it.date).getDay()]++;
-    }
-    const topBucket = withHour > 0
-      ? buckets.reduce((a, b) => (counts[b.key] > counts[a.key] ? b : a))
-      : null;
-    const topWdIdx = wd.some((c: number) => c > 0) ? wd.reduce((bi: number, c: number, i: number) => (c > wd[bi] ? i : bi), 0) : -1;
-    return {
-      buckets: buckets.map(b => ({ ...b, count: counts[b.key] })),
-      max: Math.max(1, ...buckets.map(b => counts[b.key])),
-      withHour,
-      count: filtered.length,
-      topBucketLabel: topBucket?.label ?? null,
-      topWd: topWdIdx >= 0 ? `${WD[topWdIdx]}요일` : null,
-    };
-  }, [filtered, typeFilter]);
-
-  const captureBtn = (
-    <button type="button" onClick={() => setHappyOpen(true)}
-      className="flex items-center justify-center gap-1.5 rounded-xl"
-      style={{ padding: '9px 14px', backgroundColor: t.danger, color: '#fff', fontSize: 13, fontWeight: 700 }}>
-      <Plus size={16} /> 지금 행복한 순간
-    </button>
-  );
-
-  const patternView = happyPattern && (
-    <div className="rounded-2xl mb-4" style={{ backgroundColor: t.card, border: `1px solid ${t.borderLight}`, padding: 16 }}>
-      <div className="flex items-center justify-between gap-2 mb-3 flex-wrap">
-        <h3 style={{ fontSize: 14, fontWeight: 700, color: t.text }}>✨ 주로 이럴 때 행복을 느껴요</h3>
-        {captureBtn}
-      </div>
-      {happyPattern.count === 0 ? (
-        <p style={{ fontSize: 13, color: t.textMuted }}>아직 기록된 행복한 순간이 없어요 · 지금 한 줄 남겨보세요</p>
-      ) : (
-        <>
-          <div className="flex items-end gap-3" style={{ height: 92 }}>
-            {happyPattern.buckets.map(b => {
-              const h = b.count > 0 ? `${Math.max(8, (b.count / happyPattern.max) * 100)}%` : '0%';
-              const isTop = happyPattern.topBucketLabel === b.label && b.count > 0;
-              return (
-                <div key={b.key} className="flex flex-col items-center gap-1.5 flex-1 min-w-0" style={{ height: '100%', justifyContent: 'flex-end' }}>
-                  <div className="relative w-full flex justify-center" style={{ flex: 1, alignItems: 'flex-end' }}>
-                    <div style={{ width: '100%', maxWidth: 44, height: h, borderRadius: '8px 8px 0 0', backgroundColor: isTop ? t.danger : t.accent, position: 'relative', transition: 'height .3s' }}>
-                      {b.count > 0 && (
-                        <span style={{ position: 'absolute', top: -16, left: 0, right: 0, textAlign: 'center', fontSize: 10, fontWeight: 700, color: isTop ? t.danger : t.textMuted }}>{b.count}</span>
-                      )}
-                    </div>
-                  </div>
-                  <span style={{ fontSize: 11, color: isTop ? t.danger : t.textSub, fontWeight: isTop ? 700 : 400 }}>{b.label}</span>
-                  <span style={{ fontSize: 9, color: t.textMuted }}>{b.range}</span>
-                </div>
-              );
-            })}
-          </div>
-          <p className="mt-3" style={{ fontSize: 12, color: t.textSub, lineHeight: 1.6 }}>
-            행복한 순간 <b style={{ color: t.text }}>{happyPattern.count}번</b>
-            {happyPattern.topBucketLabel && <> · 가장 많은 시간대 <b style={{ color: t.danger }}>{happyPattern.topBucketLabel}</b></>}
-            {happyPattern.topWd && <> · 가장 많은 요일 <b style={{ color: t.danger }}>{happyPattern.topWd}</b></>}
-          </p>
-          {happyPattern.withHour < happyPattern.count && (
-            <p style={{ fontSize: 10.5, color: t.textMuted, marginTop: 4 }}>※ 시간대 막대는 시각이 기록된 {happyPattern.withHour}건만 반영</p>
-          )}
-        </>
-      )}
-    </div>
-  );
-
-  // ── 타임라인 지오메트리(축·앵커·노드) — 모바일은 앵커 폭 축소 ──
-  const P = isLg ? 70 : 56;          // 타임라인 좌측 패딩(앵커+축 자리)
-  const anchorW = isLg ? 54 : 42;
-  const axisLeft = isLg ? 26 : 20;
-  const nodeLeft = isLg ? -47 : -37;
+  // ── 타임라인 지오메트리(앵커·축·노드) — 모바일은 앵커 폭 축소 ──
+  // 레이아웃(day 기준 좌표): 왼→오 [날짜 앵커 0~anchorW] · 여백 · [세로 축 axisLeft].
+  // 앵커는 컨테이너 좌측(x=0, left:-P)에 고정되고, 두 자리 숫자(예: 27)가 들어갈 폭만 쓴다.
+  // 앵커 오른쪽 끝은 노드 왼쪽 끝보다 왼쪽에 있어 겹치지 않는다(구버전은 anchorW>axisLeft 라
+  // 우측 정렬된 두 자리 숫자가 축·노드 위로 올라와 겹쳤다). 노드는 축선 중앙에 정렬.
+  // 축 절대 위치(axisLeft - P)는 기존과 동일(-44 / -36)이라 카드·축선은 그대로다.
+  const NODE_D = 11;                    // 노드 지름
+  const P = isLg ? 84 : 72;             // 타임라인 좌측 패딩(앵커 + 여백 + 축)
+  const anchorW = isLg ? 30 : 26;       // 날짜 앵커 폭 — 두 자리 숫자 기준(축 왼쪽 공간에 수용)
+  const axisLeft = isLg ? 40 : 36;      // 축 x(패딩 컨테이너 기준). 축 절대 위치 = axisLeft - P
+  const nodeLeft = (axisLeft - P) + 0.75 - NODE_D / 2;  // 노드를 축선(중심) 위로 정렬
   const CONTENT_MAX = 760;           // PC 중앙 정렬 단일 컬럼 최대 폭(검색·필터·본문 공통 정렬)
   const HM_CELL = 10;                // 히트맵 칸 크기 · 간격(1년 53주가 CONTENT_MAX 안에 들어오도록: 53*(10+2)=636)
   const HM_GAP = 2;
@@ -1753,7 +1613,7 @@ function ArchiveOverlay({ onClose, onJump }: {
         <div style={{ fontFamily: t.fontNumeric, fontSize: 19, fontWeight: 700, lineHeight: 1, color: t.text }}>{d.dayNum}</div>
         <div style={{ fontSize: 10.5, color: t.textMuted, marginTop: 3 }}>{d.weekday}</div>
       </div>
-      <div style={{ position: 'absolute', left: nodeLeft, top: 5, width: 11, height: 11, borderRadius: 999, backgroundColor: t.card, border: `2.5px solid ${t.accent}`, zIndex: 2 }} />
+      <div style={{ position: 'absolute', left: nodeLeft, top: 5, width: NODE_D, height: NODE_D, borderRadius: 999, backgroundColor: t.card, border: `2.5px solid ${t.accent}`, zIndex: 2 }} />
       <div className="space-y-2.5">
         {renderDailyCard(d)}
         {d.weekly.map(renderWeeklyCard)}
@@ -1814,9 +1674,6 @@ function ArchiveOverlay({ onClose, onJump }: {
       {/* 결과 — 세로 타임라인 */}
       <div className="flex-1 overflow-y-auto px-4 lg:px-6 py-3">
         <div className="mx-auto" style={{ maxWidth: CONTENT_MAX }}>
-          {/* ✨좋았던 순간 필터 시 상단 패턴뷰 */}
-          {patternView}
-
           {/* 히트맵 — 조건부(연도 기록이 HEATMAP_MIN_RECORDS 이상일 때만) */}
           {heatmap && (
             <div className="rounded-2xl" style={{ backgroundColor: t.card, border: `1px solid ${t.borderLight}`, padding: 14, marginBottom: 6 }}>
@@ -1875,24 +1732,22 @@ function ArchiveOverlay({ onClose, onJump }: {
           )}
 
           {groups.length === 0 ? (
-            !happyPattern && (
-              <div className="text-center" style={{ padding: '48px 20px' }}>
-                <div style={{ fontSize: 30, marginBottom: 12 }}>{noRecords ? '🌱' : '🔍'}</div>
-                <p style={{ fontSize: 14, color: t.textSub, lineHeight: 1.7 }}>
-                  {noRecords ? (
-                    <>아직 돌아볼 기록이 없어요.<br />일간 탭에서 감사·좋았던 순간·KPT를 남기면<br />여기 시간순으로 쌓여요.</>
-                  ) : (
-                    <>{query ? `‘${query}’에 ` : ''}해당하는 기록이 없어요.<br />검색어나 필터를 바꿔보세요.</>
-                  )}
-                </p>
-                {noRecords && (
-                  <button onClick={() => onJump('day', getLogicalToday())} className="mt-4 rounded-xl"
-                    style={{ padding: '9px 16px', backgroundColor: t.accent, color: '#fff', fontSize: 13, fontWeight: 600 }}>
-                    일간 탭에서 회고 남기기 →
-                  </button>
+            <div className="text-center" style={{ padding: '48px 20px' }}>
+              <div style={{ fontSize: 30, marginBottom: 12 }}>{noRecords ? '🌱' : '🔍'}</div>
+              <p style={{ fontSize: 14, color: t.textSub, lineHeight: 1.7 }}>
+                {noRecords ? (
+                  <>아직 돌아볼 기록이 없어요.<br />일간 탭에서 감사·좋았던 순간·KPT를 남기면<br />여기 시간순으로 쌓여요.</>
+                ) : (
+                  <>{query ? `‘${query}’에 ` : ''}해당하는 기록이 없어요.<br />검색어나 필터를 바꿔보세요.</>
                 )}
-              </div>
-            )
+              </p>
+              {noRecords && (
+                <button onClick={() => onJump('day', getLogicalToday())} className="mt-4 rounded-xl"
+                  style={{ padding: '9px 16px', backgroundColor: t.accent, color: '#fff', fontSize: 13, fontWeight: 600 }}>
+                  일간 탭에서 회고 남기기 →
+                </button>
+              )}
+            </div>
           ) : (
             groups.map(m => (
               <div key={m.monthKey}>
@@ -1911,17 +1766,6 @@ function ArchiveOverlay({ onClose, onJump }: {
           )}
         </div>
       </div>
-
-      {/* ✨ 행복한 순간 캡처(공용) + 토스트 */}
-      {happyOpen && (
-        <HappyCaptureModal onClose={() => setHappyOpen(false)} onSaved={() => notify('행복한 순간이 기록됐어요')} />
-      )}
-      {toast && (
-        <div className="fixed left-1/2 -translate-x-1/2 bottom-10 z-[70] px-4 py-2 rounded-full whitespace-nowrap"
-          style={{ backgroundColor: t.text, color: t.card, fontSize: 13, fontWeight: 600, boxShadow: '0 6px 18px rgba(38,52,61,0.22)' }}>
-          {toast}
-        </div>
-      )}
     </div>
   );
 }
