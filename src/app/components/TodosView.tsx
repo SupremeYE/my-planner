@@ -74,7 +74,7 @@ function TodoRow({
   selectMode = false, selected = false, onSelectToggle,
 }: TodoRowProps) {
   const { t } = useTheme();
-  const { projects, weeklyGoals, milestones, tags, updateTodo, startTimer } = usePlanner();
+  const { projects, weeklyGoals, milestones, tags, updateTodo, startTimer, runTodoAsPlanned } = usePlanner();
   const weeklyGoal = todo.weeklyGoalId ? weeklyGoals.find(w => w.id === todo.weeklyGoalId) : null;
   const milestone = todo.milestoneId ? milestones.find(m => m.id === todo.milestoneId) : null;
   // '…' 공용 액션 메뉴 위치(뷰포트 좌표). 열리면 TodoActionMenu 를 포털로 렌더.
@@ -335,6 +335,7 @@ function TodoRow({
             updateTodo(todo.id, { date: next, endDate: shiftedEndDate(todo, next), status: 'active' });
           }}
           onFocus={() => startTimer(todo.id)}
+          onRunAsPlanned={() => runTodoAsPlanned(todo.id)}
           onSetStatus={(st) => updateTodo(todo.id, { status: todo.status === st && st !== 'active' ? 'active' : st })}
           onDelete={onDelete}
         />

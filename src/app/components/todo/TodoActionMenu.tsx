@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { Edit3, Clock, Play, Pause, Ban, Trash2, ArrowRight } from 'lucide-react';
+import { Edit3, Clock, Play, Pause, Ban, Trash2, ArrowRight, CalendarCheck } from 'lucide-react';
 import { usePlanner, Todo } from '../../store';
 import { useTheme } from '../../ThemeContext';
 import { useMenuPosition } from '../../hooks/useMenuPosition';
@@ -28,6 +28,8 @@ export interface TodoActionMenuProps {
   onSetStatus?: (status: 'active' | 'cancelled') => void;
   /** 포커스 시작(타이머). 없으면 항목 숨김. */
   onFocus?: () => void;
+  /** "계획대로 함" — 계획(plan) 시각을 실적(do)으로 복사. 콜백이 있고 계획 시각이 있을 때만 노출. */
+  onRunAsPlanned?: () => void;
   /** 삭제 override(반복 분기 등). 없으면 기본 deleteTodo. */
   onDelete?: () => void;
   deleteMessage?: string;
@@ -37,11 +39,11 @@ export interface TodoActionMenuProps {
 
 type MenuItem =
   | { divider: true }
-  | { label: string; icon: any; action: 'edit' | 'focus' | 'snooze' | 'delete'; danger?: boolean }
+  | { label: string; icon: any; action: 'edit' | 'focus' | 'snooze' | 'delete' | 'runAsPlanned'; danger?: boolean }
   | { label: string; icon: any; action: 'status'; status: 'active' | 'cancelled' };
 
 export function TodoActionMenu({
-  todo, position, onClose, onEdit, onSnooze, onSetStatus, onFocus, onDelete, deleteMessage, variant = 'list',
+  todo, position, onClose, onEdit, onSnooze, onSetStatus, onFocus, onRunAsPlanned, onDelete, deleteMessage, variant = 'list',
 }: TodoActionMenuProps) {
   const { deleteTodo } = usePlanner();
   const { t } = useTheme();
@@ -69,6 +71,10 @@ export function TodoActionMenu({
       ]
     : [
         { label: '편집', icon: Edit3, action: 'edit' },
+        // "계획대로 함" — 계획 시각이 있을 때만. 완료와 분리(시간만 복사). 일정 "이대로 실행" 과 동일.
+        ...(onRunAsPlanned && todo.planStart && todo.planEnd
+          ? [{ label: '계획대로 함', icon: CalendarCheck, action: 'runAsPlanned' } as MenuItem]
+          : []),
         { divider: true },
         { label: '예정', icon: Clock, action: 'status', status: 'active' },
         ...(onFocus ? [{ label: '포커스 시작', icon: Play, action: 'focus' } as MenuItem] : []),
@@ -108,6 +114,7 @@ export function TodoActionMenu({
               onClick={() => {
                 if (item.action === 'edit') { onClose(); onEdit(); }
                 else if (item.action === 'focus') { onFocus?.(); onClose(); }
+                else if (item.action === 'runAsPlanned') { onRunAsPlanned?.(); onClose(); }
                 else if (item.action === 'snooze') { onClose(); onSnooze(); }
                 else if (item.action === 'delete') { setShowDeleteConfirm(true); }
                 else if (item.action === 'status') { onSetStatus?.(item.status); onClose(); }

@@ -78,7 +78,7 @@ const weeklyGoals = [
 const todos = [
   // 오늘 — 다양한 상태
   { id: 't01', text: '매뉴얼 양식 공유', date: TODAY, endDate: TODAY, status: 'active', isTop3: true, tags: ['tag-work'], projectId: 'proj-a', weeklyGoalId: 'wg-1' },
-  { id: 't02', text: '웹모델 현황 문의하기', date: TODAY, endDate: TODAY, status: 'active', isTop3: true, tags: ['tag-work'] },
+  { id: 't02', text: '웹모델 현황 문의하기', date: TODAY, endDate: TODAY, status: 'active', isTop3: true, tags: ['tag-work'], planStart: '10:00', planEnd: '10:30' },
   { id: 't03', text: '아침 스트레칭', date: TODAY, endDate: TODAY, status: 'done', isTop3: false, tags: ['tag-health'] },
   { id: 't04', text: '이메일 회신', date: TODAY, endDate: TODAY, status: 'done', isTop3: false, tags: [] },
   { id: 't05', text: '리액트 훅 공부', date: TODAY, endDate: TODAY, status: 'inProgress', isTop3: true, tags: ['tag-study'], weeklyGoalId: 'wg-4' },
@@ -96,7 +96,7 @@ const todos = [
   // 내일 이후
   { id: 't15', text: '수정된 야근대장 지품에 댓글추가', date: TOMORROW, endDate: TOMORROW, status: 'active', isTop3: false, tags: ['tag-work'] },
   { id: 't16', text: '병원 예약 확인', date: TOMORROW, endDate: TOMORROW, status: 'active', isTop3: false, tags: ['tag-health'] },
-  { id: 't17', text: '주간 회고 쓰기', date: DAY_AFTER, endDate: DAY_AFTER, status: 'active', isTop3: false, tags: [] },
+  { id: 't17', text: '주간 회고 쓰기', date: DAY_AFTER, endDate: DAY_AFTER, status: 'active', isTop3: false, tags: [], planStart: '20:00', planEnd: '21:00' },
 ].map((t) => ({
   isTop3: false,
   tags: [],

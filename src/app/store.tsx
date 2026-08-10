@@ -826,6 +826,8 @@ interface PlannerContextType {
   // Todo actions
   addTodo: (todo: Omit<Todo, 'id'>) => void;
   updateTodo: (id: string, changes: Partial<Todo>) => void;
+  /** "계획대로 함" — 계획(planStart/planEnd)을 실적(doStart/doEnd)으로 복사. 명시적 버튼 전용(완료 토글 아님). 계획 시각 없으면 no-op. 일정의 runEventAsPlanned 와 동일 패턴. */
+  runTodoAsPlanned: (id: string) => void;
   deleteTodo: (id: string) => void;
   deleteTodos: (ids: string[]) => void;
   toggleTop3: (id: string) => void;
@@ -1351,6 +1353,16 @@ export function PlannerProvider({ children }: { children: React.ReactNode }) {
       return updated;
     });
   }, [ensureMaterializedTodoId]);
+
+  // "계획대로 함" — 계획(planStart/planEnd)을 실적(doStart/doEnd)으로 복사한다.
+  // 완료(status)와 분리: 시간만 채우고 상태는 건드리지 않는다(일정 runEventAsPlanned 와 동일 철학).
+  // 타이머 실측(doElapsedSec)은 설정하지 않는다 — 소요는 do_start~do_end 스팬에서 파생(추측값 저장 금지).
+  // 계획 시각이 없으면 no-op. 반복 가상 회차는 updateTodo 가 예외 행으로 구체화 후 저장.
+  const runTodoAsPlanned = useCallback((id: string) => {
+    const src = todosRef.current.find(t => t.id === id);
+    if (!src || !src.planStart || !src.planEnd) return;
+    updateTodo(id, { doStart: src.planStart, doEnd: src.planEnd });
+  }, [updateTodo]);
 
   const deleteTodo = useCallback((id: string) => {
     setTodos(prev => {
@@ -2319,7 +2331,7 @@ export function PlannerProvider({ children }: { children: React.ReactNode }) {
       timelineLogs,
       dailyAffirmations, setDailyAffirmation,
       appSettings, updateAppSettings,
-      addTodo, updateTodo, deleteTodo, deleteTodos, toggleTop3, deleteRecurringTodo, updateRecurringTodo,
+      addTodo, updateTodo, runTodoAsPlanned, deleteTodo, deleteTodos, toggleTop3, deleteRecurringTodo, updateRecurringTodo,
       addEvent, updateEvent, deleteEvent, toggleEventCompleted, runEventAsPlanned, updateEventActual, snoozeEvent,
       addHabit, addHabitFull, updateHabit, deleteHabit, toggleHabit,
       updateHabitProgress, updateHabitMemo,
