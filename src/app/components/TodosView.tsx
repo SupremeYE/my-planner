@@ -10,6 +10,7 @@ import { useTheme } from '../ThemeContext';
 import ConfirmModal from './ConfirmModal';
 import { MandalartSourceBadge } from './mandalart/MandalartSourceBadge';
 import { TodoModal } from './TodoModal';
+import { FocusModal } from './FocusModal';
 import { QuickAddInput } from './QuickAddInput';
 import { isInboxCandidate } from '../../lib/inbox';
 import { periodCoversDate, todoEndDate, deriveTodoPhase } from '../../lib/todoPeriod';
@@ -74,11 +75,21 @@ function TodoRow({
   selectMode = false, selected = false, onSelectToggle,
 }: TodoRowProps) {
   const { t } = useTheme();
-  const { projects, weeklyGoals, milestones, tags, updateTodo, startTimer } = usePlanner();
+  const { projects, weeklyGoals, milestones, tags, updateTodo, startTimer, activeTimer, stopTimer } = usePlanner();
   const weeklyGoal = todo.weeklyGoalId ? weeklyGoals.find(w => w.id === todo.weeklyGoalId) : null;
   const milestone = todo.milestoneId ? milestones.find(m => m.id === todo.milestoneId) : null;
   // '…' 공용 액션 메뉴 위치(뷰포트 좌표). 열리면 TodoActionMenu 를 포털로 렌더.
   const [menuPos, setMenuPos] = useState<{ x: number; y: number } | null>(null);
+  // 포커스 타이머 진입 — FocusModal 로 모드(포모/스톱워치)·시간을 고른 뒤 startTimer.
+  const [focusOpen, setFocusOpen] = useState(false);
+
+  // DailyView.handleTodoFocusAction 과 동일 규칙:
+  // ① 이 할일이 이미 타이머면 정지(토글) ② 다른 할일이 점유 중이면 무시 ③ 그 외 모달 오픈.
+  const handleTodoFocusAction = () => {
+    if (activeTimer?.todoId === todo.id) { stopTimer(); return; }
+    if (activeTimer && activeTimer.todoId !== todo.id) return;
+    setFocusOpen(true);
+  };
 
   // 완료 체크 시 즉시 사라지지 않고 부드럽게 슬라이드 아웃한 뒤 실제 상태를 커밋한다.
   const [leaving, setLeaving] = useState(false);
@@ -334,9 +345,20 @@ function TodoRow({
             const next = format(addDays(parseISO(base), 1), 'yyyy-MM-dd');
             updateTodo(todo.id, { date: next, endDate: shiftedEndDate(todo, next), status: 'active' });
           }}
-          onFocus={() => startTimer(todo.id)}
+          onFocus={!activeTimer || activeTimer.todoId === todo.id ? handleTodoFocusAction : undefined}
           onSetStatus={(st) => updateTodo(todo.id, { status: todo.status === st && st !== 'active' ? 'active' : st })}
           onDelete={onDelete}
+        />
+      )}
+
+      {focusOpen && (
+        <FocusModal
+          todo={todo}
+          onClose={() => setFocusOpen(false)}
+          onStart={(mode, pomoDurationSec) => {
+            startTimer(todo.id, { mode, pomoDurationSec });
+            setFocusOpen(false);
+          }}
         />
       )}
     </>
