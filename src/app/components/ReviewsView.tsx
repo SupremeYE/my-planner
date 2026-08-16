@@ -102,7 +102,7 @@ function ConditionBadge({ date }: { date: string }) {
 type JumpReq = { date: string; nonce: number } | null;
 
 function DayTab({ jump }: { jump?: JumpReq }) {
-  const { reviewRecords, happyMoments, todos, habits } = usePlanner();
+  const { reviewRecords, happyMoments, todos, habits, weeklyGoals } = usePlanner();
   const { t } = useTheme();
   const isDesktop = useMediaQuery('(min-width: 1024px)');
 
@@ -188,6 +188,38 @@ function DayTab({ jump }: { jump?: JumpReq }) {
   // ④ 오늘의 조각 — MemoryPieces 하루 범위 재사용. 하루는 대부분 비어 있어 비면 카드 숨김(hideWhenEmpty).
   const piecesBlock = <MemoryPieces startStr={dayDate} endStr={dayDate} title="오늘의 조각" hideWhenEmpty />;
 
+  // ⑤ 오늘 한 일 — 그날 완료한 할일(읽기 전용). 여기서 체크/해제하지 않는다(실행은 일간 페이지 몫).
+  //    상위 주간 목표가 연결돼 있으면 부모 칩 표시. 완료한 것이 없으면 섹션 숨김(하루 기본 상태).
+  const doneBlock = dayDone.length === 0 ? null : (
+    <div className="p-4 rounded-xl" style={{ backgroundColor: t.card, border: `1px solid ${t.borderLight}` }}>
+      <div className="flex items-center justify-between mb-3">
+        <h3 style={{ fontSize: 13, fontWeight: 700, color: t.text }}>✅ 오늘 한 일</h3>
+        <span style={{ fontSize: 12, fontWeight: 700, color: t.accent }}>{dayDone.length}개</span>
+      </div>
+      <div className="space-y-2">
+        {dayDone.map(td => {
+          const wg = td.weeklyGoalId ? weeklyGoals.find(g => g.id === td.weeklyGoalId) : undefined;
+          return (
+            <div key={td.id} className="flex items-start gap-2.5 rounded-lg px-3 py-2" style={{ backgroundColor: t.surfaceMuted }}>
+              <span className="flex-shrink-0 mt-0.5 w-5 h-5 rounded-full flex items-center justify-center" style={{ backgroundColor: t.success }}>
+                <Check size={11} color="#fff" strokeWidth={3} />
+              </span>
+              <div className="flex-1 min-w-0">
+                <div style={{ fontSize: 13, fontWeight: 600, color: t.textMuted, textDecoration: 'line-through' }}>{td.text}</div>
+                {wg && (
+                  <span className="inline-flex items-center gap-1 mt-1" style={{ fontSize: 10, color: t.textSub, maxWidth: 220 }} title={wg.text}>
+                    <span style={{ width: 7, height: 7, borderRadius: 999, backgroundColor: t.accent, display: 'inline-block', flexShrink: 0 }} />
+                    <span className="truncate">{wg.text}</span>
+                  </span>
+                )}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+
   const dateNav = (
     <div className="flex items-center justify-center gap-3 mb-4">
       <button onClick={goPrev} className="p-2 rounded-lg" style={{ color: t.textSub, backgroundColor: t.surfaceMuted, border: `1px solid ${t.borderLight}` }}>
@@ -214,6 +246,7 @@ function DayTab({ jump }: { jump?: JumpReq }) {
         {statsBlock}
         {timeStrip}
         {piecesBlock}
+        {doneBlock}
       </div>
     </div>
   );
