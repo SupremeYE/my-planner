@@ -102,7 +102,7 @@ function ConditionBadge({ date }: { date: string }) {
 type JumpReq = { date: string; nonce: number } | null;
 
 function DayTab({ jump }: { jump?: JumpReq }) {
-  const { reviewRecords, happyMoments } = usePlanner();
+  const { reviewRecords, happyMoments, todos, habits } = usePlanner();
   const { t } = useTheme();
   const isDesktop = useMediaQuery('(min-width: 1024px)');
 
@@ -162,6 +162,32 @@ function DayTab({ jump }: { jump?: JumpReq }) {
   // ② 오늘의 컨디션 — 회고와 별개(건강 링크). 유지.
   const conditionCard = <ConditionBadge date={dayDate} />;
 
+  // ③ 오늘의 숫자 — 할일 완료 · 습관 달성 (하루 범위 집계). StatCard 는 주간 탭과 공용.
+  const dayTodos = todos.filter(td => td.date === dayDate);
+  const dayDone = dayTodos.filter(td => td.status === 'done');
+  const completionPct = dayTodos.length ? Math.round((dayDone.length / dayTodos.length) * 100) : 0;
+  const habitDone = habits.filter(h => h.checkedDates.includes(dayDate)).length;
+  const habitPct = habits.length ? Math.round((habitDone / habits.length) * 100) : 0;
+  const statsBlock = (
+    <div>
+      <h3 style={{ fontSize: 12, fontWeight: 700, color: t.textSub, marginBottom: 9 }}>오늘의 숫자</h3>
+      <div className="grid grid-cols-2 gap-3">
+        <StatCard value={dayTodos.length ? String(completionPct) : '–'} unit={dayTodos.length ? '%' : undefined}
+          label="할일 완료" sub={dayTodos.length ? `${dayDone.length}/${dayTodos.length}` : '할일 없음'}
+          pct={completionPct} barColor={t.success} />
+        <StatCard value={habits.length ? String(habitDone) : '–'} unit={habits.length ? `/${habits.length}` : undefined}
+          label="습관 달성" sub={habits.length ? undefined : '습관 없음'}
+          pct={habitPct} barColor={t.accent} />
+      </div>
+    </div>
+  );
+
+  // ③ 시간 태그 분포 — TrackTimeStrip 을 하루 범위로 재사용(주간·월간 공용). 데이터 없으면 자체 빈 상태.
+  const timeStrip = <TrackTimeStrip startStr={dayDate} endStr={dayDate} />;
+
+  // ④ 오늘의 조각 — MemoryPieces 하루 범위 재사용. 하루는 대부분 비어 있어 비면 카드 숨김(hideWhenEmpty).
+  const piecesBlock = <MemoryPieces startStr={dayDate} endStr={dayDate} title="오늘의 조각" hideWhenEmpty />;
+
   const dateNav = (
     <div className="flex items-center justify-center gap-3 mb-4">
       <button onClick={goPrev} className="p-2 rounded-lg" style={{ color: t.textSub, backgroundColor: t.surfaceMuted, border: `1px solid ${t.borderLight}` }}>
@@ -185,6 +211,9 @@ function DayTab({ jump }: { jump?: JumpReq }) {
       <div className="mx-auto space-y-4" style={{ maxWidth: isDesktop ? 560 : undefined }}>
         {retroCard}
         {conditionCard}
+        {statsBlock}
+        {timeStrip}
+        {piecesBlock}
       </div>
     </div>
   );
