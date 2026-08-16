@@ -24,6 +24,7 @@ const ROOT = path.resolve(__dirname, '../..');
 const OUT = path.resolve(__dirname, 'output');
 const MOCK_SUPABASE = path.resolve(__dirname, 'mock-supabase.ts');
 const MOCK_DB = path.resolve(__dirname, 'mock-db.ts');
+const MOCK_MONEY_DB = path.resolve(__dirname, 'mock-money-db.ts');
 const CHROME = process.env.HAON_CHROME
   || '/opt/pw-browsers/chromium-1194/chrome-linux/chrome';
 
@@ -49,6 +50,15 @@ const ALL_ROUTES = [
   { slug: 'goals', path: '/goals' },
   // 컨디션 재설계(condition·slot 축) 검증 — 통계 카드·요일 셀·기록 리스트를 시드로 렌더.
   { slug: 'health-condition', path: '/health?tab=condition' },
+  // 머니 — 기본(가계부) + 나머지 3탭. 시드는 mock-money-db.ts.
+  {
+    slug: 'money', path: '/money',
+    subs: [
+      { name: 'asset', text: ['자산'] },
+      { name: 'invest', text: ['투자'] },
+      { name: 'plan', text: ['계획'] },
+    ],
+  },
 ];
 
 const VIEWPORTS = [
@@ -171,6 +181,10 @@ function mockRedirectPlugin() {
       if (isSup) return MOCK_SUPABASE;
       const isDb = bare === '@/lib/db' || /(^|\/)lib\/db$/.test(bare) || (bare === './db' && fromLib);
       if (isDb) return MOCK_DB;
+      // 머니는 feature-local db(src/features/money/db.ts) — 전역 db 와 별도 시드.
+      const fromMoney = !!importer && importer.replace(/\\/g, '/').includes('/src/features/money/');
+      const isMoneyDb = bare === '@/features/money/db' || /(^|\/)features\/money\/db$/.test(bare) || (bare === './db' && fromMoney);
+      if (isMoneyDb) return MOCK_MONEY_DB;
       return null;
     },
   };
@@ -193,6 +207,20 @@ async function settle(page) {
   await page.waitForTimeout(2600); // 스플래시(1.8s) + 인증 + 초기 로드
   try { await page.waitForSelector('main', { timeout: 8000 }); } catch {}
   try { await page.evaluate(() => document.fonts && document.fonts.ready); } catch {}
+  await page.waitForTimeout(500);
+}
+
+// 내부 스크롤 컨테이너를 끝까지 내린다(이 앱은 body 가 아니라 컨테이너가 스크롤).
+async function scrollToBottom(page) {
+  await page.evaluate(() => {
+    for (const el of document.querySelectorAll('*')) {
+      const cs = getComputedStyle(el);
+      if (/(auto|scroll)/.test(cs.overflowY) && el.scrollHeight > el.clientHeight + 4) {
+        el.scrollTop = el.scrollHeight;
+      }
+    }
+    (document.scrollingElement || document.documentElement).scrollTop = 1e6;
+  });
   await page.waitForTimeout(500);
 }
 
@@ -281,22 +309,33 @@ async function main() {
         await doShot(null);
         if (route.slug === 'health-condition') {
           // 통계 카드 아래 '기록 리스트'(컨디션·시점 뱃지)까지 담기 위해 스크롤 컨테이너를 끝까지 내린다.
-          await page.evaluate(() => {
-            for (const el of document.querySelectorAll('*')) {
-              const cs = getComputedStyle(el);
-              if (/(auto|scroll)/.test(cs.overflowY) && el.scrollHeight > el.clientHeight + 4) {
-                el.scrollTop = el.scrollHeight;
-              }
-            }
-            (document.scrollingElement || document.documentElement).scrollTop = 1e6;
-          });
-          await page.waitForTimeout(500);
+          await scrollToBottom(page);
           await doShot('list');
         }
         for (const sub of route.subs || []) {
           const ok = await tryClickText(page, sub.text);
           if (ok) { await doShot(sub.name); }
           else console.log(`   · ${route.slug}:${sub.name} 탭 못 찾음(스킵)`);
+        }
+        if (route.slug === 'money') {
+          // 기간 연동 검증 — PeriodBar ‹ 로 지난 기간을 열면 요약·카테고리별 지출·최근 거래가
+          // 함께 그 기간 값으로 바뀌어야 한다(리스트만 전체 거래를 보여주던 회귀 방지).
+          // 서브탭 순회로 '계획' 탭이 열려 있으므로 가계부 탭으로 되돌린 뒤 기간을 옮긴다.
+          try {
+            await tryClickText(page, ['가계부']);
+            const prev = page.locator('button[title="이전 기간"]:visible').first();
+            if (await prev.count()) {
+              await prev.click({ timeout: 2000 });
+              await page.waitForTimeout(500);
+              // 최근 거래 블록은 모바일에서 화면 아래 — 끝까지 내려 리스트가 프레임에 들어오게 한다.
+              await scrollToBottom(page);
+              await doShot('prev');
+            } else {
+              console.log(`   · ${route.slug}:prev 기간바 못 찾음(스킵)`);
+            }
+          } catch (e) {
+            console.log(`   · ${route.slug}:prev 이동 실패(스킵): ${e.message.split('\n')[0]}`);
+          }
         }
         // Stage 3 실증: 최하단 항목의 '…' 메뉴를 열어 포털/flip 이 클리핑을 막는지 검출
         if (route.openMenu) {

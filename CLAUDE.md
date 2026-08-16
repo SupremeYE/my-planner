@@ -19,13 +19,20 @@ No test runner or linter is configured in this project.
 배포된 사례**(종일 레인이 격자 삼킴·드롭다운 클리핑·완료 체크박스가 재생 아이콘으로 바뀜·
 목표 페이지 라벤더 도배)가 반복돼, 실제 렌더를 한 번 보고 넘어가도록 상주화했다.
 
-- **동작**: Vite dev 서버로 실제 컴포넌트를 띄우되 `lib/supabase`·`lib/db` 를
-  `scripts/render/mock-supabase.ts`·`mock-db.ts` 로 리다이렉트(run.mjs 의 Vite 플러그인)해
-  네트워크/인증 없이 **시드 데이터**로 렌더한다. 사전 설치된 Chromium(playwright-core,
+- **동작**: Vite dev 서버로 실제 컴포넌트를 띄우되 `lib/supabase`·`lib/db`·`features/money/db` 를
+  `scripts/render/mock-supabase.ts`·`mock-db.ts`·`mock-money-db.ts` 로 리다이렉트(run.mjs 의
+  Vite 플러그인)해 네트워크/인증 없이 **시드 데이터**로 렌더한다. 사전 설치된 Chromium(playwright-core,
   `/opt/pw-browsers`)으로 스크린샷 + `getComputedStyle` 검사.
 - **시드**: `mock-db.ts` — 완료/미완료/기간/늦음/태그유무/중요가 섞인 할일 17건 +
   일정·습관·회고·목표. 날짜는 브라우저 '오늘' 기준 동적 생성(`getLogicalToday` 정렬).
-- **대상**: 일간 / 할일 / 캘린더(주별·월별) / 리뷰(일간·주간·월간) / 목표 × PC(1280)·모바일(390).
+  머니는 feature-local db 라 `mock-money-db.ts` 로 분리 — 이번/지난 기간 거래(같은 날짜 3건 포함)·
+  대소분류·외화/고정비 거래·통장·투자·카드·고정비·대출·목표·이번 기간 계획. 기간은 급여일 25일
+  기준으로 '오늘'에서 계산해 항상 이번/지난 기간에 거래가 들어가도록 맞춘다.
+- **대상**: 일간 / 할일 / 캘린더(주별·월별) / 리뷰(일간·주간·월간) / 목표 / 건강-컨디션 /
+  머니(가계부·이전 기간·자산·투자·계획) × PC(1280)·모바일(390).
+  머니의 `prev` 컷은 가계부 탭으로 되돌린 뒤 PeriodBar `‹` 를 누르고 화면 하단까지 스크롤해 찍는다
+  — 요약·카테고리별 지출·최근 거래가 모두 선택 기간을 따라가는지(리스트만 전체 거래를 보여주던
+  회귀) 확인용.
 - **자동 검사(수치 리포트 + PASS/WARN/FAIL)**:
   1. **라벤더 잔여** — 기존 기준 재사용(`B>R && B>G && (B-G)>=8 && 모든 채널>220`).
      라일락은 하온 정체성이라 WARN(정보성). "늘어남"을 눈으로 확인하는 용도.
