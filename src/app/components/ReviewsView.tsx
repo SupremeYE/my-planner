@@ -240,14 +240,31 @@ function DayTab({ jump }: { jump?: JumpReq }) {
     <div>
       {dateNav}
       {retroOpen && <RetroSheet date={dayDate} onClose={() => setRetroOpen(false)} />}
-      <div className="mx-auto space-y-4" style={{ maxWidth: isDesktop ? 560 : undefined }}>
-        {retroCard}
-        {conditionCard}
-        {statsBlock}
-        {timeStrip}
-        {piecesBlock}
-        {doneBlock}
-      </div>
+      {/* 주간·월간 탭과 레이아웃 일치 — 좌(넓게): 돌아볼 재료(회고→숫자→조각→한 일),
+          우(좁게): 컨디션. 모바일은 세로 스택(회고→컨디션→숫자→조각→한 일). */}
+      {isDesktop ? (
+        <div className="flex gap-6 items-start">
+          <div className="flex-1 min-w-0 space-y-4">
+            {retroCard}
+            {statsBlock}
+            {timeStrip}
+            {piecesBlock}
+            {doneBlock}
+          </div>
+          <div className="flex-shrink-0 space-y-4" style={{ width: 340 }}>
+            <div style={{ position: 'sticky', top: 12 }}>{conditionCard}</div>
+          </div>
+        </div>
+      ) : (
+        <div className="space-y-4">
+          {retroCard}
+          {conditionCard}
+          {statsBlock}
+          {timeStrip}
+          {piecesBlock}
+          {doneBlock}
+        </div>
+      )}
     </div>
   );
 }
