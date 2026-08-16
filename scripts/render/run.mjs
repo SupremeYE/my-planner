@@ -30,8 +30,11 @@ const CHROME = process.env.HAON_CHROME
 // ── 대상 라우트 / 서브뷰 ─────────────────────────────────────────────────────
 const ALL_ROUTES = [
   // openMenu: 최하단 항목의 '…' 메뉴를 열어 클리핑/뷰포트 이탈을 검출(Stage 3 실증)
-  { slug: 'daily', path: '/daily', openMenu: true },
+  // openEventModal: 일정 편집 모달을 열어 태그 선택 UI 를 검출(일정 모달 태그 검증)
+  { slug: 'daily', path: '/daily', openMenu: true, openEventModal: true },
   { slug: 'todos', path: '/todos', openMenu: true },
+  // 시간 리포트 — 일정 태그 집계가 나타나는지(주간 리뷰 시간 스트립과 같은 소스)
+  { slug: 'time-report', path: '/time-report' },
   {
     slug: 'calendar', path: '/calendar',
     subs: [
@@ -336,6 +339,30 @@ async function main() {
             }
           } catch (e) {
             console.log(`   · ${route.slug}:menu 열기 실패(스킵): ${e.message.split('\n')[0]}`);
+          }
+        }
+        // 일정 모달 태그 검증: 일정 편집 모달을 열어(editEvent 디스패치) 태그 선택 UI 를 스샷
+        if (route.openEventModal) {
+          try {
+            await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 45000 });
+            await settle(page);
+            const opened = await page.evaluate(() => {
+              const d = new Date();
+              const iso = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+              window.dispatchEvent(new CustomEvent('editEvent', {
+                detail: {
+                  id: 'e1', title: '팀 스탠드업', date: iso, startDate: iso, endDate: iso,
+                  startTime: '09:30', endTime: '10:00', isAllDay: false, tags: ['tag-work'], color: '#C4A882',
+                },
+              }));
+              return true;
+            });
+            if (opened) {
+              await page.waitForTimeout(600);
+              await doShot('eventmodal');
+            }
+          } catch (e) {
+            console.log(`   · ${route.slug}:eventmodal 열기 실패(스킵): ${e.message.split('\n')[0]}`);
           }
         }
       }

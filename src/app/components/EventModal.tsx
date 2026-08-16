@@ -5,6 +5,7 @@ import { usePlanner, Event, getLogicalToday } from '../store';
 import { useTheme } from '../ThemeContext';
 import ConfirmModal from './ConfirmModal';
 import { TimeField } from './TimeField';
+import { TagSelector } from './TagSelector';
 import { inputBg, dangerText, dangerFill } from '../styles/haonStyles';
 
 interface EventModalProps {
@@ -50,6 +51,8 @@ export function EventModal({ date, event, initialTitle, initialStartTime, initia
   const [memo, setMemo] = useState(event?.memo ?? '');
   const [projectId, setProjectId] = useState(event?.projectId ?? '');
   const [color, setColor] = useState(event?.color ?? '#7B9ED9');
+  // 태그 — 시각(startTime/endTime) 있는 일정에 track_time 태그를 붙이면 시간 리포트·리뷰에 자동 집계됨.
+  const [selectedTags, setSelectedTags] = useState<string[]>(event?.tags ?? initialTags ?? []);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [error, setError] = useState('');
 
@@ -98,7 +101,7 @@ export function EventModal({ date, event, initialTitle, initialStartTime, initia
       memo: memo.trim() || undefined,
       projectId: projectId || undefined,
       color,
-      tags: event?.tags ?? initialTags ?? [],
+      tags: selectedTags,
       completed: event?.completed ?? false,
     };
 
@@ -302,6 +305,9 @@ export function EventModal({ date, event, initialTitle, initialStartTime, initia
               ))}
             </select>
           </div>
+
+          {/* 태그 — 공용 TagSelector (할일 모달과 동일 UI) */}
+          <TagSelector value={selectedTags} onChange={setSelectedTags} />
 
           <div>
             <label style={{ fontSize: 11, color: t.textSub, fontWeight: 600 }}>색상</label>

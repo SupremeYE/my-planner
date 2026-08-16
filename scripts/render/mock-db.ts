@@ -105,9 +105,10 @@ const todos = [
 
 // ── 일정 ────────────────────────────────────────────────────────────────────
 const events = [
-  { id: 'e1', title: '팀 스탠드업', date: TODAY, startTime: '09:30', endTime: '10:00', tags: [], color: '#C4A882' },
+  // 시각 + track_time 태그(업무/공부) → 시간 리포트·주간 리뷰 시간 스트립에 자동 집계(일정 모달 태그 검증용)
+  { id: 'e1', title: '팀 스탠드업', date: TODAY, startTime: '09:30', endTime: '10:00', tags: ['tag-work'], color: '#C4A882' },
   { id: 'e2', title: '점심 약속', date: TODAY, startTime: '12:30', endTime: '13:30', location: '연남동', tags: [], color: '#D4735A' },
-  { id: 'e3', title: '디자인 리뷰', date: TODAY, startTime: '15:00', endTime: '16:00', tags: [], color: '#6BAA7A' },
+  { id: 'e3', title: '디자인 리뷰', date: TODAY, startTime: '15:00', endTime: '16:00', tags: ['tag-study'], color: '#6BAA7A' },
   { id: 'e4', title: '생일', date: TODAY, isAllDay: true, tags: [], color: '#8FB7C9' },
   { id: 'e5', title: '치과', date: TOMORROW, startTime: '11:00', endTime: '11:40', tags: [], color: '#C4A882' },
 ];
