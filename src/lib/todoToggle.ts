@@ -1,31 +1,16 @@
-import { addMinutes, format } from 'date-fns';
 import type { Todo } from '../app/store';
 
 /**
  * 할일 완료/미완료 토글 시 적용할 updateTodo 패치를 계산한다 (캘린더·주간 타임라인 공유).
- * 완료 처리 시 실적(DO) 시간을 채워 "0분 완료"로 통계가 왜곡되는 것을 막는다.
- *  1) 이미 DO 기록이 있으면 그대로 완료
- *  2) PLAN이 있으면 PLAN을 DO로 복사 (소요 초 포함)
- *  3) 둘 다 없으면 현재 시각 기준 30분 블록
- * 되돌리기(done→active)는 자동 채워진 DO 시간까지 정리한다.
  *
- * NOTE: 일간 타임라인 체크(handleTodoCheckboxAction)는 진행 중 타이머 정지 분기가
- * 추가로 필요하고 DO 시간을 보존하므로 의도적으로 별도 유지한다.
+ * 원칙: **완료 체크는 상태만 바꾼다.** 실적(DO) 시간은 명시적 행위로만 기록한다
+ * (DO 드래그 / 타이머 완주 / 수동 입력). 이미 기록된 DO 시간은 토글로 건드리지 않는다
+ * (완료↔미완료를 오가도 실측 기록은 보존).
+ *
+ * (과거: 완료 시 PLAN을 DO로 복사하거나 "현재 시각 +30분"을 자동 부여했다. 이는 실측이
+ *  아닌 조작값을 만들어 시간 집계를 왜곡시켰다 — "즉시 끝나는 일에도 30분"이 잡히는 버그.
+ *  "완료했는데 0분" 문제는 리뷰의 건수(件) 축이 해결하므로 시간을 지어낼 이유가 없다.)
  */
 export function buildTodoToggleUpdate(todo: Todo): Partial<Todo> {
-  if (todo.status === 'done') {
-    return { status: 'active', doStart: undefined, doEnd: undefined, doElapsedSec: undefined };
-  }
-  if (todo.doStart && todo.doEnd) {
-    return { status: 'done' };
-  }
-  if (todo.planStart && todo.planEnd) {
-    const [sh, sm] = todo.planStart.split(':').map(Number);
-    const [eh, em] = todo.planEnd.split(':').map(Number);
-    const durSec = Math.max(0, (eh * 60 + em - (sh * 60 + sm)) * 60);
-    return { status: 'done', doStart: todo.planStart, doEnd: todo.planEnd, doElapsedSec: durSec };
-  }
-  const s = format(new Date(), 'HH:mm');
-  const e = format(addMinutes(new Date(), 30), 'HH:mm');
-  return { status: 'done', doStart: s, doEnd: e, doElapsedSec: 1800 };
+  return { status: todo.status === 'done' ? 'active' : 'done' };
 }
