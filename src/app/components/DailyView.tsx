@@ -7,7 +7,7 @@ import {
   Settings, Edit3, Pause, Ban, CalendarDays, ArrowRight, Bell, ChevronRight as ChevronRightIcon,
   Square,
 } from 'lucide-react';
-import { format, addDays, subDays, addMonths, subMonths, startOfMonth, getDaysInMonth, getDay as getDayOfWeek, parseISO, addMinutes, differenceInCalendarDays } from 'date-fns';
+import { format, addDays, subDays, addMonths, subMonths, startOfMonth, getDaysInMonth, getDay as getDayOfWeek, parseISO, differenceInCalendarDays } from 'date-fns';
 import { ko } from 'date-fns/locale';
 import { usePlanner, Todo, Event, getLogicalToday } from '../store';
 import { useTheme } from '../ThemeContext';
@@ -925,15 +925,10 @@ export function DailyView() {
       setJustCompletedIds(prev => { const n = new Set(prev); n.delete(todo.id); return n; });
       return;
     }
-    if (todo.doStart && todo.doEnd) {
-      updateTodo(todo.id, { status: 'done' });
-    } else if (todo.planStart && todo.planEnd) {
-      updateTodo(todo.id, { status: 'done', doStart: todo.planStart, doEnd: todo.planEnd });
-    } else {
-      const s = format(new Date(), 'HH:mm');
-      const e = format(addMinutes(new Date(), 30), 'HH:mm');
-      updateTodo(todo.id, { status: 'done', doStart: s, doEnd: e });
-    }
+    // 완료 체크만으로는 실적(DO) 시간을 채우지 않는다 — 시간 기록은 명시적 행위(DO 드래그·
+    // 타이머 완주·수동 입력)로만. 이미 기록된 DO 시간은 보존한다. "완료했는데 0분"은
+    // 리뷰의 건수(件) 축이 해결한다(시간을 지어내지 않는다).
+    updateTodo(todo.id, { status: 'done' });
     // 완료 직후 세션 내 유지(규칙 3 완화) — 지난 날짜 항목이 즉시 사라지지 않게.
     setJustCompletedIds(prev => new Set(prev).add(todo.id));
   };
