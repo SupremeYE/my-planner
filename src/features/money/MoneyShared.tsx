@@ -8,7 +8,7 @@ import type { UseMoney } from './useMoney';
 import {
   MONEY_PALETTE, resolveCategoryColor, categoryInitial, formatWon, formatManShort, subcategoryShade, INVEST_KIND_META,
 } from './tokens';
-import type { MoneyCategory, MoneyAccount, MoneyCard, MoneyLoan, MoneyGoal, MoneyFixedCost, PeriodType } from './types';
+import type { MoneyCategory, MoneyAccount, MoneyCard, MoneyLoan, MoneyGoal, MoneyFixedCost, MoneyTransaction, PeriodType } from './types';
 import { TransactionForm, AccountForm, CardForm, FixedCostForm, LoanForm, GoalForm } from './MoneyForms';
 import { MoneyPlanSheet } from './MoneyPlanSheet';
 import { WeekBanner, WeekReviewSheet } from './MoneyWeekReview';
@@ -561,11 +561,16 @@ export function SpendTrendChart({ m }: { m: UseMoney }) {
 }
 
 // ── 거래 리스트 (행 탭 = 수정) ──
-export function TransactionList({ m, limit, onEdit }: { m: UseMoney; limit?: number; onEdit: (tx: any) => void }) {
+//  · 표시할 거래는 호출부가 items 로 주입한다(기간 연동 여부는 호출부가 결정).
+//    미주입이면 기존대로 전체 거래(m.transactions) — 다른 호출처 동작 보존.
+export function TransactionList({ m, items, limit, onEdit }: { m: UseMoney; items?: MoneyTransaction[]; limit?: number; onEdit: (tx: any) => void }) {
   const { t } = useTheme();
-  const list = (limit ? m.transactions.slice(0, limit) : m.transactions);
+  const source = items ?? m.transactions;
+  const list = (limit ? source.slice(0, limit) : source);
   if (list.length === 0) {
-    return <div style={{ textAlign: 'center', padding: '24px 0', color: t.textMuted, fontSize: 13 }}>아직 거래가 없어요. 아래에 입력해 보세요.</div>;
+    return <div style={{ textAlign: 'center', padding: '24px 0', color: t.textMuted, fontSize: 13 }}>
+      {m.isCurrentPeriod ? '아직 거래가 없어요. 아래에 입력해 보세요.' : '이 기간에 기록된 거래가 없어요.'}
+    </div>;
   }
   return (
     <div className="flex flex-col gap-2">
@@ -1156,7 +1161,7 @@ export function BudgetPanel({ m, desktop = false }: { m: UseMoney; desktop?: boo
           <Plus size={13} /> 직접 추가
         </button>
       </div>
-      <TransactionList m={m} limit={20} onEdit={(tx) => setEditTx({ item: tx })} />
+      <TransactionList m={m} items={m.periodTransactions} limit={20} onEdit={(tx) => setEditTx({ item: tx })} />
     </div>
   );
   const sheets = (
