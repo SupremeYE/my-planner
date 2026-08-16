@@ -217,6 +217,58 @@ export function expandRecurrenceDates(
   return out;
 }
 
+/**
+ * 시리즈 origin 기준 N번째(1-based, origin 포함) 인스턴스의 날짜('yyyy-MM-dd').
+ * "N회 후 종료"를 종료일로 환산하는 데 쓴다(확장 엔진은 endDate 만 알면 되므로 count 를 endDate 로 변환).
+ * 없는 날(월말/윤년 등)은 건너뛰며, 폭주 방지 상한 내에 못 찾으면 null.
+ */
+export function nthOccurrenceDate(spec: RecurrenceSpec, origin: Date, count: number): string | null {
+  const n = Math.floor(count);
+  if (!Number.isFinite(n) || n < 1) return null;
+  let matched = 0;
+
+  if (spec.freq === 'daily' || spec.freq === 'weekly') {
+    let cur = origin;
+    let guard = 0;
+    while (guard < MAX_INSTANCES * 8) {
+      if (matchesDailyWeekly(spec, origin, cur)) {
+        matched++;
+        if (matched >= n) return format(cur, 'yyyy-MM-dd');
+      }
+      cur = addDays(cur, 1);
+      guard++;
+    }
+    return null;
+  }
+
+  if (spec.freq === 'monthly') {
+    const targetDom = getDate(origin);
+    for (let k = 0; k < MAX_INSTANCES; k++) {
+      const base = addMonths(origin, k * spec.interval);
+      const cand = new Date(getYear(base), getMonth(base), targetDom);
+      if (getDate(cand) === targetDom) {
+        matched++;
+        if (matched >= n) return format(cand, 'yyyy-MM-dd');
+      }
+    }
+    return null;
+  }
+
+  // yearly
+  const tm = getMonth(origin);
+  const td = getDate(origin);
+  const y0 = getYear(origin);
+  for (let k = 0; k < MAX_INSTANCES; k++) {
+    const y = y0 + k * spec.interval;
+    const cand = new Date(y, tm, td);
+    if (getDate(cand) === td && getMonth(cand) === tm) {
+      matched++;
+      if (matched >= n) return format(cand, 'yyyy-MM-dd');
+    }
+  }
+  return null;
+}
+
 // ── UI 보조 ──────────────────────────────────────────────────────────────────
 
 /**

@@ -104,6 +104,14 @@ export function TodoModal({ date, todo, initialPlanStart, initialPlanEnd, initia
   const [recurrenceRule, setRecurrenceRule] = useState<Todo['recurrenceRule']>(todo?.recurrenceRule ?? initialRecurrenceRule ?? undefined);
   const [recurrenceDays, setRecurrenceDays] = useState<number[]>(todo?.recurrenceDays ?? initialRecurrenceDays ?? []);
   const [recurrenceEndDate, setRecurrenceEndDate] = useState<string>(todo?.recurrenceEndDate ?? '');
+  // 반복 종료 "N회 후" — origin 포함 회수. 빈 문자열이면 미입력.
+  const [recurrenceCount, setRecurrenceCount] = useState<string>(
+    todo?.recurrenceCount ? String(todo.recurrenceCount) : '',
+  );
+  // 반복 종료 모드: 종료일 없음 / 날짜 지정 / N회 후. 초기값은 저장된 값으로 역추론.
+  const [recurEndMode, setRecurEndMode] = useState<'none' | 'date' | 'count'>(
+    todo?.recurrenceCount ? 'count' : todo?.recurrenceEndDate ? 'date' : 'none',
+  );
   const [recurrenceBranchFor, setRecurrenceBranchFor] = useState<'save' | 'delete' | null>(null);
 
   // "매주" 선택 시 기준 요일 (편집 중인 todo의 날짜, 또는 선택한 날짜)
@@ -286,7 +294,10 @@ export function TodoModal({ date, todo, initialPlanStart, initialPlanEnd, initia
     milestoneId: (projectId && milestoneId) ? milestoneId : undefined,
     recurrenceRule: recurrenceRule ?? undefined,
     recurrenceDays: recurrenceRule === 'custom' ? recurrenceDays : undefined,
-    recurrenceEndDate: recurrenceEndDate || undefined,
+    // 반복 종료: 모드에 따라 종료일 또는 N회 중 하나만 저장(반복 없으면 둘 다 해제).
+    recurrenceEndDate: recurrenceRule && recurEndMode === 'date' ? (recurrenceEndDate || undefined) : undefined,
+    recurrenceCount: recurrenceRule && recurEndMode === 'count' && Number(recurrenceCount) >= 1
+      ? Number(recurrenceCount) : undefined,
   });
 
   const executeSubmit = (scope?: 'this' | 'future' | 'all') => {
@@ -522,22 +533,55 @@ export function TodoModal({ date, todo, initialPlanStart, initialPlanEnd, initia
                   ))}
                 </div>
               )}
-              {/* 종료일 */}
+              {/* 반복 종료 — 날짜 섹션의 "종료일(end_date)"과 혼동되지 않도록 이름을 "반복 종료"로.
+                  세 선택지: 종료일 없음(기본) / 날짜 지정(DateField) / N회 후. */}
               {recurrenceRule && (
-                <div className="flex items-center gap-2">
-                  <span style={{ fontSize: 11, color: t.textSub, fontWeight: 600, whiteSpace: 'nowrap' }}>종료일</span>
-                  <input
-                    type="date"
-                    value={recurrenceEndDate}
-                    onChange={e => setRecurrenceEndDate(e.target.value)}
-                    placeholder="없으면 무기한"
-                    className="flex-1 rounded-lg px-3 py-1.5 outline-none"
-                    style={{ border: `1px solid ${t.border}`, backgroundColor: inputBg(t), color: t.text, fontSize: 12 }}
-                  />
-                  {recurrenceEndDate && (
-                    <button type="button" onClick={() => setRecurrenceEndDate('')}
-                      style={{ fontSize: 11, color: t.textMuted }}>지우기</button>
-                  )}
+                <div className="mt-1 rounded-xl px-3 py-2.5 space-y-1.5" style={{ backgroundColor: inputBg(t), border: `1px solid ${t.border}` }}>
+                  <span style={{ fontSize: 11, color: t.textSub, fontWeight: 600 }}>반복 종료</span>
+                  {([
+                    { key: 'none', label: '종료일 없음' },
+                    { key: 'date', label: '날짜 지정' },
+                    { key: 'count', label: 'N회 후' },
+                  ] as const).map(opt => (
+                    <div key={opt.key}>
+                      <label className="flex items-center gap-2 cursor-pointer" style={{ fontSize: 12, color: t.text }}>
+                        <input
+                          type="radio"
+                          name="recur-end-mode"
+                          checked={recurEndMode === opt.key}
+                          onChange={() => setRecurEndMode(opt.key)}
+                          style={{ accentColor: t.accent }}
+                        />
+                        <span>{opt.label}</span>
+                      </label>
+                      {opt.key === 'date' && recurEndMode === 'date' && (
+                        <div className="mt-1.5 ml-6">
+                          <DateField
+                            value={recurrenceEndDate}
+                            onChange={setRecurrenceEndDate}
+                            min={effectiveDate || undefined}
+                            clearable
+                            placeholder="종료 날짜"
+                            ariaLabel="반복 종료 날짜"
+                          />
+                        </div>
+                      )}
+                      {opt.key === 'count' && recurEndMode === 'count' && (
+                        <div className="mt-1.5 ml-6 flex items-center gap-1.5">
+                          <input
+                            type="number"
+                            min={1}
+                            value={recurrenceCount}
+                            onChange={e => setRecurrenceCount(e.target.value.replace(/[^0-9]/g, ''))}
+                            placeholder="10"
+                            className="w-20 rounded-lg px-3 py-1.5 outline-none"
+                            style={{ border: `1px solid ${t.border}`, backgroundColor: t.card, color: t.text, fontSize: 13 }}
+                          />
+                          <span style={{ fontSize: 12, color: t.textSub }}>회</span>
+                        </div>
+                      )}
+                    </div>
+                  ))}
                 </div>
               )}
             </div>
