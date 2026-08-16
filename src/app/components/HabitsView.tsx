@@ -112,6 +112,8 @@ function HabitModal({ habit, onClose }: { habit?: Habit; onClose: () => void }) 
   const [valueUnit, setValueUnit] = useState(habit?.valueUnit || '');
   const [reason, setReason] = useState(habit?.reason || '');
   const normalizedIcon = icon.trim() || '🎯';
+  // repeat='weekly'(주 N회)는 habitType='check' 로 고정 — weeklyTarget(주 목표)과 targetValue(하루 목표) 충돌 방지
+  const weeklyLocked = repeat === 'weekly';
   const [categoryOptions, setCategoryOptions] = useState<HabitCategoryOption[]>([]);
   const [showAddCategory, setShowAddCategory] = useState(false);
   const [newCategoryName, setNewCategoryName] = useState('');
@@ -179,18 +181,25 @@ function HabitModal({ habit, onClose }: { habit?: Habit; onClose: () => void }) 
     }
   }, [categoryOptions]);
 
+  // repeat='weekly' 로 바뀌면 habitType='check' 강제 (count 먼저 고른 뒤 weekly 로 전환 / 기존 weekly 습관 편집 진입 포함)
+  useEffect(() => {
+    if (repeat === 'weekly') setHabitType('check');
+  }, [repeat]);
+
   const toggleDay = (d: number) => setRepeatDays(prev => prev.includes(d) ? prev.filter(x => x !== d) : [...prev, d]);
 
   const handleSubmit = () => {
     if (!name.trim()) return;
     const normalizedCategory = category.trim();
+    const isWeekly = repeat === 'weekly';
     const data: Omit<Habit, 'id'> = {
       name: name.trim(), icon: normalizedIcon, repeat, repeatDays: repeat === 'custom' ? repeatDays : undefined,
-      weeklyTarget: repeat === 'weekly' ? Math.max(1, Math.min(7, weeklyTarget)) : undefined,
+      weeklyTarget: isWeekly ? Math.max(1, Math.min(7, weeklyTarget)) : undefined,
       goalText, alarmTime, category, color,
       checkedDates: habit?.checkedDates || [],
-      habitType,
-      targetValue: targetValue ? Number(targetValue) : undefined,
+      // 주 N회 습관은 하루 목표(targetValue)와 충돌하므로 habitType='check', targetValue=null 로 정규화 (UI 우회 경로 방어)
+      habitType: isWeekly ? 'check' : habitType,
+      targetValue: isWeekly ? undefined : (targetValue ? Number(targetValue) : undefined),
       valueUnit: valueUnit.trim() || undefined,
       dailyProgress: habit?.dailyProgress || {},
       dailyMemos: habit?.dailyMemos || {},
@@ -338,22 +347,29 @@ function HabitModal({ habit, onClose }: { habit?: Habit; onClose: () => void }) 
           <div>
             <label style={{ fontSize: 11, color: t.textSub, fontWeight: 600 }}>목표 유형</label>
             <div className="grid grid-cols-5 gap-1.5 mt-1.5">
-              {HABIT_TYPES.map(ht => (
-                <button key={ht.value} onClick={() => setHabitType(ht.value)}
-                  className="flex flex-col items-center gap-1 py-2 px-1 rounded-xl transition-all"
-                  style={{
-                    fontSize: 10, fontWeight: habitType === ht.value ? 700 : 400,
-                    backgroundColor: habitType === ht.value ? t.accent : t.lavenderTint,
-                    color: habitType === ht.value ? '#fff' : t.textSub,
-                    border: `1px solid ${habitType === ht.value ? t.accent : t.border}`,
-                  }}>
-                  <span style={{ fontSize: 13 }}>{ht.label.split(' ')[0]}</span>
-                  <span>{ht.label.split(' ')[1]}</span>
-                </button>
-              ))}
+              {HABIT_TYPES.map(ht => {
+                const typeDisabled = weeklyLocked && ht.value !== 'check';
+                const selected = habitType === ht.value;
+                return (
+                  <button key={ht.value} onClick={() => { if (!typeDisabled) setHabitType(ht.value); }}
+                    disabled={typeDisabled}
+                    className="flex flex-col items-center gap-1 py-2 px-1 rounded-xl transition-all"
+                    style={{
+                      fontSize: 10, fontWeight: selected ? 700 : 400,
+                      backgroundColor: selected ? t.accent : t.lavenderTint,
+                      color: selected ? '#fff' : t.textSub,
+                      border: `1px solid ${selected ? t.accent : t.border}`,
+                      opacity: typeDisabled ? 0.4 : 1,
+                      cursor: typeDisabled ? 'not-allowed' : 'pointer',
+                    }}>
+                    <span style={{ fontSize: 13 }}>{ht.label.split(' ')[0]}</span>
+                    <span>{ht.label.split(' ')[1]}</span>
+                  </button>
+                );
+              })}
             </div>
             <p style={{ fontSize: 11, color: t.textMuted, marginTop: 6 }}>
-              {HABIT_TYPES.find(h => h.value === habitType)?.desc}
+              {weeklyLocked ? '주 N회 습관은 하루 1회 체크로 기록돼요.' : HABIT_TYPES.find(h => h.value === habitType)?.desc}
             </p>
           </div>
 
