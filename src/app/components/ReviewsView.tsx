@@ -5,6 +5,7 @@ import { usePlanner, MonthlyReview, WeightRecord, HappyMoment, getWeekKey, getLo
 import { db } from '../../lib/db';
 import { TrackTimeStrip } from './review/TrackTimeStrip';
 import { MemoryPieces } from './review/MemoryPieces';
+import { RetroReadView, hasRetroContent } from './review/RetroReadView';
 import { computeWeightDelta } from './review/reviewMetrics';
 import { useTheme } from '../ThemeContext';
 import { LabelRow } from './VoiceInputButton';
@@ -118,78 +119,48 @@ function DayTab({ jump }: { jump?: JumpReq }) {
   const goPrev = () => setDayDate(format(subDays(parseISO(dayDate), 1), 'yyyy-MM-dd'));
   const goNext = () => setDayDate(format(addDays(parseISO(dayDate), 1), 'yyyy-MM-dd'));
 
-  // 회고 요약(그날 review_records + happy_moments). 상태 표현은 일간 '오늘 기록' 카드와 동일 방식.
+  // 회고 카드 페이로드(그날 review_records + happy_moments).
+  // 읽기 표현은 아카이브 타임라인과 **같은** 공용 컴포넌트(RetroReadView)를 쓴다(표현 이원화 방지).
   const gList = (dayRecord?.gratitude ?? []).filter(Boolean);
   const hList = happyMoments.filter(m => m.date === dayDate);
-  const hasKpt = !!(dayRecord?.kptKeep || dayRecord?.kptProblem || dayRecord?.kptTry);
+  const happyItems = hList.map(m => ({
+    id: m.id,
+    content: m.content,
+    time: m.happenedAt ? format(parseISO(m.happenedAt), 'a h:mm', { locale: ko }) : undefined,
+  }));
+  const kptPayload = { keep: dayRecord?.kptKeep, problem: dayRecord?.kptProblem, try: dayRecord?.kptTry };
+  const retroProps = { gratitude: gList, happy: happyItems, kpt: kptPayload };
+  const retroEmpty = !hasRetroContent(retroProps);
+
   const summaryParts: string[] = [];
   if (gList.length) summaryParts.push(`감사 ${gList.length}개`);
   if (hList.length) summaryParts.push(`좋았던 순간 ${hList.length}개`);
-  if (hasKpt) summaryParts.push('KPT 작성됨');
-  const retroEmpty = summaryParts.length === 0;
-  const kptText = (label: string, val?: string) => val ? (
-    <div style={{ fontSize: 13, color: t.text, lineHeight: 1.5, whiteSpace: 'pre-wrap' }}>
-      <span style={{ fontWeight: 600 }}>{label}</span> · {val}
-    </div>
-  ) : null;
+  if (kptPayload.keep || kptPayload.problem || kptPayload.try) summaryParts.push('KPT 작성됨');
 
-  // 회고 카드 — 읽기는 카드에서, 편집은 시트에서(탭 → RetroSheet). 입력 두 벌 중복 제거.
-  const writeCol = (
-    <div className="space-y-4">
-      {/* 컨디션 배지 — 회고와 별개(건강 링크). 유지. */}
-      <ConditionBadge date={dayDate} />
-
-      <div className="rounded-xl overflow-hidden" style={{ backgroundColor: t.card, border: `1px solid ${t.borderLight}` }}>
-        <button type="button" onClick={() => setRetroOpen(true)} className="w-full flex items-center gap-2.5 px-4 py-3 text-left">
-          <span style={{ fontSize: 18, lineHeight: 1 }}>🙏</span>
-          <div className="flex-1 min-w-0">
-            <div style={{ fontSize: 13, fontWeight: 700, color: t.text }}>회고</div>
-            <div style={{ fontSize: 11, color: retroEmpty ? t.textMuted : t.textSub, fontWeight: retroEmpty ? 600 : 400, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-              {retroEmpty ? '아직 기록 없음 · 탭해서 오늘 회고를 남겨보세요' : summaryParts.join(' · ')}
-            </div>
+  // ① 회고 카드 — 읽기는 카드에서, 편집은 시트에서(탭 → RetroSheet). 입력 두 벌 중복 제거.
+  const retroCard = (
+    <div className="rounded-xl overflow-hidden" style={{ backgroundColor: t.card, border: `1px solid ${t.borderLight}` }}>
+      <button type="button" onClick={() => setRetroOpen(true)} className="w-full flex items-center gap-2.5 px-4 py-3 text-left">
+        <span style={{ fontSize: 18, lineHeight: 1 }}>🙏</span>
+        <div className="flex-1 min-w-0">
+          <div style={{ fontSize: 13, fontWeight: 700, color: t.text }}>회고</div>
+          <div style={{ fontSize: 11, color: retroEmpty ? t.textMuted : t.textSub, fontWeight: retroEmpty ? 600 : 400, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+            {retroEmpty ? '아직 기록 없음 · 탭해서 오늘 회고를 남겨보세요' : summaryParts.join(' · ')}
           </div>
-          <span style={{ fontSize: 12, color: t.accent, fontWeight: 700, flexShrink: 0 }}>{retroEmpty ? '작성 ›' : '편집 ›'}</span>
-        </button>
+        </div>
+        <span style={{ fontSize: 12, color: t.accent, fontWeight: 700, flexShrink: 0 }}>{retroEmpty ? '작성 ›' : '편집 ›'}</span>
+      </button>
 
-        {!retroEmpty && (
-          <div className="px-4 pb-4 space-y-3" style={{ borderTop: `1px solid ${t.borderLight}`, paddingTop: 12 }}>
-            {gList.length > 0 && (
-              <div>
-                <div style={{ fontSize: 11, fontWeight: 700, color: t.textSub, marginBottom: 5 }}>🙏 감사</div>
-                <ol className="space-y-1">
-                  {gList.map((g, i) => (
-                    <li key={i} style={{ fontSize: 13, color: t.text, lineHeight: 1.5 }}>
-                      <span style={{ color: t.accent, fontWeight: 600, marginRight: 6 }}>{i + 1}.</span>{g}
-                    </li>
-                  ))}
-                </ol>
-              </div>
-            )}
-            {hList.length > 0 && (
-              <div>
-                <div style={{ fontSize: 11, fontWeight: 700, color: t.textSub, marginBottom: 5 }}>✨ 좋았던 순간</div>
-                <ul className="space-y-1">
-                  {hList.map(m => (
-                    <li key={m.id} style={{ fontSize: 13, color: t.text, lineHeight: 1.5 }}>✨ {m.content}</li>
-                  ))}
-                </ul>
-              </div>
-            )}
-            {hasKpt && (
-              <div>
-                <div style={{ fontSize: 11, fontWeight: 700, color: t.textSub, marginBottom: 5 }}>🔄 KPT</div>
-                <div className="space-y-1">
-                  {kptText('Keep', dayRecord?.kptKeep)}
-                  {kptText('Problem', dayRecord?.kptProblem)}
-                  {kptText('Try', dayRecord?.kptTry)}
-                </div>
-              </div>
-            )}
-          </div>
-        )}
-      </div>
+      {!retroEmpty && (
+        <div className="px-4 pb-4" style={{ borderTop: `1px solid ${t.borderLight}`, paddingTop: 12 }}>
+          <RetroReadView {...retroProps} />
+        </div>
+      )}
     </div>
   );
+
+  // ② 오늘의 컨디션 — 회고와 별개(건강 링크). 유지.
+  const conditionCard = <ConditionBadge date={dayDate} />;
 
   const dateNav = (
     <div className="flex items-center justify-center gap-3 mb-4">
@@ -211,11 +182,9 @@ function DayTab({ jump }: { jump?: JumpReq }) {
     <div>
       {dateNav}
       {retroOpen && <RetroSheet date={dayDate} onClose={() => setRetroOpen(false)} />}
-      {/* '지난 기록'(PastTimeline) 제거 — 돌아보기 화면과 완전 중복이라 상단 '돌아보기' 버튼으로 충분.
-          인라인 회고 제거 후 카드 2개(컨디션·회고)만 남아, 전폭으로 늘이면 비어 보이므로
-          데스크톱에선 읽기 좋은 폭으로 중앙 정렬한다(무게중심 안정). */}
-      <div className="mx-auto" style={{ maxWidth: isDesktop ? 560 : undefined }}>
-        {writeCol}
+      <div className="mx-auto space-y-4" style={{ maxWidth: isDesktop ? 560 : undefined }}>
+        {retroCard}
+        {conditionCard}
       </div>
     </div>
   );
@@ -1477,89 +1446,25 @@ function ArchiveOverlay({ onClose, onJump }: {
     </div>
   ) : null;
 
-  // KPT 3분할(Keep/Problem/Try) — PC 3열 / 모바일 세로
-  const kptGrid = (kpt: NonNullable<ArchiveItem['kpt']>) => {
-    const cells: [string, string | undefined][] = [['Keep', kpt.keep], ['Problem', kpt.problem], ['Try', kpt.try]];
-    const shown = cells.filter(([, v]) => v?.trim());
-    if (!shown.length) return null;
-    return (
-      <div className="grid gap-2 lg:grid-cols-3">
-        {shown.map(([k, v]) => (
-          <div key={k} className="rounded-lg" style={{ backgroundColor: t.surfaceMuted, padding: '9px 11px' }}>
-            <div style={{ fontSize: 10, fontWeight: 700, color: t.textSub, marginBottom: 4 }}>{k}</div>
-            <div style={{ fontSize: 12.5, lineHeight: 1.5, color: t.text, whiteSpace: 'pre-wrap' }}>{hl(v!)}</div>
-          </div>
-        ))}
-      </div>
-    );
-  };
-
-  // 일간형 카드 — 같은 날 감사·좋았던순간·KPT·데일리를 점선 구분 블록으로 한 카드에 묶는다.
+  // 일간형 카드 — 같은 날 감사·좋았던순간·KPT·데일리를 한 카드에 묶는다.
+  // 읽기 표현은 일간 탭 회고 카드와 **같은** 공용 컴포넌트(RetroReadView)를 쓴다(표현 이원화 방지).
   const renderDailyCard = (d: DayGroup) => {
     const grat = d.daily.find(x => x.kind === 'gratitude');
     const happies = d.daily.filter(x => x.kind === 'happy');
     const kptItem = d.daily.find(x => x.kind === 'kpt');
     const dly = d.daily.find(x => x.kind === 'daily');
 
-    const blocks: React.ReactNode[] = [];
-    if (grat?.gratitude?.length) {
-      blocks.push(
-        <div key="g">
-          {blockHead(kindMeta.gratitude.color, '🙏', '감사한 것')}
-          <ol className="space-y-1.5">
-            {grat.gratitude.map((g, i) => (
-              <li key={i} className="flex gap-2" style={{ fontSize: 13, lineHeight: 1.5, color: t.text }}>
-                <span style={{ fontFamily: t.fontNumeric, fontSize: 11, fontWeight: 700, color: kindMeta.gratitude.color, flexShrink: 0, paddingTop: 2 }}>{i + 1}</span>
-                <span>{hl(g)}</span>
-              </li>
-            ))}
-          </ol>
-        </div>,
-      );
-    }
-    if (happies.length) {
-      blocks.push(
-        <div key="h">
-          {blockHead(kindMeta.happy.color, '✨', '좋았던 순간')}
-          <ul className="space-y-1.5">
-            {happies.map(h => (
-              <li key={h.id} style={{ fontSize: 13, lineHeight: 1.5, color: t.text }}>
-                {h.time && <span style={{ fontSize: 11, fontWeight: 600, color: kindMeta.happy.color, marginRight: 6 }}>{h.time}</span>}
-                {hl(h.happy ?? h.text)}
-              </li>
-            ))}
-          </ul>
-        </div>,
-      );
-    }
-    if (kptItem?.kpt) {
-      const grid = kptGrid(kptItem.kpt);
-      if (grid) blocks.push(<div key="k">{blockHead(kindMeta.kpt.color, '🔄', 'KPT 회고')}{grid}</div>);
-    }
-    if (dly?.daily) {
-      const { summary, good, improve } = dly.daily;
-      blocks.push(
-        <div key="d">
-          {blockHead(kindMeta.daily.color, '📔', '데일리 리뷰')}
-          <div className="space-y-1">
-            {summary?.trim() && <div style={{ fontSize: 13, lineHeight: 1.55, color: t.text, whiteSpace: 'pre-wrap' }}>{hl(summary)}</div>}
-            {field('잘한 점', good)}
-            {field('개선할 점', improve)}
-          </div>
-        </div>,
-      );
-    }
-    if (!blocks.length) return null;
+    const props = {
+      gratitude: grat?.gratitude,
+      happy: happies.map(h => ({ id: h.id, content: h.happy ?? h.text, time: h.time })),
+      kpt: kptItem?.kpt,
+      daily: dly?.daily,
+    };
+    if (!hasRetroContent(props)) return null;
 
     return (
       <button onClick={() => onJump('day', d.date)} style={cardBase}>
-        {blocks.map((b, i) => (
-          <div key={i} style={{
-            paddingTop: i === 0 ? 0 : 11,
-            paddingBottom: i === blocks.length - 1 ? 0 : 11,
-            borderTop: i === 0 ? 'none' : `1px dashed ${t.borderLight}`,
-          }}>{b}</div>
-        ))}
+        <RetroReadView {...props} renderText={hl} />
       </button>
     );
   };
