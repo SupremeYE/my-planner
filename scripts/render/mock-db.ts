@@ -129,7 +129,12 @@ const reviewRecords = [
   { id: 'r3', date: TWO_AGO, types: ['daily'], dailySummary: '전반적으로 무난', dailyGood: '운동함', dailyImprove: '일찍 자기' },
 ];
 const weeklyReviews = [
-  { id: 'wr1', weekKey: WEEK_KEY, good: '하네스 상주화 착수', hard: '미루기 버그 원인 추적', nextWeek: '일간 화면 정비 마무리' },
+  { id: 'wr1', weekKey: WEEK_KEY,
+    highlights: '금요일 저녁 산책에서 본 노을',
+    kptKeep: '아침에 물 먼저 마시기 — 계속 이어가고 싶다',
+    notice: '일이 많아서보다 확인 안 한 일이 쌓일 때 더 정신없음',
+    kptTry: '하루 끝에 5분 정리 시간 넣어보기',
+    nextWeek: '일간 화면 정비 마무리' },
 ];
 const monthlyReviews = [
   { id: 'mr1', month: MONTH, achievement: '일간 화면 리팩터링 시작', nextFocus: '캘린더 정합성' },

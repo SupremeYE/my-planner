@@ -387,8 +387,9 @@ const fromSelfCare = (s: SelfCareRecord): SelfCareRow => ({
 });
 
 type WeeklyReviewRow = {
-  id: string; week_key: string; good: string; hard: string; next_week: string;
-  kpt_keep: string | null; kpt_problem: string | null; kpt_try: string | null;
+  id: string; week_key: string; next_week: string;
+  highlights: string | null;
+  kpt_keep: string | null; notice: string | null; kpt_try: string | null;
 };
 
 type MonthlyReviewRow = {
@@ -399,15 +400,17 @@ type MonthlyReviewRow = {
 };
 
 const toWeeklyReview = (r: WeeklyReviewRow): WeeklyReview => ({
-  id: r.id, weekKey: r.week_key, good: r.good ?? '', hard: r.hard ?? '', nextWeek: r.next_week ?? '',
+  id: r.id, weekKey: r.week_key, nextWeek: r.next_week ?? '',
+  highlights: r.highlights ?? undefined,
   kptKeep: r.kpt_keep ?? undefined,
-  kptProblem: r.kpt_problem ?? undefined,
+  notice: r.notice ?? undefined,
   kptTry: r.kpt_try ?? undefined,
 });
 const fromWeeklyReview = (r: WeeklyReview): WeeklyReviewRow => ({
-  id: r.id, week_key: r.weekKey, good: r.good ?? '', hard: r.hard ?? '', next_week: r.nextWeek ?? '',
+  id: r.id, week_key: r.weekKey, next_week: r.nextWeek ?? '',
+  highlights: r.highlights ?? null,
   kpt_keep: r.kptKeep ?? null,
-  kpt_problem: r.kptProblem ?? null,
+  notice: r.notice ?? null,
   kpt_try: r.kptTry ?? null,
 });
 
