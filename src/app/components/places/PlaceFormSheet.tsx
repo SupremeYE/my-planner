@@ -173,7 +173,7 @@ export function PlaceFormSheet({ place, folders, currentFolderIds, defaultFolder
         {() => (
           <div className="pt-1">
             <Field label="이름">
-              <input value={name} onChange={e => setName(e.target.value)} placeholder="예: 브라운핸즈 송도" style={inputStyle} autoFocus />
+              <input value={name} onChange={e => setName(e.target.value)} placeholder="예: 브라운핸즈 송도" style={inputStyle} autoFocus={!place} />
             </Field>
 
             <Field label="카테고리">

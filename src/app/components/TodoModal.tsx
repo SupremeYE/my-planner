@@ -404,7 +404,7 @@ export function TodoModal({ date, todo, initialPlanStart, initialPlanEnd, initia
           <div>
             <label style={{ fontSize: 11, color: t.textSub, fontWeight: 600 }}>할일</label>
             <input
-              autoFocus
+              autoFocus={!todo}
               value={text}
               onChange={e => setText(e.target.value)}
               placeholder="할 일을 입력하세요"

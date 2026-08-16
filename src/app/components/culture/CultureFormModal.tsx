@@ -216,7 +216,7 @@ export function CultureFormModal({ record, onSave, onDelete, onClose, notify, on
           {/* 제목 */}
           <div>
             <label style={labelStyle}>제목 *</label>
-            <input autoFocus value={title} onChange={e => setTitle(e.target.value)}
+            <input autoFocus={!record} value={title} onChange={e => setTitle(e.target.value)}
               placeholder="예: 오징어 게임 시즌2" style={fieldStyle} />
           </div>
 

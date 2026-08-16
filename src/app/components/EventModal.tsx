@@ -165,7 +165,7 @@ export function EventModal({ date, event, initialTitle, initialStartTime, initia
           <div>
             <label style={{ fontSize: 11, color: t.textSub, fontWeight: 600 }}>제목</label>
             <input
-              autoFocus
+              autoFocus={!event}
               value={title}
               onChange={e => {
                 setTitle(e.target.value);
