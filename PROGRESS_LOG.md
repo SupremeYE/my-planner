@@ -6,6 +6,24 @@
 
 ---
 
+## 2026-08-16 — 🛠 일간 화면 정비 — 미루기/end_date/메뉴 잘림/메뉴 통일 + 렌더 하네스 상주화 (Stage 0~4)
+
+### 🛠 구현 (가장 많이 쓰는 화면의 결함 정비 + 같은 결함 재발 방지용 검증 하네스 상주화)
+
+- **Stage 0 — 렌더 하네스 상주화 (`npm run render:check`)**: 빌드/린트가 통과해도 화면이 깨진 채 배포되던 사례(종일 레인 붕괴·드롭다운 클리핑·완료 체크박스 회귀·목표 페이지 라벤더 도배)의 재발을 막기 위해 재사용 하네스를 `scripts/render/`에 상주화. Vite dev 서버로 실제 컴포넌트를 띄우되 `lib/supabase`·`lib/db`를 `mock-supabase.ts`·`mock-db.ts`로 리다이렉트(run.mjs Vite 플러그인)해 네트워크/인증 없이 시드 데이터로 렌더 → 사전설치 Chromium(playwright-core, `/opt/pw-browsers`)으로 스크린샷 + `getComputedStyle` 자동검사. 시드=완료/미완료/기간/늦음/태그유무/중요 섞인 할일 17건 + 일정·습관·회고·목표(브라우저 '오늘' 기준 동적 날짜). 대상=일간/할일/캘린더(주·월)/리뷰(일·주·월)/목표 × PC1280·모바일390. 자동검사=① 라벤더 잔여(`B>R && B>G && (B-G)>=8 && 채널>220`, 정보성 WARN) ② 팝오버 클리핑/뷰포트 이탈(FAIL) ③ 화면 붕괴(`#root`<200px, FAIL, PC/모바일 이중 트리라 보이는 main 기준). `CLAUDE.md` 사용법 기록, output/ gitignore.
+- **Stage 1 — 미루기 버그(데이터 불일치) 근본 수정**: 할일을 미루면 목록엔 내일로 옮겨지는데 DB `date`는 그대로였다. **근본 원인(DB 실측 확정)**: 제약 `todos_end_date_valid`(`end_date IS NULL OR end_date >= date`) 때문에 단일일 할일(`end_date=date`)의 `date`만 앞으로 옮기면 역전되어 upsert가 23514로 통째 실패 → 에러는 console에만, 낙관적 로컬 state만 이동. `src/lib/todoSnooze.ts` `shiftedEndDate(todo, newDate)`(end 없으면 그대로 없음/단일일→새 날짜/기간→같은 span 유지, 항상 `end_date >= date` 보장) 신설 후 **미루기·오늘로·캘린더 미루기·주간 드래그** 전 경로에 적용. `todoSnooze.test.ts` 6케이스 node:test 통과.
+- **Stage 2 — 신규 할일 `end_date` 누락**: `store.addTodo`에서 `end_date` 미지정 시 `date`로 기본 채움(`date`가 null이면 null 유지). 모든 생성 경로(QuickAdd·모달·타임라인·일간·캘린더·미루기 구체화)가 단일 지점을 거쳐 한 번에 커버. 기존 NULL 5건(야근대장·kisti 등)은 승인 후 `UPDATE todos SET end_date=date WHERE date IS NOT NULL AND end_date IS NULL` 백필(NULL 잔여 0·역전 0 확인).
+- **Stage 3 — 드롭다운 메뉴 잘림**: 일간 `…` 메뉴가 `position:fixed`여도 트리 안에 렌더돼 transform/overflow 조상에 갇혀 잘리고, 하단 항목에선 화면 밖으로 벗어났다(X만 flip). `src/app/hooks/useMenuPosition.ts`(측정 기반 좌/상 flip + 스크롤/리사이즈 시 닫기) + `createPortal(document.body)` 렌더로 해결. `role="menu"`·`…` 버튼 `aria-label`(a11y+하네스 검출). 하네스가 최하단 메뉴를 실제로 열어 클리핑 자동 검출(PC·모바일 clip 0/off 0, 모바일 위로 flip 확인).
+- **Stage 4 — 일간/할일 목록 메뉴 통일**: `src/app/components/todo/TodoActionMenu.tsx` 공용 컴포넌트로 추출(콜백 주입형, list/block 변형, 포털+flip). DailyView 로컬 ContextMenu 제거→공용 사용, TodosView 행에 `…` 메뉴 추가(편집/예정/포커스 시작/미루기/취소/삭제 = 일간과 동일 액션). TodosView ✎/🗑 제거로 밀도 감소, ⭐(Top3)·완료 체크는 자리 유지(회귀 방지). 목록 미루기=다음날 이동(`shiftedEndDate` 동반).
+
+### ✅ 검증
+- `npm run build`(vite 6) 각 Stage 통과, `lint:fonts`/`lint:colors` 통과(라벤더 총 466 불변 — DailyView 22→21, TodoActionMenu +1로 **이동**이라 baseline 재조정).
+- `render:check`: 라우트10+서브탭+메뉴열기 최대 26샷 FAIL 0(클리핑 0·붕괴 0). 라벤더 스캔이 실제 `#F4E7FB`(lavenderTint 아이콘 버튼) 정확 검출(정보성).
+- Stage 1 미루기 근본원인 DB 실측 확정 + 단위테스트 6/6. Stage 2 백필 후 NULL 잔여 0·역전 0. Stage 3 하네스가 열린 메뉴 클리핑 0/이탈 0 실증(모바일 위로 flip). Stage 4 양쪽 `…` 메뉴 동일 액션 집합 스크린샷 확인.
+- 자체 판단: 하네스=Vite dev+resolveId 리다이렉트(playwright-core+사전설치 Chromium executablePath 직접 지정). Stage 1은 동일 CHECK에 걸리는 오늘로·주간 드래그도 함께 수정. Stage 3 스크롤 처리는 위치 고정 캡처라 '닫기' 선택. 밀도는 완료 체크박스·⭐ 유지, ✎/🗑만 `…`로. 범위 밖(주별 종일 레인·리뷰 탭·일정 모달·466건 라일락 청소)은 미변경.
+
+---
+
 ## 2026-07-21 — 🌱 번쩍노트 '언젠가' (씨앗밭) 신규 페이지 (Stage 0~4)
 
 ### 🛠 구현 ("문득 든 삶의 방향·바람"을 한 줄 씨앗으로 던져두고 목표/버킷으로 키우기)
