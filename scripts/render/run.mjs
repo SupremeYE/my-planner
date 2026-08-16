@@ -30,7 +30,17 @@ const CHROME = process.env.HAON_CHROME
 // ── 대상 라우트 / 서브뷰 ─────────────────────────────────────────────────────
 const ALL_ROUTES = [
   // openMenu: 최하단 항목의 '…' 메뉴를 열어 클리핑/뷰포트 이탈을 검출(Stage 3 실증)
-  { slug: 'daily', path: '/daily', openMenu: true },
+  {
+    slug: 'daily', path: '/daily', openMenu: true,
+    // modalFlows: 시드 일정/할일의 수정 모달을 열어 모달 정합(DateField·반복 칩·색 스와치),
+    // 종일 토글 시 시간 필드 숨김, 할일 "반복 종료" 3옵션을 실제 렌더로 검출.
+    // 각 플로우는 라우트를 새로 로드→steps 텍스트를 순서대로 클릭→스크린샷.
+    modalFlows: [
+      { name: 'event-edit', steps: ['팀 스탠드업'] },                       // 일정 수정 모달(정합)
+      { name: 'event-allday', steps: ['팀 스탠드업', '종일'] },             // 종일 → 시간 필드 숨김
+      { name: 'todo-recur', steps: ['할일 메뉴', '편집', '직접 설정', 'N회 후'] }, // 반복 종료 3옵션
+    ],
+  },
   { slug: 'todos', path: '/todos', openMenu: true },
   {
     slug: 'calendar', path: '/calendar',
@@ -200,6 +210,7 @@ async function tryClickText(page, candidates) {
   const attempts = [];
   for (const t of candidates) {
     attempts.push(() => page.getByRole('tab', { name: t, exact: true }).first());
+    attempts.push(() => page.getByRole('menuitem', { name: t, exact: true }).first());
     attempts.push(() => page.getByRole('button', { name: t, exact: true }).first());
     attempts.push(() => page.getByText(t, { exact: true }).first());
     attempts.push(() => page.getByText(t, { exact: false }).first());
@@ -298,6 +309,22 @@ async function main() {
           if (ok) { await doShot(sub.name); }
           else console.log(`   · ${route.slug}:${sub.name} 탭 못 찾음(스킵)`);
         }
+        // 모달 정합 검증: 각 플로우마다 라우트를 새로 로드→steps 클릭→스크린샷(모달 캡처).
+        for (const flow of route.modalFlows || []) {
+          try {
+            await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 45000 });
+            await settle(page);
+            let ok = true;
+            for (const step of flow.steps) {
+              const clicked = await tryClickText(page, [step]);
+              if (!clicked) { ok = false; console.log(`   · ${route.slug}:${flow.name} "${step}" 못 찾음(스킵)`); break; }
+            }
+            if (ok) { await page.waitForTimeout(300); await doShot(flow.name); }
+          } catch (e) {
+            console.log(`   · ${route.slug}:${flow.name} 실패(스킵): ${e.message.split('\n')[0]}`);
+          }
+        }
+
         // Stage 3 실증: 최하단 항목의 '…' 메뉴를 열어 포털/flip 이 클리핑을 막는지 검출
         if (route.openMenu) {
           try {
