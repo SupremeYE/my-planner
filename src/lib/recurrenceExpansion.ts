@@ -1,6 +1,6 @@
 import { parseISO } from 'date-fns';
 import type { Todo } from '../app/store';
-import { buildSpec, expandRecurrenceDates, legacyTodoToSpec, type RecurrenceSpec } from './recurrence';
+import { buildSpec, expandRecurrenceDates, legacyTodoToSpec, nthOccurrenceDate, type RecurrenceSpec } from './recurrence';
 
 /** 할일이 반복인지(레거시 또는 신규 스펙) */
 function todoHasRecurrence(t: Todo): boolean {
@@ -9,16 +9,24 @@ function todoHasRecurrence(t: Todo): boolean {
 
 /** 할일 → RecurrenceSpec (신규 recurrenceFreq 우선, 없으면 레거시 정규화) */
 function resolveTodoSpec(t: Todo, origin: Date): RecurrenceSpec | null {
-  if (t.recurrenceFreq) {
-    return buildSpec({
-      freq: t.recurrenceFreq,
-      interval: t.recurrenceInterval,
-      byday: t.recurrenceDays,
-      preset: t.recurrencePreset,
-      endDate: t.recurrenceEndDate,
-    });
+  let spec = t.recurrenceFreq
+    ? buildSpec({
+        freq: t.recurrenceFreq,
+        interval: t.recurrenceInterval,
+        byday: t.recurrenceDays,
+        preset: t.recurrencePreset,
+        endDate: t.recurrenceEndDate,
+      })
+    : legacyTodoToSpec(t.recurrenceRule, t.recurrenceDays, t.recurrenceEndDate, origin);
+
+  // "N회 후" → 종료일로 환산. 기존 종료일이 있으면 더 이른 쪽을 적용(둘 다 만족).
+  if (spec && t.recurrenceCount && t.recurrenceCount >= 1) {
+    const nth = nthOccurrenceDate(spec, origin, t.recurrenceCount);
+    if (nth) {
+      spec = { ...spec, endDate: spec.endDate && spec.endDate < nth ? spec.endDate : nth };
+    }
   }
-  return legacyTodoToSpec(t.recurrenceRule, t.recurrenceDays, t.recurrenceEndDate, origin);
+  return spec;
 }
 
 /**

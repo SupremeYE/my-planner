@@ -13,7 +13,10 @@ import { useRealtimeSync } from '../../hooks/useRealtimeSync';
 type MomentRow = Awaited<ReturnType<typeof db.moments.fetchAll>>[number];
 interface Piece { key: string; kind: string; title: string; thumb?: string | null; highlight?: boolean }
 
-export function MemoryPieces({ startStr, endStr, title }: { startStr: string; endStr: string; title: string }) {
+// hideWhenEmpty: 조각이 하나도 없으면 카드 자체를 렌더하지 않는다(기본 false = 빈 상태 안내 표시).
+// 하루 범위(일간 탭)는 대부분 비어 있어 빈 카드가 화면을 어색하게 만들므로 일간에서만 켠다.
+// 주간·월간은 미지정 → 기존 동작(빈 상태 안내) 그대로.
+export function MemoryPieces({ startStr, endStr, title, hideWhenEmpty = false }: { startStr: string; endStr: string; title: string; hideWhenEmpty?: boolean }) {
   const { foodRecords } = usePlanner();
   const { t } = useTheme();
   const [data, setData] = useState<{ moments: MomentRow[]; culture: CultureRecord[]; music: MusicRecord[]; walks: WalkSession[] }>(
@@ -62,6 +65,8 @@ export function MemoryPieces({ startStr, endStr, title }: { startStr: string; en
       .forEach(w => out.push({ key: `walk-${w.id}`, kind: '산책', title: w.routeName || '산책', thumb: w.photoUrl }));
     return out;
   }, [foodRecords, data, startStr, endStr]);
+
+  if (hideWhenEmpty && pieces.length === 0) return null;
 
   return (
     <div className="p-4 rounded-xl" style={{ backgroundColor: t.card, border: `1px solid ${t.borderLight}` }}>

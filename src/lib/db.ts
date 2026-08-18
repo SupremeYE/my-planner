@@ -44,6 +44,7 @@ type TodoRow = {
   recurrence_rule: string | null;
   recurrence_days: number[] | null;
   recurrence_end_date: string | null;
+  recurrence_count: number | null;
   recurrence_parent_id: string | null;
   is_exception: boolean | null;
   recurrence_freq: string | null;
@@ -251,6 +252,7 @@ const toTodo = (r: TodoRow): Todo => ({
   recurrenceRule: r.recurrence_rule as Todo['recurrenceRule'] ?? undefined,
   recurrenceDays: r.recurrence_days ?? undefined,
   recurrenceEndDate: r.recurrence_end_date ?? undefined,
+  recurrenceCount: r.recurrence_count ?? undefined,
   recurrenceParentId: r.recurrence_parent_id ?? undefined,
   isException: r.is_exception ?? undefined,
   recurrenceFreq: r.recurrence_freq as Todo['recurrenceFreq'] ?? undefined,
@@ -274,6 +276,7 @@ const fromTodo = (t: Todo): TodoRow => ({
   recurrence_rule: t.recurrenceRule ?? null,
   recurrence_days: t.recurrenceDays ?? null,
   recurrence_end_date: t.recurrenceEndDate ?? null,
+  recurrence_count: t.recurrenceCount ?? null,
   recurrence_parent_id: t.recurrenceParentId ?? null,
   is_exception: t.isException ?? null,
   recurrence_freq: t.recurrenceFreq ?? null,
@@ -387,8 +390,9 @@ const fromSelfCare = (s: SelfCareRecord): SelfCareRow => ({
 });
 
 type WeeklyReviewRow = {
-  id: string; week_key: string; good: string; hard: string; next_week: string;
-  kpt_keep: string | null; kpt_problem: string | null; kpt_try: string | null;
+  id: string; week_key: string; next_week: string;
+  highlights: string | null;
+  kpt_keep: string | null; notice: string | null; kpt_try: string | null;
 };
 
 type MonthlyReviewRow = {
@@ -399,15 +403,17 @@ type MonthlyReviewRow = {
 };
 
 const toWeeklyReview = (r: WeeklyReviewRow): WeeklyReview => ({
-  id: r.id, weekKey: r.week_key, good: r.good ?? '', hard: r.hard ?? '', nextWeek: r.next_week ?? '',
+  id: r.id, weekKey: r.week_key, nextWeek: r.next_week ?? '',
+  highlights: r.highlights ?? undefined,
   kptKeep: r.kpt_keep ?? undefined,
-  kptProblem: r.kpt_problem ?? undefined,
+  notice: r.notice ?? undefined,
   kptTry: r.kpt_try ?? undefined,
 });
 const fromWeeklyReview = (r: WeeklyReview): WeeklyReviewRow => ({
-  id: r.id, week_key: r.weekKey, good: r.good ?? '', hard: r.hard ?? '', next_week: r.nextWeek ?? '',
+  id: r.id, week_key: r.weekKey, next_week: r.nextWeek ?? '',
+  highlights: r.highlights ?? null,
   kpt_keep: r.kptKeep ?? null,
-  kpt_problem: r.kptProblem ?? null,
+  notice: r.notice ?? null,
   kpt_try: r.kptTry ?? null,
 });
 

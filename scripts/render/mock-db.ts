@@ -77,7 +77,7 @@ const weeklyGoals = [
 // ── 할일 (12+; 완료/미완료/기간/늦음/태그유무/중요) ─────────────────────────
 const todos = [
   // 오늘 — 다양한 상태
-  { id: 't01', text: '매뉴얼 양식 공유', date: TODAY, endDate: TODAY, status: 'active', isTop3: true, tags: ['tag-work'], projectId: 'proj-a', weeklyGoalId: 'wg-1' },
+  { id: 't01', text: '매뉴얼 양식 공유', date: TODAY, endDate: TODAY, status: 'done', isTop3: true, tags: ['tag-work'], projectId: 'proj-a', weeklyGoalId: 'wg-1' },
   { id: 't02', text: '웹모델 현황 문의하기', date: TODAY, endDate: TODAY, status: 'active', isTop3: true, tags: ['tag-work'] },
   { id: 't03', text: '아침 스트레칭', date: TODAY, endDate: TODAY, status: 'done', isTop3: false, tags: ['tag-health'] },
   { id: 't04', text: '이메일 회신', date: TODAY, endDate: TODAY, status: 'done', isTop3: false, tags: [] },
@@ -129,7 +129,12 @@ const reviewRecords = [
   { id: 'r3', date: TWO_AGO, types: ['daily'], dailySummary: '전반적으로 무난', dailyGood: '운동함', dailyImprove: '일찍 자기' },
 ];
 const weeklyReviews = [
-  { id: 'wr1', weekKey: WEEK_KEY, good: '하네스 상주화 착수', hard: '미루기 버그 원인 추적', nextWeek: '일간 화면 정비 마무리' },
+  { id: 'wr1', weekKey: WEEK_KEY,
+    highlights: '금요일 저녁 산책에서 본 노을',
+    kptKeep: '아침에 물 먼저 마시기 — 계속 이어가고 싶다',
+    notice: '일이 많아서보다 확인 안 한 일이 쌓일 때 더 정신없음',
+    kptTry: '하루 끝에 5분 정리 시간 넣어보기',
+    nextWeek: '일간 화면 정비 마무리' },
 ];
 const monthlyReviews = [
   { id: 'mr1', month: MONTH, achievement: '일간 화면 리팩터링 시작', nextFocus: '캘린더 정합성' },
@@ -195,7 +200,13 @@ const SEED: Record<string, any> = {
   brainstormItems: [],
   periodRecords: [],
   habitMonthlyMemos: [],
-  foodRecords: [],
+  // 조각(MemoryPieces) 커버리지 — 모먼트·맛있었던 것(주간·월간·일간 공용 스트립을 실제로 렌더).
+  foodRecords: [
+    { id: 'fd1', date: TODAY, foodName: '들기름 막국수', tasteRating: 'good', photoUrl: null, mealType: 'lunch' },
+  ],
+  moments: [
+    { id: 'mo1', content: '노을이 예뻤던 저녁 산책', photos: [], is_highlight: true, created_at: now.toISOString() },
+  ],
   userSymptoms: [],
   // 컨디션 재설계 검증 시드 — 하루 여러 건/컨디션만/구 기록(null) 시나리오를 모두 담는다.
   conditionRecords: [

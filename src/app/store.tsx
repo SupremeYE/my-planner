@@ -42,6 +42,7 @@ export interface Todo {
   recurrenceRule?: 'daily' | 'weekly' | 'weekdays' | 'custom';
   recurrenceDays?: number[];       // 0=일 ~ 6=토 (custom/weekly byday 겸용)
   recurrenceEndDate?: string;      // yyyy-MM-dd, null이면 무기한
+  recurrenceCount?: number;        // 반복 종료 "N회 후"(origin 포함 1-based). null=무제한. endDate와 함께면 더 이른 쪽.
   recurrenceParentId?: string;     // 원본 이벤트 ID (예외 인스턴스가 참조)
   isException?: boolean;           // 이 인스턴스만 수정·삭제된 예외
   // 반복 통합 스펙 (RecurrenceSpec, src/lib/recurrence.ts). recurrenceFreq 있으면 우선.
@@ -521,12 +522,11 @@ export interface HappyMoment {
 export interface WeeklyReview {
   id: string;
   weekKey: string;
-  good: string;
-  hard: string;
-  nextWeek: string;
-  kptKeep?: string;
-  kptProblem?: string;
-  kptTry?: string;
+  highlights?: string; // ① 기억하고 싶은 것 (선택)
+  kptKeep?: string;    // ② KEEP  계속하고 싶은 것
+  notice?: string;     // ③ NOTICE 이번 주에 발견한 것 (구 kptProblem)
+  kptTry?: string;     // ④ TRY   다음 주에 바꿔볼 것
+  nextWeek: string;    // ⑤ NEXT  다음 주의 한 가지
 }
 
 export interface MonthlyReview {

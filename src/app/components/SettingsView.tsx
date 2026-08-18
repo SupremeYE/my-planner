@@ -392,7 +392,6 @@ function FeatureTogglesSection() {
 
   const toggles: { key: keyof typeof appSettings; label: string; desc: string }[] = [
     { key: 'showQuarterlyGoals', label: '분기별 목표 탭 표시', desc: '목표관리 페이지에 분기 탭을 추가합니다' },
-    { key: 'showWeeklyKpt', label: '주간 리뷰: KPT 섹션', desc: '주간 리뷰에 KPT 회고 입력란을 추가합니다' },
     { key: 'showWeeklyHappiness', label: '주간 리뷰: 행복했던 일 섹션', desc: '주간 리뷰에 행복 기록 입력란을 추가합니다' },
     { key: 'showMonthlyKpt', label: '월간 리뷰: KPT 섹션', desc: '월간 리뷰에 KPT 회고 입력란을 추가합니다' },
     { key: 'showHabitHeatmap', label: '패턴 히트맵 표시', desc: '습관 트래커에 연간 히트맵을 표시합니다' },

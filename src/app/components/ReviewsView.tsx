@@ -5,9 +5,10 @@ import { usePlanner, MonthlyReview, WeightRecord, HappyMoment, getWeekKey, getLo
 import { db } from '../../lib/db';
 import { TrackTimeStrip } from './review/TrackTimeStrip';
 import { MemoryPieces } from './review/MemoryPieces';
+import { RetroReadView, hasRetroContent } from './review/RetroReadView';
 import { computeWeightDelta } from './review/reviewMetrics';
 import { useTheme } from '../ThemeContext';
-import { LabelRow } from './VoiceInputButton';
+import { LabelRow, VoiceInputButton } from './VoiceInputButton';
 import { useMediaQuery } from '../hooks/useMediaQuery';
 import { useRealtimeSync } from '../hooks/useRealtimeSync';
 import { supabase } from '../../lib/supabase';
@@ -101,7 +102,7 @@ function ConditionBadge({ date }: { date: string }) {
 type JumpReq = { date: string; nonce: number } | null;
 
 function DayTab({ jump }: { jump?: JumpReq }) {
-  const { reviewRecords, happyMoments } = usePlanner();
+  const { reviewRecords, happyMoments, todos, habits, weeklyGoals } = usePlanner();
   const { t } = useTheme();
   const isDesktop = useMediaQuery('(min-width: 1024px)');
 
@@ -118,75 +119,103 @@ function DayTab({ jump }: { jump?: JumpReq }) {
   const goPrev = () => setDayDate(format(subDays(parseISO(dayDate), 1), 'yyyy-MM-dd'));
   const goNext = () => setDayDate(format(addDays(parseISO(dayDate), 1), 'yyyy-MM-dd'));
 
-  // 회고 요약(그날 review_records + happy_moments). 상태 표현은 일간 '오늘 기록' 카드와 동일 방식.
+  // 회고 카드 페이로드(그날 review_records + happy_moments).
+  // 읽기 표현은 아카이브 타임라인과 **같은** 공용 컴포넌트(RetroReadView)를 쓴다(표현 이원화 방지).
   const gList = (dayRecord?.gratitude ?? []).filter(Boolean);
   const hList = happyMoments.filter(m => m.date === dayDate);
-  const hasKpt = !!(dayRecord?.kptKeep || dayRecord?.kptProblem || dayRecord?.kptTry);
+  const happyItems = hList.map(m => ({
+    id: m.id,
+    content: m.content,
+    time: m.happenedAt ? format(parseISO(m.happenedAt), 'a h:mm', { locale: ko }) : undefined,
+  }));
+  const kptPayload = { keep: dayRecord?.kptKeep, problem: dayRecord?.kptProblem, try: dayRecord?.kptTry };
+  const retroProps = { gratitude: gList, happy: happyItems, kpt: kptPayload };
+  const retroEmpty = !hasRetroContent(retroProps);
+
   const summaryParts: string[] = [];
   if (gList.length) summaryParts.push(`감사 ${gList.length}개`);
   if (hList.length) summaryParts.push(`좋았던 순간 ${hList.length}개`);
-  if (hasKpt) summaryParts.push('KPT 작성됨');
-  const retroEmpty = summaryParts.length === 0;
-  const kptText = (label: string, val?: string) => val ? (
-    <div style={{ fontSize: 13, color: t.text, lineHeight: 1.5, whiteSpace: 'pre-wrap' }}>
-      <span style={{ fontWeight: 600 }}>{label}</span> · {val}
+  if (kptPayload.keep || kptPayload.problem || kptPayload.try) summaryParts.push('KPT 작성됨');
+
+  // ① 회고 카드 — 읽기는 카드에서, 편집은 시트에서(탭 → RetroSheet). 입력 두 벌 중복 제거.
+  const retroCard = (
+    <div className="rounded-xl overflow-hidden" style={{ backgroundColor: t.card, border: `1px solid ${t.borderLight}` }}>
+      <button type="button" onClick={() => setRetroOpen(true)} className="w-full flex items-center gap-2.5 px-4 py-3 text-left">
+        <span style={{ fontSize: 18, lineHeight: 1 }}>🙏</span>
+        <div className="flex-1 min-w-0">
+          <div style={{ fontSize: 13, fontWeight: 700, color: t.text }}>회고</div>
+          <div style={{ fontSize: 11, color: retroEmpty ? t.textMuted : t.textSub, fontWeight: retroEmpty ? 600 : 400, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+            {retroEmpty ? '아직 기록 없음 · 탭해서 오늘 회고를 남겨보세요' : summaryParts.join(' · ')}
+          </div>
+        </div>
+        <span style={{ fontSize: 12, color: t.accent, fontWeight: 700, flexShrink: 0 }}>{retroEmpty ? '작성 ›' : '편집 ›'}</span>
+      </button>
+
+      {!retroEmpty && (
+        <div className="px-4 pb-4" style={{ borderTop: `1px solid ${t.borderLight}`, paddingTop: 12 }}>
+          <RetroReadView {...retroProps} />
+        </div>
+      )}
     </div>
-  ) : null;
+  );
 
-  // 회고 카드 — 읽기는 카드에서, 편집은 시트에서(탭 → RetroSheet). 입력 두 벌 중복 제거.
-  const writeCol = (
-    <div className="space-y-4">
-      {/* 컨디션 배지 — 회고와 별개(건강 링크). 유지. */}
-      <ConditionBadge date={dayDate} />
+  // ② 오늘의 컨디션 — 회고와 별개(건강 링크). 유지.
+  const conditionCard = <ConditionBadge date={dayDate} />;
 
-      <div className="rounded-xl overflow-hidden" style={{ backgroundColor: t.card, border: `1px solid ${t.borderLight}` }}>
-        <button type="button" onClick={() => setRetroOpen(true)} className="w-full flex items-center gap-2.5 px-4 py-3 text-left">
-          <span style={{ fontSize: 18, lineHeight: 1 }}>🙏</span>
-          <div className="flex-1 min-w-0">
-            <div style={{ fontSize: 13, fontWeight: 700, color: t.text }}>회고</div>
-            <div style={{ fontSize: 11, color: retroEmpty ? t.textMuted : t.textSub, fontWeight: retroEmpty ? 600 : 400, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-              {retroEmpty ? '아직 기록 없음 · 탭해서 오늘 회고를 남겨보세요' : summaryParts.join(' · ')}
+  // ③ 오늘의 숫자 — 할일 완료 · 습관 달성 (하루 범위 집계). StatCard 는 주간 탭과 공용.
+  const dayTodos = todos.filter(td => td.date === dayDate);
+  const dayDone = dayTodos.filter(td => td.status === 'done');
+  const completionPct = dayTodos.length ? Math.round((dayDone.length / dayTodos.length) * 100) : 0;
+  const habitDone = habits.filter(h => h.checkedDates.includes(dayDate)).length;
+  const habitPct = habits.length ? Math.round((habitDone / habits.length) * 100) : 0;
+  const statsBlock = (
+    <div>
+      <h3 style={{ fontSize: 12, fontWeight: 700, color: t.textSub, marginBottom: 9 }}>오늘의 숫자</h3>
+      <div className="grid grid-cols-2 gap-3">
+        <StatCard value={dayTodos.length ? String(completionPct) : '–'} unit={dayTodos.length ? '%' : undefined}
+          label="할일 완료" sub={dayTodos.length ? `${dayDone.length}/${dayTodos.length}` : '할일 없음'}
+          pct={completionPct} barColor={t.success} />
+        <StatCard value={habits.length ? String(habitDone) : '–'} unit={habits.length ? `/${habits.length}` : undefined}
+          label="습관 달성" sub={habits.length ? undefined : '습관 없음'}
+          pct={habitPct} barColor={t.accent} />
+      </div>
+    </div>
+  );
+
+  // ③ 시간 태그 분포 — TrackTimeStrip 을 하루 범위로 재사용(주간·월간 공용). 데이터 없으면 자체 빈 상태.
+  const timeStrip = <TrackTimeStrip startStr={dayDate} endStr={dayDate} />;
+
+  // ④ 오늘의 조각 — MemoryPieces 하루 범위 재사용. 하루는 대부분 비어 있어 비면 카드 숨김(hideWhenEmpty).
+  const piecesBlock = <MemoryPieces startStr={dayDate} endStr={dayDate} title="오늘의 조각" hideWhenEmpty />;
+
+  // ⑤ 오늘 한 일 — 그날 완료한 할일(읽기 전용). 여기서 체크/해제하지 않는다(실행은 일간 페이지 몫).
+  //    상위 주간 목표가 연결돼 있으면 부모 칩 표시. 완료한 것이 없으면 섹션 숨김(하루 기본 상태).
+  const doneBlock = dayDone.length === 0 ? null : (
+    <div className="p-4 rounded-xl" style={{ backgroundColor: t.card, border: `1px solid ${t.borderLight}` }}>
+      <div className="flex items-center justify-between mb-3">
+        <h3 style={{ fontSize: 13, fontWeight: 700, color: t.text }}>✅ 오늘 한 일</h3>
+        <span style={{ fontSize: 12, fontWeight: 700, color: t.accent }}>{dayDone.length}개</span>
+      </div>
+      <div className="space-y-2">
+        {dayDone.map(td => {
+          const wg = td.weeklyGoalId ? weeklyGoals.find(g => g.id === td.weeklyGoalId) : undefined;
+          return (
+            <div key={td.id} className="flex items-start gap-2.5 rounded-lg px-3 py-2" style={{ backgroundColor: t.surfaceMuted }}>
+              <span className="flex-shrink-0 mt-0.5 w-5 h-5 rounded-full flex items-center justify-center" style={{ backgroundColor: t.success }}>
+                <Check size={11} color="#fff" strokeWidth={3} />
+              </span>
+              <div className="flex-1 min-w-0">
+                <div style={{ fontSize: 13, fontWeight: 600, color: t.textMuted, textDecoration: 'line-through' }}>{td.text}</div>
+                {wg && (
+                  <span className="inline-flex items-center gap-1 mt-1" style={{ fontSize: 10, color: t.textSub, maxWidth: 220 }} title={wg.text}>
+                    <span style={{ width: 7, height: 7, borderRadius: 999, backgroundColor: t.accent, display: 'inline-block', flexShrink: 0 }} />
+                    <span className="truncate">{wg.text}</span>
+                  </span>
+                )}
+              </div>
             </div>
-          </div>
-          <span style={{ fontSize: 12, color: t.accent, fontWeight: 700, flexShrink: 0 }}>{retroEmpty ? '작성 ›' : '편집 ›'}</span>
-        </button>
-
-        {!retroEmpty && (
-          <div className="px-4 pb-4 space-y-3" style={{ borderTop: `1px solid ${t.borderLight}`, paddingTop: 12 }}>
-            {gList.length > 0 && (
-              <div>
-                <div style={{ fontSize: 11, fontWeight: 700, color: t.textSub, marginBottom: 5 }}>🙏 감사</div>
-                <ol className="space-y-1">
-                  {gList.map((g, i) => (
-                    <li key={i} style={{ fontSize: 13, color: t.text, lineHeight: 1.5 }}>
-                      <span style={{ color: t.accent, fontWeight: 600, marginRight: 6 }}>{i + 1}.</span>{g}
-                    </li>
-                  ))}
-                </ol>
-              </div>
-            )}
-            {hList.length > 0 && (
-              <div>
-                <div style={{ fontSize: 11, fontWeight: 700, color: t.textSub, marginBottom: 5 }}>✨ 좋았던 순간</div>
-                <ul className="space-y-1">
-                  {hList.map(m => (
-                    <li key={m.id} style={{ fontSize: 13, color: t.text, lineHeight: 1.5 }}>✨ {m.content}</li>
-                  ))}
-                </ul>
-              </div>
-            )}
-            {hasKpt && (
-              <div>
-                <div style={{ fontSize: 11, fontWeight: 700, color: t.textSub, marginBottom: 5 }}>🔄 KPT</div>
-                <div className="space-y-1">
-                  {kptText('Keep', dayRecord?.kptKeep)}
-                  {kptText('Problem', dayRecord?.kptProblem)}
-                  {kptText('Try', dayRecord?.kptTry)}
-                </div>
-              </div>
-            )}
-          </div>
-        )}
+          );
+        })}
       </div>
     </div>
   );
@@ -211,12 +240,31 @@ function DayTab({ jump }: { jump?: JumpReq }) {
     <div>
       {dateNav}
       {retroOpen && <RetroSheet date={dayDate} onClose={() => setRetroOpen(false)} />}
-      {/* '지난 기록'(PastTimeline) 제거 — 돌아보기 화면과 완전 중복이라 상단 '돌아보기' 버튼으로 충분.
-          인라인 회고 제거 후 카드 2개(컨디션·회고)만 남아, 전폭으로 늘이면 비어 보이므로
-          데스크톱에선 읽기 좋은 폭으로 중앙 정렬한다(무게중심 안정). */}
-      <div className="mx-auto" style={{ maxWidth: isDesktop ? 560 : undefined }}>
-        {writeCol}
-      </div>
+      {/* 주간·월간 탭과 레이아웃 일치 — 좌(넓게): 돌아볼 재료(회고→숫자→조각→한 일),
+          우(좁게): 컨디션. 모바일은 세로 스택(회고→컨디션→숫자→조각→한 일). */}
+      {isDesktop ? (
+        <div className="flex gap-6 items-start">
+          <div className="flex-1 min-w-0 space-y-4">
+            {retroCard}
+            {statsBlock}
+            {timeStrip}
+            {piecesBlock}
+            {doneBlock}
+          </div>
+          <div className="flex-shrink-0 space-y-4" style={{ width: 340 }}>
+            <div style={{ position: 'sticky', top: 12 }}>{conditionCard}</div>
+          </div>
+        </div>
+      ) : (
+        <div className="space-y-4">
+          {retroCard}
+          {conditionCard}
+          {statsBlock}
+          {timeStrip}
+          {piecesBlock}
+          {doneBlock}
+        </div>
+      )}
     </div>
   );
 }
@@ -350,28 +398,28 @@ function WeekTab({ jump }: { jump?: JumpReq }) {
 
   // ── 회고 입력 (Stage 1 필드로 실제 저장) ──
   const weeklyReview = weeklyReviews.find(r => r.weekKey === range.weekKey);
-  const [wrGood, setWrGood] = useState('');
-  const [wrHard, setWrHard] = useState('');
-  const [wrNext, setWrNext] = useState('');
-  const [wrKptKeep, setWrKptKeep] = useState('');
-  const [wrKptProblem, setWrKptProblem] = useState('');
-  const [wrKptTry, setWrKptTry] = useState('');
+  const [wrHighlights, setWrHighlights] = useState(''); // ① 기억하고 싶은 것 (선택)
+  const [wrKptKeep, setWrKptKeep] = useState('');       // ② KEEP
+  const [wrNotice, setWrNotice] = useState('');         // ③ NOTICE
+  const [wrKptTry, setWrKptTry] = useState('');         // ④ TRY
+  const [wrNext, setWrNext] = useState('');             // ⑤ NEXT
   const [savedFlash, setSavedFlash] = useState(false);
 
   useEffect(() => {
-    setWrGood(weeklyReview?.good || '');
-    setWrHard(weeklyReview?.hard || '');
-    setWrNext(weeklyReview?.nextWeek || '');
+    setWrHighlights(weeklyReview?.highlights || '');
     setWrKptKeep(weeklyReview?.kptKeep || '');
-    setWrKptProblem(weeklyReview?.kptProblem || '');
+    setWrNotice(weeklyReview?.notice || '');
     setWrKptTry(weeklyReview?.kptTry || '');
+    setWrNext(weeklyReview?.nextWeek || '');
   }, [weeklyReview?.id, range.weekKey]);
 
   const save = () => {
+    // 부분 저장 허용 — 한 칸만 채워도 저장된다(빈 칸 강제 없음)
     const payload = {
       weekKey: range.weekKey,
-      good: wrGood, hard: wrHard, nextWeek: wrNext,
-      kptKeep: wrKptKeep, kptProblem: wrKptProblem, kptTry: wrKptTry,
+      highlights: wrHighlights,
+      kptKeep: wrKptKeep, notice: wrNotice, kptTry: wrKptTry,
+      nextWeek: wrNext,
     };
     if (weeklyReview) updateWeeklyReview(weeklyReview.id, payload);
     else addWeeklyReview(payload);
@@ -392,8 +440,8 @@ function WeekTab({ jump }: { jump?: JumpReq }) {
   }, [range.weekKey]);
   const lastYearReview = weeklyReviews.find(r => r.weekKey === lastYearKey);
 
-  const hasText = (r: { good?: string; hard?: string; nextWeek?: string; kptKeep?: string; kptProblem?: string; kptTry?: string }) =>
-    !!(r.good || r.hard || r.nextWeek || r.kptKeep || r.kptProblem || r.kptTry);
+  const hasText = (r: { highlights?: string; kptKeep?: string; notice?: string; kptTry?: string; nextWeek?: string }) =>
+    !!(r.highlights || r.kptKeep || r.notice || r.kptTry || r.nextWeek);
 
   const pastGroups = useMemo(() => {
     const items = weeklyReviews
@@ -429,7 +477,7 @@ function WeekTab({ jump }: { jump?: JumpReq }) {
   ) => {
     const womN = weekOfMonth(row.start, weekStartsOn);
     const comp = weekCompletion(row.startStr, row.endStr);
-    const preview = [row.review.good, row.review.hard, row.review.nextWeek].filter(Boolean).join(' · ');
+    const preview = [row.review.kptKeep, row.review.notice, row.review.kptTry, row.review.nextWeek, row.review.highlights].filter(Boolean).join(' · ');
     return (
       <button key={row.review.id} onClick={() => setAnchor(row.start)}
         className="w-full text-left p-3 rounded-xl transition-colors"
@@ -550,47 +598,52 @@ function WeekTab({ jump }: { jump?: JumpReq }) {
   const reviewForm = (
     <div className="p-4 rounded-xl" style={{ backgroundColor: t.card, border: `1px solid ${t.borderLight}` }}>
       <h3 style={{ fontSize: 13, fontWeight: 700, color: t.text, marginBottom: 12 }}>주간 리뷰 · {navLabel}</h3>
-      <div className="space-y-3">
-        <div>
-          <LabelRow label="잘한 것" labelColor="#006b62" onVoiceResult={text => setWrGood(prev => prev ? `${prev} ${text}` : text)} />
-          <textarea value={wrGood} onChange={e => setWrGood(e.target.value)} rows={3} placeholder="이번 주 잘한 것"
-            className="w-full rounded-lg px-3 py-2 border outline-none resize-none" style={inputStyle} />
+
+      {/* ① 기억하고 싶은 것 — 선택 항목. 조각에 안 잡힌 것을 보충하는 자유 입력 한 칸 */}
+      <div>
+        <div className="flex items-center justify-between mb-1">
+          <label style={{ fontSize: 11, fontWeight: 600, color: t.textSub }}>
+            기억하고 싶은 것 <span style={{ fontWeight: 500, color: t.textMuted }}>· 선택</span>
+          </label>
+          <VoiceInputButton onResult={text => setWrHighlights(prev => prev ? `${prev} ${text}` : text)} />
         </div>
-        <div>
-          <LabelRow label="아쉬운 것" labelColor="#D4735A" onVoiceResult={text => setWrHard(prev => prev ? `${prev} ${text}` : text)} />
-          <textarea value={wrHard} onChange={e => setWrHard(e.target.value)} rows={3} placeholder="이번 주 아쉬운 것"
-            className="w-full rounded-lg px-3 py-2 border outline-none resize-none" style={inputStyle} />
-        </div>
-        <div>
-          <LabelRow label="다음 주 한 가지" labelColor="#7B9ED9" onVoiceResult={text => setWrNext(prev => prev ? `${prev} ${text}` : text)} />
-          <textarea value={wrNext} onChange={e => setWrNext(e.target.value)} rows={2} placeholder="다음 주에 할 단 한 가지 — 그대로 다음 주 목표가 돼요"
-            className="w-full rounded-lg px-3 py-2 border outline-none resize-none" style={inputStyle} />
+        <textarea value={wrHighlights} onChange={e => setWrHighlights(e.target.value)} rows={2}
+          placeholder="조각에 안 담긴, 이번 주 떠올리고 싶은 것 (안 써도 괜찮아요)"
+          className="w-full rounded-lg px-3 py-2 border outline-none resize-none" style={inputStyle} />
+      </div>
+
+      {/* ②③④ 돌아보기 — KEEP / NOTICE / TRY 한 묶음(세 개가 회고 한 세트) */}
+      <div className="mt-4">
+        <h4 style={{ fontSize: 12, fontWeight: 700, color: t.textSub, marginBottom: 10 }}>돌아보기</h4>
+        <div className={isDesktop ? 'grid grid-cols-3 gap-3' : 'space-y-3'}>
+          <div>
+            <LabelRow label="KEEP · 계속하고 싶은 것" labelColor="#006b62" onVoiceResult={text => setWrKptKeep(prev => prev ? `${prev} ${text}` : text)} />
+            <textarea value={wrKptKeep} onChange={e => setWrKptKeep(e.target.value)} rows={isDesktop ? 4 : 2}
+              placeholder="잘 됐던, 이어가고 싶은 것"
+              className="w-full rounded-lg px-3 py-2 border outline-none resize-none" style={inputStyle} />
+          </div>
+          <div>
+            <LabelRow label="NOTICE · 발견한 것" labelColor="#6E7B8B" onVoiceResult={text => setWrNotice(prev => prev ? `${prev} ${text}` : text)} />
+            <textarea value={wrNotice} onChange={e => setWrNotice(e.target.value)} rows={isDesktop ? 4 : 2}
+              placeholder="이번 주에 알아차린 것 (판단 말고 관찰)"
+              className="w-full rounded-lg px-3 py-2 border outline-none resize-none" style={inputStyle} />
+          </div>
+          <div>
+            <LabelRow label="TRY · 바꿔볼 것" labelColor="#7B9ED9" onVoiceResult={text => setWrKptTry(prev => prev ? `${prev} ${text}` : text)} />
+            <textarea value={wrKptTry} onChange={e => setWrKptTry(e.target.value)} rows={isDesktop ? 4 : 2}
+              placeholder="다음 주에 한번 바꿔볼 것"
+              className="w-full rounded-lg px-3 py-2 border outline-none resize-none" style={inputStyle} />
+          </div>
         </div>
       </div>
 
-      {/* KPT 섹션 — 설정에서 ON 시 표시, 실제 저장(Stage 1 컬럼) */}
-      {appSettings.showWeeklyKpt && (
-        <div className="mt-4 pt-4" style={{ borderTop: `1px solid ${t.borderLight}` }}>
-          <h4 style={{ fontSize: 12, fontWeight: 700, color: t.textSub, marginBottom: 10 }}>🔄 KPT 주간 회고</h4>
-          <div className={isDesktop ? 'grid grid-cols-3 gap-3' : 'space-y-3'}>
-            <div>
-              <LabelRow label="Keep (유지할 것)" labelColor="#006b62" onVoiceResult={text => setWrKptKeep(prev => prev ? `${prev} ${text}` : text)} />
-              <textarea value={wrKptKeep} onChange={e => setWrKptKeep(e.target.value)} rows={isDesktop ? 4 : 2}
-                className="w-full rounded-lg px-3 py-2 border outline-none resize-none" style={inputStyle} />
-            </div>
-            <div>
-              <LabelRow label="Problem (문제점)" labelColor="#D4735A" onVoiceResult={text => setWrKptProblem(prev => prev ? `${prev} ${text}` : text)} />
-              <textarea value={wrKptProblem} onChange={e => setWrKptProblem(e.target.value)} rows={isDesktop ? 4 : 2}
-                className="w-full rounded-lg px-3 py-2 border outline-none resize-none" style={inputStyle} />
-            </div>
-            <div>
-              <LabelRow label="Try (시도할 것)" labelColor="#7B9ED9" onVoiceResult={text => setWrKptTry(prev => prev ? `${prev} ${text}` : text)} />
-              <textarea value={wrKptTry} onChange={e => setWrKptTry(e.target.value)} rows={isDesktop ? 4 : 2}
-                className="w-full rounded-lg px-3 py-2 border outline-none resize-none" style={inputStyle} />
-            </div>
-          </div>
-        </div>
-      )}
+      {/* ⑤ NEXT — 다음 주로 이어지는 것. 구분선으로 시각적으로 떼어낸다 */}
+      <div className="mt-4 pt-4" style={{ borderTop: `1px solid ${t.borderLight}` }}>
+        <LabelRow label="NEXT · 다음 주의 한 가지" labelColor={t.accent} onVoiceResult={text => setWrNext(prev => prev ? `${prev} ${text}` : text)} />
+        <textarea value={wrNext} onChange={e => setWrNext(e.target.value)} rows={2}
+          placeholder="다음 주에 할 단 하나 — 그대로 다음 주 목표가 돼요"
+          className="w-full rounded-lg px-3 py-2 border outline-none resize-none" style={inputStyle} />
+      </div>
 
       <button onClick={save}
         className="w-full mt-4 py-2.5 rounded-xl transition-colors"
@@ -1201,7 +1254,7 @@ interface ArchiveItem {
   happy?: string;
   kpt?: { keep?: string; problem?: string; try?: string };
   daily?: { summary?: string; good?: string; improve?: string };
-  weekly?: { good?: string; hard?: string; nextWeek?: string; keep?: string; problem?: string; try?: string };
+  weekly?: { highlights?: string; keep?: string; notice?: string; try?: string; nextWeek?: string };
   monthly?: {
     highlight?: string; didWell?: string; regret?: string; nextFocus?: string; achievement?: string;
     bestVideo?: string; bestMusic?: string; bestBook?: string; bestPlace?: string;
@@ -1316,12 +1369,12 @@ function ArchiveOverlay({ onClose, onJump }: {
     }
 
     for (const w of weeklyReviews) {
-      const text = join([w.good, w.hard, w.nextWeek, w.kptKeep, w.kptProblem, w.kptTry]);
+      const text = join([w.highlights, w.kptKeep, w.notice, w.kptTry, w.nextWeek]);
       if (!text) continue;
       const rg = weekKeyToRange(w.weekKey);
       out.push({ id: `w-${w.id}`, kind: 'weekly', date: rg.startStr,
         dateLabel: `${format(rg.start, 'M.d')}–${format(rg.end, 'M.d')} 주간`,
-        weekly: { good: w.good, hard: w.hard, nextWeek: w.nextWeek, keep: w.kptKeep, problem: w.kptProblem, try: w.kptTry },
+        weekly: { highlights: w.highlights, keep: w.kptKeep, notice: w.notice, try: w.kptTry, nextWeek: w.nextWeek },
         text, jump: { tab: 'week', date: rg.startStr } });
     }
 
@@ -1477,89 +1530,25 @@ function ArchiveOverlay({ onClose, onJump }: {
     </div>
   ) : null;
 
-  // KPT 3분할(Keep/Problem/Try) — PC 3열 / 모바일 세로
-  const kptGrid = (kpt: NonNullable<ArchiveItem['kpt']>) => {
-    const cells: [string, string | undefined][] = [['Keep', kpt.keep], ['Problem', kpt.problem], ['Try', kpt.try]];
-    const shown = cells.filter(([, v]) => v?.trim());
-    if (!shown.length) return null;
-    return (
-      <div className="grid gap-2 lg:grid-cols-3">
-        {shown.map(([k, v]) => (
-          <div key={k} className="rounded-lg" style={{ backgroundColor: t.surfaceMuted, padding: '9px 11px' }}>
-            <div style={{ fontSize: 10, fontWeight: 700, color: t.textSub, marginBottom: 4 }}>{k}</div>
-            <div style={{ fontSize: 12.5, lineHeight: 1.5, color: t.text, whiteSpace: 'pre-wrap' }}>{hl(v!)}</div>
-          </div>
-        ))}
-      </div>
-    );
-  };
-
-  // 일간형 카드 — 같은 날 감사·좋았던순간·KPT·데일리를 점선 구분 블록으로 한 카드에 묶는다.
+  // 일간형 카드 — 같은 날 감사·좋았던순간·KPT·데일리를 한 카드에 묶는다.
+  // 읽기 표현은 일간 탭 회고 카드와 **같은** 공용 컴포넌트(RetroReadView)를 쓴다(표현 이원화 방지).
   const renderDailyCard = (d: DayGroup) => {
     const grat = d.daily.find(x => x.kind === 'gratitude');
     const happies = d.daily.filter(x => x.kind === 'happy');
     const kptItem = d.daily.find(x => x.kind === 'kpt');
     const dly = d.daily.find(x => x.kind === 'daily');
 
-    const blocks: React.ReactNode[] = [];
-    if (grat?.gratitude?.length) {
-      blocks.push(
-        <div key="g">
-          {blockHead(kindMeta.gratitude.color, '🙏', '감사한 것')}
-          <ol className="space-y-1.5">
-            {grat.gratitude.map((g, i) => (
-              <li key={i} className="flex gap-2" style={{ fontSize: 13, lineHeight: 1.5, color: t.text }}>
-                <span style={{ fontFamily: t.fontNumeric, fontSize: 11, fontWeight: 700, color: kindMeta.gratitude.color, flexShrink: 0, paddingTop: 2 }}>{i + 1}</span>
-                <span>{hl(g)}</span>
-              </li>
-            ))}
-          </ol>
-        </div>,
-      );
-    }
-    if (happies.length) {
-      blocks.push(
-        <div key="h">
-          {blockHead(kindMeta.happy.color, '✨', '좋았던 순간')}
-          <ul className="space-y-1.5">
-            {happies.map(h => (
-              <li key={h.id} style={{ fontSize: 13, lineHeight: 1.5, color: t.text }}>
-                {h.time && <span style={{ fontSize: 11, fontWeight: 600, color: kindMeta.happy.color, marginRight: 6 }}>{h.time}</span>}
-                {hl(h.happy ?? h.text)}
-              </li>
-            ))}
-          </ul>
-        </div>,
-      );
-    }
-    if (kptItem?.kpt) {
-      const grid = kptGrid(kptItem.kpt);
-      if (grid) blocks.push(<div key="k">{blockHead(kindMeta.kpt.color, '🔄', 'KPT 회고')}{grid}</div>);
-    }
-    if (dly?.daily) {
-      const { summary, good, improve } = dly.daily;
-      blocks.push(
-        <div key="d">
-          {blockHead(kindMeta.daily.color, '📔', '데일리 리뷰')}
-          <div className="space-y-1">
-            {summary?.trim() && <div style={{ fontSize: 13, lineHeight: 1.55, color: t.text, whiteSpace: 'pre-wrap' }}>{hl(summary)}</div>}
-            {field('잘한 점', good)}
-            {field('개선할 점', improve)}
-          </div>
-        </div>,
-      );
-    }
-    if (!blocks.length) return null;
+    const props = {
+      gratitude: grat?.gratitude,
+      happy: happies.map(h => ({ id: h.id, content: h.happy ?? h.text, time: h.time })),
+      kpt: kptItem?.kpt,
+      daily: dly?.daily,
+    };
+    if (!hasRetroContent(props)) return null;
 
     return (
       <button onClick={() => onJump('day', d.date)} style={cardBase}>
-        {blocks.map((b, i) => (
-          <div key={i} style={{
-            paddingTop: i === 0 ? 0 : 11,
-            paddingBottom: i === blocks.length - 1 ? 0 : 11,
-            borderTop: i === 0 ? 'none' : `1px dashed ${t.borderLight}`,
-          }}>{b}</div>
-        ))}
+        <RetroReadView {...props} renderText={hl} />
       </button>
     );
   };
@@ -1572,12 +1561,11 @@ function ArchiveOverlay({ onClose, onJump }: {
         style={{ ...cardBase, borderLeft: `3px solid ${kindMeta.weekly.color}` }}>
         {blockHead(kindMeta.weekly.color, '📅', `주간 리뷰 · ${it.dateLabel}`)}
         <div className="space-y-1.5">
-          {field('잘한 것', w.good)}
-          {field('아쉬운 것', w.hard)}
-          {field('다음 주', w.nextWeek)}
-          {field('Keep', w.keep)}
-          {field('Problem', w.problem)}
-          {field('Try', w.try)}
+          {field('기억하고 싶은 것', w.highlights)}
+          {field('KEEP', w.keep)}
+          {field('NOTICE', w.notice)}
+          {field('TRY', w.try)}
+          {field('NEXT', w.nextWeek)}
         </div>
       </button>
     );

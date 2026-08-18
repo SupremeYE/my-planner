@@ -30,8 +30,18 @@ const CHROME = process.env.HAON_CHROME
 // ── 대상 라우트 / 서브뷰 ─────────────────────────────────────────────────────
 const ALL_ROUTES = [
   // openMenu: 최하단 항목의 '…' 메뉴를 열어 클리핑/뷰포트 이탈을 검출(Stage 3 실증)
-  // openEventModal: 일정 편집 모달을 열어 태그 선택 UI 를 검출(일정 모달 태그 검증)
-  { slug: 'daily', path: '/daily', openMenu: true, openEventModal: true },
+  {
+    // openEventModal: 일정 편집 모달을 열어 태그 선택 UI 를 검출(일정 모달 태그 검증)
+    slug: 'daily', path: '/daily', openMenu: true, openEventModal: true,
+    // modalFlows: 시드 일정/할일의 수정 모달을 열어 모달 정합(DateField·반복 칩·색 스와치),
+    // 종일 토글 시 시간 필드 숨김, 할일 "반복 종료" 3옵션을 실제 렌더로 검출.
+    // 각 플로우는 라우트를 새로 로드→steps 텍스트를 순서대로 클릭→스크린샷.
+    modalFlows: [
+      { name: 'event-edit', steps: ['팀 스탠드업'] },                       // 일정 수정 모달(정합)
+      { name: 'event-allday', steps: ['팀 스탠드업', '종일'] },             // 종일 → 시간 필드 숨김
+      { name: 'todo-recur', steps: ['할일 메뉴', '편집', '직접 설정', 'N회 후'] }, // 반복 종료 3옵션
+    ],
+  },
   { slug: 'todos', path: '/todos', openMenu: true },
   // 시간 리포트 — 일정 태그 집계가 나타나는지(주간 리뷰 시간 스트립과 같은 소스)
   { slug: 'time-report', path: '/time-report' },
@@ -203,6 +213,7 @@ async function tryClickText(page, candidates) {
   const attempts = [];
   for (const t of candidates) {
     attempts.push(() => page.getByRole('tab', { name: t, exact: true }).first());
+    attempts.push(() => page.getByRole('menuitem', { name: t, exact: true }).first());
     attempts.push(() => page.getByRole('button', { name: t, exact: true }).first());
     attempts.push(() => page.getByText(t, { exact: true }).first());
     attempts.push(() => page.getByText(t, { exact: false }).first());
@@ -282,6 +293,28 @@ async function main() {
         };
 
         await doShot(null);
+        if (route.slug === 'reviews') {
+          // 일간 탭 하단(오늘의 숫자·조각·오늘 한 일)까지 담기 위해 스크롤 컨테이너를 끝까지 내린다.
+          const scrollBottom = () => {
+            for (const el of document.querySelectorAll('*')) {
+              const cs = getComputedStyle(el);
+              if (/(auto|scroll)/.test(cs.overflowY) && el.scrollHeight > el.clientHeight + 4) el.scrollTop = el.scrollHeight;
+            }
+            (document.scrollingElement || document.documentElement).scrollTop = 1e6;
+          };
+          await page.evaluate(scrollBottom);
+          await page.waitForTimeout(500);
+          await doShot('day-full');
+          // 주간/월간 탭 클릭 전 스크롤을 위로 되돌린다(서브 캡처가 상단부터 보이도록).
+          await page.evaluate(() => {
+            for (const el of document.querySelectorAll('*')) {
+              const cs = getComputedStyle(el);
+              if (/(auto|scroll)/.test(cs.overflowY)) el.scrollTop = 0;
+            }
+            (document.scrollingElement || document.documentElement).scrollTop = 0;
+          });
+          await page.waitForTimeout(200);
+        }
         if (route.slug === 'health-condition') {
           // 통계 카드 아래 '기록 리스트'(컨디션·시점 뱃지)까지 담기 위해 스크롤 컨테이너를 끝까지 내린다.
           await page.evaluate(() => {
@@ -301,6 +334,22 @@ async function main() {
           if (ok) { await doShot(sub.name); }
           else console.log(`   · ${route.slug}:${sub.name} 탭 못 찾음(스킵)`);
         }
+        // 모달 정합 검증: 각 플로우마다 라우트를 새로 로드→steps 클릭→스크린샷(모달 캡처).
+        for (const flow of route.modalFlows || []) {
+          try {
+            await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 45000 });
+            await settle(page);
+            let ok = true;
+            for (const step of flow.steps) {
+              const clicked = await tryClickText(page, [step]);
+              if (!clicked) { ok = false; console.log(`   · ${route.slug}:${flow.name} "${step}" 못 찾음(스킵)`); break; }
+            }
+            if (ok) { await page.waitForTimeout(300); await doShot(flow.name); }
+          } catch (e) {
+            console.log(`   · ${route.slug}:${flow.name} 실패(스킵): ${e.message.split('\n')[0]}`);
+          }
+        }
+
         // Stage 3 실증: 최하단 항목의 '…' 메뉴를 열어 포털/flip 이 클리핑을 막는지 검출
         if (route.openMenu) {
           try {
