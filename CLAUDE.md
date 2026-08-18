@@ -25,7 +25,11 @@ No test runner or linter is configured in this project.
   `/opt/pw-browsers`)으로 스크린샷 + `getComputedStyle` 검사.
 - **시드**: `mock-db.ts` — 완료/미완료/기간/늦음/태그유무/중요가 섞인 할일 17건 +
   일정·습관·회고·목표. 날짜는 브라우저 '오늘' 기준 동적 생성(`getLogicalToday` 정렬).
-- **대상**: 일간 / 할일 / 캘린더(주별·월별) / 리뷰(일간·주간·월간) / 목표 × PC(1280)·모바일(390).
+  단 **머니 모듈은 `lib/db` 가 아니라 자체 `features/money/db.ts` 가 `lib/supabase` 를
+  직접 호출**하므로, 머니 시드는 `mock-supabase.ts` 의 `MONEY_SEED`(11테이블, `money_*` 만)
+  가 `.from()` 으로 돌려준다(그 외 테이블은 빈 배열 → 다른 라우트 무영향).
+- **대상**: 일간 / 할일 / 시간리포트 / 캘린더(주별·월별) / 리뷰(주간·월간) / 목표 / 컨디션 /
+  **머니(가계부·자산·투자·계획 4탭)** × PC(1280)·모바일(390).
 - **자동 검사(수치 리포트 + PASS/WARN/FAIL)**:
   1. **라벤더 잔여** — 기존 기준 재사용(`B>R && B>G && (B-G)>=8 && 모든 채널>220`).
      라일락은 하온 정체성이라 WARN(정보성). "늘어남"을 눈으로 확인하는 용도.
@@ -35,6 +39,9 @@ No test runner or linter is configured in this project.
      이중 트리(`hidden lg:block`/`lg:hidden`)라 숨은 `<main>` 은 높이 0 → 보이는 main 으로 측정.
 - **산출물**: `scripts/render/output/<viewport>-<route>.png` + `report.json`(gitignore).
 - **부분 실행**: `node scripts/render/run.mjs --route=daily,todos`.
+- **커버 경계**: 하네스가 검증하는 것은 **화면 렌더**(레이아웃/클리핑/붕괴/라벤더)뿐이다.
+  **데이터 계층·서버 정렬(`.order` 등)·집계 정확도는 미커버** — mock 은 필터/정렬을
+  무시하고 시드를 그대로 돌려주므로, 쿼리 로직·정렬·계산은 단위 테스트/DB 실측으로 따로 검증한다.
 - **규칙**: **UI 를 바꾸는 모든 작업은 `render:check` 를 돌리고 스크린샷을 보고에 첨부한다.**
   "정적 검증으로 대체"는 하네스가 실제로 실패할 때만 허용하며 그 경우 실패 로그를 함께 제출한다.
 
