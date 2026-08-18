@@ -104,7 +104,7 @@ export function FolderFormSheet({ folder, folders, onClose, onSaved }: Props) {
                     onChange={e => setName(e.target.value)}
                     placeholder="예: 카공지도"
                     style={inputStyle}
-                    autoFocus
+                    autoFocus={!folder}
                   />
                 </Field>
               </div>

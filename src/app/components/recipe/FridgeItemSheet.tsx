@@ -82,7 +82,7 @@ export function FridgeItemSheet({ item, onSave, onDelete, onClose }: FridgeItemS
           {/* 이름 */}
           <div>
             <label style={labelStyle}>이름 *</label>
-            <input autoFocus value={name} onChange={e => setName(e.target.value)} placeholder="예: 계란" style={fieldStyle} />
+            <input autoFocus={!item} value={name} onChange={e => setName(e.target.value)} placeholder="예: 계란" style={fieldStyle} />
           </div>
 
           {/* 카테고리 */}

@@ -123,7 +123,7 @@ export function BeautyProductSheet({ product, onSave, onRepurchase, onSetActive,
           {/* 이름 + 브랜드 */}
           <div>
             <label style={labelStyle}>이름 *</label>
-            <input autoFocus value={name} onChange={e => setName(e.target.value)} placeholder="예: 수분크림" style={fieldStyle} />
+            <input autoFocus={!product} value={name} onChange={e => setName(e.target.value)} placeholder="예: 수분크림" style={fieldStyle} />
           </div>
           <div className="flex gap-3">
             <div className="flex-1">

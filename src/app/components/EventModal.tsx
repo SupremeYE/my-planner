@@ -1,11 +1,14 @@
 import { useMemo, useState } from 'react';
-import { CalendarDays, Link2, MapPinned, Trash2, X } from 'lucide-react';
-import { format } from 'date-fns';
+import { CalendarDays, Link2, MapPinned, RefreshCw, X } from 'lucide-react';
+import { format, parseISO } from 'date-fns';
+import { ko } from 'date-fns/locale';
 import { usePlanner, Event, getLogicalToday } from '../store';
 import { useTheme } from '../ThemeContext';
 import ConfirmModal from './ConfirmModal';
 import { TimeField } from './TimeField';
 import { TagSelector } from './TagSelector';
+import { DateField } from './DateField';
+import { PROJECT_COLORS } from './ProjectView';
 import { inputBg, dangerText, dangerFill } from '../styles/haonStyles';
 
 interface EventModalProps {
@@ -50,11 +53,35 @@ export function EventModal({ date, event, initialTitle, initialStartTime, initia
   const [alertMinutes, setAlertMinutes] = useState<string>(event?.alertMinutes?.toString() ?? '');
   const [memo, setMemo] = useState(event?.memo ?? '');
   const [projectId, setProjectId] = useState(event?.projectId ?? '');
-  const [color, setColor] = useState(event?.color ?? '#7B9ED9');
+  const [color, setColor] = useState(event?.color ?? PROJECT_COLORS[0]);
   // 태그 — 시각(startTime/endTime) 있는 일정에 track_time 태그를 붙이면 시간 리포트·리뷰에 자동 집계됨.
   const [selectedTags, setSelectedTags] = useState<string[]>(event?.tags ?? initialTags ?? []);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [error, setError] = useState('');
+
+  // 날짜 헤더 라벨(할일 모달과 동일한 인상). 단일=한 날, 기간=시작→종료.
+  const dateSpanLabel = useMemo(() => {
+    if (!startDate) return '미지정';
+    const s = format(parseISO(startDate), 'M월 d일 (EEE)', { locale: ko });
+    if (endDate && endDate > startDate) {
+      return `${s} → ${format(parseISO(endDate), 'M월 d일 (EEE)', { locale: ko })}`;
+    }
+    return s;
+  }, [startDate, endDate]);
+
+  // 색상 스와치: 앱 공용 PROJECT_COLORS. 현재 색이 팔레트에 없으면(레거시 커스텀) 맨 앞에 노출해 선택 유지.
+  const colorPalette = useMemo(
+    () => (PROJECT_COLORS.includes(color) ? PROJECT_COLORS : [color, ...PROJECT_COLORS]),
+    [color],
+  );
+
+  // 시작일 변경 시 종료일이 시작보다 이르면 시작으로 맞춘다(항상 endDate >= startDate 보장).
+  const handleStartChange = (v: string) => {
+    if (!v) return;
+    setStartDate(v);
+    setEndDate(prev => (prev && prev >= v ? prev : v));
+    if (error) setError('');
+  };
 
   const mapsUrl = useMemo(
     () => location.trim() ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(location.trim())}` : '',
@@ -120,7 +147,7 @@ export function EventModal({ date, event, initialTitle, initialStartTime, initia
       onClick={onClose}
     >
       <div
-        className="rounded-2xl w-[460px] max-w-[95vw] max-h-[88vh] overflow-y-auto"
+        className="rounded-2xl w-[420px] max-w-[95vw] max-h-[85vh] overflow-y-auto"
         style={{
           backgroundColor: t.card,
           border: `1px solid ${t.border}`,
@@ -141,7 +168,7 @@ export function EventModal({ date, event, initialTitle, initialStartTime, initia
           <div>
             <label style={{ fontSize: 11, color: t.textSub, fontWeight: 600 }}>제목</label>
             <input
-              autoFocus
+              autoFocus={!event}
               value={title}
               onChange={e => {
                 setTitle(e.target.value);
@@ -150,6 +177,26 @@ export function EventModal({ date, event, initialTitle, initialStartTime, initia
               placeholder="일정 제목을 입력하세요"
               className="w-full mt-1 rounded-lg px-3 py-2 outline-none"
               style={{ border: `1px solid ${t.border}`, backgroundColor: inputBg(t), color: t.text, fontSize: 13 }}
+            />
+          </div>
+
+          {/* 날짜 — 할일 모달과 동일한 섹션(아이콘+라벨+요약) + DateField 기간 모드(네이티브 input 제거) */}
+          <div className="pb-4 space-y-2" style={{ borderBottom: `1px solid ${t.border}` }}>
+            <div className="flex items-center gap-2">
+              <CalendarDays size={14} color={t.accent} />
+              <span style={{ fontSize: 12, color: t.text, fontWeight: 600 }}>날짜</span>
+              <span style={{ fontSize: 11, color: t.textMuted }}>{dateSpanLabel}</span>
+            </div>
+            <DateField
+              value={startDate}
+              onChange={handleStartChange}
+              range
+              endValue={endDate && endDate > startDate ? endDate : ''}
+              onEndChange={v => { setEndDate(v || startDate); if (error) setError(''); }}
+              clearable={false}
+              size="md"
+              ariaLabel="일정 날짜"
+              placeholder="날짜 선택"
             />
           </div>
 
@@ -162,29 +209,6 @@ export function EventModal({ date, event, initialTitle, initialStartTime, initia
             />
             <span style={{ fontSize: 12, color: t.text }}>종일</span>
           </label>
-
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label style={{ fontSize: 11, color: t.textSub, fontWeight: 600 }}>시작일</label>
-              <input
-                type="date"
-                value={startDate}
-                onChange={e => setStartDate(e.target.value)}
-                className="w-full mt-1 rounded-lg px-3 py-2 outline-none"
-                style={{ border: `1px solid ${t.border}`, backgroundColor: inputBg(t), color: t.text, fontSize: 13 }}
-              />
-            </div>
-            <div>
-              <label style={{ fontSize: 11, color: t.textSub, fontWeight: 600 }}>종료일</label>
-              <input
-                type="date"
-                value={endDate}
-                onChange={e => setEndDate(e.target.value)}
-                className="w-full mt-1 rounded-lg px-3 py-2 outline-none"
-                style={{ border: `1px solid ${t.border}`, backgroundColor: inputBg(t), color: t.text, fontSize: 13 }}
-              />
-            </div>
-          </div>
 
           {!isAllDay && (
             <div className="grid grid-cols-2 gap-3">
@@ -249,47 +273,62 @@ export function EventModal({ date, event, initialTitle, initialStartTime, initia
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-3">
-            <div>
+          {/* 반복 — 할일 모달과 동일한 칩 패턴(선택지는 기존 <select> 그대로) */}
+          <div>
+            <div className="flex items-center gap-1.5 mb-2">
+              <RefreshCw size={13} color={t.accent} />
               <label style={{ fontSize: 11, color: t.textSub, fontWeight: 600 }}>반복</label>
-              <select
-                value={repeatType}
-                onChange={e => setRepeatType(e.target.value as Event['repeatType'])}
-                className="w-full mt-1 rounded-lg px-3 py-2 outline-none"
-                style={{ border: `1px solid ${t.border}`, backgroundColor: inputBg(t), color: t.text, fontSize: 13 }}
-              >
-                {REPEAT_OPTIONS.map(option => (
-                  <option key={option.value} value={option.value}>{option.label}</option>
-                ))}
-              </select>
             </div>
-            <div>
-              <label style={{ fontSize: 11, color: t.textSub, fontWeight: 600 }}>알림</label>
-              <select
-                value={alertMinutes}
-                onChange={e => setAlertMinutes(e.target.value)}
-                className="w-full mt-1 rounded-lg px-3 py-2 outline-none"
-                style={{ border: `1px solid ${t.border}`, backgroundColor: inputBg(t), color: t.text, fontSize: 13 }}
-              >
-                {ALERT_OPTIONS.map(option => (
-                  <option key={option.value || 'none'} value={option.value}>{option.label}</option>
-                ))}
-              </select>
+            <div className="flex flex-wrap gap-1.5">
+              {REPEAT_OPTIONS.map(option => (
+                <button
+                  key={option.value}
+                  type="button"
+                  onClick={() => setRepeatType(option.value)}
+                  className="px-3 py-1 rounded-full"
+                  style={{
+                    fontSize: 11, fontWeight: repeatType === option.value ? 700 : 500,
+                    backgroundColor: repeatType === option.value ? t.lavenderTint : t.card,
+                    color: repeatType === option.value ? t.text : t.textMuted,
+                    border: `1.5px solid ${t.border}`,
+                  }}
+                >
+                  {option.label}
+                </button>
+              ))}
             </div>
+            {/* 반복 종료일 — 네이티브 input 대신 DateField */}
+            {repeatType && repeatType !== 'none' && (
+              <div className="flex items-center gap-2 mt-2">
+                <span style={{ fontSize: 11, color: t.textSub, fontWeight: 600, whiteSpace: 'nowrap' }}>반복 종료일</span>
+                <div style={{ flex: 1 }}>
+                  <DateField
+                    value={repeatEndDate}
+                    onChange={setRepeatEndDate}
+                    min={startDate}
+                    clearable
+                    placeholder="없으면 무기한"
+                    ariaLabel="반복 종료일"
+                  />
+                </div>
+              </div>
+            )}
           </div>
 
-          {repeatType && repeatType !== 'none' && (
-            <div>
-              <label style={{ fontSize: 11, color: t.textSub, fontWeight: 600 }}>반복 종료일</label>
-              <input
-                type="date"
-                value={repeatEndDate}
-                onChange={e => setRepeatEndDate(e.target.value)}
-                className="w-full mt-1 rounded-lg px-3 py-2 outline-none"
-                style={{ border: `1px solid ${t.border}`, backgroundColor: inputBg(t), color: t.text, fontSize: 13 }}
-              />
-            </div>
-          )}
+          {/* 알림 */}
+          <div>
+            <label style={{ fontSize: 11, color: t.textSub, fontWeight: 600 }}>알림</label>
+            <select
+              value={alertMinutes}
+              onChange={e => setAlertMinutes(e.target.value)}
+              className="w-full mt-1 rounded-lg px-3 py-2 outline-none"
+              style={{ border: `1px solid ${t.border}`, backgroundColor: inputBg(t), color: t.text, fontSize: 13 }}
+            >
+              {ALERT_OPTIONS.map(option => (
+                <option key={option.value || 'none'} value={option.value}>{option.label}</option>
+              ))}
+            </select>
+          </div>
 
           <div>
             <label style={{ fontSize: 11, color: t.textSub, fontWeight: 600 }}>프로젝트</label>
@@ -311,15 +350,26 @@ export function EventModal({ date, event, initialTitle, initialStartTime, initia
 
           <div>
             <label style={{ fontSize: 11, color: t.textSub, fontWeight: 600 }}>색상</label>
-            <div className="mt-1 flex items-center gap-2">
-              <input
-                type="color"
-                value={color}
-                onChange={e => setColor(e.target.value)}
-                className="h-10 w-12 rounded-lg border"
-                style={{ borderColor: t.border, backgroundColor: t.card }}
-              />
-              <span style={{ fontSize: 12, color: t.textSub }}>{color}</span>
+            <div className="mt-1.5 flex flex-wrap gap-2">
+              {colorPalette.map(c => {
+                const selected = color === c;
+                return (
+                  <button
+                    key={c}
+                    type="button"
+                    onClick={() => setColor(c)}
+                    aria-label={`색상 ${c}`}
+                    aria-pressed={selected}
+                    className="h-7 w-7 rounded-full transition-transform"
+                    style={{
+                      backgroundColor: c,
+                      outline: selected ? `2px solid ${c}` : 'none',
+                      outlineOffset: 2,
+                      transform: selected ? 'scale(1.08)' : 'scale(1)',
+                    }}
+                  />
+                );
+              })}
             </div>
           </div>
 
@@ -348,13 +398,13 @@ export function EventModal({ date, event, initialTitle, initialStartTime, initia
             <button
               onClick={() => setShowDeleteConfirm(true)}
               className="px-4 py-2 rounded-xl transition-colors"
-              style={{ fontSize: 12, color: dangerText(t), backgroundColor: dangerFill(t, '#FEE2E2') }}
+              style={{ fontSize: 12, color: dangerText(t), backgroundColor: 'transparent' }}
             >
               삭제
             </button>
           )}
           <div className="flex-1" />
-          <button onClick={onClose} className="px-4 py-2 rounded-xl" style={{ fontSize: 13, color: t.textSub, backgroundColor: t.lavenderTint }}>
+          <button onClick={onClose} className="px-4 py-2 rounded-xl" style={{ fontSize: 13, color: t.textSub, backgroundColor: inputBg(t), boxShadow: `inset 0 0 0 1px ${t.border}` }}>
             취소
           </button>
           <button onClick={handleSubmit} className="px-5 py-2 rounded-xl" style={{ fontSize: 13, fontWeight: 600, backgroundColor: t.accent, color: '#fff' }}>

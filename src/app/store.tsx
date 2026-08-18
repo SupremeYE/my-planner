@@ -42,6 +42,7 @@ export interface Todo {
   recurrenceRule?: 'daily' | 'weekly' | 'weekdays' | 'custom';
   recurrenceDays?: number[];       // 0=일 ~ 6=토 (custom/weekly byday 겸용)
   recurrenceEndDate?: string;      // yyyy-MM-dd, null이면 무기한
+  recurrenceCount?: number;        // 반복 종료 "N회 후"(origin 포함 1-based). null=무제한. endDate와 함께면 더 이른 쪽.
   recurrenceParentId?: string;     // 원본 이벤트 ID (예외 인스턴스가 참조)
   isException?: boolean;           // 이 인스턴스만 수정·삭제된 예외
   // 반복 통합 스펙 (RecurrenceSpec, src/lib/recurrence.ts). recurrenceFreq 있으면 우선.
