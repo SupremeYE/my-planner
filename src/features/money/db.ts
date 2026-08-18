@@ -40,7 +40,10 @@ const categories = {
 const transactions = {
   fetchAll: async (): Promise<MoneyTransaction[]> => {
     const { data, error } = await supabase
-      .from('money_transactions').select('*').order('spent_at', { ascending: false });
+      // 같은 날짜 안 순서 결정적으로 — spent_at(날짜) 동률이면 created_at(입력 시각) 최신순.
+      .from('money_transactions').select('*')
+      .order('spent_at', { ascending: false })
+      .order('created_at', { ascending: false });
     if (error) console.error('[money] transactions fetch:', error.message);
     return (data ?? []).map((r: any): MoneyTransaction => ({
       id: r.id, type: r.type, amount: Number(r.amount), categoryId: r.category_id ?? null,
