@@ -120,6 +120,9 @@ const habits = [
   { id: 'h2', name: '독서', checkedDates: checked([-1, -2, -3]), habitType: 'check', repeat: 'daily', color: '#6BAA7A', dailyProgress: {}, dailyMemos: {} },
   { id: 'h3', name: '운동', checkedDates: checked([0, -2, -5]), habitType: 'check', repeat: 'weekly', weeklyTarget: 3, color: '#D4735A', dailyProgress: {}, dailyMemos: {} },
   { id: 'h4', name: '일기', checkedDates: checked([-1, -3, -6]), habitType: 'check', repeat: 'daily', color: '#C4A882', dailyProgress: {}, dailyMemos: {} },
+  // 좌측 컨트롤 폭 통일(횟수형·시간형이 체크형과 같은 x에서 제목 시작하는지) + 타입 배지/신 파스텔 검증용
+  { id: 'h5', name: '스쿼트', checkedDates: checked([-1]), habitType: 'count', targetValue: 30, repeat: 'daily', color: '#C3C7F4', dailyProgress: { [iso(shift(0))]: 12 }, dailyMemos: {} },
+  { id: 'h6', name: '명상', checkedDates: [], habitType: 'time', targetValue: 10, repeat: 'daily', color: '#E3AADD', dailyProgress: {}, dailyMemos: {} },
 ];
 
 // ── 회고/리뷰 ────────────────────────────────────────────────────────────────

@@ -61,6 +61,18 @@ const ALL_ROUTES = [
     ],
   },
   { slug: 'goals', path: '/goals' },
+  // 습관 & 루틴 — Theme H 마이그레이션 검증. 3개 탭(습관 실행 기본 + 트래커·루틴 설정 서브),
+  // 습관 추가 모달(글래스 표면·파스텔 스와치·세그먼트) 플로우.
+  {
+    slug: 'habits', path: '/habits',
+    subs: [
+      { name: 'tracker', text: ['습관 트래커'] },
+      { name: 'routines', text: ['루틴 설정'] },
+    ],
+    modalFlows: [
+      { name: 'add', steps: ['습관 추가'] },
+    ],
+  },
   // 컨디션 재설계(condition·slot 축) 검증 — 통계 카드·요일 셀·기록 리스트를 시드로 렌더.
   { slug: 'health-condition', path: '/health?tab=condition' },
   // 머니 — 기본(가계부) + 나머지 3탭. 시드는 mock-money-db.ts.

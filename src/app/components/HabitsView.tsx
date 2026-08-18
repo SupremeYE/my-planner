@@ -10,8 +10,35 @@ import { format, subDays, startOfMonth, getDaysInMonth, getDay, addDays, startOf
 import { RoutineModal, ExecutionPanel, RoutineCard, today as routineToday } from './RoutinesView';
 import { useNotification } from '../hooks/useNotification';
 import { useFabAction } from '../FabContext';
+import { SegmentedControl } from './ui/SegmentedControl';
+import { solidCardStyle, solidRowStyle, glassBarStyle, mixHex, hexToRgb, inputBg } from '../styles/haonStyles';
 
-const HABIT_COLORS = ['#515f74', '#D4735A', '#006b62', '#7B9ED9', '#A07BE0', '#6B7280'];
+// ─── 습관 색상 팔레트 (Theme H 파스텔) ───────────────────────────────────────
+// 기존 팔레트(진남색·주황·초록·하늘·보라·회색)는 채도 높은 원색이라 Theme H 통일감을 깨뜨렸다.
+// DESIGN.md Haon 파스텔 + --cat 세이지로 교체. (lavender-mist #F4E7FB 는 lint:colors R2 밴이라 제외.)
+const HABIT_COLORS = ['#C3C7F4', '#F6BCBA', '#CFE3CE', '#C8A8E9', '#E3AADD', '#F2DDDC'];
+// 기존 습관에 저장된 구 팔레트 hex → 신 파스텔 매핑(색상별 1:1, 유사 색조). 스토어 값은 건드리지 않고
+// 표시/피커 소비 시점에 정규화한다(= 렌더 리맵 + 편집 시 지연 마이그레이션). 목록 외 커스텀 hex 는 그대로 존중.
+const LEGACY_HABIT_COLOR_MAP: Record<string, string> = {
+  '#515f74': '#C3C7F4', // 진남색 → 페리윙클
+  '#D4735A': '#F6BCBA', // 주황(테라코타) → 소프트 코랄
+  '#006b62': '#CFE3CE', // 초록(틸) → 세이지
+  '#7B9ED9': '#C8A8E9', // 하늘 → 라일락
+  '#A07BE0': '#E3AADD', // 보라 → 오키드 핑크
+  '#6B7280': '#F2DDDC', // 회색 → 웜 크림
+};
+function normalizeHabitColor(c?: string): string | undefined {
+  if (!c) return c;
+  return LEGACY_HABIT_COLOR_MAP[c] ?? LEGACY_HABIT_COLOR_MAP[c.toUpperCase()] ?? LEGACY_HABIT_COLOR_MAP[c.toLowerCase()] ?? c;
+}
+// 채움 위 가독 텍스트: 밝은 파스텔이면 딥 인디고, 채도 높은/어두운 채움이면 흰색(§5 "붉은 위 붉은" 회피).
+function onFill(bg: string | undefined, deepText: string): string {
+  const rgb = bg ? hexToRgb(bg) : null;
+  if (!rgb) return '#fff';
+  const lum = 0.299 * rgb.r + 0.587 * rgb.g + 0.114 * rgb.b;
+  return lum > 160 ? deepText : '#fff';
+}
+
 const REPEAT_OPTIONS = [
   { value: 'daily', label: '매일' },
   { value: 'weekday', label: '평일' },
@@ -19,7 +46,8 @@ const REPEAT_OPTIONS = [
   { value: 'weekly', label: '매주 N회' },
   { value: 'custom', label: '직접 선택' },
 ];
-const CATEGORY_COLOR_PRESETS = ['#515f74', '#D4735A', '#E8A87C', '#F4A261', '#4A82CC', '#45B899', '#006b62', '#8B7CF8', '#22C55E', '#6B7280'];
+// 카테고리 도트 색 프리셋도 Haon 파스텔/‑‑cat 계열로 통일(피커 선택 텍스트는 onFill 로 대비 확보).
+const CATEGORY_COLOR_PRESETS = ['#C3C7F4', '#F6BCBA', '#CFE3CE', '#C8A8E9', '#E3AADD', '#F2DDDC', '#9E6FD6', '#7B82E3', '#C56FB8', '#6BAA7A'];
 const HABIT_CATEGORY_STORAGE_KEY = 'habitCategoryOptions';
 const DAY_LABELS = ['일', '월', '화', '수', '목', '금', '토'];
 
@@ -106,7 +134,7 @@ function HabitModal({ habit, onClose }: { habit?: Habit; onClose: () => void }) 
   const [goalText, setGoalText] = useState(habit?.goalText || '');
   const [alarmTime, setAlarmTime] = useState(habit?.alarmTime || '');
   const [category, setCategory] = useState<string>(habit?.category || '');
-  const [color, setColor] = useState(habit?.color || HABIT_COLORS[0]);
+  const [color, setColor] = useState(normalizeHabitColor(habit?.color) || HABIT_COLORS[0]);
   const [habitType, setHabitType] = useState<Habit['habitType']>(habit?.habitType || 'check');
   const [targetValue, setTargetValue] = useState<string>(habit?.targetValue?.toString() || '');
   const [valueUnit, setValueUnit] = useState(habit?.valueUnit || '');
@@ -234,41 +262,49 @@ function HabitModal({ habit, onClose }: { habit?: Habit; onClose: () => void }) 
 
   const repeatUI = (
     <div>
-      <label style={{ fontSize: 11, color: t.textSub, fontWeight: 600 }}>반복 설정</label>
+      <label style={{ fontSize: 11, color: t.textSub, fontWeight: 600, fontFamily: t.fontLabel }}>반복 설정</label>
       <div className="flex flex-wrap gap-2 mt-1.5">
-        {REPEAT_OPTIONS.map(opt => (
-          <button
-            key={opt.value}
-            onClick={() => setRepeat(opt.value as Habit['repeat'])}
-            className="px-3 py-1.5 rounded-full"
-            style={{
-              fontSize: 12,
-              backgroundColor: repeat === opt.value ? t.accent : t.lavenderTint,
-              color: repeat === opt.value ? '#fff' : t.text,
-              border: `1px solid ${repeat === opt.value ? t.accent : t.border}`,
-            }}
-          >
-            {opt.label}
-          </button>
-        ))}
+        {REPEAT_OPTIONS.map(opt => {
+          const on = repeat === opt.value;
+          return (
+            <button
+              key={opt.value}
+              onClick={() => setRepeat(opt.value as Habit['repeat'])}
+              className="px-3 py-1.5 rounded-full transition-all"
+              style={{
+                fontSize: 12,
+                fontFamily: t.fontLabel,
+                backgroundColor: on ? t.lavenderTint : t.card,
+                color: on ? t.text : t.textMuted,
+                border: `1px solid ${t.border}`,
+              }}
+            >
+              {opt.label}
+            </button>
+          );
+        })}
       </div>
       {repeat === 'custom' && (
         <div className="flex gap-1.5 mt-2">
-          {DAY_LABELS.map((d, i) => (
-            <button
-              key={i}
-              onClick={() => toggleDay(i)}
-              className="w-8 h-8 rounded-full flex items-center justify-center"
-              style={{
-                fontSize: 11,
-                backgroundColor: repeatDays.includes(i) ? t.accent : t.lavenderTint,
-                color: repeatDays.includes(i) ? '#fff' : t.text,
-                border: `1px solid ${repeatDays.includes(i) ? t.accent : t.border}`,
-              }}
-            >
-              {d}
-            </button>
-          ))}
+          {DAY_LABELS.map((d, i) => {
+            const on = repeatDays.includes(i);
+            return (
+              <button
+                key={i}
+                onClick={() => toggleDay(i)}
+                className="w-8 h-8 rounded-full flex items-center justify-center transition-all"
+                style={{
+                  fontSize: 11,
+                  fontFamily: t.fontLabel,
+                  backgroundColor: on ? t.lavenderTint : t.card,
+                  color: on ? t.text : t.textMuted,
+                  border: `1px solid ${t.border}`,
+                }}
+              >
+                {d}
+              </button>
+            );
+          })}
         </div>
       )}
       {repeat === 'weekly' && (
@@ -279,11 +315,11 @@ function HabitModal({ habit, onClose }: { habit?: Habit; onClose: () => void }) 
               <button
                 onClick={() => setWeeklyTarget(prev => Math.max(1, prev - 1))}
                 className="w-7 h-7 rounded-full flex items-center justify-center"
-                style={{ backgroundColor: t.lavenderTint, color: t.textMuted, border: `1px solid ${t.border}` }}
+                style={{ backgroundColor: t.surfaceMuted, color: t.textMuted, border: `1px solid ${t.border}` }}
               >
                 <Minus size={12} />
               </button>
-              <span style={{ fontSize: 15, fontWeight: 700, color: t.text, width: 28, textAlign: 'center', fontVariantNumeric: 'tabular-nums' }}>
+              <span style={{ fontSize: 15, fontWeight: 700, color: t.text, width: 28, textAlign: 'center', fontVariantNumeric: 'tabular-nums', fontFamily: t.fontNumeric }}>
                 {weeklyTarget}
               </span>
               <button
@@ -305,23 +341,32 @@ function HabitModal({ habit, onClose }: { habit?: Habit; onClose: () => void }) 
   );
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center" style={{ backgroundColor: 'rgba(0,0,0,0.4)' }}>
-      <div className="rounded-2xl shadow-xl w-[560px] max-w-[95vw] max-h-[90vh] overflow-hidden flex flex-col" style={{ backgroundColor: t.card, border: `1px solid ${t.border}` }}>
-        <div className="flex items-center justify-between px-5 py-4 border-b" style={{ borderColor: t.border }}>
-          <h3 style={{ fontSize: 15, fontWeight: 700, color: t.text }}>{habit ? '습관 편집' : '습관 추가'}</h3>
+    <div className="fixed inset-0 z-50 flex items-center justify-center" style={{ backgroundColor: 'rgba(46,42,91,0.32)' }}>
+      <div
+        className="rounded-2xl w-[560px] max-w-[95vw] max-h-[90vh] overflow-hidden flex flex-col"
+        style={{
+          background: 'rgba(255,255,255,0.85)',
+          backdropFilter: t.glassBlur,
+          WebkitBackdropFilter: t.glassBlur,
+          border: t.glassBorder ?? `1px solid ${t.border}`,
+          boxShadow: '0 20px 48px rgba(120,90,160,0.24)',
+        }}
+      >
+        <div className="flex items-center justify-between px-5 py-4 border-b" style={{ borderColor: t.borderLight }}>
+          <h3 style={{ fontSize: 16, fontWeight: 700, color: t.text, fontFamily: t.fontSection }}>{habit ? '습관 편집' : '습관 추가'}</h3>
           <button onClick={onClose} className="p-1 rounded-lg" style={{ color: t.textMuted }}><X size={18} /></button>
         </div>
 
         <div className="flex-1 overflow-y-auto px-4 lg:px-5 py-4 space-y-5">
           <div>
-            <label style={{ fontSize: 11, color: t.textSub, fontWeight: 600 }}>습관 이름</label>
+            <label style={{ fontSize: 11, color: t.textSub, fontWeight: 600, fontFamily: t.fontLabel }}>습관 이름</label>
             <div className="mt-1 flex gap-2">
               <input
                 value={icon}
                 onChange={e => setIcon(Array.from(e.target.value).slice(0, 1).join(''))}
                 placeholder="🎯"
                 className="w-[62px] rounded-lg px-2 py-2 border outline-none text-center"
-                style={{ borderColor: t.border, backgroundColor: t.lavenderTint, color: t.text, fontSize: 22 }}
+                style={{ borderColor: t.border, backgroundColor: inputBg(t), color: t.text, fontSize: 22 }}
               />
               <input
                 autoFocus
@@ -329,28 +374,31 @@ function HabitModal({ habit, onClose }: { habit?: Habit; onClose: () => void }) 
                 onChange={e => setName(e.target.value)}
                 placeholder="예: 물 마시기"
                 className="flex-1 rounded-lg px-3 py-2 border outline-none"
-                style={{ borderColor: t.border, backgroundColor: t.lavenderTint, color: t.text, fontSize: 13 }}
+                style={{ borderColor: t.border, backgroundColor: inputBg(t), color: t.text, fontSize: 13, fontFamily: t.fontBody }}
               />
             </div>
             <p style={{ fontSize: 10, color: t.textMuted, marginTop: 4 }}>아이콘 칸에서 `Win + .` 로 이모지를 입력할 수 있어요.</p>
           </div>
 
           <div>
-            <label style={{ fontSize: 11, color: t.textSub, fontWeight: 600 }}>목표 유형</label>
+            <label style={{ fontSize: 11, color: t.textSub, fontWeight: 600, fontFamily: t.fontLabel }}>목표 유형</label>
             <div className="grid grid-cols-5 gap-1.5 mt-1.5">
-              {HABIT_TYPES.map(ht => (
+              {HABIT_TYPES.map(ht => {
+                const on = habitType === ht.value;
+                return (
                 <button key={ht.value} onClick={() => setHabitType(ht.value)}
                   className="flex flex-col items-center gap-1 py-2 px-1 rounded-xl transition-all"
                   style={{
-                    fontSize: 10, fontWeight: habitType === ht.value ? 700 : 400,
-                    backgroundColor: habitType === ht.value ? t.accent : t.lavenderTint,
-                    color: habitType === ht.value ? '#fff' : t.textSub,
-                    border: `1px solid ${habitType === ht.value ? t.accent : t.border}`,
+                    fontSize: 10, fontWeight: on ? 600 : 500, fontFamily: t.fontLabel,
+                    backgroundColor: on ? t.lavenderTint : t.card,
+                    color: on ? t.text : t.textMuted,
+                    border: `1px solid ${t.border}`,
                   }}>
                   <span style={{ fontSize: 13 }}>{ht.label.split(' ')[0]}</span>
                   <span>{ht.label.split(' ')[1]}</span>
                 </button>
-              ))}
+                );
+              })}
             </div>
             <p style={{ fontSize: 11, color: t.textMuted, marginTop: 6 }}>
               {HABIT_TYPES.find(h => h.value === habitType)?.desc}
@@ -360,7 +408,7 @@ function HabitModal({ habit, onClose }: { habit?: Habit; onClose: () => void }) 
           {habitType === 'count' || habitType === 'time' ? (
             <div className="grid grid-cols-1 lg:grid-cols-[110px_1fr] gap-4">
               <div>
-                <label style={{ fontSize: 11, color: t.textSub, fontWeight: 600 }}>
+                <label style={{ fontSize: 11, color: t.textSub, fontWeight: 600, fontFamily: t.fontLabel }}>
                   {habitType === 'count' ? '목표 횟수' : '목표 시간'}
                 </label>
                 <div className="flex items-center gap-1.5 mt-1">
@@ -370,7 +418,7 @@ function HabitModal({ habit, onClose }: { habit?: Habit; onClose: () => void }) 
                     value={targetValue}
                     onChange={e => setTargetValue(e.target.value)}
                     className="w-20 rounded-lg px-2.5 py-2 border outline-none"
-                    style={{ borderColor: t.border, backgroundColor: t.lavenderTint, color: t.text, fontSize: 13 }}
+                    style={{ borderColor: t.border, backgroundColor: inputBg(t), color: t.text, fontSize: 13, fontFamily: t.fontBody }}
                   />
                   <span style={{ fontSize: 12, color: t.textSub }}>{habitType === 'count' ? '회' : '분'}</span>
                 </div>
@@ -381,25 +429,25 @@ function HabitModal({ habit, onClose }: { habit?: Habit; onClose: () => void }) 
             <>
               {habitType === 'value' && (
                 <div>
-                  <label style={{ fontSize: 11, color: t.textSub, fontWeight: 600 }}>목표 수치</label>
+                  <label style={{ fontSize: 11, color: t.textSub, fontWeight: 600, fontFamily: t.fontLabel }}>목표 수치</label>
                   <div className="flex items-center gap-2 mt-1">
                     <input type="number" min={0} value={targetValue} onChange={e => setTargetValue(e.target.value)}
                       placeholder="예: 10000"
                       className="w-28 rounded-lg px-3 py-2 border outline-none"
-                      style={{ borderColor: t.border, backgroundColor: t.lavenderTint, color: t.text, fontSize: 13 }} />
+                      style={{ borderColor: t.border, backgroundColor: inputBg(t), color: t.text, fontSize: 13, fontFamily: t.fontBody }} />
                     <input value={valueUnit} onChange={e => setValueUnit(e.target.value)}
                       placeholder="단위 (km, L…)"
                       className="flex-1 rounded-lg px-3 py-2 border outline-none"
-                      style={{ borderColor: t.border, backgroundColor: t.lavenderTint, color: t.text, fontSize: 13 }} />
+                      style={{ borderColor: t.border, backgroundColor: inputBg(t), color: t.text, fontSize: 13, fontFamily: t.fontBody }} />
                   </div>
                 </div>
               )}
               {habitType === 'check' && (
                 <div>
-                  <label style={{ fontSize: 11, color: t.textSub, fontWeight: 600 }}>목표 메모 (선택)</label>
+                  <label style={{ fontSize: 11, color: t.textSub, fontWeight: 600, fontFamily: t.fontLabel }}>목표 메모 (선택)</label>
                   <input value={goalText} onChange={e => setGoalText(e.target.value)} placeholder="예: 30분, 2L"
                     className="w-full mt-1 rounded-lg px-3 py-2 border outline-none"
-                    style={{ borderColor: t.border, backgroundColor: t.lavenderTint, color: t.text, fontSize: 13 }} />
+                    style={{ borderColor: t.border, backgroundColor: inputBg(t), color: t.text, fontSize: 13, fontFamily: t.fontBody }} />
                 </div>
               )}
               {repeatUI}
@@ -407,7 +455,7 @@ function HabitModal({ habit, onClose }: { habit?: Habit; onClose: () => void }) 
           )}
 
           <div>
-            <label style={{ fontSize: 11, color: t.textSub, fontWeight: 600 }}>알림 시간</label>
+            <label style={{ fontSize: 11, color: t.textSub, fontWeight: 600, fontFamily: t.fontLabel }}>알림 시간</label>
             <div className="mt-1">
               <TimePicker value={alarmTime} onChange={setAlarmTime} placeholder="알림 없음" minuteStep={1} />
             </div>
@@ -415,7 +463,7 @@ function HabitModal({ habit, onClose }: { habit?: Habit; onClose: () => void }) 
 
           <div className="grid grid-cols-1 lg:grid-cols-[1fr_auto] gap-4">
             <div>
-              <label style={{ fontSize: 11, color: t.textSub, fontWeight: 600 }}>카테고리</label>
+              <label style={{ fontSize: 11, color: t.textSub, fontWeight: 600, fontFamily: t.fontLabel }}>카테고리</label>
               <div className="flex flex-wrap gap-1.5 mt-1.5">
                 {categoryOptions.map(option => (
                   <button
@@ -424,8 +472,9 @@ function HabitModal({ habit, onClose }: { habit?: Habit; onClose: () => void }) 
                     className="px-2.5 py-1 rounded-full flex items-center gap-1.5"
                     style={{
                       fontSize: 11,
-                      backgroundColor: category === option.name ? option.color : t.lavenderTint,
-                      color: category === option.name ? '#fff' : t.textSub,
+                      fontFamily: t.fontLabel,
+                      backgroundColor: category === option.name ? option.color : t.card,
+                      color: category === option.name ? onFill(option.color, t.text) : t.textMuted,
                       border: `1px solid ${category === option.name ? option.color : t.border}`,
                     }}
                   >
@@ -451,7 +500,7 @@ function HabitModal({ habit, onClose }: { habit?: Habit; onClose: () => void }) 
                 </button>
               </div>
               {showAddCategory && (
-                <div className="mt-2 p-3 rounded-xl space-y-2" style={{ backgroundColor: t.lavenderTint, border: `1px solid ${t.border}` }}>
+                <div className="mt-2 p-3 rounded-xl space-y-2" style={{ backgroundColor: t.surfaceMuted, border: `1px solid ${t.border}` }}>
                   <input
                     value={newCategoryName}
                     onChange={e => setNewCategoryName(e.target.value)}
@@ -477,10 +526,10 @@ function HabitModal({ habit, onClose }: { habit?: Habit; onClose: () => void }) 
                   <input
                     value={newCategoryColor}
                     onChange={e => setNewCategoryColor(normalizeHexInput(e.target.value))}
-                    placeholder="#515F74"
+                    placeholder="#C3C7F4"
                     className="w-full rounded-lg px-2.5 py-1.5 border outline-none"
                     style={{
-                      borderColor: isValidHex(normalizeHex(newCategoryColor)) ? t.border : '#DC2626',
+                      borderColor: isValidHex(normalizeHex(newCategoryColor)) ? t.border : t.danger,
                       fontSize: 12,
                       backgroundColor: t.card,
                       color: t.text,
@@ -514,46 +563,46 @@ function HabitModal({ habit, onClose }: { habit?: Habit; onClose: () => void }) 
               )}
             </div>
             <div>
-              <label style={{ fontSize: 11, color: t.textSub, fontWeight: 600 }}>습관 색상</label>
+              <label style={{ fontSize: 11, color: t.textSub, fontWeight: 600, fontFamily: t.fontLabel }}>습관 색상</label>
               <div className="flex gap-2 mt-1.5">
                 {HABIT_COLORS.map(c => (
                   <button key={c} onClick={() => setColor(c)} className="w-6 h-6 rounded-full transition-transform"
-                    style={{ backgroundColor: c, outline: color === c ? `2px solid ${c}` : 'none', outlineOffset: 2, transform: color === c ? 'scale(1.15)' : 'scale(1)' }} />
+                    style={{ backgroundColor: c, outline: color === c ? `2px solid ${t.accent}` : 'none', outlineOffset: 2, transform: color === c ? 'scale(1.15)' : 'scale(1)' }} />
                 ))}
               </div>
             </div>
           </div>
 
           <div>
-            <label style={{ fontSize: 11, color: t.textSub, fontWeight: 600 }}>
+            <label style={{ fontSize: 11, color: t.textSub, fontWeight: 600, fontFamily: t.fontLabel }}>
               이 습관을 하려는 이유 <span style={{ color: t.textMuted, fontWeight: 400 }}>(선택)</span>
             </label>
             <input value={reason} onChange={e => setReason(e.target.value)} placeholder="예: 물을 꾸준히 마셔서 컨디션 유지"
               className="w-full mt-1 rounded-lg px-3 py-2 border outline-none"
-              style={{ borderColor: t.border, backgroundColor: t.lavenderTint, color: t.text, fontSize: 13 }} />
+              style={{ borderColor: t.border, backgroundColor: inputBg(t), color: t.text, fontSize: 13, fontFamily: t.fontBody }} />
           </div>
 
           {habit && (
             <div>
-              <label style={{ fontSize: 11, color: t.textSub, fontWeight: 600 }}>
+              <label style={{ fontSize: 11, color: t.textSub, fontWeight: 600, fontFamily: t.fontLabel }}>
                 이번달 메모
                 <span className="ml-1 font-normal" style={{ color: t.textMuted }}>({new Date().getMonth() + 1}월)</span>
               </label>
               <input value={monthlyMemo} onChange={e => setMonthlyMemo(e.target.value)} placeholder="이번달 달성 목표나 특이사항"
                 className="w-full mt-1 rounded-lg px-3 py-2 border outline-none"
-                style={{ borderColor: t.border, backgroundColor: t.lavenderTint, color: t.text, fontSize: 13 }} />
+                style={{ borderColor: t.border, backgroundColor: inputBg(t), color: t.text, fontSize: 13, fontFamily: t.fontBody }} />
             </div>
           )}
         </div>
 
-        <div className="flex items-center gap-2 px-5 py-4 border-t" style={{ borderColor: t.border }}>
+        <div className="flex items-center gap-2 px-5 py-4 border-t" style={{ borderColor: t.borderLight }}>
           {habit && (
             <button onClick={() => { deleteHabit(habit.id); onClose(); }} className="px-4 py-2 rounded-xl"
-              style={{ fontSize: 12, color: '#DC2626', backgroundColor: '#FEE2E2' }}>삭제</button>
+              style={{ fontSize: 12, fontFamily: t.fontLabel, color: t.danger, backgroundColor: t.dangerLight }}>삭제</button>
           )}
           <div className="flex-1" />
-          <button onClick={onClose} className="px-4 py-2 rounded-xl" style={{ fontSize: 13, color: t.textSub, backgroundColor: t.lavenderTint }}>취소</button>
-          <button onClick={handleSubmit} className="px-5 py-2 rounded-xl" style={{ fontSize: 13, fontWeight: 600, backgroundColor: t.accent, color: '#fff' }}>저장</button>
+          <button onClick={onClose} className="px-4 py-2 rounded-xl" style={{ fontSize: 13, fontFamily: t.fontLabel, color: t.textSub, backgroundColor: t.surfaceMuted }}>취소</button>
+          <button onClick={handleSubmit} className="px-5 py-2 rounded-xl" style={{ fontSize: 13, fontWeight: 600, fontFamily: t.fontLabel, backgroundColor: t.accent, color: '#fff' }}>저장</button>
         </div>
       </div>
     </div>
@@ -648,15 +697,17 @@ export function HabitChip({ habit, date }: { habit: Habit; date: string }) {
     return `${m}:${s}`;
   };
 
-  const accentColor = habit.color || t.accent;
+  const accentColor = normalizeHabitColor(habit.color) || t.accent;
+  const onAcc = onFill(accentColor, t.text);
+  const warnFg = mixHex(t.warning, 0, 0.42);
 
   // ── check type ──
   if (habitType === 'check') {
     return (
       <button onClick={() => toggleHabit(habit.id, date)}
         className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 transition-all"
-        style={{ backgroundColor: isChecked ? accentColor : t.lavenderTint, border: isChecked ? 'none' : `2px solid ${t.border}` }}>
-        {isChecked && <Check size={14} color="#fff" strokeWidth={3} />}
+        style={{ backgroundColor: isChecked ? accentColor : t.surfaceMuted, border: isChecked ? 'none' : `2px solid ${t.border}` }}>
+        {isChecked && <Check size={14} color={onAcc} strokeWidth={3} />}
       </button>
     );
   }
@@ -669,14 +720,14 @@ export function HabitChip({ habit, date }: { habit: Habit; date: string }) {
       <div className="flex items-center gap-1 flex-shrink-0">
         <button onClick={() => handleCountTap(-1)}
           className="w-6 h-6 rounded-full flex items-center justify-center"
-          style={{ backgroundColor: t.lavenderTint, color: t.textMuted }}>
+          style={{ backgroundColor: t.surfaceMuted, color: t.textMuted }}>
           <Minus size={10} />
         </button>
         <button onClick={() => handleCountTap(1)}
           className="flex items-center gap-1 px-2.5 py-1.5 rounded-xl min-w-[56px] justify-center"
-          style={{ backgroundColor: done ? accentColor : t.lavenderTint, border: `1px solid ${done ? accentColor : t.border}` }}>
-          <Hash size={11} color={done ? '#fff' : t.textMuted} />
-          <span style={{ fontSize: 12, fontWeight: 700, color: done ? '#fff' : t.text, fontVariantNumeric: 'tabular-nums' }}>
+          style={{ backgroundColor: done ? accentColor : t.card, border: `1px solid ${done ? accentColor : t.border}` }}>
+          <Hash size={11} color={done ? onAcc : t.textMuted} />
+          <span style={{ fontSize: 12, fontWeight: 700, color: done ? onAcc : t.text, fontVariantNumeric: 'tabular-nums', fontFamily: t.fontNumeric }}>
             {progress}/{target || '?'}
           </span>
         </button>
@@ -692,14 +743,14 @@ export function HabitChip({ habit, date }: { habit: Habit; date: string }) {
       <button onClick={handleTimerToggle}
         className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl flex-shrink-0"
         style={{
-          backgroundColor: timerRunning ? '#FEF3C7' : done ? accentColor : t.lavenderTint,
-          border: `1px solid ${timerRunning ? '#F59E0B' : done ? accentColor : t.border}`,
+          backgroundColor: timerRunning ? t.warningLight : done ? accentColor : t.card,
+          border: `1px solid ${timerRunning ? t.warning : done ? accentColor : t.border}`,
         }}>
-        <Timer size={12} color={timerRunning ? '#D97706' : done ? '#fff' : t.textMuted}
+        <Timer size={12} color={timerRunning ? warnFg : done ? onAcc : t.textMuted}
           style={{ animation: timerRunning ? 'spin 2s linear infinite' : 'none' }} />
         <span style={{
-          fontSize: 12, fontWeight: 700, fontVariantNumeric: 'tabular-nums',
-          color: timerRunning ? '#D97706' : done ? '#fff' : t.text,
+          fontSize: 12, fontWeight: 700, fontVariantNumeric: 'tabular-nums', fontFamily: t.fontNumeric,
+          color: timerRunning ? warnFg : done ? onAcc : t.text,
         }}>
           {fmtTime(displaySec)}
           {habit.targetValue ? `/${habit.targetValue}분` : ''}
@@ -724,7 +775,7 @@ export function HabitChip({ habit, date }: { habit: Habit; date: string }) {
             onBlur={handleValueSave}
             onKeyDown={e => { if (e.key === 'Enter') handleValueSave(); if (e.key === 'Escape') setEditingValue(false); }}
             className="w-20 rounded-lg px-2 py-1 border outline-none text-center"
-            style={{ fontSize: 12, borderColor: t.accent, backgroundColor: t.lavenderTint, color: t.text }}
+            style={{ fontSize: 12, borderColor: t.accent, backgroundColor: inputBg(t), color: t.text, fontFamily: t.fontNumeric }}
           />
           <span style={{ fontSize: 11, color: t.textMuted }}>{unit}</span>
         </div>
@@ -733,9 +784,9 @@ export function HabitChip({ habit, date }: { habit: Habit; date: string }) {
     return (
       <button onClick={() => setEditingValue(true)}
         className="flex items-center gap-1 px-2.5 py-1.5 rounded-xl flex-shrink-0"
-        style={{ backgroundColor: done ? accentColor : t.lavenderTint, border: `1px solid ${done ? accentColor : t.border}` }}>
-        <TrendingUp size={11} color={done ? '#fff' : t.textMuted} />
-        <span style={{ fontSize: 12, fontWeight: 700, color: done ? '#fff' : t.text }}>
+        style={{ backgroundColor: done ? accentColor : t.card, border: `1px solid ${done ? accentColor : t.border}` }}>
+        <TrendingUp size={11} color={done ? onAcc : t.textMuted} />
+        <span style={{ fontSize: 12, fontWeight: 700, color: done ? onAcc : t.text, fontFamily: t.fontNumeric }}>
           {progress > 0 ? `${progress}` : '—'}{unit ? `/${target}${unit}` : ''}
         </span>
       </button>
@@ -751,8 +802,8 @@ export function HabitChip({ habit, date }: { habit: Habit; date: string }) {
           if (!isChecked) setEditingMemo(true);
         }}
           className="w-8 h-8 rounded-full flex items-center justify-center transition-all"
-          style={{ backgroundColor: isChecked ? accentColor : t.lavenderTint, border: isChecked ? 'none' : `2px solid ${t.border}` }}>
-          {isChecked ? <Check size={14} color="#fff" strokeWidth={3} /> : <MessageSquare size={13} color={t.textMuted} />}
+          style={{ backgroundColor: isChecked ? accentColor : t.surfaceMuted, border: isChecked ? 'none' : `2px solid ${t.border}` }}>
+          {isChecked ? <Check size={14} color={onAcc} strokeWidth={3} /> : <MessageSquare size={13} color={t.textMuted} />}
         </button>
       </div>
     );
@@ -850,7 +901,7 @@ function HabitTrackerView() {
       ? {
           opacity: opts.futureOpacity ?? 0.24,
           borderColor: opts.futureBorder || t.borderLight,
-          backgroundColor: opts.futureBg || t.lavenderTint,
+          backgroundColor: opts.futureBg || t.surfaceMuted,
           borderStyle: 'dashed' as const,
         }
       : null;
@@ -858,7 +909,7 @@ function HabitTrackerView() {
       ? {
           opacity: 0.68,
           borderColor: t.border,
-          backgroundColor: opts.baseBg || t.lavenderTint,
+          backgroundColor: opts.baseBg || t.surfaceMuted,
           borderStyle: 'solid' as const,
         }
       : null;
@@ -892,33 +943,24 @@ function HabitTrackerView() {
   };
 
   return (
-    <div className="rounded-xl p-3 lg:p-5" style={{ backgroundColor: t.card, border: `1px solid ${t.borderLight}` }}>
+    <div className="p-3 lg:p-5" style={solidCardStyle(t)}>
       <div className="flex items-center justify-between gap-2 mb-3">
-        <button onClick={movePrev} className="p-1.5 rounded-lg" style={{ color: t.textSub, backgroundColor: t.lavenderTint }}>
+        <button onClick={movePrev} className="p-1.5 rounded-lg" style={{ color: t.textSub, backgroundColor: t.surfaceMuted }}>
           <ChevronLeft size={14} />
         </button>
-        <span style={{ fontSize: 16, fontWeight: 700, color: t.text, fontFamily: t.fontLabel }}>{rangeLabel}</span>
-        <button onClick={moveNext} className="p-1.5 rounded-lg" style={{ color: t.textSub, backgroundColor: t.lavenderTint }}>
+        <span style={{ fontSize: 16, fontWeight: 700, color: t.text, fontFamily: t.fontSection }}>{rangeLabel}</span>
+        <button onClick={moveNext} className="p-1.5 rounded-lg" style={{ color: t.textSub, backgroundColor: t.surfaceMuted }}>
           <ChevronRight size={14} />
         </button>
       </div>
 
-      <div className="flex gap-1.5 overflow-x-auto pb-1 mb-4">
-        {TRACKER_TABS.map(tab => (
-          <button
-            key={tab.key}
-            onClick={() => setMode(tab.key)}
-            className="px-3 py-1.5 rounded-lg flex-shrink-0"
-            style={{
-              fontSize: 12,
-              fontWeight: mode === tab.key ? 700 : 500,
-              backgroundColor: mode === tab.key ? t.accent : t.lavenderTint,
-              color: mode === tab.key ? '#fff' : t.textSub,
-            }}
-          >
-            {tab.label}
-          </button>
-        ))}
+      <div className="mb-4">
+        <SegmentedControl
+          options={TRACKER_TABS.map(tab => ({ value: tab.key, label: tab.label }))}
+          value={mode}
+          onChange={v => setMode(v as TrackerMode)}
+          maxWidth={320}
+        />
       </div>
 
       {habits.length === 0 ? (
@@ -966,12 +1008,12 @@ function HabitTrackerView() {
                       const rate = total > 0 ? Math.round((done / total) * 100) : 0;
                       const isFutureMonth = viewYear > currentYear || (viewYear === currentYear && monthIdx > currentMonth);
                       const bg = isFutureMonth
-                        ? t.lavenderTint
+                        ? t.surfaceMuted
                         : rate >= 70
                           ? t.accent
                           : rate >= 40
                             ? t.accentLight
-                            : t.lavenderHover;
+                            : mixHex(t.accent, 255, 0.85);
                       const fg = isFutureMonth ? t.textMuted : rate >= 70 ? '#fff' : t.textSub;
                       return (
                         <div
@@ -984,6 +1026,7 @@ function HabitTrackerView() {
                             color: fg,
                             fontSize: 11,
                             fontWeight: 700,
+                            fontFamily: t.fontNumeric,
                             display: 'flex',
                             alignItems: 'center',
                             justifyContent: 'center',
@@ -1006,7 +1049,7 @@ function HabitTrackerView() {
               <div
                 key={`${habit.id}-year-mobile`}
                 className="rounded-lg p-2.5"
-                style={{ border: `1px solid ${t.borderLight}`, backgroundColor: t.lavenderTint }}
+                style={{ border: `1px solid ${t.borderLight}`, backgroundColor: t.surfaceMuted }}
               >
                 <div className="truncate mb-2" style={{ fontSize: 12, color: t.text, display: 'flex', alignItems: 'center', gap: 6 }}>
                   <span>{habit.icon || '🎯'}</span>
@@ -1033,7 +1076,7 @@ function HabitTrackerView() {
                         ? t.accent
                         : rate >= 40
                           ? t.accentLight
-                          : t.lavenderHover;
+                          : mixHex(t.accent, 255, 0.85);
                     const fg = isFutureMonth ? t.textMuted : rate >= 70 ? '#fff' : t.textSub;
                     return (
                       <div
@@ -1055,7 +1098,7 @@ function HabitTrackerView() {
                         }}
                       >
                         <span style={{ fontSize: 9 }}>{YEAR_MONTH_LABELS[monthIdx]}</span>
-                        <span style={{ fontSize: 11, fontWeight: 700 }}>
+                        <span style={{ fontSize: 11, fontWeight: 700, fontFamily: t.fontNumeric }}>
                           {isFutureMonth ? '—' : `${rate}%`}
                         </span>
                       </div>
@@ -1103,7 +1146,7 @@ function HabitTrackerView() {
                         <span className="truncate">{habit.name}</span>
                       </div>
                       {weekDates.map(date => renderEmojiCell(habit, date, { height: 40, emojiSize: 16, fill: true }))}
-                      <div style={{ fontSize: 11, color: t.textSub, textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>
+                      <div style={{ fontSize: 11, color: t.textSub, textAlign: 'right', fontVariantNumeric: 'tabular-nums', fontFamily: t.fontNumeric }}>
                         {stats.done}/{stats.total}
                       </div>
                     </div>
@@ -1146,7 +1189,7 @@ function HabitTrackerView() {
                         <span>{habit.icon || '🎯'}</span>
                         <span className="truncate">{habit.name}</span>
                       </div>
-                      <div style={{ fontSize: 10, color: t.textMuted, marginTop: 1, fontVariantNumeric: 'tabular-nums' }}>
+                      <div style={{ fontSize: 10, color: t.textMuted, marginTop: 1, fontVariantNumeric: 'tabular-nums', fontFamily: t.fontNumeric }}>
                         {stats.done}/{stats.total}
                       </div>
                     </div>
@@ -1205,7 +1248,7 @@ function HabitTrackerView() {
                         <span className="truncate">{habit.name}</span>
                       </div>
                       {monthDates.map(date => renderEmojiCell(habit, date, { height: 20, emojiSize: 10, fill: true }))}
-                      <div style={{ fontSize: 11, color: t.textSub, textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>
+                      <div style={{ fontSize: 11, color: t.textSub, textAlign: 'right', fontVariantNumeric: 'tabular-nums', fontFamily: t.fontNumeric }}>
                         {stats.done}/{stats.total}
                       </div>
                     </div>
@@ -1242,14 +1285,14 @@ function HabitTrackerView() {
                   <div
                     key={`${habit.id}-month-mobile`}
                     className="rounded-lg p-2.5"
-                    style={{ border: `1px solid ${t.borderLight}`, backgroundColor: t.lavenderTint }}
+                    style={{ border: `1px solid ${t.borderLight}`, backgroundColor: t.surfaceMuted }}
                   >
                     <div className="flex items-center justify-between mb-2">
                       <div className="truncate" style={{ fontSize: 12, color: t.text, display: 'flex', alignItems: 'center', gap: 6 }}>
                         <span>{habit.icon || '🎯'}</span>
                         <span className="truncate">{habit.name}</span>
                       </div>
-                      <div style={{ fontSize: 10, color: t.textMuted, fontVariantNumeric: 'tabular-nums' }}>
+                      <div style={{ fontSize: 10, color: t.textMuted, fontVariantNumeric: 'tabular-nums', fontFamily: t.fontNumeric }}>
                         {stats.done}/{stats.total}
                       </div>
                     </div>
@@ -1297,7 +1340,7 @@ function HabitTrackerView() {
           미달성
         </div>
         <div className="flex items-center gap-1.5">
-          <span className="inline-block w-3.5 h-3.5 rounded" style={{ backgroundColor: t.lavenderTint, border: `1px solid ${t.borderLight}`, opacity: 0.55 }} />
+          <span className="inline-block w-3.5 h-3.5 rounded" style={{ backgroundColor: t.surfaceMuted, border: `1px solid ${t.borderLight}`, opacity: 0.55 }} />
           해당없음
         </div>
       </div>
@@ -1358,17 +1401,14 @@ export function HabitsView() {
         <p style={{ fontSize: 13, color: t.textSub, marginTop: 4 }}>좋은 습관을 만들고, 루틴으로 하루를 설계하세요</p>
       </div>
 
-      {/* Tabs */}
-      <div className="flex gap-1 px-4 lg:px-6 mb-4 overflow-x-auto pb-1">
-        {tabs.map(tb => (
-          <button key={tb.key} onClick={() => setTab(tb.key)}
-            className="px-4 py-2 rounded-xl transition-all"
-            style={{
-              fontSize: 13, fontWeight: tab === tb.key ? 600 : 400,
-              backgroundColor: tab === tb.key ? t.accent : t.lavenderTint,
-              color: tab === tb.key ? '#fff' : t.textSub,
-            }}>{tb.label}</button>
-        ))}
+      {/* Tabs — 공통 세그먼트 컨트롤 (§5, 할일·캘린더 뷰토글과 동일 패턴 재사용) */}
+      <div className="px-4 lg:px-6 mb-4">
+        <SegmentedControl
+          options={tabs.map(tb => ({ value: tb.key, label: tb.label }))}
+          value={tab}
+          onChange={v => setTab(v as typeof tab)}
+          maxWidth={420}
+        />
       </div>
 
       <div className="px-4 lg:px-6 pb-8">
@@ -1384,15 +1424,17 @@ export function HabitsView() {
               const showMemoRow = habitType === 'memo' && isChecked;
 
               return (
-                <div key={h.id} className="rounded-xl transition-all"
-                  style={{ backgroundColor: t.card, border: `1px solid ${t.borderLight}` }}>
+                <div key={h.id} className="transition-all" style={solidRowStyle(t)}>
                   <div className="flex items-center gap-3 p-4">
-                    <HabitChip habit={h} date={executionDate} />
+                    {/* 좌측 컨트롤 고정 폭 — 체크형(원)·횟수형([−][# N/M]) 폭 차이로 제목 x가 어긋나던 것 통일 */}
+                    <div style={{ width: 88, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'flex-start' }}>
+                      <HabitChip habit={h} date={executionDate} />
+                    </div>
 
                     <span style={{ fontSize: 18 }}>{h.icon || '🎯'}</span>
 
                     <div className="flex-1 min-w-0">
-                      <span style={{ fontSize: 14, fontWeight: 600, color: t.text }}>{h.name}</span>
+                      <span style={{ fontSize: 14, fontWeight: 600, color: t.text, fontFamily: t.fontBody }}>{h.name}</span>
                       {h.reason && (
                         <p
                           className="truncate"
@@ -1409,12 +1451,15 @@ export function HabitsView() {
                             : h.repeat === 'weekly' ? `매주 ${h.weeklyTarget ?? 1}회`
                             : '커스텀'}
                         </span>
-                        {habitType !== 'check' && (
-                          <span className="px-1.5 py-0.5 rounded-full"
-                            style={{ fontSize: 10, backgroundColor: t.lavenderTint, color: t.textMuted }}>
-                            {HABIT_TYPES.find(ht => ht.value === habitType)?.label}
-                          </span>
-                        )}
+                        {habitType !== 'check' && (() => {
+                          const hue = normalizeHabitColor(h.color) || t.accent;
+                          return (
+                            <span className="px-1.5 py-0.5 rounded-full"
+                              style={{ fontSize: 10, fontFamily: t.fontLabel, backgroundColor: mixHex(hue, 255, 0.80), color: mixHex(hue, 0, 0.40) }}>
+                              {HABIT_TYPES.find(ht => ht.value === habitType)?.label}
+                            </span>
+                          );
+                        })()}
                         {h.goalText && habitType === 'check' && (
                           <span style={{ fontSize: 11, color: t.textSub }}>{h.goalText}</span>
                         )}
@@ -1422,19 +1467,26 @@ export function HabitsView() {
                     </div>
 
                     {weekly ? (
-                      <div className="flex items-center gap-1 px-2.5 py-1 rounded-full"
-                        style={{ backgroundColor: weekly.done >= weekly.target ? '#DCFCE7' : t.accentLight }}>
-                        {weekly.done >= weekly.target
-                          ? <Check size={12} color="#006b62" strokeWidth={3} />
-                          : <Flame size={12} color={t.accent} />}
-                        <span style={{ fontSize: 11, fontWeight: 600, color: weekly.done >= weekly.target ? '#006b62' : t.accent }}>
-                          이번 주 {weekly.done}/{weekly.target}
-                        </span>
-                      </div>
+                      (() => {
+                        const achieved = weekly.done >= weekly.target;
+                        const okBg = mixHex(t.success, 255, 0.80);
+                        const okFg = mixHex(t.success, 0, 0.42);
+                        return (
+                          <div className="flex items-center gap-1 px-2.5 py-1 rounded-full flex-shrink-0"
+                            style={{ backgroundColor: achieved ? okBg : t.accentLight }}>
+                            {achieved
+                              ? <Check size={12} color={okFg} strokeWidth={3} />
+                              : <Flame size={12} color={t.accent} />}
+                            <span style={{ fontSize: 11, fontWeight: 600, fontFamily: t.fontLabel, color: achieved ? okFg : t.accent }}>
+                              이번 주 <span style={{ fontFamily: t.fontNumeric }}>{weekly.done}/{weekly.target}</span>
+                            </span>
+                          </div>
+                        );
+                      })()
                     ) : streak > 0 && (
-                      <div className="flex items-center gap-1 px-2.5 py-1 rounded-full" style={{ backgroundColor: t.accentLight }}>
+                      <div className="flex items-center gap-1 px-2.5 py-1 rounded-full flex-shrink-0" style={{ backgroundColor: t.accentLight }}>
                         <Flame size={12} color={t.accent} />
-                        <span style={{ fontSize: 11, fontWeight: 600, color: t.accent }}>{streak}일</span>
+                        <span style={{ fontSize: 11, fontWeight: 600, color: t.accent, fontFamily: t.fontLabel }}><span style={{ fontFamily: t.fontNumeric }}>{streak}</span>일</span>
                       </div>
                     )}
                     <button onClick={() => setEditHabit(h)} className="p-2 rounded-lg" style={{ color: t.textMuted }}>
@@ -1460,7 +1512,7 @@ export function HabitsView() {
                         }}
                         placeholder="오늘 메모를 남겨보세요…"
                         className="flex-1 rounded-lg px-3 py-1.5 border outline-none mt-2"
-                        style={{ fontSize: 12, borderColor: t.border, backgroundColor: t.lavenderTint, color: t.text }}
+                        style={{ fontSize: 12, borderColor: t.border, backgroundColor: inputBg(t), color: t.text, fontFamily: t.fontBody }}
                       />
                     </div>
                   )}
@@ -1469,7 +1521,7 @@ export function HabitsView() {
             })}
             <button onClick={() => setShowAddHabit(true)}
               className="w-full flex items-center justify-center gap-2 py-3 rounded-xl transition-colors"
-              style={{ border: `2px dashed ${t.border}`, color: t.accent, fontSize: 13, fontWeight: 600 }}>
+              style={{ border: `2px dashed ${t.border}`, color: t.accent, fontSize: 13, fontWeight: 600, fontFamily: t.fontLabel }}>
               <Plus size={16} /> 습관 추가
             </button>
           </div>
@@ -1482,11 +1534,11 @@ export function HabitsView() {
         {tab === 'routines' && (
           <div className="space-y-4">
             <div className="flex items-center justify-between">
-              <h3 style={{ fontSize: 14, fontWeight: 700, color: t.text }}>루틴 목록</h3>
+              <h3 style={{ fontSize: 15, fontWeight: 700, color: t.text, fontFamily: t.fontSection }}>루틴 목록</h3>
               <button
                 onClick={() => setShowAddRoutine(true)}
                 className="px-2.5 py-1.5 lg:px-3 rounded-lg flex items-center gap-1 lg:gap-1.5"
-                style={{ fontSize: 11, fontWeight: 600, backgroundColor: t.accent, color: '#fff', whiteSpace: 'nowrap' }}
+                style={{ fontSize: 11, fontWeight: 600, fontFamily: t.fontLabel, backgroundColor: t.accent, color: '#fff', whiteSpace: 'nowrap' }}
               >
                 <Plus size={13} /> 루틴 추가
               </button>
@@ -1494,22 +1546,22 @@ export function HabitsView() {
 
             {/* 오늘 진행률 */}
             {todayRoutines.length > 0 && (
-              <div className="rounded-2xl p-4" style={{ backgroundColor: t.card, border: `1px solid ${t.border}` }}>
+              <div className="p-4" style={solidCardStyle(t)}>
                 <div className="flex justify-between items-center mb-2">
-                  <span style={{ fontSize: 12, fontWeight: 600, color: t.textSub }}>오늘 진행률</span>
-                  <span style={{ fontSize: 12, color: t.textMuted }}>
+                  <span style={{ fontSize: 12, fontWeight: 600, color: t.textSub, fontFamily: t.fontLabel }}>오늘 진행률</span>
+                  <span style={{ fontSize: 12, color: t.textMuted, fontFamily: t.fontNumeric }}>
                     {completedToday}/{todayRoutines.length} · {Math.round((completedToday / todayRoutines.length) * 100)}%
                   </span>
                 </div>
-                <div className="h-2 rounded-full overflow-hidden" style={{ backgroundColor: t.lavenderTint }}>
+                <div className="h-2 rounded-full overflow-hidden" style={{ backgroundColor: t.surfaceMuted }}>
                   <div className="h-full rounded-full transition-all duration-500"
                     style={{
                       width: `${(completedToday / todayRoutines.length) * 100}%`,
-                      backgroundColor: completedToday === todayRoutines.length ? '#006b62' : t.accent,
+                      backgroundColor: completedToday === todayRoutines.length ? t.success : t.accent,
                     }} />
                 </div>
                 {completedToday === todayRoutines.length && todayRoutines.length > 0 && (
-                  <p className="mt-2 text-center" style={{ fontSize: 13, color: '#006b62', fontWeight: 600 }}>
+                  <p className="mt-2 text-center" style={{ fontSize: 13, color: mixHex(t.success, 0, 0.30), fontWeight: 600 }}>
                     🎉 오늘 모든 루틴 완료!
                   </p>
                 )}
@@ -1534,7 +1586,7 @@ export function HabitsView() {
                   />
                 ))}
               {routines.length === 0 && (
-                <div className="rounded-xl py-10 text-center" style={{ backgroundColor: t.card, border: `1px solid ${t.borderLight}` }}>
+                <div className="py-10 text-center" style={solidCardStyle(t)}>
                   <p style={{ fontSize: 13, color: t.textMuted }}>아직 루틴이 없습니다</p>
                   <button
                     onClick={() => setShowAddRoutine(true)}
