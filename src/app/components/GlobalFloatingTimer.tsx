@@ -142,7 +142,8 @@ export function GlobalFloatingTimer() {
     ? Math.min(1, Math.max(0, 1 - displaySec / activeTimer.pomoDurationSec))
     : 0;
   const ringOffset = ringCircumference * (1 - ringProgress);
-  const ringTrack = t.lavenderTint; // lint-colors-ok: 전체화면 포커스 링 트랙(히어로 강조·DESIGN.md §5)
+  // 진행 트랙은 아크를 읽기 위한 눈금 → 맥락 무관 중립(DESIGN.md §5, 만다라트 규정과 동일 원칙).
+  const ringTrack = t.surfaceMuted;
 
   return (
     <>
