@@ -83,13 +83,15 @@ function isHabitApplicableOnDate(habit: Habit, date: Date): boolean {
 // 매주 N회 습관: 해당 날짜가 속한 주(월~일)의 달성 횟수/목표
 function getWeeklyProgress(habit: Habit, dateStr: string): { done: number; target: number } {
   const target = habit.weeklyTarget && habit.weeklyTarget > 0 ? habit.weeklyTarget : 1;
-  const base = new Date(dateStr + 'T12:00:00');
-  const weekStart = startOfWeek(base, { weekStartsOn: 1 });
-  const weekEnd = addDays(weekStart, 6);
+  const weekStart = startOfWeek(new Date(dateStr + 'T12:00:00'), { weekStartsOn: 1 });
+  const weekDates = Array.from({ length: 7 }, (_, i) => normalizeDate(addDays(weekStart, i)));
+  const todayDate = normalizeDate(new Date());
+  // getRangeCount(:821-833) weekly 분기와 동일한 toDateKey 문자열 비교로 통일.
+  // (Date 시각 비교 시 weekEnd=일요일 00:00 경계에 일요일 체크(12:00)가 걸려 누락되던 버그 방지)
   let done = 0;
-  (habit.checkedDates || []).forEach(cd => {
-    const d = new Date(cd + 'T12:00:00');
-    if (d >= weekStart && d <= weekEnd) done += 1;
+  weekDates.forEach(date => {
+    if (date.getTime() > todayDate.getTime()) return;
+    if (habit.checkedDates.includes(toDateKey(date))) done += 1;
   });
   return { done, target };
 }
