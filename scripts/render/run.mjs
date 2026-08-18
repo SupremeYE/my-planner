@@ -62,6 +62,16 @@ const ALL_ROUTES = [
   { slug: 'goals', path: '/goals' },
   // 컨디션 재설계(condition·slot 축) 검증 — 통계 카드·요일 셀·기록 리스트를 시드로 렌더.
   { slug: 'health-condition', path: '/health?tab=condition' },
+  // 머니 — 자체 features/money/db.ts 가 lib/supabase 를 직접 쓰므로 mock-supabase 의
+  // MONEY_SEED 로 렌더된다. 4탭(가계부 기본 + 자산/투자/계획 서브)을 캡처.
+  {
+    slug: 'money', path: '/money',
+    subs: [
+      { name: 'asset', text: ['자산'] },
+      { name: 'invest', text: ['투자'] },
+      { name: 'plan', text: ['계획'] },
+    ],
+  },
 ];
 
 const VIEWPORTS = [
