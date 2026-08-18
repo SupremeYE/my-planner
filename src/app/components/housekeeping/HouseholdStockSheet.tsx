@@ -117,7 +117,7 @@ export function HouseholdStockSheet({ item, onSave, onRefill, onDelete, onClose 
           {/* 이름 */}
           <div>
             <label style={labelStyle}>이름 *</label>
-            <input autoFocus value={name} onChange={e => setName(e.target.value)} placeholder="예: 화장지" style={fieldStyle} />
+            <input autoFocus={!item} value={name} onChange={e => setName(e.target.value)} placeholder="예: 화장지" style={fieldStyle} />
           </div>
 
           {/* 카테고리 + 단위 */}

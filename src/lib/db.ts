@@ -44,6 +44,7 @@ type TodoRow = {
   recurrence_rule: string | null;
   recurrence_days: number[] | null;
   recurrence_end_date: string | null;
+  recurrence_count: number | null;
   recurrence_parent_id: string | null;
   is_exception: boolean | null;
   recurrence_freq: string | null;
@@ -251,6 +252,7 @@ const toTodo = (r: TodoRow): Todo => ({
   recurrenceRule: r.recurrence_rule as Todo['recurrenceRule'] ?? undefined,
   recurrenceDays: r.recurrence_days ?? undefined,
   recurrenceEndDate: r.recurrence_end_date ?? undefined,
+  recurrenceCount: r.recurrence_count ?? undefined,
   recurrenceParentId: r.recurrence_parent_id ?? undefined,
   isException: r.is_exception ?? undefined,
   recurrenceFreq: r.recurrence_freq as Todo['recurrenceFreq'] ?? undefined,
@@ -274,6 +276,7 @@ const fromTodo = (t: Todo): TodoRow => ({
   recurrence_rule: t.recurrenceRule ?? null,
   recurrence_days: t.recurrenceDays ?? null,
   recurrence_end_date: t.recurrenceEndDate ?? null,
+  recurrence_count: t.recurrenceCount ?? null,
   recurrence_parent_id: t.recurrenceParentId ?? null,
   is_exception: t.isException ?? null,
   recurrence_freq: t.recurrenceFreq ?? null,

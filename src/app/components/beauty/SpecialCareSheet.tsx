@@ -102,7 +102,7 @@ export function SpecialCareSheet({ care, onSave, onDelete, onClose }: Props) {
           {/* 이름 */}
           <div>
             <label style={labelStyle}>이름 *</label>
-            <input autoFocus value={name} onChange={e => setName(e.target.value)} placeholder="예: 모공팩, 발각질" style={fieldStyle} />
+            <input autoFocus={!care} value={name} onChange={e => setName(e.target.value)} placeholder="예: 모공팩, 발각질" style={fieldStyle} />
           </div>
 
           {/* 권장주기 */}

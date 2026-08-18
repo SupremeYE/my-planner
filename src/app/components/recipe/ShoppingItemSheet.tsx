@@ -81,7 +81,7 @@ export function ShoppingItemSheet({ item, onSave, onDelete, onClose }: ShoppingI
 
           <div>
             <label style={labelStyle}>이름 *</label>
-            <input autoFocus value={name} onChange={e => setName(e.target.value)}
+            <input autoFocus={!item} value={name} onChange={e => setName(e.target.value)}
               placeholder="예: 양파" style={fieldStyle} />
           </div>
 

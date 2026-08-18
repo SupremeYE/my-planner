@@ -14,6 +14,7 @@ import {
   legacyTodoToSpec,
   legacyEventToSpec,
   monthlySkipsSomeMonths,
+  nthOccurrenceDate,
 } from './recurrence';
 
 const d = (s: string) => parseISO(s);
@@ -148,4 +149,40 @@ test('monthlySkipsSomeMonths', () => {
   assert.equal(monthlySkipsSomeMonths(d('2026-01-31')), true);
   assert.equal(monthlySkipsSomeMonths(d('2026-01-29')), true);
   assert.equal(monthlySkipsSomeMonths(d('2026-01-15')), false);
+});
+
+// ── "N회 후" 종료 (nthOccurrenceDate) — origin 포함 1-based ──
+test('nthOccurrenceDate: 매일 N회 (origin 포함)', () => {
+  const spec = buildSpec({ freq: 'daily', interval: 1 });
+  assert.equal(nthOccurrenceDate(spec, d('2026-08-10'), 1), '2026-08-10'); // 1회=origin
+  assert.equal(nthOccurrenceDate(spec, d('2026-08-10'), 3), '2026-08-12'); // 3회째
+});
+
+test('nthOccurrenceDate: 격일(interval 2)', () => {
+  const spec = buildSpec({ freq: 'daily', interval: 2 });
+  assert.equal(nthOccurrenceDate(spec, d('2026-08-10'), 3), '2026-08-14'); // 10,12,14
+});
+
+test('nthOccurrenceDate: 매주 특정요일', () => {
+  const spec = buildSpec({ freq: 'weekly', interval: 1, byday: [1] }); // 월
+  // origin 8/10=월. 3회째 = 8/24
+  assert.equal(nthOccurrenceDate(spec, d('2026-08-10'), 3), '2026-08-24');
+});
+
+test('nthOccurrenceDate: 매월 (없는 날 스킵)', () => {
+  const spec = buildSpec({ freq: 'monthly', interval: 1 });
+  // origin 1/31 → 3회째는 2월(없음) 건너뛰고 3/31이 아니라... 1/31, 3/31, 5/31 (2·4월 스킵)
+  assert.equal(nthOccurrenceDate(spec, d('2026-01-31'), 3), '2026-05-31');
+});
+
+test('count → endDate 환산이 확장을 N회로 제한 (매일 10회)', () => {
+  const spec = buildSpec({ freq: 'daily', interval: 1 });
+  const end = nthOccurrenceDate(spec, d('2026-08-10'), 10);
+  assert.equal(end, '2026-08-19');
+  const limited = buildSpec({ freq: 'daily', interval: 1, endDate: end });
+  // 넓은 범위로 확장해도 10건만
+  const dates = expand(limited, '2026-08-10', '2026-08-01', '2026-12-31');
+  assert.equal(dates.length, 10);
+  assert.equal(dates[0], '2026-08-10');
+  assert.equal(dates[9], '2026-08-19');
 });

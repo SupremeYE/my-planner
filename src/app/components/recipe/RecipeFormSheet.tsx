@@ -408,7 +408,7 @@ export function RecipeFormSheet({ recipe, onSave, onDelete, onClose }: RecipeFor
           {/* 이름 */}
           <div>
             <label style={labelStyle}>레시피 이름 *</label>
-            <input autoFocus value={title} onChange={e => setTitle(e.target.value)}
+            <input autoFocus={!recipe} value={title} onChange={e => setTitle(e.target.value)}
               placeholder="예: 김치볶음밥" style={fieldStyle} />
           </div>
 
