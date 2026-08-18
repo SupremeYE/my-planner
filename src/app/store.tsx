@@ -522,12 +522,11 @@ export interface HappyMoment {
 export interface WeeklyReview {
   id: string;
   weekKey: string;
-  good: string;
-  hard: string;
-  nextWeek: string;
-  kptKeep?: string;
-  kptProblem?: string;
-  kptTry?: string;
+  highlights?: string; // ① 기억하고 싶은 것 (선택)
+  kptKeep?: string;    // ② KEEP  계속하고 싶은 것
+  notice?: string;     // ③ NOTICE 이번 주에 발견한 것 (구 kptProblem)
+  kptTry?: string;     // ④ TRY   다음 주에 바꿔볼 것
+  nextWeek: string;    // ⑤ NEXT  다음 주의 한 가지
 }
 
 export interface MonthlyReview {

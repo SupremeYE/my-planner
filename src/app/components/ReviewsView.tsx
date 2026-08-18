@@ -8,7 +8,7 @@ import { MemoryPieces } from './review/MemoryPieces';
 import { RetroReadView, hasRetroContent } from './review/RetroReadView';
 import { computeWeightDelta } from './review/reviewMetrics';
 import { useTheme } from '../ThemeContext';
-import { LabelRow } from './VoiceInputButton';
+import { LabelRow, VoiceInputButton } from './VoiceInputButton';
 import { useMediaQuery } from '../hooks/useMediaQuery';
 import { useRealtimeSync } from '../hooks/useRealtimeSync';
 import { supabase } from '../../lib/supabase';
@@ -398,28 +398,28 @@ function WeekTab({ jump }: { jump?: JumpReq }) {
 
   // ── 회고 입력 (Stage 1 필드로 실제 저장) ──
   const weeklyReview = weeklyReviews.find(r => r.weekKey === range.weekKey);
-  const [wrGood, setWrGood] = useState('');
-  const [wrHard, setWrHard] = useState('');
-  const [wrNext, setWrNext] = useState('');
-  const [wrKptKeep, setWrKptKeep] = useState('');
-  const [wrKptProblem, setWrKptProblem] = useState('');
-  const [wrKptTry, setWrKptTry] = useState('');
+  const [wrHighlights, setWrHighlights] = useState(''); // ① 기억하고 싶은 것 (선택)
+  const [wrKptKeep, setWrKptKeep] = useState('');       // ② KEEP
+  const [wrNotice, setWrNotice] = useState('');         // ③ NOTICE
+  const [wrKptTry, setWrKptTry] = useState('');         // ④ TRY
+  const [wrNext, setWrNext] = useState('');             // ⑤ NEXT
   const [savedFlash, setSavedFlash] = useState(false);
 
   useEffect(() => {
-    setWrGood(weeklyReview?.good || '');
-    setWrHard(weeklyReview?.hard || '');
-    setWrNext(weeklyReview?.nextWeek || '');
+    setWrHighlights(weeklyReview?.highlights || '');
     setWrKptKeep(weeklyReview?.kptKeep || '');
-    setWrKptProblem(weeklyReview?.kptProblem || '');
+    setWrNotice(weeklyReview?.notice || '');
     setWrKptTry(weeklyReview?.kptTry || '');
+    setWrNext(weeklyReview?.nextWeek || '');
   }, [weeklyReview?.id, range.weekKey]);
 
   const save = () => {
+    // 부분 저장 허용 — 한 칸만 채워도 저장된다(빈 칸 강제 없음)
     const payload = {
       weekKey: range.weekKey,
-      good: wrGood, hard: wrHard, nextWeek: wrNext,
-      kptKeep: wrKptKeep, kptProblem: wrKptProblem, kptTry: wrKptTry,
+      highlights: wrHighlights,
+      kptKeep: wrKptKeep, notice: wrNotice, kptTry: wrKptTry,
+      nextWeek: wrNext,
     };
     if (weeklyReview) updateWeeklyReview(weeklyReview.id, payload);
     else addWeeklyReview(payload);
@@ -440,8 +440,8 @@ function WeekTab({ jump }: { jump?: JumpReq }) {
   }, [range.weekKey]);
   const lastYearReview = weeklyReviews.find(r => r.weekKey === lastYearKey);
 
-  const hasText = (r: { good?: string; hard?: string; nextWeek?: string; kptKeep?: string; kptProblem?: string; kptTry?: string }) =>
-    !!(r.good || r.hard || r.nextWeek || r.kptKeep || r.kptProblem || r.kptTry);
+  const hasText = (r: { highlights?: string; kptKeep?: string; notice?: string; kptTry?: string; nextWeek?: string }) =>
+    !!(r.highlights || r.kptKeep || r.notice || r.kptTry || r.nextWeek);
 
   const pastGroups = useMemo(() => {
     const items = weeklyReviews
@@ -477,7 +477,7 @@ function WeekTab({ jump }: { jump?: JumpReq }) {
   ) => {
     const womN = weekOfMonth(row.start, weekStartsOn);
     const comp = weekCompletion(row.startStr, row.endStr);
-    const preview = [row.review.good, row.review.hard, row.review.nextWeek].filter(Boolean).join(' · ');
+    const preview = [row.review.kptKeep, row.review.notice, row.review.kptTry, row.review.nextWeek, row.review.highlights].filter(Boolean).join(' · ');
     return (
       <button key={row.review.id} onClick={() => setAnchor(row.start)}
         className="w-full text-left p-3 rounded-xl transition-colors"
@@ -598,47 +598,52 @@ function WeekTab({ jump }: { jump?: JumpReq }) {
   const reviewForm = (
     <div className="p-4 rounded-xl" style={{ backgroundColor: t.card, border: `1px solid ${t.borderLight}` }}>
       <h3 style={{ fontSize: 13, fontWeight: 700, color: t.text, marginBottom: 12 }}>주간 리뷰 · {navLabel}</h3>
-      <div className="space-y-3">
-        <div>
-          <LabelRow label="잘한 것" labelColor="#006b62" onVoiceResult={text => setWrGood(prev => prev ? `${prev} ${text}` : text)} />
-          <textarea value={wrGood} onChange={e => setWrGood(e.target.value)} rows={3} placeholder="이번 주 잘한 것"
-            className="w-full rounded-lg px-3 py-2 border outline-none resize-none" style={inputStyle} />
+
+      {/* ① 기억하고 싶은 것 — 선택 항목. 조각에 안 잡힌 것을 보충하는 자유 입력 한 칸 */}
+      <div>
+        <div className="flex items-center justify-between mb-1">
+          <label style={{ fontSize: 11, fontWeight: 600, color: t.textSub }}>
+            기억하고 싶은 것 <span style={{ fontWeight: 500, color: t.textMuted }}>· 선택</span>
+          </label>
+          <VoiceInputButton onResult={text => setWrHighlights(prev => prev ? `${prev} ${text}` : text)} />
         </div>
-        <div>
-          <LabelRow label="아쉬운 것" labelColor="#D4735A" onVoiceResult={text => setWrHard(prev => prev ? `${prev} ${text}` : text)} />
-          <textarea value={wrHard} onChange={e => setWrHard(e.target.value)} rows={3} placeholder="이번 주 아쉬운 것"
-            className="w-full rounded-lg px-3 py-2 border outline-none resize-none" style={inputStyle} />
-        </div>
-        <div>
-          <LabelRow label="다음 주 한 가지" labelColor="#7B9ED9" onVoiceResult={text => setWrNext(prev => prev ? `${prev} ${text}` : text)} />
-          <textarea value={wrNext} onChange={e => setWrNext(e.target.value)} rows={2} placeholder="다음 주에 할 단 한 가지 — 그대로 다음 주 목표가 돼요"
-            className="w-full rounded-lg px-3 py-2 border outline-none resize-none" style={inputStyle} />
+        <textarea value={wrHighlights} onChange={e => setWrHighlights(e.target.value)} rows={2}
+          placeholder="조각에 안 담긴, 이번 주 떠올리고 싶은 것 (안 써도 괜찮아요)"
+          className="w-full rounded-lg px-3 py-2 border outline-none resize-none" style={inputStyle} />
+      </div>
+
+      {/* ②③④ 돌아보기 — KEEP / NOTICE / TRY 한 묶음(세 개가 회고 한 세트) */}
+      <div className="mt-4">
+        <h4 style={{ fontSize: 12, fontWeight: 700, color: t.textSub, marginBottom: 10 }}>돌아보기</h4>
+        <div className={isDesktop ? 'grid grid-cols-3 gap-3' : 'space-y-3'}>
+          <div>
+            <LabelRow label="KEEP · 계속하고 싶은 것" labelColor="#006b62" onVoiceResult={text => setWrKptKeep(prev => prev ? `${prev} ${text}` : text)} />
+            <textarea value={wrKptKeep} onChange={e => setWrKptKeep(e.target.value)} rows={isDesktop ? 4 : 2}
+              placeholder="잘 됐던, 이어가고 싶은 것"
+              className="w-full rounded-lg px-3 py-2 border outline-none resize-none" style={inputStyle} />
+          </div>
+          <div>
+            <LabelRow label="NOTICE · 발견한 것" labelColor="#6E7B8B" onVoiceResult={text => setWrNotice(prev => prev ? `${prev} ${text}` : text)} />
+            <textarea value={wrNotice} onChange={e => setWrNotice(e.target.value)} rows={isDesktop ? 4 : 2}
+              placeholder="이번 주에 알아차린 것 (판단 말고 관찰)"
+              className="w-full rounded-lg px-3 py-2 border outline-none resize-none" style={inputStyle} />
+          </div>
+          <div>
+            <LabelRow label="TRY · 바꿔볼 것" labelColor="#7B9ED9" onVoiceResult={text => setWrKptTry(prev => prev ? `${prev} ${text}` : text)} />
+            <textarea value={wrKptTry} onChange={e => setWrKptTry(e.target.value)} rows={isDesktop ? 4 : 2}
+              placeholder="다음 주에 한번 바꿔볼 것"
+              className="w-full rounded-lg px-3 py-2 border outline-none resize-none" style={inputStyle} />
+          </div>
         </div>
       </div>
 
-      {/* KPT 섹션 — 설정에서 ON 시 표시, 실제 저장(Stage 1 컬럼) */}
-      {appSettings.showWeeklyKpt && (
-        <div className="mt-4 pt-4" style={{ borderTop: `1px solid ${t.borderLight}` }}>
-          <h4 style={{ fontSize: 12, fontWeight: 700, color: t.textSub, marginBottom: 10 }}>🔄 KPT 주간 회고</h4>
-          <div className={isDesktop ? 'grid grid-cols-3 gap-3' : 'space-y-3'}>
-            <div>
-              <LabelRow label="Keep (유지할 것)" labelColor="#006b62" onVoiceResult={text => setWrKptKeep(prev => prev ? `${prev} ${text}` : text)} />
-              <textarea value={wrKptKeep} onChange={e => setWrKptKeep(e.target.value)} rows={isDesktop ? 4 : 2}
-                className="w-full rounded-lg px-3 py-2 border outline-none resize-none" style={inputStyle} />
-            </div>
-            <div>
-              <LabelRow label="Problem (문제점)" labelColor="#D4735A" onVoiceResult={text => setWrKptProblem(prev => prev ? `${prev} ${text}` : text)} />
-              <textarea value={wrKptProblem} onChange={e => setWrKptProblem(e.target.value)} rows={isDesktop ? 4 : 2}
-                className="w-full rounded-lg px-3 py-2 border outline-none resize-none" style={inputStyle} />
-            </div>
-            <div>
-              <LabelRow label="Try (시도할 것)" labelColor="#7B9ED9" onVoiceResult={text => setWrKptTry(prev => prev ? `${prev} ${text}` : text)} />
-              <textarea value={wrKptTry} onChange={e => setWrKptTry(e.target.value)} rows={isDesktop ? 4 : 2}
-                className="w-full rounded-lg px-3 py-2 border outline-none resize-none" style={inputStyle} />
-            </div>
-          </div>
-        </div>
-      )}
+      {/* ⑤ NEXT — 다음 주로 이어지는 것. 구분선으로 시각적으로 떼어낸다 */}
+      <div className="mt-4 pt-4" style={{ borderTop: `1px solid ${t.borderLight}` }}>
+        <LabelRow label="NEXT · 다음 주의 한 가지" labelColor={t.accent} onVoiceResult={text => setWrNext(prev => prev ? `${prev} ${text}` : text)} />
+        <textarea value={wrNext} onChange={e => setWrNext(e.target.value)} rows={2}
+          placeholder="다음 주에 할 단 하나 — 그대로 다음 주 목표가 돼요"
+          className="w-full rounded-lg px-3 py-2 border outline-none resize-none" style={inputStyle} />
+      </div>
 
       <button onClick={save}
         className="w-full mt-4 py-2.5 rounded-xl transition-colors"
@@ -1249,7 +1254,7 @@ interface ArchiveItem {
   happy?: string;
   kpt?: { keep?: string; problem?: string; try?: string };
   daily?: { summary?: string; good?: string; improve?: string };
-  weekly?: { good?: string; hard?: string; nextWeek?: string; keep?: string; problem?: string; try?: string };
+  weekly?: { highlights?: string; keep?: string; notice?: string; try?: string; nextWeek?: string };
   monthly?: {
     highlight?: string; didWell?: string; regret?: string; nextFocus?: string; achievement?: string;
     bestVideo?: string; bestMusic?: string; bestBook?: string; bestPlace?: string;
@@ -1364,12 +1369,12 @@ function ArchiveOverlay({ onClose, onJump }: {
     }
 
     for (const w of weeklyReviews) {
-      const text = join([w.good, w.hard, w.nextWeek, w.kptKeep, w.kptProblem, w.kptTry]);
+      const text = join([w.highlights, w.kptKeep, w.notice, w.kptTry, w.nextWeek]);
       if (!text) continue;
       const rg = weekKeyToRange(w.weekKey);
       out.push({ id: `w-${w.id}`, kind: 'weekly', date: rg.startStr,
         dateLabel: `${format(rg.start, 'M.d')}–${format(rg.end, 'M.d')} 주간`,
-        weekly: { good: w.good, hard: w.hard, nextWeek: w.nextWeek, keep: w.kptKeep, problem: w.kptProblem, try: w.kptTry },
+        weekly: { highlights: w.highlights, keep: w.kptKeep, notice: w.notice, try: w.kptTry, nextWeek: w.nextWeek },
         text, jump: { tab: 'week', date: rg.startStr } });
     }
 
@@ -1556,12 +1561,11 @@ function ArchiveOverlay({ onClose, onJump }: {
         style={{ ...cardBase, borderLeft: `3px solid ${kindMeta.weekly.color}` }}>
         {blockHead(kindMeta.weekly.color, '📅', `주간 리뷰 · ${it.dateLabel}`)}
         <div className="space-y-1.5">
-          {field('잘한 것', w.good)}
-          {field('아쉬운 것', w.hard)}
-          {field('다음 주', w.nextWeek)}
-          {field('Keep', w.keep)}
-          {field('Problem', w.problem)}
-          {field('Try', w.try)}
+          {field('기억하고 싶은 것', w.highlights)}
+          {field('KEEP', w.keep)}
+          {field('NOTICE', w.notice)}
+          {field('TRY', w.try)}
+          {field('NEXT', w.nextWeek)}
         </div>
       </button>
     );
