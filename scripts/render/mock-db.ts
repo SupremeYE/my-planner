@@ -77,7 +77,7 @@ const weeklyGoals = [
 // ── 할일 (12+; 완료/미완료/기간/늦음/태그유무/중요) ─────────────────────────
 const todos = [
   // 오늘 — 다양한 상태
-  { id: 't01', text: '매뉴얼 양식 공유', date: TODAY, endDate: TODAY, status: 'active', isTop3: true, tags: ['tag-work'], projectId: 'proj-a', weeklyGoalId: 'wg-1' },
+  { id: 't01', text: '매뉴얼 양식 공유', date: TODAY, endDate: TODAY, status: 'done', isTop3: true, tags: ['tag-work'], projectId: 'proj-a', weeklyGoalId: 'wg-1' },
   { id: 't02', text: '웹모델 현황 문의하기', date: TODAY, endDate: TODAY, status: 'active', isTop3: true, tags: ['tag-work'] },
   { id: 't03', text: '아침 스트레칭', date: TODAY, endDate: TODAY, status: 'done', isTop3: false, tags: ['tag-health'] },
   { id: 't04', text: '이메일 회신', date: TODAY, endDate: TODAY, status: 'done', isTop3: false, tags: [] },
@@ -200,7 +200,13 @@ const SEED: Record<string, any> = {
   brainstormItems: [],
   periodRecords: [],
   habitMonthlyMemos: [],
-  foodRecords: [],
+  // 조각(MemoryPieces) 커버리지 — 모먼트·맛있었던 것(주간·월간·일간 공용 스트립을 실제로 렌더).
+  foodRecords: [
+    { id: 'fd1', date: TODAY, foodName: '들기름 막국수', tasteRating: 'good', photoUrl: null, mealType: 'lunch' },
+  ],
+  moments: [
+    { id: 'mo1', content: '노을이 예뻤던 저녁 산책', photos: [], is_highlight: true, created_at: now.toISOString() },
+  ],
   userSymptoms: [],
   // 컨디션 재설계 검증 시드 — 하루 여러 건/컨디션만/구 기록(null) 시나리오를 모두 담는다.
   conditionRecords: [

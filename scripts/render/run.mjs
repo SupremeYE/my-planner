@@ -282,6 +282,28 @@ async function main() {
         };
 
         await doShot(null);
+        if (route.slug === 'reviews') {
+          // 일간 탭 하단(오늘의 숫자·조각·오늘 한 일)까지 담기 위해 스크롤 컨테이너를 끝까지 내린다.
+          const scrollBottom = () => {
+            for (const el of document.querySelectorAll('*')) {
+              const cs = getComputedStyle(el);
+              if (/(auto|scroll)/.test(cs.overflowY) && el.scrollHeight > el.clientHeight + 4) el.scrollTop = el.scrollHeight;
+            }
+            (document.scrollingElement || document.documentElement).scrollTop = 1e6;
+          };
+          await page.evaluate(scrollBottom);
+          await page.waitForTimeout(500);
+          await doShot('day-full');
+          // 주간/월간 탭 클릭 전 스크롤을 위로 되돌린다(서브 캡처가 상단부터 보이도록).
+          await page.evaluate(() => {
+            for (const el of document.querySelectorAll('*')) {
+              const cs = getComputedStyle(el);
+              if (/(auto|scroll)/.test(cs.overflowY)) el.scrollTop = 0;
+            }
+            (document.scrollingElement || document.documentElement).scrollTop = 0;
+          });
+          await page.waitForTimeout(200);
+        }
         if (route.slug === 'health-condition') {
           // 통계 카드 아래 '기록 리스트'(컨디션·시점 뱃지)까지 담기 위해 스크롤 컨테이너를 끝까지 내린다.
           await page.evaluate(() => {
