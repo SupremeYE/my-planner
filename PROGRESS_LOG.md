@@ -6,6 +6,29 @@
 
 ---
 
+## 2026-08-18 — 💰 하온 머니 문서 현행화 + projects 스키마 조사
+
+### 🛠 구현 (문서·조사 전용 — 기능 코드/스키마/마이그레이션 변경 0)
+
+머니 모듈이 문서엔 2026-06-27 "Stage 1~3 / 다음 예정"으로만 남아 **문서만 보면 미완성으로 오인**됐다(하네스는 커밋 `880107e`로 이미 등록됨). 코드·DB 실측 기준으로 문서를 현행화한다.
+
+- **머니 실상태(코드·DB 실측)**: `src/features/money/` **18파일 ~4,920 LOC** · DB **11테이블**(초기 8 + 마이그레이션 7개로 `money_plans`·`money_plan_allocations`·`money_reviews` 및 소분류(`money_categories.parent_id`)·외화·투자 컬럼 확장) · Realtime **11구독**(`useMoney.ts`) · 4탭(가계부/자산/투자/계획) **CRUD 전부 실구현**(자산·투자·목표·대출·월초계획·주/월 회고·카테고리 대소분류·고정비 외화정산·카드) · Edge Function **`money-parse`(v3 ACTIVE)** + **`fx-rate`(v1 ACTIVE, 외화 런타임 환산)**. 실 데이터: 거래 4건 전부 `source='chat'`(파서 경로 실사용), categories 69(대분류11+소분류54+수입4).
+- **렌더 하네스**: 머니는 이미 커밋 `880107e`("test: 렌더 하네스에 /money 라우트 추가")로 등록돼 있음 — feature-local `features/money/db` → `mock-money-db.ts` 리다이렉트 + `/money` 4탭(+'이전 기간' 기간연동 회귀검증). 이번엔 코드 변경 없이 **문서만 현행화**.
+- **문서 갱신**: 본 PROGRESS_LOG(이 항목) + `PROJECT_SPEC.md`(라우트표 `/money` 추가·DB 레지스트리 머니 **11테이블**·상단 changelog) + `CLAUDE.md`(하네스 섹션에 "커버 경계" 한 줄 — 화면 렌더만 커버, 데이터 계층·서버 정렬 `.order` 미커버. 대상·시드·동작의 머니 서술은 880107e에 기존재).
+
+### 🔎 조사 — projects 스키마 (읽기 전용, 변경 0)
+
+- **테이블**: `projects`(id text PK·name·color·status·goal_kind/goal_id, **row 2**: 「테스트」·「프라이버시연구과제」) · `milestones`(project_id text·title·date·done, **row 0**). 둘 다 Realtime 등록.
+- **참조 관계**: `todos.project_id`(text NULL) **존재하나 projects 로의 FK 제약은 없음**(todos 실제 FK = `milestone_id`·`weekly_goal_id`·`mandalart_cell_id`). project_id 참조 todo = **1건**뿐. self-FK 범용 `parent_id` **없음**(반복용 `recurrence_parent_id` 만 존재 → subtask 구조 없음).
+- **UI**: `/projects`(ProjectsView)·`/projects/:id`(ProjectDetailView) 라우트 등록·사이드바 "프로젝트" 섹션으로 진입 가능. 기능 실재하나 **실사용 최소**(프로젝트 2·마일스톤 0·연결 todo 1). PROJECT_SPEC 에 이미 기재됨 → 설계 변경 없이 현황만 기록.
+
+### ✅ 검증
+
+- 머니 조사 시 로컬 `render:check --route=money` 로 4탭(PC/모바일 8샷) 시드 렌더 FAIL 0 재현 확인(main의 `mock-money-db` 하네스). 문서 변경뿐이라 빌드/린트 영향 없음.
+- **미검증(명시)**: `money-parse`·`fx-rate` **라이브 호출은 sandbox egress 차단으로 미실행**(두 함수 모두 ACTIVE, 브라우저 사용자 세션에서 확인 예정).
+
+---
+
 ## 2026-08-16 — 🏷 일정 모달에 태그 추가 (공용 TagSelector 추출)
 
 ### 🛠 구현 (시간 축을 채우는 네 번째 경로 — 캘린더 일정에 태그를 붙여 자동 집계)

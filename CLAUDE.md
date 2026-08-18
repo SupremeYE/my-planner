@@ -42,6 +42,9 @@ No test runner or linter is configured in this project.
      이중 트리(`hidden lg:block`/`lg:hidden`)라 숨은 `<main>` 은 높이 0 → 보이는 main 으로 측정.
 - **산출물**: `scripts/render/output/<viewport>-<route>.png` + `report.json`(gitignore).
 - **부분 실행**: `node scripts/render/run.mjs --route=daily,todos`.
+- **커버 경계**: 하네스가 검증하는 것은 **화면 렌더**(레이아웃/클리핑/붕괴/라벤더)뿐이다.
+  **데이터 계층·서버 정렬(`.order` 등)·집계 정확도는 미커버** — mock 은 필터/정렬을
+  무시하고 시드를 그대로 돌려주므로, 쿼리 로직·정렬·계산은 단위 테스트/DB 실측으로 따로 검증한다.
 - **규칙**: **UI 를 바꾸는 모든 작업은 `render:check` 를 돌리고 스크린샷을 보고에 첨부한다.**
   "정적 검증으로 대체"는 하네스가 실제로 실패할 때만 허용하며 그 경우 실패 로그를 함께 제출한다.
 
