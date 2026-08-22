@@ -6,7 +6,7 @@ import {
 import { TimePicker } from './TimePicker';
 import { usePlanner, Habit, Routine, getLogicalToday } from '../store';
 import { useTheme } from '../ThemeContext';
-import { format, startOfMonth, getDaysInMonth, getDay, addDays, startOfWeek, addMonths, subMonths } from 'date-fns';
+import { format, startOfMonth, getDaysInMonth, addDays, startOfWeek, addMonths, subMonths } from 'date-fns';
 import { RoutineModal, ExecutionPanel, RoutineCard, today as routineToday } from './RoutinesView';
 import { useNotification } from '../hooks/useNotification';
 import { useFabAction } from '../FabContext';
@@ -883,7 +883,7 @@ function HabitTrackerView() {
           {/* 요일 헤더 (상단 1회) — 오늘 요일만 코랄 강조 */}
           <div
             className="hidden lg:grid"
-            style={{ gridTemplateColumns: 'minmax(150px, 1.4fr) minmax(84px, auto) repeat(7, minmax(36px, 1fr))', gap: 10, marginBottom: 8, alignItems: 'center' }}
+            style={{ gridTemplateColumns: 'minmax(150px, 1.4fr) minmax(84px, auto) repeat(7, 23px)', gap: 6, marginBottom: 6, alignItems: 'center' }}
           >
             <div />
             <div />
@@ -896,7 +896,7 @@ function HabitTrackerView() {
               );
             })}
           </div>
-          <div className="grid lg:hidden" style={{ gridTemplateColumns: 'repeat(7, minmax(0, 1fr))', gap: 4, marginBottom: 6 }}>
+          <div className="grid lg:hidden" style={{ gridTemplateColumns: 'repeat(7, 23px)', gap: 6, marginBottom: 6 }}>
             {weekDates.map((date, i) => {
               const isToday = date.getTime() === todayDate.getTime();
               return (
@@ -907,15 +907,15 @@ function HabitTrackerView() {
             })}
           </div>
 
-          <div className="space-y-2">
+          <div className="space-y-1.5">
             {habits.map(habit => {
               const stats = getRangeCount(habit, weekDates, todayDate);
               return (
-                <div key={habit.id} style={solidRowStyle(t)} className="px-3 py-2.5 lg:px-4 lg:py-3">
+                <div key={habit.id} style={solidRowStyle(t)} className="px-3 py-2 lg:px-4 lg:py-2">
                   {/* PC: 1행 유지 (이름 줄 + 셀 줄 동일 행) */}
                   <div
                     className="hidden lg:grid"
-                    style={{ gridTemplateColumns: 'minmax(150px, 1.4fr) minmax(84px, auto) repeat(7, minmax(36px, 1fr))', gap: 10, alignItems: 'center' }}
+                    style={{ gridTemplateColumns: 'minmax(150px, 1.4fr) minmax(84px, auto) repeat(7, 23px)', gap: 6, alignItems: 'center' }}
                   >
                     <div className="flex items-baseline gap-2 min-w-0">
                       <span style={{ fontSize: 18, flexShrink: 0, alignSelf: 'center' }}>{habit.icon || '🎯'}</span>
@@ -926,12 +926,12 @@ function HabitTrackerView() {
                       <StreakBadge habit={habit} />
                       <TotalCount done={stats.done} total={stats.total} />
                     </div>
-                    {weekDates.map((date, i) => <div key={`wc-${i}`}><AchvCell habit={habit} date={date} radius={5} /></div>)}
+                    {weekDates.map((date, i) => <div key={`wc-${i}`}><AchvCell habit={habit} date={date} radius={4} /></div>)}
                   </div>
 
                   {/* 모바일: 2행으로 접음 (이름 줄 / 셀 줄) */}
                   <div className="lg:hidden">
-                    <div className="flex items-center gap-2 min-w-0 mb-2">
+                    <div className="flex items-center gap-2 min-w-0 mb-1.5">
                       <span style={{ fontSize: 17, flexShrink: 0 }}>{habit.icon || '🎯'}</span>
                       <span className="truncate" style={{ fontSize: 14, fontWeight: 700, color: t.text, fontFamily: t.fontBody }}>{habit.name}</span>
                       <span style={{ fontSize: 11, color: t.textMuted, fontFamily: t.fontLabel, flexShrink: 0 }}>{repeatLabel(habit)}</span>
@@ -940,8 +940,8 @@ function HabitTrackerView() {
                         <TotalCount done={stats.done} total={stats.total} />
                       </span>
                     </div>
-                    <div className="grid" style={{ gridTemplateColumns: 'repeat(7, minmax(0, 1fr))', gap: 4 }}>
-                      {weekDates.map((date, i) => <div key={`wcm-${i}`}><AchvCell habit={habit} date={date} radius={5} /></div>)}
+                    <div className="grid" style={{ gridTemplateColumns: 'repeat(7, 23px)', gap: 6 }}>
+                      {weekDates.map((date, i) => <div key={`wcm-${i}`}><AchvCell habit={habit} date={date} radius={4} /></div>)}
                     </div>
                   </div>
                 </div>
@@ -954,8 +954,6 @@ function HabitTrackerView() {
         (() => {
           const isYear = mode === 'year';
           const periodLabel = isYear ? `${viewYear}년` : format(viewDate, 'yyyy년 M월');
-          const monthStartOffset = (getDay(monthStart) + 6) % 7;
-          const monthCells: (Date | null)[] = [...Array.from({ length: monthStartOffset }, () => null), ...monthDates];
           const yearDates = isYear
             ? Array.from({ length: 12 }).flatMap((_, m) =>
                 Array.from({ length: getDaysInMonth(new Date(viewYear, m, 1)) }, (_, d) => normalizeDate(new Date(viewYear, m, d + 1))))
@@ -992,11 +990,10 @@ function HabitTrackerView() {
                         })}
                       </div>
                     ) : (
-                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, minmax(0, 1fr))', gap: 3 }}>
-                        {monthCells.map((date, idx) =>
-                          date
-                            ? <AchvCell key={idx} habit={habit} date={date} radius={3} />
-                            : <div key={idx} style={{ aspectRatio: '1 / 1' }} />)}
+                      /* 흘림 히트맵 — 1일~말일 순서대로, 요일 오프셋(선행 빈칸) 없음.
+                         달력 정렬은 주간 탭 역할. 미래 날짜도 같은 그리드에 점으로 포함(행 통째 X). */
+                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(14px, 1fr))', gap: 3 }}>
+                        {monthDates.map((date, idx) => <AchvCell key={idx} habit={habit} date={date} radius={3} />)}
                       </div>
                     )}
 
@@ -1078,7 +1075,7 @@ export function HabitsView() {
         />
       </div>
 
-      <div className="px-4 lg:px-6 pb-8">
+      <div className="px-4 lg:px-6 pb-24 lg:pb-8">
         {/* Habits Tab */}
         {tab === 'habits' && (
           <div className="space-y-2">
