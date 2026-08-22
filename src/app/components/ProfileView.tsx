@@ -1,7 +1,9 @@
 import { useState, useEffect, useRef } from 'react';
+import { format, addDays } from 'date-fns';
 import { useTheme } from '../ThemeContext';
 import { useAuth } from '../AuthContext';
 import { usePlanner } from '../store';
+import { getHabitStreak } from './HabitsView';
 import {
   Flame, Trophy, Star, Calendar, Clock, CheckSquare, Heart, Zap,
   Edit2, Check, X,
@@ -298,39 +300,23 @@ export function ProfileView() {
     .forEach(td => allDates.add(td.date!));
   habits.forEach(h => h.checkedDates.forEach(d => allDates.add(d)));
 
-  const sortedDates = Array.from(allDates).sort().reverse();
-  let currentStreak = 0;
+  // 현재 스트릭 — 할일+습관 합산 집계라 개별 습관과 성격이 다르지만, 연속 '일' 계산 자체는 동일하므로
+  // 공용 getHabitStreak(daily) 를 재사용해 기준 '오늘'(getLogicalToday)·문자열 비교로 통일한다.
+  const aggregateDates = Array.from(allDates);
+  const currentStreak = getHabitStreak({ checkedDates: aggregateDates, repeat: 'daily' }).count;
+
+  // 최장 스트릭 — 합산 집계라 그대로 유지하되, 날짜 비교만 문자열 + 'T12:00:00' 정오 앵커로 교체
+  // (기존 new Date(ds) UTC 파싱 + daysBetween 의 경계 버그 패턴 제거)
+  const isNextDay = (prev: string, curr: string) =>
+    curr === format(addDays(new Date(prev + 'T12:00:00'), 1), 'yyyy-MM-dd');
   let longestStreak = 0;
-  let tempStreak = 0;
-  let prevDate: Date | null = null;
-
-  const todayStr = today.toISOString().split('T')[0];
-
-  for (const ds of sortedDates) {
-    const d = new Date(ds);
-    if (!prevDate) {
-      if (ds === todayStr || daysBetween(d, today) === 1) {
-        tempStreak = 1;
-      } else break;
-    } else {
-      if (daysBetween(prevDate, d) === 1) {
-        tempStreak++;
-      } else break;
-    }
-    prevDate = d;
-  }
-  currentStreak = tempStreak;
-
-  // 최장 스트릭 계산
-  let streak = 0;
-  let prevD2: Date | null = null;
-  for (const ds of [...sortedDates].reverse()) {
-    const d = new Date(ds);
-    if (!prevD2) { streak = 1; }
-    else if (daysBetween(prevD2, d) === 1) { streak++; }
-    else { streak = 1; }
-    if (streak > longestStreak) longestStreak = streak;
-    prevD2 = d;
+  let run = 0;
+  let prevStr: string | null = null;
+  for (const ds of [...aggregateDates].sort()) {
+    if (prevStr && isNextDay(prevStr, ds)) run++;
+    else run = 1;
+    if (run > longestStreak) longestStreak = run;
+    prevStr = ds;
   }
 
   // 사용 일수

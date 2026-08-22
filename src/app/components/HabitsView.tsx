@@ -6,7 +6,7 @@ import {
 import { TimePicker } from './TimePicker';
 import { usePlanner, Habit, Routine, getLogicalToday } from '../store';
 import { useTheme } from '../ThemeContext';
-import { format, subDays, startOfMonth, getDaysInMonth, getDay, addDays, startOfWeek, addMonths, subMonths } from 'date-fns';
+import { format, startOfMonth, getDaysInMonth, getDay, addDays, startOfWeek, addMonths, subMonths } from 'date-fns';
 import { RoutineModal, ExecutionPanel, RoutineCard, today as routineToday } from './RoutinesView';
 import { useNotification } from '../hooks/useNotification';
 import { useFabAction } from '../FabContext';
@@ -65,19 +65,71 @@ interface HabitCategoryOption {
   color: string;
 }
 
-function getStreak(checkedDates: string[]): number {
-  if (!checkedDates?.length) return 0;
-  const sorted = [...checkedDates].sort().reverse();
-  const today = getLogicalToday();
-  const yesterday = format(subDays(new Date(today + 'T12:00:00'), 1), 'yyyy-MM-dd');
-  if (sorted[0] !== today && sorted[0] !== yesterday) return 0;
-  let streak = 1;
-  for (let i = 1; i < sorted.length; i++) {
-    const expected = format(subDays(new Date(sorted[0] + 'T12:00:00'), i), 'yyyy-MM-dd');
-    if (sorted[i] === expected) streak++;
-    else break;
+// 스트릭 반환 — 유형에 따라 단위가 다르므로(일 vs 주) 호출부가 라벨을 구분할 수 있게 한다.
+export type HabitStreak = { count: number; unit: 'day' | 'week' };
+
+// 스트릭 계산 공용 입력 — Habit 과 Routine(weekly/weeklyTarget 없음)이 모두 만족하는 최소 구조.
+type HabitStreakInput = {
+  checkedDates: string[];
+  repeat?: 'daily' | 'weekday' | 'weekend' | 'custom' | 'weekly';
+  repeatDays?: number[];
+  weeklyTarget?: number;
+};
+
+// 습관/루틴 스트릭(연속 달성) 공용 계산. 4개 뷰(습관·루틴·대시보드·프로필)가 공유한다.
+// 기준 '오늘'은 getLogicalToday()(dayEndHour 롤오버 반영), 날짜 비교는 문자열 + 'T12:00:00' 정오 앵커.
+// (기존 getStreak 의 안전한 부분 — 문자열 비교·정오 앵커·"오늘 유예" — 을 그대로 계승)
+//   - daily: 하루라도 빠지면 끊김
+//   - weekday/weekend/custom: 해당 안 되는 요일은 건너뜀(끊지 않음) — isHabitApplicableOnDate 재사용
+//   - weekly: 연속 단위가 '주'. 한 주 checkedDates 수 >= weeklyTarget 이면 그 주 달성, 연속 달성 주 수 반환
+// 진행 중인 '오늘'(일 단위)·'이번 주'(주 단위)는 아직 미완이어도 스트릭을 끊지 않는다(유예).
+export function getHabitStreak(habit: HabitStreakInput): HabitStreak {
+  const checked = habit.checkedDates;
+  const isWeekly = habit.repeat === 'weekly';
+  if (!checked?.length) return { count: 0, unit: isWeekly ? 'week' : 'day' };
+  const todayStr = getLogicalToday();
+
+  // ── weekly(주 N회): 연속 단위 = 주 ──────────────────────────────
+  // 주 범위 판정은 getRangeCount 과 동일(toDateKey 문자열 비교 + weekStartsOn:1).
+  if (isWeekly) {
+    const target = habit.weeklyTarget && habit.weeklyTarget > 0 ? habit.weeklyTarget : 1;
+    const perWeek = new Map<string, number>();
+    checked.forEach(cd => {
+      const wk = toDateKey(startOfWeek(new Date(cd + 'T12:00:00'), { weekStartsOn: 1 }));
+      perWeek.set(wk, (perWeek.get(wk) ?? 0) + 1);
+    });
+    let weekStart = startOfWeek(new Date(todayStr + 'T12:00:00'), { weekStartsOn: 1 });
+    // 이번 주는 진행 중 → 미달이어도 끊지 않고 유예(지난 주부터 카운트 시작).
+    if ((perWeek.get(toDateKey(weekStart)) ?? 0) < target) weekStart = addDays(weekStart, -7);
+    let count = 0;
+    while ((perWeek.get(toDateKey(weekStart)) ?? 0) >= target) {
+      count++;
+      weekStart = addDays(weekStart, -7);
+    }
+    return { count, unit: 'week' };
   }
-  return streak;
+
+  // ── daily / weekday / weekend / custom: 연속 단위 = 일 ───────────
+  const checkedSet = new Set(checked);
+  const oldest = [...checked].sort()[0];
+  let count = 0;
+  let cursor = new Date(todayStr + 'T12:00:00');
+  while (true) {
+    const key = format(cursor, 'yyyy-MM-dd');
+    if (isHabitApplicableOnDate(habit as Habit, cursor)) {
+      if (checkedSet.has(key)) {
+        count++;
+      } else if (key === todayStr) {
+        // 오늘은 아직 진행 중 → 유예(끊지 않음, 카운트 없음). 지난 예정일 미완은 아래 break.
+      } else {
+        break; // 해당 요일(예정일)인데 미완 → 스트릭 종료
+      }
+    }
+    // 해당 안 되는 요일은 건너뜀(끊지 않음)
+    if (key <= oldest) break; // 가장 오래된 체크일 이전엔 기록이 없으므로 종료
+    cursor = addDays(cursor, -1);
+  }
+  return { count, unit: 'day' };
 }
 
 function toDateKey(date: Date): string {
@@ -1416,7 +1468,7 @@ export function HabitsView() {
         {tab === 'habits' && (
           <div className="space-y-2">
             {habits.filter(h => isHabitApplicableOnDate(h, new Date())).map(h => {
-              const streak = getStreak(h.checkedDates);
+              const streak = getHabitStreak(h);
               const weekly = h.repeat === 'weekly' ? getWeeklyProgress(h, executionDate) : null;
               const isChecked = h.checkedDates.includes(executionDate);
               const habitType = h.habitType ?? 'check';
@@ -1483,10 +1535,10 @@ export function HabitsView() {
                           </div>
                         );
                       })()
-                    ) : streak > 0 && (
+                    ) : streak.count > 0 && (
                       <div className="flex items-center gap-1 px-2.5 py-1 rounded-full flex-shrink-0" style={{ backgroundColor: t.accentLight }}>
                         <Flame size={12} color={t.accent} />
-                        <span style={{ fontSize: 11, fontWeight: 600, color: t.accent, fontFamily: t.fontLabel }}><span style={{ fontFamily: t.fontNumeric }}>{streak}</span>일</span>
+                        <span style={{ fontSize: 11, fontWeight: 600, color: t.accent, fontFamily: t.fontLabel }}><span style={{ fontFamily: t.fontNumeric }}>{streak.count}</span>{streak.unit === 'week' ? '주' : '일'}</span>
                       </div>
                     )}
                     <button onClick={() => setEditHabit(h)} className="p-2 rounded-lg" style={{ color: t.textMuted }}>
