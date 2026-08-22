@@ -457,6 +457,52 @@ they are passive nav hints, not actions (⑨b; coral stays reserved for accent /
   토큰. off-palette 하드코딩 색 금지(§5).
 - **v1 범위** — 일괄 **삭제**만. 오늘로 이동·상태 일괄 변경 등은 후속 Stage.
 
+### 캡처 인박스 — 스와이프 승인 카드 (capture inbox — swipe-to-route)
+
+`/inbox`(캡처 인박스) 전용의 신규 인터랙션 패턴. 서버가 자동 분류해 `capture_inbox`에 쌓은 "제안"을
+사용자가 카드 스와이프 한 번으로 **승인(→목적지 저장)** 하거나 **버리기(→소프트 아카이브)** 한다.
+앱에 없던 신규 패턴이라 코드보다 먼저 등록한다. 전 테마 공통(토큰 기반, `isHaon` 게이팅은 표면 recipe 에만).
+
+**표면 규칙(§1 준수).** 카드는 리스트와 함께 **스크롤**되므로 **솔리드**(`solidCardStyle` 계열). 위에
+떠 있는 상단 바·목적지 선택 시트·되돌리기 토스트는 **글래스**(`glassBarStyle`/`bottomSheetStyle`/오버레이).
+
+1. **스와이프 액션 카드** — 솔리드 카드가 가로로 드래그되며 **뒤의 리빌 레이어**가 드러난다.
+   - **오른쪽 드래그 = 승인** — 코랄 그라데이션 리빌(`t.primaryGradient` = `#FF9A8B→#FF6F91`, §gradients).
+   - **왼쪽 드래그 = 버리기** — 더스티 리빌 `#F2DDDC`(웜크림 — 이미 승인된 Haon 파스텔, Habits 팔레트에 존재).
+     danger 코랄(`dangerLight #F6BCBA`)보다 **저채도**라 "위험"이 아닌 "치워둠"으로 읽힌다(파괴 아님·복구 가능).
+   - **임계값 90px** — 이 이상 끌고 놓으면 액션 확정, 미만이면 복귀.
+   - **복귀 트랜지션 `.26s cubic-bezier(.2,.8,.3,1)`** — 손을 떼면 카드가 이 이징으로 제자리/확정 위치로.
+   - **리빌 라벨 불투명도 = 드래그 거리에 비례(0→1)** — 끌수록 "승인"/"버리기" 라벨이 또렷해진다.
+   - **목적지 null 카드는 오른쪽 스와이프로 승인되지 않는다** — 대신 목적지 선택 시트가 열린다(아래 2).
+   - **데스크톱** — 스와이프가 어려우므로 카드 hover 시 승인/버리기 **버튼**을 노출한다(`lg:`). 모바일은 버튼 없이 스와이프.
+
+2. **미확정 카드 변형 (unconfirmed card)** — 목적지(`proposed_type`)가 `null`인 카드에만 적용.
+   - **점선 테두리 + 그림자 없음 + 반투명 흰 배경** — "아직 목적지가 정해지지 않았다"를 시각적으로 저강조.
+     (솔리드 카드의 하이라인·소프트 그림자를 빼고 dashed hairline + 투명도로 "임시" 상태를 표현.)
+   - 목적지 칩 자리는 "목적지 선택" 유도(탭 → 목적지 시트). 승인 전 반드시 목적지를 정해야 한다.
+
+3. **저확신 마커 (low-confidence marker)** — 목적지 칩 **옆**의 작은 마커. `confidence`가 낮은 제안에 표시.
+   - **신규 색을 만들지 않는다** — 기존 뮤트 토큰(`t.textMuted` 텍스트/아이콘 + `t.surfaceMuted` 칩 배경)만 사용.
+   - 의미: "분류가 맞는지 특히 확인해 달라"는 저강조 힌트일 뿐, 오류 표시(danger)가 아니다.
+
+4. **되돌리기 토스트 (undo toast)** — 승인/버리기 직후 하단에 뜨는 플로팅 토스트(약 3초).
+   - **딥 인디고 반투명 + blur** — 배경 `withAlpha(t.text, ~0.9)`(딥 인디고 `#2E2A5B`) + `t.glassBlur`, 흰 라벨 + "되돌리기" 액션.
+   - 떠 있는 오버레이라 글래스 계열(§1). 하단 중앙 플로팅, safe-area 존중.
+   - **"모두 승인"에는 토스트를 붙이지 않는다** — 일괄 처리는 되돌리기 없음(개별 스와이프만 되돌리기 제공).
+
+**일괄 액션 바("모두 승인").** 리스트 하단 floating(`actionBarStyle`, 오버레이 글래스). **하나라도 목적지가
+`null`이면 비활성** — 일부만 조용히 보내면 나머지 미확정 건을 놓친다. 되돌리기 토스트 없음.
+
+**haonStyles helper (build 전 등록 — 정의만, 소비처는 2-B/2-D 에서 연결).** 하드코딩 hex 를 컴포넌트에
+흩지 않도록 리빌/카드 변형/토스트/마커 표면 recipe 를 헬퍼로 둔다:
+`inboxCardStyle(t)`(솔리드 카드 변형) · `inboxUnconfirmedCardStyle(t)`(dashed + 반투명 + 그림자 없음) ·
+`swipeRevealStyle(t, 'approve'|'discard')`(코랄 그라데이션 / 더스티 `#F2DDDC` 리빌) ·
+`lowConfidenceMarkerStyle(t)`(surfaceMuted/textMuted) · `undoToastStyle(t)`(딥 인디고 반투명 + blur).
+임계값/이징/라벨 불투명도 같은 **동작 상수**는 컴포넌트 로직(헬퍼는 표면만).
+
+**Do not.** 승인 카드에 글래스 쓰지 않기(스크롤 표면 = 솔리드). 버리기 리빌에 danger 코랄 안 쓰기(치워둠 ≠ 위험).
+저확신 마커에 신규 색 만들지 않기(뮤트 토큰만). 목적지 null 카드를 스와이프로 승인시키지 않기. 레코드 DELETE 금지(버리기 = 소프트 아카이브).
+
 ### Period navigator (기간 네비게이터 — 달력 고정 기간 이동, 공용)
 
 **One shared pattern** for calendar-anchored period browsing — replaces per-page rolling windows
