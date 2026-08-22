@@ -161,15 +161,16 @@ function isHabitApplicableOnDate(habit: Habit, date: Date): boolean {
 }
 
 // 매주 N회 습관: 해당 날짜가 속한 주(월~일)의 달성 횟수/목표
+// 주 범위 판정은 getRangeCount(:910) 과 동일하게 toDateKey(startOfWeek) 문자열 키 비교로 통일한다.
+// (기존 Date 객체 비교는 weekEnd=일요일 00:00 인데 체크일은 정오라 일요일 체크가 범위 밖으로
+//  떨어지는 경계 버그 — 그리드는 정상인데 배지만 누락돼 1/3 vs 0/3 로 어긋났다.)
 function getWeeklyProgress(habit: Habit, dateStr: string): { done: number; target: number } {
   const target = habit.weeklyTarget && habit.weeklyTarget > 0 ? habit.weeklyTarget : 1;
-  const base = new Date(dateStr + 'T12:00:00');
-  const weekStart = startOfWeek(base, { weekStartsOn: 1 });
-  const weekEnd = addDays(weekStart, 6);
+  const weekKey = toDateKey(startOfWeek(new Date(dateStr + 'T12:00:00'), { weekStartsOn: 1 }));
   let done = 0;
   (habit.checkedDates || []).forEach(cd => {
-    const d = new Date(cd + 'T12:00:00');
-    if (d >= weekStart && d <= weekEnd) done += 1;
+    const cdWeekKey = toDateKey(startOfWeek(new Date(cd + 'T12:00:00'), { weekStartsOn: 1 }));
+    if (cdWeekKey === weekKey) done += 1;
   });
   return { done, target };
 }
