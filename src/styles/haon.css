@@ -44,6 +44,8 @@
   --cat-habit-fill: #e3aadd;
   --cat-selfcare-dot: #6baa7a; /* 자기관리 = 세이지 (카테고리 전용 hue) */
   --cat-selfcare-fill: #cfe3ce;
+  --cat-money-dot: #c99a4e; /* 가계부 = 앰버 (캡처 인박스 4번째 목적지 축) */
+  --cat-money-fill: #f0ddbe;
 
   /* Radius (DESIGN §5) */
   --radius-haon-sm: 10px;
@@ -106,6 +108,8 @@
   --cat-habit-fill: #e3aadd;
   --cat-selfcare-dot: #6baa7a;
   --cat-selfcare-fill: #cfe3ce;
+  --cat-money-dot: #c99a4e;
+  --cat-money-fill: #f0ddbe;
 
   /* 배경: 직선 3색 스윕 → 옅은 흰 캔버스 + 방사형 blob 2개(채도 낮춤) */
   --haon-bg-base: #fbf8fc;

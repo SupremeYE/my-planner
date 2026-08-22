@@ -170,9 +170,14 @@ do not hand-pick extra hexes.
 | 일정 (schedule) | 블루 blue | `#7B82E3` | `#C3C7F4` |
 | 습관 (habit) | 마젠타 magenta | `#C56FB8` | `#E3AADD` |
 | 자기관리 (self-care) | 세이지 sage | `#6BAA7A` | `#CFE3CE` |
+| 가계부 (money) | 앰버 amber | `#C99A4E` | `#F0DDBE` |
 
 - **세이지 (`#6BAA7A`)** — reused from the existing Haon warm tokens (not net-new), now
   registered as a **category-only hue** in the palette.
+- **가계부 앰버 (`#C99A4E`)** — 캡처 인박스가 분류하는 4번째 목적지(가계부) 축으로 신규 등록.
+  semantic `warning`(`#F6C177`, 임박·주의)과는 **다른 스와치**다 — 축이 다르다(카테고리 hue vs 상태
+  경고). 드리프트 금지, 서로의 hex 를 집어오지 않는다. 소비처(캘린더 dot·필터 칩·칩)의 교체는 후속
+  Stage — 지금은 `--cat-money-*` 토큰 **정의만** 등록한다.
 - **QuickCapture 칩 일정색 확정: 코랄 → 블루.** The 일정 type chip moves off coral to the
   category 블루 above (resolves coral overload); 할일 stays 라일락. See §5 (Quick-capture type chip).
 - **코랄은 카테고리 색으로 쓰지 않는다** — coral (`accent_gradient`) is reserved for
