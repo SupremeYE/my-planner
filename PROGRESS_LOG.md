@@ -6,6 +6,34 @@
 
 ---
 
+## 2026-08-22 — 🔥 습관 스트릭 계산 통합 + 요일 규칙 반영 + 주 경계 버그 수정
+
+### 🔎 Stage 0 — 조사 (읽기 전용, 변경 0)
+
+습관 "N일 연속" 스트릭 로직을 코드·Supabase 실데이터로 조사. **스트릭 구현이 4곳에 중복**(HabitsView `getStreak`·RoutinesView `getStreak`·DashboardView `bestHabitStreak`·ProfileView 집계)돼 정의·시간대가 제각각(문자열 vs Date 비교, `getLogicalToday` vs 원본 `new Date` vs 모듈 로드 시 고정된 stale `today` 상수)이고, **daily 외 유형(weekday/weekly/custom)이 요일 규칙을 무시**해 평일 습관은 최대 5일에서 매주 리셋·주 N회는 연속 개념이 아예 없음을 확인. Supabase `habits` 실측 — "독서하기"(`thqhmnb`, daily) `checked_dates` 12건(최근 08-17·18·19), 오늘 08-22 기준 화면값 0 = 수동 계산 일치.
+
+### 🛠 Stage 1 — 공용 `getHabitStreak` 로 통합
+
+- **공용 함수 신설** `getHabitStreak(habit): { count, unit: 'day' | 'week' }` (`HabitsView.tsx`, 기존 습관 유틸 위치, export). 기존 `getStreak` 의 안전한 부분(문자열 비교 + `T12:00:00` 정오 앵커 + "오늘 유예")을 계승. Habit·Routine(weekly 없음) 모두 만족하는 최소 구조 입력.
+- **유형별 규칙**: daily 현행 / weekday·weekend·custom 은 `isHabitApplicableOnDate` **재사용**(새 판정 함수 없음)해 해당 없는 요일은 끊지 않고 건너뜀 / weekly 는 연속 단위를 **주**로 계산(주 `checkedDates` 수 ≥ `weeklyTarget` 이면 달성, `toDateKey(startOfWeek(weekStartsOn:1))` 방식, 진행 중 이번 주는 유예).
+- **4개 호출처 교체**: 자체 구현 제거하고 공용 함수 호출. 시간대 기준 `getLogicalToday()` 로 통일, RoutinesView stale `today` 상수 의존 제거, ProfileView `new Date(ds)` UTC 파싱 + `daysBetween` 경계 버그 패턴 제거(최장 스트릭은 todos+습관 합산 집계라 성격이 달라 유지하되 날짜 비교만 문자열 방식으로 교체, 현재 스트릭은 공용 함수 daily 재사용).
+- **표시**: `count===0` 이면 배지 미렌더, `unit==='week'` → "N주 연속", `'day'` → "N일 연속".
+
+### 🛠 Stage 2 — `getWeeklyProgress` 주 경계 버그 수정
+
+매주 N회 습관 '이번 주 N/M' 배지에서 **주 마지막날(일요일) 체크가 누락**되던 버그 수정(그리드 1/3인데 배지 0/3). 원인: Date 객체 비교 `d <= weekEnd` 에서 `weekEnd=addDays(weekStart,6)`=일요일 00:00 인데 체크일 `d`는 정오(`T12:00:00`)라 범위 밖으로 탈락. 같은 데이터를 읽는 `getRangeCount` 의 weekly 분기와 동일하게 `toDateKey(startOfWeek(..., weekStartsOn:1))` 문자열 주-시작 키 동등 비교로 통일(weekEnd 23:59 방식은 경계 문제 잔존이라 미사용, 월요일 시작 유지).
+
+### ✅ 검증
+
+- **Stage 1 시나리오(17/17 PASS)**: weekday 월~금 5일 후 토·일 무체크 → 다음 월 아침 5 유지·체크 시 6 이어짐 / weekly 주3회 2주 달성 → "2주 연속"(이번 주 미달·0회여도 유예로 유지) / daily 독서하기 오늘 08-22 → 0 유지 / 새벽 1시(dayEndHour=26) 논리적 오늘=전날, 습관 페이지 == 대시보드 / custom 월수금만 체크 시 비선택 요일 안 끊음·예정일 미완 시 0.
+- **Stage 2**: 월/수/일 체크 → 배지=그리드=3(기존 배지 2, 일요일 누락) / 일요일 단독 → 1(기존 0) / 주 변경 시 0 리셋 / 개별 요일 배지=그리드 일치.
+- 집계 정확도 변경이라 `render:check`(화면 렌더만 커버) 대상 아님 — CLAUDE.md 지침대로 단위 검증. `npm run build`·pre-commit(`lint:fonts`/`lint:colors`) 통과.
+
+### 건드리지 않음
+`isHabitApplicableOnDate`·`getRangeCount`·`renderEmojiCell` 로직, `checked_dates` 스키마(컬럼 추가 0), 최장 스트릭 persist(계속 재계산).
+
+---
+
 ## 2026-08-18 — 💰 하온 머니 문서 현행화 + projects 스키마 조사
 
 ### 🛠 구현 (문서·조사 전용 — 기능 코드/스키마/마이그레이션 변경 0)

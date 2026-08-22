@@ -9,23 +9,14 @@ import { TimePicker } from './TimePicker';
 import { format } from 'date-fns';
 // 시계 포맷은 단일 헬퍼로 통일(1시간 이상 H:MM:SS) — src/lib/formatClock.ts
 import { formatClock as formatDuration } from '../../lib/formatClock';
+// 스트릭은 습관·루틴 공용 함수로 통일(요일 규칙·getLogicalToday 반영) — HabitsView
+import { getHabitStreak } from './HabitsView';
 
 const EMOJI_PALETTE = ['🌅','🧘','🏋️','📖','🚿','☕','🌙','💊','🧹','🍎','🎯','✍️','🎵','💪','🧠','🧴','🌿','🏃','🎨','📝'];
 export const today = getLogicalToday();
 
-export function getStreak(checkedDates: string[]): number {
-  if (!checkedDates?.length) return 0;
-  const sorted = [...checkedDates].sort().reverse();
-  const yesterday = format(new Date(Date.now() - 86400000), 'yyyy-MM-dd');
-  if (sorted[0] !== today && sorted[0] !== yesterday) return 0;
-  let streak = 1;
-  for (let i = 1; i < sorted.length; i++) {
-    const expected = format(new Date(new Date(sorted[0] + 'T12:00:00').getTime() - 86400000 * i), 'yyyy-MM-dd');
-    if (sorted[i] === expected) streak++;
-    else break;
-  }
-  return streak;
-}
+// 스트릭은 습관·루틴 공용 getHabitStreak 로 통일(HabitsView). 루틴은 weekly 가 없어 항상 unit:'day'.
+// 기존 자체 구현(stale today 상수 + Date.now 24h 산술)을 제거.
 
 function isValidYoutubeUrl(url: string): boolean {
   if (!url.trim()) return true;
@@ -755,7 +746,7 @@ export function RoutineCard({ routine, onEdit, onRun }: {
 }) {
   const { t } = useTheme();
   const isCompletedToday = routine.checkedDates?.includes(today);
-  const streak = getStreak(routine.checkedDates ?? []);
+  const streak = getHabitStreak(routine).count; // 루틴은 weekly 없음 → 항상 '일' 단위
   const totalMins = getRoutineTotalMinutes(routine);
   const steps = getRoutineSteps(routine);
 

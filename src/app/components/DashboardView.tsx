@@ -15,6 +15,7 @@ import {
 } from 'date-fns';
 import { ko } from 'date-fns/locale';
 import { AffirmationCard } from './AffirmationCard';
+import { getHabitStreak } from './HabitsView';
 import { useFabAction } from '../FabContext';
 import { formatTotalDoKo, formatDoElapsedKo } from '../../lib/todoDoDuration';
 import { dateDoSeconds } from '../../lib/timeBlocks';
@@ -489,28 +490,18 @@ export function DashboardView() {
   const todayStarredDone = todayStarred.filter((t) => t.status === 'done').length;
   const todoSub = todayStarred.length > 0 ? `중요 할일 ${todayStarredDone}/${todayStarred.length}` : '';
 
-  // Best habit streak
+  // Best habit streak — 공용 getHabitStreak 로 통일(요일 규칙·weekly 주 단위·getLogicalToday 반영)
   const bestHabitStreak = useMemo(() => {
-    if (habits.length === 0) return { name: '', streak: 0 };
-    let best = { name: '', streak: 0 };
+    let best = { name: '', count: 0, unit: 'day' as 'day' | 'week' };
     habits.forEach((h) => {
-      const s = (() => {
-        let streak = 0;
-        let d = new Date();
-        if (!h.checkedDates.includes(format(d, 'yyyy-MM-dd'))) {
-          d = subDays(d, 1);
-        }
-        while (h.checkedDates.includes(format(d, 'yyyy-MM-dd'))) {
-          streak++;
-          d = subDays(d, 1);
-        }
-        return streak;
-      })();
-      if (s > best.streak) best = { name: h.name, streak: s };
+      const s = getHabitStreak(h);
+      if (s.count > best.count) best = { name: h.name, count: s.count, unit: s.unit };
     });
     return best;
   }, [habits]);
-  const habitSub = bestHabitStreak.streak > 0 ? `🔥 ${bestHabitStreak.name} ${bestHabitStreak.streak}일 연속` : '';
+  const habitSub = bestHabitStreak.count > 0
+    ? `🔥 ${bestHabitStreak.name} ${bestHabitStreak.count}${bestHabitStreak.unit === 'week' ? '주' : '일'} 연속`
+    : '';
 
   // Monthly goal progress
   const thisMonthGoals = monthlyGoals.filter((mg) => mg.month === currentMonth);
