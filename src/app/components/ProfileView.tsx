@@ -3,7 +3,7 @@ import { format, addDays } from 'date-fns';
 import { useTheme } from '../ThemeContext';
 import { useAuth } from '../AuthContext';
 import { usePlanner } from '../store';
-import { getHabitStreak } from './HabitsView';
+import { getHabitStreak } from '../lib/habitUtils';
 import {
   Flame, Trophy, Star, Calendar, Clock, CheckSquare, Heart, Zap,
   Edit2, Check, X,

@@ -9,8 +9,8 @@ import { TimePicker } from './TimePicker';
 import { format } from 'date-fns';
 // 시계 포맷은 단일 헬퍼로 통일(1시간 이상 H:MM:SS) — src/lib/formatClock.ts
 import { formatClock as formatDuration } from '../../lib/formatClock';
-// 스트릭은 습관·루틴 공용 함수로 통일(요일 규칙·getLogicalToday 반영) — HabitsView
-import { getHabitStreak } from './HabitsView';
+// 스트릭은 습관·루틴 공용 함수로 통일(요일 규칙·getLogicalToday 반영) — habitUtils
+import { getHabitStreak } from '../lib/habitUtils';
 
 const EMOJI_PALETTE = ['🌅','🧘','🏋️','📖','🚿','☕','🌙','💊','🧹','🍎','🎯','✍️','🎵','💪','🧠','🧴','🌿','🏃','🎨','📝'];
 export const today = getLogicalToday();

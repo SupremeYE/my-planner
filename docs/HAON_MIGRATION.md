@@ -367,3 +367,51 @@ PC/모바일이 명암 역전 재설계로 라벤더 **12라인 전량 회수**(
 - `render:check`: 렌더 하네스에 **`habits` 라우트 신설**(3탭 서브 + 습관 추가 모달 플로우) + mock-db 에
   횟수형(스쿼트)·시간형(명상) 습관 시드 2건 추가(좌측 폭·유형배지 검증용). PC(1280)·모바일(390)
   8장 캡처, **FAIL 0 / WARN 8**(WARN=라벤더 잔여 정보성, 하온 정체성 파스텔).
+
+---
+
+## 13. 습관 트래커 — 달성 표시 A안/B안 재설계 (2026-08-22)
+
+`HabitTrackerView`(습관 트래커 탭, `HabitsView.tsx`) 를 **DESIGN.md §5 "습관 트래커 — 달성 표시"**
+패턴으로 재설계했다. 대상은 트래커 탭뿐 — **습관 실행 탭·루틴 설정 탭·셀 상태 판정 로직·store 는 불변**
+(표현만 교체). 탭마다 보는 목적이 다르므로 같은 표를 범위만 바꿔 그리지 않는다(주간=A안 리스트, 월간·
+연간=B안 카드).
+
+### Step 0 — 계산 유틸 모듈 분리 (`src/app/lib/habitUtils.ts`)
+- `getHabitStreak`·`getWeeklyProgress`·`getRangeCount`·`isHabitApplicableOnDate`·`toDateKey`·
+  `normalizeDate` + `HabitStreak` 타입을 `HabitsView.tsx` 밖으로 **로직 변경 없이 이동**(위치 관례 =
+  `src/app/lib/`, `periodNav.ts` 와 동일 계층). `getRangeCount` 만 컴포넌트 클로저 변수였던 `todayDate`
+  를 인자로 노출(본문 동일).
+- **DashboardView·ProfileView·RoutinesView 의 `getHabitStreak` import 를 `./HabitsView` → `../lib/habitUtils`**
+  로 교체. RoutinesView↔HabitsView **순환 import 제거**(HabitsView 가 RoutinesView 컴포넌트를 쓰던
+  구조에 역방향 의존이 사라짐).
+
+### 달성 셀 색 규칙 (공통, 최우선) — 코랄 단일 톤 3상태
+`renderEmojiCell`(구: 이모지+테두리+다단계) 를 제거하고 `cellState`(판정, 규칙 불변) + `AchvCell`(표현)
+로 분리. **농담 단계·범례 없음**, 형태·크기로 3상태 구분:
+- **달성** = `t.accent` 채움, **테두리 없음**, 꽉 찬 셀.
+- **미달성** = `t.card` + `t.border` **헤어라인만**, 빈 셀(면 유지).
+- **해당없음**(미래·비해당 요일·주N회 비체크일) = `t.textMuted` **축소 점**(30%), 면 안 채움.
+- 셀 안 이모지 반복 제거 → 이모지는 행/카드의 습관 이름 옆에 1회만.
+
+### A안 — 주간 리스트 (이번 주)
+- 한 행 = 습관 하나(`solidRowStyle`). 아이콘 → **습관 이름(행 최대 활자, `fontBody` 15/700)** → 주기
+  라벨(`fontLabel`+`textMuted`) → 🔥스트릭(있을 때만, 코랄 텍스트·배경 없음) → 달성 합계(`fontNumeric`)
+  → 7일 셀.
+- 요일 헤더 상단 1회, **오늘 요일만 코랄**(`t.accent`) 강조. PC = 1행 유지(grid 동일 템플릿으로 헤더↔셀
+  정렬), 모바일 = 2행 접기(이름 줄 / 셀 줄) — 분기는 Tailwind `lg:` 만.
+
+### B안 — 습관 카드 (이번 달 / 올해)
+- 카드 하나 = 습관 하나(`solidCardStyle`), 그리드 = `repeat(auto-fill, minmax(300px,1fr))`
+  (PC 다열 / 모바일 1열, 미디어쿼리 없이 단일 스타일). 카드: 아이콘+이름 → 주기·기간 라벨 → 미니
+  히트맵 → 하단 좌 스트릭 / 우 달성 합계.
+- **월간** = 7열 요일정렬 히트맵(그 달 일수). **연간** = 12행(월) × 31열(일) 히트맵 — 각 행 `repeat(31,1fr)`
+  라 카드 폭에 맞춰 축소, **가로 넘침 없음**(PC·모바일 390 모두 확인). **퍼센트 숫자 나열 제거**(구 연간
+  탭의 0% 셀 도배 해소).
+- 스트릭 배지 = 코랄 텍스트·배경 없음·`count===0` 미렌더, `unit==='week'` → "N주".
+
+### 검증
+- `npm run build`·`lint:colors`(라벤더 432 불변, hex/tailwind 0)·`lint:fonts`(0) 통과.
+- `render:check`: 하네스 `habits` 라우트에 트래커 서브컷 **`tracker-month`·`tracker-year` 추가** →
+  3탭 × PC(1280)·모바일(390) 포함 **12장 캡처, FAIL 0**. 연간 12개월 히트맵 가로 넘침 없음 스크린샷 확인.
+- 스트릭/주간 진행 정합은 별도 단위검증(Stage 1·2, PROGRESS_LOG 2026-08-22) 유지 — 이번은 표현 전용.
