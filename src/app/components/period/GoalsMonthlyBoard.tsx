@@ -573,31 +573,42 @@ function AddWeeklyRow({ t, weeks, defaultWeekKey, onAdd }: {
   );
 }
 
-// ─── 날짜 유틸: 그 달이 걸치는 ISO 주 목록 + 라벨 "M월 N주차" ───
+// ─── 날짜 유틸: 그 달에 "속하는" ISO 주 목록 + 라벨 "M월 N주차" ───
+// 주(월~일)는 그 주의 "목요일이 속한 달"에 배정한다(ISO 논리와 동일 = 과반이 속한 달).
+// 예) 8/1(토)~8/2(일) 주는 목요일이 7/30 → 7월 마지막 주차로 넘어가고, 8월은 8/3~8/9이 1주차.
+//     8/31~9/6 주는 목요일이 9/3 → 9월 1주차. 부분 주가 앞뒤 달로 끌려가 체감과 맞춘다.
+// weekKey(ISO) 자체는 store.getWeekKey 그대로 — 바뀌는 건 "N주차" 라벨과 목록 구성뿐.
 function weeksOfMonth(viewDate: Date): { weekKey: string; label: string }[] {
   const year = viewDate.getFullYear();
   const month0 = viewDate.getMonth();
   const monthNum = month0 + 1;
   const last = new Date(year, month0 + 1, 0).getDate();
-  const seen = new Map<string, number>();
+  const seen = new Set<string>();
   const out: { weekKey: string; label: string }[] = [];
   for (let day = 1; day <= last; day++) {
     const d = new Date(year, month0, day);
+    // 이 날이 속한 ISO 주(월요일 시작)의 목요일을 구해 배정 달을 판정.
+    const dow = (d.getDay() + 6) % 7; // 0=월 … 6=일
+    const thu = new Date(year, month0, day - dow + 3);
+    if (thu.getFullYear() !== year || thu.getMonth() !== month0) continue; // 목요일이 다른 달이면 그 달 몫
     const wk = getWeekKey(d);
     if (!seen.has(wk)) {
-      seen.set(wk, out.length + 1);
+      seen.add(wk);
       out.push({ weekKey: wk, label: `${monthNum}월 ${out.length + 1}주차` });
     }
   }
   return out;
 }
 
-// 이번 달을 보고 있으면 현재 주, 아니면 그 달 첫 주.
+// 이번 달을 보고 있고 현재 주가 이 달에 배정됐으면 현재 주, 아니면 그 달 첫 주.
+// (경계 주간 — 오늘의 주가 목요일 기준으로 옆 달에 배정된 경우 — 목록에 없는 weekKey 가
+//  기본값이 되지 않도록 항상 weeksOfMonth 안의 값으로 되돌린다.)
 function defaultWeekKeyForMonth(viewDate: Date): string {
+  const weeks = weeksOfMonth(viewDate);
   const now = new Date();
   if (now.getFullYear() === viewDate.getFullYear() && now.getMonth() === viewDate.getMonth()) {
-    return getWeekKey(now);
+    const nowKey = getWeekKey(now);
+    if (weeks.some(w => w.weekKey === nowKey)) return nowKey;
   }
-  const first = weeksOfMonth(viewDate)[0];
-  return first ? first.weekKey : getWeekKey(viewDate);
+  return weeks[0]?.weekKey ?? getWeekKey(viewDate);
 }
