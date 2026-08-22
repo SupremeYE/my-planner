@@ -34,6 +34,11 @@ const ALL_ROUTES = [
   {
     // openEventModal: 일정 편집 모달을 열어 태그 선택 UI 를 검출(일정 모달 태그 검증)
     slug: 'daily', path: '/daily', openMenu: true, openEventModal: true,
+    // 모바일 전용 '타임블록' 탭(PC 는 이중 레인이라 탭 없음 → PC 는 자동 스킵). DO 레인의
+    // 완료 시각 마커·실적 블록이 모바일에서 렌더되는지 확인용(PC 는 기본 컷이 이미 커버).
+    subs: [
+      { name: 'timeblock', text: ['🕒 타임블록', '타임블록'] },
+    ],
     // modalFlows: 시드 일정/할일의 수정 모달을 열어 모달 정합(DateField·반복 칩·색 스와치),
     // 종일 토글 시 시간 필드 숨김, 할일 "반복 종료" 3옵션을 실제 렌더로 검출.
     // 각 플로우는 라우트를 새로 로드→steps 텍스트를 순서대로 클릭→스크린샷.
