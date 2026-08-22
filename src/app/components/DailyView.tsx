@@ -31,6 +31,7 @@ import { TodoActionMenu } from './todo/TodoActionMenu';
 import { periodCoversDate, todoEndDate, isTodoIncomplete, deriveTodoPhase, todoRunningDays, type DerivedTodoPhase } from '../../lib/todoPeriod';
 import { RecurrenceBranchModal } from './RecurrenceBranchModal';
 import { RetroSheet } from './RetroSheet';
+import { completionMarkerPatch } from '../../lib/todoDoDuration';
 import { Timeline } from './timeline/Timeline';
 import { TimelineSettingsModal } from './timeline/TimelineSettingsModal';
 
@@ -920,15 +921,18 @@ export function DailyView() {
       finishActiveTimer();
       return;
     }
+    const nowHHMM = format(new Date(), 'HH:mm');
     if (todo.status === 'done') {
-      updateTodo(todo.id, { status: 'active' });
+      // 완료 해제 — 길이 0 완료 시각 마커였다면 함께 정리(실제 소요 기록은 보존).
+      updateTodo(todo.id, { status: 'active', ...completionMarkerPatch(todo, 'active', nowHHMM) });
       setJustCompletedIds(prev => { const n = new Set(prev); n.delete(todo.id); return n; });
       return;
     }
-    // 완료 체크만으로는 실적(DO) 시간을 채우지 않는다 — 시간 기록은 명시적 행위(DO 드래그·
-    // 타이머 완주·수동 입력)로만. 이미 기록된 DO 시간은 보존한다. "완료했는데 0분"은
-    // 리뷰의 건수(件) 축이 해결한다(시간을 지어내지 않는다).
-    updateTodo(todo.id, { status: 'done' });
+    // 완료 체크는 실적(DO) '소요'를 채우지 않는다 — 소요 기록은 명시적 행위(DO 드래그·타이머
+    // 완주·수동 입력)로만. 대신 '언제 했는지'는 남긴다: 실적 DO 가 없으면 do_start=do_end=완료
+    // 시각(길이 0)을 찍어 타임라인 DO 에 시각 마커로 표시한다. 길이 0이라 시간 집계엔 안 잡히고
+    // 건수 축에만 잡힌다(예전 자동 30분 버그와 달리 소요를 지어내지 않음). 이미 기록된 DO 는 보존.
+    updateTodo(todo.id, { status: 'done', ...completionMarkerPatch(todo, 'done', nowHHMM) });
     // 완료 직후 세션 내 유지(규칙 3 완화) — 지난 날짜 항목이 즉시 사라지지 않게.
     setJustCompletedIds(prev => new Set(prev).add(todo.id));
   };
@@ -1638,7 +1642,10 @@ export function DailyView() {
             onEdit={() => setEditingTodo(menuTodo)}
             onSnooze={() => setSnoozingTodo(menuTodo)}
             onFocus={() => setFocusingTodo(menuTodo)}
-            onSetStatus={(st) => updateTodo(menuTodo.id, { status: menuTodo.status === st && st !== 'active' ? 'active' : st })}
+            onSetStatus={(st) => {
+              const next = menuTodo.status === st && st !== 'active' ? 'active' : st;
+              updateTodo(menuTodo.id, { status: next, ...completionMarkerPatch(menuTodo, next, format(new Date(), 'HH:mm')) });
+            }}
             onDelete={contextMenu.source === 'do'
               ? () => {
                   if (doBlk) deleteTimeBlock(doBlk.id);

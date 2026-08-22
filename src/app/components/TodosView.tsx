@@ -16,6 +16,7 @@ import { isInboxCandidate } from '../../lib/inbox';
 import { periodCoversDate, todoEndDate, deriveTodoPhase } from '../../lib/todoPeriod';
 import { shiftedEndDate } from '../../lib/todoSnooze';
 import { TodoActionMenu } from './todo/TodoActionMenu';
+import { completionMarkerPatch } from '../../lib/todoDoDuration';
 import { solidCardStyle, solidRowStyle, glassBarStyle, mixHex, selectedRowStyle, actionBarStyle, buttonStyle } from '../styles/haonStyles';
 
 // ─── Constants ───────────────────────────────────────────────
@@ -36,6 +37,19 @@ const STATUS_NEXT: Record<string, TodoStatus> = {
   backlog:    'active',
   cancelled:  'active',
 };
+
+/**
+ * 상태 전환 + 완료 시각 마커를 한 번에 적용한다(완료 경로가 여러 곳이라 공용화).
+ * 완료로 넘어가면 실적 DO 가 없을 때 do_start=do_end=완료시각(길이 0) 마커를 남기고,
+ * 완료 해제 시 그 마커를 정리한다(실제 소요 기록은 보존). 상세는 completionMarkerPatch 참고.
+ */
+function applyTodoStatus(
+  updateTodo: (id: string, changes: Partial<Todo>) => void,
+  todo: Todo,
+  next: TodoStatus,
+) {
+  updateTodo(todo.id, { status: next, ...completionMarkerPatch(todo, next, format(new Date(), 'HH:mm')) });
+}
 
 const DAYS = ['일', '월', '화', '수', '목', '금', '토'];
 
@@ -346,7 +360,7 @@ function TodoRow({
             updateTodo(todo.id, { date: next, endDate: shiftedEndDate(todo, next), status: 'active' });
           }}
           onFocus={!activeTimer || activeTimer.todoId === todo.id ? handleTodoFocusAction : undefined}
-          onSetStatus={(st) => updateTodo(todo.id, { status: todo.status === st && st !== 'active' ? 'active' : st })}
+          onSetStatus={(st) => applyTodoStatus(updateTodo, todo, todo.status === st && st !== 'active' ? 'active' : st)}
           onDelete={onDelete}
         />
       )}
@@ -454,7 +468,7 @@ function TodoListTab({ selectMode, selected, onSelectToggle }: TabSelectionProps
               <TodoRow
                 key={todo.id}
                 todo={todo}
-                onStatusToggle={() => updateTodo(todo.id, { status: STATUS_NEXT[todo.status] })}
+                onStatusToggle={() => applyTodoStatus(updateTodo, todo, STATUS_NEXT[todo.status])}
                 onEdit={() => setEditingTodo(todo)}
                 onDelete={() => deleteTodo(todo.id)}
                 onTop3Toggle={() => toggleTop3(todo.id)}
@@ -500,7 +514,7 @@ function TodoListTab({ selectMode, selected, onSelectToggle }: TabSelectionProps
                 <TodoRow
                   key={todo.id}
                   todo={todo}
-                  onStatusToggle={() => updateTodo(todo.id, { status: STATUS_NEXT[todo.status] })}
+                  onStatusToggle={() => applyTodoStatus(updateTodo, todo, STATUS_NEXT[todo.status])}
                   onEdit={() => setEditingTodo(todo)}
                   onDelete={() => deleteTodo(todo.id)}
                   onTop3Toggle={() => toggleTop3(todo.id)}
@@ -534,7 +548,7 @@ function TodoListTab({ selectMode, selected, onSelectToggle }: TabSelectionProps
               <TodoRow
                 key={todo.id}
                 todo={todo}
-                onStatusToggle={() => updateTodo(todo.id, { status: STATUS_NEXT[todo.status] })}
+                onStatusToggle={() => applyTodoStatus(updateTodo, todo, STATUS_NEXT[todo.status])}
                 onEdit={() => setEditingTodo(todo)}
                 onDelete={() => deleteTodo(todo.id)}
                 onTop3Toggle={() => toggleTop3(todo.id)}
@@ -564,7 +578,7 @@ function TodoListTab({ selectMode, selected, onSelectToggle }: TabSelectionProps
                   <TodoRow
                     key={todo.id}
                     todo={todo}
-                    onStatusToggle={() => updateTodo(todo.id, { status: STATUS_NEXT[todo.status] })}
+                    onStatusToggle={() => applyTodoStatus(updateTodo, todo, STATUS_NEXT[todo.status])}
                     onEdit={() => setEditingTodo(todo)}
                     onDelete={() => deleteTodo(todo.id)}
                     onTop3Toggle={() => toggleTop3(todo.id)}
@@ -649,7 +663,7 @@ function DoneTodosTab({ selectMode, selected, onSelectToggle }: TabSelectionProp
                   <TodoRow
                     key={todo.id}
                     todo={todo}
-                    onStatusToggle={() => updateTodo(todo.id, { status: 'active' })}
+                    onStatusToggle={() => applyTodoStatus(updateTodo, todo, 'active')}
                     onEdit={() => setEditingTodo(todo)}
                     onDelete={() => deleteTodo(todo.id)}
                     onTop3Toggle={() => toggleTop3(todo.id)}

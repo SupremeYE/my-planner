@@ -893,6 +893,36 @@ flat 처리)로 정의하고 콘텐츠 표면처럼 `backdrop-filter` 를 쓰지
 
 ---
 
+### 타임라인 DO — 완료 시각 마커 (execution-time marker)
+
+일간/주간 타임라인의 **DO 레인**에는 두 종류가 그려진다. 둘을 시각적으로 반드시 구분한다.
+
+| | 실적 블록 (duration block) | **완료 시각 마커 (moment marker)** |
+|---|---|---|
+| 의미 | "이만큼 **걸렸다**" (소요 있음) | "이 시각에 **했다**" (소요 없음) |
+| 데이터 | `do_start`≠`do_end`, `doElapsedSec>0` (타이머·드래그·수동) | `do_start`=`do_end`, `doElapsedSec=0` |
+| 길이 | 소요에 비례한 세로 막대 | **0 (순간)** |
+| 표현 | 채움+테두리+좌측 3px 바 블록 | **점(✓ 원) + 할일명 + 얇은 선 꼬리** |
+| 조정 | 드래그·리사이즈 가능 | 불가(순간엔 조정할 구간이 없음). 탭=편집 |
+| 시간 축(집계) | 소요만큼 잡힘 | **0초 — 안 잡힘** |
+| 건수 축(집계) | 잡힘 | 잡힘 |
+
+- **왜 마커인가.** 자동 30분 부여를 제거하며 완료 체크가 `do_*`를 안 남기게 됐다. "몇 분 걸렸다"는
+  지어내지 않되(§통계·비교) "몇 시에 했다"는 사실은 남기려고, 완료 체크 시 실적 DO 가 없으면
+  `do_start=do_end=완료시각`, `doElapsedSec=0`(길이 0)을 찍는다.
+- **예전 30분 버그의 재발이 아니다.** 30분 버그는 **소요를 30분으로 지어냈다**(시간 축 오염). 이 마커는
+  **길이가 0**이라 시간 집계(`todoDoDurationSeconds`→0, `aggregateActivity`의 `sec<=0` 가드)에 절대 안
+  잡히고, "얼마나 자주" 를 세는 **건수 축에만** 잡힌다. 마커가 아무리 늘어도 시간 축은 불변.
+- **색.** 태그색(첫 태그) 우선, 없으면 DO 기본 그린(`#6BAA7A`/`defaultBlockBorder`). 라벤더 미사용.
+- **완료 해제 시.** 마커(길이 0)면 `do_*`를 함께 정리한다. **실제 소요가 기록된 DO 는 보존**한다
+  (완료만 풀고 소요는 남긴다).
+- **점 위치 = 실행 시각.** 마커의 점(✓ 원) 중심이 그 `do_start` 시각선에 오도록 앉힌다.
+- 구현: 데이터/집계 = `lib/todoDoDuration.ts`(`isCompletionMarker`·`completionMarkerPatch`),
+  렌더 = `timeline/Timeline.tsx`(`renderDoMarker`). 완료 경로는 `DailyView`/`TodosView` 체크박스·
+  상태 메뉴가 `completionMarkerPatch`를 공유한다.
+
+---
+
 ## 6. 캘린더 페이지 (page-specific patterns)
 
 The **라이프 캘린더** (`/calendar`) shows life entries — 할일 / 일정 / 습관 / 자기관리 — on

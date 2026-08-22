@@ -905,6 +905,49 @@ export function Timeline({ days = 1, selectedDate, dateTodos, dateEvents, onShow
     return tag?.color || null;
   };
 
+  // ── 완료 시각 마커 (execution-time marker) ──
+  // do_start=do_end, doElapsedSec=0 인 "언제 했다"만 남긴 완료 기록. 시간 블록이 아니라
+  // 점(✓)+얇은 선으로 렌더해 "길이 있는 실적 블록"과 시각적으로 구분한다. 길이 0이라
+  // 드래그/리사이즈 없음(순간엔 조정할 구간이 없다). 탭=편집, 우클릭=컨텍스트 메뉴.
+  // (DESIGN.md §5 "타임라인 DO — 완료 시각 마커" 참고)
+  const MARKER_HEIGHT = 18;
+  const renderDoMarker = (
+    todo: Todo, atTime: string, top: number, tagColor: string | null,
+    laneBounds: { left: string; right: string },
+  ) => {
+    const clr = tagColor || defaultBlockBorder || '#6BAA7A';
+    const blk = (todo as DoBlockTodo)._blk;
+    const editDetail = blk ? (todoById.get(blk.todoId) ?? todo) : todo;
+    return (
+      <div key={`${todo.id}-do`}
+        className="timeline-block"
+        style={{
+          position: 'absolute',
+          top: top - MARKER_HEIGHT / 2, height: MARKER_HEIGHT,
+          left: laneBounds.left, right: laneBounds.right,
+          display: 'flex', alignItems: 'center', gap: 5,
+          cursor: 'pointer', userSelect: 'none', zIndex: 2, overflow: 'visible',
+          opacity: todo.status === 'cancelled' ? 0.4 : 1,
+        }}
+        onClick={() => window.dispatchEvent(new CustomEvent('editTodo', { detail: editDetail }))}
+        onContextMenu={e => { e.preventDefault(); onShowContextMenu(todo, { x: e.clientX, y: e.clientY }, 'do'); }}
+        title={`${todo.text}\n${atTime} 완료`}
+      >
+        {/* 점 + 체크 — 이 위치(top)가 실행 시각. */}
+        <span className="inline-flex items-center justify-center flex-shrink-0"
+          style={{ width: 15, height: 15, borderRadius: '50%', backgroundColor: clr, color: '#fff', fontSize: 8, fontWeight: 700, lineHeight: 1, boxShadow: `0 1px 3px ${clr}55` }}>
+          ✓
+        </span>
+        {/* 할일명 — 마커는 '했다'는 사실 표식이라 취소선을 긋지 않는다. */}
+        <span style={{ fontSize: 11, fontWeight: 600, color: clr, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', flexShrink: 1, minWidth: 0 }}>
+          {todo.text}
+        </span>
+        {/* 얇은 선 꼬리 — 순간(길이 0)임을 블록과 구분. */}
+        <span aria-hidden style={{ flex: 1, height: 1.5, minWidth: 8, borderRadius: 1, background: `${clr}59` }} />
+      </div>
+    );
+  };
+
   // layout: 주간 컬럼 내부 배치용 left/right 오버라이드 (지정 시 compare 레인 분할/탭필터 무시).
   const renderBlock = (todo: Todo, type: 'plan' | 'do', layout?: { left: string; right: string }) => {
     const start = type === 'plan' ? todo.planStart : todo.doStart;
@@ -925,15 +968,17 @@ export function Timeline({ days = 1, selectedDate, dateTodos, dateEvents, onShow
     const isCheckOnlyDo = !isPlan && todo.doElapsedSec === 0;
     const hasFocusedDuration = !isPlan && todo.doElapsedSec != null && todo.doElapsedSec > 0;
     const top = (startMin / 60 - tlStartHour) * HOUR_HEIGHT;
-    const height = isCheckOnlyDo ? 30 : Math.max((endMin - startMin) * PX_PER_MIN, 20);
     const tagColor = getTodoTagColor(todo);
     const laneBounds = layout ?? getTimelineLaneBounds(isPlan ? 'plan' : 'do');
     if (!laneBounds) return null;
-    const canDrag = isPlan || !isCheckOnlyDo;
+    // 완료 시각 마커(길이 0 DO)는 블록이 아니라 점+선으로 렌더한다. 아래는 모두 '길이 있는' 블록.
+    if (isCheckOnlyDo) return renderDoMarker(todo, start, top, tagColor, laneBounds);
+    const height = Math.max((endMin - startMin) * PX_PER_MIN, 20);
+    const canDrag = true;
 
     // DO 초과 감지 (DO 시간 > PLAN 시간) — 타이머 실제 초가 있으면 분 단위 막대 대신 사용
     let isOvertime = false;
-    if (!isPlan && !isCheckOnlyDo && todo.planStart && todo.planEnd) {
+    if (!isPlan && todo.planStart && todo.planEnd) {
       const planDur = timeToMinutes(todo.planEnd) - timeToMinutes(todo.planStart);
       const doDurMin =
         todo.doElapsedSec != null && todo.doElapsedSec >= 0
@@ -954,10 +999,6 @@ export function Timeline({ days = 1, selectedDate, dateTodos, dateEvents, onShow
       bg = 'rgba(250,232,214,0.65)';
       textColor = OVERTIME_BAR_BORDER;
       borderClr = OVERTIME_BAR_BORDER;
-    } else if (isCheckOnlyDo) {
-      bg = tagColor ? `${tagColor}12` : (defaultBlockBg ?? 'rgba(212,237,224,0.45)');
-      textColor = tagColor || defaultBlockText || '#3D7A58';
-      borderClr = tagColor || defaultBlockBorder || '#6BAA7A';
     } else if (tagColor) {
       bg = tagColor + '1A';
       textColor = tagColor;
@@ -978,7 +1019,7 @@ export function Timeline({ days = 1, selectedDate, dateTodos, dateEvents, onShow
         ? `${todo.text} ${baseTimeLabel} ${durationLabel}`
         : todo.text;
     const detailLabel = isPlan ? baseTimeLabel : hasFocusedDuration ? `${baseTimeLabel} ${durationLabel}` : '';
-    const isCompact = isCheckOnlyDo || height < 52;
+    const isCompact = height < 52;
     const titleLabel = isPlan
       ? `${todo.text}\n${baseTimeLabel}`
       : hasFocusedDuration
@@ -1032,37 +1073,9 @@ export function Timeline({ days = 1, selectedDate, dateTodos, dateEvents, onShow
         >⋯</button>
         {isCompact ? (
           <div className="flex items-center gap-2 h-full">
-            {isCheckOnlyDo && (
-              <span
-                className="relative inline-flex items-center justify-center flex-shrink-0"
-                style={{
-                  width: 16,
-                  height: 16,
-                  borderRadius: '50%',
-                  border: `1.5px solid ${borderClr}`,
-                  backgroundColor: `${borderClr}12`,
-                }}
-              >
-                <span
-                  className="inline-flex items-center justify-center"
-                  style={{
-                    width: 9,
-                    height: 9,
-                    borderRadius: '50%',
-                    backgroundColor: borderClr,
-                    color: '#fff',
-                    fontSize: 7,
-                    fontWeight: 700,
-                    lineHeight: 1,
-                  }}
-                >
-                  ✓
-                </span>
-              </span>
-            )}
             <span style={{
               fontSize: 11, fontWeight: 600, color: textColor,
-              textDecoration: isCheckOnlyDo ? 'none' : (todo.status === 'done' ? 'line-through' : 'none'),
+              textDecoration: todo.status === 'done' ? 'line-through' : 'none',
               overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
             }}>
               {compactLabel}

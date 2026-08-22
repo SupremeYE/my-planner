@@ -1,4 +1,40 @@
-import type { Todo } from '../app/store';
+import type { Todo, TodoStatus } from '../app/store';
+
+/**
+ * 완료 시각 마커 판별 — DO 구간 길이가 0(순간)인 "언제 했다"만 남긴 기록.
+ * do_start = do_end 이고 소요(doElapsedSec)가 0. 타임라인 DO 레인에 블록이 아니라
+ * 점+선 마커로 렌더되고, 시간 집계엔 0초로 잡혀 시간 축을 오염시키지 않는다(건수 축만).
+ * (예전 자동 30분 버그와 다름: 그건 소요를 30분으로 '지어냈고', 이건 길이 0으로 '언제'만 기록.)
+ */
+export function isCompletionMarker(t: Pick<Todo, 'doStart' | 'doEnd' | 'doElapsedSec'>): boolean {
+  return t.doElapsedSec === 0 && !!t.doStart && t.doStart === t.doEnd;
+}
+
+/**
+ * 상태 전환에 따른 완료 시각 마커 패치.
+ *  - → 'done' 인데 실적 DO 가 아직 없으면: do_start=do_end=완료시각, doElapsedSec=0 (길이 0 마커).
+ *    이미 do_* 가 있으면(타이머·드래그·수동 입력) 실제 기록을 존중해 건드리지 않는다.
+ *    date 없는(인박스) 할일은 타임라인에 자리가 없어 마커를 남기지 않는다.
+ *  - 'done' 에서 벗어나는데 기존이 마커(길이 0)면: do_* 정리(실제 소요가 있으면 보존).
+ *  - 그 외: 빈 패치.
+ * "완료했는데 0분"은 시간을 지어내지 않고 건수(件) 축으로 해결한다는 원칙(§통계·비교)과 일치.
+ */
+export function completionMarkerPatch(
+  todo: Pick<Todo, 'date' | 'status' | 'doStart' | 'doEnd' | 'doElapsedSec'>,
+  nextStatus: TodoStatus,
+  nowHHMM: string,
+): Partial<Todo> {
+  const wasDone = todo.status === 'done';
+  const willBeDone = nextStatus === 'done';
+  if (willBeDone && !wasDone) {
+    if (!todo.date || todo.doStart || todo.doEnd) return {};
+    return { doStart: nowHHMM, doEnd: nowHHMM, doElapsedSec: 0 };
+  }
+  if (wasDone && !willBeDone && isCompletionMarker(todo)) {
+    return { doStart: undefined, doEnd: undefined, doElapsedSec: undefined };
+  }
+  return {};
+}
 
 /** DO 구간의 실제 소요 시간(초). 타이머 기록이 있으면 우선, 없으면 doStart~doEnd 분 단위 차이를 초로 환산 */
 export function todoDoDurationSeconds(t: Pick<Todo, 'doStart' | 'doEnd' | 'doElapsedSec'>): number {

@@ -77,10 +77,13 @@ const weeklyGoals = [
 // ── 할일 (12+; 완료/미완료/기간/늦음/태그유무/중요) ─────────────────────────
 const todos = [
   // 오늘 — 다양한 상태
-  { id: 't01', text: '매뉴얼 양식 공유', date: TODAY, endDate: TODAY, status: 'done', isTop3: true, tags: ['tag-work'], projectId: 'proj-a', weeklyGoalId: 'wg-1' },
+  // t01 = 길이 있는 실적 블록(타이머/드래그로 소요 기록) — 완료 시각 마커와 대비되는 대상
+  { id: 't01', text: '매뉴얼 양식 공유', date: TODAY, endDate: TODAY, status: 'done', isTop3: true, tags: ['tag-work'], projectId: 'proj-a', weeklyGoalId: 'wg-1', planStart: '14:00', planEnd: '15:00', doStart: '14:05', doEnd: '14:50', doElapsedSec: 2700 },
   { id: 't02', text: '웹모델 현황 문의하기', date: TODAY, endDate: TODAY, status: 'active', isTop3: true, tags: ['tag-work'] },
-  { id: 't03', text: '아침 스트레칭', date: TODAY, endDate: TODAY, status: 'done', isTop3: false, tags: ['tag-health'] },
-  { id: 't04', text: '이메일 회신', date: TODAY, endDate: TODAY, status: 'done', isTop3: false, tags: [] },
+  // t03 = 완료 시각 마커(태그 有) — do_start=do_end, elapsed 0 → 점+선 마커
+  { id: 't03', text: '아침 스트레칭', date: TODAY, endDate: TODAY, status: 'done', isTop3: false, tags: ['tag-health'], doStart: '08:15', doEnd: '08:15', doElapsedSec: 0 },
+  // t04 = 완료 시각 마커(태그 無) — 기본색 마커
+  { id: 't04', text: '이메일 회신', date: TODAY, endDate: TODAY, status: 'done', isTop3: false, tags: [], doStart: '10:40', doEnd: '10:40', doElapsedSec: 0 },
   { id: 't05', text: '리액트 훅 공부', date: TODAY, endDate: TODAY, status: 'inProgress', isTop3: true, tags: ['tag-study'], weeklyGoalId: 'wg-4' },
   { id: 't06', text: '장보기 목록 작성', date: TODAY, endDate: TODAY, status: 'active', isTop3: false, tags: ['tag-life'] },
   { id: 't07', text: '회의록 정리', date: TODAY, endDate: TODAY, status: 'active', isTop3: false, tags: [] },

@@ -54,6 +54,21 @@ test('건수 축: 시간이 없어도 태그만 붙으면 잡힌다 (시간 축�
   assert.equal(rows.find(r => r.tagId === 'work')!.count, 3);
 });
 
+test('완료 시각 마커(do_start=do_end, elapsed 0): 건수엔 잡히고 시간 축은 오염 안 됨', () => {
+  const todos = [
+    // 길이 있는 실적 1건(60분)
+    todo({ id: 'a', tags: ['work'], date: '2026-08-05', doStart: '09:00', doEnd: '10:00', doElapsedSec: 3600 }),
+    // 완료 시각 마커 2건 — do_start=do_end, elapsed 0 (길이 0 → 시간 0)
+    todo({ id: 'm1', tags: ['work'], date: '2026-08-06', doStart: '16:00', doEnd: '16:00', doElapsedSec: 0 }),
+    todo({ id: 'm2', tags: ['work'], date: '2026-08-07', doStart: '11:39', doEnd: '11:39', doElapsedSec: 0 }),
+  ];
+  const agg = aggregateActivity(todos, [], tags, '2026-08-03', '2026-08-09');
+  // 시간 축: 마커는 0초라 60분만(마커가 늘어도 시간 축 불변 — 예전 30분 버그 재발 아님)
+  assert.equal(Math.round(agg.byTag.get('work')!.minutes), 60);
+  // 건수 축: 마커도 '했다'는 사실이라 모두 잡힘(3건)
+  assert.equal(agg.byTag.get('work')!.count, 3);
+});
+
 test('인사이트: 이력 충분한 태그의 공백은 알림, 이력 적은 태그는 제외', () => {
   const today = '2026-08-10';
   // 자기관리: 3건(=GAP_MIN_HISTORY), 마지막 7/17 → 24일 공백 → 주간(14)·월간(21) 모두 알림
