@@ -119,13 +119,15 @@ const events = [
 // ── 습관 ────────────────────────────────────────────────────────────────────
 const checked = (offsets: number[]) => offsets.map((o) => iso(shift(o)));
 const habits = [
-  { id: 'h1', name: '물 마시기', checkedDates: checked([0, -1, -2, -4]), habitType: 'check', repeat: 'daily', color: '#8FB7C9', dailyProgress: {}, dailyMemos: {} },
-  { id: 'h2', name: '독서', checkedDates: checked([-1, -2, -3]), habitType: 'check', repeat: 'daily', color: '#6BAA7A', dailyProgress: {}, dailyMemos: {} },
-  { id: 'h3', name: '운동', checkedDates: checked([0, -2, -5]), habitType: 'check', repeat: 'weekly', weeklyTarget: 3, color: '#D4735A', dailyProgress: {}, dailyMemos: {} },
+  // 색은 신 균일 파스텔(HSL S60/L78, hue만 상이) — 습관별 지정 색이 트래커 셀·실행 체크원에 반영되는지 검증.
+  { id: 'h1', name: '물 마시기', checkedDates: checked([0, -1, -2, -4]), habitType: 'check', repeat: 'daily', color: '#A5CDE9', dailyProgress: {}, dailyMemos: {} },
+  { id: 'h2', name: '독서', checkedDates: checked([-1, -2, -3]), habitType: 'check', repeat: 'daily', color: '#A5E9DB', dailyProgress: {}, dailyMemos: {} },
+  { id: 'h3', name: '운동', checkedDates: checked([0, -2, -5]), habitType: 'check', repeat: 'weekly', weeklyTarget: 3, color: '#E9A5B0', dailyProgress: {}, dailyMemos: {} },
+  // 레거시 값(#C4A882 골드) 1건 유지 — normalizeHabitColor 리맵(→피치)이 렌더에 적용되는지 확인용
   { id: 'h4', name: '일기', checkedDates: checked([-1, -3, -6]), habitType: 'check', repeat: 'daily', color: '#C4A882', dailyProgress: {}, dailyMemos: {} },
   // 좌측 컨트롤 폭 통일(횟수형·시간형이 체크형과 같은 x에서 제목 시작하는지) + 타입 배지/신 파스텔 검증용
-  { id: 'h5', name: '스쿼트', checkedDates: checked([-1]), habitType: 'count', targetValue: 30, repeat: 'daily', color: '#C3C7F4', dailyProgress: { [iso(shift(0))]: 12 }, dailyMemos: {} },
-  { id: 'h6', name: '명상', checkedDates: [], habitType: 'time', targetValue: 10, repeat: 'daily', color: '#E3AADD', dailyProgress: {}, dailyMemos: {} },
+  { id: 'h5', name: '스쿼트', checkedDates: checked([-1]), habitType: 'count', targetValue: 30, repeat: 'daily', color: '#D8A5E9', dailyProgress: { [iso(shift(0))]: 12 }, dailyMemos: {} },
+  { id: 'h6', name: '명상', checkedDates: [], habitType: 'time', targetValue: 10, repeat: 'daily', color: '#A5E9AE', dailyProgress: {}, dailyMemos: {} },
 ];
 
 // ── 회고/리뷰 ────────────────────────────────────────────────────────────────

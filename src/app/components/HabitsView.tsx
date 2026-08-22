@@ -14,19 +14,34 @@ import { SegmentedControl } from './ui/SegmentedControl';
 import { solidCardStyle, solidRowStyle, glassBarStyle, mixHex, hexToRgb, inputBg } from '../styles/haonStyles';
 import { getHabitStreak, getWeeklyProgress, getRangeCount, isHabitApplicableOnDate, toDateKey, normalizeDate } from '../lib/habitUtils';
 
-// ─── 습관 색상 팔레트 (Theme H 파스텔) ───────────────────────────────────────
-// 기존 팔레트(진남색·주황·초록·하늘·보라·회색)는 채도 높은 원색이라 Theme H 통일감을 깨뜨렸다.
-// DESIGN.md Haon 파스텔 + --cat 세이지로 교체. (lavender-mist #F4E7FB 는 lint:colors R2 밴이라 제외.)
-const HABIT_COLORS = ['#C3C7F4', '#F6BCBA', '#CFE3CE', '#C8A8E9', '#E3AADD', '#F2DDDC'];
-// 기존 습관에 저장된 구 팔레트 hex → 신 파스텔 매핑(색상별 1:1, 유사 색조). 스토어 값은 건드리지 않고
-// 표시/피커 소비 시점에 정규화한다(= 렌더 리맵 + 편집 시 지연 마이그레이션). 목록 외 커스텀 hex 는 그대로 존중.
+// ─── 습관 색상 팔레트 (Theme H 균일 파스텔) ───────────────────────────────────
+// 명도·채도 통일(HSL S=60%·L=78% 고정), 색상(hue)만 회전한 8색. 트래커 달성 셀·실행 탭 체크원이
+// 습관별로 이 색을 쓴다(DESIGN.md §5 "습관 트래커 — 달성 표시": 코랄 단일 톤 → 습관별 지정 색).
+// 1차 파스텔(#C3C7F4 등)은 명도·채도가 제각각이라(웜크림 매우 옅음 vs 라일락 진함) 통일 세트로 재교체.
+// (lavender-mist #F4E7FB 등 lint:colors R2 밴 4색과는 무충돌.)
+const HABIT_COLORS = ['#A5CDE9', '#A5E9DB', '#A5E9AE', '#E9C5A5', '#E9A5B0', '#E9A5D2', '#D8A5E9', '#A5A5E9'];
+//                     스카이     민트      세이지    피치      로즈      오키드    라일락    페리윙클
+// 미지정 습관의 기본색(fallback) — 팔레트 첫 색(스카이). 코랄 t.accent 대신 팔레트 내 색으로 통일.
+const DEFAULT_HABIT_COLOR = HABIT_COLORS[0];
+// 기존 저장 hex → 신 균일 팔레트 매핑(hue 유사 1:1). 스토어 값은 건드리지 않고 표시/피커 소비 시점에
+// 정규화(= 렌더 리맵 + 편집 시 지연 마이그레이션). 목록·매핑 밖 커스텀 hex 는 그대로 존중.
 const LEGACY_HABIT_COLOR_MAP: Record<string, string> = {
-  '#515f74': '#C3C7F4', // 진남색 → 페리윙클
-  '#D4735A': '#F6BCBA', // 주황(테라코타) → 소프트 코랄
-  '#006b62': '#CFE3CE', // 초록(틸) → 세이지
-  '#7B9ED9': '#C8A8E9', // 하늘 → 라일락
-  '#A07BE0': '#E3AADD', // 보라 → 오키드 핑크
-  '#6B7280': '#F2DDDC', // 회색 → 웜 크림
+  // 원본 원색 팔레트(진남·주황·초록·하늘·보라·회색)
+  '#515f74': '#A5A5E9', // 진남색 → 페리윙클
+  '#D4735A': '#E9C5A5', // 주황(테라코타) → 피치
+  '#006b62': '#A5E9DB', // 초록(틸) → 민트
+  '#7B9ED9': '#A5CDE9', // 하늘 → 스카이
+  '#A07BE0': '#D8A5E9', // 보라 → 라일락
+  '#6B7280': '#A5CDE9', // 회색(무채색) → 스카이(기본 계열)
+  // 1차 파스텔(비균일) → 균일 파스텔
+  '#C3C7F4': '#A5A5E9', // 페리윙클(구) → 페리윙클
+  '#F6BCBA': '#E9A5B0', // 소프트코랄 → 로즈
+  '#CFE3CE': '#A5E9AE', // 세이지(구) → 세이지
+  '#C8A8E9': '#D8A5E9', // 라일락(구) → 라일락
+  '#E3AADD': '#E9A5D2', // 오키드핑크 → 오키드
+  '#F2DDDC': '#E9C5A5', // 웜크림 → 피치
+  // 레거시 브랜드 골드 기본값(습관 팔레트 외로 저장돼 온 값) → 피치로 통일
+  '#C4A882': '#E9C5A5', // 골드 → 피치
 };
 function normalizeHabitColor(c?: string): string | undefined {
   if (!c) return c;
@@ -644,7 +659,7 @@ export function HabitChip({ habit, date }: { habit: Habit; date: string }) {
     return `${m}:${s}`;
   };
 
-  const accentColor = normalizeHabitColor(habit.color) || t.accent;
+  const accentColor = normalizeHabitColor(habit.color) || DEFAULT_HABIT_COLOR;
   const onAcc = onFill(accentColor, t.text);
   const warnFg = mixHex(t.warning, 0, 0.42);
 
@@ -819,12 +834,13 @@ function HabitTrackerView() {
     return checked ? 'done' : 'miss';
   };
 
-  // 달성 셀 (DESIGN.md §5 "습관 트래커 — 달성 표시"): 코랄 단일 톤·농담 단계 없음·범례 없음.
-  //   달성 = t.accent 채움(테두리 없음) / 미달성 = t.card + t.border 헤어라인 / 해당없음 = 뮤트 축소 점(면 안 채움).
+  // 달성 셀 (DESIGN.md §5 "습관 트래커 — 달성 표시"): 습관별 지정 색·농담 단계 없음(이진)·범례 없음.
+  //   달성 = habit.color 채움(테두리 없음) / 미달성 = t.card + t.border 헤어라인 / 해당없음 = 뮤트 축소 점(면 안 채움).
+  //   미달성·해당없음은 색과 무관하게 현행 유지(습관색은 달성 셀에만).
   const AchvCell = ({ habit, date, radius = 3 }: { habit: Habit; date: Date; radius?: number }) => {
     const st = cellState(habit, date);
     const base: React.CSSProperties = { width: '100%', aspectRatio: '1 / 1', borderRadius: radius };
-    if (st === 'done') return <div style={{ ...base, backgroundColor: t.accent }} />;
+    if (st === 'done') return <div style={{ ...base, backgroundColor: normalizeHabitColor(habit.color) || DEFAULT_HABIT_COLOR }} />;
     if (st === 'miss') return <div style={{ ...base, backgroundColor: t.card, border: `1px solid ${t.border}` }} />;
     return (
       <div style={{ ...base, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -1116,7 +1132,7 @@ export function HabitsView() {
                             : '커스텀'}
                         </span>
                         {habitType !== 'check' && (() => {
-                          const hue = normalizeHabitColor(h.color) || t.accent;
+                          const hue = normalizeHabitColor(h.color) || DEFAULT_HABIT_COLOR;
                           return (
                             <span className="px-1.5 py-0.5 rounded-full"
                               style={{ fontSize: 10, fontFamily: t.fontLabel, backgroundColor: mixHex(hue, 255, 0.80), color: mixHex(hue, 0, 0.40) }}>
