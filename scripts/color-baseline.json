@@ -1,7 +1,7 @@
 {
   "//": "lint:colors 파일별 baseline. t.lavenderTint/t.lavenderHover 소비 라인 수(파일별). 청소로 줄면 `npm run lint:colors -- --update` 로 낮춘다. 늘면 가드가 실패한다. 의도적 액센트는 소스에 `// lint-colors-ok: 사유` 주석으로 면제.",
   "generatedFrom": "scripts/check-colors.mjs --update",
-  "total": 432,
+  "total": 412,
   "files": {
     "src/app/components/BacklogView.tsx": 9,
     "src/app/components/BooksView.tsx": 18,
@@ -27,7 +27,6 @@
     "src/app/components/RecipeView.tsx": 1,
     "src/app/components/RoutinesView.tsx": 17,
     "src/app/components/ScrapView.tsx": 6,
-    "src/app/components/SelfCareView.tsx": 20,
     "src/app/components/SettingsView.tsx": 5,
     "src/app/components/SomedayView.tsx": 1,
     "src/app/components/TimeField.tsx": 2,

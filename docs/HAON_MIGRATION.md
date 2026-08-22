@@ -24,6 +24,7 @@
 **진척.** 만다라트 재설계(Stage B, 2026-08-08)로 baseline **478 → 466**(97파일) — 만다라트 보드
 PC/모바일이 명암 역전 재설계로 라벤더 **12라인 전량 회수**(surfaceMuted/inputBg/투명 ghost로 이행,
 `MandalartBoardPC`·`MandalartBoardMobile` = 0). SendCellModal(10)은 범위 밖으로 잔존.
+이후 `HabitsView`(37→3), `SelfCareView`(20→0, §13) 정리로 baseline **412**(97파일)까지 축소.
 
 **성격 분류(샘플 기반 대략 비율) = 정리 방향.**
 
@@ -41,7 +42,7 @@ PC/모바일이 명암 역전 재설계로 라벤더 **12라인 전량 회수**(
 |---|---|---|
 | `HabitsView.tsx` | 3 | ✅ 완료 (37→3, §12) — 남은 3은 선택 칩(반복/요일/유형) 라일락 fill |
 | `DailyView.tsx` | 22 | ☐ 미착수 |
-| `SelfCareView.tsx` | 20 | ☐ 미착수 |
+| `SelfCareView.tsx` | 0 | ✅ 완료 (20→0, §13) — 전량 회수(기능면 12→surfaceMuted, 입력 8→inputBg) |
 | `BooksView.tsx` | 18 | ☐ 미착수 |
 | `RoutinesView.tsx` | 17 | ☐ 미착수 |
 | `MomentView.tsx` | 16 | ☐ 미착수 |
@@ -367,3 +368,43 @@ PC/모바일이 명암 역전 재설계로 라벤더 **12라인 전량 회수**(
 - `render:check`: 렌더 하네스에 **`habits` 라우트 신설**(3탭 서브 + 습관 추가 모달 플로우) + mock-db 에
   횟수형(스쿼트)·시간형(명상) 습관 시드 2건 추가(좌측 폭·유형배지 검증용). PC(1280)·모바일(390)
   8장 캡처, **FAIL 0 / WARN 8**(WARN=라벤더 잔여 정보성, 하온 정체성 파스텔).
+
+---
+
+## 13. 시간 리포트 페이지 (SelfCareView) — 라일락 청소 완료 (2026-08-22)
+
+`src/app/components/SelfCareView.tsx` 의 `lavenderTint` 소비 **20 → 0**. 색·표면만 교체, 레이아웃·
+구조·시간 집계 로직(`useTimeReport`/`timeAggregation`)은 불변.
+
+### 파일 식별 (Stage 0)
+- **SelfCareView = 「시간 리포트」 페이지**(`/time-report`; `/selfcare` → redirect). 사이드바 "시간 리포트"
+  메뉴가 렌더. `useTimeReport(period)` 소비.
+- **"뷰티" 메뉴는 별도 파일** `beauty/BeautyCareView.tsx`(`/beauty-care`). BeautyCareView 셸 자체는
+  라벤더 0건이나, 하위 컴포넌트 6개(`BeautyCareMobile`·`BeautyCareDesktop`·`SelfCareGauge`·`BeautyShelf`·
+  `BeautyProductSheet`·`SpecialCareSheet`)에 **총 15건 잔존** — 별도 후속 작업 대상.
+- SelfCareView 는 `SleepSection`·`PeriodSection` 을 export 해 **HealthView(건강)** 에서도 렌더한다 →
+  20건 중 일부(수면·생리 영역 11건)는 건강 페이지 소비처.
+
+### 분류 & 처리 (20건 전량 회수 — 의도적 액센트 0건)
+- **작성 표면 8건 → `inputBg(t)`(흰색):** 생리 모달 시작일/종료일 date·메모 textarea(223·229·277),
+  수면 기록 date(723), 수면 검색바 컨테이너(1188, 내부 input transparent), 수동기록 모달 날짜·내용·
+  소요분 input(1332·1338·1344).
+- **기능적 2차 표면 12건 → `t.surfaceMuted`(중립 그레이):** 생리 양/증상 **미선택** 칩(242·261),
+  수면 취침/기상 슬롯 **빈** 배경(628), 검색 토글 **비활성**(1178), 검색 무결과·활동 무결과 빈 상태
+  (1219·1581), 더보기 버튼(1274), 수동기록 카테고리 **미선택** 칩(1320), 취소 버튼(1348),
+  **요일별 활동 바 트랙**(1530), **카테고리별 진행바 트랙**(1566), **주/월 세그먼트 트랙**(1755).
+- **의도 액센트 보존:** 라벤더는 전부 "미선택/트랙/빈 상태" 쪽이었고, 선택·채움은 별도 색
+  (코랄 `t.accent`·태그색 `c.tagColor`·`PERIOD_COLOR`·`SLEEP_COLOR`)이라 회수 대상 아님 → 남긴 라일락 0.
+
+### 트랙 중립화 후 대비 확보 (요일별 활동 바 · 세그먼트)
+- **요일별 활동 바:** 트랙을 연라벤더→중립 그레이(`surfaceMuted #F3F0F6`)로 바꾼 뒤에도 채움(태그색:
+  골드·세이지)과 빈 요일이 명확히 구분됨(render:check `pc-time-report` 확인 — 토요일만 채움, 나머지
+  6일 중립 트랙). 오히려 연라벤더보다 채도 대비가 또렷.
+- **주/월 세그먼트:** 트랙=중립, 선택="이번 주"=코랄 fill(`t.accent`) 유지 → 선택/미선택 대비 보존.
+- **수면 슬롯:** 빈=중립 그레이+연한 테두리, 채움=`SLEEP_COLOR` tint+블루 테두리 → 대비 강화(중립 vs 블루).
+
+### 가드/검증
+- `lint:colors`: SelfCareView **20 → 0**. baseline `--update`(총 **432 → 412** / 97파일). hex/tailwind 위반 0.
+- `lint:fonts`: 0 위반. `npm run build`: 통과.
+- `render:check --route=time-report,health-condition`: PC(1280)·모바일(390) 6장, **FAIL 0 / WARN 6**
+  (WARN=라벤더 잔여 정보성 — SelfCareView 외 사이드바·대시보드 우측 레일 등 타 컴포넌트 소비).
