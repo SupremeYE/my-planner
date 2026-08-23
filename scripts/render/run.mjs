@@ -80,6 +80,10 @@ const ALL_ROUTES = [
   },
   // 컨디션 재설계(condition·slot 축) 검증 — 통계 카드·요일 셀·기록 리스트를 시드로 렌더.
   { slug: 'health-condition', path: '/health?tab=condition' },
+  // 뷰티 케어 — 라일락 청소 검증. 게이지(트랙/스파크)·스페셜케어 카드(fresh/soon/over)·
+  // 보유함 카드(썸네일·expiry 바)·카테고리 필터칩(PC). 시트는 modalFlow 로 열어 스캔(오버레이).
+  // 시트는 리로드 없이 로드된 페이지에서 직접 연다(아래 route.slug==='beauty' 특수 처리).
+  { slug: 'beauty', path: '/beauty-care' },
   // 머니 — 기본(가계부) + 나머지 3탭. 시드는 mock-money-db.ts.
   {
     slug: 'money', path: '/money',
@@ -364,6 +368,34 @@ async function main() {
           // 통계 카드 아래 '기록 리스트'(컨디션·시점 뱃지)까지 담기 위해 스크롤 컨테이너를 끝까지 내린다.
           await scrollToBottom(page);
           await doShot('list');
+        }
+        if (route.slug === 'beauty') {
+          // 시트(오버레이)는 플로우마다 라우트를 새로 로드해 연다. PC/모바일 이중 트리라 같은
+          // 텍스트가 숨은 트리에도 있어(.first() 가 display:none 을 집어 클릭 타임아웃) →
+          // '보이는' 요소만 클릭한다. (modalFlow 의 tryClickText 가 실패하던 원인이 이 숨은 트리.)
+          const clickVisibleText = async (text) => {
+            const loc = page.getByText(text, { exact: false });
+            const n = await loc.count();
+            for (let i = 0; i < n; i++) {
+              const el = loc.nth(i);
+              try { if (await el.isVisible()) { await el.click({ timeout: 2000 }); await page.waitForTimeout(500); return true; } } catch {}
+            }
+            return false;
+          };
+          const sheetFlows = [
+            { name: 'care-sheet', text: '모공팩' },    // 스페셜케어 편집 시트(취소 버튼)
+            { name: 'product-sheet', text: '클렌징폼' }, // 제품 편집 시트(썸네일·정보박스·다씀보관·취소)
+          ];
+          for (const f of sheetFlows) {
+            try {
+              await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 45000 });
+              await settle(page);
+              if (await clickVisibleText(f.text)) { await scrollToBottom(page); await doShot(f.name); }
+              else console.log(`   · beauty:${f.name} 트리거 못 찾음(스킵)`);
+            } catch (e) {
+              console.log(`   · beauty:${f.name} 실패(스킵): ${e.message.split('\n')[0]}`);
+            }
+          }
         }
         for (const sub of route.subs || []) {
           const ok = await tryClickText(page, sub.text);

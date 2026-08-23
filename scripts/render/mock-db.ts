@@ -164,6 +164,28 @@ const routines = [
   { id: 'ro1', name: '모닝 루틴', icon: '☀️', startTime: '07:00', duration: 30, steps: ['기상', '물 한잔', '스트레칭'], checkedDates: checked([0, -1, -2]), repeat: 'daily' },
 ];
 
+// ── 뷰티 케어 (스페셜케어 상태 혼합 + 보유함 expiry 티어/보관/카테고리) ──────
+// 케어 status(careUtils.careStatus): fresh(<=cycle*0.6) / soon(<=cycle) / over(>cycle)
+const beautySpecialCare = [
+  // 오늘 완료 → doneToday(오늘 완료 배지), fresh
+  { id: 'bc1', name: '모공팩', icon: '🧖‍♀️', cycleDays: 7, doneDates: [TODAY], createdAt: shift(-30).toISOString() },
+  // 경과 10일 / 주기 14 → soon(곧)
+  { id: 'bc2', name: '발각질', icon: '🦶', cycleDays: 14, doneDates: [iso(shift(-10))], createdAt: shift(-40).toISOString() },
+  // 경과 12일 / 주기 7 → over(지남, dangerLight 카드)
+  { id: 'bc3', name: '두피 스케일링', icon: '💆‍♀️', cycleDays: 7, doneDates: [iso(shift(-12))], createdAt: shift(-50).toISOString() },
+  // 경과 3일 / 주기 30 → fresh
+  { id: 'bc4', name: '립 스크럽', icon: '💋', cycleDays: 30, doneDates: [iso(shift(-3))], createdAt: shift(-20).toISOString() },
+];
+const beautyProducts = [
+  // 사용 중 — expiry tier: fresh(넉넉) / soon(임박) / expired(지남) / 미입력
+  { id: 'bp1', name: '수분크림', brand: '라운드랩', category: '스킨케어', photoUrl: null, openedAt: iso(shift(-20)), expiryMonths: 6, purchasePlace: null, price: null, link: null, memo: null, isActive: true, createdAt: shift(-20).toISOString() },
+  { id: 'bp2', name: '선크림', brand: '아누아', category: '선케어', photoUrl: null, openedAt: iso(shift(-160)), expiryMonths: 6, purchasePlace: null, price: null, link: null, memo: null, isActive: true, createdAt: shift(-160).toISOString() },
+  { id: 'bp3', name: '클렌징폼', brand: '세타필', category: '클렌징', photoUrl: null, openedAt: iso(shift(-400)), expiryMonths: 12, purchasePlace: null, price: null, link: null, memo: null, isActive: true, createdAt: shift(-400).toISOString() },
+  { id: 'bp4', name: '립밤', brand: '닥터자르트', category: '메이크업', photoUrl: null, openedAt: null, expiryMonths: null, purchasePlace: null, price: null, link: null, memo: null, isActive: true, createdAt: shift(-5).toISOString() },
+  // 다 쓴 보관함
+  { id: 'bp5', name: '토너', brand: '토리든', category: '스킨케어', photoUrl: null, openedAt: iso(shift(-300)), expiryMonths: 6, purchasePlace: null, price: null, link: null, memo: null, isActive: false, createdAt: shift(-300).toISOString() },
+];
+
 const settings = {
   dayStartHour: 4,
   dayEndHour: 26,
@@ -214,6 +236,8 @@ const SEED: Record<string, any> = {
     { id: 'mo1', content: '노을이 예뻤던 저녁 산책', photos: [], is_highlight: true, created_at: now.toISOString() },
   ],
   userSymptoms: [],
+  beautyProducts: beautyProducts,
+  beautySpecialCare: beautySpecialCare,
   // 컨디션 재설계 검증 시드 — 하루 여러 건/컨디션만/구 기록(null) 시나리오를 모두 담는다.
   conditionRecords: [
     // 오늘: 아침 좋음(스트레스 낮음) → 저녁 나쁨(스트레스 높음). "아침엔 괜찮았는데 저녁에 무너졌다".

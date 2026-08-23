@@ -24,7 +24,8 @@
 **진척.** 만다라트 재설계(Stage B, 2026-08-08)로 baseline **478 → 466**(97파일) — 만다라트 보드
 PC/모바일이 명암 역전 재설계로 라벤더 **12라인 전량 회수**(surfaceMuted/inputBg/투명 ghost로 이행,
 `MandalartBoardPC`·`MandalartBoardMobile` = 0). SendCellModal(10)은 범위 밖으로 잔존.
-이후 `HabitsView`(37→3), `SelfCareView`(20→0, §13) 정리로 baseline **412**(97파일)까지 축소.
+이후 `HabitsView`(37→3), `SelfCareView`(20→0, §13), 뷰티 하위 6개(15→0, §14) 정리로
+baseline **397**(91파일)까지 축소.
 
 **성격 분류(샘플 기반 대략 비율) = 정리 방향.**
 
@@ -43,6 +44,7 @@ PC/모바일이 명암 역전 재설계로 라벤더 **12라인 전량 회수**(
 | `HabitsView.tsx` | 3 | ✅ 완료 (37→3, §12) — 남은 3은 선택 칩(반복/요일/유형) 라일락 fill |
 | `DailyView.tsx` | 22 | ☐ 미착수 |
 | `SelfCareView.tsx` | 0 | ✅ 완료 (20→0, §13) — 전량 회수(기능면 12→surfaceMuted, 입력 8→inputBg) |
+| 뷰티 하위 6개 (`beauty/*`) | 0 | ✅ 완료 (15→0, §14) — 전량 surfaceMuted 회수 |
 | `BooksView.tsx` | 18 | ☐ 미착수 |
 | `RoutinesView.tsx` | 17 | ☐ 미착수 |
 | `MomentView.tsx` | 16 | ☐ 미착수 |
@@ -408,3 +410,46 @@ PC/모바일이 명암 역전 재설계로 라벤더 **12라인 전량 회수**(
 - `lint:fonts`: 0 위반. `npm run build`: 통과.
 - `render:check --route=time-report,health-condition`: PC(1280)·모바일(390) 6장, **FAIL 0 / WARN 6**
   (WARN=라벤더 잔여 정보성 — SelfCareView 외 사이드바·대시보드 우측 레일 등 타 컴포넌트 소비).
+
+---
+
+## 14. 뷰티 케어 페이지 (beauty/*) — 라일락 청소 완료 (2026-08-23)
+
+뷰티 케어(`/beauty-care`)는 셸(`BeautyCareView.tsx`, 라벤더 0) 아래 **하위 컴포넌트 6개에 15건**이
+흩어져 있었다. `lavenderTint` 소비 **15 → 0**. 색·표면만 교체, 레이아웃·구조·뷰티 로직(useBeauty·
+careUtils) 불변.
+
+### 파일별 분류 & 처리 (전량 `t.surfaceMuted` 회수 — 작성표면·의도액센트 0)
+- `BeautyCareMobile.tsx` (2): 스페셜케어·보유함 **스켈레톤** 2건 → surfaceMuted.
+- `BeautyCareDesktop.tsx` (4): `CareCardPC`·`ProductCardPC`·`StatBox` 카드 배경(3) + 카테고리
+  **미선택** 필터칩(1) → surfaceMuted. (카드는 흰 `DCard` 안에 **중첩** → §5 "흰 카드 안 중첩행=
+  surfaceMuted". over 카드는 dangerLight, 선택 칩은 accent 보존.)
+- `SelfCareGauge.tsx` (2): 하트% 게이지 **트랙 링**(채움=tier.color 보존) + 스파크 바 **off**
+  (on=accent 보존) → surfaceMuted.
+- `BeautyShelf.tsx` (2): expiry **진행바 트랙**(채움=색 보존) + 제품 **썸네일 플레이스홀더** → surfaceMuted.
+- `BeautyProductSheet.tsx` (4): 썸네일 플레이스홀더 + "다시 살 때 도움되는 정보" 박스 + "다 씀 보관"
+  2차 버튼 + "취소" 버튼 → surfaceMuted. (입력칸은 이미 흰색, 주 액션 "또 샀어요/저장"은 코랄 유지.)
+- `SpecialCareSheet.tsx` (1): "취소" 2차 버튼 → surfaceMuted.
+
+### 자체 판단 사항
+- **PC/모바일 대응 — 드리프트 아님(컨텍스트 차이).** 모바일 카드(`SpecialCareSection`·`BeautyShelf`
+  `ProductCard`)는 **캔버스 위 독립 카드**라 흰색(`t.card`)+그림자(§1 solid)로 이미 정당. 데스크톱
+  카드는 **흰 `DCard` 섹션 안 중첩**이라 surfaceMuted. 둘의 색이 다른 건 규칙(§5)이 컨텍스트로
+  가르는 정당한 차이 — 억지로 통일하지 않았다. (모바일 흰 카드+회색 썸네일 / 데스크톱 회색 카드+
+  흰 썸네일 = 각 뷰포트 내부에서 카드↔썸네일 대비 유지.)
+- **게이지 트랙 대비.** 트랙 링을 라벤더→중립 그레이(`surfaceMuted #F3F0F6`)로 바꿔도 흰 카드 위에서
+  링이 또렷(render:check `beauty` 75% 컷에서 빈 25% 구간이 명확히 보임). 0%여도 같은 회색 링이 전체를
+  두르므로 가시성 동일(라벤더와 명도대 유사, 채움만 사라짐).
+- **주 액션 위계.** "또 샀어요/저장/오늘 했어요/추가"는 전부 코랄(`t.accent`) 유지 — 라벤더였던 것은
+  모두 2차(취소·다 씀 보관)·트랙·미선택·스켈레톤뿐이라 위계 역전 없음(BooksView 전례 점검 결과 해당 없음).
+
+### 가드/검증
+- `lint:colors`: 뷰티 6개 파일 **15 → 0**(파일별 4·4·2·2·2·1). baseline `--update`(총 **412 → 397** /
+  91파일). hex/tailwind 위반 0. `lint:fonts`: 0. `npm run build`: 통과.
+- `render:check`: **하네스에 `beauty` 라우트 신설** + `mock-db.ts` 에 뷰티 시드 추가(스페셜케어 4건=
+  fresh/soon/over/오늘완료 혼합, 제품 5건=expiry fresh/soon/expired/미입력 + 보관 1건 + 카테고리).
+  시트는 **이중 트리(PC/모바일 동시 렌더)** 때문에 `.first()` 가 숨은 트리를 집어 클릭 실패 →
+  **'보이는' 요소만 클릭**하도록 처리. 시트는 라우트 재로드 후 열어 스캔(care-sheet·product-sheet).
+  PC(1280)·모바일(390) 기본+시트 6장, **FAIL 0 / WARN 6**(WARN=라벤더 잔여 정보성, 뷰티 외 크롬 소비).
+  확인: 게이지 트랙/스파크·케어 카드(over=danger vs 일반=중립)·필터칩(선택 코랄/미선택 중립)·제품
+  썸네일·expiry 바·시트 입력칸 흰색·2차 버튼 중립·주 액션 코랄.
