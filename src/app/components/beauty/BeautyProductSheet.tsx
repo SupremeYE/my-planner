@@ -101,7 +101,7 @@ export function BeautyProductSheet({ product, onSave, onRepurchase, onSetActive,
           {/* 썸네일 + 잔여 */}
           <div className="flex items-center gap-3">
             <div className="rounded-xl overflow-hidden flex items-center justify-center flex-shrink-0"
-              style={{ width: 64, height: 64, backgroundColor: t.lavenderTint, border: `1px solid ${t.borderLight}` }}>
+              style={{ width: 64, height: 64, backgroundColor: t.surfaceMuted, border: `1px solid ${t.borderLight}` }}>
               {product?.photoUrl
                 ? <img src={product.photoUrl} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                 : <span aria-hidden style={{ fontSize: 30 }}>{categoryEmoji(category)}</span>}
@@ -149,7 +149,7 @@ export function BeautyProductSheet({ product, onSave, onRepurchase, onSetActive,
           </div>
 
           {/* 제품정보 — 다시 살 때 도움 */}
-          <div className="rounded-xl p-3 space-y-3" style={{ backgroundColor: t.lavenderTint, border: `1px solid ${t.borderLight}` }}>
+          <div className="rounded-xl p-3 space-y-3" style={{ backgroundColor: t.surfaceMuted, border: `1px solid ${t.borderLight}` }}>
             <p style={{ fontSize: 12, fontWeight: 700, color: t.textSub }}>다시 살 때 도움되는 정보</p>
             <div className="flex gap-3">
               <div className="flex-1">
@@ -197,7 +197,7 @@ export function BeautyProductSheet({ product, onSave, onRepurchase, onSetActive,
                   product.isActive ? (
                     <button type="button" onClick={() => onSetActive(product.id, false)}
                       className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-xl"
-                      style={{ fontSize: 13.5, fontWeight: 700, color: t.textSub, backgroundColor: t.lavenderTint, border: `1px solid ${t.border}` }}>
+                      style={{ fontSize: 13.5, fontWeight: 700, color: t.textSub, backgroundColor: t.surfaceMuted, border: `1px solid ${t.border}` }}>
                       <Archive size={15} /> 다 씀 보관
                     </button>
                   ) : (
@@ -223,7 +223,7 @@ export function BeautyProductSheet({ product, onSave, onRepurchase, onSetActive,
           <div className="hidden lg:flex items-center gap-2 pt-1">
             <div className="flex-1" />
             <button type="button" onClick={onClose} className="px-4 py-2.5 rounded-xl"
-              style={{ fontSize: 14, fontWeight: 600, color: t.textSub, backgroundColor: t.lavenderTint, border: `1px solid ${t.border}` }}>취소</button>
+              style={{ fontSize: 14, fontWeight: 600, color: t.textSub, backgroundColor: t.surfaceMuted, border: `1px solid ${t.border}` }}>취소</button>
             <button type="submit" disabled={submitting} className="px-5 py-2.5 rounded-xl"
               style={{ fontSize: 14, fontWeight: 700, color: '#fff', backgroundColor: t.accent, opacity: submitting ? 0.6 : 1 }}>
               {submitting ? '저장 중…' : '저장'}

@@ -125,7 +125,7 @@ export function SpecialCareSheet({ care, onSave, onDelete, onClose }: Props) {
           <div className="hidden lg:flex items-center gap-2 pt-1">
             <div className="flex-1" />
             <button type="button" onClick={onClose} className="px-4 py-2.5 rounded-xl"
-              style={{ fontSize: 14, fontWeight: 600, color: t.textSub, backgroundColor: t.lavenderTint, border: `1px solid ${t.border}` }}>취소</button>
+              style={{ fontSize: 14, fontWeight: 600, color: t.textSub, backgroundColor: t.surfaceMuted, border: `1px solid ${t.border}` }}>취소</button>
             <button type="submit" disabled={submitting} className="px-5 py-2.5 rounded-xl"
               style={{ fontSize: 14, fontWeight: 700, color: '#fff', backgroundColor: t.accent, opacity: submitting ? 0.6 : 1 }}>
               {submitting ? '저장 중…' : '저장'}
