@@ -66,6 +66,21 @@ const ALL_ROUTES = [
     ],
   },
   { slug: 'goals', path: '/goals' },
+  // 독서(BooksView) — 라일락 청소 검증. 기본(읽는 중) + 구절·통계 서브탭,
+  // 책 상세 모달의 진도/구절(좌측 패널·작성 폼)/노트 탭 플로우.
+  // 시드는 mock-supabase.ts(SUPA_SEED) — BooksView 는 db 가 아니라 supabase 를 직접 부른다.
+  {
+    slug: 'books', path: '/books',
+    subs: [
+      { name: 'quotes', text: ['구절'] },
+      { name: 'stats', text: ['통계'] },
+    ],
+    modalFlows: [
+      { name: 'detail', steps: ['몰입의 즐거움'] },                    // 상세 모달(진도 탭) — 진도바 트랙
+      { name: 'detail-quotes', steps: ['몰입의 즐거움', '구절 ('] },   // 구절 탭 — 좌측 패널·작성 폼·저장
+      { name: 'detail-note', steps: ['몰입의 즐거움', '노트'] },       // 노트 탭 — 저장 버튼
+    ],
+  },
   // 습관 & 루틴 — Theme H 마이그레이션 검증. 3개 탭(습관 실행 기본 + 트래커·루틴 설정 서브),
   // 습관 추가 모달(글래스 표면·파스텔 스와치·세그먼트) 플로우.
   {
