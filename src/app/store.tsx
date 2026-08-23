@@ -829,7 +829,7 @@ interface PlannerContextType {
   updateAppSettings: (s: Partial<AppSettings>) => void;
 
   // Todo actions
-  addTodo: (todo: Omit<Todo, 'id'>) => void;
+  addTodo: (todo: Omit<Todo, 'id'>) => string;
   updateTodo: (id: string, changes: Partial<Todo>) => void;
   deleteTodo: (id: string) => void;
   deleteTodos: (ids: string[]) => void;
@@ -838,7 +838,7 @@ interface PlannerContextType {
   updateRecurringTodo: (parentId: string, instanceDate: string, changes: Partial<Todo>, scope: 'this' | 'future' | 'all') => void;
 
   // Event actions
-  addEvent: (event: Omit<Event, 'id'>) => void;
+  addEvent: (event: Omit<Event, 'id'>) => string;
   updateEvent: (id: string, changes: Partial<Event>) => void;
   deleteEvent: (id: string) => void;
   /** 완료 토글 전용. 반복 가상 occurrence 면 그 회차만 예외 행으로 구체화 후 completed 저장. */
@@ -1313,6 +1313,8 @@ export function PlannerProvider({ children }: { children: React.ReactNode }) {
     const newTodo: Todo = { ...todo, id: newId(), tags: todo.tags ?? [], endDate };
     setTodos(prev => [...prev, newTodo]);
     db.todos.upsert(newTodo);
+    // 생성 id 반환(하위호환 — 기존 호출부는 반환값을 무시). 캡처 인박스 승인이 routed_ref_id 로 사용.
+    return newTodo.id;
   }, []);
 
   // 반복 가상 인스턴스(`parentId::date`)를 실제 예외 레코드로 구체화하고 실제 todo id를 반환한다.
@@ -1492,6 +1494,8 @@ export function PlannerProvider({ children }: { children: React.ReactNode }) {
     void db.events.upsert(newEvent).then(() => {
       void db.events.fetchAll().then(setEvents);
     });
+    // 생성 id 반환(하위호환 — 기존 호출부는 반환값을 무시). 캡처 인박스 승인이 routed_ref_id 로 사용.
+    return newEvent.id;
   }, []);
 
   // 반복 가상 occurrence(`parentId::date`)를 실제 예외 행으로 구체화하고 실제 event id 를 반환.

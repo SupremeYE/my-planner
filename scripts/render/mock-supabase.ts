@@ -85,13 +85,52 @@ const FAKE_SESSION = {
   user: FAKE_USER,
 };
 
+// ── 시드: 테이블별 select 결과(하네스가 실제 컴포넌트를 시드로 렌더). 대부분은 mock-db 가
+//    담당하지만, capture_inbox 처럼 supabase 를 직접 쓰는 경로는 여기서 시드를 준다.
+//    (필터/정렬은 무시 — 시드를 그대로 돌려준다.)
+const CAPTURE_INBOX_SEED = [
+  {
+    id: 'cap-0001', raw_text: '내일 3시에 치과', source: 'shortcut', status: 'pending',
+    proposed_type: 'event', proposed_payload: { title: '치과 예약', start_date: '2026-08-24', start_time: '15:00' },
+    confidence: 0.9, classifier_error: null, routed_table: null, routed_ref_id: null, routed_at: null,
+    captured_at: '2026-08-23T07:46:00.000Z', created_at: '2026-08-23T07:46:00.000Z',
+  },
+  {
+    id: 'cap-0002', raw_text: '점심 8천원 카드로', source: 'shortcut', status: 'pending',
+    proposed_type: 'money', proposed_payload: { type: 'expense', amount: 8000, currency: 'KRW', spent_at: '2026-08-23', method_hint: '카드' },
+    confidence: 0.9, classifier_error: null, routed_table: null, routed_ref_id: null, routed_at: null,
+    captured_at: '2026-08-23T07:44:00.000Z', created_at: '2026-08-23T07:44:00.000Z',
+  },
+  {
+    id: 'cap-0003', raw_text: '우유 사기', source: 'shortcut', status: 'pending',
+    proposed_type: 'todo', proposed_payload: { text: '우유 사기' },
+    confidence: 0.9, classifier_error: null, routed_table: null, routed_ref_id: null, routed_at: null,
+    captured_at: '2026-08-23T07:43:00.000Z', created_at: '2026-08-23T07:43:00.000Z',
+  },
+  {
+    id: 'cap-0004', raw_text: '다음 주쯤 그거 정리해봐야겠다', source: 'shortcut', status: 'pending',
+    proposed_type: 'seed', proposed_payload: { kind: 'do', text: '그거 정리해봐야겠다' },
+    confidence: 0.7, classifier_error: null, routed_table: null, routed_ref_id: null, routed_at: null,
+    captured_at: '2026-08-23T07:42:00.000Z', created_at: '2026-08-23T07:42:00.000Z',
+  },
+  {
+    id: 'cap-0005', raw_text: '언젠가 그거 알아봐야지 흠…', source: 'shortcut', status: 'pending',
+    proposed_type: null, proposed_payload: null,
+    confidence: 0.2, classifier_error: null, routed_table: null, routed_ref_id: null, routed_at: null,
+    captured_at: '2026-08-23T07:41:00.000Z', created_at: '2026-08-23T07:41:00.000Z',
+  },
+];
+const TABLE_SEED: Record<string, any[]> = {
+  capture_inbox: CAPTURE_INBOX_SEED,
+};
+
 // 체이닝 가능한 쿼리 빌더: 모든 메서드가 자기 자신을 반환하고,
-// await 하면 { data: SUPA_SEED[table] ?? [], error: null } 로 resolve 된다.
-// (필터/정렬은 무시 — mock-db 와 동일 철학. 시드가 있는 테이블만 값을 돌려준다.)
+// await 하면 { data, error: null } 로 resolve 된다. books(SUPA_SEED)·capture_inbox(TABLE_SEED)
+// 두 시드를 병합해 조회한다(필터/정렬은 무시 — mock-db 와 동일 철학).
 function makeQueryBuilder(table?: string) {
-  const data = (table && SUPA_SEED[table]) || [];
-  const result = { data, error: null };
-  const single = { data: data[0] ?? null, error: null };
+  const rows = (table && (SUPA_SEED[table] || TABLE_SEED[table])) || [];
+  const result = { data: rows, error: null, count: rows.length };
+  const single = { data: rows[0] ?? null, error: null };
   const handler: ProxyHandler<any> = {
     get(_t, prop) {
       if (prop === 'then') {
