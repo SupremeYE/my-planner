@@ -22,6 +22,7 @@ import { ProfileView } from './components/ProfileView';
 import { VisionBoardView } from './components/VisionBoardView';
 import { ScrapView } from './components/ScrapView';
 import { SomedayView } from './components/SomedayView';
+import { InboxView } from './components/InboxView';
 import { PlacesView } from './components/PlacesView';
 import { WalkView } from './components/WalkView';
 import { BeautyCareView } from './components/beauty/BeautyCareView';
@@ -38,7 +39,7 @@ export const router = createBrowserRouter([
       { path: 'daily',        Component: DailyView },
       { path: 'calendar',     Component: CalendarView },
       { path: 'todos',        Component: TodosView },
-      { path: 'inbox',        element: <Navigate to="/todos" replace /> },
+      { path: 'inbox',        Component: InboxView },
       { path: 'goals',        Component: GoalsHubView },
       { path: 'projects',     Component: ProjectsView },
       { path: 'projects/:id', Component: ProjectDetailView },

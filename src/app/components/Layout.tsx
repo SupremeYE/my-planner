@@ -6,11 +6,12 @@ import {
   Menu, Heart, Repeat, BookOpen, Library, Settings, BarChart3,
   Smile, Utensils, Camera, Clapperboard, ChefHat,
   Sparkles, Bookmark, PenLine, MapPin, Footprints,
-  Flower2, SprayCan, Wallet, Sprout,
+  Flower2, SprayCan, Wallet, Sprout, Inbox,
   User, LogOut, Mail,
 } from 'lucide-react';
 import { usePlanner, getWeekKey, getLogicalToday } from '../store';
 import { countInboxActive } from '../../lib/inbox';
+import { useCapturePending } from '../hooks/useCapturePending';
 import { useTheme } from '../ThemeContext';
 import { useAuth } from '../AuthContext';
 import { format, startOfMonth, getDaysInMonth, getDay, addMonths, subMonths } from 'date-fns';
@@ -149,6 +150,7 @@ const mainNavItems = [
   { to: '/daily', icon: Sun, label: '일간' },
   { to: '/calendar', icon: CalendarDays, label: '캘린더' },
   { to: '/todos', icon: ListTodo, label: '할일' },
+  { to: '/inbox', icon: Inbox, label: '캡처 인박스' },
   { to: '/goals', icon: BarChart2, label: '목표관리' },
 ];
 
@@ -400,6 +402,9 @@ function MobileMenuOverlay({ onClose }: { onClose: () => void }) {
   const location = useLocation();
   const { todos } = usePlanner();
   const inboxCount = countInboxActive(todos);
+  const capturePending = useCapturePending();
+  // 배지: /todos = 미정리 할일 수, /inbox = 미승인 캡처 수(별개 축).
+  const badgeCount = (to: string) => (to === '/todos' ? inboxCount : to === '/inbox' ? capturePending : 0);
   const [isIn, setIsIn] = useState(false);
   const [pressedItem, setPressedItem] = useState<string | null>(null);
 
@@ -518,7 +523,7 @@ function MobileMenuOverlay({ onClose }: { onClose: () => void }) {
                   }}
                 >
                   <Icon size={20} color={isActive ? t.accent : t.textMuted} />
-                  {to === '/todos' && inboxCount > 0 && (
+                  {badgeCount(to) > 0 && (
                     <span
                       className="absolute flex items-center justify-center rounded-full"
                       style={{
@@ -527,7 +532,7 @@ function MobileMenuOverlay({ onClose }: { onClose: () => void }) {
                         border: `2px solid ${t.card}`,
                       }}
                     >
-                      {inboxCount}
+                      {badgeCount(to)}
                     </span>
                   )}
                 </div>
@@ -557,6 +562,9 @@ export function Layout() {
 
   // Inbox 미정리(날짜 미지정·미완료) 개수 — 사이드바 배지
   const inboxCount = countInboxActive(todos);
+  // 캡처 인박스 미승인 건수 — 별개 배지(/inbox)
+  const capturePending = useCapturePending();
+  const badgeCount = (to: string) => (to === '/todos' ? inboxCount : to === '/inbox' ? capturePending : 0);
   const [showNewProject, setShowNewProject] = useState(false);
   const [leftSidebarOpen, setLeftSidebarOpen] = useState(true);
   const [rightPanelOpen, setRightPanelOpen] = useState(true);
@@ -671,17 +679,17 @@ export function Layout() {
                     <div className="relative">
                       <Icon size={18} color={navIconColor(isActive, to)} />
                       {/* 사이드바 접힘 상태: 아이콘 우상단 미니 점 */}
-                      {to === '/todos' && inboxCount > 0 && !leftSidebarOpen && (
+                      {badgeCount(to) > 0 && !leftSidebarOpen && (
                         <span className="absolute -top-1 -right-1 w-2 h-2 rounded-full" style={{ backgroundColor: t.accent }} />
                       )}
                     </div>
                     {leftSidebarOpen && <span className="flex-1">{label}</span>}
-                    {to === '/todos' && inboxCount > 0 && leftSidebarOpen && (
+                    {badgeCount(to) > 0 && leftSidebarOpen && (
                       <span
                         className="rounded-full px-1.5 min-w-[18px] text-center"
                         style={{ fontSize: 10, fontWeight: 700, color: '#fff', backgroundColor: t.accent }}
                       >
-                        {inboxCount}
+                        {badgeCount(to)}
                       </span>
                     )}
                   </>

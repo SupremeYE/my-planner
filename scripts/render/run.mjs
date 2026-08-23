@@ -44,6 +44,9 @@ const ALL_ROUTES = [
     ],
   },
   { slug: 'todos', path: '/todos', openMenu: true },
+  // 캡처 인박스 — 서버 분류 제안 카드(event/todo/money/seed/미확정) 스와이프 승인 UI.
+  // 시드는 mock-supabase.ts 의 CAPTURE_INBOX_SEED(5건, seed 는 confidence 0.7 저확신 마커).
+  { slug: 'inbox', path: '/inbox' },
   // 시간 리포트 — 일정 태그 집계가 나타나는지(주간 리뷰 시간 스트립과 같은 소스)
   { slug: 'time-report', path: '/time-report' },
   {

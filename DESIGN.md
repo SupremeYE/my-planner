@@ -468,7 +468,7 @@ they are passive nav hints, not actions (⑨b; coral stays reserved for accent /
 
 1. **스와이프 액션 카드** — 솔리드 카드가 가로로 드래그되며 **뒤의 리빌 레이어**가 드러난다.
    - **오른쪽 드래그 = 승인** — 코랄 그라데이션 리빌(`t.primaryGradient` = `#FF9A8B→#FF6F91`, §gradients).
-   - **왼쪽 드래그 = 버리기** — 더스티 리빌 `#F2DDDC`(웜크림 — 이미 승인된 Haon 파스텔, Habits 팔레트에 존재).
+   - **왼쪽 드래그 = 버리기** — 더스티 리빌 `#F2DDDC`(= `warm-cream`, 팔레트 정식 등록 값 §colors core pastel).
      danger 코랄(`dangerLight #F6BCBA`)보다 **저채도**라 "위험"이 아닌 "치워둠"으로 읽힌다(파괴 아님·복구 가능).
    - **임계값 90px** — 이 이상 끌고 놓으면 액션 확정, 미만이면 복귀.
    - **복귀 트랜지션 `.26s cubic-bezier(.2,.8,.3,1)`** — 손을 떼면 카드가 이 이징으로 제자리/확정 위치로.
@@ -484,6 +484,7 @@ they are passive nav hints, not actions (⑨b; coral stays reserved for accent /
 3. **저확신 마커 (low-confidence marker)** — 목적지 칩 **옆**의 작은 마커. `confidence`가 낮은 제안에 표시.
    - **신규 색을 만들지 않는다** — 기존 뮤트 토큰(`t.textMuted` 텍스트/아이콘 + `t.surfaceMuted` 칩 배경)만 사용.
    - 의미: "분류가 맞는지 특히 확인해 달라"는 저강조 힌트일 뿐, 오류 표시(danger)가 아니다.
+   - **접근성 필수** — 시각 마커만으로는 의미 전달이 안 되므로 `title` + `aria-label`에 **"분류 확신도 낮음 — 확인 필요"**를 반드시 넣는다.
 
 4. **되돌리기 토스트 (undo toast)** — 승인/버리기 직후 하단에 뜨는 플로팅 토스트(약 3초).
    - **딥 인디고 반투명 + blur** — 배경 `withAlpha(t.text, ~0.9)`(딥 인디고 `#2E2A5B`) + `t.glassBlur`, 흰 라벨 + "되돌리기" 액션.
