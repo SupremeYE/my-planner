@@ -6,26 +6,42 @@ import {
 import { TimePicker } from './TimePicker';
 import { usePlanner, Habit, Routine, getLogicalToday } from '../store';
 import { useTheme } from '../ThemeContext';
-import { format, startOfMonth, getDaysInMonth, getDay, addDays, startOfWeek, addMonths, subMonths } from 'date-fns';
+import { format, startOfMonth, getDaysInMonth, addDays, startOfWeek, addMonths, subMonths } from 'date-fns';
 import { RoutineModal, ExecutionPanel, RoutineCard, today as routineToday } from './RoutinesView';
 import { useNotification } from '../hooks/useNotification';
 import { useFabAction } from '../FabContext';
 import { SegmentedControl } from './ui/SegmentedControl';
 import { solidCardStyle, solidRowStyle, glassBarStyle, mixHex, hexToRgb, inputBg } from '../styles/haonStyles';
+import { getHabitStreak, getWeeklyProgress, getRangeCount, isHabitApplicableOnDate, toDateKey, normalizeDate } from '../lib/habitUtils';
 
-// ─── 습관 색상 팔레트 (Theme H 파스텔) ───────────────────────────────────────
-// 기존 팔레트(진남색·주황·초록·하늘·보라·회색)는 채도 높은 원색이라 Theme H 통일감을 깨뜨렸다.
-// DESIGN.md Haon 파스텔 + --cat 세이지로 교체. (lavender-mist #F4E7FB 는 lint:colors R2 밴이라 제외.)
-const HABIT_COLORS = ['#C3C7F4', '#F6BCBA', '#CFE3CE', '#C8A8E9', '#E3AADD', '#F2DDDC'];
-// 기존 습관에 저장된 구 팔레트 hex → 신 파스텔 매핑(색상별 1:1, 유사 색조). 스토어 값은 건드리지 않고
-// 표시/피커 소비 시점에 정규화한다(= 렌더 리맵 + 편집 시 지연 마이그레이션). 목록 외 커스텀 hex 는 그대로 존중.
+// ─── 습관 색상 팔레트 (Theme H 균일 파스텔) ───────────────────────────────────
+// 명도·채도 통일(HSL S=60%·L=78% 고정), 색상(hue)만 회전한 8색. 트래커 달성 셀·실행 탭 체크원이
+// 습관별로 이 색을 쓴다(DESIGN.md §5 "습관 트래커 — 달성 표시": 코랄 단일 톤 → 습관별 지정 색).
+// 1차 파스텔(#C3C7F4 등)은 명도·채도가 제각각이라(웜크림 매우 옅음 vs 라일락 진함) 통일 세트로 재교체.
+// (lavender-mist #F4E7FB 등 lint:colors R2 밴 4색과는 무충돌.)
+const HABIT_COLORS = ['#A5CDE9', '#A5E9DB', '#A5E9AE', '#E9C5A5', '#E9A5B0', '#E9A5D2', '#D8A5E9', '#A5A5E9'];
+//                     스카이     민트      세이지    피치      로즈      오키드    라일락    페리윙클
+// 미지정 습관의 기본색(fallback) — 팔레트 첫 색(스카이). 코랄 t.accent 대신 팔레트 내 색으로 통일.
+const DEFAULT_HABIT_COLOR = HABIT_COLORS[0];
+// 기존 저장 hex → 신 균일 팔레트 매핑(hue 유사 1:1). 스토어 값은 건드리지 않고 표시/피커 소비 시점에
+// 정규화(= 렌더 리맵 + 편집 시 지연 마이그레이션). 목록·매핑 밖 커스텀 hex 는 그대로 존중.
 const LEGACY_HABIT_COLOR_MAP: Record<string, string> = {
-  '#515f74': '#C3C7F4', // 진남색 → 페리윙클
-  '#D4735A': '#F6BCBA', // 주황(테라코타) → 소프트 코랄
-  '#006b62': '#CFE3CE', // 초록(틸) → 세이지
-  '#7B9ED9': '#C8A8E9', // 하늘 → 라일락
-  '#A07BE0': '#E3AADD', // 보라 → 오키드 핑크
-  '#6B7280': '#F2DDDC', // 회색 → 웜 크림
+  // 원본 원색 팔레트(진남·주황·초록·하늘·보라·회색)
+  '#515f74': '#A5A5E9', // 진남색 → 페리윙클
+  '#D4735A': '#E9C5A5', // 주황(테라코타) → 피치
+  '#006b62': '#A5E9DB', // 초록(틸) → 민트
+  '#7B9ED9': '#A5CDE9', // 하늘 → 스카이
+  '#A07BE0': '#D8A5E9', // 보라 → 라일락
+  '#6B7280': '#A5CDE9', // 회색(무채색) → 스카이(기본 계열)
+  // 1차 파스텔(비균일) → 균일 파스텔
+  '#C3C7F4': '#A5A5E9', // 페리윙클(구) → 페리윙클
+  '#F6BCBA': '#E9A5B0', // 소프트코랄 → 로즈
+  '#CFE3CE': '#A5E9AE', // 세이지(구) → 세이지
+  '#C8A8E9': '#D8A5E9', // 라일락(구) → 라일락
+  '#E3AADD': '#E9A5D2', // 오키드핑크 → 오키드
+  '#F2DDDC': '#E9C5A5', // 웜크림 → 피치
+  // 레거시 브랜드 골드 기본값(습관 팔레트 외로 저장돼 온 값) → 피치로 통일
+  '#C4A882': '#E9C5A5', // 골드 → 피치
 };
 function normalizeHabitColor(c?: string): string | undefined {
   if (!c) return c;
@@ -65,115 +81,8 @@ interface HabitCategoryOption {
   color: string;
 }
 
-// 스트릭 반환 — 유형에 따라 단위가 다르므로(일 vs 주) 호출부가 라벨을 구분할 수 있게 한다.
-export type HabitStreak = { count: number; unit: 'day' | 'week' };
-
-// 스트릭 계산 공용 입력 — Habit 과 Routine(weekly/weeklyTarget 없음)이 모두 만족하는 최소 구조.
-type HabitStreakInput = {
-  checkedDates: string[];
-  repeat?: 'daily' | 'weekday' | 'weekend' | 'custom' | 'weekly';
-  repeatDays?: number[];
-  weeklyTarget?: number;
-};
-
-// 습관/루틴 스트릭(연속 달성) 공용 계산. 4개 뷰(습관·루틴·대시보드·프로필)가 공유한다.
-// 기준 '오늘'은 getLogicalToday()(dayEndHour 롤오버 반영), 날짜 비교는 문자열 + 'T12:00:00' 정오 앵커.
-// (기존 getStreak 의 안전한 부분 — 문자열 비교·정오 앵커·"오늘 유예" — 을 그대로 계승)
-//   - daily: 하루라도 빠지면 끊김
-//   - weekday/weekend/custom: 해당 안 되는 요일은 건너뜀(끊지 않음) — isHabitApplicableOnDate 재사용
-//   - weekly: 연속 단위가 '주'. 한 주 checkedDates 수 >= weeklyTarget 이면 그 주 달성, 연속 달성 주 수 반환
-// 진행 중인 '오늘'(일 단위)·'이번 주'(주 단위)는 아직 미완이어도 스트릭을 끊지 않는다(유예).
-export function getHabitStreak(habit: HabitStreakInput): HabitStreak {
-  const checked = habit.checkedDates;
-  const isWeekly = habit.repeat === 'weekly';
-  if (!checked?.length) return { count: 0, unit: isWeekly ? 'week' : 'day' };
-  const todayStr = getLogicalToday();
-
-  // ── weekly(주 N회): 연속 단위 = 주 ──────────────────────────────
-  // 주 범위 판정은 getRangeCount 과 동일(toDateKey 문자열 비교 + weekStartsOn:1).
-  if (isWeekly) {
-    const target = habit.weeklyTarget && habit.weeklyTarget > 0 ? habit.weeklyTarget : 1;
-    const perWeek = new Map<string, number>();
-    checked.forEach(cd => {
-      const wk = toDateKey(startOfWeek(new Date(cd + 'T12:00:00'), { weekStartsOn: 1 }));
-      perWeek.set(wk, (perWeek.get(wk) ?? 0) + 1);
-    });
-    let weekStart = startOfWeek(new Date(todayStr + 'T12:00:00'), { weekStartsOn: 1 });
-    // 이번 주는 진행 중 → 미달이어도 끊지 않고 유예(지난 주부터 카운트 시작).
-    if ((perWeek.get(toDateKey(weekStart)) ?? 0) < target) weekStart = addDays(weekStart, -7);
-    let count = 0;
-    while ((perWeek.get(toDateKey(weekStart)) ?? 0) >= target) {
-      count++;
-      weekStart = addDays(weekStart, -7);
-    }
-    return { count, unit: 'week' };
-  }
-
-  // ── daily / weekday / weekend / custom: 연속 단위 = 일 ───────────
-  const checkedSet = new Set(checked);
-  const oldest = [...checked].sort()[0];
-  let count = 0;
-  let cursor = new Date(todayStr + 'T12:00:00');
-  while (true) {
-    const key = format(cursor, 'yyyy-MM-dd');
-    if (isHabitApplicableOnDate(habit as Habit, cursor)) {
-      if (checkedSet.has(key)) {
-        count++;
-      } else if (key === todayStr) {
-        // 오늘은 아직 진행 중 → 유예(끊지 않음, 카운트 없음). 지난 예정일 미완은 아래 break.
-      } else {
-        break; // 해당 요일(예정일)인데 미완 → 스트릭 종료
-      }
-    }
-    // 해당 안 되는 요일은 건너뜀(끊지 않음)
-    if (key <= oldest) break; // 가장 오래된 체크일 이전엔 기록이 없으므로 종료
-    cursor = addDays(cursor, -1);
-  }
-  return { count, unit: 'day' };
-}
-
-function toDateKey(date: Date): string {
-  return format(date, 'yyyy-MM-dd');
-}
-
-function normalizeDate(date: Date): Date {
-  const d = new Date(date);
-  d.setHours(0, 0, 0, 0);
-  return d;
-}
-
-function isHabitApplicableOnDate(habit: Habit, date: Date): boolean {
-  const dow = date.getDay();
-  switch (habit.repeat) {
-    case 'weekday':
-      return dow >= 1 && dow <= 5;
-    case 'weekend':
-      return dow === 0 || dow === 6;
-    case 'custom':
-      return habit.repeatDays?.includes(dow) ?? false;
-    case 'weekly':
-      // 요일 무관 — 아무 날이나 체크 가능
-      return true;
-    case 'daily':
-    default:
-      return true;
-  }
-}
-
-// 매주 N회 습관: 해당 날짜가 속한 주(월~일)의 달성 횟수/목표
-// 주 범위 판정은 getRangeCount(:910) 과 동일하게 toDateKey(startOfWeek) 문자열 키 비교로 통일한다.
-// (기존 Date 객체 비교는 weekEnd=일요일 00:00 인데 체크일은 정오라 일요일 체크가 범위 밖으로
-//  떨어지는 경계 버그 — 그리드는 정상인데 배지만 누락돼 1/3 vs 0/3 로 어긋났다.)
-function getWeeklyProgress(habit: Habit, dateStr: string): { done: number; target: number } {
-  const target = habit.weeklyTarget && habit.weeklyTarget > 0 ? habit.weeklyTarget : 1;
-  const weekKey = toDateKey(startOfWeek(new Date(dateStr + 'T12:00:00'), { weekStartsOn: 1 }));
-  let done = 0;
-  (habit.checkedDates || []).forEach(cd => {
-    const cdWeekKey = toDateKey(startOfWeek(new Date(cd + 'T12:00:00'), { weekStartsOn: 1 }));
-    if (cdWeekKey === weekKey) done += 1;
-  });
-  return { done, target };
-}
+// 습관 계산 유틸(getHabitStreak·getWeeklyProgress·getRangeCount·isHabitApplicableOnDate·
+// toDateKey·normalizeDate)은 src/app/lib/habitUtils.ts 로 분리됨(4개 뷰 공용). 아래 import 참조.
 
 // ─── Habit Add/Edit Modal ──────────────────────────────────────────────────────
 function HabitModal({ habit, onClose }: { habit?: Habit; onClose: () => void }) {
@@ -750,7 +659,7 @@ export function HabitChip({ habit, date }: { habit: Habit; date: string }) {
     return `${m}:${s}`;
   };
 
-  const accentColor = normalizeHabitColor(habit.color) || t.accent;
+  const accentColor = normalizeHabitColor(habit.color) || DEFAULT_HABIT_COLOR;
   const onAcc = onFill(accentColor, t.text);
   const warnFg = mixHex(t.warning, 0, 0.42);
 
@@ -906,94 +815,58 @@ function HabitTrackerView() {
     return `${viewYear}년`;
   })();
 
-  const getRangeCount = (habit: Habit, dates: Date[]) => {
-    // 매주 N회 습관: 목표는 주간 횟수 × (지난 주 수), 달성은 체크한 날 수
-    if (habit.repeat === 'weekly') {
-      const target = habit.weeklyTarget && habit.weeklyTarget > 0 ? habit.weeklyTarget : 1;
-      const weekKeys = new Set<string>();
-      let done = 0;
-      dates.forEach(date => {
-        if (date.getTime() > todayDate.getTime()) return;
-        weekKeys.add(toDateKey(startOfWeek(date, { weekStartsOn: 1 })));
-        if (habit.checkedDates.includes(toDateKey(date))) done += 1;
-      });
-      return { done, total: target * weekKeys.size };
-    }
-    let done = 0;
-    let total = 0;
-    dates.forEach(date => {
-      if (date.getTime() > todayDate.getTime()) return;
-      if (!isHabitApplicableOnDate(habit, date)) return;
-      total += 1;
-      if (habit.checkedDates.includes(toDateKey(date))) done += 1;
-    });
-    return { done, total };
-  };
+  // 반복 라벨(주기) — 실행 목록과 동일 문구.
+  const repeatLabel = (habit: Habit) =>
+    habit.repeat === 'daily' ? '매일'
+      : habit.repeat === 'weekday' ? '평일'
+      : habit.repeat === 'weekend' ? '주말'
+      : habit.repeat === 'weekly' ? `매주 ${habit.weeklyTarget ?? 1}회`
+      : '커스텀';
 
-  const renderEmojiCell = (
-    habit: Habit,
-    date: Date,
-    opts: {
-      height: number;
-      emojiSize: number;
-      fill?: boolean;
-      baseBg?: string;
-      emptyBorder?: string;
-      futureOpacity?: number;
-      futureBg?: string;
-      futureBorder?: string;
-    },
-  ) => {
+  // 달성 셀 상태 판정 — 계산 규칙은 기존과 동일(checked/applicable/isFuture/weeklyNeutral), 표현만 교체.
+  // (매주 N회 습관은 요일 고정이 아니므로 비체크일을 '미달성'이 아니라 '해당없음(중립)'으로 본다.)
+  const cellState = (habit: Habit, date: Date): 'done' | 'miss' | 'na' => {
     const checked = habit.checkedDates.includes(toDateKey(date));
     const applicable = isHabitApplicableOnDate(habit, date);
     const isFuture = date.getTime() > todayDate.getTime();
-    // 매주 N회 습관은 요일이 고정이 아니므로, 안 한 날을 '미달성'이 아니라 '중립'으로 표시
     const weeklyNeutral = habit.repeat === 'weekly' && !checked && !isFuture;
-    const isNA = isFuture || !applicable;
-    const futureStyle = isFuture
-      ? {
-          opacity: opts.futureOpacity ?? 0.24,
-          borderColor: opts.futureBorder || t.borderLight,
-          backgroundColor: opts.futureBg || t.surfaceMuted,
-          borderStyle: 'dashed' as const,
-        }
-      : null;
-    const unavailableStyle = (!applicable || weeklyNeutral)
-      ? {
-          opacity: 0.68,
-          borderColor: t.border,
-          backgroundColor: opts.baseBg || t.surfaceMuted,
-          borderStyle: 'solid' as const,
-        }
-      : null;
-    const activeStyle = {
-      opacity: 1,
-      borderColor: checked ? t.accent : (opts.emptyBorder || t.border),
-      backgroundColor: checked ? t.accentLight : (opts.baseBg || 'transparent'),
-      borderStyle: 'solid' as const,
-    };
-    const cellStyle = futureStyle || unavailableStyle || activeStyle;
+    if (isFuture || !applicable || weeklyNeutral) return 'na';
+    return checked ? 'done' : 'miss';
+  };
+
+  // 달성 셀 (DESIGN.md §5 "습관 트래커 — 달성 표시"): 습관별 지정 색·농담 단계 없음(이진)·범례 없음.
+  //   달성 = habit.color 채움(테두리 없음) / 미달성 = t.card + t.border 헤어라인 / 해당없음 = 뮤트 축소 점(면 안 채움).
+  //   미달성·해당없음은 색과 무관하게 현행 유지(습관색은 달성 셀에만).
+  const AchvCell = ({ habit, date, radius = 3 }: { habit: Habit; date: Date; radius?: number }) => {
+    const st = cellState(habit, date);
+    const base: React.CSSProperties = { width: '100%', aspectRatio: '1 / 1', borderRadius: radius };
+    if (st === 'done') return <div style={{ ...base, backgroundColor: normalizeHabitColor(habit.color) || DEFAULT_HABIT_COLOR }} />;
+    if (st === 'miss') return <div style={{ ...base, backgroundColor: t.card, border: `1px solid ${t.border}` }} />;
     return (
-      <div
-        key={toDateKey(date)}
-        style={{
-          width: opts.fill ? '100%' : opts.height,
-          height: opts.height,
-          borderRadius: 6,
-          border: `1px ${cellStyle.borderStyle} ${cellStyle.borderColor}`,
-          backgroundColor: cellStyle.backgroundColor,
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          opacity: cellStyle.opacity,
-          fontSize: opts.emojiSize,
-          lineHeight: 1,
-        }}
-      >
-        {checked && !isNA ? habit.icon || '🎯' : ''}
+      <div style={{ ...base, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <span style={{ width: '30%', height: '30%', borderRadius: '50%', backgroundColor: t.textMuted, opacity: 0.5 }} />
       </div>
     );
   };
+
+  // 스트릭 배지 — 코랄 텍스트, 배경 채움 없음. count 0 이면 렌더하지 않는다. unit 에 따라 N일/N주.
+  const StreakBadge = ({ habit }: { habit: Habit }) => {
+    const s = getHabitStreak(habit);
+    if (s.count === 0) return null;
+    return (
+      <span className="inline-flex items-center gap-0.5" style={{ fontSize: 11, fontWeight: 700, color: t.accent, fontFamily: t.fontLabel }}>
+        <Flame size={11} color={t.accent} />
+        <span style={{ fontFamily: t.fontNumeric }}>{s.count}</span>{s.unit === 'week' ? '주' : '일'}
+      </span>
+    );
+  };
+
+  // 달성 합계 (done/total) — fontNumeric, tabular-nums.
+  const TotalCount = ({ done, total }: { done: number; total: number }) => (
+    <span style={{ fontSize: 12, color: t.textSub, fontFamily: t.fontNumeric, fontVariantNumeric: 'tabular-nums' }}>
+      {done}/{total}
+    </span>
+  );
 
   return (
     <div className="p-3 lg:p-5" style={solidCardStyle(t)}>
@@ -1020,383 +893,137 @@ function HabitTrackerView() {
         <p style={{ fontSize: 13, color: t.textMuted, textAlign: 'center', padding: '22px 0' }}>
           습관을 추가하면 트래커가 표시됩니다
         </p>
-      ) : mode === 'year' ? (
-        <>
-          <div className="hidden lg:block overflow-x-auto">
-            <div style={{ width: '100%' }}>
-              <div
-                style={{
-                  display: 'grid',
-                  gridTemplateColumns: 'minmax(140px, 1.2fr) repeat(12, minmax(44px, 1fr))',
-                  gap: 8,
-                  marginBottom: 6,
-                }}
-              >
-                <div />
-                {YEAR_MONTH_LABELS.map(label => (
-                  <div key={label} style={{ fontSize: 10, color: t.textMuted, textAlign: 'center' }}>{label}</div>
-                ))}
-              </div>
-              <div className="space-y-2">
-                {habits.map(habit => (
-                  <div
-                    key={habit.id}
-                    style={{
-                      display: 'grid',
-                      gridTemplateColumns: 'minmax(140px, 1.2fr) repeat(12, minmax(44px, 1fr))',
-                      gap: 8,
-                      alignItems: 'center',
-                    }}
-                  >
-                    <div className="truncate" style={{ fontSize: 12, color: t.text, display: 'flex', alignItems: 'center', gap: 6 }}>
-                      <span>{habit.icon || '🎯'}</span>
-                      <span className="truncate">{habit.name}</span>
-                    </div>
-                    {Array.from({ length: 12 }, (_, monthIdx) => {
-                      const monthDatesForRate = Array.from(
-                        { length: getDaysInMonth(new Date(viewYear, monthIdx, 1)) },
-                        (_, dayIdx) => normalizeDate(new Date(viewYear, monthIdx, dayIdx + 1)),
-                      );
-                      const { done, total } = getRangeCount(habit, monthDatesForRate);
-                      const rate = total > 0 ? Math.round((done / total) * 100) : 0;
-                      const isFutureMonth = viewYear > currentYear || (viewYear === currentYear && monthIdx > currentMonth);
-                      const bg = isFutureMonth
-                        ? t.surfaceMuted
-                        : rate >= 70
-                          ? t.accent
-                          : rate >= 40
-                            ? t.accentLight
-                            : mixHex(t.accent, 255, 0.85);
-                      const fg = isFutureMonth ? t.textMuted : rate >= 70 ? '#fff' : t.textSub;
-                      return (
-                        <div
-                          key={`${habit.id}-${monthIdx}`}
-                          style={{
-                            height: 30,
-                            borderRadius: 8,
-                            border: `1px solid ${isFutureMonth ? t.borderLight : t.border}`,
-                            backgroundColor: bg,
-                            color: fg,
-                            fontSize: 11,
-                            fontWeight: 700,
-                            fontFamily: t.fontNumeric,
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            opacity: isFutureMonth ? 0.65 : 1,
-                            fontVariantNumeric: 'tabular-nums',
-                          }}
-                        >
-                          {isFutureMonth ? '—' : `${rate}%`}
-                        </div>
-                      );
-                    })}
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
-
-          <div className="lg:hidden space-y-2.5">
-            {habits.map(habit => (
-              <div
-                key={`${habit.id}-year-mobile`}
-                className="rounded-lg p-2.5"
-                style={{ border: `1px solid ${t.borderLight}`, backgroundColor: t.surfaceMuted }}
-              >
-                <div className="truncate mb-2" style={{ fontSize: 12, color: t.text, display: 'flex', alignItems: 'center', gap: 6 }}>
-                  <span>{habit.icon || '🎯'}</span>
-                  <span className="truncate">{habit.name}</span>
-                </div>
-                <div
-                  style={{
-                    display: 'grid',
-                    gridTemplateColumns: 'repeat(3, minmax(0, 1fr))',
-                    gap: 6,
-                  }}
-                >
-                  {Array.from({ length: 12 }, (_, monthIdx) => {
-                    const monthDatesForRate = Array.from(
-                      { length: getDaysInMonth(new Date(viewYear, monthIdx, 1)) },
-                      (_, dayIdx) => normalizeDate(new Date(viewYear, monthIdx, dayIdx + 1)),
-                    );
-                    const { done, total } = getRangeCount(habit, monthDatesForRate);
-                    const rate = total > 0 ? Math.round((done / total) * 100) : 0;
-                    const isFutureMonth = viewYear > currentYear || (viewYear === currentYear && monthIdx > currentMonth);
-                    const bg = isFutureMonth
-                      ? t.card
-                      : rate >= 70
-                        ? t.accent
-                        : rate >= 40
-                          ? t.accentLight
-                          : mixHex(t.accent, 255, 0.85);
-                    const fg = isFutureMonth ? t.textMuted : rate >= 70 ? '#fff' : t.textSub;
-                    return (
-                      <div
-                        key={`${habit.id}-m-${monthIdx}`}
-                        style={{
-                          height: 38,
-                          borderRadius: 8,
-                          border: `1px solid ${isFutureMonth ? t.borderLight : t.border}`,
-                          backgroundColor: bg,
-                          color: fg,
-                          display: 'flex',
-                          flexDirection: 'column',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          opacity: isFutureMonth ? 0.7 : 1,
-                          fontVariantNumeric: 'tabular-nums',
-                          lineHeight: 1.1,
-                          gap: 3,
-                        }}
-                      >
-                        <span style={{ fontSize: 9 }}>{YEAR_MONTH_LABELS[monthIdx]}</span>
-                        <span style={{ fontSize: 11, fontWeight: 700, fontFamily: t.fontNumeric }}>
-                          {isFutureMonth ? '—' : `${rate}%`}
-                        </span>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-            ))}
-          </div>
-        </>
       ) : mode === 'week' ? (
-        <>
-          <div className="hidden lg:block">
-            <div>
-              <div
-                style={{
-                  display: 'grid',
-                  gridTemplateColumns: 'minmax(140px, 1.2fr) repeat(7, minmax(44px, 1fr)) 64px',
-                  gap: 10,
-                  marginBottom: 6,
-                  alignItems: 'center',
-                }}
-              >
-                <div />
-                {WEEK_LABELS.map(label => (
-                  <div key={label} style={{ textAlign: 'center', fontSize: 11, color: t.textMuted }}>{label}</div>
-                ))}
-                <div />
-              </div>
-              <div className="space-y-2">
-                {habits.map(habit => {
-                  const stats = getRangeCount(habit, weekDates);
-                  return (
-                    <div
-                      key={habit.id}
-                      style={{
-                        display: 'grid',
-                        gridTemplateColumns: 'minmax(140px, 1.2fr) repeat(7, minmax(44px, 1fr)) 64px',
-                        gap: 10,
-                        alignItems: 'center',
-                      }}
-                    >
-                      <div className="truncate" style={{ fontSize: 12, color: t.text, display: 'flex', alignItems: 'center', gap: 6 }}>
-                        <span>{habit.icon || '🎯'}</span>
-                        <span className="truncate">{habit.name}</span>
-                      </div>
-                      {weekDates.map(date => renderEmojiCell(habit, date, { height: 40, emojiSize: 16, fill: true }))}
-                      <div style={{ fontSize: 11, color: t.textSub, textAlign: 'right', fontVariantNumeric: 'tabular-nums', fontFamily: t.fontNumeric }}>
-                        {stats.done}/{stats.total}
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-          </div>
-
-          <div className="lg:hidden">
-            <div
-              style={{
-                display: 'grid',
-                gridTemplateColumns: '94px repeat(7, minmax(0, 1fr))',
-                gap: 4,
-                marginBottom: 6,
-                alignItems: 'center',
-              }}
-            >
-              <div />
-              {WEEK_LABELS.map(label => (
-                <div key={label} style={{ textAlign: 'center', fontSize: 10, color: t.textMuted }}>{label}</div>
-              ))}
-            </div>
-            <div className="space-y-2">
-              {habits.map(habit => {
-                const stats = getRangeCount(habit, weekDates);
-                return (
-                  <div
-                    key={`${habit.id}-m`}
-                    style={{
-                      display: 'grid',
-                      gridTemplateColumns: '94px repeat(7, minmax(0, 1fr))',
-                      gap: 4,
-                      alignItems: 'center',
-                    }}
-                  >
-                    <div style={{ minWidth: 0 }}>
-                      <div className="truncate" style={{ fontSize: 12, color: t.text, display: 'flex', alignItems: 'center', gap: 5 }}>
-                        <span>{habit.icon || '🎯'}</span>
-                        <span className="truncate">{habit.name}</span>
-                      </div>
-                      <div style={{ fontSize: 10, color: t.textMuted, marginTop: 1, fontVariantNumeric: 'tabular-nums', fontFamily: t.fontNumeric }}>
-                        {stats.done}/{stats.total}
-                      </div>
-                    </div>
-                    {weekDates.map(date => renderEmojiCell(habit, date, { height: 34, emojiSize: 14, fill: true }))}
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-        </>
-      ) : (
-        <>
-          <div className="hidden lg:block overflow-x-auto pb-1">
-            <div style={{ width: '100%' }}>
-              <div
-                style={{
-                  display: 'grid',
-                  gridTemplateColumns: `minmax(140px, 1.2fr) repeat(${daysInMonth}, minmax(18px, 1fr)) 64px`,
-                  gap: 3,
-                  marginBottom: 6,
-                  alignItems: 'center',
-                }}
-              >
-                <div />
-                {monthDates.map(date => (
-                  <div
-                    key={toDateKey(date)}
-                    style={{
-                      textAlign: 'center',
-                      fontSize: 10,
-                      color: date.getTime() > todayDate.getTime() ? t.textMuted : t.textSub,
-                      opacity: date.getTime() > todayDate.getTime() ? 0.45 : 1,
-                      fontWeight: date.getTime() > todayDate.getTime() ? 500 : 700,
-                    }}
-                  >
-                    {date.getDate()}
-                  </div>
-                ))}
-                <div />
-              </div>
-              <div className="space-y-2">
-                {habits.map(habit => {
-                  const stats = getRangeCount(habit, monthDates);
-                  return (
-                    <div
-                      key={habit.id}
-                      style={{
-                        display: 'grid',
-                        gridTemplateColumns: `minmax(140px, 1.2fr) repeat(${daysInMonth}, minmax(18px, 1fr)) 64px`,
-                        gap: 3,
-                        alignItems: 'center',
-                      }}
-                    >
-                      <div className="truncate" style={{ fontSize: 12, color: t.text, display: 'flex', alignItems: 'center', gap: 6 }}>
-                        <span>{habit.icon || '🎯'}</span>
-                        <span className="truncate">{habit.name}</span>
-                      </div>
-                      {monthDates.map(date => renderEmojiCell(habit, date, { height: 20, emojiSize: 10, fill: true }))}
-                      <div style={{ fontSize: 11, color: t.textSub, textAlign: 'right', fontVariantNumeric: 'tabular-nums', fontFamily: t.fontNumeric }}>
-                        {stats.done}/{stats.total}
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-          </div>
-
-          <div className="lg:hidden">
-            <div
-              style={{
-                display: 'grid',
-                gridTemplateColumns: 'repeat(7, minmax(0, 1fr))',
-                gap: 4,
-                marginBottom: 8,
-              }}
-            >
-              {WEEK_LABELS.map(label => (
-                <div key={`month-mobile-h-${label}`} style={{ textAlign: 'center', fontSize: 10, color: t.textMuted }}>
-                  {label}
+        /* ── A안: 주간 리스트 (DESIGN.md §5) — 한 행 = 습관 하나, 이름이 가장 큰 활자 ── */
+        <div>
+          {/* 요일 헤더 (상단 1회) — 오늘 요일만 코랄 강조 */}
+          <div
+            className="hidden lg:grid"
+            style={{ gridTemplateColumns: 'minmax(150px, 1.4fr) minmax(84px, auto) repeat(7, 23px)', gap: 6, marginBottom: 6, alignItems: 'center' }}
+          >
+            <div />
+            <div />
+            {weekDates.map((date, i) => {
+              const isToday = date.getTime() === todayDate.getTime();
+              return (
+                <div key={`wh-${i}`} style={{ textAlign: 'center', fontSize: 11, fontWeight: isToday ? 700 : 500, color: isToday ? t.accent : t.textMuted }}>
+                  {WEEK_LABELS[i]}
                 </div>
-              ))}
-            </div>
-            <div className="space-y-2.5">
-              {habits.map(habit => {
-                const stats = getRangeCount(habit, monthDates);
-                const monthStartOffset = (getDay(monthStart) + 6) % 7;
-                const cells: (Date | null)[] = [
-                  ...Array.from({ length: monthStartOffset }, () => null),
-                  ...monthDates,
-                ];
-                return (
+              );
+            })}
+          </div>
+          <div className="grid lg:hidden" style={{ gridTemplateColumns: 'repeat(7, 23px)', gap: 6, marginBottom: 6 }}>
+            {weekDates.map((date, i) => {
+              const isToday = date.getTime() === todayDate.getTime();
+              return (
+                <div key={`whm-${i}`} style={{ textAlign: 'center', fontSize: 10, fontWeight: isToday ? 700 : 500, color: isToday ? t.accent : t.textMuted }}>
+                  {WEEK_LABELS[i]}
+                </div>
+              );
+            })}
+          </div>
+
+          <div className="space-y-1.5">
+            {habits.map(habit => {
+              const stats = getRangeCount(habit, weekDates, todayDate);
+              return (
+                <div key={habit.id} style={solidRowStyle(t)} className="px-3 py-2 lg:px-4 lg:py-2">
+                  {/* PC: 1행 유지 (이름 줄 + 셀 줄 동일 행) */}
                   <div
-                    key={`${habit.id}-month-mobile`}
-                    className="rounded-lg p-2.5"
-                    style={{ border: `1px solid ${t.borderLight}`, backgroundColor: t.surfaceMuted }}
+                    className="hidden lg:grid"
+                    style={{ gridTemplateColumns: 'minmax(150px, 1.4fr) minmax(84px, auto) repeat(7, 23px)', gap: 6, alignItems: 'center' }}
                   >
-                    <div className="flex items-center justify-between mb-2">
-                      <div className="truncate" style={{ fontSize: 12, color: t.text, display: 'flex', alignItems: 'center', gap: 6 }}>
-                        <span>{habit.icon || '🎯'}</span>
-                        <span className="truncate">{habit.name}</span>
-                      </div>
-                      <div style={{ fontSize: 10, color: t.textMuted, fontVariantNumeric: 'tabular-nums', fontFamily: t.fontNumeric }}>
-                        {stats.done}/{stats.total}
-                      </div>
+                    <div className="flex items-baseline gap-2 min-w-0">
+                      <span style={{ fontSize: 18, flexShrink: 0, alignSelf: 'center' }}>{habit.icon || '🎯'}</span>
+                      <span className="truncate" style={{ fontSize: 15, fontWeight: 700, color: t.text, fontFamily: t.fontBody }}>{habit.name}</span>
+                      <span style={{ fontSize: 11, color: t.textMuted, fontFamily: t.fontLabel, flexShrink: 0 }}>{repeatLabel(habit)}</span>
                     </div>
-                    <div
-                      style={{
-                        display: 'grid',
-                        gridTemplateColumns: 'repeat(7, minmax(0, 1fr))',
-                        gap: 4,
-                      }}
-                    >
-                      {cells.map((date, idx) =>
-                        date ? (
-                          <div key={`${habit.id}-${toDateKey(date)}`}>
-                            {renderEmojiCell(habit, date, {
-                              height: 20,
-                              emojiSize: 10,
-                              fill: true,
-                              baseBg: t.card,
-                              emptyBorder: t.border,
-                              futureOpacity: 0.42,
-                              futureBg: t.card,
-                              futureBorder: t.border,
-                            })}
-                          </div>
-                        ) : (
-                          <div key={`${habit.id}-empty-${idx}`} style={{ height: 20 }} />
-                        ),
-                      )}
+                    <div className="flex items-center justify-end gap-2" style={{ flexShrink: 0 }}>
+                      <StreakBadge habit={habit} />
+                      <TotalCount done={stats.done} total={stats.total} />
+                    </div>
+                    {weekDates.map((date, i) => <div key={`wc-${i}`}><AchvCell habit={habit} date={date} radius={4} /></div>)}
+                  </div>
+
+                  {/* 모바일: 2행으로 접음 (이름 줄 / 셀 줄) */}
+                  <div className="lg:hidden">
+                    <div className="flex items-center gap-2 min-w-0 mb-1.5">
+                      <span style={{ fontSize: 17, flexShrink: 0 }}>{habit.icon || '🎯'}</span>
+                      <span className="truncate" style={{ fontSize: 14, fontWeight: 700, color: t.text, fontFamily: t.fontBody }}>{habit.name}</span>
+                      <span style={{ fontSize: 11, color: t.textMuted, fontFamily: t.fontLabel, flexShrink: 0 }}>{repeatLabel(habit)}</span>
+                      <span className="flex items-center gap-2 ml-auto" style={{ flexShrink: 0 }}>
+                        <StreakBadge habit={habit} />
+                        <TotalCount done={stats.done} total={stats.total} />
+                      </span>
+                    </div>
+                    <div className="grid" style={{ gridTemplateColumns: 'repeat(7, 23px)', gap: 6 }}>
+                      {weekDates.map((date, i) => <div key={`wcm-${i}`}><AchvCell habit={habit} date={date} radius={4} /></div>)}
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      ) : (
+        /* ── B안: 습관 카드 + 미니 히트맵 (이번 달 / 올해, DESIGN.md §5) ── */
+        (() => {
+          const isYear = mode === 'year';
+          const periodLabel = isYear ? `${viewYear}년` : format(viewDate, 'yyyy년 M월');
+          const yearDates = isYear
+            ? Array.from({ length: 12 }).flatMap((_, m) =>
+                Array.from({ length: getDaysInMonth(new Date(viewYear, m, 1)) }, (_, d) => normalizeDate(new Date(viewYear, m, d + 1))))
+            : [];
+          return (
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: 12 }}>
+              {habits.map(habit => {
+                const stats = getRangeCount(habit, isYear ? yearDates : monthDates, todayDate);
+                return (
+                  <div key={habit.id} style={solidCardStyle(t)} className="p-3 lg:p-4">
+                    <div className="flex items-center gap-2 mb-0.5 min-w-0">
+                      <span style={{ fontSize: 18, flexShrink: 0 }}>{habit.icon || '🎯'}</span>
+                      <span className="truncate" style={{ fontSize: 14, fontWeight: 700, color: t.text, fontFamily: t.fontBody }}>{habit.name}</span>
+                    </div>
+                    <div style={{ fontSize: 11, color: t.textMuted, fontFamily: t.fontLabel, marginBottom: 10 }}>
+                      {repeatLabel(habit)} · {periodLabel}
+                    </div>
+
+                    {isYear ? (
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+                        {Array.from({ length: 12 }, (_, m) => {
+                          const dim = getDaysInMonth(new Date(viewYear, m, 1));
+                          return (
+                            <div key={m} style={{ display: 'grid', gridTemplateColumns: '26px 1fr', gap: 6, alignItems: 'center' }}>
+                              <span style={{ fontSize: 9, color: t.textMuted, textAlign: 'right', fontFamily: t.fontLabel }}>{YEAR_MONTH_LABELS[m]}</span>
+                              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(31, 1fr)', gap: 1 }}>
+                                {Array.from({ length: 31 }, (_, dayIdx) =>
+                                  dayIdx < dim
+                                    ? <AchvCell key={dayIdx} habit={habit} date={normalizeDate(new Date(viewYear, m, dayIdx + 1))} radius={1.5} />
+                                    : <div key={dayIdx} />)}
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    ) : (
+                      /* 흘림 히트맵 — 1일~말일 순서대로, 요일 오프셋(선행 빈칸) 없음.
+                         달력 정렬은 주간 탭 역할. 미래 날짜도 같은 그리드에 점으로 포함(행 통째 X). */
+                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(14px, 1fr))', gap: 3 }}>
+                        {monthDates.map((date, idx) => <AchvCell key={idx} habit={habit} date={date} radius={3} />)}
+                      </div>
+                    )}
+
+                    <div className="flex items-center justify-between" style={{ marginTop: 12, minHeight: 18 }}>
+                      <StreakBadge habit={habit} />
+                      <TotalCount done={stats.done} total={stats.total} />
                     </div>
                   </div>
                 );
               })}
             </div>
-          </div>
-        </>
+          );
+        })()
       )}
-
-      <div className="flex flex-wrap gap-3 mt-4" style={{ fontSize: 11, color: t.textMuted }}>
-        <div className="flex items-center gap-1.5">
-          <span className="inline-block w-3.5 h-3.5 rounded" style={{ backgroundColor: t.accentLight, border: `1px solid ${t.accent}` }} />
-          달성
-        </div>
-        <div className="flex items-center gap-1.5">
-          <span className="inline-block w-3.5 h-3.5 rounded" style={{ border: `1px solid ${t.borderLight}` }} />
-          미달성
-        </div>
-        <div className="flex items-center gap-1.5">
-          <span className="inline-block w-3.5 h-3.5 rounded" style={{ backgroundColor: t.surfaceMuted, border: `1px solid ${t.borderLight}`, opacity: 0.55 }} />
-          해당없음
-        </div>
-      </div>
     </div>
   );
 }
@@ -1464,7 +1091,7 @@ export function HabitsView() {
         />
       </div>
 
-      <div className="px-4 lg:px-6 pb-8">
+      <div className="px-4 lg:px-6 pb-24 lg:pb-8">
         {/* Habits Tab */}
         {tab === 'habits' && (
           <div className="space-y-2">
@@ -1505,7 +1132,7 @@ export function HabitsView() {
                             : '커스텀'}
                         </span>
                         {habitType !== 'check' && (() => {
-                          const hue = normalizeHabitColor(h.color) || t.accent;
+                          const hue = normalizeHabitColor(h.color) || DEFAULT_HABIT_COLOR;
                           return (
                             <span className="px-1.5 py-0.5 rounded-full"
                               style={{ fontSize: 10, fontFamily: t.fontLabel, backgroundColor: mixHex(hue, 255, 0.80), color: mixHex(hue, 0, 0.40) }}>

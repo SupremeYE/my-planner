@@ -403,3 +403,75 @@ PC/모바일이 명암 역전 재설계로 라벤더 **12라인 전량 회수**(
   모바일 리스트·통계 캡처. **FAIL 0**(WARN=PC 대시보드 레일 잔여 라벤더, BooksView 밖).
 - 모바일 구절 작성 시트·QuotesPanel 은 코드상 `t.card`(흰색)라 라벤더 자체가 없어 별도 확인 불요
   (모바일 상세 모달 플로우는 액셔너빌리티로 스킵되나 검증 대상 라벤더 없음).
+---
+
+## 14. 습관 트래커 — 달성 표시 A안/B안 재설계 (2026-08-22)
+
+`HabitTrackerView`(습관 트래커 탭, `HabitsView.tsx`) 를 **DESIGN.md §5 "습관 트래커 — 달성 표시"**
+패턴으로 재설계했다. 대상은 트래커 탭뿐 — **습관 실행 탭·루틴 설정 탭·셀 상태 판정 로직·store 는 불변**
+(표현만 교체). 탭마다 보는 목적이 다르므로 같은 표를 범위만 바꿔 그리지 않는다(주간=A안 리스트, 월간·
+연간=B안 카드).
+
+### Step 0 — 계산 유틸 모듈 분리 (`src/app/lib/habitUtils.ts`)
+- `getHabitStreak`·`getWeeklyProgress`·`getRangeCount`·`isHabitApplicableOnDate`·`toDateKey`·
+  `normalizeDate` + `HabitStreak` 타입을 `HabitsView.tsx` 밖으로 **로직 변경 없이 이동**(위치 관례 =
+  `src/app/lib/`, `periodNav.ts` 와 동일 계층). `getRangeCount` 만 컴포넌트 클로저 변수였던 `todayDate`
+  를 인자로 노출(본문 동일).
+- **DashboardView·ProfileView·RoutinesView 의 `getHabitStreak` import 를 `./HabitsView` → `../lib/habitUtils`**
+  로 교체. RoutinesView↔HabitsView **순환 import 제거**(HabitsView 가 RoutinesView 컴포넌트를 쓰던
+  구조에 역방향 의존이 사라짐).
+
+### 달성 셀 색 규칙 (공통, 최우선) — 코랄 단일 톤 3상태
+`renderEmojiCell`(구: 이모지+테두리+다단계) 를 제거하고 `cellState`(판정, 규칙 불변) + `AchvCell`(표현)
+로 분리. **농담 단계·범례 없음**, 형태·크기로 3상태 구분:
+- **달성** = `t.accent` 채움, **테두리 없음**, 꽉 찬 셀.
+- **미달성** = `t.card` + `t.border` **헤어라인만**, 빈 셀(면 유지).
+- **해당없음**(미래·비해당 요일·주N회 비체크일) = `t.textMuted` **축소 점**(30%), 면 안 채움.
+- 셀 안 이모지 반복 제거 → 이모지는 행/카드의 습관 이름 옆에 1회만.
+
+### A안 — 주간 리스트 (이번 주)
+- 한 행 = 습관 하나(`solidRowStyle`). 아이콘 → **습관 이름(행 최대 활자, `fontBody` 15/700)** → 주기
+  라벨(`fontLabel`+`textMuted`) → 🔥스트릭(있을 때만, 코랄 텍스트·배경 없음) → 달성 합계(`fontNumeric`)
+  → 7일 셀.
+- 요일 헤더 상단 1회, **오늘 요일만 코랄**(`t.accent`) 강조. PC = 1행 유지(grid 동일 템플릿으로 헤더↔셀
+  정렬), 모바일 = 2행 접기(이름 줄 / 셀 줄) — 분기는 Tailwind `lg:` 만.
+
+### B안 — 습관 카드 (이번 달 / 올해)
+- 카드 하나 = 습관 하나(`solidCardStyle`), 그리드 = `repeat(auto-fill, minmax(300px,1fr))`
+  (PC 다열 / 모바일 1열, 미디어쿼리 없이 단일 스타일). 카드: 아이콘+이름 → 주기·기간 라벨 → 미니
+  히트맵 → 하단 좌 스트릭 / 우 달성 합계.
+- **월간** = 7열 요일정렬 히트맵(그 달 일수). **연간** = 12행(월) × 31열(일) 히트맵 — 각 행 `repeat(31,1fr)`
+  라 카드 폭에 맞춰 축소, **가로 넘침 없음**(PC·모바일 390 모두 확인). **퍼센트 숫자 나열 제거**(구 연간
+  탭의 0% 셀 도배 해소).
+- 스트릭 배지 = 코랄 텍스트·배경 없음·`count===0` 미렌더, `unit==='week'` → "N주".
+
+### 검증
+- `npm run build`·`lint:colors`(라벤더 432 불변, hex/tailwind 0)·`lint:fonts`(0) 통과.
+- `render:check`: 하네스 `habits` 라우트에 트래커 서브컷 **`tracker-month`·`tracker-year` 추가** →
+  3탭 × PC(1280)·모바일(390) 포함 **12장 캡처, FAIL 0**. 연간 12개월 히트맵 가로 넘침 없음 스크린샷 확인.
+- 스트릭/주간 진행 정합은 별도 단위검증(Stage 1·2, PROGRESS_LOG 2026-08-22) 유지 — 이번은 표현 전용.
+
+---
+
+## 15. 습관 색상 팔레트 균일화 + 트래커 달성 셀 습관색 연동 (2026-08-22)
+
+§12 의 1차 파스텔(`#C3C7F4`·`#F6BCBA`…)은 명도·채도가 제각각(웜크림 매우 옅음 vs 라일락 진함)이라
+습관이 섞이면 특정 색만 튀었다. **HSL S≈60%·L≈78% 고정, 색상(hue)만 회전한 8색**(스카이·민트·세이지·
+피치·로즈·오키드·라일락·페리윙클)으로 재교체 — 통일된 L/S 라 어느 색이든 밝기·무게가 같다.
+
+- **트래커 달성 셀을 습관색으로 연동(§14 "코랄 단일 톤" 뒤집음).** A안 주간 셀·B안 월간/연간 히트맵의
+  달성 셀이 `t.accent`(코랄 단일) → `normalizeHabitColor(habit.color) || DEFAULT_HABIT_COLOR`. 사유:
+  ① 실행 탭 체크원은 이미 습관색이라 같은 '달성'이 탭마다 달랐고, ② 코랄 단일 톤은 습관이 많을 때
+  색으로 식별이 안 됐다. **미달성(흰 칸+헤어라인)·해당없음(뮤트 점)·오늘 요일·스트릭 배지(코랄)는 불변**
+  — 습관색은 달성 셀에만. 미지정 기본색 = 팔레트 첫 색 스카이 `#A5CDE9`(구 `t.accent` fallback 대체).
+- **실행 탭 일치.** `HabitChip` accentColor·유형배지 hue 의 fallback 도 `t.accent` → `DEFAULT_HABIT_COLOR`
+  로 통일. 트래커·실행 탭이 동일 팔레트·동일 습관색을 쓴다(물 마시기=스카이, 운동=로즈 등 양쪽 일치).
+- **마이그레이션 = store 불변 + 소비 시점 리맵(§12 방식 계승).** `LEGACY_HABIT_COLOR_MAP` 을 확장 —
+  원본 원색 6종 + 1차 파스텔 6종 + **레거시 브랜드 골드 `#C4A882`(DB 실측: 독서하기 등에 잔존) → 피치**
+  를 신 팔레트로 hue 유사 1:1 매핑. 렌더 즉시 리맵 + 편집 저장 시 지연 이행. 매핑·팔레트 밖 커스텀
+  hex 는 그대로 존중. DB 실측 분포: `#515f74`×3·`#7B9ED9`×1·`#C4A882`×1 전부 매핑 커버.
+- **DESIGN.md §5 개정**: 달성 셀 규칙 "코랄 단일 톤 → 습관별 지정 색", 변경 이유·기본색·습관 팔레트
+  (균일 L/S) 문단 추가. lavender-mist 밴 4색만 피하면 hue 자유(신 팔레트 `#A5A5E9`·`#D8A5E9` 포함
+  `lint:colors` 통과).
+- **검증**: `build`·`lint:colors`(라벤더 432 불변)·`lint:fonts` 통과. `render:check` 3탭×PC/모바일 12장
+  FAIL 0 — 트래커 셀·실행 체크원·추가 모달 스와치가 신 팔레트로 렌더, 레거시 골드→피치 리맵 확인.
