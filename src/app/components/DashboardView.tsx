@@ -15,7 +15,7 @@ import {
 } from 'date-fns';
 import { ko } from 'date-fns/locale';
 import { AffirmationCard } from './AffirmationCard';
-import { getHabitStreak } from './HabitsView';
+import { getHabitStreak } from '../lib/habitUtils';
 import { useFabAction } from '../FabContext';
 import { formatTotalDoKo, formatDoElapsedKo } from '../../lib/todoDoDuration';
 import { dateDoSeconds } from '../../lib/timeBlocks';

@@ -89,7 +89,9 @@ const ALL_ROUTES = [
   {
     slug: 'habits', path: '/habits',
     subs: [
-      { name: 'tracker', text: ['습관 트래커'] },
+      { name: 'tracker', text: ['습관 트래커'] },       // 이번 주(A안 주간 리스트) — tracker 진입 기본
+      { name: 'tracker-month', text: ['이번 달'] },      // B안 카드+월간 히트맵
+      { name: 'tracker-year', text: ['올해'] },          // B안 카드+연간 12개월 히트맵(가로 넘침 검증)
       { name: 'routines', text: ['루틴 설정'] },
     ],
     modalFlows: [
