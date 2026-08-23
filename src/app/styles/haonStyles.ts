@@ -336,3 +336,48 @@ export function photoBadgeStyle(t: ThemeTokens): CSSProperties {
   };
   return { ...base, boxShadow: '0 2px 6px rgba(120,90,160,0.16)' };
 }
+
+// ─── 캡처 인박스 — 스와이프 승인 카드 (DESIGN.md §5 "캡처 인박스 — 스와이프 승인 카드") ───
+// 서버 자동 분류 제안을 스와이프로 승인/버리기 하는 신규 패턴. 표면 규칙(§1): 카드는 스크롤되므로
+// 솔리드, 토스트/시트는 오버레이 글래스. 임계값/이징/라벨 불투명도 같은 동작 상수는 컴포넌트 로직(헬퍼는 표면만).
+
+// 확정(목적지 있음) 카드 — 표준 솔리드 카드 recipe.
+export function inboxCardStyle(t: ThemeTokens): CSSProperties {
+  return solidCardStyle(t);
+}
+
+// 미확정(목적지 null) 카드 — 점선 hairline + 반투명 흰 배경 + 그림자 없음(임시 상태 저강조).
+export function inboxUnconfirmedCardStyle(t: ThemeTokens): CSSProperties {
+  return {
+    background: 'rgba(255,255,255,0.55)',
+    border: `1px dashed ${withAlpha(t.textMuted, 0.5)}`,
+    borderRadius: t.solidCardRadius ?? 20,
+    boxShadow: 'none',
+  };
+}
+
+// 스와이프 리빌 레이어 — 승인 = 코랄 그라데이션(primaryGradient), 버리기 = 더스티 warm-cream(#F2DDDC,
+// 팔레트 정식값 §colors). danger 코랄이 아닌 저채도 = "치워둠"(복구 가능).
+export type SwipeSide = 'approve' | 'discard';
+export function swipeRevealStyle(t: ThemeTokens, side: SwipeSide): CSSProperties {
+  return side === 'approve'
+    ? { background: t.primaryGradient ?? t.accent }
+    : { background: '#F2DDDC' };
+}
+
+// 저확신 마커 — 신규 색 없이 뮤트 토큰만(오류 danger 아님, "확인 요망" 저강조).
+export function lowConfidenceMarkerStyle(t: ThemeTokens): CSSProperties {
+  return { background: t.surfaceMuted, color: t.textMuted };
+}
+
+// 되돌리기 토스트 — 딥 인디고 반투명 + blur, 흰 라벨(하단 플로팅 오버레이 글래스).
+export function undoToastStyle(t: ThemeTokens): CSSProperties {
+  return {
+    background: withAlpha(t.text, 0.9),
+    backdropFilter: t.glassBlur,
+    WebkitBackdropFilter: t.glassBlur,
+    color: '#FFFFFF',
+    borderRadius: 14,
+    boxShadow: '0 8px 24px rgba(120,90,160,0.24)',
+  };
+}
