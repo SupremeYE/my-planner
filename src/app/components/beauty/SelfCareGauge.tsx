@@ -35,7 +35,7 @@ export function SelfCareGauge({ score, recentCareCount, spark, careCount }: Prop
       {/* 게이지 */}
       <div className="relative" style={{ width: SIZE, height: SIZE }}>
         <svg width={SIZE} height={SIZE} viewBox={`0 0 ${SIZE} ${SIZE}`}>
-          <circle cx={SIZE / 2} cy={SIZE / 2} r={R} fill="none" stroke={t.lavenderTint} strokeWidth={STROKE} />
+          <circle cx={SIZE / 2} cy={SIZE / 2} r={R} fill="none" stroke={t.surfaceMuted} strokeWidth={STROKE} />
           <circle cx={SIZE / 2} cy={SIZE / 2} r={R} fill="none"
             stroke={empty ? t.border : tier.color} strokeWidth={STROKE} strokeLinecap="round"
             strokeDasharray={C} strokeDashoffset={offset}
@@ -70,7 +70,7 @@ export function SelfCareGauge({ score, recentCareCount, spark, careCount }: Prop
               const h = on ? Math.min(18, 6 + v * 5) : 4;
               return (
                 <span key={i} title={`${v}회`}
-                  style={{ width: 5, height: h, borderRadius: 999, backgroundColor: on ? t.accent : t.lavenderTint, transition: 'height 0.3s ease' }} />
+                  style={{ width: 5, height: h, borderRadius: 999, backgroundColor: on ? t.accent : t.surfaceMuted, transition: 'height 0.3s ease' }} />
               );
             })}
           </div>

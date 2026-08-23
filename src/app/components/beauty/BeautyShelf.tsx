@@ -57,7 +57,7 @@ function ExpiryBar({ info }: { info: ExpiryInfo | null }) {
   const label = info.remaining <= 0 ? '기한 지남' : `D-${info.remaining}`;
   return (
     <div className="w-full">
-      <div className="rounded-full overflow-hidden" style={{ height: 5, backgroundColor: t.lavenderTint }}>
+      <div className="rounded-full overflow-hidden" style={{ height: 5, backgroundColor: t.surfaceMuted }}>
         <div style={{ width: `${info.fill * 100}%`, height: '100%', backgroundColor: color, borderRadius: 999, transition: 'width 0.4s ease' }} />
       </div>
       <span style={{ fontSize: 10.5, fontWeight: 700, color: info.tier === 'fresh' ? t.textMuted : t.danger, marginTop: 3, display: 'block' }}>
@@ -85,7 +85,7 @@ function ProductCard({ product, onOpen, width }: {
       }}>
       {/* 썸네일 */}
       <div className="rounded-xl overflow-hidden flex items-center justify-center mb-2"
-        style={{ width: '100%', aspectRatio: '1 / 1', backgroundColor: t.lavenderTint, border: `1px solid ${t.borderLight}` }}>
+        style={{ width: '100%', aspectRatio: '1 / 1', backgroundColor: t.surfaceMuted, border: `1px solid ${t.borderLight}` }}>
         {product.photoUrl
           ? <img src={product.photoUrl} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
           : <span aria-hidden style={{ fontSize: 30 }}>{categoryEmoji(product.category)}</span>}

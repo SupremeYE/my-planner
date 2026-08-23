@@ -58,7 +58,7 @@ function CareCardPC({ care, onDone, onEdit }: { care: CareDerived; onDone: (id: 
   const last = ds == null ? '아직 안 했어요' : ds === 0 ? '방금 했어요' : `마지막 ${ds}일 전`;
   return (
     <div className="group relative rounded-2xl p-3 flex flex-col"
-      style={{ backgroundColor: care.status === 'over' ? t.dangerLight : t.lavenderTint, border: `1px solid ${care.status === 'over' ? `${t.danger}55` : t.borderLight}`, minHeight: 128 }}>
+      style={{ backgroundColor: care.status === 'over' ? t.dangerLight : t.surfaceMuted, border: `1px solid ${care.status === 'over' ? `${t.danger}55` : t.borderLight}`, minHeight: 128 }}>
       <div className="flex items-start justify-between gap-1.5">
         <span aria-hidden style={{ fontSize: 24, lineHeight: 1 }}>{care.icon || '🧖‍♀️'}</span>
         <span className="px-1.5 py-0.5 rounded-full flex-shrink-0" style={{ fontSize: 10.5, fontWeight: 700, color: badge, backgroundColor: `${badge}1A`, border: `1px solid ${badge}55` }}>{meta.label}</span>
@@ -92,7 +92,7 @@ function ProductCardPC({ p, onOpen, onRepurchase, onSetActive }: {
   const expColor = info ? (info.tier === 'fresh' ? t.success : t.danger) : t.textMuted;
   return (
     <div className="group relative rounded-2xl p-2.5 flex flex-col"
-      style={{ backgroundColor: t.lavenderTint, border: `1px solid ${info?.tier === 'expired' ? `${t.danger}55` : t.borderLight}`, opacity: p.isActive ? 1 : 0.5 }}>
+      style={{ backgroundColor: t.surfaceMuted, border: `1px solid ${info?.tier === 'expired' ? `${t.danger}55` : t.borderLight}`, opacity: p.isActive ? 1 : 0.5 }}>
       <button onClick={() => onOpen(p)} className="text-left">
         <div className="rounded-xl overflow-hidden flex items-center justify-center mb-2" style={{ width: '100%', aspectRatio: '1 / 1', backgroundColor: t.card, border: `1px solid ${t.borderLight}` }}>
           {p.photoUrl ? <img src={p.photoUrl} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <span aria-hidden style={{ fontSize: 30 }}>{categoryEmoji(p.category)}</span>}
@@ -121,7 +121,7 @@ function ProductCardPC({ p, onOpen, onRepurchase, onSetActive }: {
 function StatBox({ label, value, accent }: { label: string; value: React.ReactNode; accent?: boolean }) {
   const { t } = useTheme();
   return (
-    <div className="rounded-2xl px-4 py-3" style={{ backgroundColor: t.lavenderTint, border: `1px solid ${t.borderLight}` }}>
+    <div className="rounded-2xl px-4 py-3" style={{ backgroundColor: t.surfaceMuted, border: `1px solid ${t.borderLight}` }}>
       <div style={{ fontSize: 12, color: t.textSub, fontWeight: 600 }}>{label}</div>
       <div style={{ fontSize: 24, fontWeight: 800, fontFamily: t.fontStat, color: accent ? t.accent : t.text, marginTop: 2 }}>{value}</div>
     </div>
@@ -242,7 +242,7 @@ export function BeautyCareDesktop() {
           {b.activeProducts.length > 0 && (
             <div className="flex flex-wrap gap-2 mb-3">
               {categories.map(c => (
-                <button key={c} onClick={() => setCat(c)} style={{ fontSize: 12.5, fontWeight: 700, color: cat === c ? '#fff' : t.textSub, backgroundColor: cat === c ? t.accent : t.lavenderTint, border: `1px solid ${cat === c ? t.accent : t.borderLight}`, padding: '5px 12px', borderRadius: 999 }}>{c}</button>
+                <button key={c} onClick={() => setCat(c)} style={{ fontSize: 12.5, fontWeight: 700, color: cat === c ? '#fff' : t.textSub, backgroundColor: cat === c ? t.accent : t.surfaceMuted, border: `1px solid ${cat === c ? t.accent : t.borderLight}`, padding: '5px 12px', borderRadius: 999 }}>{c}</button>
               ))}
             </div>
           )}
