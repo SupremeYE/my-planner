@@ -1,0 +1,8 @@
+project_id = "kfvijixulsvxelmmqzpm"
+
+# capture 단축어(iOS Shortcuts)는 Supabase JWT 없이 X-Haon-Token 헤더로 자체 인증한다.
+# 게이트웨이 JWT 검사(verify_jwt)를 켜면 함수 본문의 토큰 검사에 도달하기 전에
+# 플랫폼이 401(UNAUTHORIZED_NO_AUTH_HEADER)로 막는다.
+# config.toml 에 명시하지 않으면 `functions deploy` 마다 기본값(true)으로 회귀하므로 여기 고정한다.
+[functions.capture]
+verify_jwt = false
