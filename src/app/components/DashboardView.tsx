@@ -2,6 +2,7 @@ import React, { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router';
 import { useTheme } from '../ThemeContext';
 import { usePlanner, DEFAULT_AFFIRMATIONS, today, getWeekKey, Todo, Event } from '../store';
+import { weekKeysMatch } from '../../lib/weekKeys';
 import { isTodoIncomplete } from '../../lib/todoPeriod';
 import { isEventPast } from '../../api/events';
 import {
@@ -505,7 +506,7 @@ export function DashboardView() {
 
   // Monthly goal progress
   const thisMonthGoals = monthlyGoals.filter((mg) => mg.month === currentMonth);
-  const thisWeekGoals = weeklyGoals.filter((wg) => wg.weekKey === currentWeekKey);
+  const thisWeekGoals = weeklyGoals.filter((wg) => weekKeysMatch(wg.weekKey, currentWeekKey));
   const weeklyDone = thisWeekGoals.filter((g) => g.done).length;
   const weeklyTotal = thisWeekGoals.length;
   const weeklyPct = weeklyTotal > 0 ? Math.round((weeklyDone / weeklyTotal) * 100) : 0;

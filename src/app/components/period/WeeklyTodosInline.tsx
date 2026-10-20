@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react';
 import { Link2, Plus, X } from 'lucide-react';
 import { usePlanner, type Todo } from '../../store';
 import { useTheme } from '../../ThemeContext';
+import { weekKeyToMonday } from '../../../lib/weekKeys';
 import { inputBg } from '../../styles/haonStyles';
 import { TodoModal } from '../TodoModal';
 
@@ -213,21 +214,4 @@ function LinkExistingTodoModal({ onClose, onPick, alreadyLinkedIds }: {
       </div>
     </div>
   );
-}
-
-// ── ISO weekKey "2026-W23" → 그 주 월요일 yyyy-MM-dd (Todo 기본 날짜용) ──
-function weekKeyToMonday(weekKey?: string): string | undefined {
-  if (!weekKey) return undefined;
-  const m = /^(\d{4})-W(\d{1,2})$/.exec(weekKey);
-  if (!m) return undefined;
-  const year = parseInt(m[1], 10);
-  const week = parseInt(m[2], 10);
-  // ISO 8601: 1월 4일이 속한 주가 1주차. 그 주의 월요일을 구하고 (week-1)*7 일 더함.
-  const jan4 = new Date(Date.UTC(year, 0, 4));
-  const jan4Dow = (jan4.getUTCDay() + 6) % 7; // 0=월
-  const week1Monday = new Date(jan4);
-  week1Monday.setUTCDate(jan4.getUTCDate() - jan4Dow);
-  const target = new Date(week1Monday);
-  target.setUTCDate(week1Monday.getUTCDate() + (week - 1) * 7);
-  return `${target.getUTCFullYear()}-${String(target.getUTCMonth() + 1).padStart(2, '0')}-${String(target.getUTCDate()).padStart(2, '0')}`;
 }

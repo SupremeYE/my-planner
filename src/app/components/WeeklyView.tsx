@@ -2,9 +2,10 @@ import { useState, useRef, useEffect } from 'react';
 import React from 'react';
 import {
   format, startOfWeek, endOfWeek, addDays, addWeeks, subWeeks,
-  getISOWeek, getYear, parseISO,
+  getISOWeek, getISOWeekYear, parseISO,
 } from 'date-fns';
 import { ko } from 'date-fns/locale';
+import { weekKeysMatch } from '../../lib/weekKeys';
 import {
   ChevronLeft, ChevronRight, Plus, Trash2, CheckCircle2, Target,
   ArrowRight, ListTodo,
@@ -431,7 +432,7 @@ export function WeeklyGoalsSection({ weekKey, viewDate }: { weekKey: string; vie
   const [selectedMonthlyGoalId, setSelectedMonthlyGoalId] = useState('');
 
   const currentMonth = format(viewDate, 'yyyy-MM');
-  const thisWeekGoals = weeklyGoals.filter(g => g.weekKey === weekKey);
+  const thisWeekGoals = weeklyGoals.filter(g => weekKeysMatch(g.weekKey, weekKey));
   const thisMonthGoals = monthlyGoals.filter(g => g.month === currentMonth);
   const donePct = thisWeekGoals.length
     ? Math.round((thisWeekGoals.filter(g => g.done).length / thisWeekGoals.length) * 100)
@@ -617,7 +618,7 @@ export function WeeklyView() {
             {format(weekStart, 'M월 d일')} – {format(weekEnd, 'M월 d일', { locale: ko })}
           </div>
           <div style={{ fontSize: 11, color: t.accent, fontWeight: 600 }}>
-            {getYear(viewDate)}년 {getISOWeek(viewDate)}주차 · {allDone}/{allTotal} 완료
+            {getISOWeekYear(viewDate)}년 {getISOWeek(viewDate)}주차 · {allDone}/{allTotal} 완료
           </div>
         </div>
         <button onClick={() => setViewDate(addWeeks(viewDate, 1))} className="p-2 rounded-xl" style={{ color: t.textSub }}>

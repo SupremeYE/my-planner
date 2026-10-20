@@ -7,7 +7,7 @@ import { useActivityInsights } from '../../hooks/useActivityInsights';
 
 // ─── 활동 스트립 (track_time 태그별 기간 집계) — 주간·월간 공용 ───
 // 소스 통일: 「시간 리포트」와 **같은 함수**(aggregateActivity)를 호출한다.
-// = 할일 do_*(+블록 dual-read) + 이벤트 시각. plan_* 제외.
+// = 할일 do_*(+블록 dual-read) + 일정 do_*. 계획 시각은 제외.
 //
 // 두 축을 함께 보여준다(서로 다른 것을 말한다):
 //  · ⏱ 시간 = "얼마나 오래" — 실행 시각을 기록한 것만 잡힘(스택 바, 단위 시간/분)

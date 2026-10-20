@@ -5,7 +5,7 @@ import {
 } from 'date-fns';
 import { usePlanner } from '../store';
 import type { Todo, Tag, Event, TodoTimeBlock } from '../store';
-import { aggregateActivity, formatMinutes } from '../../lib/timeAggregation';
+import { aggregateActivity, formatMinutes, type ActivityCoverage } from '../../lib/timeAggregation';
 
 export type TimeReportPeriod = 'week' | 'month';
 
@@ -24,6 +24,8 @@ export interface TimeReportData {
   }>;
 
   totalMinutes: number;
+  /** 미분류·계산 불가 실적 진단. 기존 totalMinutes는 추적 태그 시간만 유지한다. */
+  coverage: ActivityCoverage;
 
   /** 기간 내 일별 데이터 (주간=7일, 월간=해당 월 전체일) */
   daily: Array<{
@@ -32,6 +34,7 @@ export interface TimeReportData {
     isToday: boolean;
     byCategory: Record<string, number>; // tagId → minutes
     totalMinutes: number;
+    coverage: ActivityCoverage;
   }>;
 
   insight: {
@@ -47,6 +50,7 @@ const WEEKDAY_KO = ['일', '월', '화', '수', '목', '금', '토'];
 interface RangeAgg {
   byTag: Map<string, { minutes: number; todos: Array<{ name: string; minutes: number; date: string }> }>;
   total: number;
+  coverage: ActivityCoverage;
 }
 
 /**
@@ -65,7 +69,7 @@ function aggregateRange(
   const agg = aggregateActivity(todos, events, tags, startStr, endStr, timeBlocks);
   const byTag: RangeAgg['byTag'] = new Map();
   agg.byTag.forEach((v, id) => byTag.set(id, { minutes: v.minutes, todos: v.timeItems }));
-  return { byTag, total: agg.totalMinutes };
+  return { byTag, total: agg.totalMinutes, coverage: agg.coverage };
 }
 
 export function useTimeReport(period: TimeReportPeriod): TimeReportData {
@@ -132,6 +136,7 @@ export function useTimeReport(period: TimeReportPeriod): TimeReportData {
         isToday: isSameDay(d, now),
         byCategory: byCat,
         totalMinutes: dayAgg.total,
+        coverage: dayAgg.coverage,
       };
     });
 
@@ -176,6 +181,7 @@ export function useTimeReport(period: TimeReportPeriod): TimeReportData {
       dateRange: { start: curStartStr, end: curEndStr },
       byCategory,
       totalMinutes: cur.total,
+      coverage: cur.coverage,
       daily,
       insight,
     };

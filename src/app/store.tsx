@@ -1,6 +1,8 @@
 import React, { createContext, useContext, useState, useCallback, useEffect, useRef } from 'react';
 import { supabase } from '../lib/supabase';
-import { format, getISOWeek, getYear, subDays, addDays, parseISO, differenceInCalendarDays } from 'date-fns';
+import { format, subDays, addDays, parseISO, differenceInCalendarDays } from 'date-fns';
+import { getWeekKey } from '../lib/weekKeys';
+export { getWeekKey } from '../lib/weekKeys';
 import { db } from '../lib/db';
 import { isVirtualTodoId, parseVirtualTodoId } from '../lib/recurrenceExpansion';
 import { isVirtualEventId, parseVirtualEventId } from '../api/events';
@@ -691,12 +693,6 @@ export function getLogicalToday(): string {
 
 export const today = getLogicalToday();
 
-export function getWeekKey(date: Date): string {
-  const week = getISOWeek(date);
-  const year = getYear(date);
-  return `${year}-W${String(week).padStart(2, '0')}`;
-}
-
 function timeToMinutes(time: string): number {
   const [h, m] = time.split(':').map(Number);
   return h * 60 + m;
@@ -1069,19 +1065,9 @@ export function PlannerProvider({ children }: { children: React.ReactNode }) {
       setAppSettings(prev => ({ ...prev, ...settingsData.appSettings }));
       setEvents(eventsData);
       setWeeklyGoals(weeklyGoalsData);
-      const normalizedMonthly = monthlyGoalsData.map(mg => {
-        if (mg.annualGoalId) return mg;
-        const y = parseInt(mg.month.slice(0, 4), 10);
-        const first = annualGoalsData.find(a => a.year === y);
-        return first ? { ...mg, annualGoalId: first.id } : mg;
-      });
-      normalizedMonthly.forEach(g => {
-        const orig = monthlyGoalsData.find(o => o.id === g.id);
-        if (orig && g.annualGoalId && orig.annualGoalId !== g.annualGoalId) {
-          db.monthlyGoals.upsert(g);
-        }
-      });
-      setMonthlyGoals(normalizedMonthly);
+      // Unlinked monthly goals are valid. Reading must never invent or persist a parent.
+      // Parent changes belong to the explicit addMonthlyGoal/updateMonthlyGoal actions.
+      setMonthlyGoals(monthlyGoalsData);
       setBrainstormItems(brainstormItemsData);
       setBrainstormMemos(brainstormMemosData);
       setRoutines(routinesData);

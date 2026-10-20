@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import type { Todo, Tag, Event } from '../app/store';
+import type { Todo, Tag, Event, TodoTimeBlock } from '../app/store';
 import {
   aggregateActivity, toTagRows, buildActivityInsights,
   GAP_ALERT_DAYS, GAP_MIN_HISTORY,
@@ -35,10 +35,127 @@ test('시간 축: 할일 do_* 로 집계, plan 은 무시, track_time=false 태�
   assert.equal(Math.round(agg.totalMinutes), 90); // 업무 60 + 일상 30 (= 시간 리포트 "총 1시간 30분")
 });
 
-test('시간 축: 이벤트 시각도 같은 엔진으로 포함된다', () => {
+test('계획 일정 60분 / 실제 실행 없음 → 실적 0분', () => {
   const events = [ev({ id: 'e1', tags: ['work'], date: '2026-08-05', startTime: '13:00', endTime: '14:00' })];
   const agg = aggregateActivity([], events, tags, '2026-08-03', '2026-08-09');
-  assert.equal(Math.round(agg.byTag.get('work')!.minutes), 60);
+  assert.equal(agg.totalMinutes, 0);
+  assert.equal(agg.coverage.recordedMinutes, 0);
+  assert.deepEqual(agg.coverage.unresolvedItems, []);
+  assert.equal(agg.totalCount, 1); // 계획 건수와 실적 시간은 별개 지표를 유지한다.
+});
+
+test('계획 60분 / 실제 실행 30분 → 실적 30분', () => {
+  const event = ev({ id: 'e', date: '2026-08-05', tags: ['work'],
+    startTime: '13:00', endTime: '14:00', doStart: '15:00', doEnd: '15:30' });
+  const agg = aggregateActivity([], [event], tags, event.date, event.date);
+  assert.equal(agg.totalMinutes, 30);
+  assert.equal(agg.byTag.get('work')!.minutes, 30);
+});
+
+const block = (p: Partial<TodoTimeBlock>): TodoTimeBlock => ({
+  id: 'block', todoId: 'a', date: '2026-08-05', elapsedSec: 600, ...p,
+});
+
+test('여러 블록은 누적하고 같은 TODO·날짜 레거시 실적은 중복하지 않는다', () => {
+  const td = todo({ id: 'a', date: '2026-08-05', tags: ['work'],
+    doStart: '09:00', doEnd: '10:00', doElapsedSec: 3600 });
+  const blocks = [block({ id: 'b1', elapsedSec: 600 }), block({ id: 'b2', elapsedSec: 1200 })];
+  const agg = aggregateActivity([td], [], tags, td.date!, td.date!, blocks);
+  assert.equal(agg.totalMinutes, 30);
+  assert.equal(agg.coverage.recordedMinutes, 30);
+  assert.equal(agg.byTag.get('work')!.timeItems.length, 2);
+});
+
+test('다른 작업일의 블록과 날짜 없는 레거시는 중복하지 않고 모호성을 진단한다', () => {
+  const td = todo({ id: 'a', date: '2026-08-04', tags: ['work'], doStart: '10:00', doEnd: '10:30' });
+  const blocks = [block({ date: '2026-08-05', elapsedSec: 1200 })];
+  const agg = aggregateActivity([td], [], tags, '2026-08-01', '2026-08-31', blocks);
+  assert.equal(agg.totalMinutes, 20);
+  assert.equal(agg.coverage.unresolvedItems[0].reason, 'legacy-date-ambiguous');
+  assert.equal(agg.coverage.unresolvedItems[0].candidateMinutes, 30);
+  // The same rule applies even when the block is outside the selected day.
+  const day = aggregateActivity([td], [], tags, '2026-08-04', '2026-08-04', blocks);
+  assert.equal(day.totalMinutes, 0);
+  assert.equal(day.coverage.unresolvedItems[0].reason, 'legacy-date-ambiguous');
+});
+
+test('복수 추적 태그의 균등 분할과 기존 건수 기준을 유지한다', () => {
+  const td = todo({ id: 'a', date: '2026-08-05', tags: ['work', 'self', 'off'],
+    doStart: '10:00', doEnd: '11:00' });
+  const agg = aggregateActivity([td], [], tags, td.date!, td.date!);
+  assert.equal(agg.byTag.get('work')!.minutes, 30);
+  assert.equal(agg.byTag.get('self')!.minutes, 30);
+  assert.equal(agg.byTag.has('off'), false);
+  assert.equal(agg.totalMinutes, 60);
+  assert.equal(agg.totalCount, 2);
+});
+
+test('태그 없음·삭제된 태그·추적 OFF 실적을 이유별로 식별한다', () => {
+  const records = [undefined, ['removed'], ['off']].map((tagIds, i) => todo({
+    id: String(i), date: '2026-08-05', tags: tagIds, doStart: '10:00', doEnd: '10:20',
+  }));
+  const agg = aggregateActivity(records, [], tags, '2026-08-05', '2026-08-05');
+  assert.equal(agg.totalMinutes, 0); // 기존 추적 태그 총합의 의미를 바꾸지 않는다.
+  assert.equal(agg.coverage.recordedMinutes, 60);
+  assert.equal(agg.coverage.unclassifiedMinutes, 60);
+  assert.deepEqual(agg.coverage.unclassifiedItems.map(i => i.reason), ['untagged', 'unknown-tags', 'untracked-tags']);
+});
+
+test('미분류 일정 실적과 연결 TODO가 없는 블록도 조용히 누락하지 않는다', () => {
+  const event = ev({ id: 'e', date: '2026-08-05', doStart: '10:00', doEnd: '10:15' });
+  const agg = aggregateActivity([], [event], tags, event.date, event.date, [block({ elapsedSec: 1200 })]);
+  assert.equal(agg.coverage.recordedMinutes, 35);
+  assert.equal(agg.coverage.unclassifiedMinutes, 35);
+  assert.deepEqual(agg.coverage.unclassifiedItems.map(i => i.reason), ['missing-todo', 'untagged']);
+});
+
+test('일간 합계 = 같은 기록 범위의 주간 합계 = 월간 합계 (분류·미분류 모두)', () => {
+  const todos = [
+    todo({ id: 'a', date: '2026-08-03', tags: ['work'], doStart: '09:00', doEnd: '09:10' }),
+    todo({ id: 'b', date: '2026-08-06', tags: [], doStart: '09:00', doEnd: '09:20' }),
+  ];
+  const events = [ev({ id: 'e', date: '2026-08-07', tags: ['work', 'self'], doStart: '09:00', doEnd: '09:30' })];
+  const blocks = [block({ date: '2026-08-04', elapsedSec: 2400 }), block({ date: '2026-08-05', elapsedSec: 600 })];
+  const run = (s: string, e = s) => aggregateActivity(todos, events, tags, s, e, blocks);
+  const days = Array.from({ length: 7 }, (_, i) => run(`2026-08-${String(i + 3).padStart(2, '0')}`));
+  for (const aggregate of [run('2026-08-03', '2026-08-09'), run('2026-08-01', '2026-08-31')]) {
+    assert.equal(aggregate.totalMinutes, days.reduce((s, d) => s + d.totalMinutes, 0));
+    assert.equal(aggregate.coverage.unclassifiedMinutes, days.reduce((s, d) => s + d.coverage.unclassifiedMinutes, 0));
+    assert.equal(aggregate.coverage.recordedMinutes, aggregate.totalMinutes + aggregate.coverage.unclassifiedMinutes);
+    for (const id of ['work', 'self']) {
+      assert.equal(aggregate.byTag.get(id)!.minutes, days.reduce((s, d) => s + (d.byTag.get(id)?.minutes ?? 0), 0));
+    }
+  }
+});
+
+test('자정 전후 블록은 저장된 작업일을 보존하며 실측 초를 우선한다', () => {
+  const td = todo({ id: 'a', date: '2026-08-03', tags: ['work'] });
+  const blocks = [
+    block({ id: 'before', date: '2026-08-03', start: '23:50', end: '00:10', elapsedSec: 1200 }),
+    block({ id: 'after', date: '2026-08-04', start: '00:15', end: '00:25', elapsedSec: 600 }),
+  ];
+  assert.equal(aggregateActivity([td], [], tags, '2026-08-03', '2026-08-03', blocks).totalMinutes, 20);
+  assert.equal(aggregateActivity([td], [], tags, '2026-08-04', '2026-08-04', blocks).totalMinutes, 10);
+  assert.equal(aggregateActivity([td], [], tags, '2026-08-01', '2026-08-31', blocks).totalMinutes, 30);
+});
+
+test('날짜 없는 역전 HH:mm은 자정 통과로 추측하지 않고 진단한다', () => {
+  const event = ev({ id: 'e', date: '2026-08-05', tags: ['work'], doStart: '23:50', doEnd: '00:10' });
+  const agg = aggregateActivity([], [event], tags, event.date, event.date);
+  assert.equal(agg.totalMinutes, 0);
+  assert.equal(agg.coverage.unresolvedItems[0].reason, 'ambiguous-overnight');
+});
+
+test('명시적인 확장 시각은 보존하고 잘못된 시각·실측 값은 진단한다', () => {
+  const events = [
+    ev({ id: 'extended', date: '2026-08-05', tags: ['work'], doStart: '23:50', doEnd: '24:10' }),
+    ev({ id: 'bad', date: '2026-08-05', tags: ['work'], doStart: '09:99', doEnd: '10:00' }),
+    ev({ id: 'partial', date: '2026-08-05', tags: ['work'], doStart: '09:00' }),
+  ];
+  const agg = aggregateActivity([], events, tags, '2026-08-05', '2026-08-05', [block({ elapsedSec: NaN })]);
+  assert.equal(agg.totalMinutes, 20);
+  assert.equal(agg.coverage.unresolvedItems.length, 3);
+  assert.ok(agg.coverage.unresolvedItems.every(i => i.reason === 'invalid-time'));
 });
 
 test('건수 축: 시간이 없어도 태그만 붙으면 잡힌다 (시간 축과 독립)', () => {

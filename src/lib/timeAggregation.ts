@@ -7,7 +7,7 @@
  *
  * 집계 소스(확정):
  *  - 할일 `do_start`/`do_end` (+ `todo_time_blocks` dual-read)  → 현재 유일한 실데이터
- *  - 이벤트 `startTime`/`endTime`                                → 지금은 0건이나 미래 대비(일정 모달 태그)
+ *  - 이벤트 `doStart`/`doEnd` (실적만; startTime/endTime 계획은 제외)
  *  - 할일 `plan_*`                                               → **제외**(계획 ≠ 실제)
  *
  * 두 축을 함께 낸다:
@@ -15,8 +15,6 @@
  *  - 건수(count):   "얼마나 자주" — 태그만 붙으면 모두 잡힌다(누락이 적어 더 정직)
  */
 import type { Todo, Tag, Event, TodoTimeBlock } from '../app/store';
-import { todoDoDurationSeconds } from './todoDoDuration';
-import { blockDurationSec } from './timeBlocks';
 
 // ───────────────────────── 튜닝 상수 (하드코딩 금지 · 단일 출처) ─────────────────────────
 
@@ -59,19 +57,47 @@ export interface TagAgg {
 
 export interface RangeAggregation {
   byTag: Map<string, TagAgg>;
+  /** 기존 화면과 호환: 시간추적 태그로 분류된 시간만. */
   totalMinutes: number;
   totalCount: number;
+  coverage: ActivityCoverage;
+}
+
+interface TimeRecord {
+  id: string;
+  name: string;
+  date: string;
+  kind: 'todo' | 'event' | 'block';
+}
+
+/** UI를 추가하지 않고도 집계에서 빠진 실적을 확인할 수 있는 진단 데이터. */
+export interface ActivityCoverage {
+  /** 분류된 시간 + 분류할 수 없는 시간. 계산 불가능한 구간은 제외. */
+  recordedMinutes: number;
+  unclassifiedMinutes: number;
+  unclassifiedItems: Array<TimeRecord & {
+    minutes: number;
+    reason: 'untagged' | 'untracked-tags' | 'unknown-tags' | 'missing-todo';
+  }>;
+  unresolvedItems: Array<TimeRecord & {
+    reason: 'invalid-time' | 'ambiguous-overnight' | 'legacy-date-ambiguous';
+    /** The legacy duration is known, but cannot safely be added to dated blocks. */
+    candidateMinutes?: number;
+  }>;
 }
 
 function toMin(s?: string): number | null {
-  if (!s) return null;
+  if (!s || !/^\d{1,2}:[0-5]\d$/.test(s)) return null;
   const [h, m] = s.split(':').map(Number);
-  return Number.isNaN(h) || Number.isNaN(m) ? null : h * 60 + m;
+  // Preserve explicit extended-hour timeline records (e.g. 23:50–24:10).
+  return h > 47 ? null : h * 60 + m;
 }
 
 /**
  * 기간(startStr~endStr, yyyy-MM-dd 비교)의 시간추적 태그별 집계.
- * 시간 축은 블록(작업일 기준) 우선 → 블록 없는 (todo,date)만 do_* 폴백(이중집계 방지) + 이벤트 시각.
+ * 시간 축은 블록(작업일 기준) 우선 → 블록 없는 TODO만 do_* 폴백 + 일정 do_*.
+ * 날짜 귀속은 저장된 date를 보존한다. HH:mm만 있는 역전 구간은 자정 통과인지 오류인지
+ * 판별할 수 없으므로 추정하지 않고 unresolvedItems에 남긴다. 라이프 로그는 입력에 포함하지 않는다.
  * 건수 축은 태그 붙은 할일·이벤트를 각자의 date 기준으로 센다(시간 유무 무관).
  */
 export function aggregateActivity(
@@ -83,6 +109,10 @@ export function aggregateActivity(
   timeBlocks: TodoTimeBlock[] = [],
 ): RangeAggregation {
   const trackTagIds = new Set(tags.filter(t => t.trackTime).map(t => t.id));
+  const tagIds = new Set(tags.map(t => t.id));
+  const coverage: ActivityCoverage = {
+    recordedMinutes: 0, unclassifiedMinutes: 0, unclassifiedItems: [], unresolvedItems: [],
+  };
   const byTag = new Map<string, TagAgg>();
   const ensure = (id: string): TagAgg => {
     let e = byTag.get(id);
@@ -90,16 +120,47 @@ export function aggregateActivity(
     return e;
   };
 
-  const addTime = (
-    matched: string[], sec: number, name: string, date: string, kind: 'todo' | 'event',
+  const duration = (
+    record: TimeRecord, start?: string, end?: string, elapsed?: number, zeroIsDuration = true,
   ) => {
-    if (sec <= 0 || matched.length === 0) return;
+    if (elapsed != null) {
+      if (!Number.isFinite(elapsed) || elapsed < 0) {
+        coverage.unresolvedItems.push({ ...record, reason: 'invalid-time' });
+        return 0;
+      }
+      // TODO completion markers: elapsed=0 is authoritative. Blocks use 0 as legacy fallback.
+      if (elapsed > 0 || zeroIsDuration) return elapsed;
+    }
+    if (!start && !end) return 0; // No actual time was recorded (e.g. a planned-only event).
+    const s = toMin(start); const e = toMin(end);
+    if (s == null || e == null || e < s) {
+      coverage.unresolvedItems.push({
+        ...record, reason: s != null && e != null && e < s ? 'ambiguous-overnight' : 'invalid-time',
+      });
+      return 0;
+    }
+    return (e - s) * 60;
+  };
+
+  const addTime = (record: TimeRecord, recordTags: string[] | undefined, sec: number) => {
+    if (sec <= 0) return;
+    coverage.recordedMinutes += sec / 60;
+    const matched = (recordTags ?? []).filter(id => trackTagIds.has(id));
+    if (matched.length === 0) {
+      const reason = record.kind === 'block' && recordTags === undefined ? 'missing-todo'
+        : !recordTags?.length ? 'untagged'
+        : recordTags.some(id => tagIds.has(id)) ? 'untracked-tags' : 'unknown-tags';
+      coverage.unclassifiedMinutes += sec / 60;
+      coverage.unclassifiedItems.push({ ...record, minutes: sec / 60, reason });
+      return;
+    }
     // 시간추적 태그가 여러 개면 시간을 균등 분할(시간 리포트와 동일 규칙).
     const minutesEach = sec / 60 / matched.length;
     for (const id of matched) {
       const e = ensure(id);
       e.minutes += minutesEach;
-      e.timeItems.push({ name, minutes: minutesEach, date, kind });
+      e.timeItems.push({ name: record.name, minutes: minutesEach, date: record.date,
+        kind: record.kind === 'event' ? 'event' : 'todo' });
     }
   };
 
@@ -108,26 +169,36 @@ export function aggregateActivity(
 
   // ── 시간 축 ①: 할일 블록(작업일 기준) ──
   const todoById = new Map(todos.map(t => [t.id, t]));
+  // Include blocks outside this range too: a one-day query must not resurrect an
+  // undated legacy copy of a timer session that was actually recorded on another day.
+  const todosWithBlocks = new Set(timeBlocks.map(b => b.todoId));
   const coveredByBlock = new Set<string>(); // `${todoId}|${date}`
   for (const b of timeBlocks) {
     if (!inRange(b.date)) continue;
     const todo = todoById.get(b.todoId);
-    if (!todo) continue;
-    addTime(matchedTags(todo.tags), blockDurationSec(b), todo.text, b.date, 'todo');
+    const record: TimeRecord = { id: b.id, name: todo?.text ?? '(연결된 할일 없음)', date: b.date, kind: 'block' };
+    addTime(record, todo ? todo.tags ?? [] : undefined, duration(record, b.start, b.end, b.elapsedSec, false));
     coveredByBlock.add(`${b.todoId}|${b.date}`);
   }
-  // ── 시간 축 ②: 블록 없는 (todo,date)만 레거시 do_* 폴백 ──
+  // ── 시간 축 ②: 블록 없는 TODO의 레거시 do_* (다른 날짜 블록과의 관계는 진단) ──
   for (const todo of todos) {
-    if (!inRange(todo.date) || !todo.doStart || !todo.doEnd) continue;
+    if (!inRange(todo.date)) continue;
     if (coveredByBlock.has(`${todo.id}|${todo.date}`)) continue;
-    addTime(matchedTags(todo.tags), todoDoDurationSeconds(todo), todo.text, todo.date!, 'todo');
+    const record: TimeRecord = { id: todo.id, name: todo.text, date: todo.date, kind: 'todo' };
+    const sec = duration(record, todo.doStart, todo.doEnd, todo.doElapsedSec);
+    if (sec > 0 && todosWithBlocks.has(todo.id)) {
+      // recordActiveTimer dual-writes do_* without its execution date. It may be a
+      // copy of a block on another date or an older legacy session; do not guess.
+      coverage.unresolvedItems.push({ ...record, reason: 'legacy-date-ambiguous', candidateMinutes: sec / 60 });
+      continue;
+    }
+    addTime(record, todo.tags, sec);
   }
-  // ── 시간 축 ③: 이벤트 시각(startTime~endTime) ──
+  // ── 시간 축 ③: 일정의 실제 실행 시각. 계획 시각으로 폴백하지 않는다. ──
   for (const ev of events) {
     if (!inRange(ev.date)) continue;
-    const s = toMin(ev.startTime); const en = toMin(ev.endTime);
-    if (s == null || en == null) continue;
-    addTime(matchedTags(ev.tags), Math.max(0, en - s) * 60, ev.title, ev.date, 'event');
+    const record: TimeRecord = { id: ev.id, name: ev.title, date: ev.date, kind: 'event' };
+    addTime(record, ev.tags, duration(record, ev.doStart, ev.doEnd));
   }
 
   // ── 건수 축: 태그 붙은 할일·이벤트(시간 유무 무관, 각자의 date 기준) ──
@@ -142,7 +213,7 @@ export function aggregateActivity(
 
   let totalMinutes = 0; let totalCount = 0;
   byTag.forEach(e => { totalMinutes += e.minutes; totalCount += e.count; });
-  return { byTag, totalMinutes, totalCount };
+  return { byTag, totalMinutes, totalCount, coverage };
 }
 
 // ───────────────────────── 표시용 행(rows) ─────────────────────────

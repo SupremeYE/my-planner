@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { format, addMonths, subMonths, getYear } from 'date-fns';
+import { weekKeysMatch } from '../../../lib/weekKeys';
 import {
   ChevronLeft, ChevronRight, ChevronDown, ChevronUp, Plus, Trash2, Sparkles, ListChecks,
 } from 'lucide-react';
@@ -300,7 +301,7 @@ function MonthlyGoalDetail({ goal, viewDate, onDelete, t, compact }: {
     [weeklyGoals, goal.id],
   );
   const weeks = useMemo(() => weeksOfMonth(viewDate), [viewDate]);
-  const weekLabel = (weekKey: string) => weeks.find(w => w.weekKey === weekKey)?.label ?? weekKey;
+  const weekLabel = (weekKey: string) => weeks.find(w => weekKeysMatch(w.weekKey, weekKey))?.label ?? weekKey;
 
   const year = getYear(viewDate);
   const yearAnnual = useMemo(() => annualGoals.filter(g => g.year === year), [annualGoals, year]);

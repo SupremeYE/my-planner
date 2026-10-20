@@ -4,10 +4,12 @@
  * dual-read 원칙:
  *  - 신규 세션은 블록(todo_time_blocks)으로 적재된다.
  *  - 블록이 없는 레거시/단순 케이스는 todos 행의 do_* 컬럼으로 계속 읽는다.
- *  - 같은 (todo, date)에 블록이 하나라도 있으면 그 날의 do_* 는 무시(이중 집계 방지).
+ *  - 날짜가 명확한 블록을 우선한다. 다른 날짜 블록과 레거시 실적의 관계가 불명확하면
+ *    공통 집계 엔진의 진단으로 남기고 중복 가능 실적을 더하지 않는다.
  */
 import type { Todo, TodoTimeBlock } from '../app/store';
 import { todoDoDurationSeconds } from './todoDoDuration';
+import { aggregateActivity } from './timeAggregation';
 
 /** 블록 1개의 소요(초). elapsedSec 우선, 없으면 start~end 분 차이. */
 export function blockDurationSec(b: TodoTimeBlock): number {
@@ -30,21 +32,12 @@ export function totalElapsedForTodo(blocks: TodoTimeBlock[], todo: Todo): number
   return todoDoDurationSeconds(todo);
 }
 
-/** 특정 할일이 특정 날짜에 블록을 갖는지 */
-function todoHasBlockOnDate(blocks: TodoTimeBlock[], todoId: string, date: string): boolean {
-  return blocks.some(b => b.todoId === todoId && b.date === date);
-}
-
 /**
- * 특정 날짜의 총 DO 초 (dual-read).
- * = 그 날짜 블록 합 + (그 날짜 예정 할일 중 그 날 블록이 없는 do_* 레거시 합)
+ * 특정 날짜의 TODO DO 초. 일간 화면도 리포트와 같은 날짜·중복 제거 규칙을 사용한다.
+ * 태그 제한 없이 실제로 기록된 시간을 반환하며 일정·라이프 로그는 포함하지 않는다.
  */
 export function dateDoSeconds(blocks: TodoTimeBlock[], todosOnDate: Todo[], date: string): number {
-  const blockSum = blocksForDate(blocks, date).reduce((s, b) => s + blockDurationSec(b), 0);
-  const legacySum = todosOnDate
-    .filter(td => td.doStart && td.doEnd && !todoHasBlockOnDate(blocks, td.id, date))
-    .reduce((s, td) => s + todoDoDurationSeconds(td), 0);
-  return blockSum + legacySum;
+  return Math.round(aggregateActivity(todosOnDate, [], [], date, date, blocks).coverage.recordedMinutes * 60);
 }
 
 /**

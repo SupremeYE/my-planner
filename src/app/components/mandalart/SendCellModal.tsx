@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
 import { useTheme } from '../../ThemeContext';
 import { db } from '../../../lib/db';
+import { getWeekKey, weekKeyToMonday, weekKeysMatch } from '../../../lib/weekKeys';
 import { usePlanner } from '../../store';
 import type { Notify } from '../culture/CultureToast';
 import type { Todo, WeeklyGoal, MonthlyGoal, AnnualGoal } from '../../store';
@@ -19,34 +20,6 @@ type Target = 'annual' | 'monthly' | 'weekly' | 'todo';
 // 짧은 random id — 기존 store.newId() 와 동일 패턴
 const newId = () => Math.random().toString(36).slice(2, 9);
 
-// ISO 8601 주차 키 (예: 2026-W23)
-function isoWeekKey(date: Date): string {
-  const tmp = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
-  const dayNum = (tmp.getUTCDay() + 6) % 7;
-  tmp.setUTCDate(tmp.getUTCDate() - dayNum + 3);
-  const firstThursday = new Date(Date.UTC(tmp.getUTCFullYear(), 0, 4));
-  const diff = (tmp.getTime() - firstThursday.getTime()) / 86400000;
-  const week = 1 + Math.round((diff - 3 + (firstThursday.getUTCDay() + 6) % 7) / 7);
-  return `${tmp.getUTCFullYear()}-W${String(week).padStart(2, '0')}`;
-}
-
-function weekKeyToMonday(weekKey: string): string | undefined {
-  const m = /^(\d{4})-W(\d{1,2})$/.exec(weekKey);
-  if (!m) return undefined;
-  const year = parseInt(m[1], 10);
-  const week = parseInt(m[2], 10);
-  const jan4 = new Date(Date.UTC(year, 0, 4));
-  const jan4Dow = (jan4.getUTCDay() + 6) % 7;
-  const week1Monday = new Date(jan4);
-  week1Monday.setUTCDate(jan4.getUTCDate() - jan4Dow);
-  const target = new Date(week1Monday);
-  target.setUTCDate(week1Monday.getUTCDate() + (week - 1) * 7);
-  const y = target.getUTCFullYear();
-  const mo = String(target.getUTCMonth() + 1).padStart(2, '0');
-  const d = String(target.getUTCDate()).padStart(2, '0');
-  return `${y}-${mo}-${d}`;
-}
-
 export function SendCellModal({ cellId, defaultText, isAction, onClose, onNotify }: Props) {
   const { t } = useTheme();
   const { annualGoals, monthlyGoals, weeklyGoals, todos } = usePlanner();
@@ -58,7 +31,7 @@ export function SendCellModal({ cellId, defaultText, isAction, onClose, onNotify
   const now = useMemo(() => new Date(), []);
   const currentYear = now.getFullYear();
   const currentMonth = `${currentYear}-${String(now.getMonth() + 1).padStart(2, '0')}`;
-  const currentWeek = useMemo(() => isoWeekKey(now), [now]);
+  const currentWeek = useMemo(() => getWeekKey(now), [now]);
   const todayStr = useMemo(() => {
     const y = now.getFullYear();
     const mo = String(now.getMonth() + 1).padStart(2, '0');
@@ -91,7 +64,7 @@ export function SendCellModal({ cellId, defaultText, isAction, onClose, onNotify
     [monthlyGoals, month],
   );
   const weeklyOptionsForKey = useMemo(
-    () => weeklyGoals.filter(g => g.weekKey === weekKey),
+    () => weeklyGoals.filter(g => weekKeysMatch(g.weekKey, weekKey)),
     [weeklyGoals, weekKey],
   );
 
@@ -145,7 +118,7 @@ export function SendCellModal({ cellId, defaultText, isAction, onClose, onNotify
     for (let i = -6; i <= 12; i++) {
       const d = new Date(base);
       d.setDate(base.getDate() + i * 7);
-      arr.push(isoWeekKey(d));
+      arr.push(getWeekKey(d));
     }
     return Array.from(new Set(arr));
   }, [now]);

@@ -50,6 +50,8 @@ type EventRow = {
   end_at: string;
   do_start: string | null;
   do_end: string | null;
+  /** Optional legacy metadata: read when present; do not assume a new DB column. */
+  tags?: string[] | null;
   location: string | null;
   link_url: string | null;
   repeat_type: EventRepeatType | null;
@@ -155,6 +157,9 @@ function toLegacyEvent(row: EventRow, occurrenceDate?: string): Event {
   const startAt = parseISO(row.start_at);
   const endAt = parseISO(row.end_at);
   const date = occurrenceDate || format(startAt, 'yyyy-MM-dd');
+  // Expanding a recurring plan must not turn one recorded actual into many actuals.
+  // Other occurrences need their own persisted exception row to carry execution times.
+  const ownsActual = !occurrenceDate || occurrenceDate === format(startAt, 'yyyy-MM-dd');
   return {
     id: occurrenceDate ? `${row.id}::${date}` : row.id,
     sourceEventId: row.id,
@@ -164,8 +169,8 @@ function toLegacyEvent(row: EventRow, occurrenceDate?: string): Event {
     endDate: format(endAt, 'yyyy-MM-dd'),
     startTime: row.is_all_day ? undefined : format(startAt, 'HH:mm'),
     endTime: row.is_all_day ? undefined : format(endAt, 'HH:mm'),
-    doStart: row.do_start ?? undefined,
-    doEnd: row.do_end ?? undefined,
+    doStart: ownsActual ? row.do_start ?? undefined : undefined,
+    doEnd: ownsActual ? row.do_end ?? undefined : undefined,
     location: row.location ?? undefined,
     linkUrl: row.link_url ?? undefined,
     memo: row.memo ?? undefined,
@@ -186,7 +191,7 @@ function toLegacyEvent(row: EventRow, occurrenceDate?: string): Event {
     startAt: row.start_at,
     endAt: row.end_at,
     isOccurrence: Boolean(occurrenceDate),
-    tags: [],
+    tags: row.tags ?? [],
   };
 }
 

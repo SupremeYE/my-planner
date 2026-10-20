@@ -3,6 +3,7 @@ import { X, Search, ChevronLeft, ChevronRight, ChevronDown, Trash2, Clock, Check
 import { useNavigate } from 'react-router';
 import { usePlanner, MonthlyReview, WeightRecord, HappyMoment, getWeekKey, getLogicalToday } from '../store';
 import { db } from '../../lib/db';
+import { findWeekRecord, weekKeysMatch, weekKeyForRead } from '../../lib/weekKeys';
 import { TrackTimeStrip } from './review/TrackTimeStrip';
 import { MemoryPieces } from './review/MemoryPieces';
 import { RetroReadView, hasRetroContent } from './review/RetroReadView';
@@ -273,7 +274,7 @@ function DayTab({ jump }: { jump?: JumpReq }) {
 
 // weekKey(YYYY-Www, ISO주) → 그 주의 월~일 범위
 function weekKeyToRange(weekKey: string) {
-  const [y, w] = weekKey.split('-W').map(Number);
+  const [y, w] = weekKeyForRead(weekKey).split('-W').map(Number);
   let d = new Date(y, 0, 4); // 1월 4일은 항상 ISO 1주차
   d = setISOWeekYear(d, y);
   d = setISOWeek(d, w);
@@ -360,7 +361,7 @@ function WeekTab({ jump }: { jump?: JumpReq }) {
 
   // ── ① 이번 주 목표 (weekly_goals, 여기서 체크·부모 월간칩·연결 할일 진행) ──
   const weekGoals = useMemo(
-    () => weeklyGoals.filter(g => g.weekKey === range.weekKey),
+    () => weeklyGoals.filter(g => weekKeysMatch(g.weekKey, range.weekKey)),
     [weeklyGoals, range.weekKey],
   );
   const goalsDone = weekGoals.filter(g => g.done).length;
@@ -397,7 +398,7 @@ function WeekTab({ jump }: { jump?: JumpReq }) {
   );
 
   // ── 회고 입력 (Stage 1 필드로 실제 저장) ──
-  const weeklyReview = weeklyReviews.find(r => r.weekKey === range.weekKey);
+  const weeklyReview = findWeekRecord(weeklyReviews, range.weekKey);
   const [wrHighlights, setWrHighlights] = useState(''); // ① 기억하고 싶은 것 (선택)
   const [wrKptKeep, setWrKptKeep] = useState('');       // ② KEEP
   const [wrNotice, setWrNotice] = useState('');         // ③ NOTICE
@@ -416,7 +417,8 @@ function WeekTab({ jump }: { jump?: JumpReq }) {
   const save = () => {
     // 부분 저장 허용 — 한 칸만 채워도 저장된다(빈 칸 강제 없음)
     const payload = {
-      weekKey: range.weekKey,
+      // An explicit text edit must not silently migrate an old stored key.
+      weekKey: weeklyReview?.weekKey ?? range.weekKey,
       highlights: wrHighlights,
       kptKeep: wrKptKeep, notice: wrNotice, kptTry: wrKptTry,
       nextWeek: wrNext,
@@ -438,14 +440,15 @@ function WeekTab({ jump }: { jump?: JumpReq }) {
     const [y, w] = range.weekKey.split('-W');
     return `${Number(y) - 1}-W${w}`;
   }, [range.weekKey]);
-  const lastYearReview = weeklyReviews.find(r => r.weekKey === lastYearKey);
+  const lastYearReview = findWeekRecord(weeklyReviews, lastYearKey);
 
   const hasText = (r: { highlights?: string; kptKeep?: string; notice?: string; kptTry?: string; nextWeek?: string }) =>
     !!(r.highlights || r.kptKeep || r.notice || r.kptTry || r.nextWeek);
 
   const pastGroups = useMemo(() => {
     const items = weeklyReviews
-      .filter(r => r.weekKey !== range.weekKey && hasText(r))
+      // Keep other rows (including a legacy/canonical collision) accessible in history.
+      .filter(r => r.id !== weeklyReview?.id && hasText(r))
       .map(r => {
         const rg = weekKeyToRange(r.weekKey);
         return { review: r, ...rg, monthKey: format(addDays(rg.start, 3), 'yyyy-MM') };

@@ -10,6 +10,7 @@ import {
   User, LogOut, Mail,
 } from 'lucide-react';
 import { usePlanner, getWeekKey, getLogicalToday } from '../store';
+import { weekKeysMatch } from '../../lib/weekKeys';
 import { countInboxActive } from '../../lib/inbox';
 import { useCapturePending } from '../hooks/useCapturePending';
 import { useTheme } from '../ThemeContext';
@@ -304,7 +305,7 @@ function RightPanel() {
   const currentWeekKey = getWeekKey(new Date());
   const currentMonth = format(new Date(), 'yyyy-MM');
 
-  const thisWeekGoals = weeklyGoals.filter(g => g.weekKey === currentWeekKey);
+  const thisWeekGoals = weeklyGoals.filter(g => weekKeysMatch(g.weekKey, currentWeekKey));
   const thisMonthGoals = monthlyGoals.filter(g => g.month === currentMonth);
   const weekDone = thisWeekGoals.filter(g => g.done).length;
   const weekTotal = thisWeekGoals.length;

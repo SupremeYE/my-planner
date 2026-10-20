@@ -49,6 +49,13 @@ test('dateDoSeconds: 블록 없는 레거시 do_* 는 폴백 합산', () => {
   assert.equal(dateDoSeconds([], [t], '2026-07-14'), 1800);
 });
 
+test('dateDoSeconds: 다른 날짜 블록의 날짜 없는 레거시 복사본을 재집계하지 않는다', () => {
+  const t = todo({ doStart: '09:00', doEnd: '09:10', doElapsedSec: 600 });
+  const blocks = [blk({ date: '2026-07-15', elapsedSec: 600 })];
+  assert.equal(dateDoSeconds(blocks, [t], '2026-07-14'), 0);
+  assert.equal(dateDoSeconds(blocks, [], '2026-07-15'), 600);
+});
+
 test('elapsedByKey: 태그별 집계 + 레거시 폴백 이중집계 방지', () => {
   const t1 = todo({ id: 't1', tags: ['work'], date: '2026-07-14', doStart: '09:00', doEnd: '10:00', doElapsedSec: 3600 });
   const t2 = todo({ id: 't2', tags: ['rest'], date: '2026-07-14', doStart: '11:00', doEnd: '11:30', doElapsedSec: 1800 });
