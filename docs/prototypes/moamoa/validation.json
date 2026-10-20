@@ -1,0 +1,153 @@
+{
+  "date": "2026-10-20T14:27:05.195Z",
+  "externalRequests": 0,
+  "runtimeErrors": [],
+  "interactionScreenshots": [
+    "mobile-quick-todo.png",
+    "mobile-quick-record.png",
+    "mobile-week-planner-habits.png",
+    "mobile-save-failure.png"
+  ],
+  "screens": [
+    {
+      "screen": "mobile-today",
+      "width": 390,
+      "height": 844,
+      "document": 390,
+      "main": 390,
+      "viewport": 390,
+      "mainWidth": 390,
+      "overflows": []
+    },
+    {
+      "screen": "desktop-today",
+      "width": 1440,
+      "height": 1140,
+      "document": 1440,
+      "main": 1213,
+      "viewport": 1440,
+      "mainWidth": 1213,
+      "overflows": []
+    },
+    {
+      "screen": "desktop-week-schedule",
+      "width": 1440,
+      "height": 1140,
+      "document": 1440,
+      "main": 1213,
+      "viewport": 1440,
+      "mainWidth": 1213,
+      "overflows": []
+    },
+    {
+      "screen": "desktop-week-planner",
+      "width": 1440,
+      "height": 1140,
+      "document": 1440,
+      "main": 1213,
+      "viewport": 1440,
+      "mainWidth": 1213,
+      "overflows": []
+    },
+    {
+      "screen": "mobile-week-planner",
+      "width": 390,
+      "height": 844,
+      "document": 390,
+      "main": 390,
+      "viewport": 390,
+      "mainWidth": 390,
+      "overflows": []
+    },
+    {
+      "screen": "mobile-quests",
+      "width": 390,
+      "height": 844,
+      "document": 390,
+      "main": 390,
+      "viewport": 390,
+      "mainWidth": 390,
+      "overflows": []
+    },
+    {
+      "screen": "mobile-records",
+      "width": 390,
+      "height": 844,
+      "document": 390,
+      "main": 390,
+      "viewport": 390,
+      "mainWidth": 390,
+      "overflows": []
+    },
+    {
+      "screen": "desktop-garden",
+      "width": 1440,
+      "height": 1140,
+      "document": 1440,
+      "main": 1213,
+      "viewport": 1440,
+      "mainWidth": 1213,
+      "overflows": []
+    },
+    {
+      "screen": "mobile-month",
+      "width": 390,
+      "height": 844,
+      "document": 390,
+      "main": 390,
+      "viewport": 390,
+      "mainWidth": 390,
+      "overflows": []
+    },
+    {
+      "screen": "mobile-day",
+      "width": 390,
+      "height": 844,
+      "document": 390,
+      "main": 390,
+      "viewport": 390,
+      "mainWidth": 390,
+      "overflows": []
+    },
+    {
+      "screen": "mobile-week-schedule",
+      "width": 390,
+      "height": 844,
+      "document": 390,
+      "main": 390,
+      "viewport": 390,
+      "mainWidth": 390,
+      "overflows": []
+    },
+    {
+      "screen": "mobile-garden",
+      "width": 390,
+      "height": 844,
+      "document": 390,
+      "main": 390,
+      "viewport": 390,
+      "mainWidth": 390,
+      "overflows": []
+    },
+    {
+      "screen": "desktop-quests",
+      "width": 1440,
+      "height": 1140,
+      "document": 1440,
+      "main": 1213,
+      "viewport": 1440,
+      "mainWidth": 1213,
+      "overflows": []
+    },
+    {
+      "screen": "desktop-records",
+      "width": 1440,
+      "height": 1140,
+      "document": 1440,
+      "main": 1213,
+      "viewport": 1440,
+      "mainWidth": 1213,
+      "overflows": []
+    }
+  ]
+}
