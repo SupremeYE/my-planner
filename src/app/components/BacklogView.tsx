@@ -10,6 +10,8 @@ const CATEGORIES = ['전체', '업무', '건강', '자기계발', '생활', '기
 export function BacklogView() {
   const { todos, addTodo, updateTodo, deleteTodo } = usePlanner();
   const { t } = useTheme();
+  const [isSaving, setIsSaving] = useState(false);
+  const [creationId, setCreationId] = useState(() => crypto.randomUUID());
   const [newTodoText, setNewTodoText] = useState('');
   const [newCategory, setNewCategory] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('전체');
@@ -23,22 +25,27 @@ export function BacklogView() {
     ? backlogTodos
     : backlogTodos.filter(t => t.category === selectedCategory);
 
-  const handleAdd = () => {
-    if (!newTodoText.trim()) return;
-    addTodo({
-      text: newTodoText.trim(),
-      date: null,
-      status: 'backlog',
-      isTop3: false,
-      category: newCategory || undefined,
-    });
-    setNewTodoText('');
-    setNewCategory('');
+  const handleAdd = async () => {
+    if (!newTodoText.trim() || isSaving) return;
+    setIsSaving(true);
+    try {
+      const saved = await addTodo({
+        text: newTodoText.trim(),
+        date: null,
+        status: 'backlog',
+        isTop3: false,
+        category: newCategory || undefined,
+      }, creationId);
+      if (!saved) return;
+      setCreationId(crypto.randomUUID());
+      setNewTodoText('');
+      setNewCategory('');
+    } finally { setIsSaving(false); }
   };
 
-  const handleAssignDate = (id: string) => {
+  const handleAssignDate = async (id: string) => {
     if (!snoozeDate) return;
-    updateTodo(id, { date: snoozeDate, status: 'active' });
+    if (!await updateTodo(id, { date: snoozeDate, status: 'active' })) return;
     setSnoozeId(null);
     setSnoozeDate('');
   };
@@ -247,7 +254,7 @@ export function BacklogView() {
                 <option value="">카테고리 선택 (선택사항)</option>
                 {CATEGORIES.slice(1).map(cat => <option key={cat} value={cat}>{cat}</option>)}
               </select>
-              <button onClick={handleAdd} className="px-4 py-2 rounded-xl flex items-center gap-1.5"
+              <button onClick={handleAdd} disabled={isSaving} className="px-4 py-2 rounded-xl flex items-center gap-1.5"
                 style={{ backgroundColor: t.accent, color: '#fff', fontSize: 13, fontWeight: 600, flexShrink: 0 }}>
                 <Plus size={14} /> 추가
               </button>

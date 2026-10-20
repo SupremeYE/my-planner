@@ -6,6 +6,7 @@ import {
 } from 'date-fns';
 import { ko } from 'date-fns/locale';
 import { weekKeysMatch } from '../../lib/weekKeys';
+import { weeklyRollup, combineRollups } from './period/periodProgress';
 import {
   ChevronLeft, ChevronRight, Plus, Trash2, CheckCircle2, Target,
   ArrowRight, ListTodo,
@@ -426,23 +427,26 @@ function DayColumn({ day, todos, tags, projects, activeDragId }: {
 
 // ── Weekly Goals Section (exported for MonthlyView reuse) ──
 export function WeeklyGoalsSection({ weekKey, viewDate }: { weekKey: string; viewDate: Date }) {
-  const { weeklyGoals, monthlyGoals, addWeeklyGoal, toggleWeeklyGoal, deleteWeeklyGoal } = usePlanner();
+  const { weeklyGoals, monthlyGoals, todos, addWeeklyGoal, toggleWeeklyGoal, deleteWeeklyGoal } = usePlanner();
   const { t } = useTheme();
   const [newGoalText, setNewGoalText] = useState('');
+  const [savingGoal, setSavingGoal] = useState(false);
+  const [creationId, setCreationId] = useState(() => crypto.randomUUID());
   const [selectedMonthlyGoalId, setSelectedMonthlyGoalId] = useState('');
 
   const currentMonth = format(viewDate, 'yyyy-MM');
-  const thisWeekGoals = weeklyGoals.filter(g => weekKeysMatch(g.weekKey, weekKey));
+  const thisWeekGoals = weeklyGoals.filter(g => weekKeysMatch(g.weekKey, weekKey)).map(g => ({ ...g, progress: weeklyRollup(g, todos) }));
   const thisMonthGoals = monthlyGoals.filter(g => g.month === currentMonth);
-  const donePct = thisWeekGoals.length
-    ? Math.round((thisWeekGoals.filter(g => g.done).length / thisWeekGoals.length) * 100)
-    : 0;
+  const donePct = combineRollups(thisWeekGoals.map(g => g.progress)).pct;
 
-  const handleAddGoal = () => {
-    if (!newGoalText.trim()) return;
-    addWeeklyGoal(newGoalText.trim(), selectedMonthlyGoalId || undefined, weekKey);
-    setNewGoalText('');
-    setSelectedMonthlyGoalId('');
+  const handleAddGoal = async () => {
+    if (!newGoalText.trim() || savingGoal) return;
+    setSavingGoal(true);
+    try {
+      if (await addWeeklyGoal(newGoalText.trim(), selectedMonthlyGoalId || undefined, weekKey, creationId)) {
+        setNewGoalText(''); setSelectedMonthlyGoalId(''); setCreationId(crypto.randomUUID());
+      }
+    } finally { setSavingGoal(false); }
   };
 
   return (
@@ -471,14 +475,15 @@ export function WeeklyGoalsSection({ weekKey, viewDate }: { weekKey: string; vie
               <div className="space-y-1.5 ml-2">
                 {subGoals.map(goal => (
                   <div key={goal.id} className="flex items-center gap-2">
-                    <button onClick={() => toggleWeeklyGoal(goal.id)}>
-                      <CheckCircle2 size={14} color={goal.done ? t.checkDone : t.border}
-                        fill={goal.done ? t.checkDone : 'none'} />
+                    <button onClick={() => toggleWeeklyGoal(goal.id)} disabled={goal.progress.mode === 'todos'}
+                      title={goal.progress.mode === 'todos' ? '연결된 할일의 완료 상태로 자동 계산합니다' : '목표 완료 전환'}>
+                      <CheckCircle2 size={14} color={goal.progress.completed ? t.checkDone : t.border}
+                        fill={goal.progress.completed ? t.checkDone : 'none'} />
                     </button>
                     <span style={{
                       flex: 1, fontSize: 12,
-                      color: goal.done ? t.textSub : t.text,
-                      textDecoration: goal.done ? 'line-through' : 'none',
+                      color: goal.progress.completed ? t.textSub : t.text,
+                      textDecoration: goal.progress.completed ? 'line-through' : 'none',
                     }}>
                       {goal.text}
                     </span>
@@ -493,14 +498,15 @@ export function WeeklyGoalsSection({ weekKey, viewDate }: { weekKey: string; vie
         })}
         {thisWeekGoals.filter(g => !g.monthlyGoalId).map(goal => (
           <div key={goal.id} className="flex items-center gap-2">
-            <button onClick={() => toggleWeeklyGoal(goal.id)}>
-              <CheckCircle2 size={14} color={goal.done ? t.checkDone : t.border}
-                fill={goal.done ? t.checkDone : 'none'} />
+            <button onClick={() => toggleWeeklyGoal(goal.id)} disabled={goal.progress.mode === 'todos'}
+                      title={goal.progress.mode === 'todos' ? '연결된 할일의 완료 상태로 자동 계산합니다' : '목표 완료 전환'}>
+              <CheckCircle2 size={14} color={goal.progress.completed ? t.checkDone : t.border}
+                fill={goal.progress.completed ? t.checkDone : 'none'} />
             </button>
             <span style={{
               flex: 1, fontSize: 12,
-              color: goal.done ? t.textSub : t.text,
-              textDecoration: goal.done ? 'line-through' : 'none',
+              color: goal.progress.completed ? t.textSub : t.text,
+              textDecoration: goal.progress.completed ? 'line-through' : 'none',
             }}>
               {goal.text}
             </span>
@@ -535,7 +541,7 @@ export function WeeklyGoalsSection({ weekKey, viewDate }: { weekKey: string; vie
           </select>
         )}
         <button
-          onClick={handleAddGoal}
+          onClick={handleAddGoal} disabled={savingGoal}
           className="flex items-center gap-1 px-3 py-2 rounded-xl w-full justify-center"
           style={{ backgroundColor: t.accent, color: '#fff', fontSize: 12 }}
         >

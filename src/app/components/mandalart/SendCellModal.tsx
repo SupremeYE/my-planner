@@ -4,7 +4,7 @@ import { db } from '../../../lib/db';
 import { getWeekKey, weekKeyToMonday, weekKeysMatch } from '../../../lib/weekKeys';
 import { usePlanner } from '../../store';
 import type { Notify } from '../culture/CultureToast';
-import type { Todo, WeeklyGoal, MonthlyGoal, AnnualGoal } from '../../store';
+import type { AnnualGoal } from '../../store';
 
 interface Props {
   cellId: string;
@@ -22,9 +22,10 @@ const newId = () => Math.random().toString(36).slice(2, 9);
 
 export function SendCellModal({ cellId, defaultText, isAction, onClose, onNotify }: Props) {
   const { t } = useTheme();
-  const { annualGoals, monthlyGoals, weeklyGoals, todos } = usePlanner();
+  const { annualGoals, monthlyGoals, weeklyGoals, todos, addTodo, addWeeklyGoal, addMonthlyGoal } = usePlanner();
 
   // 기본 선택 — 행동 칸은 할일, 세부 칸은 주간 목표 추천
+  const [saving, setSaving] = useState(false);
   const [target, setTarget] = useState<Target>(isAction ? 'todo' : 'weekly');
   const [text, setText] = useState(defaultText);
 
@@ -69,46 +70,32 @@ export function SendCellModal({ cellId, defaultText, isAction, onClose, onNotify
   );
 
   // 행동 → 할일 전송 시: 같은 셀의 부모 세부에서 이미 만든 주간 목표가 있다면 자동 제안 (Phase 3에서 정교화)
-  const sendDisabled = !text.trim() || sentMap[target];
+  const sendDisabled = saving || !text.trim() || sentMap[target];
 
   const submit = async () => {
     const txt = text.trim();
-    if (!txt) return;
-
-    if (target === 'annual') {
-      const goal: AnnualGoal = {
-        id: newId(), year, text: txt, done: false, mandalartCellId: cellId,
-      };
-      await db.annualGoals.upsert(goal);
-      onNotify(`연간 ${year} 목표로 보냈어요`, 'success');
-    } else if (target === 'monthly') {
-      const goal: MonthlyGoal = {
-        id: newId(), text: txt, month,
-        annualGoalId: monthlyAnnualId || undefined,
-        mandalartCellId: cellId,
-      };
-      await db.monthlyGoals.upsert(goal);
-      onNotify(`월간 ${month} 목표로 보냈어요`, 'success');
-    } else if (target === 'weekly') {
-      const goal: WeeklyGoal = {
-        id: newId(), text: txt, done: false, weekKey,
-        monthlyGoalId: weeklyMonthlyId || undefined,
-        mandalartCellId: cellId,
-      };
-      await db.weeklyGoals.upsert(goal);
-      onNotify(`주간 ${weekKey} 목표로 보냈어요`, 'success');
-    } else {
-      const todo: Todo = {
-        id: newId(), text: txt,
-        date: todoDate || null,
-        status: 'active', isTop3: false,
-        weeklyGoalId: todoWeeklyGoalId || undefined,
-        mandalartCellId: cellId,
-      };
-      await db.todos.upsert(todo);
-      onNotify('할일로 보냈어요', 'success');
-    }
-    onClose();
+    if (sendDisabled) return;
+    setSaving(true);
+    try {
+      if (target === 'annual') {
+        const goal: AnnualGoal = {
+          id: newId(), year, text: txt, done: false, mandalartCellId: cellId,
+        };
+        await db.annualGoals.upsert(goal);
+        onNotify(`연간 ${year} 목표로 보냈어요`, 'success');
+      } else if (target === 'monthly') {
+        if (!await addMonthlyGoal(txt, month, monthlyAnnualId || undefined, undefined, `mandalart-${cellId}-monthly`, cellId)) return;
+        onNotify(`월간 ${month} 목표로 보냈어요`, 'success');
+      } else if (target === 'weekly') {
+        if (!await addWeeklyGoal(txt, weeklyMonthlyId || undefined, weekKey, `mandalart-${cellId}-weekly`, cellId)) return;
+        onNotify(`주간 ${weekKey} 목표로 보냈어요`, 'success');
+      } else {
+        if (!await addTodo({ text: txt, date: todoDate || null, status: 'active', isTop3: false,
+          weeklyGoalId: todoWeeklyGoalId || undefined, mandalartCellId: cellId }, `mandalart-${cellId}-todo`)) return;
+        onNotify('할일로 보냈어요', 'success');
+      }
+      onClose();
+    } finally { setSaving(false); }
   };
 
   // 주간 선택 옵션 — 현재 주를 포함한 연중 모든 주 (간단히 12주: 전후 ±6주)

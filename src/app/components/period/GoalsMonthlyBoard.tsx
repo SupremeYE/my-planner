@@ -13,7 +13,7 @@ import {
   solidCardStyle, selectedRowStyle, periodStepperStyle, inputBg,
   retroStatusStyle, retroStatusColor, buttonStyle,
 } from '../../styles/haonStyles';
-import { monthlyRollup } from './periodProgress';
+import { monthlyRollup, weeklyRollup } from './periodProgress';
 import { WeeklyTodosInline } from './WeeklyTodosInline';
 import { MandalartSourceBadge } from '../mandalart/MandalartSourceBadge';
 
@@ -49,9 +49,7 @@ export function GoalsMonthlyBoard() {
 
   const selectedGoal = monthGoals.find(g => g.id === selectedId) ?? null;
 
-  const handleAddMonthly = (text: string) => {
-    addMonthlyGoal(text, currentMonth);
-  };
+  const handleAddMonthly = (text: string, creationId?: string) => addMonthlyGoal(text, currentMonth, undefined, undefined, creationId);
 
   return (
     <div style={{ minHeight: '100%', backgroundColor: t.bg }} className="pb-10">
@@ -267,7 +265,7 @@ function MonthlyCardSummary({ goal, weeklyGoals, todos, t, chevron }: {
   const r = monthlyRollup(goal, weeklyGoals, todos);
   const weekN = weeklyGoals.filter(w => w.monthlyGoalId === goal.id).length;
   return (
-    <div>
+    <div data-goal-kind="monthly" data-goal-id={goal.id} data-goal-progress={r.pct}>
       <div className="flex items-start gap-2">
         <span className="flex-1 min-w-0" style={{ fontFamily: t.fontSection, fontSize: 14.5, fontWeight: 600, color: t.text, wordBreak: 'break-word' }}>
           {goal.text}
@@ -372,7 +370,7 @@ function MonthlyGoalDetail({ goal, viewDate, onDelete, t, compact }: {
         t={t}
         weeks={weeks}
         defaultWeekKey={defaultWeekKeyForMonth(viewDate)}
-        onAdd={(text, weekKey) => addWeeklyGoal(text, goal.id, weekKey)}
+        onAdd={(text, weekKey, creationId) => addWeeklyGoal(text, goal.id, weekKey, creationId)}
       />
 
       {/* 월말 회고 슬롯 */}
@@ -395,20 +393,20 @@ function WeeklyGoalRow({ weekly, weekLabel, todos, onToggle, onDelete, t }: {
   weekly: WeeklyGoal; weekLabel: string; todos: Todo[];
   onToggle: () => void; onDelete: () => void; t: ThemeTokens;
 }) {
-  const linked = todos.filter(td => td.weeklyGoalId === weekly.id && td.status !== 'backlog' && td.status !== 'cancelled');
-  const doneN = linked.filter(td => td.status === 'done').length;
+  const progress = weeklyRollup(weekly, todos);
   return (
-    <div style={{ ...solidCardStyle(t), padding: 12 }}>
+    <div data-goal-kind="weekly" data-goal-id={weekly.id} data-goal-progress={progress.pct} style={{ ...solidCardStyle(t), padding: 12 }}>
       <div className="flex items-start gap-2">
-        <button onClick={onToggle} className="mt-0.5 flex-shrink-0">
-          <span style={{ fontSize: 16, color: weekly.done ? t.success : t.borderLight }}>{weekly.done ? '✓' : '○'}</span>
+        <button onClick={onToggle} disabled={progress.mode === 'todos'} className="mt-0.5 flex-shrink-0"
+          title={progress.mode === 'todos' ? '연결된 할일의 완료 상태로 자동 계산합니다' : '목표 완료 전환'}>
+          <span style={{ fontSize: 16, color: progress.completed ? t.success : t.borderLight }}>{progress.completed ? '✓' : '○'}</span>
         </button>
         <div className="flex-1 min-w-0">
           <div style={{ fontSize: 10, color: t.accent, fontWeight: 700, letterSpacing: '0.04em' }}>{weekLabel}</div>
           <div style={{
             fontSize: 13, fontWeight: 600, marginTop: 1,
-            color: weekly.done ? t.textMuted : t.text,
-            textDecoration: weekly.done ? 'line-through' : 'none',
+            color: progress.completed ? t.textMuted : t.text,
+            textDecoration: progress.completed ? 'line-through' : 'none',
             wordBreak: 'break-word',
           }}>
             {weekly.text}
@@ -417,7 +415,7 @@ function WeeklyGoalRow({ weekly, weekLabel, todos, onToggle, onDelete, t }: {
         </div>
         <span className="flex-shrink-0 inline-flex items-center gap-1 px-2 py-0.5 rounded-full"
           style={{ fontSize: 10.5, color: t.textSub, backgroundColor: t.surfaceMuted, fontFamily: t.fontNumeric }}>
-          <ListChecks size={10} /> {doneN}/{linked.length}
+          <ListChecks size={10} /> {progress.done}/{progress.total} · {progress.pct}%
         </span>
         <button onClick={onDelete} className="p-1 flex-shrink-0" style={{ color: t.textMuted }}>
           <Trash2 size={11} />
@@ -484,7 +482,7 @@ function RetroSlot({ goal, onChange, t }: {
 }
 
 function RetroBadge({ status, t }: { status: RetroStatus; t: ThemeTokens }) {
-  const label = status === 'done' ? '달성' : status === 'partial' ? '부분' : '미달';
+  const label = status === 'done' ? '회고: 달성' : status === 'partial' ? '회고: 부분' : '회고: 미달';
   const c = retroStatusColor(t, status);
   return (
     <span className="flex-shrink-0 px-1.5 py-0.5 rounded-full" style={{ fontSize: 9.5, fontWeight: 700, color: c, backgroundColor: t.card, border: `1px solid ${c}` }}>
@@ -503,7 +501,7 @@ function ProgressBar({ pct, t, wide }: { pct: number; t: ThemeTokens; wide?: boo
 }
 
 // ─── 빈 상태: 월간 목표 없음 → 바로 추가 어피던스 (차단 문구 없음) ───
-function MonthlyEmpty({ t, onAdd }: { t: ThemeTokens; onAdd: (text: string) => void }) {
+function MonthlyEmpty({ t, onAdd }: { t: ThemeTokens; onAdd: (text: string, creationId?: string) => Promise<string | null> }) {
   return (
     <div style={{ ...solidCardStyle(t), padding: 16 }}>
       <div className="flex items-center gap-1.5 mb-1">
@@ -519,9 +517,20 @@ function MonthlyEmpty({ t, onAdd }: { t: ThemeTokens; onAdd: (text: string) => v
 }
 
 // ─── 월간 목표 추가 행 ───
-function AddMonthlyRow({ t, onAdd, autoFocus }: { t: ThemeTokens; onAdd: (text: string) => void; autoFocus?: boolean }) {
+function AddMonthlyRow({ t, onAdd, autoFocus }: { t: ThemeTokens; onAdd: (text: string, creationId?: string) => Promise<string | null>; autoFocus?: boolean }) {
   const [text, setText] = useState('');
-  const submit = () => { const v = text.trim(); if (!v) return; onAdd(v); setText(''); };
+  const [saving, setSaving] = useState(false);
+  const [creationId, setCreationId] = useState(() => crypto.randomUUID());
+  const submit = async () => {
+    const value = text.trim();
+    if (!value || saving) return;
+    setSaving(true);
+    try {
+      if (await onAdd(value, creationId)) {
+        setText(''); setCreationId(crypto.randomUUID());
+      }
+    } finally { setSaving(false); }
+  };
   return (
     <div className="flex gap-2">
       <input
@@ -533,7 +542,7 @@ function AddMonthlyRow({ t, onAdd, autoFocus }: { t: ThemeTokens; onAdd: (text: 
         className="flex-1 px-3 py-2 rounded-xl border outline-none"
         style={{ fontSize: 13, backgroundColor: inputBg(t), borderColor: t.border, color: t.text }}
       />
-      <button onClick={submit} className="px-3 rounded-xl flex items-center justify-center" style={{ ...buttonStyle(t, 'primary'), minWidth: 40 }}>
+      <button onClick={submit} disabled={saving} className="px-3 rounded-xl flex items-center justify-center" style={{ ...buttonStyle(t, 'primary'), minWidth: 40 }}>
         <Plus size={16} />
       </button>
     </div>
@@ -543,12 +552,23 @@ function AddMonthlyRow({ t, onAdd, autoFocus }: { t: ThemeTokens; onAdd: (text: 
 // ─── 주간 목표 추가 행 (주차 선택 포함) ───
 function AddWeeklyRow({ t, weeks, defaultWeekKey, onAdd }: {
   t: ThemeTokens; weeks: { weekKey: string; label: string }[]; defaultWeekKey: string;
-  onAdd: (text: string, weekKey: string) => void;
+  onAdd: (text: string, weekKey: string, creationId?: string) => Promise<string | null>;
 }) {
   const [text, setText] = useState('');
+  const [saving, setSaving] = useState(false);
+  const [creationId, setCreationId] = useState(() => crypto.randomUUID());
   const [weekKey, setWeekKey] = useState(defaultWeekKey);
   useEffect(() => { setWeekKey(defaultWeekKey); }, [defaultWeekKey]);
-  const submit = () => { const v = text.trim(); if (!v) return; onAdd(v, weekKey); setText(''); };
+  const submit = async () => {
+    const value = text.trim();
+    if (!value || saving) return;
+    setSaving(true);
+    try {
+      if (await onAdd(value, weekKey, creationId)) {
+        setText(''); setCreationId(crypto.randomUUID());
+      }
+    } finally { setSaving(false); }
+  };
   return (
     <div className="flex gap-2 mt-2">
       <select
@@ -567,7 +587,7 @@ function AddWeeklyRow({ t, weeks, defaultWeekKey, onAdd }: {
         className="flex-1 min-w-0 px-3 py-2 rounded-xl border outline-none"
         style={{ fontSize: 13, backgroundColor: inputBg(t), borderColor: t.border, color: t.text }}
       />
-      <button onClick={submit} className="px-3 rounded-xl flex items-center justify-center" style={{ ...buttonStyle(t, 'secondary'), minWidth: 40 }}>
+      <button onClick={submit} disabled={saving} className="px-3 rounded-xl flex items-center justify-center" style={{ ...buttonStyle(t, 'secondary'), minWidth: 40 }}>
         <Plus size={15} />
       </button>
     </div>

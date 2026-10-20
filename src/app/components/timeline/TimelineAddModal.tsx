@@ -16,6 +16,8 @@ export function TimelineAddModal({ date, initialStart, initialEnd, initialLane, 
 }) {
   const { addTodo, addEvent, tags } = usePlanner();
   const { t } = useTheme();
+  const [isSaving, setIsSaving] = useState(false);
+  const [creationId] = useState(() => crypto.randomUUID());
   const [lane, setLane] = useState<'plan' | 'do'>(initialLane);
   const [kind, setKind] = useState<'todo' | 'event'>('todo');
   const [title, setTitle] = useState('');
@@ -26,24 +28,27 @@ export function TimelineAddModal({ date, initialStart, initialEnd, initialLane, 
   const [isTop3, setIsTop3] = useState(false);
 
   const invalidTime = !start || !end || timeToMinutes(end) <= timeToMinutes(start);
-  const canSave = title.trim().length > 0 && !invalidTime;
+  const canSave = title.trim().length > 0 && !invalidTime && !isSaving;
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!canSave) return;
-    const text = title.trim();
-    if (kind === 'event') {
-      addEvent({ title: text, date, startTime: start, endTime: end, tags: selectedTags, color: '#7B9ED9' });
-    } else if (lane === 'plan') {
-      addTodo({ text, date, status: 'active', isTop3, planStart: start, planEnd: end, category: category.trim() || undefined, tags: selectedTags });
-    } else {
-      // DO 직접 추가 = 이미 한(또는 할) 실적. 현재 시각(빨간 선) 이전이면 완료, 이후면 예정.
-      const todayStr = getLogicalToday();
-      const now = new Date();
-      const nowMin = now.getHours() * 60 + now.getMinutes();
-      const isPast = date < todayStr || (date === todayStr && timeToMinutes(end) <= nowMin);
-      addTodo({ text, date, status: isPast ? 'done' : 'active', isTop3, doStart: start, doEnd: end, category: category.trim() || undefined, tags: selectedTags });
-    }
-    onClose();
+    setIsSaving(true);
+    try {
+      const text = title.trim();
+      if (kind === 'event') {
+        addEvent({ title: text, date, startTime: start, endTime: end, tags: selectedTags, color: '#7B9ED9' });
+      } else if (lane === 'plan') {
+        if (!await addTodo({ text, date, status: 'active', isTop3, planStart: start, planEnd: end, category: category.trim() || undefined, tags: selectedTags }, creationId)) return;
+      } else {
+        // DO 직접 추가 = 이미 한(또는 할) 실적. 현재 시각(빨간 선) 이전이면 완료, 이후면 예정.
+        const todayStr = getLogicalToday();
+        const now = new Date();
+        const nowMin = now.getHours() * 60 + now.getMinutes();
+        const isPast = date < todayStr || (date === todayStr && timeToMinutes(end) <= nowMin);
+        if (!await addTodo({ text, date, status: isPast ? 'done' : 'active', isTop3, doStart: start, doEnd: end, category: category.trim() || undefined, tags: selectedTags }, creationId)) return;
+      }
+      onClose();
+    } finally { setIsSaving(false); }
   };
 
   // 세그먼트 색: 비-H 는 기존 풀필 색을 그대로(legacyFill), H 는 §5 세그먼트(흰 pill + 코랄 언더라인).

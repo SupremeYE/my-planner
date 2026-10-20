@@ -11,6 +11,7 @@ import { CookingTimers } from './components/CookingTimers';
 import { PWABanner, IOSInstallGuide } from './components/PWABanner';
 import { LoginView } from './components/LoginView';
 import { ResetPasswordView } from './components/ResetPasswordView';
+import { SaveStatus } from './components/SaveStatus';
 import SplashScreen from '../components/SplashScreen';
 
 function AppContent() {
@@ -51,6 +52,7 @@ function AppContent() {
   // 로그인 됨 → 앱 본체
   return (
     <PlannerProvider>
+      <SaveStatus />
       <TimerProvider>
         <FabProvider>
           <RouterProvider router={router} />

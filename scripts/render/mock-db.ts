@@ -266,7 +266,19 @@ function nsProxy(name: string): any {
         const m = String(method);
         if (name === 'settings' && m === 'fetch') return async () => settings;
         if (name === 'brainstormMemos' && m === 'fetchAll') return async () => ({});
-        if (m === 'fetchAll') return async () => SEED[name] ?? [];
+        if (m === 'fetchAll' || m === 'fetchConfirmed') return async () => SEED[name] ?? [];
+        if (m === 'createConfirmed') return async (record: any) => {
+          const rows = SEED[name] ?? (SEED[name] = []);
+          const existing = rows.find((r: any) => r.id === record.id);
+          if (!existing) rows.push(record);
+          return existing ?? record;
+        };
+        if (m === 'updateConfirmed') return async (_before: any, record: any) => {
+          const rows = SEED[name] ?? [];
+          const index = rows.findIndex((r: any) => r.id === record.id);
+          if (index >= 0) rows[index] = record;
+          return record;
+        };
         // 배열을 돌려줘야 하는 조회들(목록·기간·이력 등) → []
         if (/All|^list|Many|Dates|Between|History|Logs|Items|Range|^search/.test(m)) {
           return async () => SEED[name] ?? [];

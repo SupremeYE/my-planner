@@ -43,6 +43,9 @@ test('PlannerProvider reads never persist goal corrections; explicit edits still
         const fixtures = ${JSON.stringify(fixtures)};
         export const db = new Proxy({}, { get: (_, table) => ({
           fetchAll: async () => structuredClone(fixtures[table] ?? []),
+          fetchConfirmed: async () => structuredClone(fixtures[table] ?? []),
+          createConfirmed: async record => { writes.push({ table, args: [record] }); return record; },
+          updateConfirmed: async (_before, record) => { writes.push({ table, args: [record] }); return record; },
           fetch: async () => ({ dayStartHour: 4, dayEndHour: 26, appSettings: {} }),
           upsert: async (...args) => { writes.push({ table, args }); },
           insert: async (...args) => { writes.push({ table, args }); },

@@ -102,6 +102,8 @@ export function TodoModal({ date, todo, initialPlanStart, initialPlanEnd, initia
   const [recurEndMode, setRecurEndMode] = useState<'none' | 'date' | 'count'>(
     todo?.recurrenceCount ? 'count' : todo?.recurrenceEndDate ? 'date' : 'none',
   );
+  const [isSaving, setIsSaving] = useState(false);
+  const [creationId] = useState(() => crypto.randomUUID());
   const [recurrenceBranchFor, setRecurrenceBranchFor] = useState<'save' | 'delete' | null>(null);
 
   // "매주" 선택 시 기준 요일 (편집 중인 todo의 날짜, 또는 선택한 날짜)
@@ -168,27 +170,32 @@ export function TodoModal({ date, todo, initialPlanStart, initialPlanEnd, initia
       ? Number(recurrenceCount) : undefined,
   });
 
-  const executeSubmit = (scope?: 'this' | 'future' | 'all') => {
-    const changes = buildChanges();
-    if (isVirtual && virtualInfo && scope) {
-      updateRecurringTodo(virtualInfo.parentId, virtualInfo.instanceDate, changes, scope);
-    } else if (todo?.recurrenceParentId) {
-      // 예외 레코드 - 직접 수정
-      updateTodo(todo.id, changes);
-    } else if (isRecurringInstance && todo && scope) {
-      // 부모 반복 일정 수정
-      const instanceDate = todo.date ?? getLogicalToday();
-      updateRecurringTodo(todo.id, instanceDate, changes, scope);
-    } else if (todo) {
-      updateTodo(todo.id, changes);
-    } else {
-      addTodo({ ...changes, status: 'active' });
-    }
-    onClose();
+  const executeSubmit = async (scope?: 'this' | 'future' | 'all') => {
+    if (isSaving) return;
+    setIsSaving(true);
+    try {
+      const changes = buildChanges();
+      let saved = true;
+      if (isVirtual && virtualInfo && scope) {
+        if (scope === 'this') saved = await updateTodo(todo!.id, changes);
+        else updateRecurringTodo(virtualInfo.parentId, virtualInfo.instanceDate, changes, scope);
+      } else if (todo?.recurrenceParentId) {
+        saved = await updateTodo(todo.id, changes);
+      } else if (isRecurringInstance && todo && scope) {
+        const instanceDate = todo.date ?? getLogicalToday();
+        if (scope === 'this') saved = await updateTodo(`${todo.id}::${instanceDate}`, changes);
+        else updateRecurringTodo(todo.id, instanceDate, changes, scope);
+      } else if (todo) {
+        saved = await updateTodo(todo.id, changes);
+      } else {
+        saved = (await addTodo({ ...changes, status: 'active' }, creationId)) !== null;
+      }
+      if (saved) onClose();
+    } finally { setIsSaving(false); }
   };
 
   const handleSubmit = () => {
-    if (!text.trim()) return;
+    if (!text.trim() || isSaving) return;
     if (isRecurringInstance && todo && !todo.recurrenceParentId) {
       setRecurrenceBranchFor('save');
       return;
@@ -602,7 +609,7 @@ export function TodoModal({ date, todo, initialPlanStart, initialPlanEnd, initia
             취소
           </button>
           <button
-            onClick={handleSubmit}
+            onClick={handleSubmit} disabled={isSaving}
             className="px-5 py-2 rounded-xl"
             style={{ fontSize: 13, fontWeight: 600, backgroundColor: t.accent, color: '#fff' }}
           >

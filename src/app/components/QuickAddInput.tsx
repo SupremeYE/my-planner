@@ -54,6 +54,8 @@ export function QuickAddInput({ defaultDate = null, onSubmitted, autoFocus, plac
   const solidBox = !!solid;
 
   const [text, setText] = useState('');
+  const [isSaving, setIsSaving] = useState(false);
+  const [creationId, setCreationId] = useState(() => crypto.randomUUID());
   // 사용자가 타입 칩을 직접 탭해 명시한 타입(수동 선택). null = 미선택.
   const [manualType, setManualType] = useState<'event' | 'todo' | null>(null);
   const [detailModal, setDetailModal] = useState<'todo' | 'event' | null>(null);
@@ -125,43 +127,48 @@ export function QuickAddInput({ defaultDate = null, onSubmitted, autoFocus, plac
     setDetailModal(mode);
   };
 
-  const submit = () => {
-    if (!hasInput) return;
-    const tagIds = resolveTagIds();
+  const submit = async () => {
+    if (!hasInput || isSaving) return;
+    setIsSaving(true);
+    try {
+      const tagIds = resolveTagIds();
 
-    if (asEvent) {
-      const eDate = effectiveDate ?? getLogicalToday();
-      const start = parsed.startTime ?? '09:00';
-      const end = parsed.endTime ?? plusOneHour(start);
-      const payload: Omit<Event, 'id'> = {
-        title: finalTitle,
-        date: eDate,
-        startDate: eDate,
-        endDate: eDate,
-        startTime: start,
-        endTime: end,
-        isAllDay: false,
-        repeatType: toEventRepeat(parsed.recurrenceRule),
-        projectId: matchedProject?.id || undefined,
-        color: EVENT_DEFAULT_COLOR,
-        tags: tagIds,
-      };
-      addEvent(payload);
-    } else {
-      addTodo({
-        text: finalTitle,
-        date: effectiveDate,
-        planStart: parsed.startTime || undefined,
-        planEnd: parsed.endTime || undefined,
-        isTop3: parsed.isTop3,
-        tags: tagIds,
-        projectId: matchedProject?.id || undefined,
-        recurrenceRule: toTodoRecurrence(parsed.recurrenceRule),
-        status: 'active',
-      });
-    }
-    reset();
-    onSubmitted?.();
+      if (asEvent) {
+        const eDate = effectiveDate ?? getLogicalToday();
+        const start = parsed.startTime ?? '09:00';
+        const end = parsed.endTime ?? plusOneHour(start);
+        const payload: Omit<Event, 'id'> = {
+          title: finalTitle,
+          date: eDate,
+          startDate: eDate,
+          endDate: eDate,
+          startTime: start,
+          endTime: end,
+          isAllDay: false,
+          repeatType: toEventRepeat(parsed.recurrenceRule),
+          projectId: matchedProject?.id || undefined,
+          color: EVENT_DEFAULT_COLOR,
+          tags: tagIds,
+        };
+        addEvent(payload);
+      } else {
+        const saved = await addTodo({
+          text: finalTitle,
+          date: effectiveDate,
+          planStart: parsed.startTime || undefined,
+          planEnd: parsed.endTime || undefined,
+          isTop3: parsed.isTop3,
+          tags: tagIds,
+          projectId: matchedProject?.id || undefined,
+          recurrenceRule: toTodoRecurrence(parsed.recurrenceRule),
+          status: 'active',
+        }, creationId);
+        if (!saved) return;
+      }
+      setCreationId(crypto.randomUUID());
+      reset();
+      onSubmitted?.();
+    } finally { setIsSaving(false); }
   };
 
   // ── 미리보기 칩 ──────────────────────────────────────────────────────────
@@ -219,8 +226,7 @@ export function QuickAddInput({ defaultDate = null, onSubmitted, autoFocus, plac
         />
         <button
           type="button"
-          onClick={submit}
-          disabled={!hasInput}
+          onClick={submit} disabled={isSaving || !hasInput}
           className="flex items-center justify-center rounded-lg shrink-0"
           style={{
             width: 32, height: 32,

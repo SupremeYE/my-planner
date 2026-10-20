@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router';
 import { useTheme } from '../ThemeContext';
 import { usePlanner, DEFAULT_AFFIRMATIONS, today, getWeekKey, Todo, Event } from '../store';
 import { weekKeysMatch } from '../../lib/weekKeys';
+import { weeklyRollup, monthlyRollup, combineRollups } from './period/periodProgress';
 import { isTodoIncomplete } from '../../lib/todoPeriod';
 import { isEventPast } from '../../api/events';
 import {
@@ -506,22 +507,13 @@ export function DashboardView() {
 
   // Monthly goal progress
   const thisMonthGoals = monthlyGoals.filter((mg) => mg.month === currentMonth);
-  const thisWeekGoals = weeklyGoals.filter((wg) => weekKeysMatch(wg.weekKey, currentWeekKey));
-  const weeklyDone = thisWeekGoals.filter((g) => g.done).length;
+  const thisWeekGoals = weeklyGoals.filter((wg) => weekKeysMatch(wg.weekKey, currentWeekKey)).map(g => ({ ...g, progress: weeklyRollup(g, todos) }));
+  const weeklyDone = thisWeekGoals.filter((g) => g.progress.completed).length;
   const weeklyTotal = thisWeekGoals.length;
-  const weeklyPct = weeklyTotal > 0 ? Math.round((weeklyDone / weeklyTotal) * 100) : 0;
+  const weeklyPct = combineRollups(thisWeekGoals.map(g => g.progress)).pct;
 
   // Overall monthly progress from linked weekly goals
-  const monthlyOverallPct = useMemo(() => {
-    if (thisMonthGoals.length === 0) return 0;
-    let totalPcts = 0;
-    thisMonthGoals.forEach((mg) => {
-      const related = weeklyGoals.filter((wg) => wg.monthlyGoalId === mg.id);
-      const done = related.filter((wg) => wg.done).length;
-      totalPcts += related.length > 0 ? (done / related.length) * 100 : 0;
-    });
-    return Math.round(totalPcts / thisMonthGoals.length);
-  }, [thisMonthGoals, weeklyGoals]);
+  const monthlyOverallPct = combineRollups(thisMonthGoals.map(g => monthlyRollup(g, weeklyGoals, todos))).pct;
 
   // ── Reminders ──
   const todayEvents = events.filter((e) => e.date === today).sort((a, b) => (a.startTime || '').localeCompare(b.startTime || ''));
@@ -723,11 +715,11 @@ export function DashboardView() {
             <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
               {thisMonthGoals.map((mg) => {
                 const related = weeklyGoals.filter((wg) => wg.monthlyGoalId === mg.id);
-                const relatedDone = related.filter((wg) => wg.done).length;
-                const pct = related.length > 0 ? Math.round((relatedDone / related.length) * 100) : 0;
+                const relatedDone = related.filter((wg) => weeklyRollup(wg, todos).completed).length;
+                const pct = monthlyRollup(mg, weeklyGoals, todos).pct;
 
                 return (
-                  <div key={mg.id}>
+                  <div key={mg.id} data-goal-kind="monthly" data-goal-id={mg.id} data-goal-progress={pct}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
                       <span style={{ fontSize: 12.5, color: t.text, fontWeight: 500 }}>{mg.text}</span>
                       <span style={{ fontSize: 12.5, fontFamily: t.fontNumeric, color: t.accent, fontWeight: 600 }}>
@@ -799,7 +791,9 @@ export function DashboardView() {
               {thisWeekGoals.map((wg) => (
                 <div
                   key={wg.id}
-                  onClick={() => toggleWeeklyGoal(wg.id)}
+                  data-goal-kind="weekly" data-goal-id={wg.id} data-goal-progress={wg.progress.pct}
+                  onClick={() => { if (wg.progress.mode === 'manual') void toggleWeeklyGoal(wg.id); }}
+                  title={wg.progress.mode === 'todos' ? '연결된 할일의 완료 상태로 자동 계산합니다' : '목표 완료 전환'}
                   style={{
                     display: 'flex',
                     alignItems: 'center',
@@ -812,7 +806,7 @@ export function DashboardView() {
                   onMouseEnter={(e) => (e.currentTarget.style.background = t.lavenderTint)}
                   onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
                 >
-                  {wg.done ? (
+                  {wg.progress.completed ? (
                     <CheckCircle2 size={16} color={t.accent} />
                   ) : (
                     <div
@@ -828,8 +822,8 @@ export function DashboardView() {
                   <span
                     style={{
                       fontSize: 13,
-                      color: wg.done ? t.textMuted : t.text,
-                      textDecoration: wg.done ? 'line-through' : 'none',
+                      color: wg.progress.completed ? t.textMuted : t.text,
+                      textDecoration: wg.progress.completed ? 'line-through' : 'none',
                     }}
                   >
                     {wg.text}

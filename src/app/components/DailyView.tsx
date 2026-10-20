@@ -915,7 +915,7 @@ export function DailyView() {
     return `D+${Math.abs(diff)}`;
   };
 
-  const handleTodoCheckboxAction = (todo: Todo) => {
+  const handleTodoCheckboxAction = async (todo: Todo) => {
     if (activeTimer?.todoId === todo.id) {
       // 체크박스 = 완료: 타이머 시간 기록 + 'done' 전환 (정지와 구분)
       finishActiveTimer();
@@ -924,7 +924,7 @@ export function DailyView() {
     const nowHHMM = format(new Date(), 'HH:mm');
     if (todo.status === 'done') {
       // 완료 해제 — 길이 0 완료 시각 마커였다면 함께 정리(실제 소요 기록은 보존).
-      updateTodo(todo.id, { status: 'active', ...completionMarkerPatch(todo, 'active', nowHHMM) });
+      if (!await updateTodo(todo.id, { status: 'active', ...completionMarkerPatch(todo, 'active', nowHHMM) })) return;
       setJustCompletedIds(prev => { const n = new Set(prev); n.delete(todo.id); return n; });
       return;
     }
@@ -932,7 +932,7 @@ export function DailyView() {
     // 완주·수동 입력)로만. 대신 '언제 했는지'는 남긴다: 실적 DO 가 없으면 do_start=do_end=완료
     // 시각(길이 0)을 찍어 타임라인 DO 에 시각 마커로 표시한다. 길이 0이라 시간 집계엔 안 잡히고
     // 건수 축에만 잡힌다(예전 자동 30분 버그와 달리 소요를 지어내지 않음). 이미 기록된 DO 는 보존.
-    updateTodo(todo.id, { status: 'done', ...completionMarkerPatch(todo, 'done', nowHHMM) });
+    if (!await updateTodo(todo.id, { status: 'done', ...completionMarkerPatch(todo, 'done', nowHHMM) })) return;
     // 완료 직후 세션 내 유지(규칙 3 완화) — 지난 날짜 항목이 즉시 사라지지 않게.
     setJustCompletedIds(prev => new Set(prev).add(todo.id));
   };

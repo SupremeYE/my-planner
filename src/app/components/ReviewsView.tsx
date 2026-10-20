@@ -3,6 +3,7 @@ import { X, Search, ChevronLeft, ChevronRight, ChevronDown, Trash2, Clock, Check
 import { useNavigate } from 'react-router';
 import { usePlanner, MonthlyReview, WeightRecord, HappyMoment, getWeekKey, getLogicalToday } from '../store';
 import { db } from '../../lib/db';
+import { weeklyRollup } from './period/periodProgress';
 import { findWeekRecord, weekKeysMatch, weekKeyForRead } from '../../lib/weekKeys';
 import { TrackTimeStrip } from './review/TrackTimeStrip';
 import { MemoryPieces } from './review/MemoryPieces';
@@ -361,15 +362,11 @@ function WeekTab({ jump }: { jump?: JumpReq }) {
 
   // ── ① 이번 주 목표 (weekly_goals, 여기서 체크·부모 월간칩·연결 할일 진행) ──
   const weekGoals = useMemo(
-    () => weeklyGoals.filter(g => weekKeysMatch(g.weekKey, range.weekKey)),
-    [weeklyGoals, range.weekKey],
+    () => weeklyGoals.filter(g => weekKeysMatch(g.weekKey, range.weekKey)).map(g => ({ ...g, progress: weeklyRollup(g, todos) })),
+    [weeklyGoals, todos, range.weekKey],
   );
-  const goalsDone = weekGoals.filter(g => g.done).length;
-  const goalTodoProgress = useCallback((goalId: string) => {
-    const linked = todos.filter(td => td.weeklyGoalId === goalId && !td.id.includes('__'));
-    if (!linked.length) return null;
-    return { done: linked.filter(td => td.status === 'done').length, total: linked.length };
-  }, [todos]);
+  const goalsDone = weekGoals.filter(g => g.progress.completed).length;
+
 
   // ── 작은 통계 2종 (선택 주 범위 기준) ──
   const weekTodos = todos.filter(td => td.date && td.date >= range.startStr && td.date <= range.endStr);
@@ -541,16 +538,16 @@ function WeekTab({ jump }: { jump?: JumpReq }) {
           {weekGoals.map(g => {
             const parent = g.monthlyGoalId ? monthlyGoals.find(m => m.id === g.monthlyGoalId) : null;
             const parentColor = parent?.projectId ? (projects.find(p => p.id === parent.projectId)?.color ?? t.accent) : t.accent;
-            const prog = goalTodoProgress(g.id);
+            const prog = g.progress.mode === 'todos' ? g.progress : null;
             return (
-              <div key={g.id} className="flex items-start gap-2.5 rounded-lg px-3 py-2" style={{ backgroundColor: t.surfaceMuted }}>
-                <button onClick={() => toggleWeeklyGoal(g.id)} aria-label={g.done ? '달성 해제' : '달성'}
+              <div key={g.id} data-goal-kind="weekly" data-goal-id={g.id} data-goal-progress={g.progress.pct} className="flex items-start gap-2.5 rounded-lg px-3 py-2" style={{ backgroundColor: t.surfaceMuted }}>
+                <button onClick={() => toggleWeeklyGoal(g.id)} disabled={g.progress.mode === 'todos'} title={g.progress.mode === 'todos' ? '연결된 할일의 완료 상태로 자동 계산합니다' : '목표 완료 전환'} aria-label={g.progress.completed ? '달성 해제' : '달성'}
                   className="flex-shrink-0 mt-0.5 w-5 h-5 rounded-full flex items-center justify-center transition-all"
-                  style={{ border: g.done ? 'none' : `2px solid ${t.border}`, backgroundColor: g.done ? t.accent : 'transparent' }}>
-                  {g.done && <Check size={11} color="#fff" strokeWidth={3} />}
+                  style={{ border: g.progress.completed ? 'none' : `2px solid ${t.border}`, backgroundColor: g.progress.completed ? t.accent : 'transparent' }}>
+                  {g.progress.completed && <Check size={11} color="#fff" strokeWidth={3} />}
                 </button>
                 <div className="flex-1 min-w-0">
-                  <div style={{ fontSize: 13, fontWeight: 600, color: g.done ? t.textMuted : t.text, textDecoration: g.done ? 'line-through' : 'none' }}>{g.text}</div>
+                  <div style={{ fontSize: 13, fontWeight: 600, color: g.progress.completed ? t.textMuted : t.text, textDecoration: g.progress.completed ? 'line-through' : 'none' }}>{g.text}</div>
                   <div className="flex items-center gap-2 mt-1 flex-wrap">
                     {parent && (
                       <span className="inline-flex items-center gap-1" style={{ fontSize: 10, color: t.textSub, maxWidth: 200 }} title={parent.text}>

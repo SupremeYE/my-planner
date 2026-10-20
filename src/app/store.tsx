@@ -4,6 +4,8 @@ import { format, subDays, addDays, parseISO, differenceInCalendarDays } from 'da
 import { getWeekKey } from '../lib/weekKeys';
 export { getWeekKey } from '../lib/weekKeys';
 import { db } from '../lib/db';
+import { SaveCoordinator, saveIntent, mergeConfirmedRows, type SaveState } from '../lib/saveCoordinator';
+import { weeklyRollup } from './components/period/periodProgress';
 import { isVirtualTodoId, parseVirtualTodoId } from '../lib/recurrenceExpansion';
 import { isVirtualEventId, parseVirtualEventId } from '../api/events';
 
@@ -629,6 +631,8 @@ export type TimerMode = 'pomodoro' | 'stopwatch';
 
 export interface ActiveTimer {
   todoId: string;
+  /** Stable session identity for an idempotent time-block save; local storage only. */
+  sessionId?: string;
   mode: TimerMode;
   startedAt: number;
   startHHMM: string;
@@ -820,13 +824,17 @@ interface PlannerContextType {
   dailyAffirmations: Record<string, string>;
   setDailyAffirmation: (date: string, text: string) => void;
 
+  saveStates: SaveState[];
+  retrySave: (key: string) => void;
+  dismissSave: (key: string) => void;
+
   // App settings
   appSettings: AppSettings;
   updateAppSettings: (s: Partial<AppSettings>) => void;
 
   // Todo actions
-  addTodo: (todo: Omit<Todo, 'id'>) => string;
-  updateTodo: (id: string, changes: Partial<Todo>) => void;
+  addTodo: (todo: Omit<Todo, 'id'>, creationId?: string) => Promise<string | null>;
+  updateTodo: (id: string, changes: Partial<Todo>) => Promise<boolean>;
   deleteTodo: (id: string) => void;
   deleteTodos: (ids: string[]) => void;
   toggleTop3: (id: string) => void;
@@ -901,13 +909,14 @@ interface PlannerContextType {
   deleteHappyMoment: (id: string) => void;
 
   // Weekly goal actions
-  addWeeklyGoal: (text: string, monthlyGoalId: string | undefined, weekKey: string) => void;
-  toggleWeeklyGoal: (id: string) => void;
+  addWeeklyGoal: (text: string, monthlyGoalId: string | undefined, weekKey: string, creationId?: string, mandalartCellId?: string) => Promise<string | null>;
+  updateWeeklyGoal: (id: string, changes: Partial<Pick<WeeklyGoal, 'text' | 'done' | 'monthlyGoalId'>>) => Promise<boolean>;
+  toggleWeeklyGoal: (id: string) => Promise<boolean>;
   deleteWeeklyGoal: (id: string) => void;
 
   // Monthly goal actions
-  addMonthlyGoal: (text: string, month: string, annualGoalId?: string, projectId?: string) => void;
-  updateMonthlyGoal: (id: string, changes: Partial<Pick<MonthlyGoal, 'text' | 'annualGoalId' | 'projectId' | 'retroStatus' | 'retroNote'>>) => void;
+  addMonthlyGoal: (text: string, month: string, annualGoalId?: string, projectId?: string, creationId?: string, mandalartCellId?: string) => Promise<string | null>;
+  updateMonthlyGoal: (id: string, changes: Partial<Pick<MonthlyGoal, 'text' | 'annualGoalId' | 'projectId' | 'retroStatus' | 'retroNote'>>) => Promise<boolean>;
   deleteMonthlyGoal: (id: string) => void;
 
   // Annual goal actions
@@ -993,6 +1002,16 @@ export function PlannerProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => { eventsRef.current = events; }, [events]);
   const [weeklyGoals, setWeeklyGoals] = useState<WeeklyGoal[]>([]);
   const [monthlyGoals, setMonthlyGoals] = useState<MonthlyGoal[]>([]);
+  const weeklyGoalsRef = useRef(weeklyGoals);
+  const monthlyGoalsRef = useRef(monthlyGoals);
+  useEffect(() => { weeklyGoalsRef.current = weeklyGoals; }, [weeklyGoals]);
+  useEffect(() => { monthlyGoalsRef.current = monthlyGoals; }, [monthlyGoals]);
+  const [saveCoordinator] = useState(() => new SaveCoordinator());
+  const [saveStates, setSaveStates] = useState<SaveState[]>([]);
+  useEffect(() => saveCoordinator.subscribe(() => setSaveStates(saveCoordinator.snapshot())), [saveCoordinator]);
+  const retrySave = useCallback((key: string) => { void saveCoordinator.retry(key); }, [saveCoordinator]);
+  const dismissSave = useCallback((key: string) => saveCoordinator.dismiss(key), [saveCoordinator]);
+
   const [annualGoals, setAnnualGoals] = useState<AnnualGoal[]>([]);
   const [quarterlyGoals, setQuarterlyGoals] = useState<QuarterlyGoal[]>([]);
   const [brainstormItems, setBrainstormItems] = useState<BrainstormItem[]>([]);
@@ -1085,9 +1104,20 @@ export function PlannerProvider({ children }: { children: React.ReactNode }) {
 
   // ── Supabase Realtime 구독 (변경 감지 → 전체 재fetch) ──────────────────────
   useEffect(() => {
+    const refreshCore = async <T extends { id: string }>(kind: string, fetchRows: () => Promise<T[]>,
+      ref: React.MutableRefObject<T[]>, setRows: React.Dispatch<React.SetStateAction<T[]>>) => {
+      const revision = saveCoordinator.revision;
+      try {
+        const rows = await fetchRows();
+        if (revision !== saveCoordinator.revision) return; // stale response from before a save
+        const next = mergeConfirmedRows(rows, ref.current, saveCoordinator.protectedIds(kind));
+        ref.current = next;
+        setRows(next);
+      } catch { /* A failed read must not erase confirmed records. */ }
+    };
     // 각 테이블별 재fetch 함수
     const refetchers: Record<string, () => Promise<void>> = {
-      todos:             async () => setTodos(await db.todos.fetchAll()),
+      todos:             () => refreshCore('todos', db.todos.fetchConfirmed, todosRef, setTodos),
       habits:            async () => setHabits(await db.habits.fetchAll()),
       projects:          async () => setProjects(await db.projects.fetchAll()),
       milestones:        async () => setMilestones(await db.milestones.fetchAll()),
@@ -1096,8 +1126,8 @@ export function PlannerProvider({ children }: { children: React.ReactNode }) {
       timeline_logs:     async () => setTimelineLogs(await db.timelineLogs.fetchAll()),
       events:            async () => setEvents(await db.events.fetchAll()),
       todo_time_blocks:  async () => setTimeBlocks(await db.todoTimeBlocks.fetchAll()),
-      weekly_goals:      async () => setWeeklyGoals(await db.weeklyGoals.fetchAll()),
-      monthly_goals:     async () => setMonthlyGoals(await db.monthlyGoals.fetchAll()),
+      weekly_goals:      () => refreshCore('weeklyGoals', db.weeklyGoals.fetchConfirmed, weeklyGoalsRef, setWeeklyGoals),
+      monthly_goals:     () => refreshCore('monthlyGoals', db.monthlyGoals.fetchConfirmed, monthlyGoalsRef, setMonthlyGoals),
       brainstorm_items:  async () => setBrainstormItems(await db.brainstormItems.fetchAll()),
       brainstorm_memos:  async () => setBrainstormMemos(await db.brainstormMemos.fetchAll()),
       tags:              async () => setTags(await db.tags.fetchAll()),
@@ -1128,8 +1158,17 @@ export function PlannerProvider({ children }: { children: React.ReactNode }) {
         .subscribe()
     );
 
+    const refreshVisibleCore = () => {
+      if (document.visibilityState !== 'hidden') {
+        void refetchers.todos(); void refetchers.weekly_goals(); void refetchers.monthly_goals();
+      }
+    };
+    window.addEventListener('online', refreshVisibleCore);
+    document.addEventListener('visibilitychange', refreshVisibleCore);
     return () => {
       channels.forEach(ch => supabase.removeChannel(ch));
+      window.removeEventListener('online', refreshVisibleCore);
+      document.removeEventListener('visibilitychange', refreshVisibleCore);
     };
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -1159,47 +1198,54 @@ export function PlannerProvider({ children }: { children: React.ReactNode }) {
     }
   }, []);
 
+  const commitTodo = useCallback((record: Todo) => {
+    todosRef.current = todosRef.current.some(row => row.id === record.id)
+      ? todosRef.current.map(row => row.id === record.id ? record : row) : [...todosRef.current, record];
+    setTodos(todosRef.current);
+  }, []);
+  const commitWeeklyGoal = useCallback((record: WeeklyGoal) => {
+    weeklyGoalsRef.current = weeklyGoalsRef.current.some(row => row.id === record.id)
+      ? weeklyGoalsRef.current.map(row => row.id === record.id ? record : row) : [...weeklyGoalsRef.current, record];
+    setWeeklyGoals(weeklyGoalsRef.current);
+  }, []);
+  const commitMonthlyGoal = useCallback((record: MonthlyGoal) => {
+    monthlyGoalsRef.current = monthlyGoalsRef.current.some(row => row.id === record.id)
+      ? monthlyGoalsRef.current.map(row => row.id === record.id ? record : row) : [...monthlyGoalsRef.current, record];
+    setMonthlyGoals(monthlyGoalsRef.current);
+  }, []);
+
   // 타이머 시간을 todo 에 기록하고 타이머를 정리한다.
   // markDone=false(정지): 상태를 'inProgress' 로 유지(시간만 기록) — "정지→진행중 유지".
   // markDone=true(완료): 상태를 'done' 으로 전환.
   const recordActiveTimer = useCallback((timer: ActiveTimer, markDone: boolean) => {
+    const before = todosRef.current.find(todo => todo.id === timer.todoId);
+    if (!before) return;
     const rawElapsedSec = getTimerElapsedSec(timer);
     const totalElapsedSec = timer.mode === 'pomodoro'
-      ? Math.min(rawElapsedSec, timer.pomoDurationSec)
-      : rawElapsedSec;
+      ? Math.min(rawElapsedSec, timer.pomoDurationSec) : rawElapsedSec;
     const endHHMM = getTimerEndHHMM(timer.startHHMM, totalElapsedSec);
-    const nextStatus: TodoStatus = markDone ? 'done' : 'inProgress';
-
-    setTodos(currentTodos => {
-      const updated = currentTodos.map(t =>
-        t.id === timer.todoId
-          ? { ...t, status: nextStatus, doStart: timer.startHHMM, doEnd: endHHMM, doElapsedSec: totalElapsedSec }
-          : t
-      );
-      const todo = updated.find(t => t.id === timer.todoId);
-      if (todo) db.todos.upsert(todo);
-      return updated;
+    const after: Todo = { ...before, status: markDone ? 'done' : 'inProgress',
+      doStart: timer.startHHMM, doEnd: endHHMM, doElapsedSec: totalElapsedSec };
+    const sessionId = timer.sessionId ?? saveCoordinator.creationId('timer', { todoId: timer.todoId, startedAt: timer.startedAt });
+    const block: TodoTimeBlock = { id: sessionId, todoId: timer.todoId,
+      date: format(new Date(timer.startedAt), 'yyyy-MM-dd'), start: timer.startHHMM, end: endHHMM, elapsedSec: totalElapsedSec };
+    // Freeze the unsaved session. Keep it recoverable until both existing-table writes are confirmed.
+    setActiveTimer(current => current?.todoId === timer.todoId
+      ? { ...current, sessionId, isPaused: true, pauseStartedAt: current.pauseStartedAt ?? Date.now() } : current);
+    void saveCoordinator.run({ key: `todos:${timer.todoId}`, label: '타이머 기록',
+      intent: saveIntent({ operation: 'timer', sessionId, markDone }),
+      execute: async () => {
+        if (totalElapsedSec > 0) await db.todoTimeBlocks.createConfirmed(block);
+        return db.todos.updateConfirmed(before, after);
+      },
+      commit: record => {
+        commitTodo(record);
+        if (totalElapsedSec > 0) setTimeBlocks(prev => prev.some(row => row.id === block.id) ? prev : [...prev, block]);
+        setActiveTimer(null);
+        window.localStorage.removeItem(ACTIVE_TIMER_STORAGE_KEY);
+      },
     });
-
-    // Stage 3(누적): 이 세션을 시간 블록으로 적재(덮어쓰기 아님). do_* 는 dual-write 로 유지.
-    // 블록 날짜 = 타이머 시작 시각의 날짜(자정 자동 일시정지로 하루를 넘기지 않음).
-    if (totalElapsedSec > 0) {
-      const blockDate = format(new Date(timer.startedAt), 'yyyy-MM-dd');
-      const block: TodoTimeBlock = {
-        id: newEventId(),
-        todoId: timer.todoId,
-        date: blockDate,
-        start: timer.startHHMM,
-        end: endHHMM,
-        elapsedSec: totalElapsedSec,
-      };
-      setTimeBlocks(prev => [...prev, block]);
-      void db.todoTimeBlocks.insert(block);
-    }
-
-    setActiveTimer(null);
-    window.localStorage.removeItem(ACTIVE_TIMER_STORAGE_KEY);
-  }, []);
+  }, [saveCoordinator, commitTodo]);
 
   useEffect(() => {
     const restoreTimerFromStorage = () => {
@@ -1209,6 +1255,7 @@ export function PlannerProvider({ children }: { children: React.ReactNode }) {
 
         const parsed = JSON.parse(raw) as {
           taskId: string;
+          sessionId?: string;
           mode: TimerMode;
           startedAt: number;
           pausedDuration: number;
@@ -1222,6 +1269,7 @@ export function PlannerProvider({ children }: { children: React.ReactNode }) {
 
         const restoredTimer: ActiveTimer = {
           todoId: parsed.taskId,
+          sessionId: parsed.sessionId ?? newEventId(),
           mode: parsed.mode === 'pomodoro' ? 'pomodoro' : 'stopwatch',
           startedAt: parsed.startedAt,
           startHHMM: parsed.startHHMM || format(new Date(parsed.startedAt), 'HH:mm'),
@@ -1258,6 +1306,7 @@ export function PlannerProvider({ children }: { children: React.ReactNode }) {
 
     window.localStorage.setItem(ACTIVE_TIMER_STORAGE_KEY, JSON.stringify({
       taskId: activeTimer.todoId,
+      sessionId: activeTimer.sessionId,
       mode: activeTimer.mode,
       startedAt: activeTimer.startedAt,
       pausedDuration: activeTimer.pausedDurationMs,
@@ -1291,59 +1340,40 @@ export function PlannerProvider({ children }: { children: React.ReactNode }) {
   }, [activeTimer, releaseWakeLock, requestWakeLock]);
 
   // ── Todo actions ──
-  const addTodo = useCallback((todo: Omit<Todo, 'id'>) => {
-    // end_date 기본값 = date (단일 날짜 = 시작·종료 동일). 모든 생성 경로(QuickAdd·모달·
-    // 타임라인·일간·캘린더)가 이 한 지점을 거치므로 여기서 채우면 null 누락이 사라진다.
-    // date 가 null(Inbox)이면 end_date 도 null 로 둔다(DB CHECK: date null → end_date null).
-    const endDate = todo.endDate ?? todo.date ?? undefined;
-    const newTodo: Todo = { ...todo, id: newId(), tags: todo.tags ?? [], endDate };
-    setTodos(prev => [...prev, newTodo]);
-    db.todos.upsert(newTodo);
-    // 생성 id 반환(하위호환 — 기존 호출부는 반환값을 무시). 캡처 인박스 승인이 routed_ref_id 로 사용.
-    return newTodo.id;
-  }, []);
+  const addTodo = useCallback(async (todo: Omit<Todo, 'id'>, creationId?: string) => {
+    const value = structuredClone({ ...todo, tags: todo.tags ?? [], endDate: todo.endDate ?? todo.date ?? undefined });
+    const id = creationId ?? saveCoordinator.creationId('todos', value);
+    const record: Todo = { ...value, id };
+    const saved = await saveCoordinator.run({ key: `todos:${id}`, label: '할일 등록', intent: saveIntent(value),
+      execute: () => db.todos.createConfirmed(record), commit: commitTodo });
+    return saved?.id ?? null;
+  }, [saveCoordinator, commitTodo]);
 
-  // 반복 가상 인스턴스(`parentId::date`)를 실제 예외 레코드로 구체화하고 실제 todo id를 반환한다.
-  // - 비반복 id: 그대로 반환
-  // - 이미 해당 날짜 예외가 존재: 그 실제 id 반환
-  // - 처음 변경: 부모를 복제한 예외 레코드를 생성(state+ref 즉시 반영, DB 저장은 호출자가 수행)
-  // 이로써 체크박스 완료·미루기·상태변경·DO 편집·드래그·타이머가 가상 id에서도 동작한다.
-  const ensureMaterializedTodoId = useCallback((id: string): string => {
-    if (!isVirtualTodoId(id)) return id;
-    const info = parseVirtualTodoId(id);
-    if (!info) return id;
-    const { parentId, instanceDate } = info;
-    const list = todosRef.current;
-    const existing = list.find(t => t.recurrenceParentId === parentId && t.date === instanceDate);
-    if (existing) return existing.id;
-    const parent = list.find(t => t.id === parentId);
-    if (!parent) return id;
-    const exId = newId();
-    const exception: Todo = {
-      ...parent,
-      doStart: undefined, doEnd: undefined, doElapsedSec: undefined,
-      id: exId,
-      date: instanceDate,
-      recurrenceParentId: parentId,
-      recurrenceRule: undefined,
-      recurrenceDays: undefined,
-      recurrenceEndDate: undefined,
-      isException: true,
-    };
-    todosRef.current = [...list, exception];
-    setTodos(prev => [...prev, exception]);
-    return exId;
-  }, []);
-
-  const updateTodo = useCallback((id: string, changes: Partial<Todo>) => {
-    const realId = ensureMaterializedTodoId(id);
-    setTodos(prev => {
-      const updated = prev.map(t => t.id === realId ? { ...t, ...changes } : t);
-      const todo = updated.find(t => t.id === realId);
-      if (todo) db.todos.upsert(todo);
-      return updated;
-    });
-  }, [ensureMaterializedTodoId]);
+  const updateTodo = useCallback(async (id: string, changes: Partial<Todo>) => {
+    let before = todosRef.current.find(t => t.id === id);
+    let create = false;
+    if (isVirtualTodoId(id)) {
+      const info = parseVirtualTodoId(id);
+      if (!info) return false;
+      before = todosRef.current.find(t => t.recurrenceParentId === info.parentId && t.date === info.instanceDate);
+      if (!before) {
+        const parent = todosRef.current.find(t => t.id === info.parentId);
+        if (!parent) return false;
+        before = { ...parent, id: saveCoordinator.creationId('todo-occurrence', info), date: info.instanceDate,
+          doStart: undefined, doEnd: undefined, doElapsedSec: undefined,
+          recurrenceParentId: info.parentId, isException: true,
+          recurrenceRule: undefined, recurrenceDays: undefined, recurrenceEndDate: undefined,
+          recurrenceFreq: undefined, recurrenceInterval: undefined, recurrencePreset: undefined, recurrenceCount: undefined };
+        create = true;
+      }
+    }
+    if (!before) return false;
+    const original = before;
+    const after = structuredClone({ ...before, ...changes });
+    const saved = await saveCoordinator.run({ key: `todos:${before.id}`, label: '할일 변경', intent: saveIntent(changes),
+      execute: () => create ? db.todos.createConfirmed(after) : db.todos.updateConfirmed(original, after), commit: commitTodo });
+    return saved !== null;
+  }, [saveCoordinator, commitTodo]);
 
   const deleteTodo = useCallback((id: string) => {
     setTodos(prev => {
@@ -1454,17 +1484,12 @@ export function PlannerProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const toggleTop3 = useCallback((id: string) => {
-    setTodos(prev => {
-      const todo = prev.find(t => t.id === id);
-      if (!todo) return prev;
-      const top3Count = prev.filter(t => t.isTop3 && t.date === todo.date && t.id !== id).length;
-      if (!todo.isTop3 && top3Count >= 3) return prev;
-      const updated = prev.map(t => t.id === id ? { ...t, isTop3: !t.isTop3 } : t);
-      const updatedTodo = updated.find(t => t.id === id);
-      if (updatedTodo) db.todos.upsert(updatedTodo);
-      return updated;
-    });
-  }, []);
+    const todo = todosRef.current.find(t => t.id === id);
+    if (!todo) return;
+    const top3Count = todosRef.current.filter(t => t.isTop3 && t.date === todo.date && t.id !== id).length;
+    if (!todo.isTop3 && top3Count >= 3) return;
+    void updateTodo(id, { isTop3: !todo.isTop3 });
+  }, [updateTodo]);
 
   // ── Event actions ──
   const addEvent = useCallback((event: Omit<Event, 'id'>) => {
@@ -1489,7 +1514,7 @@ export function PlannerProvider({ children }: { children: React.ReactNode }) {
   // - 이미 같은 (parent, occurrence_date) 예외 행이 있으면 그 id 반환
   // - 처음이면 가상 occurrence 의 데이터를 복제한 예외 행을 즉시 state/ref 에 반영하고,
   //   호출자는 그 id 로 updateEvent → db.events.upsert 를 호출해 DB 에 저장한다.
-  // 할일 ensureMaterializedTodoId 패턴과 동일.
+  // 가상 인스턴스를 명시적 저장 시 예외 레코드로 구체화한다.
   const ensureMaterializedEventId = useCallback((id: string): string => {
     if (!isVirtualEventId(id)) return id;
     const info = parseVirtualEventId(id);
@@ -1925,20 +1950,30 @@ export function PlannerProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   // ── Weekly goal actions ──
-  const addWeeklyGoal = useCallback((text: string, monthlyGoalId: string | undefined, weekKey: string) => {
-    const newGoal: WeeklyGoal = { id: newId(), text, done: false, monthlyGoalId, weekKey };
-    setWeeklyGoals(prev => [...prev, newGoal]);
-    db.weeklyGoals.upsert(newGoal);
-  }, []);
+  const addWeeklyGoal = useCallback(async (text: string, monthlyGoalId: string | undefined, weekKey: string, creationId?: string, mandalartCellId?: string) => {
+    const value = { text: text.trim(), done: false, monthlyGoalId, weekKey, ...(mandalartCellId ? { mandalartCellId } : {}) };
+    if (!value.text) return null;
+    const id = creationId ?? saveCoordinator.creationId('weeklyGoals', value);
+    const saved = await saveCoordinator.run({ key: `weeklyGoals:${id}`, label: '주간 목표 등록', intent: saveIntent(value),
+      execute: () => db.weeklyGoals.createConfirmed({ ...value, id }), commit: commitWeeklyGoal });
+    return saved?.id ?? null;
+  }, [saveCoordinator, commitWeeklyGoal]);
 
-  const toggleWeeklyGoal = useCallback((id: string) => {
-    setWeeklyGoals(prev => {
-      const updated = prev.map(g => g.id === id ? { ...g, done: !g.done } : g);
-      const goal = updated.find(g => g.id === id);
-      if (goal) db.weeklyGoals.upsert(goal);
-      return updated;
-    });
-  }, []);
+  const updateWeeklyGoal = useCallback(async (id: string, changes: Partial<Pick<WeeklyGoal, 'text' | 'done' | 'monthlyGoalId'>>) => {
+    const before = weeklyGoalsRef.current.find(g => g.id === id);
+    if (!before) return false;
+    const after = { ...before, ...changes };
+    if (weeklyRollup(before, todosRef.current).mode === 'todos') after.done = before.done;
+    const saved = await saveCoordinator.run({ key: `weeklyGoals:${id}`, label: '주간 목표 변경', intent: saveIntent(changes),
+      execute: () => db.weeklyGoals.updateConfirmed(before, after), commit: commitWeeklyGoal });
+    return saved !== null;
+  }, [saveCoordinator, commitWeeklyGoal]);
+
+  const toggleWeeklyGoal = useCallback(async (id: string) => {
+    const before = weeklyGoalsRef.current.find(g => g.id === id);
+    if (!before || weeklyRollup(before, todosRef.current).mode === 'todos') return false;
+    return updateWeeklyGoal(id, { done: !before.done });
+  }, [updateWeeklyGoal]);
 
   const deleteWeeklyGoal = useCallback((id: string) => {
     setWeeklyGoals(prev => prev.filter(g => g.id !== id));
@@ -1946,23 +1981,23 @@ export function PlannerProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   // ── Monthly goal actions ──
-  const addMonthlyGoal = useCallback((text: string, month: string, annualGoalId?: string, projectId?: string) => {
-    // 캐스케이드 해제: 연간 목표(annualGoalId) 없이도 월간 목표를 추가할 수 있다.
-    const trimmed = text.trim();
-    if (!trimmed) return;
-    const newGoal: MonthlyGoal = { id: newId(), text: trimmed, month, projectId, annualGoalId };
-    setMonthlyGoals(prev => [...prev, newGoal]);
-    db.monthlyGoals.upsert(newGoal);
-  }, []);
+  const addMonthlyGoal = useCallback(async (text: string, month: string, annualGoalId?: string, projectId?: string, creationId?: string, mandalartCellId?: string) => {
+    const value = { text: text.trim(), month, annualGoalId, projectId, ...(mandalartCellId ? { mandalartCellId } : {}) };
+    if (!value.text) return null;
+    const id = creationId ?? saveCoordinator.creationId('monthlyGoals', value);
+    const saved = await saveCoordinator.run({ key: `monthlyGoals:${id}`, label: '월간 목표 등록', intent: saveIntent(value),
+      execute: () => db.monthlyGoals.createConfirmed({ ...value, id }), commit: commitMonthlyGoal });
+    return saved?.id ?? null;
+  }, [saveCoordinator, commitMonthlyGoal]);
 
-  const updateMonthlyGoal = useCallback((id: string, changes: Partial<Pick<MonthlyGoal, 'text' | 'annualGoalId' | 'projectId' | 'retroStatus' | 'retroNote'>>) => {
-    setMonthlyGoals(prev => {
-      const updated = prev.map(g => (g.id === id ? { ...g, ...changes } : g));
-      const goal = updated.find(g => g.id === id);
-      if (goal) db.monthlyGoals.upsert(goal);
-      return updated;
-    });
-  }, []);
+  const updateMonthlyGoal = useCallback(async (id: string, changes: Partial<Pick<MonthlyGoal, 'text' | 'annualGoalId' | 'projectId' | 'retroStatus' | 'retroNote'>>) => {
+    const before = monthlyGoalsRef.current.find(g => g.id === id);
+    if (!before) return false;
+    const after = { ...before, ...changes };
+    const saved = await saveCoordinator.run({ key: `monthlyGoals:${id}`, label: '월간 목표 변경', intent: saveIntent(changes),
+      execute: () => db.monthlyGoals.updateConfirmed(before, after), commit: commitMonthlyGoal });
+    return saved !== null;
+  }, [saveCoordinator, commitMonthlyGoal]);
 
   const deleteMonthlyGoal = useCallback((id: string) => {
     setMonthlyGoals(prev => prev.filter(g => g.id !== id));
@@ -2038,19 +2073,14 @@ export function PlannerProvider({ children }: { children: React.ReactNode }) {
     db.brainstormItems.delete(id);
   }, []);
 
-  const brainstormToTodo = useCallback((id: string, date?: string) => {
-    setBrainstormItems(prev => {
-      const item = prev.find(b => b.id === id);
-      if (!item) return prev;
-      const newTodo: Todo = { id: newId(), text: item.text, date: date ?? item.date, status: 'active', isTop3: false, tags: [] };
-      setTodos(t => {
-        db.todos.upsert(newTodo);
-        return [...t, newTodo];
-      });
-      db.brainstormItems.delete(id);
-      return prev.filter(b => b.id !== id);
-    });
-  }, []);
+  const brainstormToTodo = useCallback(async (id: string, date?: string) => {
+    const item = brainstormItems.find(b => b.id === id);
+    if (!item) return;
+    const saved = await addTodo({ text: item.text, date: date ?? item.date, status: 'active', isTop3: false, tags: [] }, `brainstorm-${id}`);
+    if (!saved) return;
+    setBrainstormItems(prev => prev.filter(b => b.id !== id));
+    void db.brainstormItems.delete(id);
+  }, [brainstormItems, addTodo]);
 
   const brainstormToEvent = useCallback((id: string, eventData: { date: string; startTime?: string; endTime?: string; location?: string; tags?: string[] }) => {
     setBrainstormItems(prev => {
@@ -2089,52 +2119,31 @@ export function PlannerProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const weeklyBrainstormAssign = useCallback((id: string, date: string) => {
-    setBrainstormItems(prev => {
-      const item = prev.find(b => b.id === id);
-      if (!item) return prev;
-      const newTodo: Todo = { id: newId(), text: item.text, date, status: 'active', isTop3: false, tags: [] };
-      setTodos(t => {
-        db.todos.upsert(newTodo);
-        return [...t, newTodo];
-      });
-      db.brainstormItems.delete(id);
-      return prev.filter(b => b.id !== id);
-    });
-  }, []);
+    void brainstormToTodo(id, date);
+  }, [brainstormToTodo]);
 
   // ── Timer actions ──
-  const startTimer = useCallback((todoId: string, options?: { mode?: TimerMode; pomoDurationSec?: number }) => {
-    if (activeTimer && activeTimer.todoId !== todoId) return;
-    const mode = options?.mode ?? 'stopwatch';
-    const pomoDurationSec = mode === 'pomodoro' ? Math.max(60, options?.pomoDurationSec ?? 25 * 60) : 0;
-
-    // 반복 가상 인스턴스면 실제 예외 레코드로 구체화한 뒤 그 실제 id로 타이머를 건다.
-    const realId = ensureMaterializedTodoId(todoId);
-    setTodos(prev => {
-      const updated = prev.map(t =>
-        t.id === realId
-          ? { ...t, status: 'inProgress' as TodoStatus, startedDate: t.startedDate ?? format(new Date(), 'yyyy-MM-dd'), doStart: undefined, doEnd: undefined, doElapsedSec: undefined }
-          : t
-      );
-      const todo = updated.find(t => t.id === realId);
-      if (todo) db.todos.upsert(todo);
-      return updated;
-    });
-    setActiveTimer(prev => {
-      if (prev) return prev;
+  const timerStartPending = useRef(false);
+  const startTimer = useCallback(async (todoId: string, options?: { mode?: TimerMode; pomoDurationSec?: number }) => {
+    if (activeTimer || timerStartPending.current || saveCoordinator.protectedIds('todos').has(todoId)) return;
+    const info = isVirtualTodoId(todoId) ? parseVirtualTodoId(todoId) : null;
+    const source = info ? todosRef.current.find(t => t.recurrenceParentId === info.parentId && t.date === info.instanceDate)
+      ?? todosRef.current.find(t => t.id === info.parentId) : todosRef.current.find(t => t.id === todoId);
+    if (!source) return;
+    timerStartPending.current = true;
+    try {
+      const saved = await updateTodo(todoId, { status: 'inProgress', startedDate: source.startedDate ?? format(new Date(), 'yyyy-MM-dd'),
+        doStart: undefined, doEnd: undefined, doElapsedSec: undefined });
+      if (!saved) return;
+      const realId = info ? todosRef.current.find(t => t.recurrenceParentId === info.parentId && t.date === info.instanceDate)?.id : todoId;
+      if (!realId) return;
+      const mode = options?.mode ?? 'stopwatch';
       const now = new Date();
-      return {
-        todoId: realId,
-        mode,
-        startedAt: now.getTime(),
-        startHHMM: format(now, 'HH:mm'),
-        pausedDurationMs: 0,
-        isPaused: false,
-        pauseStartedAt: null,
-        pomoDurationSec,
-      };
-    });
-  }, [activeTimer, ensureMaterializedTodoId]);
+      setActiveTimer({ todoId: realId, sessionId: newEventId(), mode, startedAt: now.getTime(), startHHMM: format(now, 'HH:mm'),
+        pausedDurationMs: 0, isPaused: false, pauseStartedAt: null,
+        pomoDurationSec: mode === 'pomodoro' ? Math.max(60, options?.pomoDurationSec ?? 25 * 60) : 0 });
+    } finally { timerStartPending.current = false; }
+  }, [activeTimer, updateTodo, saveCoordinator]);
 
   const pauseTimer = useCallback(() => {
     setActiveTimer(prev => {
@@ -2149,7 +2158,7 @@ export function PlannerProvider({ children }: { children: React.ReactNode }) {
 
   const resumeTimer = useCallback(() => {
     setActiveTimer(prev => {
-      if (!prev || !prev.isPaused) return prev;
+      if (!prev || !prev.isPaused || saveCoordinator.protectedIds('todos').has(prev.todoId)) return prev;
       const pausedFor = prev.pauseStartedAt ? Date.now() - prev.pauseStartedAt : 0;
       return {
         ...prev,
@@ -2158,7 +2167,7 @@ export function PlannerProvider({ children }: { children: React.ReactNode }) {
         pausedDurationMs: prev.pausedDurationMs + Math.max(0, pausedFor),
       };
     });
-  }, []);
+  }, [saveCoordinator]);
 
   // 정지: 시간만 기록하고 상태는 '진행중' 유지 (완료 아님).
   const stopTimer = useCallback(() => {
@@ -2305,7 +2314,7 @@ export function PlannerProvider({ children }: { children: React.ReactNode }) {
 
   return (
     <PlannerContext.Provider value={{
-      isLoading,
+      isLoading, saveStates, retrySave, dismissSave,
       selectedDate, setSelectedDate,
       todos, timeBlocks, deleteTimeBlock, updateTimeBlock, events, habits, weeklyGoals, monthlyGoals, annualGoals, quarterlyGoals, brainstormItems, brainstormMemos, activeTimer,
       projects, milestones, tags,
@@ -2327,7 +2336,7 @@ export function PlannerProvider({ children }: { children: React.ReactNode }) {
       addWeeklyReview, updateWeeklyReview,
       addMonthlyReview, updateMonthlyReview,
       addHappyMoment, deleteHappyMoment,
-      addWeeklyGoal, toggleWeeklyGoal, deleteWeeklyGoal,
+      addWeeklyGoal, updateWeeklyGoal, toggleWeeklyGoal, deleteWeeklyGoal,
       addMonthlyGoal, updateMonthlyGoal, deleteMonthlyGoal,
       addAnnualGoal, toggleAnnualGoal, deleteAnnualGoal,
       addQuarterlyGoal, toggleQuarterlyGoal, deleteQuarterlyGoal,

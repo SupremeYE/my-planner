@@ -1,4 +1,5 @@
 import { supabase } from './supabase';
+import { confirmedWrites } from './confirmedWrites';
 import { format, addDays, subDays } from 'date-fns';
 import { createEvent as createEventApi, deleteEvent as deleteEventApi, getEvents, upsertEvent as upsertEventApi } from '../api/events';
 import type {
@@ -297,7 +298,7 @@ const toTimeBlock = (r: TodoTimeBlockRow): TodoTimeBlock => ({
   elapsedSec: r.elapsed_sec ?? 0,
 });
 
-const fromTimeBlock = (b: TodoTimeBlock): Record<string, unknown> => ({
+const fromTimeBlock = (b: TodoTimeBlock): TodoTimeBlockRow => ({
   id: b.id,
   todo_id: b.todoId,
   date: b.date,
@@ -1079,6 +1080,7 @@ const fromSomedaySeed = (s: SomedaySeedInput): Record<string, unknown> => {
 
 export const db = {
   todos: {
+    ...confirmedWrites(supabase, 'todos', fromTodo, toTodo),
     fetchAll: async (): Promise<Todo[]> => {
       const { data, error } = await supabase.from('todos').select('*').order('created_at');
       if (error) console.error('[db] todos fetch:', error.message);
@@ -1329,6 +1331,7 @@ export const db = {
   },
 
   todoTimeBlocks: {
+    ...confirmedWrites<TodoTimeBlock, TodoTimeBlockRow>(supabase, 'todo_time_blocks', fromTimeBlock, toTimeBlock),
     fetchAll: async (): Promise<TodoTimeBlock[]> => {
       const { data, error } = await supabase
         .from('todo_time_blocks').select('*').order('date').order('start_time');
@@ -1374,6 +1377,7 @@ export const db = {
   },
 
   weeklyGoals: {
+    ...confirmedWrites(supabase, 'weekly_goals', fromWeeklyGoal, toWeeklyGoal),
     fetchAll: async (): Promise<WeeklyGoal[]> => {
       const { data, error } = await supabase.from('weekly_goals').select('*').order('created_at');
       if (error) console.error('[db] weekly_goals fetch:', error.message);
@@ -1390,6 +1394,7 @@ export const db = {
   },
 
   monthlyGoals: {
+    ...confirmedWrites(supabase, 'monthly_goals', fromMonthlyGoal, toMonthlyGoal),
     fetchAll: async (): Promise<MonthlyGoal[]> => {
       const { data, error } = await supabase.from('monthly_goals').select('*').order('created_at');
       if (error) console.error('[db] monthly_goals fetch:', error.message);

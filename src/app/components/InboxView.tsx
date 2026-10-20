@@ -159,14 +159,14 @@ export function InboxView() {
     const p: CapturePayload = item.proposedPayload ?? {};
     try {
       if (item.proposedType === 'todo') {
-        const id = addTodo({
+        const id = await addTodo({
           text: s(p.text) ?? item.rawText,
           date: s(p.date) ?? null,          // 날짜 없으면 인박스(date=null)
           status: 'active',
           isTop3: p.important === true,
           tags: resolveTagIds(p.tags),
-        });
-        return { table: 'todos', refId: id };
+        }, `capture-${item.id}`);
+        return id ? { table: 'todos', refId: id } : null;
       }
       if (item.proposedType === 'event') {
         const date = s(p.start_date);

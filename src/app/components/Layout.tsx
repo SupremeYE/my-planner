@@ -11,6 +11,7 @@ import {
 } from 'lucide-react';
 import { usePlanner, getWeekKey, getLogicalToday } from '../store';
 import { weekKeysMatch } from '../../lib/weekKeys';
+import { weeklyRollup, monthlyRollup, combineRollups } from './period/periodProgress';
 import { countInboxActive } from '../../lib/inbox';
 import { useCapturePending } from '../hooks/useCapturePending';
 import { useTheme } from '../ThemeContext';
@@ -300,16 +301,16 @@ function MiniCalendar() {
 
 // ── Right Dashboard Panel ──
 function RightPanel() {
-  const { weeklyGoals, monthlyGoals, habits, selectedDate } = usePlanner();
+  const { weeklyGoals, monthlyGoals, todos, habits, selectedDate } = usePlanner();
   const { t } = useTheme();
   const currentWeekKey = getWeekKey(new Date());
   const currentMonth = format(new Date(), 'yyyy-MM');
 
-  const thisWeekGoals = weeklyGoals.filter(g => weekKeysMatch(g.weekKey, currentWeekKey));
+  const thisWeekGoals = weeklyGoals.filter(g => weekKeysMatch(g.weekKey, currentWeekKey)).map(g => ({ ...g, progress: weeklyRollup(g, todos) }));
   const thisMonthGoals = monthlyGoals.filter(g => g.month === currentMonth);
-  const weekDone = thisWeekGoals.filter(g => g.done).length;
+  const weekDone = thisWeekGoals.filter(g => g.progress.completed).length;
   const weekTotal = thisWeekGoals.length;
-  const weekPct = weekTotal ? Math.round((weekDone / weekTotal) * 100) : 0;
+  const weekPct = combineRollups(thisWeekGoals.map(g => g.progress)).pct;
 
   const panel = { backgroundColor: t.card, border: `1px solid ${t.borderLight}`, borderRadius: 16, padding: 16, marginBottom: 0 };
 
@@ -334,9 +335,9 @@ function RightPanel() {
         </div>
         <div className="space-y-1.5">
           {thisWeekGoals.map(goal => (
-            <div key={goal.id} className="flex items-center gap-2">
-              <span style={{ fontSize: 11, color: goal.done ? t.accent : t.textMuted }}>{goal.done ? '✓' : '○'}</span>
-              <span style={{ fontSize: 12, color: goal.done ? t.textSub : t.text, textDecoration: goal.done ? 'line-through' : 'none' }}>
+            <div key={goal.id} data-goal-kind="weekly" data-goal-id={goal.id} data-goal-progress={goal.progress.pct} className="flex items-center gap-2">
+              <span style={{ fontSize: 11, color: goal.progress.completed ? t.accent : t.textMuted }}>{goal.progress.completed ? '✓' : '○'}</span>
+              <span style={{ fontSize: 12, color: goal.progress.completed ? t.textSub : t.text, textDecoration: goal.progress.completed ? 'line-through' : 'none' }}>
                 {goal.text}
               </span>
             </div>
@@ -356,10 +357,10 @@ function RightPanel() {
         <div className="space-y-3">
           {thisMonthGoals.map(goal => {
             const subGoals = weeklyGoals.filter(g => g.monthlyGoalId === goal.id);
-            const doneSub = subGoals.filter(g => g.done).length;
-            const pct = subGoals.length ? Math.round((doneSub / subGoals.length) * 100) : 0;
+            const doneSub = subGoals.filter(g => weeklyRollup(g, todos).completed).length;
+            const pct = monthlyRollup(goal, weeklyGoals, todos).pct;
             return (
-              <div key={goal.id}>
+              <div key={goal.id} data-goal-kind="monthly" data-goal-id={goal.id} data-goal-progress={pct}>
                 <div className="flex justify-between items-center mb-1">
                   <span style={{ fontSize: 12, color: t.text }}>{goal.text}</span>
                   <span style={{ fontSize: 10, color: t.accent }}>{pct}%</span>
