@@ -1,0 +1,161 @@
+{
+  "fixture": "Isolated memory transport; Asia/Seoul 2027-01-01",
+  "shots": [
+    {
+      "name": "mobile-list",
+      "width": 390,
+      "height": 844,
+      "document": 390,
+      "viewport": 390,
+      "overflowing": []
+    },
+    {
+      "name": "desktop-list",
+      "width": 1440,
+      "height": 1024,
+      "document": 1440,
+      "viewport": 1440,
+      "overflowing": []
+    },
+    {
+      "name": "mobile-add",
+      "width": 390,
+      "height": 844,
+      "document": 390,
+      "viewport": 390,
+      "overflowing": []
+    },
+    {
+      "name": "desktop-add",
+      "width": 1440,
+      "height": 1024,
+      "document": 1440,
+      "viewport": 1440,
+      "overflowing": []
+    },
+    {
+      "name": "mobile-save-failure",
+      "width": 390,
+      "height": 844,
+      "document": 390,
+      "viewport": 390,
+      "overflowing": []
+    },
+    {
+      "name": "desktop-save-failure",
+      "width": 1440,
+      "height": 1024,
+      "document": 1440,
+      "viewport": 1440,
+      "overflowing": []
+    },
+    {
+      "name": "mobile-time-category",
+      "width": 390,
+      "height": 844,
+      "document": 390,
+      "viewport": 390,
+      "overflowing": []
+    },
+    {
+      "name": "desktop-time-category",
+      "width": 1440,
+      "height": 1024,
+      "document": 1440,
+      "viewport": 1440,
+      "overflowing": []
+    },
+    {
+      "name": "mobile-tag-picker",
+      "width": 390,
+      "height": 844,
+      "document": 390,
+      "viewport": 390,
+      "overflowing": []
+    },
+    {
+      "name": "desktop-tag-picker",
+      "width": 1440,
+      "height": 1024,
+      "document": 1440,
+      "viewport": 1440,
+      "overflowing": []
+    },
+    {
+      "name": "mobile-goal-picker",
+      "width": 390,
+      "height": 844,
+      "document": 390,
+      "viewport": 390,
+      "overflowing": []
+    },
+    {
+      "name": "desktop-goal-picker",
+      "width": 1440,
+      "height": 1024,
+      "document": 1440,
+      "viewport": 1440,
+      "overflowing": []
+    },
+    {
+      "name": "mobile-edit",
+      "width": 390,
+      "height": 844,
+      "document": 390,
+      "viewport": 390,
+      "overflowing": []
+    },
+    {
+      "name": "desktop-edit",
+      "width": 1440,
+      "height": 1024,
+      "document": 1440,
+      "viewport": 1440,
+      "overflowing": []
+    },
+    {
+      "name": "mobile-time-record",
+      "width": 390,
+      "height": 844,
+      "document": 390,
+      "viewport": 390,
+      "overflowing": []
+    },
+    {
+      "name": "desktop-time-record",
+      "width": 1440,
+      "height": 1024,
+      "document": 1440,
+      "viewport": 1440,
+      "overflowing": []
+    },
+    {
+      "name": "mobile-tag-management",
+      "width": 390,
+      "height": 844,
+      "document": 390,
+      "viewport": 390,
+      "overflowing": []
+    },
+    {
+      "name": "desktop-tag-management",
+      "width": 1440,
+      "height": 1024,
+      "document": 1440,
+      "viewport": 1440,
+      "overflowing": []
+    }
+  ],
+  "errors": [],
+  "blockedExternalFonts": [
+    "https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css",
+    "https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;600;700&family=Noto+Serif+KR:wght@400;500;600&family=DM+Serif+Display:ital@0;1&display=swap",
+    "https://fonts.googleapis.com/css2?family=Gowun+Batang:wght@400;700&family=Gowun+Dodum&display=swap",
+    "https://fonts.googleapis.com/css2?family=Gaegu:wght@400;700&display=swap",
+    "https://fonts.googleapis.com/css2?family=Nanum+Pen+Script&display=swap",
+    "https://fonts.googleapis.com/css2?family=Caveat:wght@500;600&display=swap",
+    "https://cdn.jsdelivr.net/gh/webfontworld/gmarket/GmarketSans.css",
+    "https://cdn.jsdelivr.net/gh/webfontworld/NanumSquareRound/NanumSquareRound.css",
+    "https://fonts.googleapis.com/css2?family=Sora:wght@400;600&display=swap"
+  ]
+}

@@ -65,6 +65,12 @@ test('MoaMoa development prototype: responsive views, shared data and isolated i
         assert.ok(dimensions.main <= dimensions.mainWidth + 1, `${name} main overflow`);
         assert.deepEqual(dimensions.overflows, [], name);
         if (name === 'mobile-today') {
+          const title = await page.locator('.mo-greeting h1').boundingBox();
+          const buddy = await page.locator('.mo-mobile-buddy').boundingBox();
+          const line = await page.locator('.mo-greeting h1').evaluate(el => parseFloat(getComputedStyle(el).lineHeight));
+          assert.equal(await page.locator('.mo-greeting h1').innerText(), '오늘도, 힘내자!');
+          assert.ok(title.height <= line + 1 && title.x + title.width <= buddy.x);
+          assert.deepEqual(await page.locator('.mo-bottom-nav button span').allTextContents(), ['오늘', '캘린더', '할 일', '기록', '나의 정원']);
           const bounds = await page.locator('.mo-week-card').boundingBox();
           assert.ok(bounds.y + bounds.height < height - 65, 'Weekly goals visible without scrolling');
           assert.equal(await page.locator('.mo-today-quests [data-todo-id]').count(), 3);

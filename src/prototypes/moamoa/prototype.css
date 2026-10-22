@@ -651,3 +651,6 @@ html, body { margin: 0; padding: 0; height: 100%; }
 @media (max-width: 1023px) {
   .mo-todo-copy > span, .mo-day-card .mo-todo-copy > span, .mo-undated-card .mo-todo-copy > span { font-size: 14px; }
 }
+@media (max-width:767px) {
+  #moamoa-prototype .mo-greeting h1 { font-size:clamp(18px,5.6vw,23px) !important; white-space:nowrap; max-width:calc(100% - 100px); }
+}

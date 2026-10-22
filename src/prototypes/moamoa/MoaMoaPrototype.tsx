@@ -12,7 +12,7 @@ import { MoaBuddy } from './ui';
 const navigation = [
   { id: 'today', name: '오늘', en: 'Today', icon: Home },
   { id: 'calendar', name: '캘린더', en: 'Calendar', icon: CalendarDays },
-  { id: 'quests', name: '퀘스트', en: 'Quests', icon: Swords },
+  { id: 'quests', name: '할 일', en: 'To-dos', icon: Swords },
   { id: 'records', name: '기록', en: 'Records', icon: NotebookPen },
   { id: 'garden', name: '나의 정원', en: 'My Garden', icon: Flower2 },
 ] as const;

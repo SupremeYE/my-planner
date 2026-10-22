@@ -17,7 +17,7 @@
 | 3 | [PC 주간 일정](desktop-week-schedule.png) | 1440×1140 | `?screen=calendar&period=week&view=schedule` |
 | 4 | [PC 주간 플래너](desktop-week-planner.png) | 1440×1140 | `?screen=calendar&period=week&view=planner` |
 | 5 | [모바일 주간 플래너](mobile-week-planner.png) | 390×844 | 위와 같은 경로 |
-| 6 | [모바일 퀘스트](mobile-quests.png) | 390×844 | `?screen=quests` |
+| 6 | [모바일 할 일](mobile-quests.png) | 390×844 | `?screen=quests` |
 | 7 | [모바일 빠른 시간 기록](mobile-quick-record.png) | 390×844 | 기록 버튼 → 시간 |
 
 ## 보조 화면과 인터랙션 상태
@@ -32,14 +32,14 @@
 | 모바일 일간 | [mobile-day.png](mobile-day.png) |
 | 모바일 기록 | [mobile-records.png](mobile-records.png) |
 | PC 기록 | [desktop-records.png](desktop-records.png) |
-| PC 퀘스트 | [desktop-quests.png](desktop-quests.png) |
+| PC 할 일 | [desktop-quests.png](desktop-quests.png) |
 | 모바일 나의 정원 | [mobile-garden.png](mobile-garden.png) |
 | PC 나의 정원 | [desktop-garden.png](desktop-garden.png) |
 
 스크린샷은 화면 상단 또는 표시된 스크롤 위치의 실제 렌더다. 아래 내용은 앱 안에서 세로로 스크롤한다.
 시간 시트의 기본 반영 버튼은 필드가 스크롤되더라도 보인다. 독립 활동은 후속 설계로 표시하고 비활성화했다.
 
-검토 순서는 모바일 오늘 → 빠른 기록 → 모바일 퀘스트 → PC 주간 일정/플래너를 권장한다.
+검토 순서는 모바일 오늘 → 빠른 기록 → 모바일 할 일 → PC 주간 일정/플래너를 권장한다.
 같은 샘플 TODO를 체크하고 메뉴를 이동하면 다른 화면에도 같은 상태와 목표 진행률을 표시한다.
 시안 옵션의 “다음 반영 실패 시연”으로 실패/재시도 UI를 확인할 수 있다.
 

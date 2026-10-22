@@ -1,5 +1,6 @@
 import { supabase } from './supabase';
 import { confirmedWrites } from './confirmedWrites';
+import { saveFailure, SaveFailure } from './saveCoordinator';
 import { format, addDays, subDays } from 'date-fns';
 import { createEvent as createEventApi, deleteEvent as deleteEventApi, getEvents, upsertEvent as upsertEventApi } from '../api/events';
 import type {
@@ -1338,6 +1339,12 @@ export const db = {
       if (error) console.error('[db] todo_time_blocks fetch:', error.message);
       return (data ?? []).map(toTimeBlock);
     },
+    forTodoConfirmed: async (todoId: string): Promise<TodoTimeBlock[]> => {
+      const result = await supabase.from('todo_time_blocks').select('*').eq('todo_id', todoId);
+      if (result.error) throw saveFailure(result.error, result.status);
+      if (!Array.isArray(result.data)) throw new SaveFailure('시간 기록을 확인하지 못했어요.', false);
+      return result.data.map(toTimeBlock);
+    },
     insert: async (block: TodoTimeBlock) => {
       const { error } = await supabase.from('todo_time_blocks').insert(fromTimeBlock(block));
       if (error) console.error('[db] todo_time_blocks insert:', error.message);
@@ -1439,6 +1446,17 @@ export const db = {
   },
 
   tags: {
+    ...confirmedWrites<Tag, TagRow>(supabase, 'tags', fromTag, toTag),
+    assertUnused: async (id: string) => {
+      // Query the complete RLS-visible tables, not the Provider's limited event range.
+      const checks = await Promise.all(['todos', 'events'].map(table =>
+        supabase.from(table).select('id').contains('tags', [id]).limit(1)));
+      for (const check of checks) {
+        if (check.error) throw saveFailure(check.error, check.status);
+        if (!Array.isArray(check.data)) throw new SaveFailure('태그 사용 여부를 확인하지 못했어요.', false);
+        if (check.data.length) throw new SaveFailure('사용 중인 태그예요. 삭제·용도 변경은 과거 시간 분석에 영향을 줘요. 연결을 먼저 확인해주세요. 이름과 색상은 수정할 수 있어요.', false);
+      }
+    },
     fetchAll: async (): Promise<Tag[]> => {
       const { data, error } = await supabase.from('tags').select('*').order('created_at');
       if (error) console.error('[db] tags fetch:', error.message);

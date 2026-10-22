@@ -4,7 +4,8 @@ import { format, subDays, addDays, parseISO, differenceInCalendarDays } from 'da
 import { getWeekKey } from '../lib/weekKeys';
 export { getWeekKey } from '../lib/weekKeys';
 import { db } from '../lib/db';
-import { SaveCoordinator, saveIntent, mergeConfirmedRows, type SaveState } from '../lib/saveCoordinator';
+import { SaveCoordinator, SaveFailure, saveIntent, mergeConfirmedRows, type SaveState } from '../lib/saveCoordinator';
+import { isRecurringMoaTodo, preservedLegacyBlock, legacyBlockId } from '../lib/moaTodos';
 import { weeklyRollup } from './components/period/periodProgress';
 import { isVirtualTodoId, parseVirtualTodoId } from '../lib/recurrenceExpansion';
 import { isVirtualEventId, parseVirtualEventId } from '../api/events';
@@ -814,6 +815,11 @@ interface PlannerContextType {
   projects: Project[];
   milestones: Milestone[];
   tags: Tag[];
+  createTagConfirmed: (value: Omit<Tag, 'id'>, id: string) => Promise<string | null>;
+  editTagConfirmed: (id: string, changes: Partial<Omit<Tag, 'id'>>) => Promise<boolean>;
+  removeTagConfirmed: (id: string) => Promise<boolean>;
+  removeTodoConfirmed: (id: string) => Promise<boolean>;
+  addManualTimeConfirmed: (todoId: string, date: string, minutes: number, id: string) => Promise<boolean>;
   routines: Routine[];
   selfCareRecords: SelfCareRecord[];
   reviewRecords: ReviewRecord[];
@@ -984,6 +990,8 @@ export function PlannerProvider({ children }: { children: React.ReactNode }) {
   // ── Supabase 연동 상태 ──
   const [todos, setTodos] = useState<Todo[]>([]);
   const [timeBlocks, setTimeBlocks] = useState<TodoTimeBlock[]>([]);
+  const timeBlocksRef = useRef(timeBlocks);
+  useEffect(() => { timeBlocksRef.current = timeBlocks; }, [timeBlocks]);
   // 최신 todos 스냅샷 (반복 가상 인스턴스 → 실제 예외 레코드 동기 변환 시 참조)
   const todosRef = useRef<Todo[]>([]);
   useEffect(() => { todosRef.current = todos; }, [todos]);
@@ -1017,6 +1025,8 @@ export function PlannerProvider({ children }: { children: React.ReactNode }) {
   const [brainstormItems, setBrainstormItems] = useState<BrainstormItem[]>([]);
   const [brainstormMemos, setBrainstormMemos] = useState<Record<string, string>>({});
   const [tags, setTags] = useState<Tag[]>([]);
+  const tagsRef = useRef(tags);
+  useEffect(() => { tagsRef.current = tags; }, [tags]);
 
   // ── in-memory 상태 ──
   const [activeTimer, setActiveTimer] = useState<ActiveTimer | null>(null);
@@ -1125,12 +1135,12 @@ export function PlannerProvider({ children }: { children: React.ReactNode }) {
       review_records:    async () => setReviewRecords(await db.reviewRecords.fetchAll()),
       timeline_logs:     async () => setTimelineLogs(await db.timelineLogs.fetchAll()),
       events:            async () => setEvents(await db.events.fetchAll()),
-      todo_time_blocks:  async () => setTimeBlocks(await db.todoTimeBlocks.fetchAll()),
+      todo_time_blocks:  () => refreshCore('timeBlocks', db.todoTimeBlocks.fetchConfirmed, timeBlocksRef, setTimeBlocks),
       weekly_goals:      () => refreshCore('weeklyGoals', db.weeklyGoals.fetchConfirmed, weeklyGoalsRef, setWeeklyGoals),
       monthly_goals:     () => refreshCore('monthlyGoals', db.monthlyGoals.fetchConfirmed, monthlyGoalsRef, setMonthlyGoals),
       brainstorm_items:  async () => setBrainstormItems(await db.brainstormItems.fetchAll()),
       brainstorm_memos:  async () => setBrainstormMemos(await db.brainstormMemos.fetchAll()),
-      tags:              async () => setTags(await db.tags.fetchAll()),
+      tags:              () => refreshCore('tags', db.tags.fetchConfirmed, tagsRef, setTags),
       routines:          async () => setRoutines(await db.routines.fetchAll()),
       period_records:    async () => setPeriodRecords(await db.periodRecords.fetchAll()),
       habit_monthly_memos: async () => setHabitMonthlyMemos(await db.habitMonthlyMemos.fetchAll()),
@@ -2280,6 +2290,84 @@ export function PlannerProvider({ children }: { children: React.ReactNode }) {
     db.tags.delete(id);
   }, []);
 
+  // Additive confirmed paths used by MoaMoa. Legacy synchronous APIs keep their contract.
+  const commitTag = useCallback((record: Tag) => {
+    tagsRef.current = tagsRef.current.some(tag => tag.id === record.id)
+      ? tagsRef.current.map(tag => tag.id === record.id ? record : tag) : [...tagsRef.current, record];
+    setTags(tagsRef.current);
+  }, []);
+  const createTagConfirmed = useCallback(async (value: Omit<Tag, 'id'>, id: string) => {
+    const record: Tag = { ...value, name: value.name.trim(), id };
+    const saved = await saveCoordinator.run({ key: `tags:${id}`, label: '태그 등록', intent: saveIntent(record),
+      execute: () => {
+        if (!record.name) throw new SaveFailure('태그 이름을 입력해주세요.', false);
+        return db.tags.createConfirmed(record);
+      }, commit: commitTag });
+    return saved?.id ?? null;
+  }, [saveCoordinator, commitTag]);
+  const editTagConfirmed = useCallback(async (id: string, changes: Partial<Omit<Tag, 'id'>>) => {
+    const before = tagsRef.current.find(tag => tag.id === id);
+    if (!before) {
+      await saveCoordinator.run({ key: `tags:${id}`, label: '태그 수정', intent: saveIntent(changes),
+        execute: () => { throw new SaveFailure('태그가 다른 기기에서 바뀌었어요. 목록을 새로고침한 뒤 확인해주세요.', false); }, commit: () => {} });
+      return false;
+    }
+    const after = { ...before, ...changes, name: (changes.name ?? before.name).trim() };
+    const saved = await saveCoordinator.run({ key: `tags:${id}`, label: '태그 수정', intent: saveIntent(changes),
+      execute: async () => {
+        if (!after.name) throw new SaveFailure('태그 이름을 입력해주세요.', false);
+        if (before.trackTime !== after.trackTime) await db.tags.assertUnused(id);
+        return db.tags.updateConfirmed(before, after);
+      }, commit: commitTag });
+    return saved !== null;
+  }, [saveCoordinator, commitTag]);
+  const removeTagConfirmed = useCallback(async (id: string) => {
+    const saved = await saveCoordinator.run({ key: `tags:${id}`, label: '태그 삭제', intent: 'delete',
+      execute: async () => { await db.tags.assertUnused(id); await db.tags.deleteConfirmed(id); return id; },
+      commit: deleted => { tagsRef.current = tagsRef.current.filter(tag => tag.id !== deleted); setTags(tagsRef.current); } });
+    return saved !== null;
+  }, [saveCoordinator]);
+  const removeTodoConfirmed = useCallback(async (id: string) => {
+    const before = todosRef.current.find(todo => todo.id === id);
+    const saved = await saveCoordinator.run({ key: `todos:${id}`, label: '할일 삭제', intent: 'delete',
+      execute: async () => {
+        if (activeTimer?.todoId === id) throw new SaveFailure('활성 타이머를 먼저 마쳐주세요.', false);
+        const latest = await db.todos.getConfirmed(id);
+        const blocks = await db.todoTimeBlocks.forTodoConfirmed(id);
+        if (latest && isRecurringMoaTodo(latest)) throw new SaveFailure('반복 할 일의 삭제는 기존 회차 정책을 먼저 확인해주세요.', false);
+        const source = latest ?? before;
+        const hasActual = source?.doElapsedSec != null ? source.doElapsedSec !== 0
+          : !!(source?.doStart || source?.doEnd) && source?.doStart !== source?.doEnd;
+        if (blocks.length || hasActual) throw new SaveFailure('실제 시간 기록이 있는 할 일은 삭제하지 않아요. 취소 상태로 보관해 기록을 지켜주세요.', false);
+        await db.todos.deleteConfirmed(id); return id;
+      }, commit: deleted => { todosRef.current = todosRef.current.filter(todo => todo.id !== deleted); setTodos(todosRef.current); } });
+    return saved !== null;
+  }, [saveCoordinator, activeTimer]);
+  const addManualTimeConfirmed = useCallback(async (todoId: string, date: string, minutes: number, id: string) => {
+    const block: TodoTimeBlock = { id, todoId, date, elapsedSec: minutes * 60 };
+    let baseline: TodoTimeBlock | undefined;
+    let source: Todo | null | undefined;
+    const saved = await saveCoordinator.run({ key: `timeBlocks:${id}`, label: '실제 시간 기록', intent: saveIntent(block),
+      execute: async () => {
+        if (activeTimer?.todoId === todoId) throw new SaveFailure('활성 타이머를 먼저 마친 뒤 실제 시간을 기록해주세요.', false);
+        if (!/^\d{4}-\d{2}-\d{2}$/.test(date) || Number.isNaN(Date.parse(`${date}T12:00:00`)) || format(parseISO(date), 'yyyy-MM-dd') !== date || !Number.isInteger(minutes) || minutes < 1 || minutes > 1440)
+          throw new SaveFailure('작업 날짜와 1~1440분의 실제 소요를 확인해주세요.', false);
+        source ??= await db.todos.getConfirmed(todoId);
+        if (!source || isRecurringMoaTodo(source)) throw new SaveFailure('연결할 할 일과 반복 여부를 확인해주세요.', false);
+        const existing = await db.todoTimeBlocks.forTodoConfirmed(todoId);
+        baseline ??= preservedLegacyBlock(source, existing, await legacyBlockId(todoId));
+        // Same deterministic baseline ID across retries/devices. Never invent start/end.
+        if (baseline) await db.todoTimeBlocks.createConfirmed(baseline);
+        const record = await db.todoTimeBlocks.createConfirmed(block);
+        return [...(baseline ? [baseline] : []), record];
+      }, commit: records => {
+        const ids = new Set(records.map(record => record.id));
+        timeBlocksRef.current = [...timeBlocksRef.current.filter(row => !ids.has(row.id)), ...records];
+        setTimeBlocks(timeBlocksRef.current);
+      } });
+    return saved !== null;
+  }, [saveCoordinator, activeTimer]);
+
   // ── Settings actions ──
   const setDayHours = useCallback((s: number, e: number) => {
     setDayStartHour(s);
@@ -2347,6 +2435,7 @@ export function PlannerProvider({ children }: { children: React.ReactNode }) {
       addProject, updateProject, deleteProject,
       addMilestone, toggleMilestone, deleteMilestone,
       addTag, updateTag, deleteTag,
+      createTagConfirmed, editTagConfirmed, removeTagConfirmed, removeTodoConfirmed, addManualTimeConfirmed,
       addTimelineLog, deleteTimelineLog,
       dayStartHour, dayEndHour, setDayHours,
     }}>

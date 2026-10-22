@@ -35,6 +35,20 @@ export function confirmedWrites<T extends { id: string }, Row extends { id: stri
       if (!result.data || result.data.id !== before.id) throw new SaveFailure('저장 결과를 확인하지 못했어요.', false);
       return decode(result.data);
     },
+    async getConfirmed(id: string): Promise<T | null> {
+      const result = await client.from(table).select('*').eq('id', id);
+      if (result.error) throw saveFailure(result.error, result.status);
+      if (!Array.isArray(result.data)) throw new SaveFailure('조회 결과를 확인하지 못했어요.', false);
+      return result.data[0] ? decode(result.data[0]) : null;
+    },
+    async deleteConfirmed(id: string): Promise<void> {
+      const result = await client.from(table).delete().eq('id', id).select('*');
+      if (result.error) throw saveFailure(result.error, result.status);
+      // Explicit absence read makes acknowledgement-loss retry idempotent.
+      const check = await client.from(table).select('id').eq('id', id);
+      if (check.error) throw saveFailure(check.error, check.status);
+      if (!Array.isArray(check.data) || check.data.length) throw new SaveFailure('삭제 결과를 확인하지 못했어요.', false);
+    },
     async fetchConfirmed(): Promise<T[]> {
       const result = await client.from(table).select('*').order('created_at');
       if (result.error) throw saveFailure(result.error, result.status);

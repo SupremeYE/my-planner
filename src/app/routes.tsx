@@ -30,6 +30,10 @@ import { HousekeepingView } from './components/housekeeping/HousekeepingView';
 import { MoneyView } from '../features/money/MoneyView';
 
 export const router = createBrowserRouter([
+  // Explicit development entry; Auth/PlannerProvider still wrap this route in App.
+  // Vite removes the import and its styles from production builds.
+  ...(import.meta.env.DEV ? [{ path: '/__moamoa-today', lazy: () => import('./components/moamoa/MoaTodayRoute') },
+    { path: '/__moamoa-todos', lazy: () => import('./components/moamoa/MoaTodosRoute') }] : []),
   {
     path: '/',
     element: <RootLayout />,

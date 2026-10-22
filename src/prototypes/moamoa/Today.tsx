@@ -11,13 +11,13 @@ export function Today() {
   return <div className="mo-today-layout">
     <section className="mo-greeting">
       <p className="mo-eyebrow"><Sun size={15} /> 10월 20일 화요일</p>
-      <h1>오늘도, 내 속도로<br /><span>차곡차곡 모아볼까요?</span></h1>
-      <p>작은 한 걸음이면 충분한 하루예요.</p>
+      <h1>오늘도, 힘내자!</h1>
+      <p>작은 일부터 하나씩.</p>
       <div className="mo-mobile-essentials"><span><Clock3 size={13} />오늘 {shortDuration(report.coverage.recordedMinutes)}</span><button onClick={() => setSheet('review-day')}><Feather size={13} />한 줄 회고</button></div>
       <div className="mo-mobile-buddy"><MoaBuddy small /><span>Lv.2 작은 새싹</span></div>
     </section>
     <Card className="mo-week-card">
-      <SectionTitle eyebrow="MY LITTLE GOALS" title="이번 주에 모을 것" action="퀘스트 보기" onAction={() => navigate('quests')} />
+      <SectionTitle eyebrow="MY LITTLE GOALS" title="이번 주에 모을 것" action="할 일 보기" onAction={() => navigate('quests')} />
       <div className="mo-week-caption"><span><Target size={14} />10.19 – 10.25</span><span>전체 <b data-testid="home-progress">{todayProgress.pct}%</b></span></div>
       {weeklyGoals.map(goal => <GoalRow key={goal.id} goal={goal} compact />)}
     </Card>
@@ -28,7 +28,7 @@ export function Today() {
       <button className="mo-text-button" onClick={() => navigate('garden')}>정원에 잠깐 들르기 <ArrowUpRight size={15} /></button>
     </Card>
     <Card className="mo-today-quests">
-      <SectionTitle eyebrow="ONE THING AT A TIME" title="오늘의 작은 퀘스트" action="모두 보기" onAction={() => navigate('quests')} />
+      <SectionTitle eyebrow="ONE THING AT A TIME" title="오늘의 핵심 할 일" action="모두 보기" onAction={() => navigate('quests')} />
       <p className="mo-section-hint">가장 중요한 건 세 가지만. 다 하지 않아도 괜찮아요.</p>
       <div className="mo-todo-list">{coreTodos.map(todo => <TodoRow key={todo.id} todo={todo} />)}</div>
       <button className="mo-quick-invitation" onClick={() => openQuick()}><span><Plus size={18} />지금 떠오른 것을 모아두기</span><span className="mo-key-hint">빠른 기록</span></button>
