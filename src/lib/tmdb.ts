@@ -35,7 +35,7 @@ interface TMDBSearchError extends Error {
  * /search/multi 로 영화·TV를 검색한다 (인물 등은 제외).
  * 오류 시 status가 붙은 Error를 throw → 호출부에서 분기.
  */
-export async function searchTMDB(query: string): Promise<TMDBResult[]> {
+export async function searchTMDB(query: string, signal?: AbortSignal): Promise<TMDBResult[]> {
   const token = import.meta.env.VITE_TMDB_API_TOKEN as string | undefined;
   if (!token) {
     const err: TMDBSearchError = new Error('TMDB 토큰 없음');
@@ -47,6 +47,7 @@ export async function searchTMDB(query: string): Promise<TMDBResult[]> {
 
   const url = `${TMDB_BASE}/search/multi?query=${encodeURIComponent(q)}&language=ko-KR&include_adult=false&page=1`;
   const res = await fetch(url, {
+    signal,
     headers: { Authorization: `Bearer ${token}`, accept: 'application/json' },
   });
   if (!res.ok) {

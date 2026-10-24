@@ -1,0 +1,248 @@
+{
+  "viewports": [
+    390,
+    1440
+  ],
+  "shots": [
+    {
+      "name": "mobile-list",
+      "width": 390,
+      "document": 390,
+      "overflow": []
+    },
+    {
+      "name": "desktop-list",
+      "width": 1440,
+      "document": 1440,
+      "overflow": []
+    },
+    {
+      "name": "mobile-detail",
+      "width": 390,
+      "document": 390,
+      "overflow": []
+    },
+    {
+      "name": "desktop-detail",
+      "width": 1440,
+      "document": 1440,
+      "overflow": []
+    },
+    {
+      "name": "mobile-add",
+      "width": 390,
+      "document": 390,
+      "overflow": []
+    },
+    {
+      "name": "desktop-add",
+      "width": 1440,
+      "document": 1440,
+      "overflow": []
+    },
+    {
+      "name": "mobile-saving",
+      "width": 390,
+      "document": 390,
+      "overflow": []
+    },
+    {
+      "name": "desktop-saving",
+      "width": 1440,
+      "document": 1440,
+      "overflow": []
+    },
+    {
+      "name": "mobile-save-failure",
+      "width": 390,
+      "document": 390,
+      "overflow": []
+    },
+    {
+      "name": "desktop-save-failure",
+      "width": 1440,
+      "document": 1440,
+      "overflow": []
+    },
+    {
+      "name": "mobile-edit",
+      "width": 390,
+      "document": 390,
+      "overflow": []
+    },
+    {
+      "name": "desktop-edit",
+      "width": 1440,
+      "document": 1440,
+      "overflow": []
+    },
+    {
+      "name": "mobile-tmdb-results",
+      "width": 390,
+      "document": 390,
+      "overflow": []
+    },
+    {
+      "name": "desktop-tmdb-results",
+      "width": 1440,
+      "document": 1440,
+      "overflow": []
+    },
+    {
+      "name": "mobile-api-failure",
+      "width": 390,
+      "document": 390,
+      "overflow": []
+    },
+    {
+      "name": "desktop-api-failure",
+      "width": 1440,
+      "document": 1440,
+      "overflow": []
+    },
+    {
+      "name": "mobile-youtube",
+      "width": 390,
+      "document": 390,
+      "overflow": []
+    },
+    {
+      "name": "desktop-youtube",
+      "width": 1440,
+      "document": 1440,
+      "overflow": []
+    },
+    {
+      "name": "mobile-delete",
+      "width": 390,
+      "document": 390,
+      "overflow": []
+    },
+    {
+      "name": "desktop-delete",
+      "width": 1440,
+      "document": 1440,
+      "overflow": []
+    },
+    {
+      "name": "mobile-read-failure",
+      "width": 390,
+      "document": 390,
+      "overflow": []
+    },
+    {
+      "name": "desktop-read-failure",
+      "width": 1440,
+      "document": 1440,
+      "overflow": []
+    },
+    {
+      "name": "mobile-offline",
+      "width": 390,
+      "document": 390,
+      "overflow": []
+    },
+    {
+      "name": "desktop-offline",
+      "width": 1440,
+      "document": 1440,
+      "overflow": []
+    },
+    {
+      "name": "mobile-long-title",
+      "width": 390,
+      "document": 390,
+      "overflow": []
+    },
+    {
+      "name": "desktop-long-title",
+      "width": 1440,
+      "document": 1440,
+      "overflow": []
+    }
+  ],
+  "pageErrors": [],
+  "externalAttempts": [
+    "https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css",
+    "https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;600;700&family=Noto+Serif+KR:wght@400;500;600&family=DM+Serif+Display:ital@0;1&display=swap",
+    "https://fonts.googleapis.com/css2?family=Gowun+Batang:wght@400;700&family=Gowun+Dodum&display=swap",
+    "https://fonts.googleapis.com/css2?family=Gaegu:wght@400;700&display=swap",
+    "https://fonts.googleapis.com/css2?family=Nanum+Pen+Script&display=swap",
+    "https://fonts.googleapis.com/css2?family=Caveat:wght@500;600&display=swap",
+    "https://cdn.jsdelivr.net/gh/webfontworld/gmarket/GmarketSans.css",
+    "https://cdn.jsdelivr.net/gh/webfontworld/NanumSquareRound/NanumSquareRound.css",
+    "https://fonts.googleapis.com/css2?family=Sora:wght@400;600&display=swap",
+    "https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css",
+    "https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;600;700&family=Noto+Serif+KR:wght@400;500;600&family=DM+Serif+Display:ital@0;1&display=swap",
+    "https://fonts.googleapis.com/css2?family=Gowun+Batang:wght@400;700&family=Gowun+Dodum&display=swap",
+    "https://fonts.googleapis.com/css2?family=Gaegu:wght@400;700&display=swap",
+    "https://fonts.googleapis.com/css2?family=Nanum+Pen+Script&display=swap",
+    "https://fonts.googleapis.com/css2?family=Caveat:wght@500;600&display=swap",
+    "https://cdn.jsdelivr.net/gh/webfontworld/gmarket/GmarketSans.css",
+    "https://cdn.jsdelivr.net/gh/webfontworld/NanumSquareRound/NanumSquareRound.css",
+    "https://fonts.googleapis.com/css2?family=Sora:wght@400;600&display=swap",
+    "https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css",
+    "https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;600;700&family=Noto+Serif+KR:wght@400;500;600&family=DM+Serif+Display:ital@0;1&display=swap",
+    "https://fonts.googleapis.com/css2?family=Gowun+Batang:wght@400;700&family=Gowun+Dodum&display=swap",
+    "https://fonts.googleapis.com/css2?family=Gaegu:wght@400;700&display=swap",
+    "https://fonts.googleapis.com/css2?family=Nanum+Pen+Script&display=swap",
+    "https://fonts.googleapis.com/css2?family=Caveat:wght@500;600&display=swap",
+    "https://cdn.jsdelivr.net/gh/webfontworld/gmarket/GmarketSans.css",
+    "https://cdn.jsdelivr.net/gh/webfontworld/NanumSquareRound/NanumSquareRound.css",
+    "https://fonts.googleapis.com/css2?family=Sora:wght@400;600&display=swap",
+    "https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css",
+    "https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;600;700&family=Noto+Serif+KR:wght@400;500;600&family=DM+Serif+Display:ital@0;1&display=swap",
+    "https://fonts.googleapis.com/css2?family=Gowun+Batang:wght@400;700&family=Gowun+Dodum&display=swap",
+    "https://fonts.googleapis.com/css2?family=Gaegu:wght@400;700&display=swap",
+    "https://fonts.googleapis.com/css2?family=Nanum+Pen+Script&display=swap",
+    "https://fonts.googleapis.com/css2?family=Caveat:wght@500;600&display=swap",
+    "https://cdn.jsdelivr.net/gh/webfontworld/gmarket/GmarketSans.css",
+    "https://cdn.jsdelivr.net/gh/webfontworld/NanumSquareRound/NanumSquareRound.css",
+    "https://fonts.googleapis.com/css2?family=Sora:wght@400;600&display=swap",
+    "https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css",
+    "https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;600;700&family=Noto+Serif+KR:wght@400;500;600&family=DM+Serif+Display:ital@0;1&display=swap",
+    "https://fonts.googleapis.com/css2?family=Gowun+Batang:wght@400;700&family=Gowun+Dodum&display=swap",
+    "https://fonts.googleapis.com/css2?family=Gaegu:wght@400;700&display=swap",
+    "https://fonts.googleapis.com/css2?family=Nanum+Pen+Script&display=swap",
+    "https://fonts.googleapis.com/css2?family=Caveat:wght@500;600&display=swap",
+    "https://cdn.jsdelivr.net/gh/webfontworld/gmarket/GmarketSans.css",
+    "https://cdn.jsdelivr.net/gh/webfontworld/NanumSquareRound/NanumSquareRound.css",
+    "https://fonts.googleapis.com/css2?family=Sora:wght@400;600&display=swap",
+    "https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css",
+    "https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;600;700&family=Noto+Serif+KR:wght@400;500;600&family=DM+Serif+Display:ital@0;1&display=swap",
+    "https://fonts.googleapis.com/css2?family=Gowun+Batang:wght@400;700&family=Gowun+Dodum&display=swap",
+    "https://fonts.googleapis.com/css2?family=Gaegu:wght@400;700&display=swap",
+    "https://fonts.googleapis.com/css2?family=Nanum+Pen+Script&display=swap",
+    "https://fonts.googleapis.com/css2?family=Caveat:wght@500;600&display=swap",
+    "https://cdn.jsdelivr.net/gh/webfontworld/gmarket/GmarketSans.css",
+    "https://cdn.jsdelivr.net/gh/webfontworld/NanumSquareRound/NanumSquareRound.css",
+    "https://fonts.googleapis.com/css2?family=Sora:wght@400;600&display=swap"
+  ],
+  "apiCalls": [
+    {
+      "kind": "tmdb",
+      "query": "찾을 작품"
+    },
+    {
+      "kind": "tmdb",
+      "query": "실패"
+    },
+    {
+      "kind": "tmdb",
+      "query": "없음"
+    },
+    {
+      "kind": "tmdb",
+      "query": "느린 검색"
+    },
+    {
+      "kind": "youtube",
+      "url": "https://youtu.be/abcdefghijk"
+    },
+    {
+      "kind": "youtube",
+      "url": "https://youtu.be/failure0000"
+    }
+  ],
+  "transport": "existing isolated Auth/PlannerProvider, memory Supabase/Storage and intercepted TMDB/YouTube only"
+}

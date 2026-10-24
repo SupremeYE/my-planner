@@ -30,11 +30,11 @@ export function extractYouTubeVideoId(url: string): string | null {
  * YouTube oEmbed로 제목/채널/썸네일을 가져온다.
  * 비-YouTube URL 이거나 실패 시 null.
  */
-export async function fetchYouTubeMetadata(url: string): Promise<YouTubeMetadata | null> {
+export async function fetchYouTubeMetadata(url: string, signal?: AbortSignal): Promise<YouTubeMetadata | null> {
   if (!extractYouTubeVideoId(url)) return null;
   try {
     const endpoint = `https://www.youtube.com/oembed?url=${encodeURIComponent(url)}&format=json`;
-    const res = await fetch(endpoint);
+    const res = await fetch(endpoint, { signal });
     if (!res.ok) return null;
     const json = await res.json();
     if (!json?.title) return null;

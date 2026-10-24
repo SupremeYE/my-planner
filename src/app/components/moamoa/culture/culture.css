@@ -1,0 +1,95 @@
+/* Culture feature only. Existing shell/navigation/global styles stay untouched. */
+.mc-page { min-width:0; }
+.mc-section-label { display:flex; flex-wrap:wrap; align-items:center; gap:16px; margin-bottom:12px; font-size:12px; color:var(--mo-muted); }
+.mc-section-label > span { display:flex; align-items:center; gap:7px; font-weight:700; margin-right:auto; }
+.mc-section-label a { display:inline-flex; align-items:center; min-height:44px; }
+.mc-tabs { display:flex; flex-wrap:nowrap; gap:5px; overflow-x:auto; max-width:100%; padding:4px; scrollbar-width:thin; }
+.mc-tabs > button { flex:0 0 auto; white-space:nowrap; }
+.mc-page .mc-tabs:first-of-type { border:1px solid var(--mo-line); }
+.mt-root .mc-tabs > button[aria-pressed=true] { background:var(--mo-sage-soft); color:var(--mo-green); font-weight:700; }
+.mc-types { margin:4px 0 8px; font-size:13px; }
+.mc-toolbar { display:flex; align-items:end; gap:12px; margin:8px 0; }
+.mc-toolbar > label { min-width:0; font-size:12px; flex:1; }
+.mc-toolbar .mc-find { display:flex; align-items:center; gap:6px; flex:2; background:var(--mo-paper); border:1px solid var(--mo-line); border-radius:12px; padding-left:12px; }
+.mc-form input,.mc-form select,.mc-form textarea,.mc-toolbar input,.mc-filter-panel select,.mc-quick-status select { font:inherit; color:var(--mo-ink); background:var(--mo-paper); border:1px solid var(--mo-line); border-radius:10px; min-height:44px; padding:9px 11px; width:100%; min-width:0; }
+.mc-toolbar .mc-find input { border:0; background:none; }
+.mc-filter-panel select { display:block; font-size:13px; margin-top:3px; }
+.mc-filter-panel { padding:12px; border:1px solid var(--mo-line); border-radius:12px; }
+.mc-filter-toggle { flex-shrink:0; font-size:12px!important; }
+.mc-form :is(input,select,textarea):focus-visible,.mc-toolbar input:focus-visible,.mc-filter-panel select:focus-visible,.mc-quick-status select:focus-visible { outline:3px solid var(--mo-green); outline-offset:2px; }
+.mc-legacy-types { font-size:12px; color:var(--mo-muted); margin-bottom:15px; }
+.mc-legacy-types summary { cursor:pointer; padding:12px 0; }
+.mc-count { margin:12px 0!important; color:var(--mo-muted); font-size:13px; }
+.mc-grid { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:18px; }
+.mc-card.mt-card { padding:0; overflow:hidden; border-radius:16px; }
+.mt-root button.mc-poster { display:block; padding:0; border-radius:0; width:100%; height:225px; overflow:hidden; background:var(--mo-sage-soft); }
+.mc-poster img { width:100%; height:100%; object-fit:cover; }
+.mc-poster.mc-video img { object-fit:contain; }
+.mc-image-fallback { display:flex; height:100%; min-height:80px; padding:12px; align-items:center; justify-content:center; flex-direction:column; gap:9px; text-align:center; color:var(--mo-muted); background:var(--mo-sage-soft); }
+.mc-image-fallback small { font-size:10px; }
+.mc-card-content { min-width:0; padding:16px; }
+.mc-card-meta { display:flex; justify-content:space-between; align-items:center; gap:6px; }
+.mc-status { border-radius:20px; background:var(--mo-sage-soft); padding:3px 9px; font-size:10px; white-space:nowrap; }
+.mc-card h2 { margin:10px 0 5px; font-size:17px; overflow:hidden; text-overflow:ellipsis; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow-wrap:anywhere; }
+.mc-card-facts { display:flex; flex-wrap:wrap; gap:4px 9px; font-size:11px; color:var(--mo-muted); }
+.mc-review-preview { margin-top:9px!important; font-size:13px; color:var(--mo-muted); min-height:40px; overflow:hidden; text-overflow:ellipsis; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow-wrap:anywhere; }
+.mc-card-actions { display:flex; flex-wrap:wrap; margin:9px -7px 0; font-size:12px; gap:1px; }
+.mc-quick-status { display:flex; align-items:center; gap:8px; color:var(--mo-muted); font-size:11px; border-top:1px solid var(--mo-line); padding-top:8px; }
+.mc-quick-status select { width:auto; flex:1; font-size:12px; }
+.mc-empty { display:grid; justify-items:center; text-align:center; gap:12px; padding:45px 20px; color:var(--mo-muted); }
+.mc-read-error,.mc-save-feedback { border:1px solid var(--mo-line); padding:12px; background:var(--mo-sage-soft); border-radius:10px; font-size:13px; margin:10px 0; overflow-wrap:anywhere; }
+.mc-save-feedback[role=alert] { background:var(--mo-paper); border-color:var(--mo-gold); }
+.mc-inline-actions { display:flex; gap:8px; }
+.mc-notice { padding:18px 0; font-size:13px; color:var(--mo-green); }
+.mc-form { display:grid; gap:17px; }
+.mc-form > label,.mc-fields > label { display:grid; gap:6px; font-size:13px; min-width:0; }
+.mc-form textarea { min-height:95px; resize:vertical; }
+.mc-fields { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:12px; }
+.mc-help { color:var(--mo-muted); font-size:12px; line-height:1.7; display:block; }
+.mt-root .mc-options-toggle { border:1px dashed var(--mo-line); font-size:13px; text-align:left; }
+.mc-editor-poster { width:110px; height:150px; border-radius:10px; overflow:hidden; }
+.mc-editor-poster img { width:100%; height:100%; object-fit:contain; }
+.mc-metadata { padding-bottom:16px; border-bottom:1px solid var(--mo-line); min-width:0; }
+.mc-metadata .mc-tabs { font-size:12px; }
+.mc-search-input { display:flex; align-items:end; gap:7px; margin:12px 0; }
+.mc-search-input label { flex:1; min-width:0; font-size:12px; }
+.mc-search-input button { background:var(--mo-sage-soft); font-size:12px; flex-shrink:0; }
+.mc-search-results { display:grid; gap:8px; max-height:280px; overflow:auto; margin:8px 0; }
+.mc-suggestion { display:flex; gap:12px; align-items:center; padding:8px; border:1px solid var(--mo-line); border-radius:12px; }
+.mc-suggestion-image { width:60px; height:80px; flex-shrink:0; overflow:hidden; border-radius:6px; }
+.mc-suggestion-image img { width:100%; height:100%; object-fit:cover; }
+.mc-suggestion > div:last-child { min-width:0; }
+.mc-suggestion strong { font-size:13px; overflow-wrap:anywhere; display:block; }
+.mc-suggestion small { display:block; }
+.mc-suggestion button { font-size:12px; text-decoration:underline; }
+.mc-detail-image { height:230px; background:var(--mo-sage-soft); border-radius:12px; overflow:hidden; }
+.mc-detail-image img { width:100%; height:100%; object-fit:contain; }
+.mc-detail-title { overflow-wrap:anywhere; margin-top:18px!important; }
+.mc-detail-facts { font-size:12px; color:var(--mo-muted); margin:10px 0!important; }
+.mc-detail-note { margin:20px 0; }
+.mc-detail-note h3 { font-size:12px; color:var(--mo-muted); margin:0 0 7px; }
+.mc-detail-note p { white-space:pre-wrap; overflow-wrap:anywhere; font-size:14px; }
+.mc-tags { display:flex; flex-wrap:wrap; gap:7px; font-size:12px; color:var(--mo-green); overflow-wrap:anywhere; }
+.mc-tags span { max-width:100%; }
+.mc-external-link { display:inline-flex; min-height:44px; align-items:center; font-size:13px; text-decoration:underline!important; }
+.mc-retry-image { font-size:12px!important; }
+@media(max-width:1100px) { .mc-grid { grid-template-columns:repeat(2,minmax(0,1fr)); } }
+@media(max-width:767px) {
+  .mc-page .mx-page-heading { align-items:center; gap:10px; margin:0 0 8px; }
+  .mc-page .mx-page-heading h1 { font-size:24px; }
+  .mc-page .mx-page-heading .mt-eyebrow { font-size:8px; letter-spacing:1px; }
+  .mc-page .mx-page-heading > div > p:last-child { font-size:12px; }
+  .mc-page .mx-page-heading > button { padding:10px; font-size:12px; }
+  .mc-section-label { margin-bottom:4px; gap:12px; font-size:11px; }
+  .mc-grid { grid-template-columns:1fr; gap:12px; }
+  .mc-card.mt-card { display:grid; grid-template-columns:88px minmax(0,1fr); padding:13px; gap:13px; }
+  .mt-root button.mc-poster { height:126px; border-radius:9px; }
+  .mc-card-content { padding:0; }
+  .mc-card h2 { margin-top:6px; font-size:16px; }
+  .mc-review-preview { min-height:0; font-size:12px; }
+  .mc-card-actions { font-size:11px; margin-top:5px; }
+  .mc-card-actions button { padding:6px!important; }
+  .mc-quick-status { font-size:10px; gap:5px; }
+  .mc-quick-status select { font-size:11px; padding:7px; }
+  .mc-detail-image { height:190px; }
+}
