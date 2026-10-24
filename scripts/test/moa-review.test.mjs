@@ -8,7 +8,7 @@ import { readFile, readdir, mkdir, writeFile } from 'node:fs/promises';
 import { chromium } from 'playwright-core';
 
 const root = fileURLToPath(new URL('../../', import.meta.url));
-const output = path.join(root, 'docs/screenshots/moamoa-review');
+const output = path.join(root, 'docs/screenshots/moamoa-navigation/after');
 function runBuild(env) {
   return new Promise((resolve, reject) => {
     let log = '';
@@ -77,14 +77,36 @@ test('static Preview uses isolated samples: routes, quick record, local photo, r
       if (!route.request().url().startsWith(base)) { outside.push(route.request().url()); return route.abort(); }
       return route.continue();
     });
-    const nav = name => page.getByRole('navigation', { name: '검토 화면' }).getByRole('link', { name, exact: true }).click();
+    const nav = async name => {
+      if (name === '음식') { await nav('기록'); await page.getByRole('navigation',{name:'기록 종류'}).getByRole('link',{name:'음식',exact:true}).click(); return; }
+      const label = page.viewportSize().width < 768 ? '모바일 주요 메뉴' : '주요 메뉴';
+      const link=page.getByRole('navigation', { name: label, exact:true }).getByRole('link', { name, exact: true });
+      const href=await link.getAttribute('href');await link.click();
+      await page.locator(`nav[aria-label="${label}"] a[aria-current="page"][href="${href}"]`).waitFor();
+    };
     const capture = async name => {
-      for (const [size, width, height] of [['mobile', 390, 844], ['desktop', 1440, 1024]]) {
+      for (const [size, width, height] of [['mobile', 390, 844], ['tablet', 768, 1024], ['desktop', 1440, 1024]]) {
         await page.setViewportSize({ width, height });
         await page.waitForTimeout(100);
+        if(name.endsWith('-bottom'))await page.locator('.mt-scroll').evaluate(e=>e.scrollTop=e.scrollHeight);
+        assert.equal(await page.locator('#moa-review-banner').count(),0);
+        assert.equal(await page.locator('nav[aria-label="주요 메뉴"]').isVisible(),width>=768);
+        assert.equal(await page.locator('nav[aria-label="모바일 주요 메뉴"]').isVisible(),width<768);
+        assert.equal(await page.getByRole('link',{name:/기존 홈|기존 음식 화면/}).count(),0);
+        assert.equal(await page.locator('nav[aria-label="주요 메뉴"] a').count(),5);
+        const docks=await page.locator('div.mt-root:not(.mt-sheet)').evaluateAll(els=>els.map(e=>getComputedStyle(e,'::after').content));
+        assert.ok(docks.every(value=>value==='none'), 'no fixed backdrop dock');
+        const scroll=await page.locator('.mt-scroll').boundingBox(), content=await page.locator('.mr-content').boundingBox();
+        assert.ok(Math.abs(scroll.y+scroll.height-content.y-content.height)<2,'content uses full available height');
+        assert.ok(Number(await page.locator('.mt-main').evaluate(e=>parseFloat(getComputedStyle(e).paddingBottom)))>=100);
+
+        if(name.endsWith('-bottom')) {
+          const last=await page.locator('.mt-main').evaluate(e=>{const node=[...e.children].reverse().find(v=>v.textContent.trim()&&v.getBoundingClientRect().height>0);return node.getBoundingClientRect().bottom;});
+          assert.ok(last<=(await page.locator('.mt-quick').boundingBox()).y,'last content can scroll clear of the floating action');
+        }
         assert.equal(await page.evaluate(() => document.documentElement.scrollWidth), width, `${size}-${name}: horizontal overflow`);
         const heading = page.getByRole('dialog').locator('h2');
-        if (await heading.count()) assert.ok((await heading.first().boundingBox()).y >= 88, `${size}-${name}: dialog title hidden behind banner`);
+        if (await heading.count()) assert.ok((await heading.first().boundingBox()).y >= 0, `${size}-${name}: dialog title hidden behind banner`);
         await page.screenshot({ path: path.join(output, `${size}-${name}.png`) });
         shots.push(`${size}-${name}.png`);
       }
@@ -96,7 +118,7 @@ test('static Preview uses isolated samples: routes, quick record, local photo, r
     await page.locator('[data-goal-id]').first().waitFor();
     assert.equal(await page.evaluate(() => window.testDb.requests.length), 0, 'initial load must be read only');
     const goalBox = await page.locator('#mt-week-title').boundingBox();
-    assert.ok(goalBox && goalBox.y >= 88 && goalBox.y + goalBox.height <= 844, 'weekly goals visible on mobile');
+    assert.ok(goalBox && goalBox.y >= 0 && goalBox.y + goalBox.height <= 844, 'weekly goals visible on mobile');
     await capture('today');
     await page.locator('.mt-quick').click();
     await page.locator('#mt-draft').fill('검토용 빠른 할 일');
@@ -104,12 +126,71 @@ test('static Preview uses isolated samples: routes, quick record, local photo, r
     await page.getByRole('button', { name: '할 일 저장', exact: true }).click();
     await page.getByRole('dialog').waitFor({ state: 'hidden' });
     assert.equal(await page.evaluate(() => window.testDb.tables.todos.filter(r => r.text === '검토용 빠른 할 일').length), 1);
-    for (const [name, selector] of [['캘린더', 'main'], ['할 일', '.mx-page-heading'], ['기록', '[data-activity-minutes]'], ['나의 정원', 'main'], ['음식', '.mf-page']]) {
+    for (const [name, selector] of [['캘린더', '.rc-schedule'], ['할 일', '.mx-page-heading'], ['기록', '[data-activity-minutes]'], ['나의 정원', '[data-garden-xp]'], ['음식', '.mf-page']]) {
       await nav(name);
       await page.locator(selector).first().waitFor();
       await page.waitForTimeout(250);
       await capture({ '캘린더': 'calendar', '할 일': 'todos', '기록': 'records', '나의 정원': 'garden', '음식': 'food' }[name]);
     }
+    await page.setViewportSize({width:1440,height:1024});
+    await nav('캘린더');
+    const currentUrl=page.url(), expandedWidth=(await page.locator('.mr-content').boundingBox()).width;
+    await page.getByRole('button',{name:'사이드바 접기',exact:true}).click();
+    assert.equal(await page.getByRole('button',{name:'사이드바 펼치기',exact:true}).getAttribute('aria-expanded'),'false');
+    assert.equal(await page.locator('.mr-sidebar').evaluate(e=>Math.round(e.getBoundingClientRect().width)),76);
+    assert.equal(page.url(),currentUrl);
+    assert.ok((await page.locator('.mr-content').boundingBox()).width>expandedWidth+130);
+    await nav('나의 정원');
+    assert.equal(await page.getByRole('navigation',{name:'주요 메뉴',exact:true}).getByRole('link',{name:'나의 정원',exact:true}).getAttribute('aria-current'),'page');
+    await page.screenshot({path:path.join(output,'desktop-sidebar-collapsed.png')});shots.push('desktop-sidebar-collapsed.png');
+    await page.setViewportSize({width:768,height:1024});await page.screenshot({path:path.join(output,'tablet-sidebar-collapsed.png')});shots.push('tablet-sidebar-collapsed.png');await page.setViewportSize({width:1440,height:1024});
+    const expand=page.getByRole('button',{name:'사이드바 펼치기',exact:true});await expand.focus();await page.keyboard.press('Space');
+    assert.equal(await page.locator('.mr-sidebar').evaluate(e=>Math.round(e.getBoundingClientRect().width)),216);
+    assert.equal(await page.locator('[data-garden-xp]').count(),1);
+    await page.setViewportSize({width:390,height:844});
+    await nav('캘린더');
+    await page.getByRole('button',{name:'월간',exact:true}).click();await page.locator('.rc-month').waitFor();await capture('calendar-month');
+    const chosenDate=await page.getByLabel('캘린더 날짜',{exact:true}).inputValue();
+    await page.getByRole('button',{name:`${chosenDate} 일간 보기`,exact:true}).click();await page.getByRole('region',{name:'일간 일정',exact:true}).waitFor();await capture('calendar-day');
+    await page.getByRole('button',{name:'주간',exact:true}).click();await page.getByRole('button',{name:'주간 플래너',exact:true}).click();
+    await page.getByRole('region',{name:'요일별 할 일과 일정',exact:true}).waitFor();
+    await capture('calendar-planner');
+    assert.equal(await page.getByText('날짜 미정 연결 할 일',{exact:true}).count(),1);
+    const initialProgress=await page.locator('[data-goal-id="w1"]').getAttribute('data-goal-progress');
+    const todo=page.locator('[data-todo-id="t1"] [role="checkbox"]');
+    await todo.click();await page.locator('[data-todo-id="t1"] [role="checkbox"][aria-checked="true"]').waitFor();assert.equal(await todo.getAttribute('aria-checked'),'true');
+    const newProgress=await page.locator('[data-goal-id="w1"]').getAttribute('data-goal-progress');assert.notEqual(newProgress,initialProgress);
+    await page.evaluate(()=>window.testDb.failNext('todos',{status:503}));
+    await todo.click();await page.getByRole('button',{name:'재시도',exact:true}).waitFor();
+    assert.equal(await todo.getAttribute('aria-checked'),'true');assert.equal(await page.locator('[data-goal-id="w1"]').getAttribute('data-goal-progress'),newProgress);
+    await page.getByRole('button',{name:'재시도',exact:true}).click();await page.locator('[data-todo-id="t1"] [role="checkbox"][aria-checked="false"]').waitFor();
+    await todo.click();await page.locator('[data-todo-id="t1"] [role="checkbox"][aria-checked="true"]').waitFor();
+    await capture('calendar-planner-bottom');
+    await nav('오늘');assert.equal(await page.locator('[data-goal-id="w1"]').getAttribute('data-goal-progress'),newProgress);
+    await capture('today-bottom');
+    assert.equal(await page.locator('[data-todo-id="t1"] [role="checkbox"]').getAttribute('aria-checked'),'true');
+    await nav('할 일');assert.equal(await page.locator('[data-todo-id="t1"] [role="checkbox"]').getAttribute('aria-checked'),'true');
+    await nav('나의 정원');assert.equal(await page.locator('[data-month-goal-id="m1"]').getAttribute('data-goal-progress'),newProgress);
+    await page.getByText('작은 책방에서 하루 보내기',{exact:true}).waitFor();
+    await capture('garden-bottom');
+    for(const name of ['나의 정원','캘린더']) {
+      await nav(name);await page.locator('.mt-quick').click();
+      const form=page.getByRole('dialog',{name:'할 일 추가',exact:true});await form.getByLabel('할 일 제목',{exact:true}).fill(`${name} 빠른 기록 검증`);
+      await capture(name==='캘린더'?'calendar-quick':'garden-quick');
+      await form.getByRole('button',{name:'저장',exact:true}).click();await form.waitFor({state:'hidden'});
+      assert.equal(await page.evaluate(name=>window.testDb.tables.todos.filter(t=>t.text===`${name} 빠른 기록 검증`).length,name),1);
+    }
+    await nav('캘린더');await page.getByRole('button',{name:'주간 플래너',exact:true}).click();
+    await page.getByRole('button',{name:'주간 회고 열기',exact:true}).click();await page.getByRole('dialog',{name:'주간 회고',exact:true}).waitFor();
+    await page.getByRole('dialog').getByRole('button',{name:'닫기',exact:true}).click();
+    await page.getByRole('button',{name:'주간 일정',exact:true}).click();
+    await page.locator('.rc-schedule').waitFor();
+    await page.getByRole('button',{name:'이전 기간',exact:true}).click();await page.getByRole('button',{name:'다음 기간',exact:true}).click();
+    assert.equal(await page.getByLabel('캘린더 날짜',{exact:true}).inputValue(),chosenDate);
+    await nav('음식');
+    await nav('기록');await page.getByRole('navigation',{name:'기록 종류'}).getByRole('link',{name:'문화·음악',exact:true}).click();
+    await page.getByRole('heading',{name:'문화·음악',exact:true}).waitFor();assert.equal(await page.locator('.mr-placeholder').count(),1);
+    await nav('음식');
     await page.getByRole('button', { name: '음식 기록', exact: true }).click();
     const editor = page.getByRole('dialog', { name: '음식 기록 추가', exact: true });
     const [camera] = await Promise.all([page.waitForEvent('filechooser'), editor.getByRole('button', { name: '사진 촬영', exact: true }).click()]);
@@ -157,7 +238,7 @@ test('static Preview uses isolated samples: routes, quick record, local photo, r
     assert.equal(await page.evaluate(() => window.testDb.tables.food_records.some(r => r.food_name === '샘플 사진과 음식')), false);
     assert.deepEqual(outside, []);
     assert.deepEqual(errors, []);
-    await writeFile(path.join(output, 'validation.json'), JSON.stringify({ viewports: [390, 1440], shots, errors, outside, sampleReset: true, localPhotoRetry: true, transport: 'memory only; no network DB/Storage/API', physicalIphone: 'not tested' }, null, 2) + '\n');
+    await writeFile(path.join(output, 'validation.json'), JSON.stringify({ viewports: [390, 768, 1440], shots, errors, outside, sampleReset: true, localPhotoRetry: true, unifiedNavigation: true, sidebarKeyboardToggle: true, sharedCalendarCompletionAndRetry: true, noFixedDock: true, bottomContentReachable: true, transport: 'memory only; no network DB/Storage/API', physicalIphone: 'not tested' }, null, 2) + '\n');
   } finally {
     await browser?.close();
     await new Promise(resolve => server.close(resolve));

@@ -1,17 +1,60 @@
-/* Only imported by review.html. Product entry and theme stay unchanged. */
-body.moa-review { box-sizing:border-box; height:100dvh; padding-top:88px; margin:0; overflow:hidden; }
-.moa-review #root { top:88px; bottom:0; height:calc(100dvh - 88px); }
-#moa-review-banner { position:fixed; inset:0 0 auto; height:88px; z-index:50000; background:#eaf0e3; color:#354235; border-bottom:1px solid #afc5a0; }
-#moa-review-banner>div { display:flex; justify-content:space-between; align-items:center; height:44px; padding:0 14px; gap:8px; font-size:12px; }
-#moa-review-banner button { min-height:40px; padding:7px 10px; border:1px solid #afc5a0; border-radius:10px; background:#fffefb; cursor:pointer; }
-#moa-review-banner nav { display:flex; overflow-x:auto; height:44px; }
-#moa-review-banner a { flex:0 0 auto; min-width:72px; padding:10px 14px; text-decoration:none; color:inherit; text-align:center; font-size:13px; }
-.moa-review div.mt-root:not(.mt-sheet), .moa-review .h-screen { height:calc(100dvh - 88px); }
-.moa-review .min-h-screen { min-height:calc(100dvh - 88px); }
-.moa-review .mt-scroll { height:calc(100dvh - 176px - env(safe-area-inset-bottom)); }
-body.moa-review .mt-root.mt-sheet { max-height:calc(100dvh - 112px); top:calc(50% + 44px); }
-.moa-review [data-save-status="global"] { top:100px; }
+/* This stylesheet and shell exist only in the static sample review build. */
+body.moa-review { margin:0; height:100dvh; overflow:hidden; }
+body.moa-review #root { inset:0; height:100dvh; }
+body.moa-review div.mt-root:not(.mt-sheet)::after { content:none; display:none; }
+body.moa-review .mr-shell { display:flex; height:100dvh; width:100%; overflow:hidden; }
+body.moa-review div.mt-root.mr-route { height:100%; width:100%; min-width:0; }
+.mr-sidebar { width:216px; flex-shrink:0; display:flex; flex-direction:column; padding:28px 18px 20px; border-right:1px solid var(--mo-line); background:var(--mo-paper); overflow-y:auto; }
+.mr-brand { display:flex; align-items:center; gap:9px; font-family:var(--mt-brand-font); font-size:25px; font-weight:700; white-space:nowrap; }
+.mr-sidebar .mr-brand { padding:4px 8px; }
+.mt-root .mr-collapse { display:flex; gap:8px; align-items:center; width:100%; margin:24px 0 8px; color:var(--mo-muted); font-size:12px; }
+.mr-sidebar nav { display:grid; gap:8px; }
+.mr-sidebar nav a { display:flex; gap:12px; align-items:center; min-height:50px; padding:12px 14px; border-radius:12px; font-size:15px; }
+.mr-sidebar a[aria-current], .mr-mobile-nav a[aria-current] { color:var(--mo-green); background:var(--mo-sage-soft); font-weight:700; }
+.mr-sidebar-foot { margin-top:auto; padding-top:28px; text-align:center; }
+.mr-sidebar-foot .mo-buddy { width:100px; height:85px; margin:auto; }
+.mr-sidebar-foot p { font-size:12px; color:var(--mo-muted); }
+.mr-sample { padding-top:16px; color:var(--mo-muted); font-size:11px; line-height:1.6; }
+.mr-sample small { font-size:11px; }
+.mt-root .mr-sample button { display:flex; align-items:center; justify-content:center; gap:7px; margin:8px auto 0; font-size:12px; border:1px solid var(--mo-line); min-height:44px; }
+.mr-collapsed .mr-sidebar { width:76px; padding:28px 8px 20px; }
+.mr-collapsed .mr-sidebar span, .mr-collapsed .mr-sidebar-foot p, .mr-collapsed .mr-sample small, .mr-collapsed .mr-sidebar-foot .mo-buddy { display:none; }
+.mr-collapsed .mr-sidebar nav a, .mr-collapsed .mr-sidebar .mr-brand, .mr-collapsed .mr-collapse { justify-content:center; padding-left:0; padding-right:0; }
+.mr-collapsed .mr-sample button { width:44px; }
+.mr-body { display:flex; flex-direction:column; flex:1; min-width:0; min-height:0; }
+.mr-content { flex:1; min-width:0; min-height:0; }
+.mr-mobile-header, .mr-mobile-nav { display:none; }
+body.moa-review .mt-scroll { height:100%; min-height:0; overscroll-behavior:contain; }
+body.moa-review .mt-main { padding-bottom:120px; }
+body.moa-review .mt-root .mt-quick { bottom:max(24px,env(safe-area-inset-bottom)); right:28px; }
+body.moa-review .mt-root.mt-sheet { top:50%; max-height:calc(100dvh - 32px); }
+body.moa-review [data-save-status="global"] { top:14px; }
+.mr-inline-link { display:inline-flex; align-items:center; gap:6px; min-height:44px; color:var(--mo-green) !important; text-decoration:underline !important; }
+.mr-placeholder p { margin:18px 0; line-height:1.8; }
 @media(max-width:767px) {
-  .moa-review .mt-scroll { height:calc(100dvh - 240px - env(safe-area-inset-bottom)); }
-  body.moa-review .mt-root.mt-sheet { top:auto; bottom:0; max-height:calc(100dvh - 100px); }
+  .mr-sidebar { display:none; }
+  .mr-mobile-header { display:flex; justify-content:space-between; gap:8px; align-items:center; min-height:74px; padding:7px 20px; background:var(--mo-paper); border-bottom:1px solid var(--mo-line); }
+  .mr-mobile-header .mr-brand { font-size:20px; }
+  .mr-mobile-header .mr-sample { display:flex; gap:9px; align-items:center; padding:0; text-align:right; }
+  .mr-mobile-header .mr-sample small { font-size:10px; line-height:1.4; }
+  .mr-mobile-header .mr-sample button { margin:0; padding:8px; }
+  .mr-mobile-header .mr-sample button span { display:none; }
+  .mr-mobile-nav { display:grid; position:fixed; inset:auto 0 0; z-index:25; grid-template-columns:repeat(5,minmax(0,1fr)); min-height:calc(68px + env(safe-area-inset-bottom)); padding:5px 8px calc(5px + env(safe-area-inset-bottom)); background:var(--mo-paper); border-top:1px solid var(--mo-line); }
+  .mr-mobile-nav a { display:flex; flex-direction:column; justify-content:center; align-items:center; gap:4px; min-height:52px; border-radius:13px; font-size:11px; }
+  .mr-body { padding-bottom:calc(68px + env(safe-area-inset-bottom)); }
+  body.moa-review .mt-main { padding:20px 20px 100px; }
+  body.moa-review .mt-root .mt-quick { right:20px; bottom:calc(84px + env(safe-area-inset-bottom)); }
+  body.moa-review .mt-root.mt-sheet { top:auto; bottom:0; max-height:calc(100dvh - 16px); }
+  body.moa-review [data-save-status="global"] { top:80px; }
+}
+/* Confirmed-write feedback participates in layout instead of covering controls. */
+.mr-feedback { flex-shrink:0; max-height:22dvh; overflow:auto; }
+body.moa-review .mr-feedback [data-save-status="global"] { position:static; max-width:none !important; max-height:none !important; padding:10px 20px; }
+body.moa-review:has(.mt-sheet) .mr-feedback { display:none; }
+@media(max-width:1099px) {
+  body.moa-review .mt-columns, body.moa-review .mx-list-layout, body.moa-review .ma-overview { grid-template-columns:minmax(0,1fr); }
+  body.moa-review .mt-goals { grid-template-columns:minmax(0,1fr); }
+  body.moa-review .mx-find { flex-direction:column; align-items:stretch; }
+  body.moa-review .mx-search { width:100%; }
+  body.moa-review .mx-filters { grid-template-columns:minmax(0,1fr); }
 }

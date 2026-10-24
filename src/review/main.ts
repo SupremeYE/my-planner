@@ -16,19 +16,22 @@ const data=shift(tables);
 for(const row of data.food_records)if(row.photo_url)row.photo_url=meal;
 for(const row of data.weekly_goals)row.week_key=`${getISOWeekYear(today)}-W${String(getISOWeek(today)).padStart(2,'0')}`;
 data.monthly_goals[0].month=format(today,'yyyy-MM');
+
+// Additional review rows use the same memory DB/Provider, never a second prototype store.
+data.todos.find((row:any) => row.id === 't1').plan_start='09:00';
+data.todos.find((row:any) => row.id === 't1').plan_end='10:00';
+data.annual_goals=[{id:'review-year',year:today.getFullYear(),text:'좋아하는 것들로 나만의 일상 만들기',done:false}];
+data.monthly_goals[0].annual_goal_id='review-year';
+data.habits=[{id:'review-walk',name:'잠깐의 산책',checked_dates:[format(addDays(today,-1),'yyyy-MM-dd'),format(today,'yyyy-MM-dd')],repeat:'daily',habit_type:'check',daily_progress:{},daily_memos:{}}];
+data.someday_seeds=[
+ {id:'review-seed-bookshop',text:'작은 책방에서 하루 보내기',kind:'do',status:'seed',created_at:today.toISOString()},
+ {id:'review-seed-build',text:'나만의 작은 서비스 완성하기',kind:'build',status:'seed',created_at:today.toISOString()},
+];
 (window as any).__moaFixture={tables:data};
 // All runtime fetches (including paid same-origin APIs) are disabled. Assets use normal browser loading.
 window.fetch=async()=>new Response(JSON.stringify({error:'샘플 검토에서는 서버/API 요청을 하지 않아요.'}),{status:503,headers:{'Content-Type':'application/json'}});
 if(navigator.serviceWorker)navigator.serviceWorker.register=async()=>{throw new Error('Review does not register service workers');};
 if(location.pathname==='/')history.replaceState(null,'','/__moamoa-today');
-const banner=document.createElement('aside');banner.id='moa-review-banner';
-banner.innerHTML='<div><strong>샘플 · 서버 저장 없음 · 새로고침 시 초기화</strong><button id="review-reset">샘플 초기화</button></div><nav aria-label="검토 화면"><a href="/__moamoa-today">오늘</a><a href="/calendar">캘린더</a><a href="/__moamoa-todos">할 일</a><a href="/__moamoa-records">기록</a><a href="/__moamoa-food">음식</a><a href="/profile">나의 정원</a></nav>';
-document.body.prepend(banner);
-banner.querySelector('strong')!.title='사진·입력은 브라우저 메모리에만 남고 새로고침하면 초기화됩니다. 실제 개인정보를 입력하지 마세요.';
-banner.querySelector('button')!.addEventListener('click',()=>location.reload());
 await import('../main');
-const {router}=await import('../app/routes');
-for(const anchor of banner.querySelectorAll('a'))anchor.addEventListener('click',event=>{event.preventDefault();router.navigate(anchor.getAttribute('href')!);});
-
 }
 void bootstrap();

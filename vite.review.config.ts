@@ -1,22 +1,55 @@
 import { defineConfig, mergeConfig } from 'vite';
 import base from './vite.config';
 import path from 'node:path';
+
 if (process.env.VERCEL_ENV === 'production') throw new Error('Review build is forbidden for Production');
 export default mergeConfig(base, defineConfig({
- plugins:[{name:'moamoa-review-isolation',enforce:'pre',
-  configResolved(config){for(const key of Object.keys(config.env))if(key.startsWith('VITE_'))delete config.env[key];},
-  resolveId(source){if(/(?:^\.\/supabase|\/lib\/supabase)(?:\.ts)?$/.test(source))return path.resolve('src/review/transport.ts');},
-  transform(code,id){
-   if(id.endsWith('/src/lib/foodPhotos.ts'))return code.replace('      if (!url ||',"      if (url?.startsWith('blob:')) return url;\n      if (!url ||");
-   if(id.includes('/src/app/components/moamoa/'))return code.replaceAll('개발용 · 실제 내 데이터','샘플 · 서버 저장 없음').replace('disabled={locked||ai.loading||!draft.foodName.trim()}','disabled title="샘플 검토에서는 AI를 사용하지 않아요"');
-   if(id.endsWith('/usePWA.ts')||id.endsWith('/GlobalFloatingTimer.tsx'))return code.replaceAll("'My Planner'","'모아모아 · 샘플 검토'");
-  },
-  generateBundle(_options,bundle){
-   for(const id of this.getModuleIds())if(id.includes('/node_modules/@supabase/'))throw new Error('Review must not bundle the real Supabase SDK');
-   // Review stays offline: use the existing system-font fallbacks instead of remote font stylesheets.
-   for(const item of Object.values(bundle))if(item.type==='asset'&&item.fileName.endsWith('.css'))item.source=String(item.source).replace(/@import\s*(?:url\(\s*)?(?:"https?:[^"]*"|'https?:[^']*')\s*\)?[^;]*;/g,'');
-  }
- }],
- define:{'import.meta.env.DEV':'true','import.meta.env.PROD':'false'},
- build:{outDir:'dist-review',emptyOutDir:true,rollupOptions:{input:path.resolve('review.html')}}
+  plugins: [{
+    name: 'moamoa-review-isolation', enforce: 'pre',
+    configResolved(config) {
+      for (const key of Object.keys(config.env)) if (key.startsWith('VITE_')) delete config.env[key];
+    },
+    resolveId(source, importer) {
+      if (/(?:^\.\/supabase|\/lib\/supabase)(?:\.ts)?$/.test(source)) return path.resolve('src/review/transport.ts');
+      if (source === './routes' && importer?.endsWith('/src/app/App.tsx')) return path.resolve('src/review/reviewRoutes.tsx');
+      if (/(?:^\.\/|\/)MoaFrame(?:\.tsx)?$/.test(source)) return path.resolve('src/review/ReviewFrame.tsx');
+    },
+    transform(code, id) {
+      if (id.endsWith('/src/app/App.tsx')) return code.replace('<SaveStatus />', '');
+      if (id.endsWith('/src/lib/foodPhotos.ts')) return code.replace('      if (!url ||', "      if (url?.startsWith('blob:')) return url;\n      if (!url ||");
+      if (id.endsWith('/MoaTodayRoute.tsx')) {
+        // Keep the real Today data/actions. Only its duplicate layout is supplied by ReviewShell.
+        for (const tag of ['aside', 'header', 'nav']) {
+          const className = { aside: 'mt-sidebar', header: 'mt-topbar', nav: 'mt-bottom-nav' }[tag];
+          const pattern = new RegExp(`<${tag} className="${className}"[\\s\\S]*?<\\/${tag}>`);
+          if (!pattern.test(code)) throw new Error(`Today review layout slot missing: ${className}`);
+          code = code.replace(pattern, '');
+        }
+        return code.replace('return <div className="mt-root"', 'return <div className="mt-root mr-route"')
+          .replace('기존 내 기록과 함께하는 오늘', '샘플 데이터로 체험하는 오늘')
+          .replace('기존 목표에서 시작하기', '정원에서 목표 보기')
+          .replace('핵심 별표는 기존 일간 화면에서 선택해요.', '핵심 별표 편집은 이번 Preview에서 지원하지 않아요.')
+          .replace('<button onClick={() => go(\'/daily\')}>일간 화면에서 핵심 선택하기</button>', '<button disabled>핵심 할 일 선택은 준비 중이에요</button>');
+      }
+      if (id.includes('/src/app/components/moamoa/')) return code
+        .replaceAll('개발용 · 실제 내 데이터', '샘플 · 서버 저장 없음')
+        .replace('disabled={locked||ai.loading||!draft.foodName.trim()}', 'disabled title="샘플 검토에서는 AI를 사용하지 않아요"')
+        .replace(/<Link className="mf-legacy-link"[^>]*>[\s\S]*?<\/Link>/, '<p className="mx-help">확장 음식 통계는 이번 Preview에서 지원하지 않아요.</p>')
+        .replaceAll('단식 기록 편집은 기존 음식 화면에서 지원해요.', '단식 기록 편집은 이번 Preview에서 지원하지 않아요.')
+        .replaceAll('편집은 기존 음식 화면에서 지원해요.', '편집은 이번 Preview에서 지원하지 않아요.');
+      if (id.endsWith('/usePWA.ts') || id.endsWith('/GlobalFloatingTimer.tsx')) return code.replaceAll("'My Planner'", "'모아모아 · 샘플 검토'");
+    },
+    generateBundle(_options, bundle) {
+      for (const id of this.getModuleIds()) {
+        if (id.includes('/node_modules/@supabase/')) throw new Error('Review must not bundle the real Supabase SDK');
+        if (id.endsWith('/src/app/routes.tsx')) throw new Error('Review must use isolated routes');
+      }
+      for (const item of Object.values(bundle)) if (item.type === 'asset' && item.fileName.endsWith('.css')) {
+        // Use the system-font fallbacks without external requests.
+        item.source = String(item.source).replace(/@import\s*(?:url\(\s*)?(?:"https?:[^"]*"|'https?:[^']*')\s*\)?[^;]*;/g, '');
+      }
+    },
+  }],
+  define: { 'import.meta.env.DEV': 'true', 'import.meta.env.PROD': 'false' },
+  build: { outDir: 'dist-review', emptyOutDir: true, rollupOptions: { input: path.resolve('review.html') } },
 }));
