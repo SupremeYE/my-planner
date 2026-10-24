@@ -1,0 +1,284 @@
+{
+  "viewports": [
+    390,
+    768,
+    1440
+  ],
+  "shots": [
+    {
+      "name": "mobile-list",
+      "width": 390,
+      "document": 390,
+      "overflow": []
+    },
+    {
+      "name": "tablet-list",
+      "width": 768,
+      "document": 768,
+      "overflow": []
+    },
+    {
+      "name": "desktop-list",
+      "width": 1440,
+      "document": 1440,
+      "overflow": []
+    },
+    {
+      "name": "mobile-add",
+      "width": 390,
+      "document": 390,
+      "overflow": []
+    },
+    {
+      "name": "tablet-add",
+      "width": 768,
+      "document": 768,
+      "overflow": []
+    },
+    {
+      "name": "desktop-add",
+      "width": 1440,
+      "document": 1440,
+      "overflow": []
+    },
+    {
+      "name": "mobile-saving",
+      "width": 390,
+      "document": 390,
+      "overflow": []
+    },
+    {
+      "name": "tablet-saving",
+      "width": 768,
+      "document": 768,
+      "overflow": []
+    },
+    {
+      "name": "desktop-saving",
+      "width": 1440,
+      "document": 1440,
+      "overflow": []
+    },
+    {
+      "name": "mobile-save-failure",
+      "width": 390,
+      "document": 390,
+      "overflow": []
+    },
+    {
+      "name": "tablet-save-failure",
+      "width": 768,
+      "document": 768,
+      "overflow": []
+    },
+    {
+      "name": "desktop-save-failure",
+      "width": 1440,
+      "document": 1440,
+      "overflow": []
+    },
+    {
+      "name": "mobile-search-selected",
+      "width": 390,
+      "document": 390,
+      "overflow": []
+    },
+    {
+      "name": "tablet-search-selected",
+      "width": 768,
+      "document": 768,
+      "overflow": []
+    },
+    {
+      "name": "desktop-search-selected",
+      "width": 1440,
+      "document": 1440,
+      "overflow": []
+    },
+    {
+      "name": "mobile-api-failure",
+      "width": 390,
+      "document": 390,
+      "overflow": []
+    },
+    {
+      "name": "tablet-api-failure",
+      "width": 768,
+      "document": 768,
+      "overflow": []
+    },
+    {
+      "name": "desktop-api-failure",
+      "width": 1440,
+      "document": 1440,
+      "overflow": []
+    },
+    {
+      "name": "mobile-detail",
+      "width": 390,
+      "document": 390,
+      "overflow": []
+    },
+    {
+      "name": "tablet-detail",
+      "width": 768,
+      "document": 768,
+      "overflow": []
+    },
+    {
+      "name": "desktop-detail",
+      "width": 1440,
+      "document": 1440,
+      "overflow": []
+    },
+    {
+      "name": "mobile-edit",
+      "width": 390,
+      "document": 390,
+      "overflow": []
+    },
+    {
+      "name": "tablet-edit",
+      "width": 768,
+      "document": 768,
+      "overflow": []
+    },
+    {
+      "name": "desktop-edit",
+      "width": 1440,
+      "document": 1440,
+      "overflow": []
+    },
+    {
+      "name": "mobile-media-error",
+      "width": 390,
+      "document": 390,
+      "overflow": []
+    },
+    {
+      "name": "tablet-media-error",
+      "width": 768,
+      "document": 768,
+      "overflow": []
+    },
+    {
+      "name": "desktop-media-error",
+      "width": 1440,
+      "document": 1440,
+      "overflow": []
+    },
+    {
+      "name": "mobile-stickers",
+      "width": 390,
+      "document": 390,
+      "overflow": []
+    },
+    {
+      "name": "tablet-stickers",
+      "width": 768,
+      "document": 768,
+      "overflow": []
+    },
+    {
+      "name": "desktop-stickers",
+      "width": 1440,
+      "document": 1440,
+      "overflow": []
+    },
+    {
+      "name": "mobile-delete",
+      "width": 390,
+      "document": 390,
+      "overflow": []
+    },
+    {
+      "name": "tablet-delete",
+      "width": 768,
+      "document": 768,
+      "overflow": []
+    },
+    {
+      "name": "desktop-delete",
+      "width": 1440,
+      "document": 1440,
+      "overflow": []
+    },
+    {
+      "name": "mobile-read-failure",
+      "width": 390,
+      "document": 390,
+      "overflow": []
+    },
+    {
+      "name": "tablet-read-failure",
+      "width": 768,
+      "document": 768,
+      "overflow": []
+    },
+    {
+      "name": "desktop-read-failure",
+      "width": 1440,
+      "document": 1440,
+      "overflow": []
+    },
+    {
+      "name": "mobile-offline",
+      "width": 390,
+      "document": 390,
+      "overflow": []
+    },
+    {
+      "name": "tablet-offline",
+      "width": 768,
+      "document": 768,
+      "overflow": []
+    },
+    {
+      "name": "desktop-offline",
+      "width": 1440,
+      "document": 1440,
+      "overflow": []
+    }
+  ],
+  "pageErrors": [],
+  "blockedExternal": [
+    "https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css",
+    "https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;600;700&family=Noto+Serif+KR:wght@400;500;600&family=DM+Serif+Display:ital@0;1&display=swap",
+    "https://fonts.googleapis.com/css2?family=Gowun+Batang:wght@400;700&family=Gowun+Dodum&display=swap",
+    "https://fonts.googleapis.com/css2?family=Gaegu:wght@400;700&display=swap",
+    "https://fonts.googleapis.com/css2?family=Nanum+Pen+Script&display=swap",
+    "https://fonts.googleapis.com/css2?family=Caveat:wght@500;600&display=swap",
+    "https://cdn.jsdelivr.net/gh/webfontworld/gmarket/GmarketSans.css",
+    "https://cdn.jsdelivr.net/gh/webfontworld/NanumSquareRound/NanumSquareRound.css",
+    "https://fonts.googleapis.com/css2?family=Sora:wght@400;600&display=swap",
+    "https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css",
+    "https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;600;700&family=Noto+Serif+KR:wght@400;500;600&family=DM+Serif+Display:ital@0;1&display=swap",
+    "https://fonts.googleapis.com/css2?family=Gowun+Batang:wght@400;700&family=Gowun+Dodum&display=swap",
+    "https://fonts.googleapis.com/css2?family=Gaegu:wght@400;700&display=swap",
+    "https://fonts.googleapis.com/css2?family=Nanum+Pen+Script&display=swap",
+    "https://fonts.googleapis.com/css2?family=Caveat:wght@500;600&display=swap",
+    "https://cdn.jsdelivr.net/gh/webfontworld/gmarket/GmarketSans.css",
+    "https://cdn.jsdelivr.net/gh/webfontworld/NanumSquareRound/NanumSquareRound.css",
+    "https://fonts.googleapis.com/css2?family=Sora:wght@400;600&display=swap",
+    "https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css",
+    "https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;600;700&family=Noto+Serif+KR:wght@400;500;600&family=DM+Serif+Display:ital@0;1&display=swap",
+    "https://fonts.googleapis.com/css2?family=Gowun+Batang:wght@400;700&family=Gowun+Dodum&display=swap",
+    "https://fonts.googleapis.com/css2?family=Gaegu:wght@400;700&display=swap",
+    "https://fonts.googleapis.com/css2?family=Nanum+Pen+Script&display=swap",
+    "https://fonts.googleapis.com/css2?family=Caveat:wght@500;600&display=swap",
+    "https://cdn.jsdelivr.net/gh/webfontworld/gmarket/GmarketSans.css",
+    "https://cdn.jsdelivr.net/gh/webfontworld/NanumSquareRound/NanumSquareRound.css",
+    "https://fonts.googleapis.com/css2?family=Sora:wght@400;600&display=swap",
+    "https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css",
+    "https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;600;700&family=Noto+Serif+KR:wght@400;500;600&family=DM+Serif+Display:ital@0;1&display=swap",
+    "https://fonts.googleapis.com/css2?family=Gowun+Batang:wght@400;700&family=Gowun+Dodum&display=swap",
+    "https://fonts.googleapis.com/css2?family=Gaegu:wght@400;700&display=swap",
+    "https://fonts.googleapis.com/css2?family=Nanum+Pen+Script&display=swap",
+    "https://fonts.googleapis.com/css2?family=Caveat:wght@500;600&display=swap",
+    "https://cdn.jsdelivr.net/gh/webfontworld/gmarket/GmarketSans.css",
+    "https://cdn.jsdelivr.net/gh/webfontworld/NanumSquareRound/NanumSquareRound.css",
+    "https://fonts.googleapis.com/css2?family=Sora:wght@400;600&display=swap"
+  ],
+  "apiCalls": [],
+  "transport": "memory Auth/Provider + mock Edge search + locally fulfilled artwork/audio; zero operational requests"
+}

@@ -34,6 +34,7 @@ export const router = createBrowserRouter([
   // Vite removes the import and its styles from production builds.
   ...(import.meta.env.DEV ? [{ path: '/__moamoa-today', lazy: () => import('./components/moamoa/MoaTodayRoute') },
     { path: '/__moamoa-food', lazy: () => import('./components/moamoa/MoaFoodRoute') },
+    { path: '/__moamoa-music', lazy: () => import('./components/moamoa/MoaMusicRoute') },
     { path: '/__moamoa-culture', lazy: () => import('./components/moamoa/MoaCultureRoute') },
     { path: '/__moamoa-records', lazy: () => import('./components/moamoa/MoaTimeAnalysisRoute') },
     { path: '/__moamoa-todos', lazy: () => import('./components/moamoa/MoaTodosRoute') }] : []),

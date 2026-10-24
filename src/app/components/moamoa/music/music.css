@@ -1,0 +1,29 @@
+/* Scoped music diary. Shared shell and legacy music styles remain unchanged. */
+.mm-grid { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:20px; }
+.mm-card.mt-card { padding:14px; min-width:0; }
+.mt-root .mm-artwork { padding:0; width:100%; aspect-ratio:1; overflow:hidden; display:block; border-radius:12px; background:var(--mo-sage-soft); }
+.mm-artwork img { width:100%; height:100%; object-fit:cover; }
+.mm-artwork .mc-image-fallback { height:100%; }
+.mm-card-text { padding-top:12px; min-width:0; }
+.mm-card h2 { font-size:17px; line-height:1.5; overflow-wrap:anywhere; margin:0 0 6px; }
+.mm-card p,.mm-card time { font-size:12px; color:var(--mo-muted); display:block; margin:5px 0; }
+.mm-card-text > button { font-size:12px; margin:5px 0 0 -8px; }
+.mm-disc { max-width:250px; margin:5px auto 25px; }
+.mm-search { border-bottom:1px solid var(--mo-line); padding-bottom:12px; }
+.mm-search summary { cursor:pointer; font-size:13px; min-height:44px; padding:10px 0; }
+.mt-root .mm-result { text-align:left; background:var(--mo-sage-soft); overflow-wrap:anywhere; }
+.mm-result small { display:block; margin-top:5px; }
+.mm-play { border:1px solid var(--mo-line); margin:12px 0; }
+.mm-decoration { border-top:1px solid var(--mo-line); padding:15px 0; font-size:12px; }
+.mm-decoration p { margin-bottom:10px; }
+@keyframes lpspin { to { transform:rotate(360deg); } }
+@media(prefers-reduced-motion:reduce) { .mm-disc * { animation:none!important; } }
+@media(max-width:1099px) { .mm-grid { grid-template-columns:repeat(2,minmax(0,1fr)); } }
+@media(max-width:600px) {
+ .mm-grid { grid-template-columns:1fr; gap:12px; }
+ .mm-card.mt-card { display:grid; grid-template-columns:92px minmax(0,1fr); gap:14px; padding:14px; }
+ .mm-card-text { padding:0; }
+ .mm-card h2 { font-size:15px; }
+ .mm-disc { max-width:210px; }
+ .mm-page .mx-page-heading>button { flex-shrink:0; }
+}
