@@ -1,0 +1,34 @@
+{
+  "viewports": [
+    390,
+    1440
+  ],
+  "shots": [
+    "mobile-today.png",
+    "desktop-today.png",
+    "mobile-quick-todo.png",
+    "desktop-quick-todo.png",
+    "mobile-calendar.png",
+    "desktop-calendar.png",
+    "mobile-todos.png",
+    "desktop-todos.png",
+    "mobile-records.png",
+    "desktop-records.png",
+    "mobile-garden.png",
+    "desktop-garden.png",
+    "mobile-food.png",
+    "desktop-food.png",
+    "mobile-camera-album-preview.png",
+    "desktop-camera-album-preview.png",
+    "mobile-photo-retry.png",
+    "desktop-photo-retry.png",
+    "mobile-activity-entry.png",
+    "desktop-activity-entry.png"
+  ],
+  "errors": [],
+  "outside": [],
+  "sampleReset": true,
+  "localPhotoRetry": true,
+  "transport": "memory only; no network DB/Storage/API",
+  "physicalIphone": "not tested"
+}

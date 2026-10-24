@@ -1,0 +1,17 @@
+/* Only imported by review.html. Product entry and theme stay unchanged. */
+body.moa-review { box-sizing:border-box; height:100dvh; padding-top:88px; margin:0; overflow:hidden; }
+.moa-review #root { top:88px; bottom:0; height:calc(100dvh - 88px); }
+#moa-review-banner { position:fixed; inset:0 0 auto; height:88px; z-index:50000; background:#eaf0e3; color:#354235; border-bottom:1px solid #afc5a0; }
+#moa-review-banner>div { display:flex; justify-content:space-between; align-items:center; height:44px; padding:0 14px; gap:8px; font-size:12px; }
+#moa-review-banner button { min-height:40px; padding:7px 10px; border:1px solid #afc5a0; border-radius:10px; background:#fffefb; cursor:pointer; }
+#moa-review-banner nav { display:flex; overflow-x:auto; height:44px; }
+#moa-review-banner a { flex:0 0 auto; min-width:72px; padding:10px 14px; text-decoration:none; color:inherit; text-align:center; font-size:13px; }
+.moa-review div.mt-root:not(.mt-sheet), .moa-review .h-screen { height:calc(100dvh - 88px); }
+.moa-review .min-h-screen { min-height:calc(100dvh - 88px); }
+.moa-review .mt-scroll { height:calc(100dvh - 176px - env(safe-area-inset-bottom)); }
+body.moa-review .mt-root.mt-sheet { max-height:calc(100dvh - 112px); top:calc(50% + 44px); }
+.moa-review [data-save-status="global"] { top:100px; }
+@media(max-width:767px) {
+  .moa-review .mt-scroll { height:calc(100dvh - 240px - env(safe-area-inset-bottom)); }
+  body.moa-review .mt-root.mt-sheet { top:auto; bottom:0; max-height:calc(100dvh - 100px); }
+}
