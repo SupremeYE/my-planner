@@ -5,6 +5,15 @@ import react from '@vitejs/plugin-react'
 
 export default defineConfig({
   plugins: [
+    {
+      name: 'food-server-env-private',
+      configResolved(config) {
+        // Legacy server-only names must never enter Vite's browser env object (dev or build).
+        // This does not modify process.env or deployed server environment variables.
+        delete config.env.VITE_OPENAI_API_KEY;
+        delete config.env.VITE_FOOD_API_KEY;
+      },
+    },
     // The React and Tailwind plugins are both required for Make, even if
     // Tailwind is not being actively used – do not remove them
     {

@@ -7,12 +7,12 @@ import { validateActivity, type ActivityEntry } from '../../lib/activityEntries'
 import { mergeConfirmedRows, SaveCoordinator, SaveFailure, saveIntent } from '../../lib/saveCoordinator';
 
 const repository = activityRepository(supabase);
-export function useActivityStorage(coordinator: SaveCoordinator, events: Event[]) {
+export function useActivityStorage(coordinator: SaveCoordinator, events: Event[], development = false) {
   const [activityEntries, setEntries] = useState<ActivityEntry[]>([]);
   const [historicalEvents, setHistoricalEvents] = useState<Event[] | null>(null);
   const [activityEventsError, setEventsError] = useState('');
   const rows = useRef<ActivityEntry[]>([]);
-  const [activityStorageStatus, setStatus] = useState<'loading' | 'ready' | 'unavailable'>(import.meta.env?.DEV ? 'loading' : 'unavailable');
+  const [activityStorageStatus, setStatus] = useState<'loading' | 'ready' | 'unavailable'>(development ? 'loading' : 'unavailable');
   const [activityStorageError, setError] = useState('');
   const ready = useRef(false);
   const refreshActivityEntries = useCallback(async (): Promise<void> => {
@@ -34,7 +34,7 @@ export function useActivityStorage(coordinator: SaveCoordinator, events: Event[]
     catch { setEventsError('과거 일정 실적을 확인하지 못했어요. 현재 합계가 전체 실적과 다를 수 있어요.'); }
   }, []);
   useEffect(() => {
-    if (!import.meta.env?.DEV) return; // Product entry remains unchanged until this feature is approved.
+    if (!development) return; // Product entry remains unchanged until this feature is approved.
     let active = true;
     const refresh = () => { if (active && document.visibilityState !== 'hidden') void refreshActivityEntries(); };
     const refreshEvents = () => { if (active && document.visibilityState !== 'hidden') void refreshReportEvents(); };
@@ -45,7 +45,7 @@ export function useActivityStorage(coordinator: SaveCoordinator, events: Event[]
     window.addEventListener('online', refresh); document.addEventListener('visibilitychange', refresh);
     window.addEventListener('online', refreshEvents); document.addEventListener('visibilitychange', refreshEvents);
     return () => { active = false; supabase.removeChannel(channel); supabase.removeChannel(eventChannel); window.removeEventListener('online', refresh); document.removeEventListener('visibilitychange', refresh); window.removeEventListener('online', refreshEvents); document.removeEventListener('visibilitychange', refreshEvents); };
-  }, [refreshActivityEntries, refreshReportEvents]);
+  }, [development, refreshActivityEntries, refreshReportEvents]);
   const persistActivity = useCallback(async (value: ActivityEntry, editing = false) => {
     const record = structuredClone(value);
     const before = rows.current.find(row => row.id === record.id);

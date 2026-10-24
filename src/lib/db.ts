@@ -1,3 +1,5 @@
+import { toFoodRecord, fromFoodRecord, type FoodRow } from './foodRecords';
+import { foodPhotoStorage } from './foodPhotos';
 import { supabase } from './supabase';
 import { readAllRows } from './readAllRows';
 import { confirmedWrites } from './confirmedWrites';
@@ -1245,46 +1247,14 @@ export const db = {
   },
 
   foodRecords: {
+    ...confirmedWrites<FoodRecord, FoodRow>(supabase, 'food_records', fromFoodRecord, toFoodRecord),
+    uploadPhotoConfirmed: foodPhotoStorage(supabase).uploadConfirmed,
     fetchAll: async (): Promise<FoodRecord[]> => {
-      const { data, error } = await supabase
-        .from('food_records').select('*').order('date', { ascending: false }).order('created_at', { ascending: false });
-      if (error) console.error('[db] food_records fetch:', error.message);
-      return (data ?? []).map((r: any): FoodRecord => ({
-        id: r.id,
-        date: r.date,
-        mealType: r.meal_type,
-        foodName: r.food_name,
-        amount: r.amount ?? 0,
-        photoUrl: r.photo_url ?? null,
-        memo: r.memo ?? null,
-        calories: r.calories ?? null,
-        carbs: r.carbs ?? null,
-        protein: r.protein ?? null,
-        fat: r.fat ?? null,
-        diningType: (r.dining_type as DiningType) ?? null,
-        tasteRating: (r.taste_rating as TasteRating) ?? null,
-        tasteMemo: r.taste_memo ?? null,
-        isFasting: r.is_fasting ?? false,
-      }));
+      try { return (await readAllRows<FoodRow>(supabase,'food_records','date')).map(toFoodRecord); }
+      catch { console.error('[db] food_records fetch failed'); return []; }
     },
     upsert: async (record: FoodRecord) => {
-      const { error } = await supabase.from('food_records').upsert({
-        id: record.id,
-        date: record.date,
-        meal_type: record.mealType,
-        food_name: record.foodName,
-        amount: record.amount,
-        photo_url: record.photoUrl ?? null,
-        memo: record.memo ?? null,
-        calories: record.calories ?? null,
-        carbs: record.carbs ?? null,
-        protein: record.protein ?? null,
-        fat: record.fat ?? null,
-        dining_type: record.diningType ?? null,
-        taste_rating: record.tasteRating ?? null,
-        taste_memo: record.tasteMemo ?? null,
-        is_fasting: record.isFasting ?? false,
-      });
+      const { error } = await supabase.from('food_records').upsert(fromFoodRecord(record));
       if (error) console.error('[db] food_records upsert:', error.message);
     },
     delete: async (id: string) => {

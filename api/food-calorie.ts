@@ -2,7 +2,7 @@
  * Vercel Edge Function — OpenAI 칼로리 추정 API 프록시
  * GET /api/food-calorie?input=음식명(+양)
  *
- * 환경변수: VITE_OPENAI_API_KEY
+ * 서버 환경변수: OPENAI_API_KEY (기존 VITE_OPENAI_API_KEY는 호환 fallback)
  *
  * 반환: { calories: number | null }
  */
@@ -17,9 +17,9 @@ export default async function handler(req: Request): Promise<Response> {
     return json({ error: 'input 파라미터가 필요합니다.', calories: null }, 400);
   }
 
-  const apiKey = process.env.VITE_OPENAI_API_KEY;
+  const apiKey = process.env.OPENAI_API_KEY || process.env.VITE_OPENAI_API_KEY;
   if (!apiKey) {
-    console.error('[food-calorie] VITE_OPENAI_API_KEY 환경변수 누락');
+    console.error('[food-calorie] 서버 API 키 환경변수 누락');
     return json({ error: 'API 키가 설정되지 않았습니다.', calories: null }, 500);
   }
 

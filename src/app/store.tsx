@@ -6,6 +6,8 @@ export { getWeekKey } from '../lib/weekKeys';
 import { db } from '../lib/db';
 import { SaveCoordinator, SaveFailure, saveIntent, mergeConfirmedRows, type SaveState } from '../lib/saveCoordinator';
 import { isRecurringMoaTodo, preservedLegacyBlock, legacyBlockId } from '../lib/moaTodos';
+import { validateFoodRecord, fromFoodRecord } from '../lib/foodRecords';
+import type { FoodPhotoUpload } from '../lib/foodPhotos';
 import type { ClassificationSnapshot } from '../lib/activityEntries';
 import { snapshotTags, validSnapshot, validActivityDate } from '../lib/activityEntries';
 import { useActivityStorage } from './hooks/useActivityStorage';
@@ -898,6 +900,11 @@ interface PlannerContextType extends ReturnType<typeof useActivityStorage> {
 
   // Food actions
   foodRecords: FoodRecord[];
+  foodReadError: string;
+  foodWriteStages: Record<string, 'uploading' | 'uploaded' | 'saving' | 'saved' | 'error'>;
+  refreshFoodRecords: () => Promise<void>;
+  saveFoodRecordConfirmed: (record: FoodRecord, editing: boolean, photo?: FoodPhotoUpload, baseline?: FoodRecord) => Promise<boolean>;
+  deleteFoodRecordConfirmed: (id: string) => Promise<boolean>;
   addFoodRecord: (record: Omit<FoodRecord, 'id'>) => void;
   updateFoodRecord: (id: string, changes: Partial<Omit<FoodRecord, 'id'>>) => void;
   deleteFoodRecord: (id: string) => void;
@@ -988,7 +995,7 @@ const PlannerContext: React.Context<PlannerContextType | null> =
   (globalThis as any)[CONTEXT_KEY] ??
   ((globalThis as any)[CONTEXT_KEY] = createContext<PlannerContextType | null>(null));
 
-export function PlannerProvider({ children }: { children: React.ReactNode }) {
+export function PlannerProvider({ children, development = false }: { children: React.ReactNode; development?: boolean }) {
   const [isLoading, setIsLoading] = useState(true);
   const [coreTimeReadError, setCoreTimeReadError] = useState('');
   const [selectedDate, setSelectedDate] = useState(getLogicalToday());
@@ -1010,6 +1017,10 @@ export function PlannerProvider({ children }: { children: React.ReactNode }) {
   const [selfCareRecords, setSelfCareRecords] = useState<SelfCareRecord[]>([]);
   const [periodRecords, setPeriodRecords] = useState<PeriodRecord[]>([]);
   const [foodRecords, setFoodRecords] = useState<FoodRecord[]>([]);
+  const foodRecordsRef = useRef(foodRecords);
+  useEffect(() => { foodRecordsRef.current = foodRecords; }, [foodRecords]);
+  const [foodReadError, setFoodReadError] = useState('');
+  const [foodWriteStages, setFoodWriteStages] = useState<Record<string, 'uploading' | 'uploaded' | 'saving' | 'saved' | 'error'>>({});
   const [reviewRecords, setReviewRecords] = useState<ReviewRecord[]>([]);
   const [timelineLogs, setTimelineLogs] = useState<TimelineLog[]>([]);
   const [events, setEvents] = useState<Event[]>([]);
@@ -1028,7 +1039,7 @@ export function PlannerProvider({ children }: { children: React.ReactNode }) {
   const retrySave = useCallback((key: string) => { void saveCoordinator.retry(key); }, [saveCoordinator]);
   const dismissSave = useCallback((key: string) => saveCoordinator.dismiss(key), [saveCoordinator]);
 
-  const activityStorage = useActivityStorage(saveCoordinator, events);
+  const activityStorage = useActivityStorage(saveCoordinator, events, development);
 
   const [annualGoals, setAnnualGoals] = useState<AnnualGoal[]>([]);
   const [quarterlyGoals, setQuarterlyGoals] = useState<QuarterlyGoal[]>([]);
@@ -1096,7 +1107,7 @@ export function PlannerProvider({ children }: { children: React.ReactNode }) {
         db.quarterlyGoals.fetchAll(),
         db.weeklyReviews.fetchAll(),
         db.monthlyReviews.fetchAll(),
-        db.foodRecords.fetchAll(),
+        (typeof db.foodRecords.fetchConfirmed === 'function' ? db.foodRecords.fetchConfirmed() : db.foodRecords.fetchAll()).catch(() => { setFoodReadError('음식 기록을 불러오지 못했어요. 빈 기록으로 확인된 상태가 아니에요.'); return []; }),
         db.happyMoments.fetchAll(),
         readCore(typeof db.todoTimeBlocks.fetchConfirmed === 'function' ? db.todoTimeBlocks.fetchConfirmed : db.todoTimeBlocks.fetchAll),
       ]);
@@ -1147,7 +1158,7 @@ export function PlannerProvider({ children }: { children: React.ReactNode }) {
         const next = mergeConfirmedRows(rows, ref.current, saveCoordinator.protectedIds(kind));
         ref.current = next;
         setRows(next);
-      } catch { if (kind === 'todos' || kind === 'timeBlocks') setCoreTimeReadError('할 일·시간 블록을 모두 확인하지 못했어요. 마지막으로 확인한 기록을 유지해요.'); /* A failed read must not erase confirmed records. */ }
+      } catch { if (kind === 'todos' || kind === 'timeBlocks') setCoreTimeReadError('할 일·시간 블록을 모두 확인하지 못했어요. 마지막으로 확인한 기록을 유지해요.'); if (kind === 'foodRecords') setFoodReadError('음식 기록을 다시 확인하지 못했어요. 마지막으로 확인한 기록을 유지해요.'); /* A failed read must not erase confirmed records. */ }
     };
     // 각 테이블별 재fetch 함수
     const refetchers: Record<string, () => Promise<void>> = {
@@ -1172,7 +1183,7 @@ export function PlannerProvider({ children }: { children: React.ReactNode }) {
       quarterly_goals:   async () => setQuarterlyGoals(await db.quarterlyGoals.fetchAll()),
       weekly_reviews:    async () => setWeeklyReviews(await db.weeklyReviews.fetchAll()),
       monthly_reviews:   async () => setMonthlyReviews(await db.monthlyReviews.fetchAll()),
-      food_records:      async () => setFoodRecords(await db.foodRecords.fetchAll()),
+      food_records:      () => refreshCore('foodRecords', db.foodRecords.fetchConfirmed, foodRecordsRef, setFoodRecords),
       happy_moments:     async () => setHappyMoments(await db.happyMoments.fetchAll()),
       // user_settings: 토글 등 설정 변경을 다른 탭/기기에 즉시 반영(기존 누락분 보완)
       user_settings:     async () => {
@@ -1867,6 +1878,49 @@ export function PlannerProvider({ children }: { children: React.ReactNode }) {
     });
   }, []);
 
+  const refreshFoodRecords = useCallback(async () => {
+    const revision = saveCoordinator.revision;
+    try {
+      const remote = await db.foodRecords.fetchConfirmed();
+      if (revision !== saveCoordinator.revision) return;
+      foodRecordsRef.current = mergeConfirmedRows(remote, foodRecordsRef.current, saveCoordinator.protectedIds('foodRecords'));
+      setFoodRecords(foodRecordsRef.current); setFoodReadError('');
+    } catch { setFoodReadError('음식 기록을 불러오지 못했어요. 마지막으로 확인한 기록을 유지해요.'); }
+  }, [saveCoordinator]);
+  const saveFoodRecordConfirmed = useCallback(async (value: FoodRecord, editing: boolean, photo?: FoodPhotoUpload, baseline?: FoodRecord) => {
+    const record = structuredClone(value); const before = baseline ? structuredClone(baseline) : foodRecordsRef.current.find(row => row.id === record.id);
+    let uploadedUrl: string | undefined;
+    const stage = (status: 'uploading' | 'uploaded' | 'saving' | 'saved' | 'error') => setFoodWriteStages(prev => ({ ...prev, [record.id]: status }));
+    const saved = await saveCoordinator.run({ key: `foodRecords:${record.id}`, label: editing ? '음식 기록 수정' : '음식 기록 등록',
+      intent: saveIntent({ record, editing, photoOperation: photo?.operationId }),
+      execute: async () => {
+        validateFoodRecord(record);
+        const latest = editing ? await db.foodRecords.getConfirmed(record.id) : null;
+        if (editing && (!before || !latest)) throw new SaveFailure('수정할 음식 기록이 없어요. 다시 불러와 확인해주세요.', false);
+        if (photo && !uploadedUrl) {
+          stage('uploading');
+          try { uploadedUrl = await db.foodRecords.uploadPhotoConfirmed(photo.file,record.id,photo.operationId); }
+          catch (error) { const failure = error instanceof SaveFailure ? error : new SaveFailure('사진 업로드 결과를 확인하지 못했어요.',true); throw new SaveFailure(`사진 업로드를 확인하지 못해 기록을 저장하지 않았어요. ${failure.message}`,failure.retryable); }
+          stage('uploaded');
+        }
+        const after = { ...record, ...(uploadedUrl ? { photoUrl: uploadedUrl } : {}) };
+        stage('saving');
+        if (!editing) return db.foodRecords.createConfirmed(after);
+        if (saveIntent(fromFoodRecord(before!)) === saveIntent(fromFoodRecord(after))) return latest!;
+        return db.foodRecords.updateConfirmed(before!,after);
+      }, commit: confirmed => {
+        foodRecordsRef.current = [...foodRecordsRef.current.filter(row => row.id !== confirmed.id), confirmed]; setFoodRecords(foodRecordsRef.current); stage('saved');
+      } });
+    if (!saved) stage('error'); return saved !== null;
+  }, [saveCoordinator]);
+  const deleteFoodRecordConfirmed = useCallback(async (id: string) => {
+    const saved = await saveCoordinator.run({ key: `foodRecords:${id}`, label: '음식 기록 삭제', intent: 'delete-record-keep-photo', execute: async () => {
+      await db.foodRecords.deleteConfirmed(id); return id;
+    }, commit: deleted => { foodRecordsRef.current = foodRecordsRef.current.filter(row => row.id !== deleted); setFoodRecords(foodRecordsRef.current); } });
+    // Photo objects are intentionally retained: ownership/shared references and cleanup need separate review.
+    return saved !== null;
+  }, [saveCoordinator]);
+
   // ── Food actions ──
   const addFoodRecord = useCallback((record: Omit<FoodRecord, 'id'>) => {
     const newRecord: FoodRecord = { ...record, id: newId() };
@@ -2471,7 +2525,7 @@ export function PlannerProvider({ children }: { children: React.ReactNode }) {
       habitMonthlyMemos, setHabitMonthlyMemo,
       addRoutine, updateRoutine, deleteRoutine, toggleRoutineDate,
       addSelfCareRecord, updateSelfCareRecord, deleteSelfCareRecord,
-      foodRecords, addFoodRecord, updateFoodRecord, deleteFoodRecord,
+      foodRecords, foodReadError, foodWriteStages, refreshFoodRecords, saveFoodRecordConfirmed, deleteFoodRecordConfirmed, addFoodRecord, updateFoodRecord, deleteFoodRecord,
       addPeriodRecord, updatePeriodRecord, deletePeriodRecord,
       addReviewRecord, updateReviewRecord, deleteReviewRecord,
       addWeeklyReview, updateWeeklyReview,

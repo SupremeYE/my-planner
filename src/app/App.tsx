@@ -51,7 +51,7 @@ function AppContent() {
 
   // 로그인 됨 → 앱 본체
   return (
-    <PlannerProvider>
+    <PlannerProvider development={import.meta.env.DEV}>
       <SaveStatus />
       <TimerProvider>
         <FabProvider>

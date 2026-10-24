@@ -1,0 +1,287 @@
+{
+  "viewports": [
+    390,
+    1440
+  ],
+  "shots": [
+    {
+      "name": "mobile-list",
+      "width": 390,
+      "document": 390,
+      "overflow": []
+    },
+    {
+      "name": "desktop-list",
+      "width": 1440,
+      "document": 1440,
+      "overflow": []
+    },
+    {
+      "name": "mobile-broken-photo",
+      "width": 390,
+      "document": 390,
+      "overflow": []
+    },
+    {
+      "name": "desktop-broken-photo",
+      "width": 1440,
+      "document": 1440,
+      "overflow": []
+    },
+    {
+      "name": "mobile-detail",
+      "width": 390,
+      "document": 390,
+      "overflow": []
+    },
+    {
+      "name": "desktop-detail",
+      "width": 1440,
+      "document": 1440,
+      "overflow": []
+    },
+    {
+      "name": "mobile-add",
+      "width": 390,
+      "document": 390,
+      "overflow": []
+    },
+    {
+      "name": "desktop-add",
+      "width": 1440,
+      "document": 1440,
+      "overflow": []
+    },
+    {
+      "name": "mobile-save-failure",
+      "width": 390,
+      "document": 390,
+      "overflow": []
+    },
+    {
+      "name": "desktop-save-failure",
+      "width": 1440,
+      "document": 1440,
+      "overflow": []
+    },
+    {
+      "name": "mobile-edit",
+      "width": 390,
+      "document": 390,
+      "overflow": []
+    },
+    {
+      "name": "desktop-edit",
+      "width": 1440,
+      "document": 1440,
+      "overflow": []
+    },
+    {
+      "name": "mobile-camera-options",
+      "width": 390,
+      "document": 390,
+      "overflow": []
+    },
+    {
+      "name": "desktop-camera-options",
+      "width": 1440,
+      "document": 1440,
+      "overflow": []
+    },
+    {
+      "name": "mobile-photo-selected",
+      "width": 390,
+      "document": 390,
+      "overflow": []
+    },
+    {
+      "name": "desktop-photo-selected",
+      "width": 1440,
+      "document": 1440,
+      "overflow": []
+    },
+    {
+      "name": "mobile-uploading",
+      "width": 390,
+      "document": 390,
+      "overflow": []
+    },
+    {
+      "name": "desktop-uploading",
+      "width": 1440,
+      "document": 1440,
+      "overflow": []
+    },
+    {
+      "name": "mobile-upload-failure",
+      "width": 390,
+      "document": 390,
+      "overflow": []
+    },
+    {
+      "name": "desktop-upload-failure",
+      "width": 1440,
+      "document": 1440,
+      "overflow": []
+    },
+    {
+      "name": "mobile-ai-failure",
+      "width": 390,
+      "document": 390,
+      "overflow": []
+    },
+    {
+      "name": "desktop-ai-failure",
+      "width": 1440,
+      "document": 1440,
+      "overflow": []
+    },
+    {
+      "name": "mobile-ai-proposal",
+      "width": 390,
+      "document": 390,
+      "overflow": []
+    },
+    {
+      "name": "desktop-ai-proposal",
+      "width": 1440,
+      "document": 1440,
+      "overflow": []
+    },
+    {
+      "name": "mobile-gallery",
+      "width": 390,
+      "document": 390,
+      "overflow": []
+    },
+    {
+      "name": "desktop-gallery",
+      "width": 1440,
+      "document": 1440,
+      "overflow": []
+    },
+    {
+      "name": "mobile-delete",
+      "width": 390,
+      "document": 390,
+      "overflow": []
+    },
+    {
+      "name": "desktop-delete",
+      "width": 1440,
+      "document": 1440,
+      "overflow": []
+    },
+    {
+      "name": "mobile-time-daily",
+      "width": 390,
+      "document": 390,
+      "overflow": []
+    },
+    {
+      "name": "desktop-time-daily",
+      "width": 1440,
+      "document": 1440,
+      "overflow": []
+    },
+    {
+      "name": "mobile-time-weekly",
+      "width": 390,
+      "document": 390,
+      "overflow": []
+    },
+    {
+      "name": "desktop-time-weekly",
+      "width": 1440,
+      "document": 1440,
+      "overflow": []
+    },
+    {
+      "name": "mobile-time-monthly",
+      "width": 390,
+      "document": 390,
+      "overflow": []
+    },
+    {
+      "name": "desktop-time-monthly",
+      "width": 1440,
+      "document": 1440,
+      "overflow": []
+    },
+    {
+      "name": "mobile-long-name",
+      "width": 390,
+      "document": 390,
+      "overflow": []
+    },
+    {
+      "name": "desktop-long-name",
+      "width": 1440,
+      "document": 1440,
+      "overflow": []
+    },
+    {
+      "name": "mobile-offline",
+      "width": 390,
+      "document": 390,
+      "overflow": []
+    },
+    {
+      "name": "desktop-offline",
+      "width": 1440,
+      "document": 1440,
+      "overflow": []
+    }
+  ],
+  "pageErrors": [],
+  "externalAttempts": [
+    "https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css",
+    "https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;600;700&family=Noto+Serif+KR:wght@400;500;600&family=DM+Serif+Display:ital@0;1&display=swap",
+    "https://fonts.googleapis.com/css2?family=Gowun+Batang:wght@400;700&family=Gowun+Dodum&display=swap",
+    "https://fonts.googleapis.com/css2?family=Gaegu:wght@400;700&display=swap",
+    "https://fonts.googleapis.com/css2?family=Nanum+Pen+Script&display=swap",
+    "https://fonts.googleapis.com/css2?family=Caveat:wght@500;600&display=swap",
+    "https://cdn.jsdelivr.net/gh/webfontworld/gmarket/GmarketSans.css",
+    "https://cdn.jsdelivr.net/gh/webfontworld/NanumSquareRound/NanumSquareRound.css",
+    "https://fonts.googleapis.com/css2?family=Sora:wght@400;600&display=swap",
+    "https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css",
+    "https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;600;700&family=Noto+Serif+KR:wght@400;500;600&family=DM+Serif+Display:ital@0;1&display=swap",
+    "https://fonts.googleapis.com/css2?family=Gowun+Batang:wght@400;700&family=Gowun+Dodum&display=swap",
+    "https://fonts.googleapis.com/css2?family=Gaegu:wght@400;700&display=swap",
+    "https://fonts.googleapis.com/css2?family=Nanum+Pen+Script&display=swap",
+    "https://fonts.googleapis.com/css2?family=Caveat:wght@500;600&display=swap",
+    "https://cdn.jsdelivr.net/gh/webfontworld/gmarket/GmarketSans.css",
+    "https://cdn.jsdelivr.net/gh/webfontworld/NanumSquareRound/NanumSquareRound.css",
+    "https://fonts.googleapis.com/css2?family=Sora:wght@400;600&display=swap",
+    "https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css",
+    "https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;600;700&family=Noto+Serif+KR:wght@400;500;600&family=DM+Serif+Display:ital@0;1&display=swap",
+    "https://fonts.googleapis.com/css2?family=Gowun+Batang:wght@400;700&family=Gowun+Dodum&display=swap",
+    "https://fonts.googleapis.com/css2?family=Gaegu:wght@400;700&display=swap",
+    "https://fonts.googleapis.com/css2?family=Nanum+Pen+Script&display=swap",
+    "https://fonts.googleapis.com/css2?family=Caveat:wght@500;600&display=swap",
+    "https://cdn.jsdelivr.net/gh/webfontworld/gmarket/GmarketSans.css",
+    "https://cdn.jsdelivr.net/gh/webfontworld/NanumSquareRound/NanumSquareRound.css",
+    "https://fonts.googleapis.com/css2?family=Sora:wght@400;600&display=swap",
+    "https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css",
+    "https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;600;700&family=Noto+Serif+KR:wght@400;500;600&family=DM+Serif+Display:ital@0;1&display=swap",
+    "https://fonts.googleapis.com/css2?family=Gowun+Batang:wght@400;700&family=Gowun+Dodum&display=swap",
+    "https://fonts.googleapis.com/css2?family=Gaegu:wght@400;700&display=swap",
+    "https://fonts.googleapis.com/css2?family=Nanum+Pen+Script&display=swap",
+    "https://fonts.googleapis.com/css2?family=Caveat:wght@500;600&display=swap",
+    "https://cdn.jsdelivr.net/gh/webfontworld/gmarket/GmarketSans.css",
+    "https://cdn.jsdelivr.net/gh/webfontworld/NanumSquareRound/NanumSquareRound.css",
+    "https://fonts.googleapis.com/css2?family=Sora:wght@400;600&display=swap",
+    "https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css",
+    "https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;600;700&family=Noto+Serif+KR:wght@400;500;600&family=DM+Serif+Display:ital@0;1&display=swap",
+    "https://fonts.googleapis.com/css2?family=Gowun+Batang:wght@400;700&family=Gowun+Dodum&display=swap",
+    "https://fonts.googleapis.com/css2?family=Gaegu:wght@400;700&display=swap",
+    "https://fonts.googleapis.com/css2?family=Nanum+Pen+Script&display=swap",
+    "https://fonts.googleapis.com/css2?family=Caveat:wght@500;600&display=swap",
+    "https://cdn.jsdelivr.net/gh/webfontworld/gmarket/GmarketSans.css",
+    "https://cdn.jsdelivr.net/gh/webfontworld/NanumSquareRound/NanumSquareRound.css",
+    "https://fonts.googleapis.com/css2?family=Sora:wght@400;600&display=swap"
+  ],
+  "aiCalls": 3,
+  "transport": "memory DB/storage and mocked calorie API only",
+  "fixedDate": "2027-01-01 Asia/Seoul"
+}
