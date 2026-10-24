@@ -1,0 +1,387 @@
+{
+  "viewports": [
+    390,
+    768,
+    1440
+  ],
+  "shots": [
+    {
+      "name": "mobile-list",
+      "width": 390,
+      "document": 390,
+      "overflow": []
+    },
+    {
+      "name": "tablet-list",
+      "width": 768,
+      "document": 768,
+      "overflow": []
+    },
+    {
+      "name": "desktop-list",
+      "width": 1440,
+      "document": 1440,
+      "overflow": []
+    },
+    {
+      "name": "mobile-detail",
+      "width": 390,
+      "document": 390,
+      "overflow": []
+    },
+    {
+      "name": "tablet-detail",
+      "width": 768,
+      "document": 768,
+      "overflow": []
+    },
+    {
+      "name": "desktop-detail",
+      "width": 1440,
+      "document": 1440,
+      "overflow": []
+    },
+    {
+      "name": "mobile-add",
+      "width": 390,
+      "document": 390,
+      "overflow": []
+    },
+    {
+      "name": "tablet-add",
+      "width": 768,
+      "document": 768,
+      "overflow": []
+    },
+    {
+      "name": "desktop-add",
+      "width": 1440,
+      "document": 1440,
+      "overflow": []
+    },
+    {
+      "name": "mobile-save-failure",
+      "width": 390,
+      "document": 390,
+      "overflow": []
+    },
+    {
+      "name": "tablet-save-failure",
+      "width": 768,
+      "document": 768,
+      "overflow": []
+    },
+    {
+      "name": "desktop-save-failure",
+      "width": 1440,
+      "document": 1440,
+      "overflow": []
+    },
+    {
+      "name": "mobile-search",
+      "width": 390,
+      "document": 390,
+      "overflow": []
+    },
+    {
+      "name": "tablet-search",
+      "width": 768,
+      "document": 768,
+      "overflow": []
+    },
+    {
+      "name": "desktop-search",
+      "width": 1440,
+      "document": 1440,
+      "overflow": []
+    },
+    {
+      "name": "mobile-api-failure",
+      "width": 390,
+      "document": 390,
+      "overflow": []
+    },
+    {
+      "name": "tablet-api-failure",
+      "width": 768,
+      "document": 768,
+      "overflow": []
+    },
+    {
+      "name": "desktop-api-failure",
+      "width": 1440,
+      "document": 1440,
+      "overflow": []
+    },
+    {
+      "name": "mobile-progress",
+      "width": 390,
+      "document": 390,
+      "overflow": []
+    },
+    {
+      "name": "tablet-progress",
+      "width": 768,
+      "document": 768,
+      "overflow": []
+    },
+    {
+      "name": "desktop-progress",
+      "width": 1440,
+      "document": 1440,
+      "overflow": []
+    },
+    {
+      "name": "mobile-partial-save",
+      "width": 390,
+      "document": 390,
+      "overflow": []
+    },
+    {
+      "name": "tablet-partial-save",
+      "width": 768,
+      "document": 768,
+      "overflow": []
+    },
+    {
+      "name": "desktop-partial-save",
+      "width": 1440,
+      "document": 1440,
+      "overflow": []
+    },
+    {
+      "name": "mobile-quote-edit",
+      "width": 390,
+      "document": 390,
+      "overflow": []
+    },
+    {
+      "name": "tablet-quote-edit",
+      "width": 768,
+      "document": 768,
+      "overflow": []
+    },
+    {
+      "name": "desktop-quote-edit",
+      "width": 1440,
+      "document": 1440,
+      "overflow": []
+    },
+    {
+      "name": "mobile-note",
+      "width": 390,
+      "document": 390,
+      "overflow": []
+    },
+    {
+      "name": "tablet-note",
+      "width": 768,
+      "document": 768,
+      "overflow": []
+    },
+    {
+      "name": "desktop-note",
+      "width": 1440,
+      "document": 1440,
+      "overflow": []
+    },
+    {
+      "name": "mobile-quote-photo",
+      "width": 390,
+      "document": 390,
+      "overflow": []
+    },
+    {
+      "name": "tablet-quote-photo",
+      "width": 768,
+      "document": 768,
+      "overflow": []
+    },
+    {
+      "name": "desktop-quote-photo",
+      "width": 1440,
+      "document": 1440,
+      "overflow": []
+    },
+    {
+      "name": "mobile-upload-failure",
+      "width": 390,
+      "document": 390,
+      "overflow": []
+    },
+    {
+      "name": "tablet-upload-failure",
+      "width": 768,
+      "document": 768,
+      "overflow": []
+    },
+    {
+      "name": "desktop-upload-failure",
+      "width": 1440,
+      "document": 1440,
+      "overflow": []
+    },
+    {
+      "name": "mobile-ocr",
+      "width": 390,
+      "document": 390,
+      "overflow": []
+    },
+    {
+      "name": "tablet-ocr",
+      "width": 768,
+      "document": 768,
+      "overflow": []
+    },
+    {
+      "name": "desktop-ocr",
+      "width": 1440,
+      "document": 1440,
+      "overflow": []
+    },
+    {
+      "name": "mobile-quotes",
+      "width": 390,
+      "document": 390,
+      "overflow": []
+    },
+    {
+      "name": "tablet-quotes",
+      "width": 768,
+      "document": 768,
+      "overflow": []
+    },
+    {
+      "name": "desktop-quotes",
+      "width": 1440,
+      "document": 1440,
+      "overflow": []
+    },
+    {
+      "name": "mobile-stats",
+      "width": 390,
+      "document": 390,
+      "overflow": []
+    },
+    {
+      "name": "tablet-stats",
+      "width": 768,
+      "document": 768,
+      "overflow": []
+    },
+    {
+      "name": "desktop-stats",
+      "width": 1440,
+      "document": 1440,
+      "overflow": []
+    },
+    {
+      "name": "mobile-delete-protected",
+      "width": 390,
+      "document": 390,
+      "overflow": []
+    },
+    {
+      "name": "tablet-delete-protected",
+      "width": 768,
+      "document": 768,
+      "overflow": []
+    },
+    {
+      "name": "desktop-delete-protected",
+      "width": 1440,
+      "document": 1440,
+      "overflow": []
+    },
+    {
+      "name": "mobile-read-failure",
+      "width": 390,
+      "document": 390,
+      "overflow": []
+    },
+    {
+      "name": "tablet-read-failure",
+      "width": 768,
+      "document": 768,
+      "overflow": []
+    },
+    {
+      "name": "desktop-read-failure",
+      "width": 1440,
+      "document": 1440,
+      "overflow": []
+    },
+    {
+      "name": "mobile-offline",
+      "width": 390,
+      "document": 390,
+      "overflow": []
+    },
+    {
+      "name": "tablet-offline",
+      "width": 768,
+      "document": 768,
+      "overflow": []
+    },
+    {
+      "name": "desktop-offline",
+      "width": 1440,
+      "document": 1440,
+      "overflow": []
+    }
+  ],
+  "pageErrors": [],
+  "blockedExternal": [
+    "https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css",
+    "https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;600;700&family=Noto+Serif+KR:wght@400;500;600&family=DM+Serif+Display:ital@0;1&display=swap",
+    "https://fonts.googleapis.com/css2?family=Gowun+Batang:wght@400;700&family=Gowun+Dodum&display=swap",
+    "https://fonts.googleapis.com/css2?family=Gaegu:wght@400;700&display=swap",
+    "https://fonts.googleapis.com/css2?family=Nanum+Pen+Script&display=swap",
+    "https://fonts.googleapis.com/css2?family=Caveat:wght@500;600&display=swap",
+    "https://cdn.jsdelivr.net/gh/webfontworld/gmarket/GmarketSans.css",
+    "https://cdn.jsdelivr.net/gh/webfontworld/NanumSquareRound/NanumSquareRound.css",
+    "https://fonts.googleapis.com/css2?family=Sora:wght@400;600&display=swap",
+    "https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css",
+    "https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;600;700&family=Noto+Serif+KR:wght@400;500;600&family=DM+Serif+Display:ital@0;1&display=swap",
+    "https://fonts.googleapis.com/css2?family=Gowun+Batang:wght@400;700&family=Gowun+Dodum&display=swap",
+    "https://fonts.googleapis.com/css2?family=Gaegu:wght@400;700&display=swap",
+    "https://fonts.googleapis.com/css2?family=Nanum+Pen+Script&display=swap",
+    "https://fonts.googleapis.com/css2?family=Caveat:wght@500;600&display=swap",
+    "https://cdn.jsdelivr.net/gh/webfontworld/gmarket/GmarketSans.css",
+    "https://cdn.jsdelivr.net/gh/webfontworld/NanumSquareRound/NanumSquareRound.css",
+    "https://fonts.googleapis.com/css2?family=Sora:wght@400;600&display=swap",
+    "https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css",
+    "https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;600;700&family=Noto+Serif+KR:wght@400;500;600&family=DM+Serif+Display:ital@0;1&display=swap",
+    "https://fonts.googleapis.com/css2?family=Gowun+Batang:wght@400;700&family=Gowun+Dodum&display=swap",
+    "https://fonts.googleapis.com/css2?family=Gaegu:wght@400;700&display=swap",
+    "https://fonts.googleapis.com/css2?family=Nanum+Pen+Script&display=swap",
+    "https://fonts.googleapis.com/css2?family=Caveat:wght@500;600&display=swap",
+    "https://cdn.jsdelivr.net/gh/webfontworld/gmarket/GmarketSans.css",
+    "https://cdn.jsdelivr.net/gh/webfontworld/NanumSquareRound/NanumSquareRound.css",
+    "https://fonts.googleapis.com/css2?family=Sora:wght@400;600&display=swap",
+    "https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css",
+    "https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;600;700&family=Noto+Serif+KR:wght@400;500;600&family=DM+Serif+Display:ital@0;1&display=swap",
+    "https://fonts.googleapis.com/css2?family=Gowun+Batang:wght@400;700&family=Gowun+Dodum&display=swap",
+    "https://fonts.googleapis.com/css2?family=Gaegu:wght@400;700&display=swap",
+    "https://fonts.googleapis.com/css2?family=Nanum+Pen+Script&display=swap",
+    "https://fonts.googleapis.com/css2?family=Caveat:wght@500;600&display=swap",
+    "https://cdn.jsdelivr.net/gh/webfontworld/gmarket/GmarketSans.css",
+    "https://cdn.jsdelivr.net/gh/webfontworld/NanumSquareRound/NanumSquareRound.css",
+    "https://fonts.googleapis.com/css2?family=Sora:wght@400;600&display=swap",
+    "https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css",
+    "https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;600;700&family=Noto+Serif+KR:wght@400;500;600&family=DM+Serif+Display:ital@0;1&display=swap",
+    "https://fonts.googleapis.com/css2?family=Gowun+Batang:wght@400;700&family=Gowun+Dodum&display=swap",
+    "https://fonts.googleapis.com/css2?family=Gaegu:wght@400;700&display=swap",
+    "https://fonts.googleapis.com/css2?family=Nanum+Pen+Script&display=swap",
+    "https://fonts.googleapis.com/css2?family=Caveat:wght@500;600&display=swap",
+    "https://cdn.jsdelivr.net/gh/webfontworld/gmarket/GmarketSans.css",
+    "https://cdn.jsdelivr.net/gh/webfontworld/NanumSquareRound/NanumSquareRound.css",
+    "https://fonts.googleapis.com/css2?family=Sora:wght@400;600&display=swap"
+  ],
+  "searchCalls": [
+    "표지없음",
+    "실패",
+    "없음"
+  ],
+  "transport": "memory Auth/Provider/Storage, intercepted Kakao and mock OCR/transcription, fake microphone device; no operational requests"
+}
