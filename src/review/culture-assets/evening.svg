@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="400" height="560" viewBox="0 0 400 560">
+  <rect width="400" height="560" fill="#e8dace"/>
+  <rect x="66" y="124" width="268" height="320" rx="134" fill="#9aa99b"/>
+  <circle cx="200" cy="247" r="57" fill="#f5e6c3"/>
+  <path d="M66 355Q200 280 334 355V444H66" fill="#637a6b"/>
+  <text x="32" y="63" fill="#354235" font-family="sans-serif" font-size="16" letter-spacing="3">A QUIET EVENING</text>
+  <text x="32" y="520" fill="#354235" font-family="sans-serif" font-size="12" letter-spacing="2">MOAMOA · LOCAL SAMPLE</text>
+</svg>

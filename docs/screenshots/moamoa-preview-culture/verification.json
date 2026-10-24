@@ -1,0 +1,56 @@
+{
+  "previewBase": "30517fc0b785058f1a0b9bcebd5c5b76db8b5ec2",
+  "cultureSource": "690f3ab0ca095c5213d4b7229192eefc4d6f9d83",
+  "unit": {
+    "passed": 170,
+    "failed": 0
+  },
+  "browserAndApi": {
+    "passed": 89,
+    "failed": 0
+  },
+  "cultureViewports": [
+    390,
+    768,
+    1440
+  ],
+  "cultureScreenshots": 33,
+  "render": {
+    "shots": 73,
+    "fail": 0,
+    "warn": 73,
+    "pass": 0
+  },
+  "renderSkippedInteractions": [
+    "· daily:timeblock 탭 못 찾음(스킵)",
+    "· daily:menu 열기 실패(스킵): locator.click: Timeout 2000ms exceeded.",
+    "· daily:event-edit \"팀 스탠드업\" 못 찾음(스킵)",
+    "· daily:event-allday \"팀 스탠드업\" 못 찾음(스킵)",
+    "· daily:todo-recur \"편집\" 못 찾음(스킵)",
+    "· books:quotes 탭 못 찾음(스킵)",
+    "· books:detail \"몰입의 즐거움\" 못 찾음(스킵)",
+    "· books:detail-quotes \"몰입의 즐거움\" 못 찾음(스킵)",
+    "· books:detail-note \"몰입의 즐거움\" 못 찾음(스킵)"
+  ],
+  "productionBuild": {
+    "identical": true,
+    "count": 19,
+    "changed": []
+  },
+  "sourceFilesMatch": {
+    "src/app/components/moamoa/MoaCultureRoute.tsx": true,
+    "src/app/components/moamoa/culture/CultureMetadataSearch.tsx": true,
+    "src/app/components/moamoa/culture/CultureSaveFeedback.tsx": true,
+    "src/app/components/moamoa/culture/CultureEditor.tsx": true,
+    "src/app/components/moamoa/culture/CultureImage.tsx": true,
+    "src/app/components/moamoa/culture/culture.css": true,
+    "src/app/hooks/useCultureRecords.ts": true,
+    "src/lib/cultureRecords.ts": true,
+    "src/lib/cultureMetadata.ts": true,
+    "src/lib/cultureRecords.test.ts": true
+  },
+  "lintFonts": "passed",
+  "lintColors": "passed",
+  "vercelSettings": "unchanged",
+  "remoteDeploymentReady": "not queried; push requests Git integration Preview"
+}

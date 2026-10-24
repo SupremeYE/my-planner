@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="400" height="560" viewBox="0 0 400 560">
+  <rect width="400" height="560" fill="#e7eadc"/>
+  <circle cx="292" cy="155" r="68" fill="#eed3a2"/>
+  <path d="M0 330Q180 170 400 350V560H0" fill="#97ab88"/>
+  <path d="M0 420Q200 300 400 435V560H0" fill="#526e56"/>
+  <text x="32" y="63" fill="#354235" font-family="sans-serif" font-size="16" letter-spacing="3">SUMMER SCENES</text>
+  <text x="32" y="520" fill="#fffefb" font-family="sans-serif" font-size="12" letter-spacing="2">MOAMOA · LOCAL SAMPLE</text>
+</svg>

@@ -1,0 +1,82 @@
+{
+  "results": [
+    {
+      "size": "mobile",
+      "width": 390,
+      "height": 844,
+      "shots": [
+        "mobile-list.png",
+        "mobile-manual-add.png",
+        "mobile-detail.png",
+        "mobile-edit.png",
+        "mobile-filters.png",
+        "mobile-delete.png",
+        "mobile-search-failure.png",
+        "mobile-save-retry.png",
+        "mobile-tmdb-sample.png",
+        "mobile-youtube-sample.png",
+        "mobile-music.png"
+      ],
+      "outside": [],
+      "errors": [],
+      "sockets": [],
+      "crud": true,
+      "retry": true,
+      "localMetadata": true,
+      "reloadReset": true
+    },
+    {
+      "size": "tablet",
+      "width": 768,
+      "height": 1024,
+      "shots": [
+        "tablet-list.png",
+        "tablet-manual-add.png",
+        "tablet-detail.png",
+        "tablet-edit.png",
+        "tablet-filters.png",
+        "tablet-delete.png",
+        "tablet-search-failure.png",
+        "tablet-save-retry.png",
+        "tablet-tmdb-sample.png",
+        "tablet-youtube-sample.png",
+        "tablet-music.png"
+      ],
+      "outside": [],
+      "errors": [],
+      "sockets": [],
+      "crud": true,
+      "retry": true,
+      "localMetadata": true,
+      "reloadReset": true
+    },
+    {
+      "size": "desktop",
+      "width": 1440,
+      "height": 1024,
+      "shots": [
+        "desktop-list.png",
+        "desktop-manual-add.png",
+        "desktop-detail.png",
+        "desktop-edit.png",
+        "desktop-filters.png",
+        "desktop-delete.png",
+        "desktop-search-failure.png",
+        "desktop-save-retry.png",
+        "desktop-tmdb-sample.png",
+        "desktop-youtube-sample.png",
+        "desktop-music.png"
+      ],
+      "outside": [],
+      "errors": [],
+      "sockets": [],
+      "crud": true,
+      "retry": true,
+      "localMetadata": true,
+      "reloadReset": true
+    }
+  ],
+  "productionCredentials": "synthetic canaries only",
+  "transport": "memory; no external requests",
+  "physicalDevices": "not tested"
+}

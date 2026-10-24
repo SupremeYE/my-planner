@@ -1,5 +1,7 @@
 # MoaMoa Preview 탐색·레이아웃 통일
 
+이 문서는 `30517fc`까지의 탐색 개선 기록이다. 이후 문화·음악의 영상 화면 연결 및 최신 검증은 [문화 기록 Preview 통합 보고서](MOAMOA_PREVIEW_CULTURE.md)를 따른다.
+
 ## 작업 기준과 보존
 
 - 브랜치 `codex/moamoa-review-preview`, 시작 HEAD `c0ad0db5d42c339ee8d86bc577999d9e9cab543b`와 원격 SHA 일치, 작업 트리 깨끗함을 확인했다.

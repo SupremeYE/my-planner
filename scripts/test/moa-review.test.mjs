@@ -189,7 +189,9 @@ test('static Preview uses isolated samples: routes, quick record, local photo, r
     assert.equal(await page.getByLabel('캘린더 날짜',{exact:true}).inputValue(),chosenDate);
     await nav('음식');
     await nav('기록');await page.getByRole('navigation',{name:'기록 종류'}).getByRole('link',{name:'문화·음악',exact:true}).click();
-    await page.getByRole('heading',{name:'문화·음악',exact:true}).waitFor();assert.equal(await page.locator('.mr-placeholder').count(),1);
+    await page.getByRole('heading',{name:'문화 기록',exact:true}).waitFor();
+    await page.locator('[data-culture-id]').first().waitFor();
+    assert.equal(await page.getByRole('navigation',{name:'문화·음악 종류'}).getByRole('link',{name:'영상',exact:true}).getAttribute('aria-current'),'page');
     await nav('음식');
     await page.getByRole('button', { name: '음식 기록', exact: true }).click();
     const editor = page.getByRole('dialog', { name: '음식 기록 추가', exact: true });

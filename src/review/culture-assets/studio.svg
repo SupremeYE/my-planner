@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="640" height="360" viewBox="0 0 640 360">
+  <rect width="640" height="360" fill="#e8e2cf"/>
+  <rect x="355" y="30" width="200" height="180" rx="8" fill="#afc3a1"/>
+  <path d="M455 30V210M355 120H555" stroke="#fffefb" stroke-width="9"/>
+  <path d="M100 260H565" stroke="#977e5f" stroke-width="14"/>
+  <rect x="180" y="198" width="62" height="55" rx="9" fill="#a1ad90"/>
+  <text x="36" y="78" fill="#354235" font-family="sans-serif" font-size="18" letter-spacing="2">SLOW STUDIO</text>
+  <text x="36" y="325" fill="#354235" font-family="sans-serif" font-size="12" letter-spacing="2">MOAMOA · LOCAL SAMPLE</text>
+</svg>

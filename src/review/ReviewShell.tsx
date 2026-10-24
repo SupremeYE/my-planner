@@ -10,7 +10,7 @@ import '../app/components/moamoa/todos.css';
 export function ReviewShell() {
   const [collapsed, setCollapsed] = useState(false);
   const { pathname } = useLocation();
-  const isRecords = ['/__moamoa-records', '/__moamoa-food', '/reviews', '/culture', '/books', '/health'].includes(pathname);
+  const isRecords = pathname.startsWith('/culture/') || ['/__moamoa-records', '/__moamoa-food', '/reviews', '/culture', '/books', '/health'].includes(pathname);
   const links = () => moaNav.map(({ to, label, icon: Icon }) => <Link key={to} to={to} title={label} aria-label={label}
     aria-current={pathname === to || to === '/__moamoa-records' && isRecords ? 'page' : undefined}>
     <Icon size={21} /><span>{label}</span></Link>);
