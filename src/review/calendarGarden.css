@@ -35,7 +35,14 @@
 .rc-time-block small { display:block; color:inherit; font-size:10px; }
 .rc-plan { left:2px; background:var(--mo-sage-soft); color:var(--mo-green); }
 .rc-actual { left:calc(50% + 2px); background:var(--mo-green); color:var(--mo-paper); }
-.rc-untimed { padding:12px 5px; border-top:1px solid var(--mo-line); font-size:12px; }
+.rc-untimed, .rc-actual-untimed { padding:16px 0; margin-bottom:12px; border-bottom:1px solid var(--mo-line); font-size:12px; }
+.rc-untimed-days { display:grid; grid-template-columns:repeat(auto-fit,minmax(min(100%,220px),1fr)); gap:16px; margin-top:12px; }
+.rc-untimed-days article { min-width:0; padding:12px; background:var(--mo-paper); border:1px solid var(--mo-line); border-radius:12px; }
+.mt-root .rc-untimed-days h3 { font-size:13px; color:var(--mo-green); margin-bottom:10px; }
+.rc-list-collapse summary { cursor:pointer; min-height:44px; padding:14px 0; color:var(--mo-green); }
+.rc-less-label, .rc-list-collapse[open] .rc-more-label { display:none; }
+.rc-list-collapse[open] .rc-less-label { display:inline; }
+.mt-root .rc-time-heading { margin:20px 0 12px; }
 .rc-duration { margin-top:8px; padding:8px; border:1px dashed var(--mo-sage); border-radius:8px; overflow-wrap:anywhere; }
 .rc-duration small { display:block; margin-top:5px; }
 .rc-week-top { display:grid; grid-template-columns:1.2fr 1.1fr .9fr; gap:18px; margin-bottom:20px; }

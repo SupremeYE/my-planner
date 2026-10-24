@@ -1,0 +1,55 @@
+{
+  "baseline": "715476777529aa4b77ade678c9c6f779251ec525",
+  "unit": {
+    "passed": 193,
+    "failed": 0
+  },
+  "browserApiRegression": {
+    "passed": 131,
+    "failed": 0,
+    "skipped": 0
+  },
+  "finalUxTest": "passed",
+  "viewports": [
+    390,
+    768,
+    1440
+  ],
+  "beforeScreenshots": 36,
+  "afterScreenshots": 42,
+  "renderCalendarTodos": {
+    "shots": 10,
+    "fail": 0,
+    "warn": 10,
+    "pass": 0
+  },
+  "production": {
+    "files": 19,
+    "identical": true,
+    "baseline": "715476777529aa4b77ade678c9c6f779251ec525",
+    "preservedUpstream": "282d2e06cfa479d087d1cfb8f8038511e7273ab3"
+  },
+  "fonts": "passed",
+  "colors": "passed",
+  "historicalArtifactsRestored": 100,
+  "protectedFilesUnchanged": [
+    "src/app",
+    "src/lib",
+    "src/styles",
+    "src/review/ReviewShell.tsx",
+    "src/review/main.ts",
+    "src/review/transport.ts",
+    "vercel.json",
+    "package.json",
+    "package-lock.json"
+  ],
+  "physicalDevices": "not tested",
+  "preservedUpstream": "282d2e06cfa479d087d1cfb8f8038511e7273ab3",
+  "finalMediaCopyTest": {
+    "passed": 4,
+    "failed": 0
+  },
+  "latestMediaScreenshots": 6,
+  "historicalArtifactsRestoredAfterRebase": 280,
+  "protectedFilesComparisonBase": "282d2e06cfa479d087d1cfb8f8038511e7273ab3"
+}

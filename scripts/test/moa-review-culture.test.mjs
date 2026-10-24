@@ -123,7 +123,7 @@ test('culture Preview: isolated samples, CRUD, metadata failure, navigation and 
 
         await create('실패 후 직접 입력');await button('작품 검색',dialog()).click();
         await label('검색할 작품명',dialog()).fill('오류');await button('검색',dialog()).click();
-        await dialog().getByText('정보를 불러오지 못했어요. 주소·연결을 확인하거나 직접 입력해주세요.',{exact:true}).waitFor();
+        await dialog().getByText('샘플 정보를 불러오지 못했어요. 직접 입력으로 기록할 수 있어요.',{exact:true}).waitFor();
         await shot('search-failure');assert.equal(await label('작품명',dialog()).inputValue(),'실패 후 직접 입력');
         await button('직접 입력',dialog()).click();
         await page.evaluate(()=>window.testDb.failNext('culture_records',{status:503}));
@@ -145,7 +145,7 @@ test('culture Preview: isolated samples, CRUD, metadata failure, navigation and 
         const [video]=await stored('로컬 샘플 영상 · 작은 작업실');assert.equal(video.external_id,'sample00001');
         await create('YouTube 실패 직접 입력');await button('YouTube URL 입력',dialog()).click();
         await label('YouTube URL',dialog()).fill('https://youtu.be/failure0000');await button('영상 정보 가져오기',dialog()).click();
-        await dialog().getByText('정보를 불러오지 못했어요. 주소·연결을 확인하거나 직접 입력해주세요.',{exact:true}).waitFor();
+        await dialog().getByText('샘플 정보를 불러오지 못했어요. 직접 입력으로 기록할 수 있어요.',{exact:true}).waitFor();
         await button('URL만 입력에 사용',dialog()).click();await save();await close();
         const [fallback]=await stored('YouTube 실패 직접 입력');assert.equal(fallback.url,'https://youtu.be/failure0000');assert.equal(fallback.content_type,'youtube_video');
 

@@ -2,6 +2,7 @@ import { defineConfig, mergeConfig } from 'vite';
 import base from './vite.config';
 import path from 'node:path';
 import {transformReviewMedia} from './src/review/mediaBuildTransforms';
+import { applyPreviewCopy } from './scripts/review-ux-copy.mjs';
 
 if (process.env.VERCEL_ENV === 'production') throw new Error('Review build is forbidden for Production');
 export default mergeConfig(base, defineConfig({
@@ -21,6 +22,7 @@ export default mergeConfig(base, defineConfig({
       if (/(?:^\.\/|\/)MoaFrame(?:\.tsx)?$/.test(source)) return path.resolve('src/review/ReviewFrame.tsx');
     },
     transform(code, id) {
+      code = applyPreviewCopy(code, id);
       const media = transformReviewMedia(code, id);
       if (media !== undefined) return media;
       if (id.endsWith('/src/app/App.tsx')) return code.replace('<SaveStatus />', '');
@@ -51,7 +53,7 @@ export default mergeConfig(base, defineConfig({
         }
         return code.replace('return <div className="mt-root"', 'return <div className="mt-root mr-route"')
           .replace('기존 내 기록과 함께하는 오늘', '샘플 데이터로 체험하는 오늘')
-          .replace('기존 목표에서 시작하기', '정원에서 목표 보기')
+          .replace('기존 목표에서 시작하기', '월간·연간 목표 보기')
           .replace('핵심 별표는 기존 일간 화면에서 선택해요.', '핵심 별표 편집은 이번 Preview에서 지원하지 않아요.')
           .replace('<button onClick={() => go(\'/daily\')}>일간 화면에서 핵심 선택하기</button>', '<button disabled>핵심 할 일 선택은 준비 중이에요</button>');
       }

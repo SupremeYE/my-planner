@@ -1,0 +1,74 @@
+{
+  "before": false,
+  "results": [
+    {
+      "size": "mobile",
+      "width": 390,
+      "height": 844,
+      "shots": [
+        "mobile-calendar-week.png",
+        "mobile-calendar-week-bottom.png",
+        "mobile-calendar-expanded.png",
+        "mobile-calendar-page-bottom.png",
+        "mobile-calendar-day.png",
+        "mobile-planner.png",
+        "mobile-weekly-review.png",
+        "mobile-garden.png",
+        "mobile-garden-bottom.png",
+        "mobile-today.png",
+        "mobile-todos.png",
+        "mobile-records.png",
+        "mobile-food.png",
+        "mobile-culture.png"
+      ],
+      "errors": [],
+      "outside": []
+    },
+    {
+      "size": "tablet",
+      "width": 768,
+      "height": 1024,
+      "shots": [
+        "tablet-calendar-week.png",
+        "tablet-calendar-week-bottom.png",
+        "tablet-calendar-expanded.png",
+        "tablet-calendar-page-bottom.png",
+        "tablet-calendar-day.png",
+        "tablet-planner.png",
+        "tablet-weekly-review.png",
+        "tablet-garden.png",
+        "tablet-garden-bottom.png",
+        "tablet-today.png",
+        "tablet-todos.png",
+        "tablet-records.png",
+        "tablet-food.png",
+        "tablet-culture.png"
+      ],
+      "errors": [],
+      "outside": []
+    },
+    {
+      "size": "desktop",
+      "width": 1440,
+      "height": 1024,
+      "shots": [
+        "desktop-calendar-week.png",
+        "desktop-calendar-week-bottom.png",
+        "desktop-calendar-expanded.png",
+        "desktop-calendar-page-bottom.png",
+        "desktop-calendar-day.png",
+        "desktop-planner.png",
+        "desktop-weekly-review.png",
+        "desktop-garden.png",
+        "desktop-garden-bottom.png",
+        "desktop-today.png",
+        "desktop-todos.png",
+        "desktop-records.png",
+        "desktop-food.png",
+        "desktop-culture.png"
+      ],
+      "errors": [],
+      "outside": []
+    }
+  ]
+}
