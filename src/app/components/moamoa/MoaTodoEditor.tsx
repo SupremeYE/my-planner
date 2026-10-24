@@ -40,7 +40,7 @@ export function MoaTodoEditor({ todo, defaultDate, id, onClose, onSaved }: { tod
     } finally { busyRef.current = false; }
   }
   function changePrimary(ids: string[]) {
-    if (todo && primary.length > 1 && !window.confirm('대표 카테고리를 선택하면 기존 균등 분할 연결을 바꾸고 과거 시간도 재분류해요. 변경할까요?')) return;
+    if (todo && primary.length > 1 && !window.confirm('대표 카테고리를 선택하면 기존 균등 분할 연결을 바꾸고 스냅샷 없는 과거 시간도 재분류해요. 변경할까요?')) return;
     const tracked = new Set(tags.filter(tag => tag.trackTime).map(tag => tag.id));
     setDraft(d => ({ ...d, tags: [...d.tags.filter(tagId => !tracked.has(tagId)), ...ids] }));
   }
@@ -58,7 +58,7 @@ export function MoaTodoEditor({ todo, defaultDate, id, onClose, onSaved }: { tod
       <div className="mx-inline-field"><span>목표 연결</span><button type="button" disabled={locked} onClick={() => setPicker('goal')} aria-label="연결 목표 선택"><Target size={16} />{goal?.text ?? (draft.weeklyGoalId ? '기존 연결 목표' : '연결 안 함')}<ChevronDown size={15} /></button></div>
       <details className="mx-more-options"><summary>추가 옵션</summary><label>반복 설정<select aria-label="반복 설정" value={draft.recurrenceRule ?? ''} disabled={locked || !!todo} onChange={e => setDraft(d => ({ ...d, recurrenceRule: e.target.value as Todo['recurrenceRule'] || undefined }))}><option value="">반복 안 함</option><option value="daily">매일</option><option value="weekdays">평일</option><option value="weekly">매주 같은 요일</option></select></label><p className="mx-help">반복은 새 할 일에서 설정할 수 있어요. 기존 반복의 편집·삭제·수동 시간 기록은 이 화면에서 지원하지 않아요.</p><label>메모<textarea disabled placeholder="기존 TODO에 메모 저장 필드가 없어 후속 모델 검토가 필요해요." rows={2} /></label></details>
       <button type="button" className="mx-add-row" disabled={locked} onClick={() => setManager(true)}><Settings2 size={16} />태그 관리</button>
-      <p className="mx-help">태그 선택은 목표와 독립적이에요. 태그를 바꾸면 기존 작업 시간의 분류도 바뀔 수 있어요.</p>{error && <p role="alert" className="mx-error">{error}</p>}
+      <p className="mx-help">태그 선택은 목표와 독립적이에요. 새 시간 기록은 당시 분류를 보존해요. 스냅샷 없는 과거 기록은 태그 변경 시 재분류돼요.</p>{error && <p role="alert" className="mx-error">{error}</p>}
     </form>
   </MoaDialog>
   {picker === 'time' && <MoaTagPicker kind="time" value={primary.map(tag => tag.id)} onChange={changePrimary} onClose={() => setPicker(null)} />}

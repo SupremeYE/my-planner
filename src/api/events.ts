@@ -1,3 +1,4 @@
+import { readAllRows } from '../lib/readAllRows';
 import { format, isBefore, parseISO } from 'date-fns';
 import type { Event } from '../app/store';
 import { supabase } from '../lib/supabase';
@@ -290,6 +291,17 @@ export async function getEvents(userId?: string, startDate = FAR_PAST, endDate =
     return [];
   }
   return getRepeatedEvents((data ?? []) as EventRow[], startDate, endDate);
+}
+
+/** Read actual-bearing dates without the planner's rolling expansion window. No planned copies. */
+export async function getActualEventsConfirmed(): Promise<Event[]> {
+  const rows = await readAllRows<EventRow>(supabase, 'events', 'start_at');
+  const dates = [...new Set(rows.filter(row => row.do_start || row.do_end).map(row => format(parseISO(row.start_at), 'yyyy-MM-dd')))];
+  const actual = new Map<string, Event>();
+  for (const date of dates) for (const event of getRepeatedEvents(rows, date, date)) {
+    if (event.doStart || event.doEnd) actual.set(event.id, event);
+  }
+  return [...actual.values()];
 }
 
 export async function createEvent(eventData: Event | EventMutationInput): Promise<Event | null> {

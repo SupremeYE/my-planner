@@ -6,7 +6,7 @@ import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { format, getISOWeek, getISOWeekYear, subDays } from 'date-fns';
 import { createServer } from 'vite';
-import { tables } from './fixtures/moa-todos-data.mjs';
+import { tables } from './fixtures/moa-time-data.mjs';
 const reviewPort = Number(process.env.MOA_REVIEW_PORT || 5175);
 if (!Number.isInteger(reviewPort) || reviewPort < 1024 || reviewPort > 65535) throw new Error('Invalid review port');
 const root = fileURLToPath(new URL('../../', import.meta.url));
@@ -34,5 +34,5 @@ const server = await createServer({ root, cacheDir, plugins: [{
   ]; },
 }], server: { host: '0.0.0.0', port: reviewPort, strictPort: true } });
 await server.listen();
-console.log(`Isolated review: http://localhost:${reviewPort}/__moamoa-todos and /__moamoa-today`);
+console.log(`Isolated review: http://localhost:${reviewPort}/__moamoa-todos and /__moamoa-today and /__moamoa-records`);
 for (const signal of ['SIGINT', 'SIGTERM']) process.once(signal, async () => { await server.close(); await rm(cacheDir, { recursive: true, force: true }); process.exit(0); });

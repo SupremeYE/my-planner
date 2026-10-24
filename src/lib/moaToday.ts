@@ -1,3 +1,4 @@
+import type { ActivityEntry } from './activityEntries';
 import { parseISO } from 'date-fns';
 import type { Todo, Event, Tag, WeeklyGoal, TodoTimeBlock } from '../app/store';
 import { expandRecurringTodos, isVirtualTodoId } from './recurrenceExpansion';
@@ -10,7 +11,7 @@ import { aggregateActivity } from './timeAggregation';
  * Do not expand them again: doing so would copy actuals to planned occurrences.
  * Multi-day all-day spans follow CalendarView's inclusive date convention.
  */
-export function moaTodayData(date: string, todos: Todo[], goals: WeeklyGoal[], events: Event[], tags: Tag[], blocks: TodoTimeBlock[]) {
+export function moaTodayData(date: string, todos: Todo[], goals: WeeklyGoal[], events: Event[], tags: Tag[], blocks: TodoTimeBlock[], activities: ActivityEntry[] = [], actualEvents: Event[] = events) {
   const weekKey = getWeekKey(parseISO(date));
   const weeks = goals.filter(goal => weekKeysMatch(goal.weekKey, weekKey))
     .map(goal => ({ goal, progress: weeklyRollup(goal, todos) }));
@@ -25,7 +26,7 @@ export function moaTodayData(date: string, todos: Todo[], goals: WeeklyGoal[], e
     event.isAllDay && !event.isOccurrence && periodCoversDate({ date: event.startDate ?? event.date, endDate: event.endDate }, date)
   )).sort((a, b) => Number(!!b.isAllDay) - Number(!!a.isAllDay) || (a.startTime ?? '').localeCompare(b.startTime ?? ''));
   return { weeks, weekProgress: combineRollups(weeks.map(row => row.progress)), top3, dayTodos, dayEvents,
-    activity: aggregateActivity(todos, events, tags, date, date, blocks) };
+    activity: aggregateActivity(todos, actualEvents, tags, date, date, blocks, activities) };
 }
 
 export function moaMinutes(minutes: number): string {

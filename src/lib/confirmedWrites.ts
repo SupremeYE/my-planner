@@ -1,4 +1,5 @@
-import { saveFailure, SaveFailure } from './saveCoordinator';
+import { readAllRows } from './readAllRows';
+import { saveFailure, SaveFailure, saveIntent } from './saveCoordinator';
 
 /** Additive persistence path for core entities and timer sessions; legacy writers keep their contract. */
 export function confirmedWrites<T extends { id: string }, Row extends { id: string }>(
@@ -19,7 +20,7 @@ export function confirmedWrites<T extends { id: string }, Row extends { id: stri
       if (!row || row.id !== record.id) throw new SaveFailure('저장 결과를 확인하지 못했어요.', false);
       const confirmed = decode(row);
       const normalized = encode(confirmed);
-      if (Object.entries(encode(record)).some(([key, value]) => JSON.stringify(value) !== JSON.stringify((normalized as any)[key]))) {
+      if (Object.entries(encode(record)).some(([key, value]) => saveIntent(value) !== saveIntent((normalized as any)[key]))) {
         throw new SaveFailure('같은 항목이 다른 내용으로 저장돼 있어요. 새로고침해 확인해주세요.', false);
       }
       return confirmed;
@@ -28,7 +29,7 @@ export function confirmedWrites<T extends { id: string }, Row extends { id: stri
       const oldRow = encode(before); const nextRow = encode(after);
       // Send only changed columns; do not overwrite unrelated fields changed on another device.
       const patch = Object.fromEntries(Object.entries(nextRow).filter(([key, value]) =>
-        key !== 'id' && JSON.stringify(value) !== JSON.stringify((oldRow as any)[key])));
+        key !== 'id' && saveIntent(value) !== saveIntent((oldRow as any)[key])));
       if (!Object.keys(patch).length) return before;
       const result = await client.from(table).update(patch).eq('id', before.id).select('*').single();
       if (result.error) throw saveFailure(result.error, result.status);
@@ -50,10 +51,7 @@ export function confirmedWrites<T extends { id: string }, Row extends { id: stri
       if (!Array.isArray(check.data) || check.data.length) throw new SaveFailure('삭제 결과를 확인하지 못했어요.', false);
     },
     async fetchConfirmed(): Promise<T[]> {
-      const result = await client.from(table).select('*').order('created_at');
-      if (result.error) throw saveFailure(result.error, result.status);
-      if (!Array.isArray(result.data)) throw new SaveFailure('조회 결과를 확인하지 못했어요.', false);
-      return result.data.map(decode);
+      return (await readAllRows<Row>(client, table)).map(decode);
     },
   };
 }

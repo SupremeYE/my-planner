@@ -1,4 +1,5 @@
 import { supabase } from './supabase';
+import { readAllRows } from './readAllRows';
 import { confirmedWrites } from './confirmedWrites';
 import { saveFailure, SaveFailure } from './saveCoordinator';
 import { format, addDays, subDays } from 'date-fns';
@@ -62,6 +63,7 @@ type TodoTimeBlockRow = {
   start_time: string | null;
   end_time: string | null;
   elapsed_sec: number | null;
+  classification_snapshot?: TodoTimeBlock['classificationSnapshot'];
 };
 
 type HabitRow = {
@@ -297,6 +299,7 @@ const toTimeBlock = (r: TodoTimeBlockRow): TodoTimeBlock => ({
   start: r.start_time ?? undefined,
   end: r.end_time ?? undefined,
   elapsedSec: r.elapsed_sec ?? 0,
+  classificationSnapshot: r.classification_snapshot,
 });
 
 const fromTimeBlock = (b: TodoTimeBlock): TodoTimeBlockRow => ({
@@ -306,6 +309,7 @@ const fromTimeBlock = (b: TodoTimeBlock): TodoTimeBlockRow => ({
   start_time: b.start ?? null,
   end_time: b.end ?? null,
   elapsed_sec: b.elapsedSec ?? 0,
+  ...(b.classificationSnapshot !== undefined ? { classification_snapshot: b.classificationSnapshot } : {}),
 });
 
 const toHabit = (r: HabitRow): Habit => ({
@@ -1083,9 +1087,8 @@ export const db = {
   todos: {
     ...confirmedWrites(supabase, 'todos', fromTodo, toTodo),
     fetchAll: async (): Promise<Todo[]> => {
-      const { data, error } = await supabase.from('todos').select('*').order('created_at');
-      if (error) console.error('[db] todos fetch:', error.message);
-      return (data ?? []).map(toTodo);
+      try { return (await readAllRows<TodoRow>(supabase, 'todos')).map(toTodo); }
+      catch { console.error('[db] todos fetch failed'); return []; }
     },
     upsert: async (todo: Todo) => {
       const { error } = await supabase.from('todos').upsert(fromTodo(todo));
@@ -1334,10 +1337,8 @@ export const db = {
   todoTimeBlocks: {
     ...confirmedWrites<TodoTimeBlock, TodoTimeBlockRow>(supabase, 'todo_time_blocks', fromTimeBlock, toTimeBlock),
     fetchAll: async (): Promise<TodoTimeBlock[]> => {
-      const { data, error } = await supabase
-        .from('todo_time_blocks').select('*').order('date').order('start_time');
-      if (error) console.error('[db] todo_time_blocks fetch:', error.message);
-      return (data ?? []).map(toTimeBlock);
+      try { return (await readAllRows<TodoTimeBlockRow>(supabase, 'todo_time_blocks', 'date')).map(toTimeBlock); }
+      catch { console.error('[db] todo_time_blocks fetch failed'); return []; }
     },
     forTodoConfirmed: async (todoId: string): Promise<TodoTimeBlock[]> => {
       const result = await supabase.from('todo_time_blocks').select('*').eq('todo_id', todoId);

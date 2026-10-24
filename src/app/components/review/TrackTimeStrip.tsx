@@ -18,12 +18,12 @@ export function fmtMin(min: number): string {
 }
 
 export function TrackTimeStrip({ startStr, endStr, period }: { startStr: string; endStr: string; period?: 'week' | 'month' }) {
-  const { todos, events, tags, timeBlocks } = usePlanner();
+  const { todos, events, tags, timeBlocks, activityEntries, reportEvents } = usePlanner();
   const { t } = useTheme();
   const navigate = useNavigate();
 
   const { timeRows, timeTotal, countRows, countTotal } = useMemo(() => {
-    const agg = aggregateActivity(todos, events, tags, startStr, endStr, timeBlocks);
+    const agg = aggregateActivity(todos, reportEvents ?? events, tags, startStr, endStr, timeBlocks, activityEntries);
     const rows = toTagRows(agg, tags);
     return {
       timeRows: rows.filter(r => r.minutes > 0).sort((a, b) => b.minutes - a.minutes),
@@ -31,7 +31,7 @@ export function TrackTimeStrip({ startStr, endStr, period }: { startStr: string;
       countRows: rows.filter(r => r.count > 0).sort((a, b) => b.count - a.count),
       countTotal: agg.totalCount,
     };
-  }, [todos, events, tags, timeBlocks, startStr, endStr]);
+  }, [todos, events, reportEvents, tags, timeBlocks, activityEntries, startStr, endStr]);
 
   // ── 문장형 인사이트 (최대 3줄, 공백 알림 우선) — 시간 리포트와 같은 공용 훅 ──
   const insights = useActivityInsights(startStr, endStr, period);

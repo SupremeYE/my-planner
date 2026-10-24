@@ -9,6 +9,7 @@ import { moaTodayData, moaMinutes } from '../../../lib/moaToday';
 import { completionMarkerPatch } from '../../../lib/todoDoDuration';
 import { SaveStatus } from '../SaveStatus';
 import { RetroSheet } from '../RetroSheet';
+import { MoaActivitySheet } from './MoaActivitySheet';
 import { MoaBuddy } from './MoaBuddy';
 import './today.css';
 
@@ -16,7 +17,7 @@ import { moaNav as nav, moaFonts as fonts, useMoaToday } from './moaShared';
 
 export function Component() {
   const planner = usePlanner();
-  const { todos, events, tags, timeBlocks, weeklyGoals, isLoading, dayEndHour, saveStates, addTodo, updateTodo, activeTimer, finishActiveTimer, setSelectedDate } = planner;
+  const { todos, events, tags, timeBlocks, activityEntries, reportEvents, weeklyGoals, isLoading, dayEndHour, saveStates, addTodo, updateTodo, activeTimer, finishActiveTimer, setSelectedDate } = planner;
   const today = useMoaToday(dayEndHour);
   const [showAllGoals, setShowAllGoals] = useState(false);
   const [pickedDate, setPickedDate] = useState<string | null>(null);
@@ -27,6 +28,7 @@ export function Component() {
   useEffect(() => { const update = () => setOnline(navigator.onLine); window.addEventListener('online', update); window.addEventListener('offline', update);
     return () => { window.removeEventListener('online', update); window.removeEventListener('offline', update); }; }, []);
   const [showQuick, setShowQuick] = useState(false);
+  const [showTime, setShowTime] = useState(false);
   const [reviewDate, setReviewDate] = useState<string | null>(null);
   const [draft, setDraft] = useState<{ id: string; text: string; date: string } | null>(null);
   const submitting = useRef(false);
@@ -64,8 +66,8 @@ export function Component() {
       await updateTodo(todo.id, { status, ...completionMarkerPatch(todo, status, format(new Date(), 'HH:mm')) });
     } finally { toggling.current.delete(todo.id); }
   }
-  const model = useMemo(() => moaTodayData(date, todos, weeklyGoals, events, tags, timeBlocks),
-    [date, todos, weeklyGoals, events, tags, timeBlocks]);
+  const model = useMemo(() => moaTodayData(date, todos, weeklyGoals, events, tags, timeBlocks, activityEntries, reportEvents),
+    [date, todos, weeklyGoals, events, tags, timeBlocks, activityEntries, reportEvents]);
   const checksLocked = saveStates.some(state => state.status === 'saving' || state.status === 'error' && state.key.startsWith('todos:'));
   function go(to: string) { setSelectedDate(date); navigate(to === '/todos' ? '/__moamoa-todos' : to); }
   return <div className="mt-root" style={fonts}>
@@ -82,6 +84,7 @@ export function Component() {
         <div className="mt-datebar"><div><button aria-label="이전 날짜" onClick={() => setPickedDate(format(addDays(parseISO(date), -1), 'yyyy-MM-dd'))}><ChevronLeft size={20} /></button><time dateTime={date}>{format(parseISO(date), 'yyyy년 M월 d일 EEEE', { locale: ko })}</time><button aria-label="다음 날짜" onClick={() => setPickedDate(format(addDays(parseISO(date), 1), 'yyyy-MM-dd'))}><ChevronRight size={20} /></button></div><button onClick={() => setPickedDate(null)} disabled={pickedDate === null}>오늘</button></div>
         <section className="mt-greeting"><div><p className="mt-eyebrow">MY COZY LITTLE DAY</p><h1 className={date === today ? 'mt-today-title' : undefined}>{date === today ? '오늘도, 힘내자!' : '하루의 조각을 돌아봐요'}</h1><p>작은 일부터 하나씩.</p></div><MoaBuddy small /></section>
         {!online && <div className="mt-offline" role="status">오프라인이에요. 새 기록은 저장되지 않아요. 표시된 데이터가 최신이 아닐 수 있어요. 연결 후 새로고침해주세요.</div>}
+        {planner.coreTimeReadError && <p role="status" className="mt-offline">{planner.coreTimeReadError}</p>}
         {isLoading ? <div className="mt-loading" role="status" aria-busy="true"><Sprout size={25} /><h2>나의 하루를 불러오고 있어요</h2><p>기존 목표와 기록을 확인하는 중이에요.</p></div> : <>
           <section className="mt-card mt-week" aria-labelledby="mt-week-title">
             <div className="mt-section-head"><div><p className="mt-eyebrow">THIS WEEK</p><h2 id="mt-week-title"><Sprout size={19} />이번 주 목표</h2></div><button onClick={() => go('/goals')}>목표 보기 <ChevronRight size={17} /></button></div>
@@ -113,7 +116,7 @@ export function Component() {
             </section>
             <section className="mt-card mt-retro"><NotebookPen size={24} /><h2>하루를 살며시 접어요</h2><p>좋았던 순간 한 줄이면 충분해요.<br />비워둔 날도 괜찮아요.</p><button onClick={() => setReviewDate(date)}>하루 회고 열기 <ChevronRight size={17} /></button></section>
           </div></div>
-          <p className="mt-footer-note">기존 내 기록과 함께하는 오늘 · 새로운 활동 시간 저장은 아직 제공하지 않아요.</p>
+          <p className="mt-footer-note">기존 내 기록과 함께하는 오늘 · 기록 메뉴에서 실제 활동 시간을 함께 모아보세요.</p>
         </>}
         <p className="mt-notice" role="status">{notice}</p>
       </main>
@@ -128,8 +131,9 @@ export function Component() {
         <SaveStatus inline onlyKeys={draft ? [`todos:${draft.id}`] : []} />
         {draftState?.status === 'error' && <p className="mt-draft-date">초안을 보관하고 있어요. {draftState.retryable ? '위 재시도로 같은 요청을 다시 확인해주세요.' : '로그인·권한·입력 내용을 확인한 후 알림을 닫아 수정해주세요.'}</p>}
         <button type="submit" className="mt-submit" disabled={!draft?.text.trim() || !!locked}>{submitted || draftState?.status === 'saving' ? '저장 중…' : draftState?.status === 'error' ? '저장하지 못했어요' : '할 일 저장'}</button>
-      </form><p className="mt-draft-date">오프라인 저장은 지원하지 않아요. 활동 시간은 기존 할 일에서 기록해주세요.</p>
+      </form><button type="button" className="mx-add-row" onClick={() => { setShowQuick(false); setShowTime(true); }}>활동 시간 기록</button><p className="mt-draft-date">오프라인 저장은 지원하지 않아요. 활동 시간은 아래 시간 기록에서 따로 남길 수 있어요.</p>
     </Dialog.Content></Dialog.Portal></Dialog.Root>
+    {showTime && <MoaActivitySheet date={today} onClose={() => setShowTime(false)} onSaved={() => { setShowTime(false); setNotice('실제 활동 시간을 저장했어요.'); }} />}
     {reviewDate && <RetroSheet key={reviewDate} date={reviewDate} onClose={() => setReviewDate(null)} />}
   </div>;
 }

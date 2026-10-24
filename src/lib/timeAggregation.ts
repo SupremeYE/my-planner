@@ -14,6 +14,7 @@
  *  - 시간(minutes): "얼마나 오래" — 실행 시각을 기록한 것만 잡힌다
  *  - 건수(count):   "얼마나 자주" — 태그만 붙으면 모두 잡힌다(누락이 적어 더 정직)
  */
+import { validSnapshot, type ActivityEntry, type ClassificationSnapshot } from './activityEntries';
 import type { Todo, Tag, Event, TodoTimeBlock } from '../app/store';
 
 // ───────────────────────── 튜닝 상수 (하드코딩 금지 · 단일 출처) ─────────────────────────
@@ -50,7 +51,7 @@ export const MAX_INSIGHTS = 3;
 export interface TagAgg {
   minutes: number;
   /** 시간에 기여한 기록(할일 do_·블록·이벤트 시각). 시간 리포트의 todoCount·상세 목록용. */
-  timeItems: Array<{ name: string; minutes: number; date: string; kind: 'todo' | 'event' }>;
+  timeItems: Array<{ name: string; minutes: number; date: string; kind: 'todo' | 'event' | 'activity' }>;
   /** 건수 축 — 태그가 붙은 기록 수(시간 유무 무관). 한 기록에 태그 N개면 각 태그에 +1. */
   count: number;
 }
@@ -61,13 +62,23 @@ export interface RangeAggregation {
   totalMinutes: number;
   totalCount: number;
   coverage: ActivityCoverage;
+  records: ActivityRecord[];
+  tagMetadata: Map<string, { name: string; color: string }>;
+}
+
+export interface ActivityRecord extends TimeRecord {
+  minutes: number;
+  shares: Array<{ tagId: string; name: string; color: string; weight: number }>;
+  classification: 'snapshot' | 'legacy' | 'invalid';
+  start?: string;
+  end?: string;
 }
 
 interface TimeRecord {
   id: string;
   name: string;
   date: string;
-  kind: 'todo' | 'event' | 'block';
+  kind: 'todo' | 'event' | 'block' | 'activity';
 }
 
 /** UI를 추가하지 않고도 집계에서 빠진 실적을 확인할 수 있는 진단 데이터. */
@@ -77,7 +88,7 @@ export interface ActivityCoverage {
   unclassifiedMinutes: number;
   unclassifiedItems: Array<TimeRecord & {
     minutes: number;
-    reason: 'untagged' | 'untracked-tags' | 'unknown-tags' | 'missing-todo';
+    reason: 'untagged' | 'untracked-tags' | 'unknown-tags' | 'missing-todo' | 'invalid-snapshot';
   }>;
   unresolvedItems: Array<TimeRecord & {
     reason: 'invalid-time' | 'ambiguous-overnight' | 'legacy-date-ambiguous';
@@ -107,12 +118,15 @@ export function aggregateActivity(
   startStr: string,
   endStr: string,
   timeBlocks: TodoTimeBlock[] = [],
+  activityEntries: ActivityEntry[] = [],
 ): RangeAggregation {
   const trackTagIds = new Set(tags.filter(t => t.trackTime).map(t => t.id));
   const tagIds = new Set(tags.map(t => t.id));
   const coverage: ActivityCoverage = {
     recordedMinutes: 0, unclassifiedMinutes: 0, unclassifiedItems: [], unresolvedItems: [],
   };
+  const records: ActivityRecord[] = [];
+  const tagMetadata = new Map<string, { name: string; color: string }>();
   const byTag = new Map<string, TagAgg>();
   const ensure = (id: string): TagAgg => {
     let e = byTag.get(id);
@@ -142,25 +156,34 @@ export function aggregateActivity(
     return (e - s) * 60;
   };
 
-  const addTime = (record: TimeRecord, recordTags: string[] | undefined, sec: number) => {
+  const addTime = (record: TimeRecord, recordTags: string[] | undefined, sec: number,
+    snapshot?: ClassificationSnapshot | null, start?: string, end?: string) => {
     if (sec <= 0) return;
     coverage.recordedMinutes += sec / 60;
-    const matched = (recordTags ?? []).filter(id => trackTagIds.has(id));
-    if (matched.length === 0) {
-      const reason = record.kind === 'block' && recordTags === undefined ? 'missing-todo'
-        : !recordTags?.length ? 'untagged'
+    const explicit = snapshot != null;
+    const matched = [...new Set(recordTags ?? [])].filter(id => trackTagIds.has(id));
+    const shares = explicit ? (validSnapshot(snapshot) ? snapshot.shares : []) : matched.map(id => {
+      const tag = tags.find(t => t.id === id)!;
+      return { tagId: id, name: tag.name, color: tag.color, weight: 1 / matched.length };
+    });
+    records.push({ ...record, minutes: sec / 60, shares, classification: explicit ? validSnapshot(snapshot) ? 'snapshot' : 'invalid' : 'legacy', start, end });
+    if (!shares.length) {
+      const reason = explicit && !validSnapshot(snapshot) ? 'invalid-snapshot'
+        : record.kind === 'block' && recordTags === undefined && !explicit ? 'missing-todo'
+        : explicit || !recordTags?.length ? 'untagged'
         : recordTags.some(id => tagIds.has(id)) ? 'untracked-tags' : 'unknown-tags';
       coverage.unclassifiedMinutes += sec / 60;
       coverage.unclassifiedItems.push({ ...record, minutes: sec / 60, reason });
       return;
     }
-    // 시간추적 태그가 여러 개면 시간을 균등 분할(시간 리포트와 동일 규칙).
-    const minutesEach = sec / 60 / matched.length;
-    for (const id of matched) {
-      const e = ensure(id);
-      e.minutes += minutesEach;
-      e.timeItems.push({ name: record.name, minutes: minutesEach, date: record.date,
-        kind: record.kind === 'event' ? 'event' : 'todo' });
+    for (const share of shares) {
+      // Frozen name/color and allocation survive tag edits/deletion. Never rewrite old rows.
+      if (explicit || !tagMetadata.has(share.tagId)) tagMetadata.set(share.tagId, { name: share.name, color: share.color });
+      const e = ensure(share.tagId);
+      const minutes = sec / 60 * share.weight;
+      e.minutes += minutes;
+      e.timeItems.push({ name: record.name, minutes, date: record.date,
+        kind: record.kind === 'event' ? 'event' : record.kind === 'activity' ? 'activity' : 'todo' });
     }
   };
 
@@ -177,7 +200,7 @@ export function aggregateActivity(
     if (!inRange(b.date)) continue;
     const todo = todoById.get(b.todoId);
     const record: TimeRecord = { id: b.id, name: todo?.text ?? '(연결된 할일 없음)', date: b.date, kind: 'block' };
-    addTime(record, todo ? todo.tags ?? [] : undefined, duration(record, b.start, b.end, b.elapsedSec, false));
+    addTime(record, todo ? todo.tags ?? [] : undefined, duration(record, b.start, b.end, b.elapsedSec, false), b.classificationSnapshot, b.start, b.end);
     coveredByBlock.add(`${b.todoId}|${b.date}`);
   }
   // ── 시간 축 ②: 블록 없는 TODO의 레거시 do_* (다른 날짜 블록과의 관계는 진단) ──
@@ -192,13 +215,20 @@ export function aggregateActivity(
       coverage.unresolvedItems.push({ ...record, reason: 'legacy-date-ambiguous', candidateMinutes: sec / 60 });
       continue;
     }
-    addTime(record, todo.tags, sec);
+    addTime(record, todo.tags, sec, undefined, todo.doStart, todo.doEnd);
   }
   // ── 시간 축 ③: 일정의 실제 실행 시각. 계획 시각으로 폴백하지 않는다. ──
   for (const ev of events) {
     if (!inRange(ev.date)) continue;
     const record: TimeRecord = { id: ev.id, name: ev.title, date: ev.date, kind: 'event' };
-    addTime(record, ev.tags, duration(record, ev.doStart, ev.doEnd));
+    addTime(record, ev.tags, duration(record, ev.doStart, ev.doEnd), undefined, ev.doStart, ev.doEnd);
+  }
+
+  // Independent entries have no TODO identity or completion/goal side effects.
+  for (const entry of activityEntries) {
+    if (!inRange(entry.date)) continue;
+    const record: TimeRecord = { id: entry.id, name: entry.name, date: entry.date, kind: 'activity' };
+    addTime(record, entry.categoryId ? [entry.categoryId] : [], duration(record, undefined, undefined, entry.elapsedSec), entry.classificationSnapshot ?? ({} as ClassificationSnapshot), entry.startedAt, entry.endedAt);
   }
 
   // ── 건수 축: 태그 붙은 할일·이벤트(시간 유무 무관, 각자의 date 기준) ──
@@ -213,7 +243,7 @@ export function aggregateActivity(
 
   let totalMinutes = 0; let totalCount = 0;
   byTag.forEach(e => { totalMinutes += e.minutes; totalCount += e.count; });
-  return { byTag, totalMinutes, totalCount, coverage };
+  return { byTag, totalMinutes, totalCount, coverage, records, tagMetadata };
 }
 
 // ───────────────────────── 표시용 행(rows) ─────────────────────────
@@ -232,8 +262,8 @@ export function toTagRows(agg: RangeAggregation, tags: Tag[]): TagRow[] {
   return Array.from(agg.byTag.entries())
     .map(([tagId, v]) => ({
       tagId,
-      tagName: tagMap.get(tagId)?.name ?? '(삭제된 태그)',
-      tagColor: tagMap.get(tagId)?.color ?? '#999999',
+      tagName: agg.tagMetadata.get(tagId)?.name ?? tagMap.get(tagId)?.name ?? '(삭제된 태그)',
+      tagColor: agg.tagMetadata.get(tagId)?.color ?? tagMap.get(tagId)?.color ?? '#999999',
       minutes: v.minutes,
       count: v.count,
     }))

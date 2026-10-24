@@ -2,6 +2,7 @@
 import { memorySupabase } from './memory-supabase';
 const fixture = (window as any).__moaFixture ?? { tables: {} };
 const instance = memorySupabase(fixture.tables);
+for (const fault of fixture.faults ?? []) instance.controls.failNext(fault.table, fault);
 export const controls = { ...instance.controls, reads: [] as string[] };
 (window as any).testDb = controls;
 const originalFrom = instance.supabase.from;

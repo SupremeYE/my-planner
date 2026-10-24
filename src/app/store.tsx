@@ -6,6 +6,9 @@ export { getWeekKey } from '../lib/weekKeys';
 import { db } from '../lib/db';
 import { SaveCoordinator, SaveFailure, saveIntent, mergeConfirmedRows, type SaveState } from '../lib/saveCoordinator';
 import { isRecurringMoaTodo, preservedLegacyBlock, legacyBlockId } from '../lib/moaTodos';
+import type { ClassificationSnapshot } from '../lib/activityEntries';
+import { snapshotTags, validSnapshot, validActivityDate } from '../lib/activityEntries';
+import { useActivityStorage } from './hooks/useActivityStorage';
 import { weeklyRollup } from './components/period/periodProgress';
 import { isVirtualTodoId, parseVirtualTodoId } from '../lib/recurrenceExpansion';
 import { isVirtualEventId, parseVirtualEventId } from '../api/events';
@@ -68,6 +71,7 @@ export interface TodoTimeBlock {
   date: string;        // 작업한 날짜 yyyy-MM-dd (todo.date 예정일과 별개)
   start?: string;      // HH:mm
   end?: string;        // HH:mm
+  classificationSnapshot?: ClassificationSnapshot | null; // null/absent = explicit legacy fallback
   elapsedSec: number;  // 타이머 실측 초
 }
 
@@ -795,8 +799,10 @@ export const DEFAULT_AFFIRMATIONS = [
 ];
 
 // ───── Context ─────
-interface PlannerContextType {
+interface PlannerContextType extends ReturnType<typeof useActivityStorage> {
   isLoading: boolean;
+  coreTimeReadError: string;
+  refreshCoreTimeSources: () => Promise<void>;
   selectedDate: string;
   setSelectedDate: (d: string) => void;
   todos: Todo[];
@@ -819,7 +825,8 @@ interface PlannerContextType {
   editTagConfirmed: (id: string, changes: Partial<Omit<Tag, 'id'>>) => Promise<boolean>;
   removeTagConfirmed: (id: string) => Promise<boolean>;
   removeTodoConfirmed: (id: string) => Promise<boolean>;
-  addManualTimeConfirmed: (todoId: string, date: string, minutes: number, id: string) => Promise<boolean>;
+  amendTimeBlockConfirmed: (id: string, changes: Partial<TodoTimeBlock> | null) => Promise<boolean>;
+  addManualTimeConfirmed: (todoId: string, date: string, minutes: number, id: string, snapshot?: ClassificationSnapshot) => Promise<boolean>;
   routines: Routine[];
   selfCareRecords: SelfCareRecord[];
   reviewRecords: ReviewRecord[];
@@ -983,6 +990,7 @@ const PlannerContext: React.Context<PlannerContextType | null> =
 
 export function PlannerProvider({ children }: { children: React.ReactNode }) {
   const [isLoading, setIsLoading] = useState(true);
+  const [coreTimeReadError, setCoreTimeReadError] = useState('');
   const [selectedDate, setSelectedDate] = useState(getLogicalToday());
   const [dayStartHour, setDayStartHour] = useState(4);
   const [dayEndHour, setDayEndHour] = useState(26);
@@ -1020,6 +1028,8 @@ export function PlannerProvider({ children }: { children: React.ReactNode }) {
   const retrySave = useCallback((key: string) => { void saveCoordinator.retry(key); }, [saveCoordinator]);
   const dismissSave = useCallback((key: string) => saveCoordinator.dismiss(key), [saveCoordinator]);
 
+  const activityStorage = useActivityStorage(saveCoordinator, events);
+
   const [annualGoals, setAnnualGoals] = useState<AnnualGoal[]>([]);
   const [quarterlyGoals, setQuarterlyGoals] = useState<QuarterlyGoal[]>([]);
   const [brainstormItems, setBrainstormItems] = useState<BrainstormItem[]>([]);
@@ -1038,10 +1048,24 @@ export function PlannerProvider({ children }: { children: React.ReactNode }) {
   const [appSettings, setAppSettings] = useState<AppSettings>(DEFAULT_APP_SETTINGS);
   const wakeLockRef = useRef<any>(null);
 
+  const refreshCoreTimeSources = useCallback(async () => {
+    const revision = saveCoordinator.revision;
+    try {
+      const [remoteTodos, remoteBlocks] = await Promise.all([db.todos.fetchConfirmed(), db.todoTimeBlocks.fetchConfirmed()]);
+      if (revision !== saveCoordinator.revision) return;
+      todosRef.current = mergeConfirmedRows(remoteTodos, todosRef.current, saveCoordinator.protectedIds('todos'));
+      timeBlocksRef.current = mergeConfirmedRows(remoteBlocks, timeBlocksRef.current, saveCoordinator.protectedIds('timeBlocks'));
+      setTodos(todosRef.current); setTimeBlocks(timeBlocksRef.current); setCoreTimeReadError('');
+    } catch { setCoreTimeReadError('할 일·시간 블록을 모두 확인하지 못했어요. 현재 시간 합계가 전체 실적과 다를 수 있어요.'); }
+  }, [saveCoordinator]);
+
   // ── 앱 시작 시 Supabase에서 데이터 로드 ──
   useEffect(() => {
     const load = async () => {
       setIsLoading(true);
+      const readCore = async <T,>(read: () => Promise<T[]>) => {
+        try { return await read(); } catch { setCoreTimeReadError('할 일·시간 블록을 모두 확인하지 못했어요. 현재 시간 합계가 전체 실적과 다를 수 있어요.'); return []; }
+      };
       const [
         todosData, habitsData, projectsData, milestonesData,
         selfCareData, reviewData, timelineData, settingsData,
@@ -1051,7 +1075,7 @@ export function PlannerProvider({ children }: { children: React.ReactNode }) {
         weeklyReviewsData, monthlyReviewsData, foodRecordsData,
         happyMomentsData, timeBlocksData,
       ] = await Promise.all([
-        db.todos.fetchAll(),
+        readCore(typeof db.todos.fetchConfirmed === 'function' ? db.todos.fetchConfirmed : db.todos.fetchAll),
         db.habits.fetchAll(),
         db.projects.fetchAll(),
         db.milestones.fetchAll(),
@@ -1074,7 +1098,7 @@ export function PlannerProvider({ children }: { children: React.ReactNode }) {
         db.monthlyReviews.fetchAll(),
         db.foodRecords.fetchAll(),
         db.happyMoments.fetchAll(),
-        db.todoTimeBlocks.fetchAll(),
+        readCore(typeof db.todoTimeBlocks.fetchConfirmed === 'function' ? db.todoTimeBlocks.fetchConfirmed : db.todoTimeBlocks.fetchAll),
       ]);
       setTodos(todosData);
       setTimeBlocks(timeBlocksData);
@@ -1123,7 +1147,7 @@ export function PlannerProvider({ children }: { children: React.ReactNode }) {
         const next = mergeConfirmedRows(rows, ref.current, saveCoordinator.protectedIds(kind));
         ref.current = next;
         setRows(next);
-      } catch { /* A failed read must not erase confirmed records. */ }
+      } catch { if (kind === 'todos' || kind === 'timeBlocks') setCoreTimeReadError('할 일·시간 블록을 모두 확인하지 못했어요. 마지막으로 확인한 기록을 유지해요.'); /* A failed read must not erase confirmed records. */ }
     };
     // 각 테이블별 재fetch 함수
     const refetchers: Record<string, () => Promise<void>> = {
@@ -1238,6 +1262,7 @@ export function PlannerProvider({ children }: { children: React.ReactNode }) {
       doStart: timer.startHHMM, doEnd: endHHMM, doElapsedSec: totalElapsedSec };
     const sessionId = timer.sessionId ?? saveCoordinator.creationId('timer', { todoId: timer.todoId, startedAt: timer.startedAt });
     const block: TodoTimeBlock = { id: sessionId, todoId: timer.todoId,
+      ...(activityStorage.activityStorageStatus === 'ready' ? { classificationSnapshot: snapshotTags(before.tags ?? [], tagsRef.current) } : {}),
       date: format(new Date(timer.startedAt), 'yyyy-MM-dd'), start: timer.startHHMM, end: endHHMM, elapsedSec: totalElapsedSec };
     // Freeze the unsaved session. Keep it recoverable until both existing-table writes are confirmed.
     setActiveTimer(current => current?.todoId === timer.todoId
@@ -1255,7 +1280,7 @@ export function PlannerProvider({ children }: { children: React.ReactNode }) {
         window.localStorage.removeItem(ACTIVE_TIMER_STORAGE_KEY);
       },
     });
-  }, [saveCoordinator, commitTodo]);
+  }, [saveCoordinator, commitTodo, activityStorage.activityStorageStatus]);
 
   useEffect(() => {
     const restoreTimerFromStorage = () => {
@@ -2343,8 +2368,8 @@ export function PlannerProvider({ children }: { children: React.ReactNode }) {
       }, commit: deleted => { todosRef.current = todosRef.current.filter(todo => todo.id !== deleted); setTodos(todosRef.current); } });
     return saved !== null;
   }, [saveCoordinator, activeTimer]);
-  const addManualTimeConfirmed = useCallback(async (todoId: string, date: string, minutes: number, id: string) => {
-    const block: TodoTimeBlock = { id, todoId, date, elapsedSec: minutes * 60 };
+  const addManualTimeConfirmed = useCallback(async (todoId: string, date: string, minutes: number, id: string, snapshot?: ClassificationSnapshot) => {
+    const block: TodoTimeBlock = { id, todoId, date, elapsedSec: minutes * 60, ...(snapshot ? { classificationSnapshot: snapshot } : {}) };
     let baseline: TodoTimeBlock | undefined;
     let source: Todo | null | undefined;
     const saved = await saveCoordinator.run({ key: `timeBlocks:${id}`, label: '실제 시간 기록', intent: saveIntent(block),
@@ -2354,6 +2379,8 @@ export function PlannerProvider({ children }: { children: React.ReactNode }) {
           throw new SaveFailure('작업 날짜와 1~1440분의 실제 소요를 확인해주세요.', false);
         source ??= await db.todos.getConfirmed(todoId);
         if (!source || isRecurringMoaTodo(source)) throw new SaveFailure('연결할 할 일과 반복 여부를 확인해주세요.', false);
+        if (snapshot && !validSnapshot(snapshot)) throw new SaveFailure('분류 정보를 확인해주세요.', false);
+        if (activityStorage.activityStorageStatus === 'ready' && block.classificationSnapshot === undefined) block.classificationSnapshot = snapshotTags(source.tags ?? [], tagsRef.current);
         const existing = await db.todoTimeBlocks.forTodoConfirmed(todoId);
         baseline ??= preservedLegacyBlock(source, existing, await legacyBlockId(todoId));
         // Same deterministic baseline ID across retries/devices. Never invent start/end.
@@ -2366,6 +2393,31 @@ export function PlannerProvider({ children }: { children: React.ReactNode }) {
         setTimeBlocks(timeBlocksRef.current);
       } });
     return saved !== null;
+  }, [saveCoordinator, activeTimer, activityStorage.activityStorageStatus]);
+
+  const amendTimeBlockConfirmed = useCallback(async (id: string, changes: Partial<TodoTimeBlock> | null) => {
+    const before = timeBlocksRef.current.find(row => row.id === id);
+    const saved = await saveCoordinator.run({ key: `timeBlocks:${id}`, label: changes ? '시간 기록 수정' : '시간 기록 삭제', intent: saveIntent(changes),
+      execute: async () => {
+        if (!before || activeTimer?.todoId === before.todoId) throw new SaveFailure('기록과 활성 타이머 상태를 확인해주세요.', false);
+        const source = await db.todos.getConfirmed(before.todoId);
+        if (!source || isRecurringMoaTodo(source)) throw new SaveFailure('반복 또는 연결이 없는 기록은 먼저 기존 회차를 확인해주세요.', false);
+        if (changes) {
+          const after = { ...before, date: changes.date ?? before.date, elapsedSec: changes.elapsedSec ?? before.elapsedSec };
+          if (!validActivityDate(after.date) || !Number.isInteger(after.elapsedSec) || after.elapsedSec <= 0 || after.elapsedSec > 86400)
+            throw new SaveFailure('날짜와 실제 소요를 확인해주세요.', false);
+          // A migrated do_* baseline cannot be changed without resurrecting or hiding the legacy original.
+          if (id === await legacyBlockId(before.todoId)) throw new SaveFailure('보존한 레거시 실적은 이 화면에서 수정하지 않아요.', false);
+          if (before.start || before.end) throw new SaveFailure('실제 시각이 있는 기존 블록은 타임라인에서 수정해주세요.', false);
+          return db.todoTimeBlocks.updateConfirmed(before, after);
+        }
+        const blocks = await db.todoTimeBlocks.forTodoConfirmed(before.todoId);
+        if (id === await legacyBlockId(before.todoId) || blocks.length <= 1 && (!!source.doElapsedSec || !!source.doStart && source.doStart !== source.doEnd))
+          throw new SaveFailure('삭제하면 레거시 실적이 다시 집계될 수 있어요. 원본 실적을 먼저 확인해주세요.', false);
+        await db.todoTimeBlocks.deleteConfirmed(id); return null;
+      }, commit: record => { timeBlocksRef.current = timeBlocksRef.current.filter(row => row.id !== id); if (record) timeBlocksRef.current.push(record); setTimeBlocks([...timeBlocksRef.current]); } });
+    // Successful deletes return null from the transport; use confirmed coordinator state.
+    return saved !== null || saveCoordinator.snapshot().some(state => state.key === `timeBlocks:${id}` && state.status === 'saved');
   }, [saveCoordinator, activeTimer]);
 
   // ── Settings actions ──
@@ -2402,8 +2454,9 @@ export function PlannerProvider({ children }: { children: React.ReactNode }) {
 
   return (
     <PlannerContext.Provider value={{
-      isLoading, saveStates, retrySave, dismissSave,
+      isLoading, coreTimeReadError, refreshCoreTimeSources, saveStates, retrySave, dismissSave,
       selectedDate, setSelectedDate,
+      ...activityStorage,
       todos, timeBlocks, deleteTimeBlock, updateTimeBlock, events, habits, weeklyGoals, monthlyGoals, annualGoals, quarterlyGoals, brainstormItems, brainstormMemos, activeTimer,
       projects, milestones, tags,
       routines, selfCareRecords, periodRecords, reviewRecords, weeklyReviews, monthlyReviews,
@@ -2435,7 +2488,7 @@ export function PlannerProvider({ children }: { children: React.ReactNode }) {
       addProject, updateProject, deleteProject,
       addMilestone, toggleMilestone, deleteMilestone,
       addTag, updateTag, deleteTag,
-      createTagConfirmed, editTagConfirmed, removeTagConfirmed, removeTodoConfirmed, addManualTimeConfirmed,
+      createTagConfirmed, editTagConfirmed, removeTagConfirmed, removeTodoConfirmed, addManualTimeConfirmed, amendTimeBlockConfirmed,
       addTimelineLog, deleteTimelineLog,
       dayStartHour, dayEndHour, setDayHours,
     }}>

@@ -1,13 +1,14 @@
 import { useMemo } from 'react';
 import {
   format, startOfWeek, endOfWeek, startOfMonth, endOfMonth,
-  subWeeks, subMonths, addDays, getDay, isSameDay,
+  subWeeks, subMonths, subDays, differenceInCalendarDays, addDays, getDay, isSameDay,
 } from 'date-fns';
+import type { ActivityEntry } from '../../lib/activityEntries';
 import { usePlanner } from '../store';
 import type { Todo, Tag, Event, TodoTimeBlock } from '../store';
 import { aggregateActivity, formatMinutes, type ActivityCoverage } from '../../lib/timeAggregation';
 
-export type TimeReportPeriod = 'week' | 'month';
+export type TimeReportPeriod = 'day' | 'week' | 'month';
 
 export interface TimeReportData {
   period: TimeReportPeriod;
@@ -65,32 +66,33 @@ function aggregateRange(
   startStr: string,
   endStr: string,
   timeBlocks: TodoTimeBlock[] = [],
+  activities: ActivityEntry[] = [],
 ): RangeAgg {
-  const agg = aggregateActivity(todos, events, tags, startStr, endStr, timeBlocks);
+  const agg = aggregateActivity(todos, events, tags, startStr, endStr, timeBlocks, activities);
   const byTag: RangeAgg['byTag'] = new Map();
   agg.byTag.forEach((v, id) => byTag.set(id, { minutes: v.minutes, todos: v.timeItems }));
   return { byTag, total: agg.totalMinutes, coverage: agg.coverage };
 }
 
-export function useTimeReport(period: TimeReportPeriod): TimeReportData {
-  const { todos, events, timeBlocks, tags, appSettings } = usePlanner();
+export function useTimeReport(period: TimeReportPeriod, referenceDate?: string): TimeReportData {
+  const { todos, events, timeBlocks, tags, appSettings, activityEntries, reportEvents } = usePlanner();
   const weekStartsOn = (appSettings.weekStartsOn ?? 1) as 0 | 1;
 
   return useMemo<TimeReportData>(() => {
-    const now = new Date();
+    const now = referenceDate ? new Date(`${referenceDate}T12:00:00`) : new Date();
 
-    const curStart = period === 'week'
+    const curStart = period === 'day' ? now : period === 'week'
       ? startOfWeek(now, { weekStartsOn })
       : startOfMonth(now);
-    const curEnd = period === 'week'
+    const curEnd = period === 'day' ? now : period === 'week'
       ? endOfWeek(now, { weekStartsOn })
       : endOfMonth(now);
 
-    const prevRef = period === 'week' ? subWeeks(now, 1) : subMonths(now, 1);
-    const prevStart = period === 'week'
+    const prevRef = period === 'day' ? subDays(now, 1) : period === 'week' ? subWeeks(now, 1) : subMonths(now, 1);
+    const prevStart = period === 'day' ? prevRef : period === 'week'
       ? startOfWeek(prevRef, { weekStartsOn })
       : startOfMonth(prevRef);
-    const prevEnd = period === 'week'
+    const prevEnd = period === 'day' ? prevRef : period === 'week'
       ? endOfWeek(prevRef, { weekStartsOn })
       : endOfMonth(prevRef);
 
@@ -101,8 +103,10 @@ export function useTimeReport(period: TimeReportPeriod): TimeReportData {
     const trackTags: Tag[] = tags.filter(t => t.trackTime);
     const tagMap = new Map(trackTags.map(t => [t.id, t]));
 
-    const cur = aggregateRange(todos, events, tags, curStartStr, curEndStr, timeBlocks);
-    const prev = aggregateRange(todos, events, tags, fmtD(prevStart), fmtD(prevEnd), timeBlocks);
+    const cur = aggregateRange(todos, reportEvents ?? events, tags, curStartStr, curEndStr, timeBlocks, activityEntries);
+    const prev = aggregateRange(todos, reportEvents ?? events, tags, fmtD(prevStart), fmtD(prevEnd), timeBlocks, activityEntries);
+
+    const metadata = aggregateActivity(todos, reportEvents ?? events, tags, curStartStr, curEndStr, timeBlocks, activityEntries).tagMetadata;
 
     // ── byCategory (실적 있는 카테고리만, 시간 많은 순) ──
     const byCategory = Array.from(cur.byTag.entries())
@@ -110,8 +114,8 @@ export function useTimeReport(period: TimeReportPeriod): TimeReportData {
         const tag = tagMap.get(tagId);
         return {
           tagId,
-          tagName: tag?.name ?? '(삭제된 태그)',
-          tagColor: tag?.color ?? '#999999',
+          tagName: metadata.get(tagId)?.name ?? tag?.name ?? '(삭제된 태그)',
+          tagColor: metadata.get(tagId)?.color ?? tag?.color ?? '#999999',
           totalMinutes: v.minutes,
           todoCount: v.todos.length,
           todos: v.todos.sort((a, b) => b.minutes - a.minutes),
@@ -121,13 +125,11 @@ export function useTimeReport(period: TimeReportPeriod): TimeReportData {
       .sort((a, b) => b.totalMinutes - a.totalMinutes);
 
     // ── daily ──
-    const dayCount = period === 'week'
-      ? 7
-      : Math.round((curEnd.getTime() - curStart.getTime()) / 86400000) + 1;
+    const dayCount = differenceInCalendarDays(curEnd, curStart) + 1;
     const daily = Array.from({ length: dayCount }, (_, i) => {
       const d = addDays(curStart, i);
       const ds = fmtD(d);
-      const dayAgg = aggregateRange(todos, events, tags, ds, ds, timeBlocks);
+      const dayAgg = aggregateRange(todos, reportEvents ?? events, tags, ds, ds, timeBlocks, activityEntries);
       const byCat: Record<string, number> = {};
       dayAgg.byTag.forEach((v, k) => { if (v.minutes > 0) byCat[k] = v.minutes; });
       return {
@@ -141,7 +143,7 @@ export function useTimeReport(period: TimeReportPeriod): TimeReportData {
     });
 
     // ── insight (이전 동일 기간 대비 변화폭 가장 큰 카테고리) ──
-    const periodWord = period === 'week' ? '주' : '달';
+    const periodWord = period === 'day' ? '날' : period === 'week' ? '주' : '달';
     let insight: TimeReportData['insight'];
 
     if (cur.total <= 0) {
@@ -185,5 +187,5 @@ export function useTimeReport(period: TimeReportPeriod): TimeReportData {
       daily,
       insight,
     };
-  }, [period, todos, events, timeBlocks, tags, weekStartsOn]);
+  }, [period, referenceDate, todos, events, reportEvents, timeBlocks, activityEntries, tags, weekStartsOn]);
 }

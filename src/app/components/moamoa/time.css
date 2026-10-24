@@ -1,0 +1,58 @@
+/* Scoped MoaMoa time records; original service layouts are untouched. */
+.ma-record-nav { display:flex; flex-wrap:wrap; gap:8px; padding-bottom:16px; margin-bottom:14px; }
+.ma-record-nav a,.ma-record-nav>span { white-space:nowrap; min-height:44px; display:flex; align-items:center; padding:8px 14px; border-radius:14px; font-size:13px; }
+.ma-record-nav>span { background:#e9efdf; font-weight:700; color:#4d6947; }
+.ma-toolbar { display:flex; flex-wrap:wrap; align-items:center; gap:12px; margin:16px 0 24px; }
+.ma-toolbar button { min-height:44px; min-width:44px; }
+.ma-date-nav { display:flex; align-items:center; gap:4px; font-size:13px; }
+.ma-date-nav button { display:grid; place-items:center; }
+.ma-date-input { display:flex; gap:8px; align-items:center; font-size:12px; }
+.ma-date-input input { max-width:152px; }
+.ma-notice { padding:14px 16px; border:1px solid #ded9c7; background:#fbf7e9; border-radius:16px; font-size:13px; line-height:1.7; margin:14px 0; overflow-wrap:anywhere; }
+.ma-notice button { display:block; min-height:44px; font-weight:700; text-decoration:underline; }
+.ma-notice summary { cursor:pointer; min-height:30px; }
+.ma-overview { display:grid; grid-template-columns:1fr 1.2fr; gap:20px; }
+.ma-overview h2 { display:flex; gap:8px; align-items:center; }
+.ma-total label { display:flex; flex-direction:column; gap:8px; font-size:12px; margin-top:20px; }
+.ma-total select { width:100%; min-height:44px; background:transparent; border:1px solid #dce0d3; padding:8px; border-radius:12px; }
+.ma-stack { display:flex; height:14px; border-radius:8px; overflow:hidden; background:#ebeee6; margin:22px 0; }
+.ma-category-row { display:grid; grid-template-columns:minmax(0,1fr) auto 42px; gap:10px; align-items:center; font-size:13px; margin:14px 0; }
+.ma-category-row>span { display:flex; align-items:center; gap:8px; overflow-wrap:anywhere; }
+.ma-category-row i { display:inline-block; flex-shrink:0; width:9px; height:9px; border-radius:50%; background:#b6b7ac; }
+.ma-category-row small { text-align:right; color:#65735e; }
+.ma-unclassified { border-top:1px dashed #d8dece; padding-top:14px; }
+.ma-daily,.ma-comparison,.ma-history { margin-top:20px; }
+.ma-bars { display:flex; gap:3px; width:100%; margin-top:22px; align-items:flex-end; }
+.ma-bars button { flex:1; min-width:0; display:flex; flex-direction:column; align-items:center; gap:10px; min-height:150px; }
+.ma-bars strong { font-size:10px; font-weight:500; white-space:nowrap; }
+.ma-bars small { font-size:10px; }
+.ma-bar-track { height:92px; width:min(24px,85%); display:flex; align-items:flex-end; background:#f2f4ed; border-radius:6px; overflow:hidden; }
+.ma-bar-track i { width:100%; background:#91aa7e; border-radius:6px; min-height:1px; }
+.ma-compare-head { display:grid; grid-template-columns:minmax(0,1fr) 1fr 1fr; gap:12px; font-size:13px; padding:12px 0; border-bottom:1px solid #edf0e7; overflow-wrap:anywhere; }
+.ma-compare-head>*:not(:first-child) { text-align:right; }
+.ma-record { padding:20px 0; border-top:1px solid #e0e5d6; display:flex; gap:16px; justify-content:space-between; align-items:center; }
+.ma-record>div:first-child { min-width:0; }
+.ma-record strong { font-size:15px; line-height:1.65; overflow-wrap:anywhere; }
+.ma-record p { font-size:11px; color:#67765e; line-height:1.7; margin:6px 0; }
+.ma-record-tags { display:flex; flex-wrap:wrap; gap:6px; }
+.ma-record-tags span { border:1px solid #d9dfd0; border-radius:7px; padding:2px 6px; font-size:11px; }
+.ma-record-actions { flex-shrink:0; text-align:right; }
+.ma-record-actions b { font-size:15px; }
+.ma-record-actions>div { display:flex; }
+.ma-record-actions button { min-height:44px; min-width:44px; font-size:12px; color:#506a46; }
+.ma-record-actions button:disabled { opacity:.45; }
+.ma-category { min-height:48px; display:flex; align-items:center; justify-content:space-between; border:1px solid #dce2d4; border-radius:13px; padding:10px 12px; gap:12px; }
+.ma-category span { color:#6b7762; font-size:12px; }
+.ma-category strong { font-size:14px; }
+.ma-modes { margin-bottom:20px; }
+@media(max-width:767px) {
+ .ma-overview { grid-template-columns:1fr; gap:14px; }
+ .ma-toolbar { gap:8px; }
+ .ma-toolbar>.mx-tabs { width:100%; }
+ .ma-date-nav { width:100%; justify-content:space-between; }
+ .ma-bars strong { font-size:8px; }
+ .ma-daily { padding:18px 12px; }
+ .ma-record { align-items:flex-start; gap:10px; }
+ .ma-record-actions { max-width:104px; }
+ .ma-record-actions b { font-size:13px; }
+}

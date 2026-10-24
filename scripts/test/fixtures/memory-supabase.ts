@@ -16,7 +16,7 @@ export function memorySupabase(initial: Record<string, any[]>) {
   };
   const supabase = {
     from(table: string) {
-      let kind = 'read'; let payload: any; let options: any = {}; let single = false;
+      let kind = 'read'; let payload: any; let options: any = {}; let single = false; let offset = 0; let end = Infinity;
       const filters: Array<(row: any) => boolean> = [];
       const execute = async () => {
         const isWrite = kind !== 'read';
@@ -46,12 +46,15 @@ export function memorySupabase(initial: Record<string, any[]>) {
         }
         if (isWrite) queueMicrotask(() => emit(table));
         if (fault) return failure();
+        if (!isWrite) data = data.slice(offset, end + 1);
         if (single && data.length !== 1) return { data: null, error: { code: 'PGRST116' }, status: 406 };
         return { data: structuredClone(single ? data[0] : data), error: null, status: 200 };
       };
       const query: any = new Proxy({}, { get(_, method) {
         if (method === 'then') return (resolve: any, reject: any) => execute().then(resolve, reject);
-        if (method === 'select' || method === 'order' || method === 'limit') return () => query;
+        if (method === 'select' || method === 'order') return () => query;
+        if (method === 'range') return (from: number, to: number) => { offset = from; end = to; return query; };
+        if (method === 'limit') return (count: number) => { end = count - 1; return query; };
         if (method === 'single' || method === 'maybeSingle') return () => { single = true; return query; };
         if (method === 'contains') return (key: string, values: any[]) => { filters.push(row => values.every(value => (row[key] ?? []).includes(value))); return query; };
         if (method === 'eq') return (key: string, value: any) => { filters.push(row => row[key] === value); return query; };
