@@ -2,6 +2,8 @@ import { tables as source } from '../../scripts/test/fixtures/moa-food-data.mjs'
 import meal from '../../scripts/test/fixtures/food/meal-a.png';
 import { format, addDays, getISOWeek, getISOWeekYear } from 'date-fns';
 import './review.css';
+import { sampleMediaTables } from './mediaSamples';
+import './media.css';
 import { sampleCultureRows } from './cultureSamples';
 async function bootstrap(){
 document.body.classList.add('moa-review');
@@ -15,6 +17,7 @@ const shift=(value:any):any=>{
 };
 const data=shift(tables);
 data.culture_records=structuredClone(sampleCultureRows);
+Object.assign(data,structuredClone(sampleMediaTables));
 for(const row of data.food_records)if(row.photo_url)row.photo_url=meal;
 for(const row of data.weekly_goals)row.week_key=`${getISOWeekYear(today)}-W${String(getISOWeek(today)).padStart(2,'0')}`;
 data.monthly_goals[0].month=format(today,'yyyy-MM');

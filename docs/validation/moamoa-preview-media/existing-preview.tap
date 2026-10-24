@@ -1,0 +1,15 @@
+▶ culture Preview: isolated samples, CRUD, metadata failure, navigation and reload at three widths
+  ✔ mobile: 390px (9712.864628ms)
+  ✔ tablet: 768px (11355.070747ms)
+  ✔ desktop: 1440px (11955.745339ms)
+✔ culture Preview: isolated samples, CRUD, metadata failure, navigation and reload at three widths (36880.410249ms)
+✔ review build refuses Production and other Vercel branches (234.904253ms)
+✔ static Preview uses isolated samples: routes, quick record, local photo, retry and reset (27218.201586ms)
+ℹ tests 6
+ℹ suites 0
+ℹ pass 6
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 65027.906805

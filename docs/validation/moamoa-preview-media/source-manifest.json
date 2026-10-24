@@ -1,0 +1,170 @@
+{
+  "scripts/test/fixtures/moa-books-data.mjs": {
+    "source": "b27cda5eb2b647c2d39a4a94dd849c973b06ddf5",
+    "blob": "4c2259ab4cba96cd4384213f46583078b124786a",
+    "sha256": "df9fa6e6ddbe544d70a85a5e11e256dd5b5e645b3bc6c783e450f96f1e4956a0",
+    "integratedSha256": "df9fa6e6ddbe544d70a85a5e11e256dd5b5e645b3bc6c783e450f96f1e4956a0",
+    "adaptation": null
+  },
+  "scripts/test/fixtures/moa-books-supabase.ts": {
+    "source": "b27cda5eb2b647c2d39a4a94dd849c973b06ddf5",
+    "blob": "480bc7db949b52cfaa9bdff12cbca5640040e822",
+    "sha256": "3e45723b70830734e23cdf938e1fa3f149e4cbe5a5f403c24b286aaf21d32aa3",
+    "integratedSha256": "3e45723b70830734e23cdf938e1fa3f149e4cbe5a5f403c24b286aaf21d32aa3",
+    "adaptation": null
+  },
+  "scripts/test/fixtures/moa-music-data.mjs": {
+    "source": "690aa546ce258e6403726a174d76508f2fe00fa8",
+    "blob": "576462dc2903ad6c40aa5ad39c6fbac0e63df052",
+    "sha256": "56b170306a3ccfec265c61463e2688b2d268f0e3f1f4cc2879db8a29383c22b1",
+    "integratedSha256": "56b170306a3ccfec265c61463e2688b2d268f0e3f1f4cc2879db8a29383c22b1",
+    "adaptation": null
+  },
+  "scripts/test/fixtures/moa-music-supabase.ts": {
+    "source": "690aa546ce258e6403726a174d76508f2fe00fa8",
+    "blob": "597ff891dcc8313aa9e58d12f9080b561675159b",
+    "sha256": "11902490860530477b5b68fc80dac5442d0eec1f419552ac2f492bc000ddfa37",
+    "integratedSha256": "11902490860530477b5b68fc80dac5442d0eec1f419552ac2f492bc000ddfa37",
+    "adaptation": null
+  },
+  "scripts/test/moa-books.test.mjs": {
+    "source": "b27cda5eb2b647c2d39a4a94dd849c973b06ddf5",
+    "blob": "2e51376b50a77ed83012885bd1a4ab262914f8a9",
+    "sha256": "e8031dde879805d9753d0059854ab79b241f453dd47dc47d9a6651c6e96832b2",
+    "integratedSha256": "590aa984bd01e1658ad126d9e36fd246ce5c7c6b7184d156b0e98109979f07b5",
+    "adaptation": "test-only development route injection; original assertions retained"
+  },
+  "scripts/test/moa-music.test.mjs": {
+    "source": "690aa546ce258e6403726a174d76508f2fe00fa8",
+    "blob": "2efaa3007b0e1a56b2557b49b3d9b49e9b55f258",
+    "sha256": "88edf854539d39cbbe21ba1e7cd9cba4336aa5b42066d097a32642ab213d44b3",
+    "integratedSha256": "3a2cc2f3d8d434b6ac84b5518dee2933949d96ffdb95f1cdbddc7c010bd96e07",
+    "adaptation": "test-only development route injection; original assertions retained"
+  },
+  "src/app/components/moamoa/MoaBooksRoute.tsx": {
+    "source": "b27cda5eb2b647c2d39a4a94dd849c973b06ddf5",
+    "blob": "296952e4e0ee5eda431806a440abb2270038cf0f",
+    "sha256": "2c49e6c6e0dd98a11833bace2549bc49ca84cd52694a31f0c6f14bb044361525",
+    "integratedSha256": "2c49e6c6e0dd98a11833bace2549bc49ca84cd52694a31f0c6f14bb044361525",
+    "adaptation": null
+  },
+  "src/app/components/moamoa/MoaMusicRoute.tsx": {
+    "source": "690aa546ce258e6403726a174d76508f2fe00fa8",
+    "blob": "b32d60a01896f827fd457814e3d490ba83fa97ac",
+    "sha256": "f57c9106c4f4d2cb7c9f022a35712a3743924ea207dfd51aac63e667521be5db",
+    "integratedSha256": "f57c9106c4f4d2cb7c9f022a35712a3743924ea207dfd51aac63e667521be5db",
+    "adaptation": null
+  },
+  "src/app/components/moamoa/books/BookEditor.tsx": {
+    "source": "b27cda5eb2b647c2d39a4a94dd849c973b06ddf5",
+    "blob": "e816f696add0525e26a70e8c7d671e2093efda2c",
+    "sha256": "76815a6f3cc4925bae6aaca3a16602e88a201e9502a678bdecf26359f90bb15d",
+    "integratedSha256": "76815a6f3cc4925bae6aaca3a16602e88a201e9502a678bdecf26359f90bb15d",
+    "adaptation": null
+  },
+  "src/app/components/moamoa/books/BookImage.tsx": {
+    "source": "b27cda5eb2b647c2d39a4a94dd849c973b06ddf5",
+    "blob": "85c72ee219bc4b9de24884cb37e872f2c2d42368",
+    "sha256": "4486eb67bb7654cdc1929bdb1474d3301db747ed906e399091696539d2725dbf",
+    "integratedSha256": "4486eb67bb7654cdc1929bdb1474d3301db747ed906e399091696539d2725dbf",
+    "adaptation": null
+  },
+  "src/app/components/moamoa/books/BookNoteEditor.tsx": {
+    "source": "b27cda5eb2b647c2d39a4a94dd849c973b06ddf5",
+    "blob": "fcff3bdcc8a915b13a362b90a87dcd3de1ae85b6",
+    "sha256": "33b5e72a07db0ced051d9318217d5217aab0088d5383336da2bbd51997895396",
+    "integratedSha256": "33b5e72a07db0ced051d9318217d5217aab0088d5383336da2bbd51997895396",
+    "adaptation": null
+  },
+  "src/app/components/moamoa/books/QuoteEditor.tsx": {
+    "source": "b27cda5eb2b647c2d39a4a94dd849c973b06ddf5",
+    "blob": "0c1fc9380e663d04c57103e7561388dc066a4183",
+    "sha256": "f9fdffac8037dd1d3c8e331d50dacf758ac9dde5e0c36090c42d1db5bd164743",
+    "integratedSha256": "f9fdffac8037dd1d3c8e331d50dacf758ac9dde5e0c36090c42d1db5bd164743",
+    "adaptation": null
+  },
+  "src/app/components/moamoa/books/books.css": {
+    "source": "b27cda5eb2b647c2d39a4a94dd849c973b06ddf5",
+    "blob": "54c8d2b1c8196bca5668036dc772b895348164ea",
+    "sha256": "8967ecd370f37b4fa7175f2042f85028c6343db2aea691c627fffd23b2117dd2",
+    "integratedSha256": "8967ecd370f37b4fa7175f2042f85028c6343db2aea691c627fffd23b2117dd2",
+    "adaptation": null
+  },
+  "src/app/components/moamoa/music/MusicDetail.tsx": {
+    "source": "690aa546ce258e6403726a174d76508f2fe00fa8",
+    "blob": "41292da317c695b3465518d42ea101b6d0dc0912",
+    "sha256": "d31ab9f08d2495962cd91adeb38554000064a77a21372fd360cf97ab4574fad9",
+    "integratedSha256": "d31ab9f08d2495962cd91adeb38554000064a77a21372fd360cf97ab4574fad9",
+    "adaptation": null
+  },
+  "src/app/components/moamoa/music/MusicEditor.tsx": {
+    "source": "690aa546ce258e6403726a174d76508f2fe00fa8",
+    "blob": "f7db08f85c1c2aa23ea813aac0322e645b3b9f18",
+    "sha256": "a4aff83d4a052a8e80cb28a2fdf561c2609c1cd33c2914fb94ab338e4e156127",
+    "integratedSha256": "a4aff83d4a052a8e80cb28a2fdf561c2609c1cd33c2914fb94ab338e4e156127",
+    "adaptation": null
+  },
+  "src/app/components/moamoa/music/music.css": {
+    "source": "690aa546ce258e6403726a174d76508f2fe00fa8",
+    "blob": "40d14b636421c486671392f4cade629d061682b1",
+    "sha256": "3725e32e0614d3578b9c2991c2579ea40035f1fcf44e9e54dc62d16a93bfc5f6",
+    "integratedSha256": "3725e32e0614d3578b9c2991c2579ea40035f1fcf44e9e54dc62d16a93bfc5f6",
+    "adaptation": null
+  },
+  "src/app/hooks/useBookRecords.ts": {
+    "source": "b27cda5eb2b647c2d39a4a94dd849c973b06ddf5",
+    "blob": "4a7cfeb52e4978e633e2666b919100efdd166dd0",
+    "sha256": "69c5a171f9f6bb8a4ffc52d3588310beaabcefc70ebdfd00cc327170e45b777f",
+    "integratedSha256": "69c5a171f9f6bb8a4ffc52d3588310beaabcefc70ebdfd00cc327170e45b777f",
+    "adaptation": null
+  },
+  "src/app/hooks/useMusicRecords.ts": {
+    "source": "690aa546ce258e6403726a174d76508f2fe00fa8",
+    "blob": "0c8638622ec65331fb3d7ab86b6ad39fdfbcba86",
+    "sha256": "cac5ca985e4a3ad354836fe7eb8a19b3949f7bdaf61e15b095dec1be0c6fe075",
+    "integratedSha256": "cac5ca985e4a3ad354836fe7eb8a19b3949f7bdaf61e15b095dec1be0c6fe075",
+    "adaptation": null
+  },
+  "src/lib/bookRecords.test.ts": {
+    "source": "b27cda5eb2b647c2d39a4a94dd849c973b06ddf5",
+    "blob": "2590c5f5e2025b459943a4d9f36774817c01c3a3",
+    "sha256": "78ddb738b6c1cd551e5b4582b8bebeb36c235275b49903756ebcfa5a6456349b",
+    "integratedSha256": "78ddb738b6c1cd551e5b4582b8bebeb36c235275b49903756ebcfa5a6456349b",
+    "adaptation": null
+  },
+  "src/lib/bookRecords.ts": {
+    "source": "b27cda5eb2b647c2d39a4a94dd849c973b06ddf5",
+    "blob": "95c706c6f3ca20e9e9df2d3a694950770ccea0d0",
+    "sha256": "d990a885ebf47de2a65f89df704108eb87b220dbdec02e7668386fc570566898",
+    "integratedSha256": "d990a885ebf47de2a65f89df704108eb87b220dbdec02e7668386fc570566898",
+    "adaptation": null
+  },
+  "src/lib/musicRecords.test.ts": {
+    "source": "690aa546ce258e6403726a174d76508f2fe00fa8",
+    "blob": "0ab185849ea65e447379ef2f6df2fc021be07f8f",
+    "sha256": "dadbe51c1160cb9e07008669e7ba242ff12a260185d92f0f5c918700daee7597",
+    "integratedSha256": "dadbe51c1160cb9e07008669e7ba242ff12a260185d92f0f5c918700daee7597",
+    "adaptation": null
+  },
+  "src/lib/musicRecords.ts": {
+    "source": "690aa546ce258e6403726a174d76508f2fe00fa8",
+    "blob": "3a7a9b2c52387b30cd62687f5bae3bd2fa71e959",
+    "sha256": "3aec496096f2ff9bcf0991e9036a4d8df757401466beb73013fb27531bf08fe0",
+    "integratedSha256": "3aec496096f2ff9bcf0991e9036a4d8df757401466beb73013fb27531bf08fe0",
+    "adaptation": null
+  },
+  "scripts/test/moa-culture.test.mjs": {
+    "source": "690f3ab0ca095c5213d4b7229192eefc4d6f9d83",
+    "blob": "ba02c1004df6cad4363fd6c331b11f5805522612",
+    "sha256": "d4d68127ef597415cd09aebdffb758dba483bc622e0a77c44e6e2d2ecbd77060",
+    "integratedSha256": "e448bba5e6245cc01c874fe49f1e3d2d9828a2a71c07eebbc95ff05879d4ae76",
+    "adaptation": "test-only development route injection; original assertions retained"
+  },
+  "scripts/test/fixtures/moa-culture-data.mjs": {
+    "source": "690f3ab0ca095c5213d4b7229192eefc4d6f9d83",
+    "blob": "9e08005e59b82f9322b88a8d15dca0944eaaadbc",
+    "sha256": "7e8a40761e4d77cacb0e11e987c602c2e09791c2a5a61b8edf506aff1c24fd5f",
+    "integratedSha256": "7e8a40761e4d77cacb0e11e987c602c2e09791c2a5a61b8edf506aff1c24fd5f",
+    "adaptation": null
+  }
+}

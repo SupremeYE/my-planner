@@ -1,0 +1,41 @@
+import {useEffect,useRef,useState,type FormEvent} from 'react';
+import {ensureBookPhoto,type QuoteRow,type BookPhotoSession} from '../../../../lib/bookRecords';
+import {foodPhotoPath} from '../../../../lib/foodPhotos';
+import {prepImageForOcr} from '../../../../lib/imagePrep';
+import {saveIntent} from '../../../../lib/saveCoordinator';
+import {supabase} from '../../../../lib/supabase';
+import type {BookController} from '../../../hooks/useBookRecords';
+import {getLogicalToday} from '../../../store';
+import {useVoiceInput} from '../../../hooks/useVoiceInput';
+import {MoaDialog} from '../MoaDialog';
+import {CultureSaveFeedback} from '../culture/CultureSaveFeedback';
+import {BookImage} from './BookImage';
+export function QuoteEditor({record,bookId,controller,onClose}:{record?:QuoteRow;bookId:string;controller:BookController;onClose:()=>void}){
+ const [initial]=useState<QuoteRow>(()=>record?structuredClone(record):{id:crypto.randomUUID(),book_id:bookId,text:'',page:null,tags:[],starred:false,created_at:getLogicalToday(),note:null,image_url:null});
+ const [draft,setDraft]=useState(initial),[tagText,setTagText]=useState(initial.tags.join(', ')),[photo,setPhoto]=useState<BookPhotoSession>(),[preview,setPreview]=useState<string>(),[photoError,setPhotoError]=useState(''),[photoBusy,setPhotoBusy]=useState(false),[ocrBusy,setOcrBusy]=useState(false),[sentences,setSentences]=useState<string[]>([]),[ocrError,setOcrError]=useState('');
+ const [tagsTouched,setTagsTouched]=useState(false);const camera=useRef<HTMLInputElement>(null),album=useRef<HTMLInputElement>(null),attempted=useRef(false),done=useRef(false),submitting=useRef(false),generation=useRef(0);
+ const voice=useVoiceInput();const voiceBusy=voice.status==='recording'||voice.status==='transcribing';
+ const state=controller.quotes.states.find(s=>s.key===`book_quotes:${initial.id}`),busy=state?.status==='saving',locked=busy||state?.status==='error',inputLocked=locked||photoBusy||ocrBusy||voiceBusy;
+ useEffect(()=>()=>{generation.current++;},[]);
+ useEffect(()=>{if(!photo){setPreview(undefined);return;}const url=URL.createObjectURL(photo.file);setPreview(url);return()=>URL.revokeObjectURL(url);},[photo]);
+ useEffect(()=>{if(attempted.current&&!done.current&&state?.status==='saved'){done.current=true;onClose();}},[state?.status,onClose]);
+ useEffect(()=>{if(voice.text){setDraft(d=>({...d,text:d.text?`${d.text}\n${voice.text}`:voice.text}));voice.setText('');}},[voice.text,voice.setText]);
+ function close(){if(busy||photoBusy||ocrBusy||submitting.current)return;if((photo||saveIntent(draft)!==saveIntent(initial)||tagText!==initial.tags.join(', '))&&!window.confirm('저장하지 않은 구절 입력을 닫을까요?'))return;voice.cancel();if(state?.status==='error'){controller.quotes.dismiss(initial.id);void controller.quotes.refresh();}onClose();}
+ async function select(file?:File){if(!file||inputLocked)return;const version=++generation.current;setPhotoBusy(true);setPhotoError('');try{const operationId=crypto.randomUUID();foodPhotoPath(initial.id,{file,operationId});const prepared=await prepImageForOcr(file);foodPhotoPath(initial.id,{file:prepared,operationId});if(version===generation.current){setPhoto({file:prepared,operationId});setSentences([]);setOcrError('');}}catch{if(version===generation.current)setPhotoError('10MB 이하 사진을 선택해주세요. 표시되지 않는 HEIC 사진은 JPEG로 변환해주세요.');}finally{if(version===generation.current)setPhotoBusy(false);}}
+ async function ocr(){if(!photo||inputLocked)return;const version=++generation.current;setOcrBusy(true);setOcrError('');try{const url=await ensureBookPhoto(supabase,initial.id,photo);const {data,error}=await supabase.functions.invoke('vision-extract',{body:{image_url:url,domain:'reading'}});if(error||!data?.ok||!Array.isArray(data.sentences))throw new Error('OCR failed');if(version===generation.current){setSentences(data.sentences.filter((s:unknown):s is string=>typeof s==='string'&&!!s.trim()));if(Number.isInteger(data.page)&&data.page>0)setDraft(d=>({...d,page:d.page??data.page}));if(!data.sentences.length)setOcrError('읽을 수 있는 문장이 없어요. 직접 입력할 수 있어요.');}}catch{if(version===generation.current)setOcrError('글자를 읽지 못했어요. 사진과 입력은 유지돼요. 직접 입력하거나 다시 시도해주세요.');}finally{if(version===generation.current)setOcrBusy(false);}}
+ async function submit(e:FormEvent){e.preventDefault();if(inputLocked||submitting.current||!draft.text.trim())return;submitting.current=true;attempted.current=true;try{await controller.saveQuote({...draft,text:draft.text===initial.text?draft.text:draft.text.trim(),tags:tagsTouched?[...new Set(tagText.split(/[,#\s]+/).map(s=>s.trim()).filter(Boolean))]:draft.tags},record?initial:undefined,photo);}finally{submitting.current=false;}}
+ return <MoaDialog title={record?'구절 수정':'구절 추가'} description="마음에 남은 문장과 내 생각을 함께 남겨요. 사진·AI·음성은 선택이에요." onClose={close} saveKeys={[]} footer={<><CultureSaveFeedback state={state} onRetry={()=>void controller.quotes.retry(initial.id)} onEdit={()=>controller.quotes.dismiss(initial.id)}/><div className="mx-actions"><button disabled={busy||photoBusy||ocrBusy} onClick={close}>취소</button><button form="quote-form" type="submit" className="mx-primary" disabled={inputLocked||!draft.text.trim()}>{busy?'사진·구절 저장 중…':'저장'}</button></div></>}>
+ <form id="quote-form" className="mc-form" onSubmit={submit}>
+ <label>구절 · 필수<textarea autoFocus aria-label="구절" required value={draft.text} readOnly={inputLocked} onChange={e=>setDraft(d=>({...d,text:e.target.value}))}/></label>
+ <div className="mb-voice"><button type="button" disabled={locked||photoBusy||ocrBusy||voice.status==='transcribing'} onClick={()=>void(voice.status==='recording'?voice.stopRecording():voice.startRecording())}>{voice.status==='recording'?'녹음 종료·글자로 변환':voice.status==='transcribing'?'음성 변환 중…':'음성으로 입력'}</button>{voiceBusy&&<button type="button" onClick={()=>voice.cancel()}>녹음 취소</button>}{voice.error&&<p role="alert">음성 입력을 사용할 수 없어요. 직접 입력해주세요.</p>}</div>
+ <label>페이지 번호<input aria-label="구절 페이지" type="number" min="1" step="1" value={draft.page??''} readOnly={inputLocked} onChange={e=>setDraft(d=>({...d,page:e.target.value===''?null:Number(e.target.value)}))}/></label>
+ <label>내 생각<textarea aria-label="내 생각" value={draft.note??''} readOnly={inputLocked} onChange={e=>setDraft(d=>({...d,note:e.target.value||null}))}/></label>
+ <label>태그<input aria-label="구절 태그" value={tagText} readOnly={inputLocked} onChange={e=>{setTagsTouched(true);setTagText(e.target.value);}}/></label>
+ <label className="mb-checkbox"><input type="checkbox" checked={draft.starred} disabled={inputLocked} onChange={e=>setDraft(d=>({...d,starred:e.target.checked}))}/>즐겨찾기</label>
+ <div className="mb-photo">{preview?<img src={preview} alt="선택한 구절 사진 미리보기"/>:draft.image_url?<BookImage url={draft.image_url} title="기존 구절 사진"/>:<p>사진 없이도 기록할 수 있어요.</p>}</div>
+ <input ref={camera} aria-label="구절 사진 촬영 파일" type="file" accept="image/*" capture="environment" hidden onChange={e=>{void select(e.target.files?.[0]);e.target.value='';}}/><input ref={album} aria-label="구절 앨범 파일" type="file" accept="image/*" hidden onChange={e=>{void select(e.target.files?.[0]);e.target.value='';}}/>
+ <div className="mc-inline-actions"><button type="button" disabled={inputLocked} onClick={()=>camera.current?.click()}>사진 촬영</button><button type="button" disabled={inputLocked} onClick={()=>album.current?.click()}>앨범에서 선택</button>{photo&&<button type="button" disabled={inputLocked} onClick={()=>{setPhoto(undefined);setSentences([]);}}>사진 선택 취소</button>}</div>
+ <p className="mc-help">10MB 이하 · 기존 사진 원본은 교체·삭제하지 않아요. HEIC 표시는 기기 지원에 따라 달라요.</p>{photoBusy&&<p role="status">사진을 준비하고 있어요…</p>}{photoError&&<p role="alert">{photoError}</p>}
+ {photo&&<><button type="button" className="mc-options-toggle" disabled={inputLocked} onClick={()=>void ocr()}>{ocrBusy?'사진 글자 읽는 중…':'사진에서 글자 읽기 · 선택'}</button><p className="mc-help">눌렀을 때 사진을 업로드하고 기존 AI 서비스로 전송해요. AI 없이 저장할 수 있어요.</p></>}{ocrError&&<p role="alert">{ocrError}</p>}{sentences.length>0&&<div className="mc-search-results"><p>누른 문장을 구절 끝에 추가해요.</p>{sentences.map((s,i)=><button type="button" key={i} disabled={inputLocked} onClick={()=>{setDraft(d=>({...d,text:d.text?`${d.text}\n${s}`:s}));setSentences(rows=>rows.filter((_,index)=>index!==i));}}>{s}</button>)}</div>}
+ </form></MoaDialog>;
+}

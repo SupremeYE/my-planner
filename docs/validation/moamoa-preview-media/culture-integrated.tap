@@ -1,0 +1,23 @@
+▶ Moa culture: preserved records, confirmed writes, metadata fallbacks and responsive interactions
+  ✔ read-only legacy list retains IDs/media/status/type/zero stars; broken images still show the record (942.973015ms)
+  ✔ title-only create: duplicate submits, pending close guard and acknowledgement-loss retry create exactly one ID (845.969774ms)
+  ✔ editing a title preserves old metadata and concurrent other-device review; no-op save confirms the latest row (710.420389ms)
+  ✔ status changes wait for confirmation, failure retains the old status and retry preserves review/stars (71.311542ms)
+  ✔ status/type/platform/tag filters and sorting operate on existing records, including dropped and legacy types (496.99706ms)
+  ✔ TMDB explicit requests are deduplicated/cached; selected metadata fills blanks without overwriting user text or rating (636.018227ms)
+  ✔ API failures, empty results and cancelled stale searches leave manual registration available (1368.920974ms)
+  ✔ YouTube validates IDs/hosts, queries the existing oEmbed API, applies editable fields and falls back on failure (1036.362023ms)
+  ✔ desktop buttons save optional dates, half stars, tags and notes, then edit zero stars without changing media or provenance (818.941246ms)
+  ✔ delete requires absence confirmation, retry survives lost acknowledgement and never deletes media (516.645197ms)
+  ✔ Realtime and failed reads preserve confirmed rows; reloading keeps IDs and metadata without writes (3194.618581ms)
+  ✔ empty/load failure/offline/permanent denial keep drafts honest, keyboard focus and narrow tabs remain usable (11371.282867ms)
+  ✔ missing TMDB configuration makes no API request and still permits a manual record (3028.544935ms)
+✔ Moa culture: preserved records, confirmed writes, metadata fallbacks and responsive interactions (34283.289162ms)
+ℹ tests 14
+ℹ suites 0
+ℹ pass 14
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 34790.752341

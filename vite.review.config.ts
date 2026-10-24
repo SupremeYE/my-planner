@@ -1,6 +1,7 @@
 import { defineConfig, mergeConfig } from 'vite';
 import base from './vite.config';
 import path from 'node:path';
+import {transformReviewMedia} from './src/review/mediaBuildTransforms';
 
 if (process.env.VERCEL_ENV === 'production') throw new Error('Review build is forbidden for Production');
 export default mergeConfig(base, defineConfig({
@@ -10,6 +11,9 @@ export default mergeConfig(base, defineConfig({
       for (const key of Object.keys(config.env)) if (key.startsWith('VITE_')) delete config.env[key];
     },
     resolveId(source, importer) {
+      if (/(?:^\.\/|\/lib\/)itunes(?:\.ts)?$/.test(source)) return path.resolve('src/review/mediaApi.ts');
+      if (/(?:^\.\/|\/)BookImage(?:\.tsx)?$/.test(source)) return path.resolve('src/review/ReviewBookImage.tsx');
+      if (source.endsWith('/useVoiceInput')) return path.resolve('src/review/disabledVoice.ts');
       if (/(?:^\.\/supabase|\/lib\/supabase)(?:\.ts)?$/.test(source)) return path.resolve('src/review/transport.ts');
       if (/(?:^\.\/|\/lib\/)(?:tmdb|youtube)(?:\.ts)?$/.test(source)) return path.resolve('src/review/cultureApi.ts');
       if (/(?:^\.\/|\/)CultureImage(?:\.tsx)?$/.test(source)) return path.resolve('src/review/ReviewCultureImage.tsx');
@@ -17,6 +21,8 @@ export default mergeConfig(base, defineConfig({
       if (/(?:^\.\/|\/)MoaFrame(?:\.tsx)?$/.test(source)) return path.resolve('src/review/ReviewFrame.tsx');
     },
     transform(code, id) {
+      const media = transformReviewMedia(code, id);
+      if (media !== undefined) return media;
       if (id.endsWith('/src/app/App.tsx')) return code.replace('<SaveStatus />', '');
       if (id.endsWith('/MoaCultureRoute.tsx')) {
         const navigation = /<div className="mc-section-label">[\s\S]*?<\/div>/;
@@ -61,7 +67,7 @@ export default mergeConfig(base, defineConfig({
       for (const id of this.getModuleIds()) {
         if (id.includes('/node_modules/@supabase/')) throw new Error('Review must not bundle the real Supabase SDK');
         if (id.endsWith('/src/app/routes.tsx')) throw new Error('Review must use isolated routes');
-        if (/\/src\/lib\/(?:supabase|tmdb|youtube)\.ts$/.test(id)) throw new Error('Review must not bundle a live backend or culture API module');
+        if (/\/src\/lib\/(?:supabase|tmdb|youtube|itunes|transcribe)\.ts$/.test(id)) throw new Error('Review must not bundle a live backend or culture API module');
       }
       for (const item of Object.values(bundle)) if (item.type === 'asset' && item.fileName.endsWith('.css')) {
         // Use the system-font fallbacks without external requests.

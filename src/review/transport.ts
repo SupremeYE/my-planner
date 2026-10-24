@@ -1,4 +1,5 @@
 /** Review-only alias. No real Supabase client or credentials are imported. */
+import {registerReviewBlob} from './reviewMedia';
 import { supabase as memory, controls } from '../../scripts/test/fixtures/moa-today-supabase';
 
 const urls = new Map<string, string>();
@@ -21,7 +22,7 @@ export const supabase = Object.assign(memory, {
           const key = `${bucket}/${path}`;
           const blob = controls.storageObjects.get(key);
           if (!blob) return { data: { publicUrl: '' } };
-          if (!urls.has(key)) urls.set(key, URL.createObjectURL(blob));
+          if (!urls.has(key)) urls.set(key, registerReviewBlob(URL.createObjectURL(blob)));
           return { data: { publicUrl: urls.get(key) } };
         },
       };

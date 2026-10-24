@@ -150,9 +150,9 @@ test('culture Preview: isolated samples, CRUD, metadata failure, navigation and 
         const [fallback]=await stored('YouTube 실패 직접 입력');assert.equal(fallback.url,'https://youtu.be/failure0000');assert.equal(fallback.content_type,'youtube_video');
 
         await page.getByRole('navigation',{name:'문화·음악 종류'}).getByRole('link',{name:'음악',exact:true}).click();
-        await page.getByRole('heading',{name:'음악 기록은 준비 중이에요',exact:true}).waitFor();await shot('music');
+        await page.getByRole('heading',{name:'음악 기록',exact:true}).waitFor();assert.ok(await page.locator('[data-music-id]').count()>0);await shot('music');
         assert.equal(await page.getByRole('link',{name:/기존 문화|My Planner/}).count(),0);
-        await page.getByRole('link',{name:'영상 기록으로 돌아가기',exact:true}).click();
+        await page.getByRole('navigation',{name:'문화·음악 종류'}).getByRole('link',{name:'영상',exact:true}).click();
         assert.equal((await stored('실패 후 직접 입력')).length,1);
         await page.getByRole('link',{name:'기록으로 돌아가기',exact:true}).click();
         await page.getByRole('navigation',{name:'기록 종류'}).waitFor();await enter();
