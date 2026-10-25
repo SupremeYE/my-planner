@@ -1,0 +1,57 @@
+{
+  "baseline": "b27cda5eb2b647c2d39a4a94dd849c973b06ddf5",
+  "branch": "codex/moamoa-step3b5-weekly-review",
+  "developmentRoute": "/__moamoa-weekly",
+  "unit": {
+    "passed": 210,
+    "failed": 0,
+    "skipped": 0
+  },
+  "browserApiRegression": {
+    "passed": 130,
+    "failed": 0,
+    "skipped": 0
+  },
+  "finalWeeklyBrowser": {
+    "passed": 10,
+    "failed": 0,
+    "skipped": 0
+  },
+  "viewports": [
+    390,
+    768,
+    1440
+  ],
+  "keyboardViewport": "390x844 to 390x400 while NEXT is focused; physical keyboard not tested",
+  "production": {
+    "files": 19,
+    "sha256Identical": true
+  },
+  "fonts": "passed",
+  "colors": "passed",
+  "diffCheck": "passed",
+  "renderReviews": {
+    "screenshots": 8,
+    "fail": 0,
+    "warn": 8,
+    "reason": "existing lavender informational warnings"
+  },
+  "firstRegressionAttempt": "Existing TODO detail edit button exceeded 7-second wait; unchanged isolated TODO suite passed 14; full rerun passed 130. No test timeout/expectation relaxation.",
+  "protectedFilesUnchanged": [
+    "src/app/components/ReviewsView.tsx",
+    "src/app/store.tsx",
+    "src/lib/db.ts",
+    "src/lib/weekKeys.ts",
+    "src/lib/saveCoordinator.ts",
+    "src/lib/confirmedWrites.ts",
+    "src/app/components/moamoa/MoaFrame.tsx",
+    "package.json",
+    "package-lock.json",
+    "vercel.json"
+  ],
+  "operationalDbStorageAccess": false,
+  "previewIntegrated": false,
+  "databaseUniqueness": "week_key UNIQUE documented, live DDL not inspected; cross-client semantic-week creation requires DB verification/transaction",
+  "screenshots": 11,
+  "restoredHistoricalArtifacts": 68
+}
