@@ -87,8 +87,8 @@ test('Preview calendar untimed placement and understandable copy at 390/768/1440
       if(await btn('닫기').count())await btn('닫기').first().click();
     }
     await btn('주간').click();await btn('주간 플래너').click();await page.locator('.mt-scroll').evaluate(e=>e.scrollTop=0);await shot('planner');
-    await btn(before?'주간 회고 열기':'주간 회고 보기').click();await page.getByRole('dialog',{name:'주간 회고',exact:true}).waitFor();await shot('weekly-review');
-    if(!before){assert.equal(await page.getByRole('dialog').locator('textarea,input').count(),0);assert.match(await page.getByRole('dialog').textContent(),/작성·수정은 아직 지원하지 않아요/);}
+    await btn(before?'주간 회고 열기':'주간 회고 작성').click();await page.getByRole('dialog',{name:'주간 회고',exact:true}).waitFor();await shot('weekly-review');
+    if(!before){assert.equal(await page.getByRole('dialog').locator('textarea').count(),5);assert.equal(await page.getByRole('dialog').getByRole('button',{name:'저장',exact:true}).isEnabled(),true);}
     await page.getByRole('dialog').getByRole('button',{name:'닫기',exact:true}).click();
     for(const [menu,slug] of [['나의 정원','garden'],['오늘','today'],['할 일','todos'],['기록','records']]){await nav(menu);await page.waitForTimeout(150);await shot(slug);if(menu==='나의 정원'){
       if(!before){await page.getByRole('heading',{name:'월간·연간 목표',exact:true}).waitFor();await page.getByRole('heading',{name:'버킷리스트',exact:true}).waitFor();assert.equal(await page.getByText('완료된 버킷 문장 보존',{exact:true}).count(),1);assert.equal(await page.getByText('기존 씨앗 데이터 조회',{exact:false}).count(),0);}

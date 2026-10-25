@@ -1,0 +1,34 @@
+{
+  "shots": [
+    "mobile-planner-before.png",
+    "mobile-editor.png",
+    "mobile-reference.png",
+    "mobile-editor-next.png",
+    "tablet-planner-before.png",
+    "tablet-editor.png",
+    "tablet-reference.png",
+    "tablet-editor-next.png",
+    "desktop-planner-before.png",
+    "desktop-editor.png",
+    "desktop-reference.png",
+    "desktop-editor-next.png",
+    "mobile-keyboard-height.png",
+    "mobile-saved-summary.png",
+    "tablet-saved-summary.png",
+    "desktop-saved-summary.png",
+    "desktop-save-failure.png"
+  ],
+  "viewports": [
+    390,
+    768,
+    1440
+  ],
+  "errors": [],
+  "outside": [],
+  "sockets": [],
+  "httpRequests": 49,
+  "featureReferenceMatches": true,
+  "sharedConfirmedStore": true,
+  "reset": true,
+  "physicalKeyboard": "not tested; focused viewport resize only"
+}

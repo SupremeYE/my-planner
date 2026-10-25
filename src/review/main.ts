@@ -32,7 +32,10 @@ data.someday_seeds=[
  {id:'review-seed-bookshop',text:'작은 책방에서 하루 보내기',kind:'do',status:'seed',created_at:today.toISOString()},
  {id:'review-seed-build',text:'나만의 작은 서비스 완성하기',kind:'build',status:'seed',created_at:today.toISOString()},
 ];
-(window as any).__moaFixture={tables:data};
+// Empty current week permits a first-entry demo; a past sample demonstrates read/edit preservation.
+data.weekly_reviews=[{id:'review-weekly-past',week_key:`${getISOWeekYear(addDays(today,-7))}-W${String(getISOWeek(addDays(today,-7))).padStart(2,'0')}`,
+  highlights:'천천히 산책하며 한 주를 돌아봤어요.',kpt_keep:'잠깐이라도 쉬는 시간',notice:null,kpt_try:'다음 주에는 책 읽는 시간 만들기',next_week:''}];
+(window as any).__moaFixture={tables:data,memoryOptions:{unique:{weekly_reviews:[['week_key']]},orderedTables:['weekly_reviews']}};
 // All runtime fetches (including paid same-origin APIs) are disabled. Assets use normal browser loading.
 window.fetch=async()=>new Response(JSON.stringify({error:'샘플 검토에서는 서버/API 요청을 하지 않아요.'}),{status:503,headers:{'Content-Type':'application/json'}});
 if(navigator.serviceWorker)navigator.serviceWorker.register=async()=>{throw new Error('Review does not register service workers');};

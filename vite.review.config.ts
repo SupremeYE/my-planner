@@ -3,6 +3,7 @@ import base from './vite.config';
 import path from 'node:path';
 import {transformReviewMedia} from './src/review/mediaBuildTransforms';
 import { applyPreviewCopy } from './scripts/review-ux-copy.mjs';
+import { transformReviewWeekly } from './src/review/weeklyBuildTransforms';
 
 if (process.env.VERCEL_ENV === 'production') throw new Error('Review build is forbidden for Production');
 export default mergeConfig(base, defineConfig({
@@ -23,6 +24,8 @@ export default mergeConfig(base, defineConfig({
     },
     transform(code, id) {
       code = applyPreviewCopy(code, id);
+      const weekly = transformReviewWeekly(code, id);
+      if (weekly !== undefined) return weekly;
       const media = transformReviewMedia(code, id);
       if (media !== undefined) return media;
       if (id.endsWith('/src/app/App.tsx')) return code.replace('<SaveStatus />', '');

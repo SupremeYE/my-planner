@@ -1,5 +1,7 @@
 # 모아모아 PC·iPhone 검토용 Preview
 
+주간 회고 작성·수정·확인 저장의 최신 상태는 [STEP 3B-5B 보고서](MOAMOA_PREVIEW_WEEKLY_REVIEW.md)를 따른다. 이전 UX 문서의 조회 전용 회고 설명은 당시 체크포인트 기록이다.
+
 현재 캘린더 시간 미지정 항목 배치·UX 문구와 최신 검증은 [Preview UX 보고서](MOAMOA_PREVIEW_UX.md)를 따른다. 음악·독서 통합은 [음악·독서 Preview 보고서](MOAMOA_PREVIEW_MUSIC_BOOKS.md), 문화 기록 통합은 [문화 기록 Preview 보고서](MOAMOA_PREVIEW_CULTURE.md), 탐색·캘린더·정원 구현은 [Preview 탐색 개선 보고서](MOAMOA_PREVIEW_NAVIGATION.md)에 기록했다. 아래 체크포인트/초기 검증 결과는 `c0ad0db` 기준 기록이다.
 
 ## 보존 및 브랜치
@@ -41,7 +43,7 @@
 | 메뉴 | 경로 | 범위 |
 |---|---|---|
 | 오늘 | `/__moamoa-today` | 주간 목표, 핵심 TODO, 일정·실제 시간, 빠른 입력 |
-| 캘린더 | `/calendar` | 모아모아 월·주·일 / 주간 일정·플래너 + 같은 샘플 Provider |
+| 캘린더 | `/calendar` | 모아모아 월·주·일 / 주간 플래너·회고 작성·수정 + 같은 확인 저장 Provider |
 | 할 일 | `/__moamoa-todos` | 기존 STEP 3B-2 화면, 메모리 CRUD·태그·목표 연결 |
 | 기록 | `/__moamoa-records` | 일·주·월 시간 분석, 독립/할 일 연결 시간 기록 |
 | 음식 | `/__moamoa-food` | 샘플 사진·갤러리, 등록·수정·삭제, 사진 촬영·앨범 선택 |

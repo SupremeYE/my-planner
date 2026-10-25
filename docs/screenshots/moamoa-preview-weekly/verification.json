@@ -1,0 +1,125 @@
+{
+  "previewBase": "81f9aba370639f6e225668dc48c5991529edbdfb",
+  "featureSource": "887f70ac1be0c8fe935965f7d090911867f4a1ea",
+  "selectedFilesByteIdentical": [
+    "src/lib/weeklyReviewRepository.ts",
+    "src/lib/weeklyReviewRepository.test.ts",
+    "src/app/hooks/useWeeklyReviews.ts",
+    "src/app/components/moamoa/weekly/WeeklyReviewEditor.tsx",
+    "src/app/components/moamoa/weekly/weekly.css",
+    "src/app/components/moamoa/MoaDialog.tsx"
+  ],
+  "unit": {
+    "tests": 215,
+    "pass": 215,
+    "fail": 0
+  },
+  "browserApiAndPreview": {
+    "tests": 141,
+    "pass": 141,
+    "fail": 0
+  },
+  "finalWeeklyRolloverRecheck": {
+    "tests": 10,
+    "pass": 10,
+    "fail": 0
+  },
+  "production": {
+    "fileCount": 19,
+    "allHashesMatch": true,
+    "sha256": {
+      "favicon-32x32.png": "62b789f299ce97690f0369861549484af815a990bce9720681ca219c6872ad48",
+      "sw.js": "f457af7418a37d7d1c8d88be533ad21be12ffb6bea90255115efed6dcc6cdfed",
+      "index.html": "af300f2a24b29bb903a78c3c92a381b7aa921610382438bbb5d58976324fc35f",
+      "manifest.json": "e1d240e68bd4b12f47088853977fc4ef5f250e11b21b5ac490ff04f0b885ab01",
+      "fonts/ownglyph-positive.ttf": "d633070d1e8b2c630c3f1688a186c46457ce732c705b498857546b45dcb245c6",
+      "fonts/ownglyph-positive.woff2": "7c5d2dd61cdf4025248b9622391c4e47e3deb54b60b354764aa3de2cd0f5e801",
+      "icons/README.txt": "1472a1ac3e4be40e913be0b438f209f56f3efa5d81fd680f9a63603528cf3406",
+      "icons/icon-96x96.png": "52f198c329eb166f5ded7f211a3005777e19bc49d678bdcb3d12e122cd7f3c83",
+      "icons/icon-192x192.png": "eea3407825c89439d325c554ba11198447cfc627a49f91b5829b77d5892a14d3",
+      "icons/icon-512x512.png": "ec1110b03916a60b994419923e2492386ce55b01020630eead2853fb16e1f964",
+      "icons/icon-144x144.png": "5289d324a3fad82f191f7aace766951949cbeae46227c5e12ef53fc794587862",
+      "icons/icon-72x72.png": "c0cff53aee39a94c97400afab56319fe9dbe684b38a7de96712f8bb3c23e5833",
+      "icons/apple-touch-icon.png": "6803cc51c164382279ea3bd6bb294848de129917dc786d3561e957ac6333917e",
+      "icons/icon-152x152.png": "20447c059185cb5307e3736c560e4c1b9306afed919c6220c55e5457422236c9",
+      "icons/icon-384x384.png": "2dece2ef846ae7c4198aefece35856b3fa107c5e87f0f8c565a2b07fec047f89",
+      "icons/icon-128x128.png": "5e1fd500b35a166e43892aea17d2126e8ab7895f641be02bd26944ffe6abdf83",
+      "assets/splash-character.png": "98481aaf740d9c58ba15e296b88fefed7a3a06e856143326b269c5b196e0a7eb",
+      "assets/index-DuUCPjHt.js": "321cac2747bbae680baeb882e814f8d6487880ee709067c2c60dc2bbf141066c",
+      "assets/index-Cb7C2idr.css": "258fd029e4f436916389a24bbcb803203853d5c5394e33705919d1c9cf73a184"
+    },
+    "warning": "existing bundle larger than 500 kB"
+  },
+  "lint": {
+    "fonts": 0,
+    "colorsViolations": 0,
+    "lavenderTokens": 379,
+    "lavenderBaseline": 379
+  },
+  "render": {
+    "screenshots": 14,
+    "fail": 0,
+    "warn": 14,
+    "warning": "existing product lavender usage"
+  },
+  "preview": {
+    "shots": [
+      "mobile-planner-before.png",
+      "mobile-editor.png",
+      "mobile-reference.png",
+      "mobile-editor-next.png",
+      "tablet-planner-before.png",
+      "tablet-editor.png",
+      "tablet-reference.png",
+      "tablet-editor-next.png",
+      "desktop-planner-before.png",
+      "desktop-editor.png",
+      "desktop-reference.png",
+      "desktop-editor-next.png",
+      "mobile-keyboard-height.png",
+      "mobile-saved-summary.png",
+      "tablet-saved-summary.png",
+      "desktop-saved-summary.png",
+      "desktop-save-failure.png"
+    ],
+    "viewports": [
+      390,
+      768,
+      1440
+    ],
+    "errors": [],
+    "outside": [],
+    "sockets": [],
+    "httpRequests": 49,
+    "featureReferenceMatches": true,
+    "sharedConfirmedStore": true,
+    "reset": true,
+    "physicalKeyboard": "not tested; focused viewport resize only"
+  },
+  "protectedFilesUnchanged": [
+    "src/app/store.tsx",
+    "src/lib/db.ts",
+    "src/app/routes.tsx",
+    "src/lib/weekKeys.ts",
+    "src/lib/timeAggregation.ts",
+    "src/lib/moaToday.ts",
+    "src/review/ReviewShell.tsx",
+    "src/review/calendarGarden.css",
+    "src/review/transport.ts",
+    "src/review/mediaBuildTransforms.ts",
+    "vercel.json",
+    "package.json",
+    "package-lock.json"
+  ],
+  "sidebarHamburgerImplemented": false,
+  "generatedArtifactsRecovery": {
+    "archived": 288,
+    "restoredTracked": 162,
+    "removedGeneratedUntrackedAfterBackup": 126
+  },
+  "limitations": [
+    "Physical mobile keyboard not tested; focused viewport resizing and scroll verified.",
+    "No live DB/Storage/API access. Actual uniqueness, RLS and cross-client canonical/legacy week races require separate DB validation.",
+    "Remote unpushed work in other Codex environments is not visible; independent clone used."
+  ]
+}

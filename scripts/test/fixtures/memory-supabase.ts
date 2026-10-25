@@ -1,5 +1,7 @@
 /** Isolated test transport. It never opens a socket or loads credentials. */
-export function memorySupabase(initial: Record<string, any[]>) {
+export function memorySupabase(initial: Record<string, any[]>, config: {
+  unique?: Record<string, string[][]>; orderedTables?: string[];
+} = {}) {
   const tables = structuredClone(initial);
   const requests: any[] = [];
   const faults: any[] = [];
@@ -17,6 +19,7 @@ export function memorySupabase(initial: Record<string, any[]>) {
   const supabase = {
     from(table: string) {
       let kind = 'read'; let payload: any; let options: any = {}; let single = false; let offset = 0; let end = Infinity;
+      const orders: Array<{ key: string; ascending: boolean }> = [];
       const filters: Array<(row: any) => boolean> = [];
       const execute = async () => {
         const isWrite = kind !== 'read';
@@ -29,14 +32,20 @@ export function memorySupabase(initial: Record<string, any[]>) {
         const failure = () => ({ data: null, error: { code: fault.code ?? 'TEST', message: 'isolated failure' }, status: fault.status });
         if (fault && !fault.afterCommit) return failure();
         const rows = tables[table] ?? (tables[table] = []);
+        const duplicate = (value: any, old?: any) => (config.unique?.[table] ?? []).some(columns =>
+          (!old || columns.some(key => value[key] !== old[key])) && columns.every(key => value[key] != null)
+          && rows.some(other => other.id !== value.id && columns.every(key => other[key] === value[key])));
+        const conflict = () => ({ data: null, error: { code: '23505', message: 'isolated unique conflict' }, status: 409 });
         let data: any[];
         if (kind === 'upsert' || kind === 'insert') {
           const existing = rows.find(row => row.id === payload.id);
+          if (!(existing && options.ignoreDuplicates) && duplicate({ ...existing, ...payload }, existing)) return conflict();
           if (existing && options.ignoreDuplicates) data = [];
           else if (existing) { Object.assign(existing, payload); data = [existing]; }
           else { rows.push(structuredClone(payload)); data = [rows[rows.length - 1]]; }
         } else if (kind === 'update') {
           data = rows.filter(row => filters.every(filter => filter(row)));
+          if (data.some(row => duplicate({ ...row, ...payload }, row))) return conflict();
           data.forEach(row => Object.assign(row, structuredClone(payload)));
         } else if (kind === 'delete') {
           data = rows.filter(row => filters.every(filter => filter(row)));
@@ -46,18 +55,28 @@ export function memorySupabase(initial: Record<string, any[]>) {
         }
         if (isWrite) queueMicrotask(() => emit(table));
         if (fault) return failure();
-        if (!isWrite) data = data.slice(offset, end + 1);
+        if (!isWrite) {
+          if (config.orderedTables?.includes(table)) data = [...data].sort((a, b) => {
+            for (const { key, ascending } of orders) {
+              const result = a[key] === b[key] ? 0 : a[key] == null ? 1 : b[key] == null ? -1 : a[key] < b[key] ? -1 : 1;
+              if (result) return ascending ? result : -result;
+            }
+            return 0;
+          });
+          data = data.slice(offset, end + 1);
+        }
         if (single && data.length !== 1) return { data: null, error: { code: 'PGRST116' }, status: 406 };
         return { data: structuredClone(single ? data[0] : data), error: null, status: 200 };
       };
       const query: any = new Proxy({}, { get(_, method) {
         if (method === 'then') return (resolve: any, reject: any) => execute().then(resolve, reject);
-        if (method === 'select' || method === 'order') return () => query;
+        if (method === 'select') return () => query;
+        if (method === 'order') return (key: string, opts?: { ascending?: boolean }) => { orders.push({ key, ascending: opts?.ascending !== false }); return query; };
         if (method === 'range') return (from: number, to: number) => { offset = from; end = to; return query; };
         if (method === 'limit') return (count: number) => { end = count - 1; return query; };
         if (method === 'single' || method === 'maybeSingle') return () => { single = true; return query; };
         if (method === 'contains') return (key: string, values: any[]) => { filters.push(row => values.every(value => (row[key] ?? []).includes(value))); return query; };
-        if (method === 'eq') return (key: string, value: any) => { filters.push(row => row[key] === value); return query; };
+        if (method === 'eq' || method === 'is') return (key: string, value: any) => { filters.push(row => row[key] === value); return query; };
         if (method === 'gte') return (key: string, value: any) => { filters.push(row => row[key] >= value); return query; };
         if (method === 'lte') return (key: string, value: any) => { filters.push(row => row[key] <= value); return query; };
         if (method === 'delete') return () => { kind = 'delete'; return query; };

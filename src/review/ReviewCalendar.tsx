@@ -2,13 +2,13 @@ import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from 
 import { Link, useSearchParams } from 'react-router';
 import { addDays, addMonths, addWeeks, format, parseISO, startOfISOWeek, startOfMonth } from 'date-fns';
 import { ko } from 'date-fns/locale';
-import { CalendarDays, Check, ChevronLeft, ChevronRight, Clock3, Feather, LayoutGrid } from 'lucide-react';
+import { CalendarDays, Check, ChevronLeft, ChevronRight, Clock3, LayoutGrid } from 'lucide-react';
 import { usePlanner, type Todo } from '../app/store';
 import { moaTodayData, moaMinutes } from '../lib/moaToday';
 import { aggregateActivity, type ActivityRecord } from '../lib/timeAggregation';
 import { completionMarkerPatch } from '../lib/todoDoDuration';
-import { findWeekRecord, getWeekKey } from '../lib/weekKeys';
-import { MoaDialog } from '../app/components/moamoa/MoaDialog';
+import { getWeekKey } from '../lib/weekKeys';
+import { ReviewWeeklyReview } from './ReviewWeeklyReview';
 import { useMoaToday } from '../app/components/moamoa/moaShared';
 import { MoaFrame } from './ReviewFrame';
 import { useReviewQuick, ReviewQuickSheet } from './ReviewQuick';
@@ -57,7 +57,6 @@ export function Component() {
   const period = ['day','week','month'].includes(query.get('period') ?? '') ? query.get('period')! : 'week';
   const planner = query.get('view') === 'planner';
   const [picked, setPicked] = useState<string | null>(null); const date = picked ?? today;
-  const [review, setReview] = useState(false);
   const compact = useCompactSchedule(), quick = useReviewQuick();
   const gridRef = useRef<HTMLDivElement>(null);
   useEffect(() => { if (gridRef.current) gridRef.current.scrollTop = 7 * 48; }, [date,period,planner,compact,p.isLoading]);
@@ -73,7 +72,6 @@ export function Component() {
   const visibleDays = period === 'day' || compact ? [date] : days;
   const monthlyStart = startOfISOWeek(startOfMonth(parseISO(date)));
   const monthDays = Array.from({ length:42 }, (_,i) => stamp(addDays(monthlyStart,i)));
-  const weeklyReview = findWeekRecord(p.weeklyReviews, weekKey);
   function shift(direction: number) {
     const parsed = parseISO(date);
     setPicked(stamp(period === 'month' ? addMonths(parsed,direction) : period === 'week' ? addWeeks(parsed,direction) : addDays(parsed,direction)));
@@ -90,7 +88,7 @@ export function Component() {
     : period === 'week' && planner ? <div className="rc-planner" aria-label="주간 플래너">
       <div className="rc-week-top"><section className="mt-card"><h2>이번 주 목표</h2>{week.weeks.length ? week.weeks.map(({goal,progress}) => <div className="rc-goal" key={goal.id} data-goal-id={goal.id} data-goal-progress={progress.pct}><div><strong>{goal.text}</strong><b>{progress.pct}%</b></div><progress max="100" value={progress.pct} aria-label={`${goal.text} 진행률`}/><small>{progress.mode === 'manual' ? '수동 완료 기준' : `연결 할 일 ${progress.done}/${progress.total}개`}</small></div>) : <p className="mt-empty">이번 주에 연결된 목표가 없어요.</p>}<Link className="mr-inline-link" to="/profile">월간·연간 목표 보기</Link></section>
       <section className="mt-card"><h2>날짜 미정 할 일</h2><p className="mx-help">이번 주 목표와 연결된 할 일</p>{weekUndated.map(t => <ReviewTodoRow key={t.id} todo={t}/>)}{!weekUndated.length && <p className="mt-empty">연결된 날짜 미정 할 일이 없어요.</p>}<details><summary>그 외 날짜 미정 {otherUndated.length}개</summary><p className="mx-help">날짜를 정하지 않아 특정 요일에 표시하지 않아요.</p>{otherUndated.map(t => <ReviewTodoRow key={t.id} todo={t}/>)}</details></section>
-      <section className="mt-card rc-week-time"><Clock3 size={22}/><h2>이번 주 실제 활동 시간</h2><strong className="mt-duration" data-calendar-minutes={actual.coverage.recordedMinutes}>{moaMinutes(actual.coverage.recordedMinutes)}</strong><p className="mx-help">직접 기록한 활동 시간</p><Link className="mr-inline-link" to="/__moamoa-records">시간 분석</Link><button onClick={() => setReview(true)}><Feather size={17}/>주간 회고 보기</button></section></div>
+      <section className="mt-card rc-week-time"><Clock3 size={22}/><h2>이번 주 실제 활동 시간</h2><strong className="mt-duration" data-calendar-minutes={actual.coverage.recordedMinutes}>{moaMinutes(actual.coverage.recordedMinutes)}</strong><p className="mx-help">직접 기록한 활동 시간</p><Link className="mr-inline-link" to="/__moamoa-records">시간 분석</Link><ReviewWeeklyReview days={days} weekKey={weekKey} week={week} actual={actual} /></section></div>
       <section className="rc-week-days" aria-label="요일별 할 일과 일정">{days.map(value => {const model = day(value);return <article className={`mt-card ${value === today ? 'rc-today' : ''}`} key={value}><h2>{dayLabel(value)}</h2>{model.dayEvents.map(e => <p className="rc-event-summary" key={e.id}><small>{e.isAllDay ? '종일' : e.startTime ?? '시간 미정'} · 계획</small>{e.title}</p>)}{model.dayTodos.map(t => <ReviewTodoRow key={t.id} todo={t}/>)}{!model.dayEvents.length && !model.dayTodos.length && <p className="mt-empty">등록한 일정과 할 일이 없어요.</p>}</article>;})}</section>
       <section className="mt-card"><h2>이번 주 습관 기록</h2><p className="mx-help">습관 기록을 확인할 수 있어요. 습관 수정·체크는 아직 지원하지 않아요.</p><div className="rc-habits"><table><thead><tr><th scope="col">습관</th>{days.map(value => <th scope="col" key={value}>{dayLabel(value)}</th>)}</tr></thead><tbody>{p.habits.map(h => <tr key={h.id}><th scope="row">{h.name}</th>{days.map(value => <td key={value} aria-label={`${value} ${h.checkedDates.includes(value) ? '완료' : '미기록'}`}>{h.checkedDates.includes(value) ? <Check size={17}/> : '·'}</td>)}</tr>)}</tbody></table>{!p.habits.length && <p className="mt-empty">아직 습관 기록이 없어요.</p>}</div></section>
     </div> : <section className="mt-card rc-schedule" aria-label={period === 'day' ? '일간 일정' : '주간 일정'}>
@@ -117,7 +115,6 @@ export function Component() {
       </div></div>;})}</div></div>
       <p className="mx-help rc-period-total">이 기간 실제 기록 {moaMinutes(actual.coverage.recordedMinutes)} · 계획은 합산하지 않아요. 자정을 지난 활동도 입력한 기록 날짜에 합산해요.</p>
     </section>}
-    {review && <MoaDialog title="주간 회고" description={`${days[0]} — ${days[6]} · 조회 전용`} onClose={() => setReview(false)} saveKeys={[]} footer={<button className="mx-primary" onClick={() => setReview(false)}>닫기</button>}><p>주간 회고 작성·수정은 아직 지원하지 않아요.</p><p>이번 주 실제 기록 {moaMinutes(actual.coverage.recordedMinutes)}</p><p>{weeklyReview?.highlights || '등록한 주간 회고가 없어요.'}</p></MoaDialog>}
     <ReviewQuickSheet {...quick}/>
   </MoaFrame>;
 }

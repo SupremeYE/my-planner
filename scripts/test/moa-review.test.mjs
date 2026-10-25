@@ -181,7 +181,7 @@ test('static Preview uses isolated samples: routes, quick record, local photo, r
       assert.equal(await page.evaluate(name=>window.testDb.tables.todos.filter(t=>t.text===`${name} 빠른 기록 검증`).length,name),1);
     }
     await nav('캘린더');await page.getByRole('button',{name:'주간 플래너',exact:true}).click();
-    await page.getByRole('button',{name:'주간 회고 보기',exact:true}).click();await page.getByRole('dialog',{name:'주간 회고',exact:true}).waitFor();
+    await page.getByRole('button',{name:'주간 회고 작성',exact:true}).click();await page.getByRole('dialog',{name:'주간 회고',exact:true}).waitFor();
     await page.getByRole('dialog').getByRole('button',{name:'닫기',exact:true}).click();
     await page.getByRole('button',{name:'주간 일정',exact:true}).click();
     await page.locator('.rc-schedule').waitFor();

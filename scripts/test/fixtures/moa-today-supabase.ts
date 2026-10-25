@@ -2,7 +2,7 @@
 import { memoryFoodStorage } from './memory-food-storage';
 import { memorySupabase } from './memory-supabase';
 const fixture = (window as any).__moaFixture ?? { tables: {} };
-const instance = memorySupabase(fixture.tables);
+const instance = memorySupabase(fixture.tables, fixture.memoryOptions);
 for (const fault of fixture.faults ?? []) instance.controls.failNext(fault.table, fault);
 const photoMemory = memoryFoodStorage(fixture.storage ?? []);
 export const controls = { ...instance.controls, reads: [] as string[], storageObjects: photoMemory.controls.objects, storageRequests: photoMemory.controls.requests, failNextStorage: photoMemory.controls.failNext, holdStorage: photoMemory.controls.hold, releaseStorage: photoMemory.controls.release };

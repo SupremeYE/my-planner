@@ -1,0 +1,7 @@
+.rw-entry { display:grid; gap:12px; width:100%; }
+.rw-entry > button { display:flex; justify-content:center; align-items:center; gap:8px; }
+.rw-entry > button:disabled { opacity:.6; }
+.rw-entry p { font-size:13px; line-height:1.6; color:var(--mo-muted); }
+.rw-summary { white-space:pre-wrap; overflow-wrap:anywhere; max-height:8em; overflow:auto; }
+.rw-collisions { display:grid; gap:8px; }
+.rw-entry [role=alert] { display:grid; gap:8px; }
