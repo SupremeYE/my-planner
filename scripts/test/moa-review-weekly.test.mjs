@@ -131,11 +131,12 @@ test('Preview weekly review: one confirmed store, ISO history, failures, reset a
    assert.equal(await dialog().locator('[data-review-minutes]').getAttribute('data-review-minutes'),minutes);await save();await sync();
    assert.equal((await writes()).at(-1).payload.week_key,'2026-W53');
   });
-  await step('CSP, disabled API/Storage, no actual SDK or service worker and sidebar untouched',async()=>{
+  await step('CSP, disabled API/Storage, no actual SDK or service worker and sidebar navigation retained',async()=>{
    const csp=config.routes[0].headers['Content-Security-Policy'];assert.match(csp,/connect-src 'none'/);assert.match(csp,/form-action 'none'/);
    assert.deepEqual(outside,[]);assert.deepEqual(errors,[]);assert.deepEqual(sockets,[]);assert.ok(requests.every(r=>r.method==='GET'&&!/\/api\/|\/storage\//.test(r.url)));
    assert.equal(await page.evaluate(()=>navigator.serviceWorker.getRegistrations().then(r=>r.length)),0);
-   assert.equal(await page.locator('.mr-collapse .lucide-panel-left-close').count(),1);
+   assert.equal(await page.locator('.mr-collapse .lucide-menu').count(),1);
+   assert.equal(await page.getByRole('button',{name:'사이드바 접기',exact:true}).getAttribute('aria-expanded'),'true');
   });
   await writeFile(path.join(output,'validation.json'),JSON.stringify({shots,viewports:[390,768,1440],errors,outside,sockets,httpRequests:requests.length,featureReferenceMatches:true,sharedConfirmedStore:true,reset:true,physicalKeyboard:'not tested; focused viewport resize only'},null,2));
  }finally{await browser.close();await new Promise(r=>server.close(r));await rm(temp,{recursive:true,force:true});}

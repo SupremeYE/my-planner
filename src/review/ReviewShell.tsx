@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Link, Outlet, useLocation } from 'react-router';
-import { PanelLeftClose, PanelLeftOpen, RotateCcw, Sprout } from 'lucide-react';
+import { Menu, RotateCcw, Sprout } from 'lucide-react';
 import { moaFonts, moaNav } from '../app/components/moamoa/moaShared';
 import { MoaBuddy } from '../app/components/moamoa/MoaBuddy';
 import { SaveStatus } from '../app/components/SaveStatus';
@@ -18,8 +18,8 @@ export function ReviewShell() {
     <button type="button" title="샘플 초기화" aria-label="샘플 초기화" onClick={() => location.reload()}><RotateCcw size={17} /><span>샘플 초기화</span></button></div>;
   return <div className={`mt-root mr-shell ${collapsed ? 'mr-collapsed' : ''}`} style={moaFonts}>
     <aside className="mr-sidebar" aria-label="모아모아 사이드바">
-      <Link to="/__moamoa-today" className="mr-brand" aria-label="모아모아 오늘"><Sprout size={29} /><span>모아모아</span></Link>
-      <button className="mr-collapse" type="button" aria-controls="mr-pc-nav" aria-expanded={!collapsed} aria-label={collapsed ? '사이드바 펼치기' : '사이드바 접기'} title={collapsed ? '사이드바 펼치기' : '사이드바 접기'} onClick={() => setCollapsed(v => !v)}>{collapsed ? <PanelLeftOpen size={20} /> : <><PanelLeftClose size={20} /><span>사이드바 접기</span></>}</button>
+      <div className="mr-sidebar-heading"><Link to="/__moamoa-today" className="mr-brand" aria-label="모아모아 오늘"><Sprout size={29} /><span>모아모아</span></Link>
+      <button className="mr-collapse" type="button" aria-controls="mr-pc-nav" aria-expanded={!collapsed} aria-label={collapsed ? '사이드바 펼치기' : '사이드바 접기'} title={collapsed ? '사이드바 펼치기' : '사이드바 접기'} onClick={() => setCollapsed(v => !v)}><Menu size={22} aria-hidden="true" /></button></div>
       <nav id="mr-pc-nav" aria-label="주요 메뉴">{links()}</nav>
       <div className="mr-sidebar-foot"><MoaBuddy small /><p>작은 일부터 하나씩.</p>{status()}</div>
     </aside>
