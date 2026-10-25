@@ -1,4 +1,4 @@
-import { addDays, format, getDay, isBefore, startOfDay } from 'date-fns';
+import { addDays, format, getDay, isBefore, startOfDay, startOfISOWeek } from 'date-fns';
 import { DOW_LABELS } from './recurrenceExpansion';
 
 /**
@@ -58,6 +58,8 @@ export interface ParsedEntry {
    * 호출부에서 타입 결정 우선순위(수동 탭 > 프리픽스 > 기본 할일)에 사용한다.
    */
   typeHint?: 'event' | 'todo' | null;
+  issues?: string[];
+  crossesMidnight?: boolean;
 }
 
 /** 한글 요일 라벨 → getDay 숫자 (0=일). 호출부에서 custom recurrenceDays 변환용 */
@@ -93,7 +95,7 @@ function hourTo24(hour: number, meridiem?: string): number {
   return hour;
 }
 
-export function parseQuickEntry(input: string, now: Date = new Date()): ParsedEntry {
+export function parseQuickEntry(input: string, now: Date = new Date(), context: { selectedDate?: string | null } = {}): ParsedEntry {
   let working = input ?? '';
   const today = startOfDay(now);
 
@@ -140,13 +142,18 @@ export function parseQuickEntry(input: string, now: Date = new Date()): ParsedEn
 
   // ── 날짜 ────────────────────────────────────────────────────────────────
   let dateFromToken: string | null = null;
-  if (/오늘/.test(working)) {
+  const weekToken = working.match(/(이번|다음)\s*주\s*([월화수목금토일])(?:요일)?/);
+  if (weekToken) {
+    dateFromToken = fmt(addDays(startOfISOWeek(today), (weekToken[1] === '다음' ? 7 : 0) + (DOW_LABELS.indexOf(weekToken[2]) + 6) % 7));
+    working = working.replace(weekToken[0], ' ');
+  }
+  if (!dateFromToken && /오늘/.test(working)) {
     dateFromToken = fmt(today);
     working = working.replace(/오늘/, ' ');
-  } else if (/모레/.test(working)) {
+  } else if (!dateFromToken && /모레/.test(working)) {
     dateFromToken = fmt(addDays(today, 2));
     working = working.replace(/모레/, ' ');
-  } else if (/내일/.test(working)) {
+  } else if (!dateFromToken && /내일/.test(working)) {
     dateFromToken = fmt(addDays(today, 1));
     working = working.replace(/내일/, ' ');
   }
@@ -184,37 +191,33 @@ export function parseQuickEntry(input: string, now: Date = new Date()): ParsedEn
   let startTime: string | undefined;
   let endTime: string | undefined;
 
-  // 범위: (오전|오후)? N-N시
-  let tm = working.match(/(오전|오후)?\s*(\d{1,2})\s*[-~]\s*(\d{1,2})\s*시(?!간)/);
-  if (tm) {
-    const mer = tm[1];
-    startTime = `${pad(hourTo24(+tm[2], mer))}:00`;
-    endTime = `${pad(hourTo24(+tm[3], mer))}:00`;
-    hasTime = true;
-    working = working.replace(tm[0], ' ');
-  }
-  // 단일: (오전|오후)? N시 (반|N분)?
-  if (!hasTime) {
-    tm = working.match(/(오전|오후)?\s*(\d{1,2})\s*시(?!간)\s*(?:(반)|(\d{1,2})\s*분)?/);
+  const issues: string[] = [];
+  // Match the entire range before a single token; invalid tokens remain in the title.
+  const token = '(?:(오전|오후)\\s*)?(\\d{1,2})(?::(\\d{2})|\\s*시(?!간)\\s*(?:(반)|(\\d{1,2})\\s*분)?)?';
+  const range = new RegExp(token + '\\s*[~～-]\\s*' + token, 'g');
+  const timeValue = (mer: string, hour: string, minute: string, half: string, koreanMinute: string, inherited?: string) => {
+    const h = +hour, m = half ? 30 : +(minute || koreanMinute || 0), ampm = mer || inherited;
+    if (h > 23 || m > 59 || (ampm && (h < 1 || h > 12))) return undefined;
+    return `${pad(hourTo24(h, ampm))}:${pad(m)}`;
+  };
+  let tm = range.exec(working);
+  // Avoid treating dates such as 6-13 as times unless marked with ':' or '시'.
+  if (tm && /[:시]/.test(tm[0])) {
+    startTime = timeValue(tm[1],tm[2],tm[3],tm[4],tm[5]);
+    endTime = timeValue(tm[6],tm[7],tm[8],tm[9],tm[10],tm[1]);
+    if (!startTime || !endTime || startTime === endTime) {
+      issues.push('시간 범위를 확인해주세요.'); startTime = endTime = undefined;
+    } else { hasTime = true; working = working.replace(tm[0], ' '); }
+  } else {
+    tm = new RegExp('(?:(오전|오후)\\s*)?(\\d{1,2})(?::(\\d{2})|\\s*시(?!간)\\s*(?:(반)|(\\d{1,2})\\s*분)?)').exec(working);
     if (tm) {
-      const h = hourTo24(+tm[2], tm[1]);
-      let min = 0;
-      if (tm[3] === '반') min = 30;
-      else if (tm[4]) min = +tm[4];
-      startTime = `${pad(h)}:${pad(min)}`;
-      hasTime = true;
-      working = working.replace(tm[0], ' ');
+      startTime = timeValue(tm[1],tm[2],tm[3],tm[4],tm[5]);
+      if (!startTime) issues.push('시각은 00:00~23:59 범위로 입력해주세요.');
+      else { hasTime = true; working = working.replace(tm[0], ' '); }
     }
   }
-  // HH:MM
-  if (!hasTime) {
-    tm = working.match(/(\d{1,2}):(\d{2})/);
-    if (tm) {
-      startTime = `${pad(+tm[1])}:${pad(+tm[2])}`;
-      hasTime = true;
-      working = working.replace(tm[0], ' ');
-    }
-  }
+  const crossesMidnight = !!(startTime && endTime && endTime < startTime);
+  if (crossesMidnight) issues.push('종료가 시작보다 빨라요. 다음 날 종료인지 확인해주세요.');
 
   // ── 중요: 단독('운동 !') 또는 선두('!보고서') '!' 토큰 ────────────────────
   let isTop3 = false;
@@ -235,7 +238,7 @@ export function parseQuickEntry(input: string, now: Date = new Date()): ParsedEn
   } else if (recurrenceRule === 'daily' || recurrenceRule === 'weekday') {
     date = fmt(today);
   } else if (hasTime) {
-    date = fmt(today);
+    date = context.selectedDate ?? fmt(today);
   } else {
     date = null;
   }
@@ -252,5 +255,7 @@ export function parseQuickEntry(input: string, now: Date = new Date()): ParsedEn
     projectName,
     isTop3,
     typeHint,
+    ...(issues.length ? { issues } : {}),
+    ...(crossesMidnight ? { crossesMidnight } : {}),
   };
 }

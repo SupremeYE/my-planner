@@ -361,3 +361,6 @@ export async function deleteEvent(id: string): Promise<boolean> {
   }
   return true;
 }
+
+// Shared codecs for the development-only confirmed PLAN repository.
+export { toRowPayload, toLegacyEvent };

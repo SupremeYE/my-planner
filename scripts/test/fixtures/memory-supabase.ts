@@ -57,7 +57,10 @@ export function memorySupabase(initial: Record<string, any[]>) {
         if (method === 'limit') return (count: number) => { end = count - 1; return query; };
         if (method === 'single' || method === 'maybeSingle') return () => { single = true; return query; };
         if (method === 'contains') return (key: string, values: any[]) => { filters.push(row => values.every(value => (row[key] ?? []).includes(value))); return query; };
-        if (method === 'eq' || method === 'is') return (key: string, value: any) => { filters.push(row => row[key] === value); return query; };
+        if (method === 'eq' || method === 'is') return (key: string, value: any) => { filters.push(row => {
+          const expected = Array.isArray(row[key]) && typeof value === 'string' && value.startsWith('{') ? JSON.parse('[' + value.slice(1,-1) + ']') : value;
+          return typeof expected === 'object' && expected !== null ? JSON.stringify(row[key]) === JSON.stringify(expected) : row[key] === expected;
+        }); return query; };
         if (method === 'gte') return (key: string, value: any) => { filters.push(row => row[key] >= value); return query; };
         if (method === 'lte') return (key: string, value: any) => { filters.push(row => row[key] <= value); return query; };
         if (method === 'delete') return () => { kind = 'delete'; return query; };

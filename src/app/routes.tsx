@@ -33,6 +33,7 @@ export const router = createBrowserRouter([
   // Explicit development entry; Auth/PlannerProvider still wrap this route in App.
   // Vite removes the import and its styles from production builds.
   ...(import.meta.env.DEV ? [{ path: '/__moamoa-today', lazy: () => import('./components/moamoa/MoaTodayRoute') },
+    { path: '/__moamoa-calendar-plan', lazy: () => import('./components/moamoa/MoaCalendarPlanRoute') },
     { path: '/__moamoa-weekly', lazy: () => import('./components/moamoa/MoaWeeklyRoute') },
     { path: '/__moamoa-food', lazy: () => import('./components/moamoa/MoaFoodRoute') },
     { path: '/__moamoa-books', lazy: () => import('./components/moamoa/MoaBooksRoute') },
