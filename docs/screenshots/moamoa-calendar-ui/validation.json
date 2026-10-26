@@ -1,0 +1,32 @@
+{
+  "results": [
+    {
+      "size": "desktop",
+      "width": 1440,
+      "sharedAxis": true,
+      "geometry": true,
+      "overlaps": true,
+      "actualMinutes": 105,
+      "unchanged": true
+    },
+    {
+      "size": "tablet",
+      "width": 768,
+      "sharedAxis": true,
+      "geometry": true,
+      "overlaps": true,
+      "actualMinutes": 105,
+      "unchanged": true
+    },
+    {
+      "size": "mobile",
+      "width": 390,
+      "sharedAxis": true,
+      "geometry": true,
+      "overlaps": true,
+      "actualMinutes": 105,
+      "unchanged": true
+    }
+  ],
+  "physicalIphone": false
+}

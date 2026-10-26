@@ -1,0 +1,13 @@
+▶ shared weekly axis: minute geometry, overlap lanes, independent upper lists, readonly DO and responsive CRUD
+  ✔ desktop (10335.087185ms)
+  ✔ tablet (4340.538063ms)
+  ✔ mobile (4496.738983ms)
+✔ shared weekly axis: minute geometry, overlap lanes, independent upper lists, readonly DO and responsive CRUD (19719.975332ms)
+ℹ tests 4
+ℹ suites 0
+ℹ pass 4
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 20202.13292

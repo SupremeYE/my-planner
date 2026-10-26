@@ -1,3 +1,5 @@
+import {CalendarTimeline,type CalendarDay} from './CalendarTimeline';
+import {aggregateActivity} from '../../../lib/timeAggregation';
 import { useState, useRef, useEffect, type CSSProperties } from 'react';
 import { addDays, differenceInCalendarDays, format, parseISO, startOfISOWeek } from 'date-fns';
 import { ko } from 'date-fns/locale';
@@ -23,19 +25,24 @@ export function Component(){
  const expanded=getRepeatedEvents(events.records as any,days[0],days.at(-1)!);
  const models=days.map(day=>({date:day,...moaTodayData(day,todos.records.map(r=>toTodo(r as any)),p.weeklyGoals,expanded,p.tags,p.timeBlocks,p.activityEntries,p.reportEvents)}));
  const openTodo=(id:string)=>{const row=todos.records.find(r=>r.id===id);if(row)setEditing({table:'todos',row,date:row.date??date});};
- return <MoaFrame pageTitle="캘린더 PLAN" quickDisabled={p.isLoading||!!todos.error||!!events.error} onQuick={()=>setEditing({table:'todos',date})}><div className="cp-page">
- <section className="mt-card"><h1>캘린더 PLAN</h1><p>예정된 일정과 할 일을 관리해요. DO는 실제 활동이며 계획 시간에 합산하지 않아요.</p>
+ const actual=aggregateActivity(p.todos,p.reportEvents,p.tags,days[0],days.at(-1)!,p.timeBlocks,p.activityEntries);
+ const timelineDays:CalendarDay[]=models.map(day=>{
+   const edit=(table:PlanTable,id:string,title:string)=>()=>{const source=(table==='todos'?todos:events).records.find(r=>r.id===id);setEditing({table,row:source??{id,recurrence_parent_id:'virtual',text:title},date:day.date});};
+   return {date:day.date,entries:[
+     ...day.dayTodos.map(t=>({key:`todo:${t.id}`,title:t.text,date:day.date,kind:'plan' as const,start:t.planStart,end:t.planEnd,edit:edit('todos',t.id,t.text)})),
+     ...day.dayEvents.map(e=>({key:`event:${e.id}`,title:e.title,date:day.date,kind:'plan' as const,start:e.startTime,end:e.endTime,all:!!e.isAllDay,edit:edit('events',e.sourceEventId??e.id,e.title)})),
+     ...actual.records.filter(r=>r.date===day.date).map(r=>({key:`actual:${r.kind}:${r.id}`,title:r.name,date:r.date,kind:'actual' as const,start:r.start,end:r.end,minutes:r.minutes})),
+     ...actual.coverage.unresolvedItems.filter(r=>r.date===day.date).map(r=>({key:`unresolved:${r.kind}:${r.id}`,title:`${r.name} · 시각 확인 필요`,date:r.date,kind:'actual' as const})),
+   ]};
+ });
+ return <MoaFrame className="cp-frame" pageTitle="캘린더 PLAN" quickDisabled={p.isLoading||!!todos.error||!!events.error} onQuick={()=>setEditing({table:'todos',date})}><div className="cp-page">
+ <section className="mt-card"><h1>캘린더 PLAN</h1><p>예정된 일정과 할 일을 관리해요. PLAN은 예정, DO는 실제 기록이에요. 실제 기록은 읽기 전용으로 비교해요.</p>
  <div className="cp-toolbar"><button onClick={()=>setDate(stamp(addDays(parseISO(date),period==='week'?-7:-1)))}>이전</button><input aria-label="선택 날짜" type="date" value={date} onChange={e=>e.target.value&&setDate(e.target.value)}/><button onClick={()=>setDate(stamp(addDays(parseISO(date),period==='week'?7:1)))}>다음</button><button aria-pressed={period==='week'} onClick={()=>setPeriod('week')}>주간</button><button aria-pressed={period==='day'} onClick={()=>setPeriod('day')}>일간</button><button disabled={p.isLoading||!!todos.error||!!events.error} onClick={()=>setEditing({table:'events',date})}>일정 추가</button><button disabled={p.isLoading||!!todos.error||!!events.error} onClick={()=>setEditing({table:'todos',date})}>할 일 추가·빠른 입력</button></div>
  {(todos.loading||events.loading)&&<p role="status">계획을 불러오고 있어요.</p>}{(todos.error||events.error)&&<div role="alert">{todos.error||events.error}<button onClick={()=>{void todos.refresh();void events.refresh();}}>다시 조회</button></div>}
  </section>
  <section className="mt-card"><h2>날짜 미정 할 일</h2>{todos.records.filter(r=>!r.date).map(r=><button className="cp-item" key={r.id} onClick={()=>openTodo(r.id)}>{r.text}</button>)}{!todos.records.some(r=>!r.date)&&<p>날짜 미정 할 일이 없어요.</p>}</section>
- <div className={`cp-days cp-${period}`}>
- {models.map(day=>{const entries=[...day.dayTodos.map(t=>({id:t.id,title:t.text,start:t.planStart,end:t.planEnd,all:false,table:'todos' as PlanTable})),...day.dayEvents.map(e=>({id:e.sourceEventId??e.id,title:e.title,start:e.startTime,end:e.endTime,all:!!e.isAllDay,table:'events' as PlanTable}))];
- const edit=(entry:typeof entries[number])=>{const source=(entry.table==='todos'?todos:events).records.find(r=>r.id===entry.id);if(source)setEditing({table:entry.table,row:source,date:day.date});else setEditing({table:entry.table,row:{id:entry.id,recurrence_parent_id:'virtual',text:entry.title},date:day.date});};
- return <section className={`mt-card cp-day ${day.date===getLogicalToday()?'cp-today':''}`} key={day.date}><button className="cp-date" onClick={()=>{setDate(day.date);setPeriod('day');}}>{format(parseISO(day.date),'M.d (EEE)',{locale:ko})}</button>
- {entries.some(e=>!e.start||e.all)&&<div className="cp-untimed"><h3>시간 미지정 · 종일</h3>{entries.filter(e=>!e.start||e.all).map(e=><button className="cp-item" key={e.table+e.id} onClick={()=>edit(e)}>{e.all?'종일 · ':''}{e.title}</button>)}</div>}
- <div className="cp-label"><strong>PLAN · 예정</strong><span>DO · 다음 단계</span></div><div className="cp-hours" ref={node=>{if(node&&!node.dataset.initialized){node.dataset.initialized='true';node.scrollTop=420;}}}>{Array.from({length:24},(_,hour)=><div className="cp-hour" key={hour}><button className="cp-empty" aria-label={`${day.date} ${hour}시 계획 추가`} onClick={()=>setEditing({table:'todos',date:day.date,time:`${String(hour).padStart(2,'0')}:00`})}>{String(hour).padStart(2,'0')}:00 <span>＋</span></button>{entries.filter(e=>!e.all&&e.start&&Number(e.start.split(':')[0])===hour).map(e=><button className="cp-block" key={e.table+e.id} data-plan-start={e.start} data-plan-end={e.end} onClick={()=>edit(e)}><small>{e.start}{e.end?`~${e.end}`:''} · {e.table==='todos'?'할 일':'일정'}</small>{e.title}</button>)}</div>)}</div></section>;})}
- </div></div>{editing&&<PlanEditor key={editing.row?.id??'new'} initial={editing} todos={todos} events={events} onClose={()=>setEditing(null)}/>}</MoaFrame>;
+ <CalendarTimeline days={timelineDays} selected={date} today={getLogicalToday()} period={period} onSelect={setDate} onAdd={(day,time)=>setEditing({table:'todos',date:day,time})}/>
+ </div>{editing&&<PlanEditor key={editing.row?.id??'new'} initial={editing} todos={todos} events={events} onClose={()=>setEditing(null)}/>}</MoaFrame>;
 }
 function PlanEditor({initial,todos,events,onClose}:{initial:{table:PlanTable;row?:PlanRow;date:string;time?:string};todos:ReturnType<typeof useCalendarPlans>;events:ReturnType<typeof useCalendarPlans>;onClose:()=>void}){
  const p=usePlanner(),[id]=useState(()=>initial.row?.id??crypto.randomUUID()),[table,setTable]=useState(initial.table),manual=useRef(initial.table==='events');
