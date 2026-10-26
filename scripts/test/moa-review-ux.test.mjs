@@ -43,9 +43,9 @@ test('Preview calendar untimed placement and understandable copy at 390/768/1440
     },date);
     await page.waitForTimeout(400);
     await shot('calendar-week');
-    const timed=page.locator('.rc-grid-scroll');await timed.evaluate(e=>e.scrollTop=e.scrollHeight);await shot('calendar-week-bottom');
+    const timed=page.locator('.cp-hours');await timed.evaluate(e=>e.scrollTop=e.scrollHeight);await shot('calendar-week-bottom');
     if(!before){
-      const top=page.getByRole('region',{name:'시간 미지정 할 일 · 종일 일정',exact:true});await top.waitFor();
+      const top=page.getByRole('region',{name:'시간 미지정 할 일 · 종일 일정 · 실제 활동',exact:true});await top.waitFor();
       assert.equal(await timed.locator('.rc-untimed, [data-todo-id]').count(),0);
       assert.equal(await top.locator('[data-todo-id="t1"]').count(),1);
       assert.equal(await page.locator('.rc-schedule [data-todo-id="undated"]').count(),0);
@@ -55,9 +55,11 @@ test('Preview calendar untimed placement and understandable copy at 390/768/1440
       if(width===1440)assert.equal(await top.locator(`[data-untimed-date="${other}"] [data-todo-id="ux-other-day"]`).count(),1);
       const more=top.locator(`[data-untimed-date="${date}"] details`);await more.locator('summary').click();
       await page.locator('[data-todo-id="ux-more-4"]').waitFor({state:'visible'});await shot('calendar-expanded');await more.locator('summary').click();
-      await page.getByRole('region',{name:'시각 없이 기록한 실제 활동',exact:true}).waitFor();
-      assert.equal(await page.locator('.rc-actual-untimed .rc-duration').count()>0,true);
-      assert.equal(await page.locator('.rc-grid-scroll .rc-duration').count(),0);
+      const duration=top.locator('.cp-duration').first();
+      if(!await duration.isVisible())await duration.locator('xpath=ancestor::details').locator('summary').click();
+      await duration.waitFor({state:'visible'});
+      assert.equal(await top.locator('.cp-duration').count()>0,true);
+      assert.equal(await page.locator('.cp-hours .cp-duration').count(),0);
       await page.locator('.mt-scroll').evaluate(e=>e.scrollTop=e.scrollHeight);
       const last=await page.locator('.rc-period-total').boundingBox(),fab=await page.locator('.mt-quick').boundingBox();
       assert.ok(last.y+last.height<fab.y,'calendar bottom content clears FAB and navigation');
@@ -73,7 +75,7 @@ test('Preview calendar untimed placement and understandable copy at 390/768/1440
       const original=await page.evaluate(()=>structuredClone(window.testDb.tables));
       await btn('주간').click();await btn('주간 플래너').click();const progress=await page.locator('[data-goal-id="w1"]').getAttribute('data-goal-progress');
       const minutes=await page.locator('[data-calendar-minutes]').getAttribute('data-calendar-minutes');
-      await btn('주간 일정').click();const check=page.locator('[data-todo-id="t1"] [role="checkbox"]');
+      const check=page.locator('[data-todo-id="t1"] [role="checkbox"]');
       await page.evaluate(()=>window.testDb.failNext('todos',{status:503}));await check.click();await btn('재시도').waitFor();assert.equal(await check.getAttribute('aria-checked'),'false');
       await btn('재시도').click();await page.locator('[data-todo-id="t1"] [aria-checked="true"]').waitFor();
       await btn('주간 플래너').click();assert.notEqual(await page.locator('[data-goal-id="w1"]').getAttribute('data-goal-progress'),progress);
@@ -81,7 +83,8 @@ test('Preview calendar untimed placement and understandable copy at 390/768/1440
       assert.equal(await page.locator('[data-todo-id="undated"]').count(),1);
       const changed=await page.evaluate(()=>window.testDb.tables);assert.deepEqual(changed.activity_entries,original.activity_entries);assert.deepEqual(changed.todo_time_blocks,original.todo_time_blocks);
       await btn('일간').click();assert.equal(await page.locator('.rc-period-total').textContent(),summary);
-      // Restore the completion state so before/after screenshots use the same visible data.
+      // Completion controls remain in the weekly planner; timed PLAN blocks open editing.
+      await btn('주간').click();await btn('주간 플래너').click();
       await page.locator('[data-todo-id="t1"] [role="checkbox"]').click();
       await page.locator('[data-todo-id="t1"] [aria-checked="false"]').waitFor();
       if(await btn('닫기').count())await btn('닫기').first().click();
@@ -105,7 +108,8 @@ test('Preview calendar untimed placement and understandable copy at 390/768/1440
       await page.goto(base+'/calendar?period=day');await page.locator('.rc-schedule').waitFor();
       await page.evaluate(()=>{for(const table of ['todos','events','activity_entries','todo_time_blocks']){window.testDb.tables[table]=[];window.testDb.emit(table);}});
       await page.getByLabel('캘린더 날짜',{exact:true}).fill('2040-03-12');await page.waitForTimeout(100);
-      assert.equal(await page.locator('.rc-untimed,.rc-actual-untimed').count(),0,'no empty untimed sections');
+      assert.equal(await page.locator('.cp-upper-grid .cp-item,.cp-upper-grid .cp-duration').count(),0,'no phantom untimed records');
+      assert.equal(await page.locator('.cp-upper-grid').count(),0,'no empty untimed section');
       await nav('나의 정원');await page.evaluate(()=>{window.testDb.tables.someday_seeds=[];window.testDb.emit('someday_seeds');});
       await page.getByText('등록한 버킷리스트가 없어요.',{exact:true}).waitFor();
     }

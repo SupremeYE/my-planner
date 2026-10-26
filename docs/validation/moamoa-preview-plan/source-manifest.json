@@ -1,0 +1,74 @@
+[
+  {
+    "path": "src/app/components/moamoa/CalendarTimeline.tsx",
+    "sourceCommit": "5aa02a7c3f1e3ff557de4042a9f20431aa856202",
+    "sourceBlob": "143033173ae434d2c65a6b3931904a02ba57781d",
+    "sourceSha256": "d1ff94a2f8402fd6496a140dec74ff67287c0d63c23ef5291ea74b4032d0d5ec",
+    "integratedSha256": "2bd8ae8265ab58cb08aa397f42eb82f8a367efc8948246f55a4d81a966dd2c0c",
+    "adapted": true
+  },
+  {
+    "path": "src/app/components/moamoa/calendarPlan.css",
+    "sourceCommit": "5aa02a7c3f1e3ff557de4042a9f20431aa856202",
+    "sourceBlob": "b02a8cee580f9f486751632f630eb0b10d399b70",
+    "sourceSha256": "dbc3e6959aba2b4b18249816b3d764f6dc52f76df4548ce65d463e7e16b00c2c",
+    "integratedSha256": "dbc3e6959aba2b4b18249816b3d764f6dc52f76df4548ce65d463e7e16b00c2c",
+    "adapted": false
+  },
+  {
+    "path": "src/app/hooks/useCalendarPlans.ts",
+    "sourceCommit": "5aa02a7c3f1e3ff557de4042a9f20431aa856202",
+    "sourceBlob": "074b302f6a12443d8145ed19d314526d0519be7d",
+    "sourceSha256": "d5b7871f05963d53f5e783b034274e03ef59cb0b7290f6af36088719f70d1687",
+    "integratedSha256": "d5b7871f05963d53f5e783b034274e03ef59cb0b7290f6af36088719f70d1687",
+    "adapted": false
+  },
+  {
+    "path": "src/lib/calendarTimeline.ts",
+    "sourceCommit": "5aa02a7c3f1e3ff557de4042a9f20431aa856202",
+    "sourceBlob": "8ac8357b69eb62cd366fd16f7e0b1b4e76b331ad",
+    "sourceSha256": "f415f4844c4b7976c063e1f5ac23e1bbadf3da48f437bf1323c4b36e47380ea9",
+    "integratedSha256": "f415f4844c4b7976c063e1f5ac23e1bbadf3da48f437bf1323c4b36e47380ea9",
+    "adapted": false
+  },
+  {
+    "path": "src/lib/calendarTimeline.test.ts",
+    "sourceCommit": "5aa02a7c3f1e3ff557de4042a9f20431aa856202",
+    "sourceBlob": "392962e7b1fb97773f8dd988f767ca7a02732772",
+    "sourceSha256": "ff79b99a289bb26949d990ddd144390842e5738ff130c12dac85533d9d5f95c8",
+    "integratedSha256": "ff79b99a289bb26949d990ddd144390842e5738ff130c12dac85533d9d5f95c8",
+    "adapted": false
+  },
+  {
+    "path": "src/lib/calendarPlanRepository.ts",
+    "sourceCommit": "5aa02a7c3f1e3ff557de4042a9f20431aa856202",
+    "sourceBlob": "b118bb2819a1abcd96e874122ff13e913224aa51",
+    "sourceSha256": "dc1b3d40f782671119789ca0f6b1759f6e12a9f38ae5a59d72bd10eb9eca1512",
+    "integratedSha256": "519074afe093c3275f57acfc6589f51cb0a3072999fe836f26502b51d14b97b6",
+    "adapted": true
+  },
+  {
+    "path": "src/lib/calendarPlan.test.ts",
+    "sourceCommit": "5aa02a7c3f1e3ff557de4042a9f20431aa856202",
+    "sourceBlob": "2ff0fd6053cc54e3995fdea406b7fb9e49203b32",
+    "sourceSha256": "34b3fdce2b4da78a76284bd36029fb01b7b5ae7eae626af1a1a75f8d01d201d7",
+    "integratedSha256": "5f59e8bc85cd7fac9cf57c4640e09bdeb864aca9096979d5fcced2de6bfc25dd",
+    "adapted": true
+  },
+  {
+    "path": "src/lib/todoCodec.ts",
+    "sourceCommit": "5aa02a7c3f1e3ff557de4042a9f20431aa856202",
+    "sourceBlob": "488dc41c58541cfc4331909b64cd6f4cb23b6552",
+    "sourceSha256": "2567a4f2ae543f60127a32891b6f6faf0a6c1079ccb823897cb179c73c02c254",
+    "integratedSha256": "2567a4f2ae543f60127a32891b6f6faf0a6c1079ccb823897cb179c73c02c254",
+    "adapted": false
+  },
+  {
+    "path": "src/lib/quickParse.ts",
+    "sourceCommit": "5aa02a7c3f1e3ff557de4042a9f20431aa856202",
+    "sourceBlob": "1ef1d2c9e53c5d50f7132ca87e25777685226bd6",
+    "sourceSha256": "303f7e59f5fcfada26db6cfcacddc6b4920a8dc415cd034e736c13c98d34f3f5",
+    "integratedSha256": "303f7e59f5fcfada26db6cfcacddc6b4920a8dc415cd034e736c13c98d34f3f5",
+    "adapted": false
+  }
+]

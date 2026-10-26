@@ -175,7 +175,7 @@ test('static Preview uses isolated samples: routes, quick record, local photo, r
     await capture('garden-bottom');
     for(const name of ['나의 정원','캘린더']) {
       await nav(name);await page.locator('.mt-quick').click();
-      const form=page.getByRole('dialog',{name:'할 일 추가',exact:true});await form.getByLabel('할 일 제목',{exact:true}).fill(`${name} 빠른 기록 검증`);
+      const form=page.getByRole('dialog',{name:name==='캘린더'?'계획 추가':'할 일 추가',exact:true});await form.getByLabel(name==='캘린더'?'제목':'할 일 제목',{exact:true}).fill(`${name} 빠른 기록 검증`);
       await capture(name==='캘린더'?'calendar-quick':'garden-quick');
       await form.getByRole('button',{name:'저장',exact:true}).click();await form.waitFor({state:'hidden'});
       assert.equal(await page.evaluate(name=>window.testDb.tables.todos.filter(t=>t.text===`${name} 빠른 기록 검증`).length,name),1);

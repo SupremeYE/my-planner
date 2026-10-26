@@ -63,3 +63,10 @@ body.moa-review:has(.mt-sheet) .mr-feedback { display:none; }
   body.moa-review .mx-search { width:100%; }
   body.moa-review .mx-filters { grid-template-columns:minmax(0,1fr); }
 }
+
+/* PLAN schedule stays inside ReviewShell; existing month/planner layouts are unchanged. */
+.rp-actions{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin-bottom:12px}.rp-actions button{min-height:44px}.rp-actions details{font-size:12px}.rp-undated{padding:10px 0}.rp-undated summary{min-height:36px;cursor:pointer}.rc-schedule>.cp-details{margin-top:16px}.rc-schedule .cp-time-block span{font-size:12px}.rc-schedule .cp-time-block small{font-size:10px}.rc-schedule .cp-untimed .cp-item{line-height:1.4}
+
+.rp-todo-date{display:flex;flex-wrap:wrap;align-items:end;gap:10px;margin-bottom:14px}.rp-todo-date label{display:grid;font-size:12px;gap:5px}.rp-todo-date input{min-height:44px;max-width:100%}
+
+.moa-review .cp-dialog label:has(>input[type=checkbox]){display:flex;align-items:center;gap:8px;min-height:44px}.moa-review .cp-dialog input[type=checkbox]{width:22px;min-height:22px;height:22px;padding:0;flex:0 0 22px}

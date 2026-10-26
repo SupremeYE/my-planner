@@ -115,7 +115,7 @@ function toEventInput(event: Event | EventMutationInput): EventMutationInput {
   };
 }
 
-function toRowPayload(event: Event | EventMutationInput) {
+export function toRowPayload(event: Event | EventMutationInput) {
   const input = toEventInput(event);
   const isAllDay = input.isAllDay ?? false;
   const startDate = input.startDate;
@@ -154,7 +154,7 @@ function toRowPayload(event: Event | EventMutationInput) {
   };
 }
 
-function toLegacyEvent(row: EventRow, occurrenceDate?: string): Event {
+export function toLegacyEvent(row: EventRow, occurrenceDate?: string): Event {
   const startAt = parseISO(row.start_at);
   const endAt = parseISO(row.end_at);
   const date = occurrenceDate || format(startAt, 'yyyy-MM-dd');

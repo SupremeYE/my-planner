@@ -1,0 +1,42 @@
+{
+  "results": [
+    {
+      "size": "desktop",
+      "width": 1440,
+      "height": 1024,
+      "shots": [
+        "desktop-week.png",
+        "desktop-month.png",
+        "desktop-planner.png"
+      ],
+      "outside": [],
+      "errors": []
+    },
+    {
+      "size": "tablet",
+      "width": 768,
+      "height": 1024,
+      "shots": [
+        "tablet-week.png",
+        "tablet-month.png",
+        "tablet-planner.png"
+      ],
+      "outside": [],
+      "errors": []
+    },
+    {
+      "size": "mobile",
+      "width": 390,
+      "height": 844,
+      "shots": [
+        "mobile-week.png",
+        "mobile-month.png",
+        "mobile-planner.png"
+      ],
+      "outside": [],
+      "errors": []
+    }
+  ],
+  "physicalIphone": false,
+  "operationalSupabase": false
+}

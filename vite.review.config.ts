@@ -13,6 +13,7 @@ export default mergeConfig(base, defineConfig({
       for (const key of Object.keys(config.env)) if (key.startsWith('VITE_')) delete config.env[key];
     },
     resolveId(source, importer) {
+      if(source.endsWith('/todoDoDuration')&&!importer?.endsWith('/review/planCompletion.ts'))return path.resolve('src/review/planCompletion.ts');
       if (/(?:^\.\/|\/lib\/)itunes(?:\.ts)?$/.test(source)) return path.resolve('src/review/mediaApi.ts');
       if (/(?:^\.\/|\/)BookImage(?:\.tsx)?$/.test(source)) return path.resolve('src/review/ReviewBookImage.tsx');
       if (source.endsWith('/useVoiceInput')) return path.resolve('src/review/disabledVoice.ts');
@@ -28,6 +29,11 @@ export default mergeConfig(base, defineConfig({
       if (weekly !== undefined) return weekly;
       const media = transformReviewMedia(code, id);
       if (media !== undefined) return media;
+      if(id.endsWith('/MoaTodosRoute.tsx'))return "import {ReviewTodoDate} from '@/review/ReviewTodoDate';\n"+code
+        .replace('const today = useMoaToday(dayEndHour); const navigate', 'const logicalToday=useMoaToday(dayEndHour); const today=planner.selectedDate; const navigate')
+        .replace('<div className="mx-page-heading">','<ReviewTodoDate/><div className="mx-page-heading">')
+        .replace("['today', '오늘']", "['today', today===logicalToday?'오늘':'선택일']")
+        .replace('오늘 실제 활동 시간','선택일 실제 활동 시간');
       if (id.endsWith('/src/app/App.tsx')) return code.replace('<SaveStatus />', '');
       if (id.endsWith('/MoaCultureRoute.tsx')) {
         const navigation = /<div className="mc-section-label">[\s\S]*?<\/div>/;

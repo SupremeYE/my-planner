@@ -1,0 +1,72 @@
+{
+  "results": [
+    {
+      "size": "desktop",
+      "width": 1440,
+      "height": 1024,
+      "shots": [
+        "desktop-week.png",
+        "desktop-nlp.png",
+        "desktop-todo.png",
+        "desktop-today.png",
+        "desktop-failure.png",
+        "desktop-timeline.png",
+        "desktop-planner.png",
+        "desktop-month.png",
+        "desktop-day.png"
+      ],
+      "outside": [],
+      "errors": [],
+      "sockets": [],
+      "sharedProvider": true,
+      "reset": true,
+      "actualUnchanged": true
+    },
+    {
+      "size": "tablet",
+      "width": 768,
+      "height": 1024,
+      "shots": [
+        "tablet-week.png",
+        "tablet-nlp.png",
+        "tablet-todo.png",
+        "tablet-today.png",
+        "tablet-failure.png",
+        "tablet-timeline.png",
+        "tablet-planner.png",
+        "tablet-month.png",
+        "tablet-day.png"
+      ],
+      "outside": [],
+      "errors": [],
+      "sockets": [],
+      "sharedProvider": true,
+      "reset": true,
+      "actualUnchanged": true
+    },
+    {
+      "size": "mobile",
+      "width": 390,
+      "height": 844,
+      "shots": [
+        "mobile-week.png",
+        "mobile-nlp.png",
+        "mobile-todo.png",
+        "mobile-today.png",
+        "mobile-failure.png",
+        "mobile-timeline.png",
+        "mobile-planner.png",
+        "mobile-month.png",
+        "mobile-day.png"
+      ],
+      "outside": [],
+      "errors": [],
+      "sockets": [],
+      "sharedProvider": true,
+      "reset": true,
+      "actualUnchanged": true
+    }
+  ],
+  "physicalIphone": false,
+  "operationalSupabase": false
+}
