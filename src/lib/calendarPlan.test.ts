@@ -44,3 +44,20 @@ test('PLAN CRUD cannot increase actual aggregation',async()=>{
  const before=total();assert.equal(before,60);const plan={id:'plan',text:'예정',date:'2027-01-01',status:'active',is_top3:false,tags:[],plan_start:'18:00',plan_end:'20:00'};
  await repo.save(plan);assert.equal(total(),before);await repo.save({...plan,plan_start:'15:00'},plan);assert.equal(total(),before);await repo.save({...existing,plan_start:'09:00'},existing);assert.equal(total(),before);
 });
+
+test('reconciled parser preserves original, shorthand hours and ISO Sunday boundary',()=>{
+ const original='다음주 월요일 운동가기 #자기계발 19:00~20:00';const r=parseQuickEntry(original,new Date(2027,0,3));assert.equal(r.originalInput,original);assert.equal(r.date,'2027-01-04');assert.equal(r.title,'운동가기');
+ assert.equal(parseQuickEntry('19~20 운동',now).startTime,'19:00');assert.equal(parseQuickEntry('19~20 운동',now).endTime,'20:00');
+ assert.equal(parseQuickEntry('오후 3시~4시 병원',now).endTime,'16:00');
+});
+test('Event tags are never newly written; old optional tags and actual end date are protected',async()=>{
+ const row={id:'event',title:'계획',start_at:'2027-01-01T18:00:00+09:00',end_at:'2027-01-01T19:00:00+09:00',tags:['old'],do_start:'18:00',do_end:'19:00'};
+ const {supabase,controls}=memorySupabase({events:[row]});const repo=calendarPlanRepository(supabase,'events');
+ await repo.save({...row,title:'제목 수정',tags:['new']},row);assert.deepEqual(controls.tables.events[0].tags,['old']);assert.deepEqual(Object.keys(controls.requests.at(-1).payload),['title']);
+ await assert.rejects(repo.save({...row,end_at:'2027-01-02T19:00:00+09:00'},row));
+ await repo.save({id:'new',title:'신규',start_at:row.start_at,end_at:row.end_at,tags:['new']});assert.equal('tags' in controls.requests.at(-1).payload,false);
+});
+test('CAS prevents a plan write when actual ownership changes after read',async()=>{
+ const row={id:'event',title:'계획',start_at:'2027-01-01T18:00:00+09:00',end_at:'2027-01-01T19:00:00+09:00',do_start:null,do_end:null,repeat_type:'none'};
+ const {supabase,controls}=memorySupabase({events:[row]});const repo=calendarPlanRepository(supabase,'events');controls.hold('events');const pending=repo.save({...row,title:'제목 변경'},row);while(!controls.requests.length)await new Promise(r=>setTimeout(r,0));controls.tables.events[0].do_start='18:30';controls.release('events');await assert.rejects(pending);assert.equal(controls.tables.events[0].title,'계획');assert.equal(controls.tables.events[0].do_start,'18:30');
+});

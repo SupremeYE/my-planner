@@ -31,6 +31,7 @@ import { DOW_LABELS } from './recurrenceExpansion';
 export interface ParsedEntry {
   /** 토큰 제거 후 남은 본문. 비면 '(제목 없음)' */
   title: string;
+  originalInput?: string;
   /** 'YYYY-MM-DD' (없으면 null = Inbox) */
   date: string | null;
   hasTime: boolean;
@@ -202,7 +203,7 @@ export function parseQuickEntry(input: string, now: Date = new Date(), context: 
   };
   let tm = range.exec(working);
   // Avoid treating dates such as 6-13 as times unless marked with ':' or '시'.
-  if (tm && /[:시]/.test(tm[0])) {
+  if (tm && (/[:시]/.test(tm[0]) || /[~～]/.test(tm[0]))) {
     startTime = timeValue(tm[1],tm[2],tm[3],tm[4],tm[5]);
     endTime = timeValue(tm[6],tm[7],tm[8],tm[9],tm[10],tm[1]);
     if (!startTime || !endTime || startTime === endTime) {
@@ -245,6 +246,7 @@ export function parseQuickEntry(input: string, now: Date = new Date(), context: 
 
   return {
     title,
+    originalInput: input,
     date,
     hasTime,
     ...(startTime ? { startTime } : {}),

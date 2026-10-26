@@ -1,0 +1,13 @@
+▶ reconciled PLAN uses one Provider across calendar, Today, TODO, goals, remount and refresh
+  ✔ mobile (14201.457176ms)
+  ✔ tablet (8078.014627ms)
+  ✔ desktop (8148.193811ms)
+✔ reconciled PLAN uses one Provider across calendar, Today, TODO, goals, remount and refresh (30914.230484ms)
+ℹ tests 4
+ℹ suites 0
+ℹ pass 4
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 31362.624129

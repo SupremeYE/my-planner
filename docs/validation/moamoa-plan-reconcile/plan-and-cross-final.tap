@@ -1,0 +1,22 @@
+▶ Calendar PLAN: CRUD, NLP, confirmed saves, repeats, DO preservation and responsive timetable
+  ✔ natural-language preview and manual type precedence preserve date/tags without writes (836.860503ms)
+  ✔ timed PLAN moves, clears time and shows undated separately (970.504328ms)
+  ✔ event create edit delete and all-day; calendar empty slot defaults (1159.864503ms)
+  ✔ failure keeps draft, duplicate click blocks, explicit retry and lost acknowledgement use one ID (686.091937ms)
+  ✔ same-field conflict retains draft, read failure keeps last rows, linked actual deletion is blocked (1611.345527ms)
+  ✔ existing repeated records remain readonly; PLAN never changes DO, status, blocks or originals (191.245359ms)
+  ✔ 390/768/1440 layouts, date/day navigation, scrolling and discard confirmation (2164.039736ms)
+✔ Calendar PLAN: CRUD, NLP, confirmed saves, repeats, DO preservation and responsive timetable (20029.667472ms)
+▶ reconciled PLAN uses one Provider across calendar, Today, TODO, goals, remount and refresh
+  ✔ mobile (14558.106176ms)
+  ✔ tablet (9583.677549ms)
+  ✔ desktop (10798.817865ms)
+✔ reconciled PLAN uses one Provider across calendar, Today, TODO, goals, remount and refresh (35533.813098ms)
+ℹ tests 12
+ℹ suites 0
+ℹ pass 12
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 56569.456266

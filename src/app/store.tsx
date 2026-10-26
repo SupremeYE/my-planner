@@ -1,3 +1,6 @@
+import {toTodo} from '../lib/todoCodec';
+import {getRepeatedEvents} from '../api/events';
+import type {PlanRow,PlanTable} from '../lib/calendarPlanRepository';
 import React, { createContext, useContext, useState, useCallback, useEffect, useRef } from 'react';
 import { supabase } from '../lib/supabase';
 import { format, subDays, addDays, parseISO, differenceInCalendarDays } from 'date-fns';
@@ -823,6 +826,10 @@ interface PlannerContextType extends ReturnType<typeof useActivityStorage> {
   projects: Project[];
   milestones: Milestone[];
   tags: Tag[];
+  retryCalendarPlan: (key:string)=>Promise<any>;
+  refreshCalendarPlans: (table:PlanTable,start?:string,end?:string)=>Promise<void>;
+  saveCalendarPlan: (table:PlanTable,target:PlanRow,before?:PlanRow,remove?:boolean)=>Promise<{id:string;row:PlanRow|null}|null>;
+  planReadErrors: Record<PlanTable,string>;
   createTagConfirmed: (value: Omit<Tag, 'id'>, id: string) => Promise<string | null>;
   editTagConfirmed: (id: string, changes: Partial<Omit<Tag, 'id'>>) => Promise<boolean>;
   removeTagConfirmed: (id: string) => Promise<boolean>;
@@ -1025,6 +1032,8 @@ export function PlannerProvider({ children, development = false }: { children: R
   const [timelineLogs, setTimelineLogs] = useState<TimelineLog[]>([]);
   const [events, setEvents] = useState<Event[]>([]);
   // 최신 events 스냅샷 (반복 가상 occurrence → 실제 예외 레코드 동기 구체화 시 참조)
+  const eventRange=useRef({start:format(subDays(new Date(),365),'yyyy-MM-dd'),end:format(addDays(new Date(),730),'yyyy-MM-dd')});
+  const planFetchGeneration=useRef({todos:0,events:0});
   const eventsRef = useRef<Event[]>([]);
   useEffect(() => { eventsRef.current = events; }, [events]);
   const [weeklyGoals, setWeeklyGoals] = useState<WeeklyGoal[]>([]);
@@ -1034,6 +1043,7 @@ export function PlannerProvider({ children, development = false }: { children: R
   useEffect(() => { weeklyGoalsRef.current = weeklyGoals; }, [weeklyGoals]);
   useEffect(() => { monthlyGoalsRef.current = monthlyGoals; }, [monthlyGoals]);
   const [saveCoordinator] = useState(() => new SaveCoordinator());
+  const [planReadErrors,setPlanReadErrors]=useState<Record<PlanTable,string>>({todos:'',events:''});
   const [saveStates, setSaveStates] = useState<SaveState[]>([]);
   useEffect(() => saveCoordinator.subscribe(() => setSaveStates(saveCoordinator.snapshot())), [saveCoordinator]);
   const retrySave = useCallback((key: string) => { void saveCoordinator.retry(key); }, [saveCoordinator]);
@@ -1074,8 +1084,10 @@ export function PlannerProvider({ children, development = false }: { children: R
   useEffect(() => {
     const load = async () => {
       setIsLoading(true);
-      const readCore = async <T,>(read: () => Promise<T[]>) => {
-        try { return await read(); } catch { setCoreTimeReadError('할 일·시간 블록을 모두 확인하지 못했어요. 현재 시간 합계가 전체 실적과 다를 수 있어요.'); return []; }
+      const initialRevision=saveCoordinator.revision;
+      const initialTickets={todos:++planFetchGeneration.current.todos,events:++planFetchGeneration.current.events};
+      const readCore = async <T,>(read: () => Promise<T[]>,kind?:PlanTable) => {
+        try { return await read(); } catch { if(kind&&initialTickets[kind]===planFetchGeneration.current[kind])setPlanReadErrors(v=>({...v,[kind]:'계획 조회에 실패했어요. 마지막 확인 목록을 유지해요.'})); setCoreTimeReadError('할 일·시간 블록을 모두 확인하지 못했어요. 현재 시간 합계가 전체 실적과 다를 수 있어요.'); return []; }
       };
       const [
         todosData, habitsData, projectsData, milestonesData,
@@ -1086,7 +1098,7 @@ export function PlannerProvider({ children, development = false }: { children: R
         weeklyReviewsData, monthlyReviewsData, foodRecordsData,
         happyMomentsData, timeBlocksData,
       ] = await Promise.all([
-        readCore(typeof db.todos.fetchConfirmed === 'function' ? db.todos.fetchConfirmed : db.todos.fetchAll),
+        readCore(typeof db.todos.fetchConfirmed === 'function' ? db.todos.fetchConfirmed : db.todos.fetchAll,'todos'),
         db.habits.fetchAll(),
         db.projects.fetchAll(),
         db.milestones.fetchAll(),
@@ -1094,7 +1106,7 @@ export function PlannerProvider({ children, development = false }: { children: R
         db.reviewRecords.fetchAll(),
         db.timelineLogs.fetchAll(),
         db.settings.fetch(),
-        db.events.fetchAll(),
+        readCore(typeof db.events.fetchConfirmed==='function'?()=>db.events.fetchConfirmed(eventRange.current.start,eventRange.current.end):db.events.fetchAll,'events'),
         db.weeklyGoals.fetchAll(),
         db.monthlyGoals.fetchAll(),
         db.brainstormItems.fetchAll(),
@@ -1111,7 +1123,7 @@ export function PlannerProvider({ children, development = false }: { children: R
         db.happyMoments.fetchAll(),
         readCore(typeof db.todoTimeBlocks.fetchConfirmed === 'function' ? db.todoTimeBlocks.fetchConfirmed : db.todoTimeBlocks.fetchAll),
       ]);
-      setTodos(todosData);
+      if(initialRevision===saveCoordinator.revision&&initialTickets.todos===planFetchGeneration.current.todos){todosRef.current=todosData;setTodos(todosData);}
       setTimeBlocks(timeBlocksData);
       setHabits(habitsData);
       setProjects(projectsData);
@@ -1127,7 +1139,7 @@ export function PlannerProvider({ children, development = false }: { children: R
       // 로드된 종료시간 기준으로 현재 선택 날짜가 '오늘'이면 논리적 오늘로 보정
       setSelectedDate(prev => (prev === today ? logicalDateStr(new Date(), settingsData.dayEndHour) : prev));
       setAppSettings(prev => ({ ...prev, ...settingsData.appSettings }));
-      setEvents(eventsData);
+      if(initialRevision===saveCoordinator.revision&&initialTickets.events===planFetchGeneration.current.events){eventsRef.current=eventsData;setEvents(eventsData);}
       setWeeklyGoals(weeklyGoalsData);
       // Unlinked monthly goals are valid. Reading must never invent or persist a parent.
       // Parent changes belong to the explicit addMonthlyGoal/updateMonthlyGoal actions.
@@ -1152,13 +1164,17 @@ export function PlannerProvider({ children, development = false }: { children: R
     const refreshCore = async <T extends { id: string }>(kind: string, fetchRows: () => Promise<T[]>,
       ref: React.MutableRefObject<T[]>, setRows: React.Dispatch<React.SetStateAction<T[]>>) => {
       const revision = saveCoordinator.revision;
+      const planTable=kind==='todos'||kind==='events'?kind:null;
+      const ticket=planTable?++planFetchGeneration.current[planTable]:0;
       try {
         const rows = await fetchRows();
+        if(planTable&&ticket!==planFetchGeneration.current[planTable])return;
         if (revision !== saveCoordinator.revision) return; // stale response from before a save
         const next = mergeConfirmedRows(rows, ref.current, saveCoordinator.protectedIds(kind));
         ref.current = next;
         setRows(next);
-      } catch { if (kind === 'todos' || kind === 'timeBlocks') setCoreTimeReadError('할 일·시간 블록을 모두 확인하지 못했어요. 마지막으로 확인한 기록을 유지해요.'); if (kind === 'foodRecords') setFoodReadError('음식 기록을 다시 확인하지 못했어요. 마지막으로 확인한 기록을 유지해요.'); /* A failed read must not erase confirmed records. */ }
+        if(kind==='todos'||kind==='events')setPlanReadErrors(v=>({...v,[kind]:''}));
+      } catch { if(planTable&&(ticket!==planFetchGeneration.current[planTable]||revision!==saveCoordinator.revision))return; if(kind==='todos'||kind==='events')setPlanReadErrors(v=>({...v,[kind]:'계획 조회에 실패했어요. 마지막 확인 목록을 유지해요.'})); if (kind === 'todos' || kind === 'timeBlocks') setCoreTimeReadError('할 일·시간 블록을 모두 확인하지 못했어요. 마지막으로 확인한 기록을 유지해요.'); if (kind === 'foodRecords') setFoodReadError('음식 기록을 다시 확인하지 못했어요. 마지막으로 확인한 기록을 유지해요.'); /* A failed read must not erase confirmed records. */ }
     };
     // 각 테이블별 재fetch 함수
     const refetchers: Record<string, () => Promise<void>> = {
@@ -1169,7 +1185,7 @@ export function PlannerProvider({ children, development = false }: { children: R
       self_care_records: async () => setSelfCareRecords(await db.selfCareRecords.fetchAll()),
       review_records:    async () => setReviewRecords(await db.reviewRecords.fetchAll()),
       timeline_logs:     async () => setTimelineLogs(await db.timelineLogs.fetchAll()),
-      events:            async () => setEvents(await db.events.fetchAll()),
+      events:            () => refreshCore('events', ()=>db.events.fetchConfirmed(eventRange.current.start,eventRange.current.end), eventsRef, setEvents),
       todo_time_blocks:  () => refreshCore('timeBlocks', db.todoTimeBlocks.fetchConfirmed, timeBlocksRef, setTimeBlocks),
       weekly_goals:      () => refreshCore('weeklyGoals', db.weeklyGoals.fetchConfirmed, weeklyGoalsRef, setWeeklyGoals),
       monthly_goals:     () => refreshCore('monthlyGoals', db.monthlyGoals.fetchConfirmed, monthlyGoalsRef, setMonthlyGoals),
@@ -2369,6 +2385,27 @@ export function PlannerProvider({ children, development = false }: { children: R
     db.tags.delete(id);
   }, []);
 
+  const refreshCalendarPlans=useCallback(async(table:PlanTable,start?:string,end?:string)=>{
+    if(table==='events'&&start&&end){eventRange.current={start:eventRange.current.start<start?eventRange.current.start:start,end:eventRange.current.end>end?eventRange.current.end:end};}
+    const ticket=++planFetchGeneration.current[table];
+    const revision=saveCoordinator.revision;
+    try {
+      if(table==='todos') {const rows=await db.todos.fetchConfirmed();if(revision!==saveCoordinator.revision||ticket!==planFetchGeneration.current[table])return;todosRef.current=mergeConfirmedRows(rows,todosRef.current,saveCoordinator.protectedIds(table));setTodos(todosRef.current);}
+      else {const rows=await db.events.fetchConfirmed(eventRange.current.start,eventRange.current.end);if(revision!==saveCoordinator.revision||ticket!==planFetchGeneration.current[table])return;eventsRef.current=mergeConfirmedRows(rows,eventsRef.current,saveCoordinator.protectedIds(table));setEvents(eventsRef.current);}
+      setPlanReadErrors(v=>({...v,[table]:''}));
+    }catch{if(revision!==saveCoordinator.revision||ticket!==planFetchGeneration.current[table])return;setPlanReadErrors(v=>({...v,[table]:'계획 조회에 실패했어요. 마지막 확인 목록을 유지해요.'}));}
+  },[saveCoordinator]);
+  const saveCalendarPlan=useCallback(async(table:PlanTable,target:PlanRow,before?:PlanRow,remove=false)=>{
+    const value=structuredClone(target),original=before&&structuredClone(before);
+    return saveCoordinator.run({key:`${table}:${value.id}`,label:'계획 저장',intent:saveIntent({value,original,remove}),
+      execute:async()=>{
+        if(table==='todos'&&activeTimer?.todoId===value.id)throw new SaveFailure('활성 타이머를 먼저 마쳐주세요.',false);
+        return {id:value.id,row:await db.plans[table].save(value,original,remove)};
+      },commit:({id,row})=>{
+        if(table==='todos'){todosRef.current=todosRef.current.filter(t=>t.id!==id).concat(row?[toTodo(row as any)]:[]);setTodos(todosRef.current);}
+        else {const expanded=row?getRepeatedEvents([row as any],eventRange.current.start,eventRange.current.end):[];eventsRef.current=eventsRef.current.filter(e=>e.id!==id&&e.sourceEventId!==id).concat(expanded);setEvents(eventsRef.current);}
+      }});
+  },[saveCoordinator,activeTimer]);
   // Additive confirmed paths used by MoaMoa. Legacy synchronous APIs keep their contract.
   const commitTag = useCallback((record: Tag) => {
     tagsRef.current = tagsRef.current.some(tag => tag.id === record.id)
@@ -2542,7 +2579,7 @@ export function PlannerProvider({ children, development = false }: { children: R
       addProject, updateProject, deleteProject,
       addMilestone, toggleMilestone, deleteMilestone,
       addTag, updateTag, deleteTag,
-      createTagConfirmed, editTagConfirmed, removeTagConfirmed, removeTodoConfirmed, addManualTimeConfirmed, amendTimeBlockConfirmed,
+      retryCalendarPlan: (key:string)=>saveCoordinator.retry(key), refreshCalendarPlans, saveCalendarPlan, planReadErrors, createTagConfirmed, editTagConfirmed, removeTagConfirmed, removeTodoConfirmed, addManualTimeConfirmed, amendTimeBlockConfirmed,
       addTimelineLog, deleteTimelineLog,
       dayStartHour, dayEndHour, setDayHours,
     }}>

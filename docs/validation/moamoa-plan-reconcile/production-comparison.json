@@ -1,0 +1,51 @@
+{
+  "baseline": "b3d2fdb9181b8a70143d5a568456c688fa2c4443",
+  "baselineFiles": {
+    "favicon-32x32.png": "62b789f299ce97690f0369861549484af815a990bce9720681ca219c6872ad48",
+    "manifest.json": "e1d240e68bd4b12f47088853977fc4ef5f250e11b21b5ac490ff04f0b885ab01",
+    "sw.js": "f457af7418a37d7d1c8d88be533ad21be12ffb6bea90255115efed6dcc6cdfed",
+    "index.html": "1d1faa3df10ca8632e511d523533da24c1a1e357646a577adc5725693aa7fefd",
+    "icons/icon-96x96.png": "52f198c329eb166f5ded7f211a3005777e19bc49d678bdcb3d12e122cd7f3c83",
+    "icons/icon-384x384.png": "2dece2ef846ae7c4198aefece35856b3fa107c5e87f0f8c565a2b07fec047f89",
+    "icons/icon-144x144.png": "5289d324a3fad82f191f7aace766951949cbeae46227c5e12ef53fc794587862",
+    "icons/icon-72x72.png": "c0cff53aee39a94c97400afab56319fe9dbe684b38a7de96712f8bb3c23e5833",
+    "icons/icon-128x128.png": "5e1fd500b35a166e43892aea17d2126e8ab7895f641be02bd26944ffe6abdf83",
+    "icons/icon-192x192.png": "eea3407825c89439d325c554ba11198447cfc627a49f91b5829b77d5892a14d3",
+    "icons/icon-512x512.png": "ec1110b03916a60b994419923e2492386ce55b01020630eead2853fb16e1f964",
+    "icons/apple-touch-icon.png": "6803cc51c164382279ea3bd6bb294848de129917dc786d3561e957ac6333917e",
+    "icons/README.txt": "1472a1ac3e4be40e913be0b438f209f56f3efa5d81fd680f9a63603528cf3406",
+    "icons/icon-152x152.png": "20447c059185cb5307e3736c560e4c1b9306afed919c6220c55e5457422236c9",
+    "assets/splash-character.png": "98481aaf740d9c58ba15e296b88fefed7a3a06e856143326b269c5b196e0a7eb",
+    "assets/index-OXw--ZAS.css": "9d749b46b013bd09d4d2ad95c400365d695c85a52c702b16de204b4a65b465e9",
+    "assets/index-BgBCUBbb.js": "2a072a3e58f7d5401f4ab105e25d2e479f9e0c3fb6b41a6c081a3a79a161a5bc",
+    "fonts/ownglyph-positive.woff2": "7c5d2dd61cdf4025248b9622391c4e47e3deb54b60b354764aa3de2cd0f5e801",
+    "fonts/ownglyph-positive.ttf": "d633070d1e8b2c630c3f1688a186c46457ce732c705b498857546b45dcb245c6"
+  },
+  "integratedFiles": {
+    "favicon-32x32.png": "62b789f299ce97690f0369861549484af815a990bce9720681ca219c6872ad48",
+    "manifest.json": "e1d240e68bd4b12f47088853977fc4ef5f250e11b21b5ac490ff04f0b885ab01",
+    "sw.js": "f457af7418a37d7d1c8d88be533ad21be12ffb6bea90255115efed6dcc6cdfed",
+    "index.html": "df4103b63454750a05cda04e19c911cf139b588bd42d2c685dcde281f4313be7",
+    "icons/icon-96x96.png": "52f198c329eb166f5ded7f211a3005777e19bc49d678bdcb3d12e122cd7f3c83",
+    "icons/icon-384x384.png": "2dece2ef846ae7c4198aefece35856b3fa107c5e87f0f8c565a2b07fec047f89",
+    "icons/icon-144x144.png": "5289d324a3fad82f191f7aace766951949cbeae46227c5e12ef53fc794587862",
+    "icons/icon-72x72.png": "c0cff53aee39a94c97400afab56319fe9dbe684b38a7de96712f8bb3c23e5833",
+    "icons/icon-128x128.png": "5e1fd500b35a166e43892aea17d2126e8ab7895f641be02bd26944ffe6abdf83",
+    "icons/icon-192x192.png": "eea3407825c89439d325c554ba11198447cfc627a49f91b5829b77d5892a14d3",
+    "icons/icon-512x512.png": "ec1110b03916a60b994419923e2492386ce55b01020630eead2853fb16e1f964",
+    "icons/apple-touch-icon.png": "6803cc51c164382279ea3bd6bb294848de129917dc786d3561e957ac6333917e",
+    "icons/README.txt": "1472a1ac3e4be40e913be0b438f209f56f3efa5d81fd680f9a63603528cf3406",
+    "icons/icon-152x152.png": "20447c059185cb5307e3736c560e4c1b9306afed919c6220c55e5457422236c9",
+    "assets/splash-character.png": "98481aaf740d9c58ba15e296b88fefed7a3a06e856143326b269c5b196e0a7eb",
+    "assets/index-Ch4ZAw1G.js": "64d5dd62955d21368fe75e6f6e4f93a0caef99281b321508b15c969e3fd31d39",
+    "assets/index-OXw--ZAS.css": "9d749b46b013bd09d4d2ad95c400365d695c85a52c702b16de204b4a65b465e9",
+    "fonts/ownglyph-positive.woff2": "7c5d2dd61cdf4025248b9622391c4e47e3deb54b60b354764aa3de2cd0f5e801",
+    "fonts/ownglyph-positive.ttf": "d633070d1e8b2c630c3f1688a186c46457ce732c705b498857546b45dcb245c6"
+  },
+  "devRouteAbsent": true,
+  "changedPaths": [
+    "index.html",
+    "assets/index-BgBCUBbb.js",
+    "assets/index-Ch4ZAw1G.js"
+  ]
+}

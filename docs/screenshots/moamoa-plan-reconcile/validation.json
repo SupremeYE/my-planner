@@ -1,0 +1,29 @@
+[
+  {
+    "size": "mobile",
+    "width": 390,
+    "height": 844,
+    "id": "8f15508d-d6d8-452e-abfd-ff4179621995",
+    "providerShared": true,
+    "refresh": true,
+    "actualsUnchanged": true
+  },
+  {
+    "size": "tablet",
+    "width": 768,
+    "height": 1024,
+    "id": "73e6cc29-e118-4426-b16d-4214bff068ad",
+    "providerShared": true,
+    "refresh": true,
+    "actualsUnchanged": true
+  },
+  {
+    "size": "desktop",
+    "width": 1440,
+    "height": 1024,
+    "id": "5461c920-a03a-4e79-9f2b-53702e256219",
+    "providerShared": true,
+    "refresh": true,
+    "actualsUnchanged": true
+  }
+]

@@ -1,3 +1,4 @@
+import {calendarPlanRepository} from './calendarPlanRepository';
 import { toTodo, fromTodo } from './todoCodec';
 import { toFoodRecord, fromFoodRecord, type FoodRow } from './foodRecords';
 import { foodPhotoStorage } from './foodPhotos';
@@ -6,7 +7,7 @@ import { readAllRows } from './readAllRows';
 import { confirmedWrites } from './confirmedWrites';
 import { saveFailure, SaveFailure } from './saveCoordinator';
 import { format, addDays, subDays } from 'date-fns';
-import { createEvent as createEventApi, deleteEvent as deleteEventApi, getEvents, upsertEvent as upsertEventApi } from '../api/events';
+import { createEvent as createEventApi, deleteEvent as deleteEventApi, getEvents, getRepeatedEvents, upsertEvent as upsertEventApi } from '../api/events';
 import type {
   Todo, TodoTimeBlock, Habit, Project, Milestone,
   SelfCareRecord, ReviewRecord, WeeklyReview, MonthlyReview, HappyMoment, TimelineLog,
@@ -1286,7 +1287,9 @@ export const db = {
     },
   },
 
+  plans: {todos:calendarPlanRepository(supabase,'todos'),events:calendarPlanRepository(supabase,'events')},
   events: {
+    fetchConfirmed: async (start = format(subDays(new Date(),365),'yyyy-MM-dd'), end = format(addDays(new Date(),730),'yyyy-MM-dd')): Promise<Event[]> => getRepeatedEvents(await readAllRows<any>(supabase,'events','start_at'),start,end),
     fetchAll: async (): Promise<Event[]> => {
       const startDate = format(subDays(new Date(), 365), 'yyyy-MM-dd');
       const endDate = format(addDays(new Date(), 730), 'yyyy-MM-dd');
