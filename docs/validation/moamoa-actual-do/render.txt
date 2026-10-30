@@ -1,0 +1,25 @@
+
+> @figma/my-make-file@0.0.1 render:check
+> node scripts/render/run.mjs --route=calendar
+
+▶ Vite dev 서버 기동…
+  http://127.0.0.1:42317
+▶ Chromium 기동…
+   △ pc-calendar              main=900px  라벤더=17  라벤더 17건
+   △ pc-calendar-week         main=900px  라벤더=22  라벤더 22건
+   △ pc-calendar-month        main=900px  라벤더=17  라벤더 17건
+   △ mobile-calendar          main=787px  라벤더=17  라벤더 17건
+   △ mobile-calendar-week     main=787px  라벤더=22  라벤더 22건
+   △ mobile-calendar-month    main=787px  라벤더=17  라벤더 17건
+
+── 요약 ───────────────────────────────
+  스크린샷 6장 → scripts/render/output/
+  PASS 0 · WARN 6 · FAIL 0
+  리포트: scripts/render/output/report.json
+
+✓ 완료
+npm notice
+npm notice New major version of npm available! 11.9.0 -> 12.2.1
+npm notice Changelog: https://github.com/npm/cli/releases/tag/v12.2.1
+npm notice To update run: npm install -g npm@12.2.1
+npm notice

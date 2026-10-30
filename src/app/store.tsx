@@ -1,3 +1,4 @@
+import {validateActualBlock} from '../lib/actualDo';
 import {toTodo} from '../lib/todoCodec';
 import {getRepeatedEvents} from '../api/events';
 import type {PlanRow,PlanTable} from '../lib/calendarPlanRepository';
@@ -834,7 +835,8 @@ interface PlannerContextType extends ReturnType<typeof useActivityStorage> {
   editTagConfirmed: (id: string, changes: Partial<Omit<Tag, 'id'>>) => Promise<boolean>;
   removeTagConfirmed: (id: string) => Promise<boolean>;
   removeTodoConfirmed: (id: string) => Promise<boolean>;
-  amendTimeBlockConfirmed: (id: string, changes: Partial<TodoTimeBlock> | null) => Promise<boolean>;
+  recordTodoActualConfirmed: (block: TodoTimeBlock) => Promise<boolean>;
+  amendTimeBlockConfirmed: (id: string, changes: Partial<TodoTimeBlock> | null, original?:TodoTimeBlock) => Promise<boolean>;
   addManualTimeConfirmed: (todoId: string, date: string, minutes: number, id: string, snapshot?: ClassificationSnapshot) => Promise<boolean>;
   routines: Routine[];
   selfCareRecords: SelfCareRecord[];
@@ -2459,18 +2461,23 @@ export function PlannerProvider({ children, development = false }: { children: R
       }, commit: deleted => { todosRef.current = todosRef.current.filter(todo => todo.id !== deleted); setTodos(todosRef.current); } });
     return saved !== null;
   }, [saveCoordinator, activeTimer]);
-  const addManualTimeConfirmed = useCallback(async (todoId: string, date: string, minutes: number, id: string, snapshot?: ClassificationSnapshot) => {
-    const block: TodoTimeBlock = { id, todoId, date, elapsedSec: minutes * 60, ...(snapshot ? { classificationSnapshot: snapshot } : {}) };
+  const actualQueues=useRef(new Map<string,Promise<unknown>>());
+  const withActualLock=async <T,>(todoId:string,work:()=>Promise<T>):Promise<T>=>{
+    const previous=actualQueues.current.get(todoId)??Promise.resolve();
+    const task=previous.catch(()=>{}).then(work);actualQueues.current.set(todoId,task);
+    try{return await task;}finally{if(actualQueues.current.get(todoId)===task)actualQueues.current.delete(todoId);}
+  };
+  const recordTodoActualConfirmed = useCallback(async (value: TodoTimeBlock) => {
+    const block=structuredClone(value);const {todoId,id}=block;
     let baseline: TodoTimeBlock | undefined;
     let source: Todo | null | undefined;
     const saved = await saveCoordinator.run({ key: `timeBlocks:${id}`, label: '실제 시간 기록', intent: saveIntent(block),
-      execute: async () => {
+      execute: () => withActualLock(todoId,async () => {
         if (activeTimer?.todoId === todoId) throw new SaveFailure('활성 타이머를 먼저 마친 뒤 실제 시간을 기록해주세요.', false);
-        if (!/^\d{4}-\d{2}-\d{2}$/.test(date) || Number.isNaN(Date.parse(`${date}T12:00:00`)) || format(parseISO(date), 'yyyy-MM-dd') !== date || !Number.isInteger(minutes) || minutes < 1 || minutes > 1440)
-          throw new SaveFailure('작업 날짜와 1~1440분의 실제 소요를 확인해주세요.', false);
-        source ??= await db.todos.getConfirmed(todoId);
+        validateActualBlock(block);
+        source = await db.todos.getConfirmed(todoId);
         if (!source || isRecurringMoaTodo(source)) throw new SaveFailure('연결할 할 일과 반복 여부를 확인해주세요.', false);
-        if (snapshot && !validSnapshot(snapshot)) throw new SaveFailure('분류 정보를 확인해주세요.', false);
+        if (block.classificationSnapshot && !validSnapshot(block.classificationSnapshot)) throw new SaveFailure('분류 정보를 확인해주세요.', false);
         if (activityStorage.activityStorageStatus === 'ready' && block.classificationSnapshot === undefined) block.classificationSnapshot = snapshotTags(source.tags ?? [], tagsRef.current);
         const existing = await db.todoTimeBlocks.forTodoConfirmed(todoId);
         baseline ??= preservedLegacyBlock(source, existing, await legacyBlockId(todoId));
@@ -2478,7 +2485,7 @@ export function PlannerProvider({ children, development = false }: { children: R
         if (baseline) await db.todoTimeBlocks.createConfirmed(baseline);
         const record = await db.todoTimeBlocks.createConfirmed(block);
         return [...(baseline ? [baseline] : []), record];
-      }, commit: records => {
+      }), commit: records => {
         const ids = new Set(records.map(record => record.id));
         timeBlocksRef.current = [...timeBlocksRef.current.filter(row => !ids.has(row.id)), ...records];
         setTimeBlocks(timeBlocksRef.current);
@@ -2486,29 +2493,33 @@ export function PlannerProvider({ children, development = false }: { children: R
     return saved !== null;
   }, [saveCoordinator, activeTimer, activityStorage.activityStorageStatus]);
 
-  const amendTimeBlockConfirmed = useCallback(async (id: string, changes: Partial<TodoTimeBlock> | null) => {
-    const before = timeBlocksRef.current.find(row => row.id === id);
-    const saved = await saveCoordinator.run({ key: `timeBlocks:${id}`, label: changes ? '시간 기록 수정' : '시간 기록 삭제', intent: saveIntent(changes),
-      execute: async () => {
+  const addManualTimeConfirmed = useCallback((todoId:string,date:string,minutes:number,id:string,snapshot?:ClassificationSnapshot) => recordTodoActualConfirmed({id,todoId,date,elapsedSec:Number.isInteger(minutes)?minutes*60:NaN,...(snapshot?{classificationSnapshot:snapshot}:{})}),[recordTodoActualConfirmed]);
+
+  const amendTimeBlockConfirmed = useCallback(async (id: string, changes: Partial<TodoTimeBlock> | null, original?:TodoTimeBlock) => {
+    const before = original ?? timeBlocksRef.current.find(row => row.id === id);
+    let confirmed=false;
+    await saveCoordinator.run({ key: `timeBlocks:${id}`, label: changes ? '시간 기록 수정' : '시간 기록 삭제', intent: saveIntent(changes),
+      execute: () => withActualLock(before?.todoId??id,async () => {
         if (!before || activeTimer?.todoId === before.todoId) throw new SaveFailure('기록과 활성 타이머 상태를 확인해주세요.', false);
         const source = await db.todos.getConfirmed(before.todoId);
         if (!source || isRecurringMoaTodo(source)) throw new SaveFailure('반복 또는 연결이 없는 기록은 먼저 기존 회차를 확인해주세요.', false);
         if (changes) {
-          const after = { ...before, date: changes.date ?? before.date, elapsedSec: changes.elapsedSec ?? before.elapsedSec };
+          if(changes.todoId&&changes.todoId!==before.todoId||changes.id&&changes.id!==id)throw new SaveFailure('연결 TODO와 기록 ID는 바꾸지 않아요.',false);
+          const after = { ...before, ...Object.fromEntries(Object.entries(changes).filter(([key])=>['date','elapsedSec','start','end','classificationSnapshot'].includes(key))) };
+          validateActualBlock(after,['date','start','end','elapsedSec'].every(key=>(after as any)[key]===(before as any)[key]));
           if (!validActivityDate(after.date) || !Number.isInteger(after.elapsedSec) || after.elapsedSec <= 0 || after.elapsedSec > 86400)
             throw new SaveFailure('날짜와 실제 소요를 확인해주세요.', false);
           // A migrated do_* baseline cannot be changed without resurrecting or hiding the legacy original.
           if (id === await legacyBlockId(before.todoId)) throw new SaveFailure('보존한 레거시 실적은 이 화면에서 수정하지 않아요.', false);
-          if (before.start || before.end) throw new SaveFailure('실제 시각이 있는 기존 블록은 타임라인에서 수정해주세요.', false);
           return db.todoTimeBlocks.updateConfirmed(before, after);
         }
         const blocks = await db.todoTimeBlocks.forTodoConfirmed(before.todoId);
         if (id === await legacyBlockId(before.todoId) || blocks.length <= 1 && (!!source.doElapsedSec || !!source.doStart && source.doStart !== source.doEnd))
           throw new SaveFailure('삭제하면 레거시 실적이 다시 집계될 수 있어요. 원본 실적을 먼저 확인해주세요.', false);
-        await db.todoTimeBlocks.deleteConfirmed(id); return null;
-      }, commit: record => { timeBlocksRef.current = timeBlocksRef.current.filter(row => row.id !== id); if (record) timeBlocksRef.current.push(record); setTimeBlocks([...timeBlocksRef.current]); } });
-    // Successful deletes return null from the transport; use confirmed coordinator state.
-    return saved !== null || saveCoordinator.snapshot().some(state => state.key === `timeBlocks:${id}` && state.status === 'saved');
+        await db.todoTimeBlocks.deleteConfirmed(id,before); return null;
+      }), commit: record => { confirmed=true;timeBlocksRef.current = timeBlocksRef.current.filter(row => row.id !== id); if (record) timeBlocksRef.current.push(record); setTimeBlocks([...timeBlocksRef.current]); } });
+    // A confirmed delete has no row. Return the commit result, independent of other saves clearing status banners.
+    return confirmed;
   }, [saveCoordinator, activeTimer]);
 
   // ── Settings actions ──
@@ -2579,7 +2590,7 @@ export function PlannerProvider({ children, development = false }: { children: R
       addProject, updateProject, deleteProject,
       addMilestone, toggleMilestone, deleteMilestone,
       addTag, updateTag, deleteTag,
-      retryCalendarPlan: (key:string)=>saveCoordinator.retry(key), refreshCalendarPlans, saveCalendarPlan, planReadErrors, createTagConfirmed, editTagConfirmed, removeTagConfirmed, removeTodoConfirmed, addManualTimeConfirmed, amendTimeBlockConfirmed,
+      retryCalendarPlan: (key:string)=>saveCoordinator.retry(key), refreshCalendarPlans, saveCalendarPlan, planReadErrors, createTagConfirmed, editTagConfirmed, removeTagConfirmed, removeTodoConfirmed, recordTodoActualConfirmed, addManualTimeConfirmed, amendTimeBlockConfirmed,
       addTimelineLog, deleteTimelineLog,
       dayStartHour, dayEndHour, setDayHours,
     }}>

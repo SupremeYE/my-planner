@@ -1,0 +1,25 @@
+▶ DO calendar: independent and TODO sessions, accurate times, confirmed edits/deletes/retries, unchanged PLAN/status/goals
+  ✔ desktop (21419.957713ms)
+  ✔ tablet (12286.345361ms)
+  ✔ mobile (11024.205991ms)
+✔ DO calendar: independent and TODO sessions, accurate times, confirmed edits/deletes/retries, unchanged PLAN/status/goals (45302.912758ms)
+▶ Moa time: independent and TODO recording, frozen categories, day/week/month and confirmed persistence
+  ✔ real Provider records have no read writes, samples stay isolated, mobile and PC render (1114.891591ms)
+  ✔ independent quick save preserves draft on failure, duplicate clicks and acknowledgement-loss retry create one row (808.178176ms)
+  ✔ snapshot stays classified after current tag rename/role change and source TODO tag changes (370.584535ms)
+  ✔ unclassified and historical dates; actual intervals are optional and checked without invented start times (1597.883345ms)
+  ✔ TODO-linked recording shares IDs and snapshots, no status/goal change, edit and delete refresh totals (766.275639ms)
+  ✔ same period daily sums match week/month, category filters and day drilldown (244.96535ms)
+  ✔ delete failure and retry confirm absence without pretending success; saved rows survive Provider remount (3512.989691ms)
+  ✔ Realtime reflects another-device write and failed reads preserve last confirmed records (85.343695ms)
+  ✔ home and records share actual totals, quick button opens time mode and original app navigation survives (526.469988ms)
+  ✔ schema missing, empty data, offline draft and past event outside planner range are honest states (13146.810297ms)
+✔ Moa time: independent and TODO recording, frozen categories, day/week/month and confirmed persistence (32731.830902ms)
+ℹ tests 15
+ℹ suites 0
+ℹ pass 15
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 79304.648708

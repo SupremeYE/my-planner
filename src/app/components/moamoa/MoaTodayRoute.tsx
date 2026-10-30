@@ -6,7 +6,6 @@ import { ko } from 'date-fns/locale';
 import { Check, ChevronLeft, ChevronRight, Clock3, Leaf, NotebookPen, Plus, Sprout, X } from 'lucide-react';
 import { usePlanner, type Todo } from '../../store';
 import { moaTodayData, moaMinutes } from '../../../lib/moaToday';
-import { completionMarkerPatch } from '../../../lib/todoDoDuration';
 import { SaveStatus } from '../SaveStatus';
 import { RetroSheet } from '../RetroSheet';
 import { MoaActivitySheet } from './MoaActivitySheet';
@@ -63,7 +62,7 @@ export function Component() {
     try {
       if (activeTimer?.todoId === todo.id) { finishActiveTimer(); return; }
       const status = todo.status === 'done' ? 'active' : 'done';
-      await updateTodo(todo.id, { status, ...completionMarkerPatch(todo, status, format(new Date(), 'HH:mm')) });
+      await updateTodo(todo.id, { status });
     } finally { toggling.current.delete(todo.id); }
   }
   const model = useMemo(() => moaTodayData(date, todos, weeklyGoals, events, tags, timeBlocks, activityEntries, reportEvents),

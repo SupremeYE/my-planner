@@ -1,0 +1,61 @@
+{
+  "results": [
+    {
+      "size": "desktop",
+      "width": 1440,
+      "height": 1024,
+      "shots": [
+        "desktop-independent.png",
+        "desktop-linked-editor.png",
+        "desktop-linked-session.png",
+        "desktop-moved.png",
+        "desktop-failure.png",
+        "desktop-timeline.png",
+        "desktop-plan-preserved.png"
+      ],
+      "PLANUnchanged": true,
+      "statusAndGoalsUnchanged": true,
+      "recordIDsPreserved": true,
+      "external": [],
+      "errors": []
+    },
+    {
+      "size": "tablet",
+      "width": 768,
+      "height": 1024,
+      "shots": [
+        "tablet-independent.png",
+        "tablet-linked-editor.png",
+        "tablet-linked-session.png",
+        "tablet-moved.png",
+        "tablet-failure.png",
+        "tablet-timeline.png"
+      ],
+      "PLANUnchanged": true,
+      "statusAndGoalsUnchanged": true,
+      "recordIDsPreserved": true,
+      "external": [],
+      "errors": []
+    },
+    {
+      "size": "mobile",
+      "width": 390,
+      "height": 844,
+      "shots": [
+        "mobile-independent.png",
+        "mobile-linked-editor.png",
+        "mobile-linked-session.png",
+        "mobile-moved.png",
+        "mobile-failure.png",
+        "mobile-timeline.png"
+      ],
+      "PLANUnchanged": true,
+      "statusAndGoalsUnchanged": true,
+      "recordIDsPreserved": true,
+      "external": [],
+      "errors": []
+    }
+  ],
+  "physicalIphone": false,
+  "operationalSupabase": false
+}

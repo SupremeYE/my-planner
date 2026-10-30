@@ -1,0 +1,8 @@
+
+> @figma/my-make-file@0.0.1 lint:colors
+> node scripts/check-colors.mjs
+
+
+────────────────────────────────────────────────────────────
+라벤더 토큰 소비: 현재 379 / baseline 379  | 초과 파일 0개, hex/tailwind 위반 0건
+lint:colors 통과 ✓

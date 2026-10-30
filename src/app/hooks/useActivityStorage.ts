@@ -46,9 +46,9 @@ export function useActivityStorage(coordinator: SaveCoordinator, events: Event[]
     window.addEventListener('online', refreshEvents); document.addEventListener('visibilitychange', refreshEvents);
     return () => { active = false; supabase.removeChannel(channel); supabase.removeChannel(eventChannel); window.removeEventListener('online', refresh); document.removeEventListener('visibilitychange', refresh); window.removeEventListener('online', refreshEvents); document.removeEventListener('visibilitychange', refreshEvents); };
   }, [development, refreshActivityEntries, refreshReportEvents]);
-  const persistActivity = useCallback(async (value: ActivityEntry, editing = false) => {
+  const persistActivity = useCallback(async (value: ActivityEntry, editing = false, original?:ActivityEntry) => {
     const record = structuredClone(value);
-    const before = rows.current.find(row => row.id === record.id);
+    const before = original ?? rows.current.find(row => row.id === record.id);
     const saved = await coordinator.run({ key: `activityEntries:${record.id}`, label: editing ? '활동 수정' : '활동 기록', intent: saveIntent(record),
       execute: async () => {
         if (!ready.current) throw new SaveFailure('기록 저장을 사용할 수 없어요. 스키마와 연결 상태를 확인해주세요.', false);
@@ -62,10 +62,11 @@ export function useActivityStorage(coordinator: SaveCoordinator, events: Event[]
       }, commit: confirmed => { rows.current = [...rows.current.filter(row => row.id !== confirmed.id), confirmed]; setEntries(rows.current); } });
     return saved !== null;
   }, [coordinator]);
-  const removeActivity = useCallback(async (id: string) => {
+  const removeActivity = useCallback(async (id: string, original?:ActivityEntry) => {
+    const before=original??rows.current.find(row=>row.id===id);
     const saved = await coordinator.run({ key: `activityEntries:${id}`, label: '활동 삭제', intent: 'delete', execute: async () => {
       if (!ready.current) throw new SaveFailure('기록 저장을 사용할 수 없어요. 다시 불러와주세요.', false);
-      await repository.deleteConfirmed(id); return id;
+      await repository.deleteConfirmed(id,before); return id;
     }, commit: deleted => { rows.current = rows.current.filter(row => row.id !== deleted); setEntries(rows.current); } });
     return saved !== null;
   }, [coordinator]);

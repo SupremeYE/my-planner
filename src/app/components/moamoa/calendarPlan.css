@@ -7,3 +7,5 @@
 /* Keep only the floating action; no full-width dock behind the calendar. */
 div.mt-root.cp-frame::after{content:none;display:none}div.mt-root.cp-frame>.mt-scroll{height:100dvh}
 @media(max-width:767px){.cp-frame .mt-main{padding-bottom:calc(176px + env(safe-area-inset-bottom))}}
+/* DO actions share the existing timeline geometry; no extra day scroll containers. */
+.cp-page .cp-actual-entry{display:block;width:100%;text-align:left;min-height:44px;background:var(--mo-paper);font-size:12px;overflow-wrap:anywhere}.cp-actual-entry small{display:block}.cp-quick-options{display:grid;gap:12px}.cp-quick-options button{min-height:48px;text-align:left;padding:14px;border:1px solid var(--mo-line);border-radius:12px}.cp-do-block:hover{outline:2px solid var(--mo-green)}.cp-time-block span{font-size:12px}

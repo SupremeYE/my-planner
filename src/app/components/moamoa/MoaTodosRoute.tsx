@@ -3,7 +3,6 @@ import { useNavigate } from 'react-router';
 import { Check, ChevronRight, Clock3, Filter, MoreHorizontal, Plus, Search, Settings2, Sprout, Target } from 'lucide-react';
 import { format } from 'date-fns';
 import { usePlanner, type Todo } from '../../store';
-import { completionMarkerPatch } from '../../../lib/todoDoDuration';
 import { moaTodoList, categoryLabel, MOA_CATEGORIES, isRecurringMoaTodo, timeTagLabel } from '../../../lib/moaTodos';
 import { moaMinutes } from '../../../lib/moaToday';
 import { aggregateActivity } from '../../../lib/timeAggregation';
@@ -46,7 +45,7 @@ export function Component() {
     try {
       if (activeTimer?.todoId === todo.id) { finishActiveTimer(); return; }
       const next = todo.status === 'done' ? 'active' : 'done';
-      if (!await updateTodo(todo.id, { status: next, ...completionMarkerPatch(todo, next, format(new Date(), 'HH:mm')) })) setNotice('완료 상태를 저장하지 못했어요. 기존 상태를 유지하며 저장 알림이나 다른 기기의 변경을 확인해주세요.');
+      if (!await updateTodo(todo.id, { status: next })) setNotice('완료 상태를 저장하지 못했어요. 기존 상태를 유지하며 저장 알림이나 다른 기기의 변경을 확인해주세요.');
     } finally { submitting.current.delete(todo.id); }
   }
   const activeFilters = [tag !== 'all', goal !== 'all', status !== 'current'].filter(Boolean).length;

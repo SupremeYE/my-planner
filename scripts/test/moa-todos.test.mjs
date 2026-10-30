@@ -89,6 +89,7 @@ test('Moa TODOs: CRUD, categories/tags, goal links, manual actuals and confirmed
    await page.evaluate(()=>window.testDb.failNext('todos',{status:503}));await row('plain').getByRole('checkbox').click();await page.getByRole('alert').waitFor();assert.equal(await row('plain').getByRole('checkbox').getAttribute('aria-checked'),'false');await page.getByRole('button',{name:'재시도',exact:true}).click();await page.waitForFunction(()=>window.__testPlanner.todos.find(t=>t.id==='plain').status==='done');
    await row(createdId).getByRole('checkbox').click();await page.waitForFunction(id=>window.__testPlanner.todos.find(t=>t.id===id).status==='done',createdId);
    assert.equal(await row(createdId).locator('[data-goal-progress]').getAttribute('data-goal-progress'),'50');
+   const completed=await page.evaluate(id=>window.testDb.tables.todos.find(t=>t.id===id),createdId);assert.equal(completed.do_start,null);assert.equal(completed.do_end,null);assert.equal(completed.do_elapsed_sec,null);
    assert.equal(await page.locator('[data-recorded-minutes]').getAttribute('data-recorded-minutes'),before);
    await row(createdId).getByRole('checkbox').click();await page.waitForFunction(id=>window.__testPlanner.todos.find(t=>t.id===id).status==='active',createdId);
   });

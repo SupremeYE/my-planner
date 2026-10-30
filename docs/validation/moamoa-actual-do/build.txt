@@ -1,0 +1,23 @@
+
+> @figma/my-make-file@0.0.1 build
+> vite build
+
+vite v6.3.5 building for production...
+transforming...
+✓ 3356 modules transformed.
+rendering chunks...
+computing gzip size...
+dist/index.html                     2.15 kB │ gzip:   1.26 kB
+dist/assets/index-OXw--ZAS.css    117.87 kB │ gzip:  20.03 kB
+dist/assets/index-BLYuenZP.js   2,839.02 kB │ gzip: 727.61 kB
+
+(!) Some chunks are larger than 500 kB after minification. Consider:
+- Using dynamic import() to code-split the application
+- Use build.rollupOptions.output.manualChunks to improve chunking: https://rollupjs.org/configuration-options/#output-manualchunks
+- Adjust chunk size limit for this warning via build.chunkSizeWarningLimit.
+✓ built in 10.57s
+npm notice
+npm notice New major version of npm available! 11.9.0 -> 12.2.1
+npm notice Changelog: https://github.com/npm/cli/releases/tag/v12.2.1
+npm notice To update run: npm install -g npm@12.2.1
+npm notice

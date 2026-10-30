@@ -1,3 +1,4 @@
+import {actualWrites} from './actualWrites';
 import {calendarPlanRepository} from './calendarPlanRepository';
 import { toTodo, fromTodo } from './todoCodec';
 import { toFoodRecord, fromFoodRecord, type FoodRow } from './foodRecords';
@@ -1257,7 +1258,7 @@ export const db = {
   },
 
   todoTimeBlocks: {
-    ...confirmedWrites<TodoTimeBlock, TodoTimeBlockRow>(supabase, 'todo_time_blocks', fromTimeBlock, toTimeBlock),
+    ...actualWrites<TodoTimeBlock, TodoTimeBlockRow>(supabase, 'todo_time_blocks', fromTimeBlock, toTimeBlock),
     fetchAll: async (): Promise<TodoTimeBlock[]> => {
       try { return (await readAllRows<TodoTimeBlockRow>(supabase, 'todo_time_blocks', 'date')).map(toTimeBlock); }
       catch { console.error('[db] todo_time_blocks fetch failed'); return []; }
